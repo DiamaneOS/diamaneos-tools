@@ -88,6 +88,12 @@ def redact(text):
 
 # Only genuine service-error shapes count as unavailable. A bare "unknown"
 # (e.g. an operator value inside valid service state) must never flip a case.
+# Device-gone shapes are connection failures, never missing services.
+DEVICE_GONE = [
+    "device not found", "no devices", "device offline",
+    "unauthorized device", "no permissions",
+]
+
 MISSING_SERVICE = [
     "can't find service", "unknown service", "service not found",
     "service unknown", "no such service", "not found",
@@ -98,6 +104,11 @@ MISSING_SERVICE = [
 def _is_unsupported_text(text):
     low = (text or "").lower()
     return any(p in low for p in MISSING_SERVICE)
+
+
+def _is_device_gone(text):
+    low = (text or "").lower()
+    return any(p in low for p in DEVICE_GONE)
 
 
 def extract_fields(key, text):
@@ -151,6 +162,11 @@ def classify(key, returncode, stdout, stderr, timeout_hit=False):
                 "observed": "timeout", "metric": "unchecked", "evidence_refs": []}
     if returncode != 0:
         err = (stderr or "")
+        if _is_device_gone(err) or _is_device_gone(stdout):
+            return {"test_id": " ".join(key), "status": "error",
+                    "expected": "device present for the whole capture",
+                    "observed": "device unavailable during capture",
+                    "metric": "unchecked", "evidence_refs": []}
         status = "unsupported" if _is_unsupported_text(err) else "error"
         return {"test_id": " ".join(key), "status": status,
                 "expected": "bounded collection or explicit unsupported",
@@ -166,6 +182,11 @@ def classify(key, returncode, stdout, stderr, timeout_hit=False):
         return {"test_id": " ".join(key), "status": "error",
                 "expected": "output within byte bound",
                 "observed": "output exceeded byte bound; see private raw",
+                "metric": "unchecked", "evidence_refs": []}
+    if _is_device_gone(out):
+        return {"test_id": " ".join(key), "status": "error",
+                "expected": "device present for the whole capture",
+                "observed": "device unavailable during capture",
                 "metric": "unchecked", "evidence_refs": []}
     if _is_unsupported_text(out):
         return {"test_id": " ".join(key), "status": "unsupported",
@@ -202,15 +223,15 @@ def resolve_target(devices, target):
     return devices[0]
 
 
-def _pump(stream, acc, cap):
-    """Drain stream to EOF, keeping only the first cap chars.
+def _pump(stream, acc, cap, byte_cap=True):
+    """Drain a BINARY stream to EOF, keeping the first cap bytes.
 
-    Must keep reading after the cap (discarding) so the child never blocks
-    on a full pipe; acc['over'] records that the bound was exceeded.
+    Keeps reading after the cap (discarding) unless asked to stop, so the
+    child never blocks on a full pipe. acc tracks chunks/total/over.
     Daemon thread target. Never raises.
     """
     try:
-        while True:
+        while not acc.get("stop"):
             chunk = stream.read(65536)
             if not chunk:
                 break
@@ -223,17 +244,29 @@ def _pump(stream, acc, cap):
         pass  # stream closed under us during kill
 
 
+def _close(proc):
+    for stream in (proc.stdout, proc.stderr):
+        try:
+            stream.close()
+        except ValueError:
+            pass
+
+
 def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
     """Bounded subprocess: time AND bytes capped WHILE reading.
 
-    Never raises for tool/setup failures. Returns transport ok (with bounded
-    stdout/stderr) or timeout/overflow/tool-missing/error with a sanitized
-    reason. A killed over-producer counts as overflow, never success.
+    Streams are read as BYTES so the cap is byte-exact (a char count would
+    undercount multi-byte UTF-8). Decoding uses errors="replace" so invalid
+    input stays visible instead of vanishing. On overflow the child is
+    terminated promptly; a killed over-producer counts as overflow, and a
+    child that keeps running past the cap is never mistaken for success.
+    Never raises for tool/setup failures.
     """
     import threading
+    import time
     try:
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, text=True)
+                                stderr=subprocess.PIPE)
     except FileNotFoundError:
         return {"transport": "tool-missing",
                 "reason": "executable not found: "
@@ -252,38 +285,44 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
                              daemon=True)
     t_out.start()
     t_err.start()
-    try:
-        proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        t_out.join(timeout=5)
-        t_err.join(timeout=5)
-        try:
-            proc.stdout.close()
-            proc.stderr.close()
-        except ValueError:
-            pass
-        proc.wait()
-        return {"transport": "timeout",
-                "reason": "timeout", "timeout_s": timeout,
-                "stdout": "".join(out_acc["chunks"])[:MAX_OUTPUT_BYTES],
-                "stderr": "".join(err_acc["chunks"])[:MAX_OUTPUT_BYTES],
-                "partial": True}
+    deadline = time.monotonic() + timeout
+    result = None
+    while True:
+        if out_acc["over"] or err_acc["over"]:
+            proc.kill()
+            result = {"transport": "overflow",
+                      "reason": "output exceeded byte bound; child terminated"}
+            break
+        if proc.poll() is not None:
+            break
+        if time.monotonic() >= deadline:
+            proc.kill()
+            result = {"transport": "timeout",
+                      "reason": "timeout", "timeout_s": timeout}
+            break
+        time.sleep(0.05)
     t_out.join(timeout=5)
     t_err.join(timeout=5)
-    out = "".join(out_acc["chunks"])
-    err = "".join(err_acc["chunks"])
-    overflow = out_acc["over"] or err_acc["over"]
-    out, err = out[:MAX_OUTPUT_BYTES], err[:MAX_OUTPUT_BYTES]
-    if overflow:
-        return {"transport": "overflow",
-                "reason": "output exceeded byte bound; child terminated",
-                "stdout": out, "stderr": err, "partial": True}
+    out = b"".join(out_acc["chunks"])[:MAX_OUTPUT_BYTES]
+    err = b"".join(err_acc["chunks"])[:MAX_OUTPUT_BYTES]
+    text_out = out.decode("utf-8", errors="replace")
+    text_err = err.decode("utf-8", errors="replace")
+    _close(proc)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+    if result is not None:
+        result.update({"stdout": text_out, "stderr": text_err,
+                       "partial": True})
+        return result
     if proc.returncode != 0:
         return {"transport": "error",
-                "reason": redact(err.strip())[:200] or f"exit {proc.returncode}",
-                "returncode": proc.returncode, "stdout": out, "stderr": err}
-    return {"transport": "ok", "stdout": out, "stderr": err}
+                "reason": redact(text_err.strip())[:200]
+                          or f"exit {proc.returncode}",
+                "returncode": proc.returncode,
+                "stdout": text_out, "stderr": text_err}
+    return {"transport": "ok", "stdout": text_out, "stderr": text_err}
 
 
 def list_devices(adb="adb", timeout=DEFAULT_TIMEOUT):
@@ -352,84 +391,133 @@ def run_fixture(fixture, raw_evidence_location=None):
     }
 
 
+def _scrub_report(report, serials):
+    """Replace every known device serial in the PUBLIC report with an alias.
+
+    The real serials live only in the private raw bundle. Aliases are
+    run-local: the selected target is target-1, others device-2..N.
+    """
+    mapping = {}
+    for i, serial in enumerate(dict.fromkeys(s for s in serials if s)):
+        mapping[serial] = "target-1" if i == 0 else f"device-{i + 1}"
+    text = json.dumps(report)
+    for serial in sorted(mapping, key=len, reverse=True):
+        text = text.replace(serial, mapping[serial])
+    return json.loads(text)
+
+
+EPHEMERAL_LABEL = ("ephemeral: observations not persisted — not accepted "
+                   "evidence (pass --raw-dir under PRIVATE_ROOT)")
+
+
 def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
                  conditions=None, raw_dir=None, config_path=None):
-    """Target-bound live collection. Returns (exit_code, report)."""
+    """Target-bound live collection. Returns (exit_code, report).
+
+    Every return path passes through _scrub_report: no device serial ever
+    appears in public output, including enumeration failures and
+    unknown-target errors.
+    """
     run_id = run_id or ("live-" + datetime.datetime.now(
         datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     procs, cfg_err = load_procedures(config_path or _default_config_path())
     status, devs = list_devices(adb=adb, timeout=timeout)
     if status != "ok":
-        return 3, {"schema_version": SCHEMA_VERSION, "run_id": run_id,
-                   "status": "error",
-                   "observed": f"device enumeration failed: {devs}",
-                   "cases": []}
+        return 3, _scrub_report(
+            {"schema_version": SCHEMA_VERSION, "run_id": run_id,
+             "status": "error",
+             "observed": f"device enumeration failed: {redact(devs)}",
+             "cases": []}, [target])
     try:
         target = resolve_target(devs, target)
     except RuntimeError as exc:
-        return 3, {"schema_version": SCHEMA_VERSION, "run_id": run_id,
-                   "status": "error", "observed": str(exc), "cases": []}
+        return 3, _scrub_report(
+            {"schema_version": SCHEMA_VERSION, "run_id": run_id,
+             "status": "error", "observed": str(exc), "cases": []},
+            [target] + list(devs))
     raws = {}
     cases = []
     for shell_argv in sorted(ALLOWLIST):
+        name = " ".join(shell_argv)
         res = run_cmd([adb, "-s", target, "shell"] + list(shell_argv),
                       timeout=timeout)
         if res["transport"] == "timeout":
-            case = {"test_id": " ".join(shell_argv), "status": "error",
+            raws[name] = {"out": res.get("stdout", ""),
+                          "err": res.get("stderr", "")}
+            case = {"test_id": name, "status": "error",
                     "expected": "bounded collection or explicit timeout",
-                    "observed": "timeout", "metric": "unchecked",
+                    "observed": "timeout (partial output preserved privately)",
+                    "metric": "unchecked",
                     "transport": "timeout", "evidence_refs": []}
         elif res["transport"] == "tool-missing":
-            case = {"test_id": " ".join(shell_argv), "status": "error",
+            case = {"test_id": name, "status": "error",
                     "expected": "adb available",
                     "observed": res["reason"], "metric": "unchecked",
                     "transport": "tool-missing", "evidence_refs": []}
         elif res["transport"] == "overflow":
-            raws[" ".join(shell_argv)] = res.get("stdout", "")
-            case = {"test_id": " ".join(shell_argv), "status": "error",
+            raws[name] = {"out": res.get("stdout", ""),
+                          "err": res.get("stderr", "")}
+            case = {"test_id": name, "status": "error",
                     "expected": "output within byte bound",
                     "observed": ("output overflow beyond bound; partial "
                                  "preserved privately"), "metric": "unchecked",
                     "transport": "overflow", "evidence_refs": []}
-        elif res["transport"] == "error" and "stdout" not in res:
-            case = {"test_id": " ".join(shell_argv), "status": "error",
+        elif res["transport"] == "error" and "returncode" not in res:
+            # No process ran (OSError): a setup failure, never an
+            # unsupported empty observation.
+            case = {"test_id": name, "status": "error",
                     "expected": "bounded collection",
                     "observed": res["reason"], "metric": "unchecked",
                     "transport": "error", "evidence_refs": []}
         else:
-            raw = res.get("stdout", "")
-            raws[" ".join(shell_argv)] = raw
-            case = classify(shell_argv, res.get("returncode", 0), raw,
-                            res.get("stderr", ""))
-            case["transport"] = "process"
+            raws[name] = {"out": res.get("stdout", ""),
+                          "err": res.get("stderr", "")}
+            case = classify(shell_argv, res.get("returncode", 0),
+                            res.get("stdout", ""), res.get("stderr", ""))
+            case["transport"] = ("process" if res["transport"] == "ok"
+                                 else res["transport"])
         cases.append(case)
     if raw_dir is not None:
         run_dir = os.path.join(raw_dir, run_id)
         if os.path.exists(run_dir) and os.listdir(run_dir):
-            return 3, {"schema_version": SCHEMA_VERSION, "run_id": run_id,
-                       "status": "error",
-                       "observed": f"refusing: raw directory not empty: {run_dir}",
-                       "cases": []}
+            return 3, _scrub_report(
+                {"schema_version": SCHEMA_VERSION, "run_id": run_id,
+                 "status": "error",
+                 "observed": "refusing: raw directory not empty: " + run_dir,
+                 "cases": []}, [target] + list(devs))
         os.makedirs(run_dir, exist_ok=True)
         raw_refs = {}
-        for name, raw in raws.items():
-            dest = os.path.join(run_dir, name.replace(" ", "_") + ".txt")
-            with open(dest, "w") as fh:
-                fh.write(raw)
-            digest = hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
-            raw_refs[name] = f"{dest}#{name}@sha256:{digest}"
+        for name, streams in raws.items():
+            refs = []
+            for stream in ("out", "err"):
+                content = streams.get(stream, "")
+                if not content:
+                    continue
+                dest = os.path.join(
+                    run_dir, name.replace(" ", "_") + "." + stream + ".txt")
+                with open(dest, "w") as fh:
+                    fh.write(content)
+                digest = hashlib.sha256(
+                    content.encode("utf-8", "replace")).hexdigest()
+                refs.append(f"{dest}#{name}.{stream}@sha256:{digest}")
+            raw_refs[name] = refs
         raw_location = run_dir
     else:
-        raw_location = ("ephemeral: observations not persisted — "
-                        "not accepted evidence (pass --raw-dir under PRIVATE_ROOT)")
+        raw_location = EPHEMERAL_LABEL
         raw_refs = {}
-        for name, raw in raws.items():
-            digest = hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
-            raw_refs[name] = (f"sha256:{digest} (raw not persisted)")
+        for name, streams in raws.items():
+            for stream in ("out", "err"):
+                content = streams.get(stream, "")
+                if not content:
+                    continue
+                digest = hashlib.sha256(
+                    content.encode("utf-8", "replace")).hexdigest()
+                raw_refs.setdefault(name, []).append(
+                    f"sha256:{digest} ({stream}, raw not persisted)")
     for case in cases:
-        name = case["test_id"]
-        if name in raw_refs:
-            case["evidence_refs"] = [f"{raw_refs[name]}"]
+        refs = raw_refs.get(case["test_id"], [])
+        if refs:
+            case["evidence_refs"] = refs
     builds = [c["observed"] for c in cases
               if c["test_id"] == "getprop" and c["status"] == "ok"]
     if any(c["status"] == "error" for c in cases):
@@ -451,12 +539,12 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
                         "repetitions": {"pass": 1, "note": "single pass; "
                                          "repetitions controlled by the hardware harness"}},
         "os_build": builds[0] if builds else "unsupported: no device",
-        "raw_evidence_location": raw_dir or "not persisted (see per-case refs)",
+        "raw_evidence_location": raw_location,
         "procedures": procs if procs is not None else [],
         "config_error": cfg_err,
         "cases": cases,
     }
-    return 0, report
+    return 0, _scrub_report(report, [target] + list(devs))
 
 
 def main(argv=None):

@@ -2,7 +2,6 @@
   "note": "Early risk/fixture inventory only. Unknowns assigned, never passed. Full clause coverage completes in release test gates / manual compatibility qualification.",
   "risks": [
     {
-      "applicability": "If CDD/CTS mandate weak-credential acceptance",
       "expected": "Policy enforced on every independent challenge via service boundary; no hidden test bypass",
       "fixture": "harness + disposable credentials",
       "id": "R1-passphrase-only",
@@ -11,14 +10,13 @@
       "phase": "early-port",
       "requirement": "Passphrase-first vs credential/device-management/profile cases",
       "status": "UNRESOLVED-investigate",
-      "requirement_source": "CDD \u00a79.11 Keys and Credentials (\u00a79.11.1 Secure Lock Screen: mandates found concern trust-agent re-auth H-1-1, not credential acceptance), \u00a79.5 Multi-User, \u00a73.9 Device Administration (policy APIs), \u00a79.11.2 StrongBox (confirms TEE-only gap). Source: https://source.android.com/docs/compatibility/17/android-17-cdd (consulted 2026-09-10). CTS device-policy/profile families: exact module IDs bound at compatibility harness integration.",
-      "applicability_decision": "CONDITIONAL-PASS research: proceed to credential-policy enforcement enforcement tests; re-open on any conflicting clause found in full sweep",
+      "applicability_decision": "UNRESOLVED-investigate: proceed to credential-policy enforcement tests; re-open on any conflicting clause in the full sweep",
       "result_ref": null,
       "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
-      "analysis": "No CDD clause requiring weak-credential acceptance identified in this pass; the proposal restricts (never relaxes) credential choice, so the live risk is test-setup friction, not a mandate conflict. Full clause sweep + DevicePolicy/CTS binding stays with credential-policy enforcement / release test gates; scope/product change needs an explicit decision, never silent weakening."
+      "analysis": "The passphrase is a password: a recommended primary method, not a new authentication method, so the C-3-5/C-4-x new-method conditions do not trigger; C-4-1/C-4-2 biometric conditions are untouched (fingerprint stays subsequent-unlock under inherited strong-auth per passphrase onboarding). The 72h re-auth rule (C-3-4/H-1-1) is preserved via the inherited inactivity policy. No clause requiring weak-credential acceptance was found in this pass; the residual risk is DPC/managed-profile interaction (\u00a73.9 C-1-1) and CTS setup friction, bound in credential-policy enforcement enforcement tests + release test gates module sweep. Restriction direction only: no scope weakening without an explicit owner decision.",
+      "applicability_source": "CDD \u00a79.11.1 Secure Lock Screen (C-3-4/C-3-5/H-1-1: new-method fallback and 72h re-auth conditions), \u00a73.9 Device Administration (C-1-1 policy resolution), \u00a79.5 Multi-User, \u00a79.11.2 StrongBox (TEE-only gap). Source: https://source.android.com/docs/compatibility/17/android-17-cdd (consulted 2026-09-10). CTS device-policy/profile families: exact module IDs bound at compatibility harness integration."
     },
     {
-      "applicability": "Custom-key relock on FP6 firmware",
       "expected": "Locked yellow boot, Flags 0, rollback enforced; ability-0 refuses",
       "fixture": "harness FP6 + recovery preflight runbook",
       "id": "R2-locked-boot",
@@ -27,13 +25,12 @@
       "phase": "early-port",
       "requirement": "Verified boot + rollback + AVB chain",
       "status": "UNRESOLVED-hardware",
-      "requirement_source": "CDD \u00a79.10 Device Integrity + AOSP verified-boot flow (https://source.android.com/docs/security/features/verifiedboot/boot-flow); AVB/rollback behavior proven on hardware in custom-key relock validation.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD \u00a79.10 Device Integrity + AOSP verified-boot flow (https://source.android.com/docs/security/features/verifiedboot/boot-flow); AVB/rollback behavior proven on hardware in custom-key relock validation. Previous note: Custom-key relock on FP6 firmware"
     },
     {
-      "applicability": "Framework-17 vs FP6 Android-16 vendor image",
       "expected": "Matrices/FCM hold or narrow reviewed shim; no SELinux weakening",
       "fixture": "builder + ODM sources",
       "id": "R3-vintf-fcm",
@@ -42,13 +39,12 @@
       "phase": "early-port",
       "requirement": "VINTF/FCM + vendor API assumptions",
       "status": "UNRESOLVED-recon",
-      "requirement_source": "CDD device/architecture + Treble/VINTF requirements; VTS vendor/HAL checks (https://source.android.com/docs/core/tests/vts). Exact modules bound at compatibility harness integration.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD device/architecture + Treble/VINTF requirements; VTS vendor/HAL checks (https://source.android.com/docs/core/tests/vts). Exact modules bound at compatibility harness integration. Previous note: Framework-17 vs FP6 Android-16 vendor image"
     },
     {
-      "applicability": "All modules incl. WLAN/audio",
       "expected": "Rebuilt set or explicit prebuilt entries; KMI/UAPI deps recorded",
       "fixture": "builder",
       "id": "R4-modules",
@@ -57,13 +53,12 @@
       "phase": "early-port",
       "requirement": "WLAN/audio module sources + closed-UAPI coupling",
       "status": "UNRESOLVED-recon",
-      "requirement_source": "CDD kernel/vendor + VTS kernel checks; KMI/UAPI evidence from device source inventory / kernel and module integration builds.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD kernel/vendor + VTS kernel checks; KMI/UAPI evidence from device source inventory / kernel and module integration builds. Previous note: All modules incl. WLAN/audio"
     },
     {
-      "applicability": "DE carriers, physical SIM + eSIM lifecycle",
       "expected": "Stock-referenced APN/IMS; plan limits distinguished from OS defects",
       "fixture": "carrier rig (SIMs: none yet) + peer phone",
       "id": "R5-telephony-ims",
@@ -72,13 +67,12 @@
       "phase": "bring-up",
       "requirement": "Telephony/IMS/VoLTE/VoWiFi/carrier config",
       "status": "UNRESOLVED-rig",
-      "requirement_source": "CDD \u00a72 Device Types (telephony) + \u00a77 Hardware (radio); carrier behavior proven on the rig in carrier testing / telephony and audio bring-up, never assumed from plan names.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD \u00a72 Device Types (telephony) + \u00a77 Hardware (radio); carrier behavior proven on the rig in carrier testing / telephony and audio bring-up, never assumed from plan names. Previous note: DE carriers, physical SIM + eSIM lifecycle"
     },
     {
-      "applicability": "Advertised lenses/modes",
       "expected": "Functional bring-up; ITS fixture need decided early",
       "fixture": "Camera ITS rig TBD (no purchase in this task)",
       "id": "R6-camera-its",
@@ -87,13 +81,12 @@
       "phase": "bring-up",
       "requirement": "Camera HAL + Camera ITS/specialist coverage",
       "status": "UNRESOLVED-fixture",
-      "requirement_source": "CDD \u00a77 Hardware (camera) + Camera ITS (https://source.android.com/docs/compatibility/cts/camera-its). Fixture need decided early; a passing preview is not ITS evidence.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD \u00a77 Hardware (camera) + Camera ITS (https://source.android.com/docs/compatibility/cts/camera-its). Fixture need decided early; a passing preview is not ITS evidence. Previous note: Advertised lenses/modes"
     },
     {
-      "applicability": "Owner/secondary/profile challenges",
       "expected": "CE/DE + BFU/AFU semantics proven; duress stated as flash key-destruction",
       "fixture": "harness + synthetic canaries",
       "id": "R7-encryption",
@@ -102,13 +95,12 @@
       "phase": "early-port",
       "requirement": "Encryption/credential/profile + StrongBox-absent limits",
       "status": "UNRESOLVED-hardware",
-      "requirement_source": "CDD \u00a79.9 Data Storage Encryption + \u00a79.5 Multi-User + \u00a79.11 Keys; duress/file-remanence limits stated per threat model.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD \u00a79.9 Data Storage Encryption + \u00a79.5 Multi-User + \u00a79.11 Keys; duress/file-remanence limits stated per threat model. Previous note: Owner/secondary/profile challenges"
     },
     {
-      "applicability": "Per shipped modules/update model and suite access",
       "expected": "Sourced applicable/inapplicable decision each; GSI/diagnostic never stands in for final-system acceptance",
       "fixture": "harness tooling at compatibility harness integration",
       "id": "R8-gsi-mts-sts",
@@ -117,13 +109,12 @@
       "phase": "harness",
       "requirement": "CTS-on-GSI + modular/MTS + STS/AutoRepro/CVE regressions",
       "status": "UNRESOLVED-deferred",
-      "requirement_source": "DECISION (sourced, execution at compatibility harness integration / per-release compatibility qualification): CTS-on-GSI is diagnostic-only per https://source.android.com/docs/core/tests/vts/gsi and never stands in for final-system acceptance; MTS/ExtServices assessed against shipped modules per https://source.android.com/docs/core/ota/modular-system/extservices and https://android.googlesource.com/platform/test/mts/ ; STS/AutoRepro CVE regressions (https://source.android.com/docs/security/test/autorepro) run where applicable to shipped components, gaps explicit. Inaccessible partner suites are never claimed complete.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "DECISION (sourced, execution at compatibility harness integration / per-release compatibility qualification): CTS-on-GSI is diagnostic-only per https://source.android.com/docs/core/tests/vts/gsi and never stands in for final-system acceptance; MTS/ExtServices assessed against shipped modules per https://source.android.com/docs/core/ota/modular-system/extservices and https://android.googlesource.com/platform/test/mts/ ; STS/AutoRepro CVE regressions (https://source.android.com/docs/security/test/autorepro) run where applicable to shipped components, gaps explicit. Inaccessible partner suites are never claimed complete. Previous note: Per shipped modules/update model and suite access"
     },
     {
-      "applicability": "Claimed locales + assistive tools",
       "expected": "Critical flows reviewed + manual device evidence; no coverage-% claims",
       "fixture": "assistive tools + fluent reviewers (accessible journey validation)",
       "id": "R9-a11y-l10n",
@@ -132,10 +123,10 @@
       "phase": "beta+",
       "requirement": "Accessibility/localization critical journeys",
       "status": "UNRESOLVED-assigned",
-      "requirement_source": "CDD accessibility/UX sections + project flow matrix (accessible journey validation); manual device evidence required, scanners insufficient.",
       "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "applicability_source": "CDD accessibility/UX sections + project flow matrix (accessible journey validation); manual device evidence required, scanners insufficient. Previous note: Claimed locales + assistive tools"
     }
   ],
   "schema_version": 1,
