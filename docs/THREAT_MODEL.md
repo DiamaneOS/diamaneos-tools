@@ -27,7 +27,8 @@ remaining limit | validation work | evidence state.
 | Asset | Attacker capability | Entry point | Intended mitigation | Remaining limit | Validation | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | User data in transit | Network observer / active proxy | Wi-Fi, carrier data, DNS, captive portals | No telemetry/GMS; EU-primary endpoints with documented upstreams; user-visible resolver + standard-server alternative | Small-user-base endpoint fingerprinting; non-EU upstreams disclosed per endpoint | endpoint contract design / time and connectivity integration / assisted-GNSS integration / provisioning integration | Assumption |
-| App data from remote exploit | Remote attacker via radio/media/parser | Bluetooth, NFC, USB, media, DNS, browser/WebView | Inherited sandbox, Network/Sensors permissions, Storage/Contact Scopes, hardened_malloc, exec spawning; mirrored Vanadium via own infra | Parser/radio bugs remain; FP6 has no MTE to contain memory errors | encryption and hardening validation / debug exposure auditing / browser APK delivery | Assumption |
+| App data from remote exploit | Remote attacker via network/media/parser | Carrier/Wi-Fi data, DNS, media, browser/WebView | Inherited sandbox, Network/Sensors permissions, Storage/Contact Scopes, hardened_malloc, exec spawning; mirrored Vanadium via own infra | Parser/network bugs remain; FP6 has no MTE to contain memory errors | encryption and hardening validation / debug exposure auditing / browser APK delivery | Assumption |
+| Proximity access | Nearby attacker with radio/physical proximity | Bluetooth, NFC, USB modes, charging ports | Inherited sandbox + permission prompts; USB software-only control; Bluetooth pairing/audio reviewed on harness; NFC/sensor handling per bring-up matrix | No hardware USB-data disable; radio bugs remain without MTE; malicious accessory risk stays | display and connectivity bring-up / camera and peripheral bring-up / debug exposure auditing | Assumption |
 | App overreach | Malicious or over-permissioned app | Permissions, background listeners, IPC/URI grants | Per-app Network/Sensors/Scopes, install presets (Untrusted/Standard/Trusted), per-app routing/filtering, privacy dashboard with CE-only bounded history | Preset Trusted means user-chosen policy, never audited-safe; attribution limits proven in DNS architecture | app privacy presets / DNS architecture / DNS filtering / per-app network controls / privacy dashboard | Assumption |
 | Persistence after compromise | Attacker with write to partitions | Boot chain, OTA, recovery | Verified boot locked on custom AVB root, Flags 0, rollback protection, signed full/incremental OTA via same trusted pipeline | Yellow boot (never green); downgrade-brick risk; Fairphone unlock service dependency | unlock and stock restoration testing / custom-key relock validation / OTA installation testing / interrupted-update recovery testing | Assumption |
 | Powered-off (BFU) data | Opportunistic physical access, powered off | Flash readout | FBE + mandatory 6–8-word CSPRNG passphrase (owner + every independent user/profile), no weak-credential path | TEE Gatekeeper backoff only, no SE/Weaver; brute-force resistance rests on passphrase strength, not hardware | encryption and hardening validation / passphrase onboarding / credential-policy enforcement | Assumption |
@@ -56,6 +57,17 @@ owner, measured rebase cost, and regression checks. No shell rewrite presumed.
 - Daily-driver scope for privacy/security-focused users, full v1 retained.
 - Passphrase-first mandatory now; PIN-optional only via later explicit decision.
 - No scores, no parity claims, GrapheneOS disclaimer on every public surface.
+
+## Architecture and verification review
+
+- Remote/app path reviewed: network-observer → DNS/captive-portal → EU endpoint
+  policy, and malicious-app → permission/background-listener → preset +
+  per-app routing/filtering boundary. No new trust boundary added.
+- Cross-profile/physical path reviewed: secondary user/profile → user-switch
+  challenge → real service-boundary enforcement (encryption and hardening validation / credential-policy enforcement), and AFU/BFU →
+  USB/EDL/lockscreen → reboot-to-BFU/duress boundary. Session-end is not
+  deletion; unified-challenge limits preserved.
+- Verification: these are intended protections. Device-dependent claims remain unverified until their named validation work produces evidence.
 
 ## Next validation
 
