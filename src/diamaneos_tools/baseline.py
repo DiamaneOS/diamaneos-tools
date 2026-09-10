@@ -89,9 +89,14 @@ def redact(text):
 # Only genuine service-error shapes count as unavailable. A bare "unknown"
 # (e.g. an operator value inside valid service state) must never flip a case.
 # Device-gone shapes are connection failures, never missing services.
+# The quoted-target form (adb: device '<serial>' not found) must match even
+# though the serial interrupts the contiguous phrase.
 DEVICE_GONE = [
-    "device not found", "no devices", "device offline",
-    "unauthorized device", "no permissions",
+    r"device\s+('[^']*'\s+)?not found",
+    r"no devices?\b",
+    r"device\s+offline",
+    r"unauthorized device",
+    r"no permissions",
 ]
 
 MISSING_SERVICE = [
@@ -108,7 +113,7 @@ def _is_unsupported_text(text):
 
 def _is_device_gone(text):
     low = (text or "").lower()
-    return any(p in low for p in DEVICE_GONE)
+    return any(re.search(p, low) for p in DEVICE_GONE)
 
 
 def extract_fields(key, text):
@@ -223,46 +228,18 @@ def resolve_target(devices, target):
     return devices[0]
 
 
-def _pump(stream, acc, cap, byte_cap=True):
-    """Drain a BINARY stream to EOF, keeping the first cap bytes.
-
-    Keeps reading after the cap (discarding) unless asked to stop, so the
-    child never blocks on a full pipe. acc tracks chunks/total/over.
-    Daemon thread target. Never raises.
-    """
-    try:
-        while not acc.get("stop"):
-            chunk = stream.read(65536)
-            if not chunk:
-                break
-            if acc["total"] <= cap:
-                acc["chunks"].append(chunk)
-                acc["total"] += len(chunk)
-                if acc["total"] > cap:
-                    acc["over"] = True
-    except ValueError:
-        pass  # stream closed under us during kill
-
-
-def _close(proc):
-    for stream in (proc.stdout, proc.stderr):
-        try:
-            stream.close()
-        except ValueError:
-            pass
-
-
 def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
     """Bounded subprocess: time AND bytes capped WHILE reading.
 
-    Streams are read as BYTES so the cap is byte-exact (a char count would
-    undercount multi-byte UTF-8). Decoding uses errors="replace" so invalid
-    input stays visible instead of vanishing. On overflow the child is
-    terminated promptly; a killed over-producer counts as overflow, and a
-    child that keeps running past the cap is never mistaken for success.
-    Never raises for tool/setup failures.
+    Both pipes are non-blocking, serviced in one deterministic loop with no
+    threads: the first excess byte is detected within milliseconds and the
+    child terminated at once (no buffered read can wait out a slow
+    continuation marker, and no thread timing can reorder the result).
+    Counts are BYTES on the raw stream, so multi-byte UTF-8 cannot slip past
+    a character count; decoding uses errors="replace" so invalid input stays
+    visible instead of vanishing. A killed over-producer counts as overflow,
+    never success. Never raises for tool/setup failures.
     """
-    import threading
     import time
     try:
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
@@ -275,50 +252,82 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
     except OSError as exc:
         return {"transport": "error", "reason": f"os error: {exc}",
                 "stdout": "", "stderr": ""}
-    out_acc = {"chunks": [], "total": 0, "over": False}
-    err_acc = {"chunks": [], "total": 0, "over": False}
-    t_out = threading.Thread(target=_pump, args=(proc.stdout, out_acc,
-                                                 MAX_OUTPUT_BYTES),
-                             daemon=True)
-    t_err = threading.Thread(target=_pump, args=(proc.stderr, err_acc,
-                                                 MAX_OUTPUT_BYTES),
-                             daemon=True)
-    t_out.start()
-    t_err.start()
+    for stream in (proc.stdout, proc.stderr):
+        os.set_blocking(stream.fileno(), False)
+    out, err = bytearray(), bytearray()
+    over = False
+    eof_out = eof_err = False
+    exited = False
     deadline = time.monotonic() + timeout
     result = None
     while True:
-        if out_acc["over"] or err_acc["over"]:
+        for fd, buf, done in ((proc.stdout.fileno(), out, eof_out),
+                              (proc.stderr.fileno(), err, eof_err)):
+            if done:
+                continue
+            try:
+                chunk = os.read(fd, 65536)
+            except BlockingIOError:
+                continue
+            except OSError:
+                chunk = b""
+            if chunk == b"":
+                if fd == proc.stdout.fileno():
+                    eof_out = True
+                else:
+                    eof_err = True
+            else:
+                buf += chunk
+                if len(buf) > MAX_OUTPUT_BYTES:
+                    over = True
+        if over:
             proc.kill()
             result = {"transport": "overflow",
                       "reason": "output exceeded byte bound; child terminated"}
             break
         if proc.poll() is not None:
+            exited = True
+        if exited and eof_out and eof_err:
             break
-        if time.monotonic() >= deadline:
+        if time.monotonic() >= deadline and not exited:
             proc.kill()
             result = {"transport": "timeout",
                       "reason": "timeout", "timeout_s": timeout}
             break
-        time.sleep(0.05)
-    t_out.join(timeout=5)
-    t_err.join(timeout=5)
-    if t_out.is_alive() or t_err.is_alive():
-        # Readers must be done once the child is reaped; anything else is
-        # indeterminate collection, never success with cut data.
-        proc.kill()
-        return {"transport": "error",
-                "reason": "reader did not finish draining; collecting stopped",
-                "stdout": "", "stderr": "", "partial": True}
-    out = b"".join(out_acc["chunks"])[:MAX_OUTPUT_BYTES]
-    err = b"".join(err_acc["chunks"])[:MAX_OUTPUT_BYTES]
-    text_out = out.decode("utf-8", errors="replace")
-    text_err = err.decode("utf-8", errors="replace")
-    _close(proc)
+        time.sleep(0.005)
+    # Final bounded drain of whatever a dying child already emitted.
+    for fd, buf, done in ((proc.stdout.fileno(), out, eof_out),
+                          (proc.stderr.fileno(), err, eof_err)):
+        if done:
+            continue
+        try:
+            while True:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                if len(buf) <= MAX_OUTPUT_BYTES:
+                    buf += chunk
+        except (BlockingIOError, OSError):
+            pass
+    for stream in (proc.stdout, proc.stderr):
+        try:
+            stream.close()
+        except ValueError:
+            pass
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         pass
+    # Recheck after the final drain: no scheduling order can downgrade an
+    # overflow (or an over-cap final burst) into success.
+    if len(out) > MAX_OUTPUT_BYTES or len(err) > MAX_OUTPUT_BYTES:
+        over = True
+    text_out = bytes(out[:MAX_OUTPUT_BYTES]).decode("utf-8", errors="replace")
+    text_err = bytes(err[:MAX_OUTPUT_BYTES]).decode("utf-8", errors="replace")
+    if over:
+        return {"transport": "overflow",
+                "reason": "output exceeded byte bound; child terminated",
+                "stdout": text_out, "stderr": text_err, "partial": True}
     if result is not None:
         result.update({"stdout": text_out, "stderr": text_err,
                        "partial": True})
@@ -442,6 +451,20 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
             {"schema_version": SCHEMA_VERSION, "run_id": run_id,
              "status": "error", "observed": str(exc), "cases": []},
             [target] + list(devs))
+    # Alias namespace, fixed BEFORE any reference is constructed: the
+    # selected target is target-1, others device-2..N. Public refs and the
+    # sidecar keys use these aliases, so envelope scrubbing can never
+    # silently break resolvability; real paths live only in sidecar values.
+    aliases = {}
+    for i, serial in enumerate(dict.fromkeys([target] + list(devs))):
+        if serial:
+            aliases[serial] = "target-1" if i == 0 else f"device-{i + 1}"
+
+    def pub(text):
+        for serial in sorted(aliases, key=len, reverse=True):
+            text = text.replace(serial, aliases[serial])
+        return text
+
     raws = {}
     cases = []
     for shell_argv in sorted(ALLOWLIST):
@@ -497,7 +520,7 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
         # paths); the private sidecar maps them back to real locations, so
         # envelope scrubbing can never silently break resolvability (R5).
         raw_refs = {}
-        refmap = {"run_id": run_id, "files": {}}
+        refmap = {"run_id": pub(run_id), "files": {}}
         for name, streams in raws.items():
             refs = []
             for stream in ("out", "err"):
@@ -510,14 +533,16 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
                     fh.write(content)
                 digest = hashlib.sha256(
                     content.encode("utf-8", "replace")).hexdigest()
-                ref = f"{run_id}/{base}#{name}.{stream}@sha256:{digest}"
+                ref = (f"{pub(run_id)}/{base}#{name}.{stream}"
+                       f"@sha256:{digest}")
                 refs.append(ref)
                 refmap["files"][ref] = dest
             raw_refs[name] = refs
         with open(os.path.join(run_dir, ".refmap.json"), "w") as fh:
             json.dump(refmap, fh, indent=2)
             fh.write("\n")
-        raw_location = run_dir + " (resolve refs via .refmap.json there)"
+        raw_location = (pub(run_dir) +
+                        " (resolve refs via .refmap.json there)")
     else:
         raw_location = EPHEMERAL_LABEL
         raw_refs = {}
