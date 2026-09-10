@@ -26,3 +26,13 @@ Next implementation step or unblock condition:
 
 One active implementation per person; split oversized work into named children
 preserving parent AC. Source/format-only changes use review/validation, not ritual tests.
+
+## Roles and access
+
+- Release signing authority: designated release maintainer. Second maintainer: independent
+  builder/reviewer (device + own build server), no signing authority.
+- Routine administration uses individually assigned credentials
+  and MFA; production signing tokens never attach to a development workstation
+  after the ceremony and never serve as routine MFA.
+- Account recovery details stay private (`PRIVATE_ROOT`); public records hold
+  roles only, never codes/secrets. Credential changes require the responsible operator.
