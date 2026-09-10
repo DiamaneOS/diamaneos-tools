@@ -40,7 +40,7 @@ if mode == "deny-all":
 if mode == "sleep-shell":
     time.sleep(30)
 if mode == "shell-gone":
-    print("error: device 'FAKE123' not found")
+    print("error: device 'FAKE123' not found", file=sys.stderr)
     sys.exit(1)
 if mode == "sleep-partial":
     print("level: 8")
@@ -414,7 +414,7 @@ class BaselineTest(unittest.TestCase):
             self.assertEqual(code, 0)
             dest = os.path.join(root, "run-t", "dumpsys_battery.out.txt")
             self.assertTrue(os.path.exists(dest))
-            self.assertIn("level: 8", open(dest).read())
+            with open(dest) as fh: self.assertIn("level: 8", fh.read())
         finally:
             if prev is None:
                 os.environ.pop("FAKE_MODE", None)
@@ -433,7 +433,7 @@ class BaselineTest(unittest.TestCase):
             self.assertEqual(code, 0)
             dest = os.path.join(root, "run-e", "getprop.err.txt")
             self.assertTrue(os.path.exists(dest))
-            self.assertIn("Permission denied", open(dest).read())
+            with open(dest) as fh: self.assertIn("Permission denied", fh.read())
         finally:
             if prev is None:
                 os.environ.pop("FAKE_MODE", None)
@@ -455,13 +455,46 @@ class BaselineTest(unittest.TestCase):
             self.assertNotIn("FAKE123", text)
             sidecar = os.path.join(root, "run-s", ".refmap.json")
             self.assertTrue(os.path.exists(sidecar))
-            mapping = json.load(open(sidecar))["files"]
+            with open(sidecar) as fh: mapping = json.load(fh)["files"]
             for case in rep["cases"]:
                 for ref in case["evidence_refs"]:
                     self.assertIn(ref, mapping)
                     real = mapping[ref]
                     self.assertNotIn("FAKE123", ref)
                     self.assertTrue(os.path.exists(real))
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+
+
+    def test_disconnected_error_not_unsupported(self):
+        code, rep = self._live("shell-gone")
+        self.assertEqual(code, 0)
+        self.assertEqual(rep["collection_status"], "partial")
+        self.assertTrue(all(c["status"] == "error" for c in rep["cases"]))
+        self.assertNotIn("FAKE123", json.dumps(rep))
+
+    def test_serial_run_id_refs_stay_resolvable(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "ok"
+        try:
+            root = tempfile.mkdtemp(prefix="rawrun-")
+            code, rep = live_capture("FAKE123", adb=adb, timeout=10,
+                                     run_id="FAKE123-run", raw_dir=root)
+            self.assertEqual(code, 0)
+            text = json.dumps(rep)
+            self.assertNotIn("FAKE123", text)
+            sidecar = os.path.join(root, "FAKE123-run", ".refmap.json")
+            self.assertTrue(os.path.exists(sidecar))
+            with open(sidecar) as fh: mapping = json.load(fh)["files"]
+            for case in rep["cases"]:
+                for ref in case["evidence_refs"]:
+                    self.assertIn(ref, mapping)
+                    self.assertTrue(os.path.exists(mapping[ref]))
         finally:
             if prev is None:
                 os.environ.pop("FAKE_MODE", None)
