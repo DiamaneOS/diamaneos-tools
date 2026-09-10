@@ -1,27 +1,54 @@
-# Journey 2 — Home and app discovery (interface design prototype, synthetic data)
+# 02 — Home and discovery
 
-Entry: unlocked home (Launcher3). Goal: find a download, app, or setting
-without learning internals. Implementation cards: everyday app flows / native UI integration.
-Inherited path: Launcher3 + Settings search + DocumentsUI; compare first.
+Proposed interface design mockup. Owners: everyday app flows / native UI integration. Pages: `home`, `search`, `apps`,
+`files`, `file`, `settings`; `atlas` illustrates an independent-app boundary.
 
-Normal path: search from home/app drawer ("downloads", "battery", app name) →
-ranked results (apps → files → settings) → open. Recent downloads row on
-demand, not a persistent watcher. Completion: target opened; query kept for
-refinement; Back returns to prior context without losing input.
+## Intent and inherited comparison
 
-States: empty (no match → suggest spelling/settings path), loading (brief
-skeleton, no spinner trap), error (index unavailable → offer Settings path).
-Failure state: search backend unavailable → visible message + direct links to
-Files/Settings, never a blank screen.
+Entry: unlocked Home. Goal: find an app, setting or download without learning
+internals. Keep Launcher3, Settings search and DocumentsUI responsibilities.
+Add a distinctive clock, obvious destinations, labelled apps and reachable
+search. This is not a persistent content feed or an indexing service.
 
-Keyboard/SR : order search field→results→recent→clear; results announced
-with type + position ("App 2 of 5"); no content indexed beyond explicit scope
-(sensitive indexing needs separate review per §27.6).
+Files/Settings show coherent inherited surfaces. Fictional Atlas retains its
+own brand while its system location sheet shares DiamaneOS styling. No real
+independent app is claimed to have been modified or selected for inclusion.
 
-Locale: expanded German labels wrap, never truncate actions; RTL mirrors
-result rows; large text keeps targets ≥48dp.
+## Path and states
 
-Reuse : Launcher3 + shared search-field/list components; no new indexer
-service, no clipboard/storage crawl. A new discovery surface only if this
-prototype's task failures (wrong turns, assistance needed) prove search
-insufficient — measured in native UI integration.
+Home → Search → app/setting result → open. Alternatively Files → Downloads
+→ document. Share previews one file and explicit recipient selection; it
+sends nothing. All apps has a tap alternative to an upward gesture.
+
+| State | Behavior | Recovery |
+| --- | --- | --- |
+| Ready | Apps/settings or explicit Files destination | Open selection |
+| Empty | Unmatched query → no results | Edit or Open Downloads |
+| Loading | Held Searching state | Back/Home |
+| Failure/unavailable | Search unavailable; direct links remain | Files or Settings |
+| Completed | Selected destination open | Back preserves query |
+
+Search covers apps/settings only in this study. Files open on demand, with
+no background crawl, clipboard listener, message indexing or cross-profile
+search. Query is held in memory. Back dismisses a sheet before leaving its
+parent and keeps the query after a result. Gallery selection resets a journey.
+
+## Focus and locale
+
+Home: profile → notifications → Files/Settings → apps → All apps → search
+→ Home. Search: Back → query/clear → results → escape links. Counts are
+announced; native results need type/position and focus restoration across
+app launches. Every task has a non-gesture route.
+
+Large text stacks Home tiles and reduces grid columns. German wraps. RTL
+mirrors layout/navigation while time and file identities remain readable.
+This exposes stress conditions without claiming native verification.
+
+## Implementation mapping
+
+Resources: colours, type, spacing, eligible icons. Apps: existing Files/Settings
+themes/components. Narrow Launcher3 candidate: Home composition, search
+placement and transition polish; compare in native UI integration. Reuse native lifecycle
+and Back first. Visual consistency does not authorize a new indexer, parser,
+app fork or broader grants. Atlas's permission sheet stays with the actual
+permission controller, preserving app/user identity and scope.

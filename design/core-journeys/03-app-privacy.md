@@ -1,27 +1,60 @@
-# Journey 3 — App privacy presets (interface design prototype, synthetic data)
+# 03 — App privacy
 
-Entry: app info → Privacy, or install-time preset sheet. Goal: restrict one
-app in one pass and understand what changed. Implementation: app privacy presets.
-Inherited path: GOS Network/Sensors/Storage/Contact Scopes; preset only
-coordinates existing authorities.
+Proposed interface design mockup. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
+sheets: preset selection and individual controls.
 
-Normal path: pick app → preset Untrusted/Standard/Trusted with per-capability
-deltas (Network, Sensors, Storage, Contacts) → preview changes → Apply →
-result shows applied per cell; manual edits flip label to Custom and persist.
-Completion: summary + link to controlling setting (dashboard links, never
-duplicates state). Back/cancel before Apply changes nothing.
+## Intent and inherited comparison
 
-States: loading (reading current controls) → error; partial failure shows
-actual per-cell state + retry, never false all-applied; unsupported scope
-labeled per cell. Failure state: one control fails → partial state + recovery
-action (pattern for presets).
+Entry: app privacy for Meadow in Personal profile. Goal: understand and apply
+a scoped change. Retain inherited Network/Sensors/Storage/Contact Scopes
+owners. Shared appearance does not create a permission authority.
 
-Keyboard/SR : order app→preset→preview→apply→result; each cell exposes
-name/role/state ("Network: blocked"); Trusted never announced as "safe".
+## Path and states
 
-Locale: capability consequences translated as critical wording (fluent review
-or fallback); "Trusted" glossed as user-chosen policy, never OS-certified.
+App/profile → Change preset → exact preview → Apply → actual result.
+Individual edits become Custom and persist. Cancel before Apply changes
+nothing; Back does not undo completed changes or reapply an old preset.
 
-Reuse : Settings app-info controllers + shared segmented/preview/list
-components; preset is a coordinated request, not a permission source of truth.
-No privileged umbrella controller for shared visuals (threat-model boundary).
+The matrix below is **illustrative, not a frozen production decision**.
+app privacy presets still owns the exact capability/default contract.
+
+| Preset | Network | Sensors | File/contact selections |
+| --- | --- | --- | --- |
+| Untrusted | Block | Keep | Keep |
+| Standard | Allow | Keep | Keep |
+| Trusted | Allow | Allow | Keep |
+
+Keep is shown as No change. Nothing grants broad storage/contacts or activates
+detailed history. Trusted never means audited safe. The initial fixture is
+Standard with network allowed and sensors blocked; preserve real overrides.
+
+| State | Behavior | Recovery |
+| --- | --- | --- |
+| Loading | Read current permissions | Back/Home |
+| Ready | Current preset and capabilities | Preview then Apply |
+| Applied | Per-control state and acknowledgement | Individual controls |
+| Partial failure | Network still allowed; actual other states kept | Retry failed request or individual control |
+| Unavailable | Unknown state; no reliable summary or preset write | Retry individual state read |
+| Empty | No app target means no applicable preset | Return to app selection in native UI |
+
+The Failure scenario targets Network for Untrusted, or Sensors for Trusted;
+Standard is a no-change success from the initial fixture. It does not model
+every failure combination. Unsupported scopes, rejected authorization,
+user-switch races and partial changes remain required native tests. Never
+substitute a false all-applied status.
+
+## Focus and locale
+
+Order: Back → app/profile → preset → preview cells → Apply → result.
+Switches expose name/role/state; sheets restore invoking focus and support
+cancel without swiping. Partial result uses an alert and nearby retry.
+
+Consequences wrap at large text sizes. Do not rely on colour alone. German
+is partial draft, RTL is layout stress; capability meanings need fluent review.
+Production uses complete localized strings rather than dynamic sentence joins.
+
+## Implementation mapping
+
+Resources/app components: rows, choice, preview and results. Narrow Settings
+work: observe/request each inherited capability through authorized APIs.
+No umbrella service, cross-profile action, permission database or watcher.
