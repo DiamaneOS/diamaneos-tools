@@ -98,9 +98,12 @@ def run_capture(target, shell_argv, adb="adb", timeout=DEFAULT_TIMEOUT):
     return {"status": "ok", "observed": proc.stdout}
 
 
-def run_fixture(fixture):
+def run_fixture(fixture, raw_evidence_location=None):
     """Offline fixture run: {inputs: {key: {returncode, stdout, stderr}},
     tool_versions, environment}. Never touches adb."""
+    raw_loc = (raw_evidence_location
+               or fixture.get("raw_evidence_location")
+               or "synthetic-fixture: no device raw")
     cases = []
     for key, res in fixture.get("inputs", {}).items():
         argv = tuple(key.split(" ", 1))
@@ -144,6 +147,7 @@ def run_fixture(fixture):
         "tool_versions": fixture.get("tool_versions", {}),
         "environment": fixture.get("environment", {"source": "synthetic-fixture"}),
         "os_build": fixture.get("os_build", "unsupported: no device"),
+        "raw_evidence_location": raw_loc,
         "cases": cases,
     }
 
@@ -160,7 +164,8 @@ def main(argv=None):
 
     if args.fixture:
         with open(args.fixture) as fh:
-            report = run_fixture(json.load(fh))
+            report = run_fixture(json.load(fh),
+                                 raw_evidence_location=f"fixture:{args.fixture}")
         label = f"FIXTURE {args.fixture}: no hardware claim"
         report["label"] = label
         text = json.dumps(report, indent=2) + "\n"

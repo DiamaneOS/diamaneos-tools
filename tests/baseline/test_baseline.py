@@ -49,6 +49,17 @@ class BaselineTest(unittest.TestCase):
             resolve_target(["emulator-5554", "FP6ABC123"], None)
         self.assertEqual(resolve_target(["only-one"], None), "only-one")
 
+    def test_timeout_is_error(self):
+        rep = run_fixture(fixture("timeout.json"))
+        self.assertEqual(rep["cases"][0]["status"], "error")
+        self.assertIn("timeout", rep["cases"][0]["observed"])
+
+    def test_raw_evidence_location_recorded(self):
+        for name in ("valid.json", "timeout.json"):
+            rep = run_fixture(fixture(name))
+            self.assertIn("raw_evidence_location", rep)
+            self.assertTrue(rep["raw_evidence_location"])
+
     def test_dry_run_writes_nothing(self):
         out = subprocess.run(
             [sys.executable, "src/diamaneos_tools/baseline.py", "--dry-run"],
