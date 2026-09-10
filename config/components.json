@@ -10,7 +10,7 @@
       "modifications": "Minimal diamaneos.xml delta only",
       "notices_obligation": "Preserve upstream notices; record pins; no rebranding of unmodified mirrors",
       "owner_task": "FP6-007",
-      "revision": null,
+      "revision": "branch-17 @ 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (observed 2026-09-10; frozen manifest in WORK_ROOT/manifest)",
       "source_url": "https://github.com/GrapheneOS/platform_manifest",
       "status": "needs-review"
     },
@@ -24,7 +24,7 @@
       "modifications": "None yet",
       "notices_obligation": "Source + licence text + written offer as applicable; Installation-Information analysis for locked-bootloader distribution is the precise open question (no blanket ban, no clearance)",
       "owner_task": "FP6-089",
-      "revision": null,
+      "revision": "unpriv-v1.7.2 (observed latest tag 2026-09-10, detection only; integration pins at eSIM integration)",
       "source_url": "https://github.com/estkme-group/OpenEUICC (candidate)",
       "status": "blocked"
     },
@@ -52,7 +52,7 @@
       "modifications": "None — byte-identical mirror only",
       "notices_obligation": "Retain upstream identity/attribution; mirror terms in browser APK delivery",
       "owner_task": "FP6-111",
-      "revision": null,
+      "revision": "153.0.8010.36.0 (observed 2026-09-09, detection only; promotion gated in browser APK delivery)",
       "source_url": "https://github.com/GrapheneOS/Vanadium",
       "status": "needs-review"
     },
@@ -64,9 +64,9 @@
       "id": "apps-client",
       "licence": "MIT-style (licence text observed 2026-09-10)",
       "modifications": "Branding/endpoint repoint only (planned)",
-      "notices_obligation": "TBD with fork",
+      "notices_obligation": "Retain upstream copyright + permission notice in the fork (MIT condition); record fork revision at Apps repository integration",
       "owner_task": "FP6-110",
-      "revision": null,
+      "revision": "36 (observed 2026-04-26, detection only; fork pins at Apps repository integration)",
       "source_url": "https://github.com/GrapheneOS/Apps (redirects to AppStore)",
       "status": "needs-review"
     },
@@ -76,11 +76,11 @@
       "distribution_form": "Forked app via curated repo",
       "evidence": "REUSE layout observed; version via tags/commits at selection (no GitHub releases)",
       "id": "seedvault-fork",
-      "licence": "REUSE-compliant (LICENSES/ dir + per-file SPDX observed; no single LICENSE file)",
+      "licence": "REUSE-compliant: LICENSES/ = AGPL-3.0-or-later, Apache-2.0, CC-BY-SA-3.0, GPL-3.0-only, MIT, MPL-2.0 (observed 2026-09-10)",
       "modifications": "Backup-key abstraction from first commit (planned)",
-      "notices_obligation": "Preserve per-file notices; enumerate exact licences at fork (encrypted backup validation)",
+      "notices_obligation": "Preserve per-file SPDX identifiers + LICENSES/ texts; enumerate fork-consumed licences at encrypted backup validation",
       "owner_task": "FP6-114",
-      "revision": null,
+      "revision": "16-5.9 (observed latest tag 2026-09-10, detection only; fork pins at encrypted backup validation)",
       "source_url": "https://github.com/SeedVault-app/seedvault",
       "status": "needs-review"
     },
@@ -94,7 +94,7 @@
       "modifications": "Rebrand/repoint + FP6 roots (planned)",
       "notices_obligation": "TBD with fork",
       "owner_task": "FP6-106",
-      "revision": null,
+      "revision": "92 (observed 2026-05-30, detection only; fork pins at project attestation)",
       "source_url": "https://github.com/GrapheneOS/Auditor",
       "status": "needs-review"
     },
@@ -102,14 +102,14 @@
       "component": "Attestation server fork",
       "decision_owner": "designated project maintainer",
       "distribution_form": "Own verifier deployment",
-      "evidence": "Precise open question: licence + protocol review in project attestation",
+      "evidence": "Licence read (MIT-style); no tags/releases observed 2026-09-10 — version pins via commit at selection in project attestation; protocol review stays there",
       "id": "attestation-server",
-      "licence": "TBD (read at selection in project attestation)",
+      "licence": "MIT-style (licence text observed 2026-09-10)",
       "modifications": "FP6 roots/policy (planned)",
-      "notices_obligation": "TBD with fork",
+      "notices_obligation": "Retain upstream copyright + permission notice",
       "owner_task": "FP6-106",
       "revision": null,
-      "source_url": "https://github.com/GrapheneOS/attestation-server (verify path at selection)",
+      "source_url": "https://github.com/GrapheneOS/AttestationServer",
       "status": "needs-review"
     },
     {
@@ -122,7 +122,7 @@
       "modifications": "N/A (origin)",
       "notices_obligation": "DCO sign-off; retain imported notices",
       "owner_task": "FP6-002",
-      "revision": null,
+      "revision": "tools@e2fd9c5 (observed; advances with repo)",
       "source_url": "https://codeberg.org/DiamaneOS/diamaneos-tools",
       "status": "needs-review"
     }

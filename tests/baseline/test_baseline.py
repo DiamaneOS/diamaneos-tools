@@ -39,6 +39,22 @@ if mode == "deny-all":
     sys.stderr.write("Permission denied\\n"); sys.exit(1)
 if mode == "sleep-shell":
     time.sleep(30)
+if mode == "shell-gone":
+    print("error: device 'FAKE123' not found")
+    sys.exit(1)
+if mode == "sleep-partial":
+    print("level: 8")
+    sys.stdout.flush
+    time.sleep(30)
+if mode == "bad-encoding":
+    sys.stdout.buffer.write(bytes([255, 254, 10]))
+    print("level: 87")
+    sys.stdout.buffer.write(bytes([253, 10]))
+if mode == "nonascii-big":
+    sys.stdout.write(chr(233) * 200000)
+if mode == "endless":
+    for _ in range(100000):
+        sys.stdout.write("z" * 65536)
 if cmd == "getprop":
     emit("[ro.build.id]: [FP6.QREL.16.82.0]\\n[ro.product.model]: [FP6]\\n")
 elif cmd == "dumpsys carrier_config":
@@ -210,7 +226,8 @@ class BaselineTest(unittest.TestCase):
             else:
                 os.environ["FAKE_MODE"] = prev
         self.assertEqual(code, 0)
-        timeouts = [c for c in rep["cases"] if c["observed"] == "timeout"]
+        timeouts = [c for c in rep["cases"]
+                    if c["observed"].startswith("timeout")]
         self.assertTrue(timeouts, rep)
 
     def test_live_devices_failure_controlled(self):
@@ -310,6 +327,93 @@ class BaselineTest(unittest.TestCase):
             self.assertTrue(all("@sha256:" in c["evidence_refs"][0]
                                 for c in rep["cases"]
                                 if c["evidence_refs"]))
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+
+
+    def test_unknown_target_scrubbed(self):
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "ok"
+        try:
+            code, rep = live_capture("NOPE", adb=adb, timeout=10)
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+        self.assertEqual(code, 3)
+        self.assertNotIn("FAKE123", json.dumps(rep))
+
+    def test_disconnected_error_not_unsupported(self):
+        code, rep = self._live("shell-gone")
+        self.assertEqual(code, 0)
+        self.assertEqual(rep["collection_status"], "partial")
+        self.assertTrue(all(c["status"] == "error" for c in rep["cases"]))
+        self.assertNotIn("FAKE123", json.dumps(rep))
+
+    def test_byte_cap_counts_bytes(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c",
+             "import sys; sys.stdout.write(chr(233) * 200000)"],
+            timeout=30)
+        self.assertEqual(res["transport"], "overflow")
+        self.assertLessEqual(len(res["stdout"].encode("utf-8")), 262144)
+
+    def test_invalid_utf8_stays_visible(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c",
+             "import sys; sys.stdout.buffer.write(bytes([255, 254, 10]))"],
+            timeout=30)
+        self.assertEqual(res["transport"], "ok")
+        self.assertIn("�", res["stdout"])
+
+    def test_overflow_terminates_child(self):
+        import time
+        start = time.monotonic()
+        res = baseline.run_cmd(
+            [sys.executable, "-c",
+             "import sys" + chr(10) + "while 1: sys.stdout.write('z' * 65536)"],
+            timeout=15)
+        elapsed = time.monotonic() - start
+        self.assertEqual(res["transport"], "overflow")
+        self.assertLess(elapsed, 12)
+
+    def test_timeout_partial_evidence_saved(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "sleep-partial"
+        try:
+            root = tempfile.mkdtemp(prefix="rawtimeout-")
+            code, rep = live_capture("FAKE123", adb=adb, timeout=2,
+                                     run_id="run-t", raw_dir=root)
+            self.assertEqual(code, 0)
+            dest = os.path.join(root, "run-t", "dumpsys_battery.out.txt")
+            self.assertTrue(os.path.exists(dest))
+            self.assertIn("level: 8", open(dest).read())
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+
+    def test_stderr_evidence_saved(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "deny-all"
+        try:
+            root = tempfile.mkdtemp(prefix="rawerr-")
+            code, rep = live_capture("FAKE123", adb=adb, timeout=10,
+                                     run_id="run-e", raw_dir=root)
+            self.assertEqual(code, 0)
+            dest = os.path.join(root, "run-e", "getprop.err.txt")
+            self.assertTrue(os.path.exists(dest))
+            self.assertIn("Permission denied", open(dest).read())
         finally:
             if prev is None:
                 os.environ.pop("FAKE_MODE", None)
