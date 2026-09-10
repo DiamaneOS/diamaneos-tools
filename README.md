@@ -27,4 +27,5 @@ Full OS sync/build uses the reproducible Linux builder (Linux builder setup / re
 
 See `CONTRIBUTING.md` for the issue/PR handoff template.
 `config/repositories.json` is the single repo/path map (`codeberg_owner: DiamaneOS`).
+Security/product boundaries: `docs/THREAT_MODEL.md` (threat modeling, assumptions only).
 Additional commands are documented when implemented.
