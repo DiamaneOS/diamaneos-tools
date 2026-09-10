@@ -303,6 +303,13 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
         time.sleep(0.05)
     t_out.join(timeout=5)
     t_err.join(timeout=5)
+    if t_out.is_alive() or t_err.is_alive():
+        # Readers must be done once the child is reaped; anything else is
+        # indeterminate collection, never success with cut data.
+        proc.kill()
+        return {"transport": "error",
+                "reason": "reader did not finish draining; collecting stopped",
+                "stdout": "", "stderr": "", "partial": True}
     out = b"".join(out_acc["chunks"])[:MAX_OUTPUT_BYTES]
     err = b"".join(err_acc["chunks"])[:MAX_OUTPUT_BYTES]
     text_out = out.decode("utf-8", errors="replace")
@@ -486,22 +493,31 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
                  "observed": "refusing: raw directory not empty: " + run_dir,
                  "cases": []}, [target] + list(devs))
         os.makedirs(run_dir, exist_ok=True)
+        # Public refs are stable and non-identifying (run-local relative
+        # paths); the private sidecar maps them back to real locations, so
+        # envelope scrubbing can never silently break resolvability (R5).
         raw_refs = {}
+        refmap = {"run_id": run_id, "files": {}}
         for name, streams in raws.items():
             refs = []
             for stream in ("out", "err"):
                 content = streams.get(stream, "")
                 if not content:
                     continue
-                dest = os.path.join(
-                    run_dir, name.replace(" ", "_") + "." + stream + ".txt")
+                base = name.replace(" ", "_") + "." + stream + ".txt"
+                dest = os.path.join(run_dir, base)
                 with open(dest, "w") as fh:
                     fh.write(content)
                 digest = hashlib.sha256(
                     content.encode("utf-8", "replace")).hexdigest()
-                refs.append(f"{dest}#{name}.{stream}@sha256:{digest}")
+                ref = f"{run_id}/{base}#{name}.{stream}@sha256:{digest}"
+                refs.append(ref)
+                refmap["files"][ref] = dest
             raw_refs[name] = refs
-        raw_location = run_dir
+        with open(os.path.join(run_dir, ".refmap.json"), "w") as fh:
+            json.dump(refmap, fh, indent=2)
+            fh.write("\n")
+        raw_location = run_dir + " (resolve refs via .refmap.json there)"
     else:
         raw_location = EPHEMERAL_LABEL
         raw_refs = {}

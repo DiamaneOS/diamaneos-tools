@@ -3,7 +3,7 @@
 ## baseline capture baseline collectors (fixture-only, no hardware)
 
 ```sh
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests -t .
 python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
 bin/diamaneos baseline capture --dry-run
 ```
@@ -19,7 +19,7 @@ bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
 Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
 evidence refs; without --raw-dir the run is ephemeral (not accepted
 evidence). Public reports carry a device alias only; serials stay private.
-31 baseline + 3 CLI tests green on Mac; device runs stay UNRUN.
+38 baseline + 3 CLI tests green; device runs stay UNRUN.
 
 5 fixtures + fake-adb live-path tests prove the contract: valid→ok,
 truncated/timeout/overflow→error (never averaged as zero),

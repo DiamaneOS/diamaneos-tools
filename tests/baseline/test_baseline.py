@@ -382,6 +382,26 @@ class BaselineTest(unittest.TestCase):
         self.assertEqual(res["transport"], "overflow")
         self.assertLess(elapsed, 12)
 
+    def test_nonascii_stderr_bound_is_bytes(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c",
+             "import sys; sys.stderr.write(chr(233) * 262144)"],
+            timeout=30)
+        self.assertEqual(res["transport"], "overflow")
+        self.assertLessEqual(len(res["stderr"].encode("utf-8")), 262144)
+
+    def test_one_byte_over_marker_killed(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c",
+             "import sys,time" + chr(10)
+             + "sys.stdout.write('x' * 262144); sys.stdout.write('y'); "
+               "sys.stdout.flush(); time.sleep(0.3); "
+               "sys.stdout.write('MARKER'); sys.stdout.flush()"],
+            timeout=30)
+        self.assertEqual(res["transport"], "overflow")
+        self.assertNotIn("MARKER", res["stdout"])
+        self.assertEqual(len(res["stdout"].encode("utf-8")), 262144)
+
     def test_timeout_partial_evidence_saved(self):
         import tempfile
         adb = self._fake()
@@ -414,6 +434,34 @@ class BaselineTest(unittest.TestCase):
             dest = os.path.join(root, "run-e", "getprop.err.txt")
             self.assertTrue(os.path.exists(dest))
             self.assertIn("Permission denied", open(dest).read())
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+
+
+    def test_serial_dirname_refs_stay_resolvable(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "ok"
+        try:
+            root = tempfile.mkdtemp(prefix="raw-FAKE123-")
+            code, rep = live_capture("FAKE123", adb=adb, timeout=10,
+                                     run_id="run-s", raw_dir=root)
+            self.assertEqual(code, 0)
+            text = json.dumps(rep)
+            self.assertNotIn("FAKE123", text)
+            sidecar = os.path.join(root, "run-s", ".refmap.json")
+            self.assertTrue(os.path.exists(sidecar))
+            mapping = json.load(open(sidecar))["files"]
+            for case in rep["cases"]:
+                for ref in case["evidence_refs"]:
+                    self.assertIn(ref, mapping)
+                    real = mapping[ref]
+                    self.assertNotIn("FAKE123", ref)
+                    self.assertTrue(os.path.exists(real))
         finally:
             if prev is None:
                 os.environ.pop("FAKE_MODE", None)
