@@ -21,12 +21,19 @@ evidence refs; without --raw-dir the run is ephemeral (not accepted
 evidence). Public reports carry a device alias only; serials stay private.
 31 baseline + 3 CLI tests green on Mac; device runs stay UNRUN.
 
-5 fixtures prove the contract: valid→ok, truncated/timeout→error (never
-averaged as zero), missing command→unsupported , sensitive→IMEI/serial/
-ICCID redacted with context preserved ; ambiguous target refuses before any
-adb command . Live capture (`--target`) stays UNRUN until a real FP6 is
-connected. Host timeout bound: 20s per adb call plus 256KB streaming byte cap
-(safety bounds, not device claims). Large traces/samples stay outside git with hashes.
+5 fixtures + fake-adb live-path tests prove the contract: valid→ok,
+truncated/timeout/overflow→error (never averaged as zero),
+missing-service→unsupported while bare-`unknown` operator values stay ok ,
+sensitive→IMEI/IMSI/ICCID/EID/phone/account/MAC/serial redacted with context
+preserved (full-report checked, not just case fields); ambiguous target
+refuses before any adb command . Over-producers are killed at the byte
+cap (termination proven, not just detected); failed captures keep partial
+stdout+stderr evidence with hashes; device-gone stays error/partial, never
+unsupported-complete. Live capture (`--target`) stays UNRUN until a real FP6
+is connected. Host bounds: 20s per adb call plus 256KB streaming byte cap
+(byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
+git with hashes. 38 baseline + 3 CLI tests green via `python3 -m unittest
+discover -s tests -t .`.
 
 ## compatibility planning compatibility target (provisional, design only; no device evidence)
 
