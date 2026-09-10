@@ -44,13 +44,25 @@ MAX_KEPT_LINES = 200  # per-case field bound; excess flags truncation, never sil
 # Kept-line shapes per command. Anything else is dropped (counted) so broad
 # raw dumpsys/getprop text is never treated as safe after a few regexes.
 # Identifier-looking content inside kept lines is still redacted below.
+# Dropped-first shapes: location-bearing or identifier-bearing lines never reach
+# public output even when they match a kept shape below.
+DROP_LINE = {
+    ("dumpsys", "telephony.registry"): [
+        # camelCase key=value first: \b never matches inside mTac/mCi.
+        r"(?i)[a-z]*(tac|cell_?id|cgi|pci|arfcn|lac|ci|nid|bid|sid)\s*=",
+        r"(?i)\b(tac|pci|arfcn|lac|cgi|cellinfo|nid|bid|sid|ci)\b",
+        r"(?i)(tracking.area|cell.identit|location.area|routing.area|location.info)"],
+    ("dumpsys", "gfxinfo"): [r"(?i)\b(package|applicationId)\b\s*[:=]"],
+}
+
 SAFE_LINE = {
     ("getprop",): [r"^\[(ro\.build\.|ro\.product\.|ro\.board\.|ro\.hardware\.)"],
     ("dumpsys", "carrier_config"): [r"(?i)\b(mccmnc|version|patch|volte|vowifi|\b5g\b|\blte\b)"],
     ("dumpsys", "telephony.registry"): [r"(?i)\b(mServiceState|mSignalStrength|mDataConnectionState|operator|mccmnc|radioTech|serviceState|dataState|voiceRegState)"],
     ("dumpsys", "imsservice"): [r"(?i)\b(registered|available|enabled|provisioned|voice|video|sms|ut|capable)"],
     ("dumpsys", "battery"): [r"^\s*(level|scale|status|health|temperature|voltage|technology)\s*:"],
-    ("dumpsys", "gfxinfo"): [r"."],  # frames data is voluminous but non-identifying; still redacted + capped
+    # Graphics stats only: a kept line must carry a digit (package-name lines drop).
+    ("dumpsys", "gfxinfo"): [r"^\s*[\w ./-]+:\s*[-+.\w%]*\d"],
 }
 
 REDACTIONS = [
@@ -74,18 +86,29 @@ def redact(text):
     return text
 
 
+# Only genuine service-error shapes count as unavailable. A bare "unknown"
+# (e.g. an operator value inside valid service state) must never flip a case.
+MISSING_SERVICE = [
+    "can't find service", "unknown service", "service not found",
+    "service unknown", "no such service", "not found",
+    "no such file or directory", "unknown command",
+]
+
+
 def _is_unsupported_text(text):
     low = (text or "").lower()
-    return ("not found" in low or "can't find" in low or "unknown" in low
-            or "no such" in low)
+    return any(p in low for p in MISSING_SERVICE)
 
 
 def extract_fields(key, text):
-    """Keep only allowlisted line shapes; return (kept_text, kept, dropped)."""
+    """Keep only allowlisted line shapes; return (kept_text, kept, dropped, sensitive, capped)."""
+    drops = [re.compile(p) for p in DROP_LINE.get(tuple(key), [])]
     shapes = [re.compile(p) for p in SAFE_LINE.get(tuple(key), [])]
-    kept, dropped = [], 0
+    kept, dropped, sensitive = [], 0, 0
     for line in text.splitlines():
-        if any(p.search(line) for p in shapes):
+        if any(p.search(line) for p in drops):
+            sensitive += 1
+        elif any(p.search(line) for p in shapes):
             kept.append(line)
         else:
             dropped += 1
@@ -95,7 +118,7 @@ def extract_fields(key, text):
         truncated = True
     else:
         truncated = False
-    return "\n".join(kept), len(kept), dropped, truncated
+    return "\n".join(kept), len(kept), dropped, sensitive, truncated
 
 
 def validate_metric(key, kept_text):
@@ -154,7 +177,7 @@ def classify(key, returncode, stdout, stderr, timeout_hit=False):
                 "expected": "complete output",
                 "observed": "truncated output preserved, not averaged as zero",
                 "metric": "unchecked", "evidence_refs": []}
-    kept, n_kept, n_dropped, capped = extract_fields(key, out)
+    kept, n_kept, n_dropped, sensitive, capped = extract_fields(key, out)
     metric = validate_metric(key, kept)
     observed = redact(kept)
     note = "" if not capped else " [kept-lines capped; see private raw]"
@@ -162,6 +185,7 @@ def classify(key, returncode, stdout, stderr, timeout_hit=False):
             "expected": "bounded collection",
             "observed": observed + note, "metric": metric,
             "kept_fields": n_kept, "dropped_lines": n_dropped,
+            "dropped_sensitive": sensitive,
             "evidence_refs": []}
 
 
@@ -178,27 +202,88 @@ def resolve_target(devices, target):
     return devices[0]
 
 
-def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
-    """Bounded subprocess that never raises for tool/setup failures."""
+def _pump(stream, acc, cap):
+    """Drain stream to EOF, keeping only the first cap chars.
+
+    Must keep reading after the cap (discarding) so the child never blocks
+    on a full pipe; acc['over'] records that the bound was exceeded.
+    Daemon thread target. Never raises.
+    """
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True,
-                              timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return {"transport": "timeout", "reason": "timeout",
-                "timeout_s": timeout}
+        while True:
+            chunk = stream.read(65536)
+            if not chunk:
+                break
+            if acc["total"] <= cap:
+                acc["chunks"].append(chunk)
+                acc["total"] += len(chunk)
+                if acc["total"] > cap:
+                    acc["over"] = True
+    except ValueError:
+        pass  # stream closed under us during kill
+
+
+def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
+    """Bounded subprocess: time AND bytes capped WHILE reading.
+
+    Never raises for tool/setup failures. Returns transport ok (with bounded
+    stdout/stderr) or timeout/overflow/tool-missing/error with a sanitized
+    reason. A killed over-producer counts as overflow, never success.
+    """
+    import threading
+    try:
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True)
     except FileNotFoundError:
         return {"transport": "tool-missing",
-                "reason": f"executable not found: {argv[0]}"}
+                "reason": "executable not found: "
+                          + os.path.basename(argv[0]),
+                "stdout": "", "stderr": ""}
     except OSError as exc:
-        return {"transport": "error", "reason": f"os error: {exc}"}
+        return {"transport": "error", "reason": f"os error: {exc}",
+                "stdout": "", "stderr": ""}
+    out_acc = {"chunks": [], "total": 0, "over": False}
+    err_acc = {"chunks": [], "total": 0, "over": False}
+    t_out = threading.Thread(target=_pump, args=(proc.stdout, out_acc,
+                                                 MAX_OUTPUT_BYTES),
+                             daemon=True)
+    t_err = threading.Thread(target=_pump, args=(proc.stderr, err_acc,
+                                                 MAX_OUTPUT_BYTES),
+                             daemon=True)
+    t_out.start()
+    t_err.start()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+        try:
+            proc.stdout.close()
+            proc.stderr.close()
+        except ValueError:
+            pass
+        proc.wait()
+        return {"transport": "timeout",
+                "reason": "timeout", "timeout_s": timeout,
+                "stdout": "".join(out_acc["chunks"])[:MAX_OUTPUT_BYTES],
+                "stderr": "".join(err_acc["chunks"])[:MAX_OUTPUT_BYTES],
+                "partial": True}
+    t_out.join(timeout=5)
+    t_err.join(timeout=5)
+    out = "".join(out_acc["chunks"])
+    err = "".join(err_acc["chunks"])
+    overflow = out_acc["over"] or err_acc["over"]
+    out, err = out[:MAX_OUTPUT_BYTES], err[:MAX_OUTPUT_BYTES]
+    if overflow:
+        return {"transport": "overflow",
+                "reason": "output exceeded byte bound; child terminated",
+                "stdout": out, "stderr": err, "partial": True}
     if proc.returncode != 0:
-        return {"transport": "error", "reason": (proc.stderr or "").strip()[:200]
-                or f"exit {proc.returncode}", "stdout": proc.stdout or ""}
-    out = proc.stdout or ""
-    if len(out.encode("utf-8", "replace")) > MAX_OUTPUT_BYTES:
-        return {"transport": "error", "reason": "output exceeded byte bound",
-                "stdout": out}
-    return {"transport": "ok", "stdout": out}
+        return {"transport": "error",
+                "reason": redact(err.strip())[:200] or f"exit {proc.returncode}",
+                "returncode": proc.returncode, "stdout": out, "stderr": err}
+    return {"transport": "ok", "stdout": out, "stderr": err}
 
 
 def list_devices(adb="adb", timeout=DEFAULT_TIMEOUT):
@@ -236,7 +321,9 @@ def adb_version(adb="adb", timeout=DEFAULT_TIMEOUT):
     res = run_cmd([adb, "version"], timeout=timeout)
     if res["transport"] != "ok":
         return "unknown (tool query failed)"
-    return (res["stdout"].strip().splitlines() or ["unknown"])[0][:120]
+    # Full banner: the release/build line distinguishes platform-tools
+    # releases that share the same first line.
+    return res["stdout"].strip()[:500] or "unknown"
 
 
 def run_fixture(fixture, raw_evidence_location=None):
@@ -287,47 +374,78 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
     for shell_argv in sorted(ALLOWLIST):
         res = run_cmd([adb, "-s", target, "shell"] + list(shell_argv),
                       timeout=timeout)
-        if res["transport"] != "ok":
-            case = classify(shell_argv, 0, "", "", timeout_hit=(
-                res["transport"] == "timeout"))
-            if res["transport"] == "tool-missing":
-                case = {"test_id": " ".join(shell_argv), "status": "error",
-                        "expected": "adb available",
-                        "observed": res["reason"], "metric": "unchecked",
-                        "evidence_refs": []}
-            case["evidence_refs"] = []
-            cases.append(case)
-            continue
-        raw = res["stdout"]
-        raws[" ".join(shell_argv)] = raw
-        case = classify(shell_argv, 0, raw, "")
-        case["evidence_refs"] = []
+        if res["transport"] == "timeout":
+            case = {"test_id": " ".join(shell_argv), "status": "error",
+                    "expected": "bounded collection or explicit timeout",
+                    "observed": "timeout", "metric": "unchecked",
+                    "transport": "timeout", "evidence_refs": []}
+        elif res["transport"] == "tool-missing":
+            case = {"test_id": " ".join(shell_argv), "status": "error",
+                    "expected": "adb available",
+                    "observed": res["reason"], "metric": "unchecked",
+                    "transport": "tool-missing", "evidence_refs": []}
+        elif res["transport"] == "overflow":
+            raws[" ".join(shell_argv)] = res.get("stdout", "")
+            case = {"test_id": " ".join(shell_argv), "status": "error",
+                    "expected": "output within byte bound",
+                    "observed": ("output overflow beyond bound; partial "
+                                 "preserved privately"), "metric": "unchecked",
+                    "transport": "overflow", "evidence_refs": []}
+        elif res["transport"] == "error" and "stdout" not in res:
+            case = {"test_id": " ".join(shell_argv), "status": "error",
+                    "expected": "bounded collection",
+                    "observed": res["reason"], "metric": "unchecked",
+                    "transport": "error", "evidence_refs": []}
+        else:
+            raw = res.get("stdout", "")
+            raws[" ".join(shell_argv)] = raw
+            case = classify(shell_argv, res.get("returncode", 0), raw,
+                            res.get("stderr", ""))
+            case["transport"] = "process"
         cases.append(case)
-    raw_refs = {}
     if raw_dir is not None:
-        os.makedirs(raw_dir, exist_ok=True)
+        run_dir = os.path.join(raw_dir, run_id)
+        if os.path.exists(run_dir) and os.listdir(run_dir):
+            return 3, {"schema_version": SCHEMA_VERSION, "run_id": run_id,
+                       "status": "error",
+                       "observed": f"refusing: raw directory not empty: {run_dir}",
+                       "cases": []}
+        os.makedirs(run_dir, exist_ok=True)
+        raw_refs = {}
         for name, raw in raws.items():
-            dest = os.path.join(raw_dir, name.replace(" ", "_") + ".txt")
+            dest = os.path.join(run_dir, name.replace(" ", "_") + ".txt")
             with open(dest, "w") as fh:
                 fh.write(raw)
-            raw_refs[name] = dest
+            digest = hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
+            raw_refs[name] = f"{dest}#{name}@sha256:{digest}"
+        raw_location = run_dir
     else:
+        raw_location = ("ephemeral: observations not persisted — "
+                        "not accepted evidence (pass --raw-dir under PRIVATE_ROOT)")
+        raw_refs = {}
         for name, raw in raws.items():
             digest = hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
-            raw_refs[name] = (f"sha256:{digest} (raw not persisted; "
-                              "pass --raw-dir under PRIVATE_ROOT)")
+            raw_refs[name] = (f"sha256:{digest} (raw not persisted)")
     for case in cases:
         name = case["test_id"]
         if name in raw_refs:
-            case["evidence_refs"] = [f"{raw_refs[name]}#{name}"]
+            case["evidence_refs"] = [f"{raw_refs[name]}"]
     builds = [c["observed"] for c in cases
               if c["test_id"] == "getprop" and c["status"] == "ok"]
+    if any(c["status"] == "error" for c in cases):
+        completeness = "partial"
+    else:
+        completeness = "complete"
     report = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
         "utc_time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "collection_status": completeness,
         "tool_versions": {"adb": adb_version(adb=adb, timeout=timeout)},
-        "environment": {"source": "live-device", "target": target,
+        # Public envelope carries a run-local alias only. The real serial
+        # lives in the private raw bundle and is never published (R1).
+        "environment": {"source": "live-device", "device_alias": "target-1",
+                        "device_role": "unassigned",
                         "conditions": conditions or
                         "unrecorded (repeat with --conditions)",
                         "repetitions": {"pass": 1, "note": "single pass; "
