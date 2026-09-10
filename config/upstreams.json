@@ -1,17 +1,17 @@
 {
-  "note": "source research proposal 2026-09-10. No full sync on Mac. No port-compatibility claim. Revisions are branches + check dates; immutable commits resolve at builder sync with tag/signature checks.",
+  "note": "source research proposal 2026-09-10, partially pinned 2026-09-10 (F05): GOS manifest + Lineage ref carry observed immutable SHAs via weaker HTTPS-API method (signature check at sync); all other commits resolve at builder sync. No port-compatibility claim.",
   "schema_version": 1,
   "sources": [
     {
       "applicability": "Proposed maintained port-appropriate base. Compatibility vs FP6 Android-16 vendor UNPROVEN until device source inventory / FP6 product integration / early compatibility qualification build/device checks .",
       "authoritative_url": "https://github.com/GrapheneOS/platform_manifest",
-      "current_revision": "refs/heads/17 @ 2026-09-09 (commit TBD at sync; do not use branch name as pin)",
-      "discovery_method": "GitHub branch list fetch 2026-09-10: 17 active (Sep 9), 16-qpr2 stale (Jun 22)",
+      "current_revision": "75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (branch 17 HEAD observed 2026-09-10 via GitHub API; committer Daniel Micay 2026-09-09)",
+      "discovery_method": "GitHub commits API 2026-09-10 + branch list; default.xml content fetched at this SHA (112460 bytes, 1057 projects, aosp default refs/tags/android-17.0.0_r1) into WORK_ROOT/manifest",
       "id": "grapheneos-manifest",
       "public_verifier_ref": "GrapheneOS signed tags; keys sourced independently at sync",
       "release_channel": "Maintained branch 17 (stable mapping TBD at sync)",
-      "support_evidence_ref": "https://grapheneos.org/releases (Stable 2026081300 observed); branch freshness Sep 9 2026",
-      "verification_method": "NOT YET RUN — tag signature + commit hash check at builder sync "
+      "support_evidence_ref": "https://grapheneos.org/releases (Stable 2026081300 observed); branch 17 active Sep 9 2026; 16-qpr2 stale Jun 22 2026",
+      "verification_method": "WEAKER (source observation only): unauthenticated HTTPS API observation; GitHub reports the commit unsigned. Full tag-signature check with independently sourced keys runs at builder sync per https://grapheneos.org/build (downloading-source-code); this SHA becomes the pin then."
     },
     {
       "applicability": "Fallback only; staleness/support TBD. Not the proposal.",
@@ -27,7 +27,7 @@
     {
       "applicability": "Stock input pairing TBD until stock device inspection / stock recovery archiving phone arrival. Device-specific claims require hardware tests.",
       "authoritative_url": "Fairphone support factory images + release notes",
-      "current_revision": "Factory FP6.QREL.16.95.0.20260708185435 (Jul 8 2026); OTA FP6.QREL.16.82.0 (Jun 22 2026, patch 2026-06-05); blobs FP6-QSSI/Target-QREL.16.61.0.20260401 (proposed, not downloaded)",
+      "current_revision": "Factory FP6.QREL.16.95.0.20260708185435 (Jul 8 2026); OTA 16.82.0 (Jun 22 2026, patch 2026-06-05); DETECTED 2026-09-10: FP6.QREL.16.104.0 referenced in LineageOS commit 4512f51 (unconfirmed until Fairphone page/download); blobs 16.61.0.20260401 (not downloaded)",
       "discovery_method": "Web search 2026-09-10 (support page 403 on direct fetch; values from search excerpts, re-verify at download)",
       "id": "fairphone-stock",
       "public_verifier_ref": "SHA256 checksums published on Fairphone support page (verify at download)",
@@ -37,9 +37,9 @@
     },
     {
       "applicability": "Source for kernel/module/DT inventory (device source inventory). Closed-UAPI coupling unknown until recon.",
-      "authoritative_url": "https://code.fairphone.com/projects/fairphone-gen-6/odm.html",
-      "current_revision": "Branches odm/public-build/16/fp6 (qssi.xml/target.xml); odm/public/15/fp6 legacy (commits TBD at sync)",
-      "discovery_method": "Fairphone open-source docs fetch 2026-09-10",
+      "authoritative_url": "https://code.fairphone.com/projects/fairphone-gen-6/build-instructions.html",
+      "current_revision": "Branches odm/public-build/16/fp6 (qssi.xml/target.xml); commits TBD at sync via repo manifest -r",
+      "discovery_method": "Fairphone build-instructions page (documents odm/public-build/16/fp6 qssi.xml/target.xml init commands); ODM overview page shows older branch locators, so 16-branch evidence rests on the build-instructions page until Gerrit is inspected at sync",
       "id": "fairphone-odm",
       "public_verifier_ref": "Fairphone Gerrit manifest + repo sync",
       "release_channel": "ODM public branches",
@@ -71,13 +71,46 @@
     {
       "applicability": "Reference only. Inherited deps reviewed in device source inventory; Pixel/GOS assumptions not portable by default.",
       "authoritative_url": "https://github.com/LineageOS/android_device_fairphone_FP6",
-      "current_revision": "Branch lineage-23.2 (Android 16, kernel 6.1); nightly 20260907 observed; commit TBD",
+      "current_revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5 (lineage-23.2 HEAD observed 2026-09-10 via GitHub API; 2026-09-02; message references FP6.QREL.16.104.0)",
       "discovery_method": "GitHub + wiki + downloads fetch 2026-09-10",
       "id": "lineage-fp6-ref",
       "public_verifier_ref": "LineageOS git + signed nightly hashes",
       "release_channel": "lineage-23.2 nightly",
       "support_evidence_ref": "Wiki maintainers ArianK16a/mikeioannina; OS patch Aug 2026 observed",
-      "verification_method": "NOT YET RUN — branch/commit record when consumed"
+      "verification_method": "WEAKER (justified): HTTPS API observation; commit carries a valid SSH signature per GitHub API. Detection only; pin at consumption."
+    },
+    {
+      "id": "linux-stable-6_1",
+      "authoritative_url": "https://www.kernel.org/category/releases.html",
+      "discovery_method": "Not yet consulted for dates; record exists so ACK coverage is not single-sourced",
+      "verification_method": "Recheck LTS EOL at support reviews; no date asserted here",
+      "public_verifier_ref": "kernel.org LTS page at review time",
+      "current_revision": "6.1 LTS series (exact stable point TBD at kernel sync)",
+      "release_channel": "kernel.org longterm 6.1",
+      "applicability": "Bounds ACK-6.1 Alcove; recheck before launch and at support reviews",
+      "support_evidence_ref": "TBD (recheck, not December-2027 assumption)"
+    },
+    {
+      "id": "vendor-modules-support",
+      "authoritative_url": "https://code.fairphone.com/projects/fairphone-gen-6/kernel.html",
+      "discovery_method": "Fairphone kernel-repositories page lists module/DT repos; per-module source availability is device source inventory recon",
+      "verification_method": "device source inventory maps each module (incl. WLAN/audio) to source or explicit prebuilt",
+      "public_verifier_ref": "Fairphone kernel page + Gerrit at sync",
+      "current_revision": "Per-module TBD (device source inventory)",
+      "release_channel": "Fairphone ODM branches",
+      "applicability": "Determines GKI-rebase flexibility; closed UAPI coupling kills branch moves",
+      "support_evidence_ref": "Module-page listing + device source inventory inventory (pending)"
+    },
+    {
+      "id": "browser-lifecycle",
+      "authoritative_url": "https://grapheneos.org/releases",
+      "discovery_method": "GrapheneOS release cadence: Vanadium tracks Chromium stable (~2 weeks + out-of-band security)",
+      "verification_method": "Mirror contract verified in CT and browser-component delivery / browser APK delivery; freshness independent of OS monthlies",
+      "public_verifier_ref": "Upstream release feed polled at most hourly, served from own mirror",
+      "current_revision": "TBD at browser APK delivery (preserve upstream signatures, never re-sign)",
+      "release_channel": "Chromium stable via Vanadium",
+      "applicability": "Browser/WebView security must not wait for monthly OS releases",
+      "support_evidence_ref": "Upstream feed + mirror freshness alerts (browser APK delivery)"
     }
   ]
 }

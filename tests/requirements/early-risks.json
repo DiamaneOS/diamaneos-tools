@@ -1,1 +1,167 @@
-{"note": "Early risk/fixture inventory only. Unknowns assigned, never passed. Full clause coverage completes in release test gates / manual compatibility qualification.", "risks": [{"applicability": "If CDD/CTS mandate weak-credential acceptance", "expected": "Policy enforced on every independent challenge via service boundary; no hidden test bypass", "fixture": "harness + disposable credentials", "id": "R1-passphrase-only", "method": "credential/setup/profile tests vs exact requirement text", "owner": "FP6-071", "phase": "early-port", "requirement": "Passphrase-first vs credential/device-management/profile cases", "status": "UNRESOLVED-investigate"}, {"applicability": "Custom-key relock on FP6 firmware", "expected": "Locked yellow boot, Flags 0, rollback enforced; ability-0 refuses", "fixture": "harness FP6 + recovery preflight runbook", "id": "R2-locked-boot", "method": "relock/rollback/downgrade-rejection tests", "owner": "FP6-050", "phase": "early-port", "requirement": "Verified boot + rollback + AVB chain", "status": "UNRESOLVED-hardware"}, {"applicability": "Framework-17 vs FP6 Android-16 vendor image", "expected": "Matrices/FCM hold or narrow reviewed shim; no SELinux weakening", "fixture": "builder + ODM sources", "id": "R3-vintf-fcm", "method": "manifest/hal inventory vs selected release", "owner": "FP6-024", "phase": "early-port", "requirement": "VINTF/FCM + vendor API assumptions", "status": "UNRESOLVED-recon"}, {"applicability": "All modules incl. WLAN/audio", "expected": "Rebuilt set or explicit prebuilt entries; KMI/UAPI deps recorded", "fixture": "builder", "id": "R4-modules", "method": "module/source/UAPI inventory", "owner": "FP6-024/041", "phase": "early-port", "requirement": "WLAN/audio module sources + closed-UAPI coupling", "status": "UNRESOLVED-recon"}, {"applicability": "DE carriers, physical SIM + eSIM lifecycle", "expected": "Stock-referenced APN/IMS; plan limits distinguished from OS defects", "fixture": "carrier rig (SIMs: none yet) + peer phone", "id": "R5-telephony-ims", "method": "ordinary call/SMS/data/IMS matrix; emergency only via controlled emergency-call validation route", "owner": "FP6-023/044", "phase": "bring-up", "requirement": "Telephony/IMS/VoLTE/VoWiFi/carrier config", "status": "UNRESOLVED-rig"}, {"applicability": "Advertised lenses/modes", "expected": "Functional bring-up; ITS fixture need decided early", "fixture": "Camera ITS rig TBD (no purchase in this task)", "id": "R6-camera-its", "method": "stock-referenced capture + ITS applicability/fixture decision", "owner": "FP6-045/091", "phase": "bring-up", "requirement": "Camera HAL + Camera ITS/specialist coverage", "status": "UNRESOLVED-fixture"}, {"applicability": "Owner/secondary/profile challenges", "expected": "CE/DE + BFU/AFU semantics proven; duress stated as flash key-destruction", "fixture": "harness + synthetic canaries", "id": "R7-encryption", "method": "reboot/stop/switch/duress tests", "owner": "FP6-046", "phase": "early-port", "requirement": "Encryption/credential/profile + StrongBox-absent limits", "status": "UNRESOLVED-hardware"}, {"applicability": "Per shipped modules/update model and suite access", "expected": "Sourced applicable/inapplicable decision each; GSI/diagnostic never stands in for final-system acceptance", "fixture": "harness tooling at compatibility harness integration", "id": "R8-gsi-mts-sts", "method": "applicability review at harness binding", "owner": "FP6-037", "phase": "harness", "requirement": "CTS-on-GSI + modular/MTS + STS/AutoRepro/CVE regressions", "status": "UNRESOLVED-deferred"}, {"applicability": "Claimed locales + assistive tools", "expected": "Critical flows reviewed + manual device evidence; no coverage-% claims", "fixture": "assistive tools + fluent reviewers (accessible journey validation)", "id": "R9-a11y-l10n", "method": "affected-flow manual checks per localization and accessibility workflow", "owner": "FP6-096", "phase": "beta+", "requirement": "Accessibility/localization critical journeys", "status": "UNRESOLVED-assigned"}], "schema_version": 1}
+{
+  "note": "Early risk/fixture inventory only. Unknowns assigned, never passed. Full clause coverage completes in release test gates / manual compatibility qualification.",
+  "risks": [
+    {
+      "applicability": "If CDD/CTS mandate weak-credential acceptance",
+      "expected": "Policy enforced on every independent challenge via service boundary; no hidden test bypass",
+      "fixture": "harness + disposable credentials",
+      "id": "R1-passphrase-only",
+      "method": "credential/setup/profile tests vs exact requirement text",
+      "owner": "FP6-071",
+      "phase": "early-port",
+      "requirement": "Passphrase-first vs credential/device-management/profile cases",
+      "status": "UNRESOLVED-investigate",
+      "requirement_source": "CDD \u00a79.11 Keys and Credentials + \u00a79.5 Multi-User Support (https://source.android.com/docs/compatibility/17/android-17-cdd); CTS device-policy/profile families (exact module IDs bound at compatibility harness integration from the installed package). \u00a79.11.1-style conditions are the investigation starting point, not proof of incompatibility.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Custom-key relock on FP6 firmware",
+      "expected": "Locked yellow boot, Flags 0, rollback enforced; ability-0 refuses",
+      "fixture": "harness FP6 + recovery preflight runbook",
+      "id": "R2-locked-boot",
+      "method": "relock/rollback/downgrade-rejection tests",
+      "owner": "FP6-050",
+      "phase": "early-port",
+      "requirement": "Verified boot + rollback + AVB chain",
+      "status": "UNRESOLVED-hardware",
+      "requirement_source": "CDD \u00a79.10 Device Integrity + AOSP verified-boot flow (https://source.android.com/docs/security/features/verifiedboot/boot-flow); AVB/rollback behavior proven on hardware in custom-key relock validation.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Framework-17 vs FP6 Android-16 vendor image",
+      "expected": "Matrices/FCM hold or narrow reviewed shim; no SELinux weakening",
+      "fixture": "builder + ODM sources",
+      "id": "R3-vintf-fcm",
+      "method": "manifest/hal inventory vs selected release",
+      "owner": "FP6-024",
+      "phase": "early-port",
+      "requirement": "VINTF/FCM + vendor API assumptions",
+      "status": "UNRESOLVED-recon",
+      "requirement_source": "CDD device/architecture + Treble/VINTF requirements; VTS vendor/HAL checks (https://source.android.com/docs/core/tests/vts). Exact modules bound at compatibility harness integration.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "All modules incl. WLAN/audio",
+      "expected": "Rebuilt set or explicit prebuilt entries; KMI/UAPI deps recorded",
+      "fixture": "builder",
+      "id": "R4-modules",
+      "method": "module/source/UAPI inventory",
+      "owner": "FP6-024/041",
+      "phase": "early-port",
+      "requirement": "WLAN/audio module sources + closed-UAPI coupling",
+      "status": "UNRESOLVED-recon",
+      "requirement_source": "CDD kernel/vendor + VTS kernel checks; KMI/UAPI evidence from device source inventory / kernel and module integration builds.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "DE carriers, physical SIM + eSIM lifecycle",
+      "expected": "Stock-referenced APN/IMS; plan limits distinguished from OS defects",
+      "fixture": "carrier rig (SIMs: none yet) + peer phone",
+      "id": "R5-telephony-ims",
+      "method": "ordinary call/SMS/data/IMS matrix; emergency only via controlled emergency-call validation route",
+      "owner": "FP6-023/044",
+      "phase": "bring-up",
+      "requirement": "Telephony/IMS/VoLTE/VoWiFi/carrier config",
+      "status": "UNRESOLVED-rig",
+      "requirement_source": "CDD \u00a72 Device Types (telephony) + \u00a77 Hardware (radio); carrier behavior proven on the rig in carrier testing / telephony and audio bring-up, never assumed from plan names.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Advertised lenses/modes",
+      "expected": "Functional bring-up; ITS fixture need decided early",
+      "fixture": "Camera ITS rig TBD (no purchase in this task)",
+      "id": "R6-camera-its",
+      "method": "stock-referenced capture + ITS applicability/fixture decision",
+      "owner": "FP6-045/091",
+      "phase": "bring-up",
+      "requirement": "Camera HAL + Camera ITS/specialist coverage",
+      "status": "UNRESOLVED-fixture",
+      "requirement_source": "CDD \u00a77 Hardware (camera) + Camera ITS (https://source.android.com/docs/compatibility/cts/camera-its). Fixture need decided early; a passing preview is not ITS evidence.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Owner/secondary/profile challenges",
+      "expected": "CE/DE + BFU/AFU semantics proven; duress stated as flash key-destruction",
+      "fixture": "harness + synthetic canaries",
+      "id": "R7-encryption",
+      "method": "reboot/stop/switch/duress tests",
+      "owner": "FP6-046",
+      "phase": "early-port",
+      "requirement": "Encryption/credential/profile + StrongBox-absent limits",
+      "status": "UNRESOLVED-hardware",
+      "requirement_source": "CDD \u00a79.9 Data Storage Encryption + \u00a79.5 Multi-User + \u00a79.11 Keys; duress/file-remanence limits stated per threat model.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Per shipped modules/update model and suite access",
+      "expected": "Sourced applicable/inapplicable decision each; GSI/diagnostic never stands in for final-system acceptance",
+      "fixture": "harness tooling at compatibility harness integration",
+      "id": "R8-gsi-mts-sts",
+      "method": "applicability review at harness binding",
+      "owner": "FP6-037",
+      "phase": "harness",
+      "requirement": "CTS-on-GSI + modular/MTS + STS/AutoRepro/CVE regressions",
+      "status": "UNRESOLVED-deferred",
+      "requirement_source": "DECISION (sourced, execution at compatibility harness integration / per-release compatibility qualification): CTS-on-GSI is diagnostic-only per https://source.android.com/docs/core/tests/vts/gsi and never stands in for final-system acceptance; MTS/ExtServices assessed against shipped modules per https://source.android.com/docs/core/ota/modular-system/extservices and https://android.googlesource.com/platform/test/mts/ ; STS/AutoRepro CVE regressions (https://source.android.com/docs/security/test/autorepro) run where applicable to shipped components, gaps explicit. Inaccessible partner suites are never claimed complete.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    },
+    {
+      "applicability": "Claimed locales + assistive tools",
+      "expected": "Critical flows reviewed + manual device evidence; no coverage-% claims",
+      "fixture": "assistive tools + fluent reviewers (accessible journey validation)",
+      "id": "R9-a11y-l10n",
+      "method": "affected-flow manual checks per localization and accessibility workflow",
+      "owner": "FP6-096",
+      "phase": "beta+",
+      "requirement": "Accessibility/localization critical journeys",
+      "status": "UNRESOLVED-assigned",
+      "requirement_source": "CDD accessibility/UX sections + project flow matrix (accessible journey validation); manual device evidence required, scanners insufficient.",
+      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "result_ref": null,
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+    }
+  ],
+  "schema_version": 1,
+  "fixture_families": [
+    {
+      "family": "Linux harness host + USB",
+      "availability": "test mini PC shipped, not arrived; builder shipped",
+      "lead_time": "on arrival (test-host setup)",
+      "decision": "no purchase in this task; serial use acceptable"
+    },
+    {
+      "family": "SIMs/eSIM + peer phone",
+      "availability": "none yet; Pixel 2 peer available",
+      "lead_time": "acquire with carrier testing matrix",
+      "decision": "deferred, no bookkeeping here"
+    },
+    {
+      "family": "Camera ITS rig + audio/media/sensor fixtures",
+      "availability": "TBD at compatibility harness integration",
+      "lead_time": "decide early per R6; expense is not non-applicability",
+      "decision": "compatibility harness integration binds"
+    },
+    {
+      "family": "Manual skills (Verifier observation, assistive tech, locales)",
+      "availability": "owner + 2nd maintainer + beta reviewers later",
+      "lead_time": "recruit with accessible journey validation / closed beta testing",
+      "decision": "no live emergency calls, ever (controlled emergency-call validation route only)"
+    }
+  ]
+}
