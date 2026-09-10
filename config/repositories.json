@@ -6,9 +6,9 @@
       "id": "tools",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/diamaneos-tools.git",
-      "revision": null,
+      "revision": "5d5c42d3160ee01cc9c05eea6fec7bb19c1d36ec",
       "slug": "diamaneos-tools",
-      "state": "planned",
+      "state": "pinned",
       "upstream_url": null
     },
     {
@@ -16,9 +16,9 @@
       "id": "manifest",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/platform_manifest.git",
-      "revision": null,
+      "revision": "8d30cbb79365b932e65032f662c1a11902a97b33",
       "slug": "platform_manifest",
-      "state": "planned",
+      "state": "pinned",
       "upstream_url": "https://github.com/GrapheneOS/platform_manifest"
     },
     {
@@ -136,9 +136,9 @@
       "id": "installer",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/installer.git",
-      "revision": null,
+      "revision": "5471a4084e6c89d8b24f067539e9184fc4aea6b0",
       "slug": "installer",
-      "state": "planned",
+      "state": "pinned",
       "upstream_url": null
     },
     {

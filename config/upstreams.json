@@ -5,7 +5,7 @@
     {
       "applicability": "Proposed maintained port-appropriate base. Compatibility vs FP6 Android-16 vendor UNPROVEN until device source inventory / FP6 product integration / early compatibility qualification build/device checks .",
       "authoritative_url": "https://github.com/GrapheneOS/platform_manifest",
-      "current_revision": "75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (branch 17 HEAD observed 2026-09-10 via GitHub API; committer Daniel Micay 2026-09-09)",
+      "current_revision": "75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (branch 17 HEAD observed 2026-09-10 via GitHub API; committer Daniel Micay 2026-09-09) Preserved byte-identical in WORK_ROOT/manifest/default.xml (verified zero-diff 2026-09-10); per-fork HEAD SHAs in WORK_ROOT/manifest/upstream-pins-2026-09-10.json (123 grapheneos + 2 gitlab, all resolved).",
       "discovery_method": "GitHub commits API 2026-09-10 + branch list; default.xml content fetched at this SHA (112460 bytes, 1057 projects, aosp default refs/tags/android-17.0.0_r1) into WORK_ROOT/manifest",
       "id": "grapheneos-manifest",
       "public_verifier_ref": "GrapheneOS signed tags; keys sourced independently at sync",
@@ -82,13 +82,13 @@
     {
       "id": "linux-stable-6_1",
       "authoritative_url": "https://www.kernel.org/category/releases.html",
-      "discovery_method": "Not yet consulted for dates; record exists so ACK coverage is not single-sourced",
+      "discovery_method": "kernel.org releases feed consulted 2026-09-10",
       "verification_method": "Recheck LTS EOL at support reviews; no date asserted here",
       "public_verifier_ref": "kernel.org LTS page at review time",
-      "current_revision": "6.1 LTS series (exact stable point TBD at kernel sync)",
+      "current_revision": "6.1.y longterm active (6.1.187 observed 2026-09-10, iseol=false)",
       "release_channel": "kernel.org longterm 6.1",
       "applicability": "Bounds ACK-6.1 Alcove; recheck before launch and at support reviews",
-      "support_evidence_ref": "TBD (recheck, not December-2027 assumption)"
+      "support_evidence_ref": "No EOL date stated in feed; ACK android14-6.1 support end 2029-07-01 (Android ACK lifecycle). Recheck both at launch/support reviews."
     },
     {
       "id": "vendor-modules-support",
