@@ -1,0 +1,1 @@
+{"environment": {"source": "synthetic-fixture"}, "inputs": {"dumpsys telephony.registry": {"returncode": 0, "stdout": "mServiceState=...[TRUNCATED]"}}, "os_build": "synthetic", "run_id": "fixture-truncated", "tool_versions": {"adb": "36.0.0"}, "utc_time": "fixture"}
