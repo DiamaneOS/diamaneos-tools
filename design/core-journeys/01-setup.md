@@ -1,32 +1,57 @@
-# Journey 1 — Setup (interface design prototype, synthetic data)
+# 01 — Setup
 
-Entry: first boot → SetupWizard2. Goal: finish setup with passphrase,
-defaults, optional compatibility — resumable, no cloud account.
-Implementation card: passphrase onboarding / credential-policy enforcement. Inherited path: GOS SetupWizard2 (+accessible journey validation
-assistive path); compare before adding screens.
+Proposed interface design mockup. Owners: passphrase onboarding / credential-policy enforcement / accessible journey validation. Pages: `setup`, `review`,
+`practice`, `setupDone`. All words are public examples.
 
-Normal path: welcome → language (default English, German offered) →
-passphrase generate (6–8 words) → deliberate review → practice/confirm →
-biometric explainer (optional, never mandatory) → defaults (Standard preset
-pre-selected, changeable) → optional compatibility (Accrescent/UnifiedPush/
-sandboxed-Play pointers) → done. Progress shown as step x/y; Back resumes,
-never loses completed steps; cancel before credential commit leaves no
-credential (passphrase onboarding states).
+## Intent and inherited comparison
 
-States: loading (word-list check) → error with retry, never a weak fallback;
-empty N/A; passphrase screen blocks screenshots/recents; loss/recovery limits
-stated honestly. Failure state: failed update-check or unavailable control →
-actionable message + Skip-for-now + retry, never a dead end (pattern).
+Entry: first boot. Goal: understand passphrase setup and finish a short,
+accessible flow. Preserve SetupWizard2 and platform credential APIs. The
+proposal changes hierarchy, deliberate review and contextual practice, not
+credential authority. Compare the inherited stage before adding screens.
 
-Keyboard/SR : order welcome→language→generate→review→confirm→defaults→
-done; every primary action labeled (e.g. "Generate new passphrase",
-"Review words aloud off by default"); credential review is deliberate
-opt-in, no auto-announcement; errors move focus + announce recovery action.
+## Path and states
 
-Locale: long German strings + RTL layout + 200% text verified in annotation;
-critical wording needs fluent review or disclosed source-language fallback.
-Non-gesture: all actions reachable by tap/keyboard/switch; no timed step.
+Welcome → deliberate review → practice → completion → Home. Primary controls
+stay low when content fits; accessibility/language is available before review.
 
-Reuse : SetupWizard2 resources + shared buttons/cards from token set;
-no new privileged service — credential commit uses normal platform APIs only.
-New screens only where prototype proves ordinary Settings cannot do the job.
+| State | Behavior | Exit / recovery |
+| --- | --- | --- |
+| Not started | Welcome and no account requirement | Start or Home |
+| Ready | Words hidden; restart, optional fingerprint and loss consequences | Intentional reveal |
+| Reviewed | Six numbered public words and hide action | Practice or hide |
+| Practice | Identify a word from the example | Incorrect choice → retry/review; correct fixture → completion |
+| Complete | Selected Standard defaults and completion | Home |
+| Loading | Preparing setup with an exit | Back/Home; Normal scenario to continue |
+| Failure/unavailable | Nothing set; retry available | Retry to review; never a weak fallback |
+| Empty | No empty-credential success | Remain before commit |
+
+Practice demonstrates an incorrect answer and recovery; it is not production
+confirmation. passphrase onboarding must confirm the entire phrase through the real adapter
+after freezing word list, count, edit policy and accessible input. Generation
+remains 6–8 independent words from an audited list using the platform CSPRNG.
+No credential is set here and there is no test-only policy exception.
+
+Back before commit leaves no new credential. Native recreation must restart
+the sensitive portion without persisting secrets, retaining only non-secret
+progress. Home clears displayed fixture review. Back from practice must not
+auto-announce words. Screenshot/recents protection requires native work.
+
+## Focus and locale
+
+Order: navigation → context → reveal/hide → practice → completion. Words are
+not live-announced; deliberate reveal exposes numbered words to the reading
+cursor. Errors have retry and review. Native spoken review must work without
+requiring sight or compulsory biometrics.
+
+Large text stacks the word grid. This English example keeps its word order
+left-to-right during RTL stress. A localized list needs appropriate direction
+metadata. German is partial draft copy. Loss/generation/confirmation wording
+requires fluent critical-string review.
+
+## Implementation mapping
+
+Resources/app components: type, colours, spacing, copy, shared controls.
+Narrow SetupWizard2/Settings integration: review, practice and real commit
+states under passphrase onboarding / credential-policy enforcement. Secret lifecycle, strong authentication and profile
+enforcement remain mandatory. No new service or privilege for visual reuse.
