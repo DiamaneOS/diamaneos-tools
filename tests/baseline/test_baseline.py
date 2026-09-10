@@ -35,6 +35,8 @@ if args == ["devices"]:
     emit("List of devices attached\\nFAKE123\\tdevice\\n"); sys.exit(0)
 assert args[:2] == ["-s", "FAKE123"] and args[2] == "shell", args
 cmd = " ".join(args[3:])
+if mode == "deny-all":
+    sys.stderr.write("Permission denied\\n"); sys.exit(1)
 if mode == "sleep-shell":
     time.sleep(30)
 if cmd == "getprop":
@@ -158,18 +160,18 @@ class BaselineTest(unittest.TestCase):
         return path
 
     def _live(self, mode, **kw):
+        # run_cmd uses Popen, which inherits os.environ: set FAKE_MODE
+        # around the call instead of patching subprocess.
         adb = self._fake()
-        env = dict(os.environ, FAKE_MODE=mode)
-        # live_capture uses run_cmd -> subprocess; inject env via wrapper
-        old_run = subprocess.run
-        def patched(*a, **k):
-            k.setdefault("env", env)
-            return old_run(*a, **k)
-        subprocess.run = patched
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = mode
         try:
             return live_capture("FAKE123", adb=adb, timeout=10, **kw)
         finally:
-            subprocess.run = old_run
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
 
     def test_live_ok_via_fake_transport(self):
         code, rep = self._live("ok")
@@ -198,16 +200,15 @@ class BaselineTest(unittest.TestCase):
 
     def test_live_timeout_controlled(self):
         adb = self._fake()
-        env = dict(os.environ, FAKE_MODE="sleep-shell")
-        old_run = subprocess.run
-        def patched(*a, **k):
-            k.setdefault("env", env)
-            return old_run(*a, **k)
-        subprocess.run = patched
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "sleep-shell"
         try:
             code, rep = live_capture("FAKE123", adb=adb, timeout=1)
         finally:
-            subprocess.run = old_run
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
         self.assertEqual(code, 0)
         timeouts = [c for c in rep["cases"] if c["observed"] == "timeout"]
         self.assertTrue(timeouts, rep)
@@ -221,6 +222,99 @@ class BaselineTest(unittest.TestCase):
         code, rep = live_capture("FAKE123", adb="/nonexistent/adb-xyz",
                                  timeout=5)
         self.assertEqual(code, 3)
+
+    # --- public envelope carries no identity or location fields ---
+    def test_full_report_has_no_serial(self):
+        code, rep = self._live("ok")
+        self.assertEqual(code, 0)
+        self.assertNotIn("FAKE123", json.dumps(rep))
+
+    def test_location_lines_dropped(self):
+        out = ("mServiceState voiceRegState=0 operatorNumeric=26201\n"
+               "mTac=26201 mCi=12345678 mPci=42\n")
+        c = classify(("dumpsys", "telephony.registry"), 0, out, "")
+        self.assertNotIn("12345678", c["observed"])
+        self.assertIn("26201", c["observed"])
+        self.assertGreater(c.get("dropped_sensitive", 0), 0)
+
+    def test_gfxinfo_keeps_stats_drops_names(self):
+        out = "package: com.example.app\nframes rendered: 60\n"
+        c = classify(("dumpsys", "gfxinfo"), 0, out, "")
+        self.assertNotIn("com.example.app", c["observed"])
+        self.assertIn("60", c["observed"])
+
+    # --- bounds hold while reading ---
+    def test_stdout_overflow_bounded(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c", "import sys; sys.stdout.write('x'*600000)"],
+            timeout=30)
+        self.assertEqual(res["transport"], "overflow")
+        self.assertLessEqual(len(res["stdout"]), baseline.MAX_OUTPUT_BYTES)
+
+    def test_stderr_overflow_bounded(self):
+        res = baseline.run_cmd(
+            [sys.executable, "-c", "import sys; sys.stderr.write('y'*600000)"],
+            timeout=30)
+        self.assertEqual(res["transport"], "overflow")
+
+    # --- failures keep their meaning ---
+    def test_permission_denied_stays_error(self):
+        c = classify(("getprop",), 1, "", "Permission denied")
+        self.assertEqual(c["status"], "error")
+        self.assertIn("Permission denied", c["observed"])
+
+    def test_unknown_operator_stays_ok(self):
+        c = classify(("dumpsys", "telephony.registry"), 0,
+                     "mServiceState voiceRegState=0 operatorNumeric=unknown\n",
+                     "")
+        self.assertEqual(c["status"], "ok")
+
+    def test_live_deny_all_partial(self):
+        code, rep = self._live("deny-all")
+        self.assertEqual(code, 0)
+        self.assertEqual(rep["collection_status"], "partial")
+        self.assertTrue(all(c["status"] == "error" for c in rep["cases"]))
+        self.assertIn("Permission denied", rep["cases"][0]["observed"])
+
+    # --- evidence cannot silently change ---
+    def test_raw_dir_reuse_refused(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "ok"
+        try:
+            root = tempfile.mkdtemp(prefix="rawdir-")
+            code1, rep1 = live_capture("FAKE123", adb=adb, timeout=10,
+                                       run_id="run-one", raw_dir=root)
+            self.assertEqual(code1, 0)
+            code2, rep2 = live_capture("FAKE123", adb=adb, timeout=10,
+                                       run_id="run-one", raw_dir=root)
+            self.assertEqual(code2, 3)
+            self.assertIn("not empty", rep2["observed"])
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
+
+    def test_evidence_refs_carry_hashes(self):
+        import tempfile
+        adb = self._fake()
+        prev = os.environ.get("FAKE_MODE")
+        os.environ["FAKE_MODE"] = "ok"
+        try:
+            root = tempfile.mkdtemp(prefix="rawhash-")
+            code, rep = live_capture("FAKE123", adb=adb, timeout=10,
+                                     run_id="run-h", raw_dir=root)
+            self.assertEqual(code, 0)
+            self.assertTrue(all("@sha256:" in c["evidence_refs"][0]
+                                for c in rep["cases"]
+                                if c["evidence_refs"]))
+        finally:
+            if prev is None:
+                os.environ.pop("FAKE_MODE", None)
+            else:
+                os.environ["FAKE_MODE"] = prev
 
 
 if __name__ == "__main__":
