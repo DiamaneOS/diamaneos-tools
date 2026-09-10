@@ -3,18 +3,30 @@
 ## baseline capture baseline collectors (fixture-only, no hardware)
 
 ```sh
-python3 -m unittest discover -s tests/baseline -v
+python3 -m unittest discover -s tests -v
 python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
-python3 src/diamaneos_tools/baseline.py --dry-run
+bin/diamaneos baseline capture --dry-run
 ```
+
+Live command (UNRUN on hardware; proven via fake-adb transport in
+tests/baseline, 13 live-path tests):
+
+```sh
+bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
+  --raw-dir <PRIVATE_ROOT>/runs/<run-id>/ --output report.json
+```
+
+Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
+evidence refs; without --raw-dir the run is ephemeral (not accepted
+evidence). Public reports carry a device alias only; serials stay private.
+31 baseline + 3 CLI tests green on Mac; device runs stay UNRUN.
 
 5 fixtures prove the contract: valid→ok, truncated/timeout→error (never
 averaged as zero), missing command→unsupported , sensitive→IMEI/serial/
 ICCID redacted with context preserved ; ambiguous target refuses before any
 adb command . Live capture (`--target`) stays UNRUN until a real FP6 is
-connected. Host timeout bound: 20s per adb call (safety bound, not a device
-claim). Large traces/samples stay outside git with hashes. CLI exposure as
-`bin/diamaneos baseline capture` arrives with the first CLI-wiring task.
+connected. Host timeout bound: 20s per adb call plus 256KB streaming byte cap
+(safety bounds, not device claims). Large traces/samples stay outside git with hashes.
 
 ## compatibility planning compatibility target (provisional, design only; no device evidence)
 

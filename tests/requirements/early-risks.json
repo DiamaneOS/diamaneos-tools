@@ -11,10 +11,11 @@
       "phase": "early-port",
       "requirement": "Passphrase-first vs credential/device-management/profile cases",
       "status": "UNRESOLVED-investigate",
-      "requirement_source": "CDD \u00a79.11 Keys and Credentials + \u00a79.5 Multi-User Support (https://source.android.com/docs/compatibility/17/android-17-cdd); CTS device-policy/profile families (exact module IDs bound at compatibility harness integration from the installed package). \u00a79.11.1-style conditions are the investigation starting point, not proof of incompatibility.",
-      "applicability_decision": "UNRESOLVED (see requirement_source; exact clauses bound with harness)",
+      "requirement_source": "CDD \u00a79.11 Keys and Credentials (\u00a79.11.1 Secure Lock Screen: mandates found concern trust-agent re-auth H-1-1, not credential acceptance), \u00a79.5 Multi-User, \u00a73.9 Device Administration (policy APIs), \u00a79.11.2 StrongBox (confirms TEE-only gap). Source: https://source.android.com/docs/compatibility/17/android-17-cdd (consulted 2026-09-10). CTS device-policy/profile families: exact module IDs bound at compatibility harness integration.",
+      "applicability_decision": "CONDITIONAL-PASS research: proceed to credential-policy enforcement enforcement tests; re-open on any conflicting clause found in full sweep",
       "result_ref": null,
-      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun"
+      "freshness_rule": "current candidate only; changed artifact/invalidate + rerun",
+      "analysis": "No CDD clause requiring weak-credential acceptance identified in this pass; the proposal restricts (never relaxes) credential choice, so the live risk is test-setup friction, not a mandate conflict. Full clause sweep + DevicePolicy/CTS binding stays with credential-policy enforcement / release test gates; scope/product change needs an explicit decision, never silent weakening."
     },
     {
       "applicability": "Custom-key relock on FP6 firmware",
