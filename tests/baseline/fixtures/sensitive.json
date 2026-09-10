@@ -1,0 +1,1 @@
+{"environment": {"source": "synthetic-fixture"}, "inputs": {"getprop": {"returncode": 0, "stdout": "[gsm.imei]: [490154203237518]\n[ro.serialno]: [FP6ABC123]\n[iccid]: [8949221100001234567]\n[ro.build.id]: [FP6.QREL.16.82.0]\n"}}, "os_build": "synthetic", "run_id": "fixture-sensitive", "tool_versions": {"adb": "36.0.0"}, "utc_time": "fixture"}

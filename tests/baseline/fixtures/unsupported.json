@@ -1,0 +1,1 @@
+{"environment": {"source": "synthetic-fixture"}, "inputs": {"dumpsys imsservice": {"returncode": 1, "stderr": "Can't find service: imsservice", "stdout": ""}}, "os_build": "synthetic", "run_id": "fixture-unsupported", "tool_versions": {"adb": "36.0.0"}, "utc_time": "fixture"}
