@@ -19,6 +19,19 @@ PIN-optional is not in v1. Passphrase-first is mandatory (passphrase onboarding 
 A future PIN-optional-with-warning change needs an explicit scope decision
 and renewed compatibility review; it is recorded only as a revisit condition.
 
+## v1 scope (standalone summary)
+
+Public launch waits for all of these on the final candidate plus the release
+gates (cadence, beta, qualification): DE/EU carrier configs; eSIM LPA;
+LineageOS-parity camera; passphrase-first setup and all-user enforcement;
+install-time privacy presets; on-device security status; battery suite
+(ceiling, health, cycle/export); encrypted microSD; DNS filtering; privacy
+dashboard; per-app routing/filtering; panic-to-BFU reboot; tracker alerts;
+cellular alerts-or-honest-unsupported; scheduled reboot; offline SD OTA;
+hardware diagnostics; share-time metadata stripping; UnifiedPush
+recommendation; WebUSB + CLI installers. Post-release ideas and conditional
+kernel/repair/AML research are explicitly not v1.
+
 ## Threat rows
 
 Columns: asset | attacker capability | entry point | intended mitigation |
