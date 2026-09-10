@@ -1,0 +1,1 @@
+{"environment": {"source": "synthetic-fixture"}, "inputs": {"getprop": {"timeout": true}}, "os_build": "synthetic", "run_id": "fixture-timeout", "tool_versions": {"adb": "36.0.0"}, "utc_time": "fixture"}
