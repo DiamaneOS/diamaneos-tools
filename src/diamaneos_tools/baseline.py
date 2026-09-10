@@ -289,26 +289,32 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
             exited = True
         if exited and eof_out and eof_err:
             break
-        if time.monotonic() >= deadline and not exited:
+        if time.monotonic() >= deadline:
+            # The deadline governs pipe draining too: a direct child that
+            # already exited must not leave us waiting on inherited pipes.
             proc.kill()
             result = {"transport": "timeout",
                       "reason": "timeout", "timeout_s": timeout}
             break
         time.sleep(0.005)
-    # Final bounded drain of whatever a dying child already emitted.
+    # One immediate drain pass only: collect what is already available for
+    # partial evidence, but never wait out a live descendant. A bounded wait
+    # here would reintroduce the inherited-pipe hang this deadline prevents.
     for fd, buf, done in ((proc.stdout.fileno(), out, eof_out),
                           (proc.stderr.fileno(), err, eof_err)):
         if done:
             continue
         try:
-            while True:
-                chunk = os.read(fd, 65536)
-                if not chunk:
-                    break
-                if len(buf) <= MAX_OUTPUT_BYTES:
-                    buf += chunk
+            chunk = os.read(fd, 65536)
         except (BlockingIOError, OSError):
-            pass
+            continue
+        if chunk == b"":
+            if fd == proc.stdout.fileno():
+                eof_out = True
+            else:
+                eof_err = True
+        elif len(buf) <= MAX_OUTPUT_BYTES:
+            buf += chunk
     for stream in (proc.stdout, proc.stderr):
         try:
             stream.close()

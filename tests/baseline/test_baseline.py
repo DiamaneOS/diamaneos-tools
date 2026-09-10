@@ -502,5 +502,19 @@ class BaselineTest(unittest.TestCase):
                 os.environ["FAKE_MODE"] = prev
 
 
+    def test_inherited_pipe_deadline_holds(self):
+        import time
+        child = ("import subprocess,sys; "
+                 "subprocess.Popen([sys.executable, '-c', "
+                 "'import time; time.sleep(1.0)']); "
+                 "print('parent finished', flush=True)")
+        start = time.monotonic()
+        res = baseline.run_cmd([sys.executable, "-c", child], timeout=0.1)
+        elapsed = time.monotonic() - start
+        self.assertEqual(res["transport"], "timeout")
+        self.assertIn("parent finished", res["stdout"])
+        self.assertLess(elapsed, 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

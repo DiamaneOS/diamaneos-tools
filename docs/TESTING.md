@@ -19,7 +19,7 @@ bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
 Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
 evidence refs; without --raw-dir the run is ephemeral (not accepted
 evidence). Public reports carry a device alias only; serials stay private.
-42 baseline + 3 CLI tests green; device runs stay UNRUN.
+43 baseline + 3 CLI tests green; device runs stay UNRUN.
 
 5 fixtures + fake-adb live-path tests prove the contract: valid→ok,
 truncated/timeout/overflow→error (never averaged as zero),
