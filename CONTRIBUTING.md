@@ -36,3 +36,18 @@ preserving parent AC. Source/format-only changes use review/validation, not ritu
   after the ceremony and never serve as routine MFA.
 - Account recovery details stay private (`PRIVATE_ROOT`); public records hold
   roles only, never codes/secrets. Credential changes require the responsible operator.
+
+## Translations and accessibility (localization and accessibility)
+
+- Source locale English (complete); German first priority — advertised only
+  after critical flows are reviewed. Other locales AI-assisted, never
+  advertised as fully reviewed. Low-risk AI drafts allowed after structural
+  checks; critical wording (credentials, permissions, erase, updates,
+  recovery, installation) ships only after fluent review, else disclosed
+  source-language fallback for that flow.
+- Suggest via Git (resource/docs paths, review branches only); report format:
+  app/screen, locale, affected text. No screenshot upload or personal content
+  by default; no contributor personal-data or disability disclosure required.
+  Translation path cannot touch code, keys, or production branches.
+- Accessibility issue reports welcome with the same format; manual assistive
+  checks happen on device (accessible journey validation), never proven by scanners alone.
