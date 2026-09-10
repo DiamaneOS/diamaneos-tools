@@ -1,0 +1,38 @@
+# Private and generated state — never commit
+/private/
+/diamaneos-private/
+*.log
+*.orig
+*.rej
+.DS_Store
+
+# Signing secrets and credentials — never in git
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*id_rsa*
+*id_ed25519*
+.env
+.env.*
+secrets*.json
+*token*.json
+*share*.txt
+SLIP39*.txt
+
+# Maintainer-private planning bundle and raw evidence
+*diamaneos-development-plan*.md
+*diamaneos-task-packets*/
+*TASK-AUDIT*.md
+baselines/*raw*/
+private-runs/
+artifacts/stock/
+devices/*/raw*
+
+# Build outputs and large checkouts (arrive with owning task)
+os/
+manifest/
+out/
+.cache/
