@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "report_type": "stock_hardware_acceptance",
+  "observed_on": "2026-09-11",
+  "handsets_observed": 1,
+  "device": {
+    "manufacturer": "Fairphone",
+    "model": "Fairphone 6",
+    "product": "FP6"
+  },
+  "stock_software": {
+    "build": "FP6.QREL.15.176.0",
+    "android_version": "15",
+    "security_patch": "2025-12-05"
+  },
+  "boot_state": {
+    "bootloader": "locked",
+    "verified_boot": "green",
+    "stock_build_unchanged": true
+  },
+  "outcome": "observed_checks_passed",
+  "components": [
+    {
+      "component": "display",
+      "status": "PASS",
+      "observation": "RGB display patterns and backlight checked visually.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "touch",
+      "status": "PASS",
+      "observation": "Stock touch pattern and two-finger photo zoom completed.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "power-button",
+      "status": "PASS",
+      "observation": "Physical key test and ordinary screen sleep/wake completed.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "volume-buttons",
+      "status": "PASS",
+      "observation": "Physical buttons responded in the stock key test.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "moments-switch",
+      "status": "PASS",
+      "observation": "Switch down opened Essentials; switch up returned Home.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "rear-main-camera",
+      "status": "PASS",
+      "observation": "Rear 1x focus, photo capture and saved-photo reopening worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "rear-ultrawide-camera",
+      "status": "PASS",
+      "observation": "Rear 0.6x wider view, photo capture and reopening worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "front-camera",
+      "status": "PASS",
+      "observation": "Front preview, photo capture and reopening worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "microphones",
+      "status": "PASS",
+      "observation": "Recorded speech and both stock microphone loopbacks worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "speakers-earpiece",
+      "status": "PASS",
+      "observation": "Video audio, both speaker melody tests and receiver test worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "wifi",
+      "status": "PASS",
+      "observation": "Association with an access point and internet traffic worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "bluetooth",
+      "status": "PASS",
+      "observation": "Audio played through a paired Bluetooth headset.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "charging",
+      "status": "PASS",
+      "observation": "Battery level rose from 92% to 97% over 8.1 minutes of wired charging.",
+      "evidence_method": "USB ADB commands"
+    },
+    {
+      "component": "usb-data",
+      "status": "PASS",
+      "observation": "A 4096-byte file was written and read back over USB ADB with identical SHA-256; its exact phone copy was deleted and absence verified.",
+      "evidence_method": "USB ADB commands"
+    },
+    {
+      "component": "internal-storage",
+      "status": "PASS",
+      "observation": "Synthetic file create/read/delete and camera photo save/reopen worked.",
+      "evidence_method": "USB ADB commands and operator observation on stock"
+    },
+    {
+      "component": "fingerprint",
+      "status": "PASS",
+      "observation": "Stock fingerprint setup and enrolled-finger unlocking worked.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "vibration",
+      "status": "PASS",
+      "observation": "Vibration was perceptible during the stock test.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "nfc",
+      "status": "PASS",
+      "observation": "An NFC security-key tag was read and its associated webpage opened.",
+      "evidence_method": "Operator observation on stock"
+    },
+    {
+      "component": "microSD",
+      "status": "NOT_RUN",
+      "reason": "No spare test card available."
+    },
+    {
+      "component": "call-sms",
+      "status": "PASS",
+      "observation": "An ordinary stock call and SMS messaging worked.",
+      "evidence_method": "Operator observation on stock"
+    }
+  ],
+  "limits": [
+    "Basic stock observations on the stated handset model and build.",
+    "Wi-Fi internet, Bluetooth headset audio, NFC tag interaction, call and SMS were operator-observed; individual radio bands, codecs, ranges and carrier scenarios were not fully qualified.",
+    "USB transfer used ADB; MTP and other USB modes were not separately qualified.",
+    "Measured camera/performance/battery baselines and custom-OS qualification are separate work.",
+    "Bootloader unlock, relock and stock restoration were not tested or approved by this report."
+  ]
+}
