@@ -48,7 +48,12 @@ were not available under the accepted locked, non-root capture. They remain
 unknown. Package contents are separately derived inputs and must not be
 misreported as device dumps.
 
-## Baseline collectors (fixture-only, no hardware)
+## Baseline collector
+
+The reusable test-host setup and isolation boundary are documented in the
+[test-host deployment recipe](../deploy/test-host/README.md).
+
+Fixture and dry-run checks do not touch hardware:
 
 ```sh
 python3 -m unittest discover -s tests/baseline -t .
@@ -56,8 +61,7 @@ python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.
 bin/diamaneos baseline capture --dry-run
 ```
 
-Live command (UNRUN on hardware; proven via fake-adb transport in
-tests/baseline, 13 live-path tests):
+Live command:
 
 ```sh
 bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
@@ -71,7 +75,8 @@ Graphics capture is fixed to `dumpsys gfxinfo com.android.systemui`. An
 unscoped `gfxinfo` query can enumerate enough installed-package state to
 exceed the bounded collector output, while SystemUI provides a stable,
 non-personal host-readiness target. The 256 KiB per-command cap still applies.
-The full-suite command below includes baseline, CLI and endpoint validation tests; device runs stay UNRUN.
+The full-suite command below includes baseline, CLI and endpoint validation
+tests; device runs remain separate hardware evidence.
 
 5 fixtures + fake-adb live-path tests prove the contract: valid→ok,
 truncated/timeout/overflow→error (never averaged as zero),
@@ -81,8 +86,13 @@ preserved (full-report checked, not just case fields); ambiguous target
 refuses before any adb command. Over-producers are killed at the byte
 cap (termination proven, not just detected); failed captures keep partial
 stdout+stderr evidence with hashes; device-gone stays error/partial, never
-unsupported-complete. Live capture (`--target`) remains UNRUN; standalone ADB
-checks do not establish collector acceptance. Host bounds: 20s per adb call plus 256KB streaming byte cap
+unsupported-complete. At collector revision
+`21ec91587ce47917cd92ab1c0d1277e26f643bef`, one stock Android 15 FP6 host
+acceptance run produced five `ok` cases, one explicit `unsupported` service and
+zero errors; its raw bundle and device identity remain private. That proves the
+bounded read-only capture path, not custom-OS compatibility or comparative
+performance. Standalone ADB checks do not establish collector acceptance. Host
+bounds: 20s per adb call plus 256KB streaming byte cap
 (byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
 git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
 
