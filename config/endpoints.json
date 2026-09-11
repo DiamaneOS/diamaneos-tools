@@ -1,0 +1,545 @@
+{
+  "schema_version": 1,
+  "note": "endpoint contract design endpoint/hosting contracts 2026-09-11. Paper specification from R11/Appendix B + account security / source research / manifest integration inputs; no provider signup, no provisioning, no device result claimed. Unknown protocol fields are explicit blockers owned by later tasks. Provisioning/verification happens in infrastructure staging; protocol blockers resolve in their owning tasks.",
+  "canonical_domain": "diamaneos.de",
+  "providers": [
+    {
+      "layer": "registrar",
+      "candidate": "INWX (alternates: united-domains, Netim)",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "authoritative-dns",
+      "candidate": "deSEC (alternate: self-hosted)",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "vps-primary",
+      "candidate": "Hetzner (alternate: netcup)",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "artifact-mirror-non-eu",
+      "candidate": "1984 Hosting Iceland (alternates: Switzerland, Norway)",
+      "jurisdiction": "IS",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "object-storage",
+      "candidate": "Hetzner Storage Box",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "git-primary",
+      "candidate": "Codeberg e.V.",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "git-backup",
+      "candidate": "self-hosted Forgejo on release VPS",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "git-mirror",
+      "candidate": "GitHub read-only mirror (issues/PRs disabled)",
+      "jurisdiction": "US",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "email",
+      "candidate": "TBD in support infrastructure (shortlist: mailbox.org, Posteo, Tuta)",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "monitoring",
+      "candidate": "self-hosted Uptime Kuma on release VPS",
+      "jurisdiction": "DE",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "cdn",
+      "candidate": "none at launch (revisit only on measured traffic need with privacy disclosure)",
+      "jurisdiction": "n/a",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    },
+    {
+      "layer": "cloudflare",
+      "candidate": "excluded entirely (CDN, DNS, registrar all US)",
+      "jurisdiction": "excluded",
+      "status": "candidate",
+      "verify_at": "FP6-101"
+    }
+  ],
+  "topology": {
+    "eu_primary": "EU (DE) primary hosts all OS endpoints and release origin; TLS terminated on own servers; no CDN at launch.",
+    "non_eu_mirror": "Independent non-EU mirror (IS candidate) serves identical signed artifacts + proof bundles; clients verify pinned signatures + rollback state; freshness + canonical channel selection monitored; mirror never authenticates first install by itself.",
+    "community_separation": "Community/federation hosts and credentials are separate from release/update infrastructure . A community-host compromise cannot administer release infrastructure: distinct hosts, distinct credentials, no shared admin path, no release secrets on community hosts.",
+    "management_path": "Protected management path independent of federation; actual host addresses, management access and secrets are private deployment inputs injected at infrastructure staging provisioning, never stored in this file."
+  },
+  "client_defaults": [
+    {
+      "name": "private-dns",
+      "default": "Quad9 (CH) as explicit Private DNS/DoT default; dns0.eu (FR) optional candidate subject to availability check",
+      "jurisdiction": "non-eu-direct-exception",
+      "disclosure": "Quad9 is an explicit non-EU default exception to the EU-primary posture; shown in Settings + public endpoint table with supported alternatives. Never justified by claims about a country's treatment of privacy projects.",
+      "owner_task": "FP6-079"
+    },
+    {
+      "name": "authenticated-time",
+      "default": "PTB Braunschweig + Netnod candidates under multi-source agreement policy (6 sources, >=3 agreeing)",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "disclosure": "Sources verified for protocol/terms/availability in time and connectivity integration before provisioning; standard-server alternative kept visible.",
+      "owner_task": "FP6-102"
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "os-updates",
+      "upstream_host": "releases.grapheneos.org",
+      "replacement_host": "releases.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "OS Updater (pinned release client)",
+      "consumer_version": "pinned at release publication release instance",
+      "purpose": "Signed full/incremental OTA + factory image metadata and bytes for the FP6 port",
+      "protocol": "Existing Updater metadata/verification contract; exact metadata schema, channel selection and proof-bundle verification frozen in release publication from the pinned client.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Exact Updater metadata schema, channel/rollback rules and transparency proof verification must be traced from the pinned Updater client before server behavior is frozen.",
+        "owner_task": "FP6-128"
+      },
+      "path_method": "TBD from pinned client trace (release publication); replacement serves under releases.diamaneos.de only.",
+      "request_fields": [
+        "device",
+        "version",
+        "channel"
+      ],
+      "response_fields": [
+        "target-version",
+        "package-url",
+        "package-hash",
+        "proof-bundle-ref"
+      ],
+      "verification_root": "DiamaneOS release signing keys (ceremony release key ceremony); devices pin release certs + enforce rollback policy; first-install trust via independent AVB fingerprint comparison, never the origin page alone.",
+      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; exact values frozen by release publication before activation; never retry-forever.",
+      "cache_freshness": "Immutable artifacts cached indefinitely by hash; channel selection metadata has explicit freshness; stale selection never auto-promotes.",
+      "failure_fallback": "Invalid OTA signature: hard reject. Missing transparency proof: v1 documented warning policy (observation, not prevention). Forbidden downgrade: reject with supported recovery guidance. Offline: signed microSD path (offline signed OTA) through the same trusted pipeline.",
+      "exposed_data": "Device model/version/channel + IP (unavoidable); mirror/CDN-free origin sees request IPs \u2014 disclosed on privacy page.",
+      "retention": "Server request logs: none, or <=24h where operationally justified (privacy page states actual).",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-128",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "apps-catalog",
+      "upstream_host": "apps.grapheneos.org",
+      "replacement_host": "apps.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "Forked Apps client with own signify key + repo URL (Apps repository integration)",
+      "consumer_version": "fork revision pinned at Apps repository integration",
+      "purpose": "Authenticated app catalog metadata + package bytes (first-party rebuilds under project keys; permitted unmodified upstream mirrors retain upstream certs)",
+      "protocol": "Pinned upstream client catalog/signify protocol; narrow branding/endpoint changes only. Exact metadata schema + verification key frozen at Apps repository integration fork.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Bind the pinned Apps client catalog/signify protocol, package identities and key-pinning before freezing server metadata format.",
+        "owner_task": "FP6-110"
+      },
+      "path_method": "TBD from pinned client trace (Apps repository integration); replacement serves under apps.diamaneos.de only.",
+      "request_fields": [
+        "package",
+        "installed-version",
+        "os-version",
+        "abi"
+      ],
+      "response_fields": [
+        "catalog-entry",
+        "apk-url",
+        "apk-hash",
+        "signing-cert",
+        "dependencies"
+      ],
+      "verification_root": "Project catalog signify key (own) + per-package signing certs (project keys for rebuilds; upstream certs for unmodified mirrors). TLS alone never substitutes for catalog/package verification.",
+      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; exact values frozen by Apps repository integration before activation.",
+      "cache_freshness": "Immutable APKs cached by hash; catalog metadata carries explicit version/freshness; stale catalog never authorizes install.",
+      "failure_fallback": "Wrong signer / stale catalog / missing dependency / interrupted download: reject with actionable error; retry verifies complete bytes before install; no unsigned fallback. ",
+      "exposed_data": "Installed/queried package set + IP; never account identity (no project account exists).",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-110",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "browser-update-meta",
+      "upstream_host": "update.vanadium.app",
+      "replacement_host": "browser.diamaneos.de update path (candidate; provisioned infrastructure staging)",
+      "consumer": "Mirrored Vanadium browser + WebView update client (browser APK delivery)",
+      "consumer_version": "upstream-signed packages only; client version pinned at browser APK delivery",
+      "purpose": "Browser/WebView update metadata pointing at EU-mirrored upstream-signed packages",
+      "protocol": "Upstream update contract validated against the pinned client; exact metadata schema + dependency set frozen in browser APK delivery. Signed APK bytes never edited or re-signed.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Validate the pinned browser/WebView update contract (metadata schema, certs, dependency set, WebView coupling) before freezing mirror metadata.",
+        "owner_task": "FP6-111"
+      },
+      "path_method": "TBD from pinned client trace (browser APK delivery).",
+      "request_fields": [
+        "package",
+        "installed-version"
+      ],
+      "response_fields": [
+        "latest-version",
+        "package-url",
+        "package-hash",
+        "signing-cert"
+      ],
+      "verification_root": "Upstream GrapheneOS package signatures (preserved byte-identical); mirror verifies signature before staging; client verifies on install.",
+      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; urgent security delivery independent of monthly OS cadence with measured upstream-to-delivery delay.",
+      "cache_freshness": "Mirror polls upstream feed at most hourly; each release fetched once, verified, stored on own infra; freshness alerts independent of OS monthlies.",
+      "failure_fallback": "Cache miss: return not-yet-available, never proxy-on-miss to upstream. Wrong cert / stale metadata: reject promotion. Devices never contact upstream hosts.",
+      "exposed_data": "Package/version queries + IP.",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-111",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "browser-apk-dl",
+      "upstream_host": "dl.vanadium.app",
+      "replacement_host": "browser.diamaneos.de download path (candidate; provisioned infrastructure staging)",
+      "consumer": "Mirrored Vanadium browser + WebView installer (browser APK delivery)",
+      "consumer_version": "upstream-signed packages only; versions pinned per staged release",
+      "purpose": "Byte delivery of EU-mirrored upstream-signed browser/WebView APKs",
+      "protocol": "Plain authenticated byte delivery; integrity via package hash + upstream signature verified at staging and on device.",
+      "protocol_status": "specified",
+      "path_method": "GET immutable package object by hash-qualified path (exact layout frozen browser APK delivery).",
+      "request_fields": [
+        "package-hash"
+      ],
+      "response_fields": [
+        "apk-bytes"
+      ],
+      "verification_root": "Upstream GrapheneOS package signatures; staged metadata hash must match exact APK bytes.",
+      "timeout_retry": "Bounded timeouts; resumable bounded downloads; retry verifies complete bytes before install.",
+      "cache_freshness": "Immutable by hash; cached indefinitely; rollback follows version/dependency constraints, never silent downgrade.",
+      "failure_fallback": "Hash mismatch or wrong cert: reject before install. Interrupted download: resume/retry with full-byte verification. No unsigned fallback.",
+      "exposed_data": "Downloaded package/version + IP.",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-111",
+      "status": "specified"
+    },
+    {
+      "id": "time",
+      "upstream_host": "time.grapheneos.org",
+      "replacement_host": "time.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "OS time bootstrap client (pinned release)",
+      "consumer_version": "pinned at time and connectivity integration implementation",
+      "purpose": "Authenticated multi-source time for fresh-device bootstrap",
+      "protocol": "Exact pinned client protocol incl. X-Time representation/units; reference design of 6 sources with >=3 agreeing; agreement tolerance + stale behavior from validated time and connectivity integration configuration.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the pinned client time protocol (fields, units, trust bootstrap) and validate source agreement/stale policy before freezing server behavior.",
+        "owner_task": "FP6-102"
+      },
+      "path_method": "TBD from pinned client trace (time and connectivity integration).",
+      "request_fields": [
+        "client-nonce"
+      ],
+      "response_fields": [
+        "time-value",
+        "time-unit",
+        "source-agreement-state"
+      ],
+      "verification_root": "Authenticated time-source service (multi-source agreement); single source never authoritative.",
+      "timeout_retry": "Bounded timeouts; exact values frozen by time and connectivity integration; a single failed source never breaks all devices.",
+      "cache_freshness": "Responses carry source agreement state + age; stale/implausible sources excluded by policy, never served as current.",
+      "failure_fallback": "Insufficient agreeing fresh sources: defined unavailable state, never invented time. Disabling TLS verification is never a bootstrap solution. Offline boot follows the documented no-network path.",
+      "exposed_data": "Time query + IP.",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-102",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "connectivity-check",
+      "upstream_host": "connectivitycheck.grapheneos.network",
+      "replacement_host": "connectivitycheck.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "OS connectivity/captive-portal detection (pinned release)",
+      "consumer_version": "pinned at time and connectivity integration implementation",
+      "purpose": "Connectivity + captive-portal detection responses matching the pinned client contract",
+      "protocol": "Exact pinned client HTTP/HTTPS response contract (status/body/headers); portal vs failure paths distinguished.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the pinned client connectivity response contract (status/body, portal detection) before freezing server responses.",
+        "owner_task": "FP6-102"
+      },
+      "path_method": "TBD from pinned client trace (time and connectivity integration).",
+      "request_fields": [
+        "probe-request"
+      ],
+      "response_fields": [
+        "status",
+        "body",
+        "portal-signal"
+      ],
+      "verification_root": "Exact-match client contract (no third-party attestation involved); portal interception must not be forgeable into false success.",
+      "timeout_retry": "Bounded timeouts; exact values frozen by time and connectivity integration; no forged success through arbitrary portal content.",
+      "cache_freshness": "Probe responses are live; no caching of success across networks.",
+      "failure_fallback": "Portal interception: documented portal path. Unreachable: documented failure path. Small user base fingerprinting tradeoff disclosed; standard-server toggle kept visible.",
+      "exposed_data": "Probe request + IP (itself an OS fingerprint to network observers \u2014 disclosed).",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-102",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "online-probe",
+      "upstream_host": "grapheneos.online",
+      "replacement_host": "TBD at time and connectivity integration client trace (candidate host under diamaneos.de only if a real client need is confirmed)",
+      "consumer": "TBD from pinned client trace",
+      "consumer_version": "unresolved",
+      "purpose": "UNRESOLVED: purpose must be traced from the pinned client before any replacement decision (repoint, proxy, or documented removal with owner decision).",
+      "protocol": "Unknown until client trace; no guessed HTTP contract is an implementation basis.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the actual pinned consumer(s) of grapheneos.online and determine purpose/protocol; then repoint or document removal. Attestation use, if any, routes to project attestation.",
+        "owner_task": "FP6-102"
+      },
+      "path_method": "unresolved (see blocker)",
+      "request_fields": [],
+      "response_fields": [],
+      "verification_root": "unresolved (see blocker)",
+      "timeout_retry": "unresolved (see blocker); no retry-forever fallback will be accepted.",
+      "cache_freshness": "unresolved (see blocker)",
+      "failure_fallback": "Unresolved endpoint keeps an explicit blocker and cannot silently stay on GrapheneOS nor be silently removed ; fallback defined with its owning task before activation.",
+      "exposed_data": "unresolved (see blocker)",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-102",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "psds-cache",
+      "upstream_host": "qualcomm.psds.grapheneos.org",
+      "replacement_host": "psds.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "FP6 GNSS stack (PSDS/XTRA assistance client)",
+      "consumer_version": "pinned at assisted-GNSS integration implementation",
+      "purpose": "Privacy-preserving EU cache of Qualcomm PSDS/XTRA almanacs with identifying-header minimisation",
+      "protocol": "Cache serves checked assistance objects; upstream fetch cron-refreshed server-side; User-Agent stripped (leaks SoC serial). Exact payload bounds + freshness frozen in assisted-GNSS integration.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Bind actual GNSS client protocol, assistance object bounds and freshness rules before freezing cache behavior.",
+        "owner_task": "FP6-103"
+      },
+      "path_method": "TBD from actual client config (assisted-GNSS integration); egress restricted to the approved Qualcomm upstream only.",
+      "request_fields": [
+        "assistance-request"
+      ],
+      "response_fields": [
+        "assistance-object",
+        "freshness"
+      ],
+      "verification_root": "Upstream payload integrity as applicable + freshness policy; expired objects follow documented reject/fallback policy, never false success.",
+      "timeout_retry": "Bounded timeouts; exact values frozen by assisted-GNSS integration.",
+      "cache_freshness": "Cron-refreshed EU cache with checked freshness; expired objects rejected per policy; GPS fallback success alone never proves assistance works.",
+      "failure_fallback": "Stale/failed assistance: documented fallback, never false success report. Arbitrary-destination relay: refused (no open proxy/SSRF path).",
+      "exposed_data": "Assistance requests + IP reach the EU cache only; stripped/minimised headers toward Qualcomm (US upstream disclosed on privacy page).",
+      "retention": "No raw location logs; server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-103",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "supl",
+      "upstream_host": "supl.grapheneos.org",
+      "replacement_host": "supl.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "FP6 GNSS stack (SUPL client)",
+      "consumer_version": "pinned at assisted-GNSS integration implementation",
+      "purpose": "Assisted-GNSS SUPL via its actual supported protocol with reviewed access limits",
+      "protocol": "SUPL implemented through its correct protocol only (never an assumed HTTP proxy). Exact protocol/transport frozen in assisted-GNSS integration from the actual client.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Bind the actual SUPL protocol/transport and reviewed access limits from the FP6 client before implementing the endpoint.",
+        "owner_task": "FP6-103"
+      },
+      "path_method": "SUPL protocol path (exact form frozen assisted-GNSS integration).",
+      "request_fields": [
+        "supl-request"
+      ],
+      "response_fields": [
+        "supl-response"
+      ],
+      "verification_root": "Protocol-correct exchange with the actual FP6 client; no HTTP imitation accepted as success.",
+      "timeout_retry": "Bounded timeouts; exact values frozen by assisted-GNSS integration.",
+      "cache_freshness": "Session-scoped; no stale assistance presented as fresh.",
+      "failure_fallback": "Upstream loss: documented fallback; acquisition measured with/without assistance. No generic proxy behavior.",
+      "exposed_data": "SUPL session + IP reach EU endpoint; upstream exposure disclosed on privacy page with minimised identifiers.",
+      "retention": "No raw location logs; server logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-103",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "rkp-proxy",
+      "upstream_host": "remoteprovisioning.grapheneos.org",
+      "replacement_host": "rkp.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "OS Remote Key Provisioning client (pinned release)",
+      "consumer_version": "pinned at provisioning integration implementation",
+      "purpose": "Bounded EU reverse proxy for RKP attestation key provisioning (US upstream); proxy cannot decrypt pass-through",
+      "protocol": "Minimal bounded relay: allowed methods/body bounds/timeout/retry/cache rules frozen in provisioning integration from the actual client + approved upstream behavior.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the actual RKP client + approved upstream behavior (methods, body bounds, cache rules) before freezing relay limits.",
+        "owner_task": "FP6-104"
+      },
+      "path_method": "Documented relay paths only (exact set frozen provisioning integration); disallowed upstream/path rejected, never open-proxy.",
+      "request_fields": [
+        "provisioning-request"
+      ],
+      "response_fields": [
+        "provisioning-response"
+      ],
+      "verification_root": "Upstream + device trust verified by client; proxy success never reported as attestation success; no manufactured hardware eligibility.",
+      "timeout_retry": "Bounded timeout + retry with documented limits (frozen provisioning integration).",
+      "cache_freshness": "Cached-key behavior follows actual client semantics; outage with valid cached keys reflects real client behavior, never blanket all-apps-broken.",
+      "failure_fallback": "Outage: client-defined behavior with cached keys where valid; provisioning payloads never logged; TLS/payload verification never bypassed.",
+      "exposed_data": "Provisioning sessions + IP reach EU proxy only; payload content opaque to proxy and never logged.",
+      "retention": "No provisioning payload logs; server logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-104",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "widevine-proxy",
+      "upstream_host": "widevineprovisioning.grapheneos.org",
+      "replacement_host": "widevine.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "Widevine provisioning client (pinned release)",
+      "consumer_version": "pinned at provisioning integration implementation",
+      "purpose": "Bounded EU reverse proxy for Widevine provisioning (US upstream); ships regardless of L1/L3 outcome",
+      "protocol": "Minimal bounded relay frozen in provisioning integration from the actual client + approved upstream behavior.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the actual Widevine client + approved upstream behavior before freezing relay limits; record actual DRM/attestation consequences separately.",
+        "owner_task": "FP6-104"
+      },
+      "path_method": "Documented relay paths only (exact set frozen provisioning integration); disallowed upstream/path rejected.",
+      "request_fields": [
+        "provisioning-request"
+      ],
+      "response_fields": [
+        "provisioning-response"
+      ],
+      "verification_root": "Upstream + device trust verified by client; proxy success never reported as DRM/attestation capability.",
+      "timeout_retry": "Bounded timeout + retry with documented limits (frozen provisioning integration).",
+      "cache_freshness": "Follows actual client cache/renewal semantics; outage behavior measured, never blanket failure claims.",
+      "failure_fallback": "Outage: actual client behavior with cached state; no StrongBox/provider-acceptance fabrication; provisioning partitions never manipulated to repair trust.",
+      "exposed_data": "Provisioning sessions + IP reach EU proxy only; payloads never logged.",
+      "retention": "No provisioning payload logs; server logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-104",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "ct-mirror",
+      "upstream_host": "gstatic.grapheneos.org",
+      "replacement_host": "ct.diamaneos.de (candidate; provisioned infrastructure staging)",
+      "consumer": "Pinned browser CT verification (CT and browser-component delivery)",
+      "consumer_version": "pinned at CT and browser-component delivery implementation",
+      "purpose": "Verified atomic EU mirror of signed Certificate Transparency log lists with client-specific expiry handling",
+      "protocol": "Fetch into staging, verify supported metadata/signature, then activate atomically. Signed object format, verification key + freshness rules frozen in CT and browser-component delivery; client CT expiry/enforcement verified for the pinned browser (no remembered fixed-day number).",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Pin the browser CT update contract (schema, signing identity, version/freshness rules) and verify client expiry/enforcement before freezing mirror behavior.",
+        "owner_task": "FP6-105"
+      },
+      "path_method": "Mirror object paths (exact layout frozen CT and browser-component delivery).",
+      "request_fields": [
+        "object-request"
+      ],
+      "response_fields": [
+        "signed-ct-object",
+        "metadata"
+      ],
+      "verification_root": "Upstream signing identity pinned in CT and browser-component delivery; altered signed content rejected by client; signatures never stripped.",
+      "timeout_retry": "Bounded fetch timeouts; cron refresh with freshness monitoring; exact cadence frozen CT and browser-component delivery.",
+      "cache_freshness": "Staleness detected before documented enforcement expiry (70-day cliff watched); expired data never served as fresh; partial downloads never replace the last complete valid object.",
+      "failure_fallback": "Failed refresh keeps last complete valid object + raises freshness alert; monitoring independent of monthly OS releases.",
+      "exposed_data": "Object fetches + IP.",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-105",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "dns-check",
+      "upstream_host": "dnscheck.grapheneos.org",
+      "replacement_host": "dnscheck.diamaneos.de (candidate; provisioned infrastructure staging, only if client need confirmed)",
+      "consumer": "TBD from pinned client trace (DNS configuration check candidate)",
+      "consumer_version": "unresolved",
+      "purpose": "UNRESOLVED: confirm actual client purpose from the pinned tree before deciding repoint vs documented removal.",
+      "protocol": "Unknown until client trace; no guessed contract is an implementation basis.",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Trace the actual pinned consumer(s) of dnscheck and determine purpose/protocol; then repoint or document removal with owner decision.",
+        "owner_task": "FP6-102"
+      },
+      "path_method": "unresolved (see blocker)",
+      "request_fields": [],
+      "response_fields": [],
+      "verification_root": "unresolved (see blocker)",
+      "timeout_retry": "unresolved (see blocker); no retry-forever fallback will be accepted.",
+      "cache_freshness": "unresolved (see blocker)",
+      "failure_fallback": "Unresolved endpoint keeps an explicit blocker and cannot silently stay on GrapheneOS nor be silently removed ; fallback defined with its owning task before activation.",
+      "exposed_data": "unresolved (see blocker)",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-102",
+      "status": "blocked-contract"
+    },
+    {
+      "id": "info-release-feed",
+      "upstream_host": "grapheneos.org/releases.atom",
+      "replacement_host": "diamaneos.de releases feed (candidate; built public documentation, served infrastructure staging infra)",
+      "consumer": "Info app release feed (forked/repointed, system app delivery)",
+      "consumer_version": "fork revision pinned at system app delivery",
+      "purpose": "Release notes feed for the on-device Info app pointing at project releases",
+      "protocol": "Feed format + update URL repointed in the fork; default URLs must point at intended project destinations (no silently stale branding).",
+      "protocol_status": "blocked",
+      "blocker": {
+        "description": "Confirm fork/delivery decision for the Info app (rebuild vs permitted mirror) and repointed feed URL before freezing feed behavior.",
+        "owner_task": "FP6-112"
+      },
+      "path_method": "Feed path on diamaneos.de (exact layout frozen public documentation).",
+      "request_fields": [
+        "feed-request"
+      ],
+      "response_fields": [
+        "release-entries"
+      ],
+      "verification_root": "Feed served from project origin + non-EU mirror; release records signed per transparency policy (release transparency publication).",
+      "timeout_retry": "Bounded timeouts; feed staleness surfaced, never silent.",
+      "cache_freshness": "Feed freshness monitored; stale feed never presented as current releases.",
+      "failure_fallback": "Unreachable feed: client shows last-known state as stale with retry; never fabricated entries.",
+      "exposed_data": "Feed fetches + IP.",
+      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-112",
+      "status": "blocked-contract"
+    }
+  ]
+}
