@@ -3,7 +3,7 @@
 Fixture (no hardware):
   python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
   python3 -m unittest discover -s tests/baseline -v
-Live (needs hardware; UNRUN until a real FP6 is connected):
+Live (needs an explicitly selected hardware target):
   python3 src/diamaneos_tools/baseline.py --target <serial> --raw-dir <PRIVATE_ROOT>/runs/<run-id>/ --output report.json
 
 Contract: explicit --target; ambiguous/missing target refuses before any adb
