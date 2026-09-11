@@ -1,6 +1,6 @@
 # 06 — Updates
 
-Proposed interface design mockup. Owners: OTA installation testing / interrupted-update recovery testing / offline signed OTA and updater integration.
+Proposed interface mockup. Owners: OTA installation testing / interrupted-update recovery testing / offline signed OTA and updater integration.
 Page: `updates`; sheets: details, connection and restart.
 
 ## Intent and inherited comparison

@@ -1,6 +1,6 @@
 # 04 — Notifications
 
-Proposed interface design mockup. Owner: notification compatibility; shell composition candidate native UI integration.
+Proposed interface mockup. Owner: notification compatibility; shell composition candidate native UI integration.
 Pages: `notifications`, `diagnosis`, `profile`.
 
 ## Intent and inherited comparison

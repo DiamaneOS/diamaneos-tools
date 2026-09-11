@@ -1,0 +1,219 @@
+{
+  "schema_version": 2,
+  "note": "endpoint contract design minimal role selection; deployment remains infrastructure staging and endpoint owners. No host addresses, credentials, provisioning or live isolation proof claimed.",
+  "hosts": [
+    {
+      "id": "release-primary",
+      "role": "release",
+      "jurisdiction": "DE",
+      "provider_layer": "vps-primary",
+      "credential_class": "release-admin",
+      "management": "owner-vpn-and-provider-console",
+      "status": "planned"
+    },
+    {
+      "id": "artifact-mirror-non-eu",
+      "role": "mirror",
+      "jurisdiction": "IS",
+      "provider_layer": "artifact-mirror-non-eu",
+      "credential_class": "mirror-admin",
+      "management": "owner-vpn-and-provider-console",
+      "status": "planned"
+    },
+    {
+      "id": "authoritative-dns",
+      "role": "dns",
+      "jurisdiction": "DE",
+      "provider_layer": "authoritative-dns",
+      "credential_class": "dns-admin",
+      "management": "provider-console",
+      "status": "existing-provider-planned-records"
+    },
+    {
+      "id": "community-future",
+      "role": "community",
+      "jurisdiction": "DE",
+      "provider_layer": "vps-primary",
+      "credential_class": "community-admin",
+      "management": "separate-community-path",
+      "status": "conditional"
+    }
+  ],
+  "services": [
+    {
+      "id": "os-updates",
+      "endpoints": [
+        "os-updates"
+      ],
+      "host": "release-primary",
+      "mirror": "artifact-mirror-non-eu",
+      "owner_task": "FP6-128",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "apps-catalog",
+      "endpoints": [
+        "apps-catalog"
+      ],
+      "host": "release-primary",
+      "mirror": "artifact-mirror-non-eu",
+      "owner_task": "FP6-110",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "browser-component-check",
+      "endpoints": [
+        "browser-component-check"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-105",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "browser-component-download",
+      "endpoints": [
+        "browser-component-download"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-105",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "time",
+      "endpoints": [
+        "time"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-102",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "connectivity-check",
+      "endpoints": [
+        "connectivity-check"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-102",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "online-probe",
+      "endpoints": [
+        "online-probe"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-102",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "psds-cache",
+      "endpoints": [
+        "psds-cache"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-103",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "supl",
+      "endpoints": [
+        "supl"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-103",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "rkp-proxy",
+      "endpoints": [
+        "rkp-proxy"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-104",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "widevine-proxy",
+      "endpoints": [
+        "widevine-proxy"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-104",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "ct-mirror",
+      "endpoints": [
+        "ct-mirror"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-105",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "dns-check",
+      "endpoints": [
+        "dns-check"
+      ],
+      "host": "authoritative-dns",
+      "mirror": null,
+      "owner_task": "FP6-102",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "info-release-feed",
+      "endpoints": [
+        "info-release-feed"
+      ],
+      "host": "release-primary",
+      "mirror": "artifact-mirror-non-eu",
+      "owner_task": "FP6-112",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    }
+  ],
+  "management_policy": {
+    "signing_keys_on_hosts": false,
+    "community_can_administer_release": false,
+    "shared_host_admin_credentials": false,
+    "release_path_depends_on_federation": false,
+    "provider_recovery_required": true
+  }
+}

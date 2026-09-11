@@ -1,7 +1,9 @@
 # DiamaneOS interface studies
 
 `diamaneos-ui.html` is the editable, self-contained interface fragment for the
-six documented journeys. The fragment expects a preview host that supplies Lucide icons and may supply design controls. The host APIs are optional at runtime; a plain browser can render the fragment but will lack the host-supplied icon library. No package install,
+six documented journeys. It expects a preview host with a Lucide icon library;
+design controls are optional. A plain browser can render the fragment, but
+icons require that library. No package install,
 network request, Android device, account, or real credential is needed.
 
 The gallery selects Home, Setup, Privacy, Notifications, Battery or Updates.

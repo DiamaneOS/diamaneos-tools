@@ -1,4 +1,4 @@
-"""baseline capture read-only baseline collector (stdlib only, no device writes).
+"""Read-only baseline collector (stdlib only, no device writes).
 
 Fixture (no hardware):
   python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
@@ -7,11 +7,11 @@ Live (needs hardware; UNRUN until a real FP6 is connected):
   python3 src/diamaneos_tools/baseline.py --target <serial> --raw-dir <PRIVATE_ROOT>/runs/<run-id>/ --output report.json
 
 Contract: explicit --target; ambiguous/missing target refuses before any adb
-command . Missing metrics are 'unsupported', never zero . Capture
+command. Missing metrics are 'unsupported', never zero. Capture
 status and metric validity are separate: a successful capture of malformed
 data is reported, never silently treated as a measurement. Public output
 contains ONLY allowlisted extracted fields with identifiers redacted;
-complete raw text goes to the private raw bundle (privacy requirements). Every subprocess
+complete raw text goes to the private raw bundle in caller-selected protected storage. Every subprocess
 is bounded in time AND bytes; tool/setup failures are controlled results,
 never uncaught exceptions. Allowlisted read-only adb shell commands only.
 No flash/wipe/root/dumps. CLI: `bin/diamaneos baseline capture`.
@@ -578,7 +578,7 @@ def live_capture(target, adb="adb", timeout=DEFAULT_TIMEOUT, run_id=None,
         "collection_status": completeness,
         "tool_versions": {"adb": adb_version(adb=adb, timeout=timeout)},
         # Public envelope carries a run-local alias only. The real serial
-        # lives in the private raw bundle and is never published (R1).
+        # lives in the private raw bundle and is never published.
         "environment": {"source": "live-device", "device_alias": "target-1",
                         "device_role": "unassigned",
                         "conditions": conditions or

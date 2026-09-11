@@ -1,0 +1,195 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "type": "integer"
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "release",
+              "mirror",
+              "dns",
+              "community"
+            ]
+          },
+          "jurisdiction": {
+            "type": "string",
+            "enum": [
+              "DE",
+              "IS"
+            ]
+          },
+          "provider_layer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "credential_class": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "management": {
+            "type": "string",
+            "enum": [
+              "owner-vpn-and-provider-console",
+              "provider-console",
+              "separate-community-path"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "existing-provider-planned-records",
+              "conditional"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "jurisdiction",
+          "provider_layer",
+          "credential_class",
+          "management",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 4,
+      "maxItems": 16
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9-]+$"
+            },
+            "minItems": 1,
+            "maxItems": 14,
+            "uniqueItems": true
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "mirror": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-zA-Z0-9-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_task": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 7,
+            "pattern": "^FP6-[0-9]{3}$"
+          },
+          "status": {
+            "const": "planned"
+          },
+          "activation": {
+            "const": "blocked-pending-implementation"
+          },
+          "credentials": {
+            "const": "none-read-only-serving"
+          }
+        },
+        "required": [
+          "id",
+          "endpoints",
+          "host",
+          "mirror",
+          "owner_task",
+          "status",
+          "activation",
+          "credentials"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "management_policy": {
+      "type": "object",
+      "properties": {
+        "signing_keys_on_hosts": {
+          "const": false
+        },
+        "community_can_administer_release": {
+          "const": false
+        },
+        "shared_host_admin_credentials": {
+          "const": false
+        },
+        "release_path_depends_on_federation": {
+          "const": false
+        },
+        "provider_recovery_required": {
+          "const": true
+        }
+      },
+      "required": [
+        "signing_keys_on_hosts",
+        "community_can_administer_release",
+        "shared_host_admin_credentials",
+        "release_path_depends_on_federation",
+        "provider_recovery_required"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "note",
+    "hosts",
+    "services",
+    "management_policy"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EndpointServiceSelection"
+}
