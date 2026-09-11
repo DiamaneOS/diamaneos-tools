@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "record_state": "awaiting-secondary-copy-verification",
+  "record_state": "complete",
   "observed_device": {
     "product": "FP6",
     "marketing_model": "Fairphone 6",
@@ -33,7 +33,7 @@
   "archives": [
     {
       "id": "fairphone-fp6-a15-final-factory",
-      "status": "VERIFIED_PRIMARY_COPY",
+      "status": "VERIFIED_TWO_LOCATIONS",
       "product": "FP6",
       "region": "all-listed",
       "package_type": "user-factory",
@@ -68,7 +68,7 @@
       },
       "copies": {
         "required": 2,
-        "verified": 1,
+        "verified": 2,
         "locations": [
           {
             "id": "primary-private-archive",
@@ -78,14 +78,14 @@
           {
             "id": "owner-managed-cloud-copy",
             "storage_class": "independent-provider",
-            "status": "AWAITING_OWNER_COPY_AND_HASH_VERIFICATION"
+            "status": "VERIFIED_OWNER_REPORTED_SHA256_MATCH"
           }
         ]
       }
     },
     {
       "id": "fairphone-fp6-a16-eu-factory",
-      "status": "VERIFIED_PRIMARY_COPY_SELECTED_BY_DEVICE_OFFER",
+      "status": "VERIFIED_TWO_LOCATIONS_SELECTED_BY_DEVICE_OFFER",
       "product": "FP6",
       "region": "EU",
       "package_type": "user-factory",
@@ -122,7 +122,7 @@
       },
       "copies": {
         "required": 2,
-        "verified": 1,
+        "verified": 2,
         "locations": [
           {
             "id": "primary-private-archive",
@@ -132,7 +132,7 @@
           {
             "id": "owner-managed-cloud-copy",
             "storage_class": "independent-provider",
-            "status": "AWAITING_OWNER_COPY_AND_HASH_VERIFICATION"
+            "status": "VERIFIED_OWNER_REPORTED_SHA256_MATCH"
           }
         ]
       }
@@ -173,9 +173,21 @@
     "scope": "The owner confirmed that the phone contains no non-disposable data requiring backup.",
     "recheck": "Confirm this remains true immediately before any future destructive operation."
   },
+  "acceptance": {
+    "secondary_copy_verification": {
+      "status": "PASS_OWNER_CONFIRMED",
+      "recorded_at": "2026-09-11T17:36:54Z",
+      "storage_class": "owner-managed independent cloud provider",
+      "result": "Both cloud-copy SHA-256 values reproduce the recorded manifest.",
+      "privacy": "Provider, account and path are intentionally not recorded."
+    },
+    "backup_restore_prerequisite": {
+      "status": "REVIEWED",
+      "user_data_backup": "NOT_REQUIRED_OWNER_CONFIRMED",
+      "stock_restore_readiness": "BLOCKED_PENDING_FP6-025_DESTRUCTIVE_TEST"
+    }
+  },
   "remaining_gates": [
-    "Copy both accepted recovery archives and the checksum manifest to the owner-managed cloud location, then reproduce both hashes from that independent copy.",
-    "Review the final backup/restore prerequisite after the secondary-copy evidence is recorded.",
     "Test actual stock restoration, AVB/slot/rollback prerequisites and relock in the destructive recovery task."
   ],
   "safety": {

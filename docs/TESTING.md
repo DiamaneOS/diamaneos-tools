@@ -28,9 +28,10 @@ relock.
 
 Recovery copies must be read from two independent storage locations and match
 the recorded byte count and SHA-256 before destructive work. Two directories on
-one physical volume do not meet that requirement. The inventory keeps copy
-status explicit and currently records only the verified primary copy. A path or
-filename never substitutes for content verification.
+one physical volume do not meet that requirement. The inventory records a
+verified private primary copy plus an owner-confirmed independent cloud copy;
+both cloud-copy SHA-256 values reproduced the manifest. A path or filename
+never substitutes for content verification.
 
 The official factory script wipes user data by default and requires both normal
 and critical bootloader unlock. It also contains a fallback that continues when
