@@ -33,7 +33,7 @@
       "public_verifier_ref": "Fairphone manual-install article 18896094650513 and config/stock-inputs.json",
       "release_channel": "Fairphone monthly/quarterly (lags ASB by months)",
       "support_evidence_ref": "Fairphone 8-year support claim; per-release patch dates and regional package identities in the current support article",
-      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. Update, restore, rollback, slots, AVB and relock remain NOT_RUN. Independent cloud copies await owner transfer and hash verification."
+      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. The owner confirmed both independent cloud-copy SHA-256 values reproduce the manifest. Update, restore, rollback, slots, AVB and relock remain NOT_RUN."
     },
     {
       "applicability": "Source for kernel/module/DT inventory (device source inventory). Closed-UAPI coupling unknown until recon.",
