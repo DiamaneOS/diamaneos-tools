@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+# The dedicated test host uses an explicitly cabled USB device. Disable ADB's
+# wireless-debugging discovery listener; this does not disable USB transport.
+export ADB_MDNS=0
+exec /opt/android/platform-tools/current/adb "$@"
