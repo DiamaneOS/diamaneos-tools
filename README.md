@@ -1,6 +1,13 @@
 # diamaneos-tools
 
-Host tooling and machine-readable project maps for DiamaneOS, a GrapheneOS-derived operating system for Fairphone 6.
+Host tooling and machine-readable project maps for DiamaneOS.
+
+## Project context
+
+DiamaneOS is an operating system project under development. The current port
+targets Fairphone 6 and uses GrapheneOS as its upstream OS base.
+
+> Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
 ## Workspace and tools
 
