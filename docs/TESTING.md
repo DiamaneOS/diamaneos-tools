@@ -67,6 +67,10 @@ bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
 Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
 evidence refs; without --raw-dir the run is ephemeral (not accepted
 evidence). Public reports carry a device alias only; serials stay private.
+Graphics capture is fixed to `dumpsys gfxinfo com.android.systemui`. An
+unscoped `gfxinfo` query can enumerate enough installed-package state to
+exceed the bounded collector output, while SystemUI provides a stable,
+non-personal host-readiness target. The 256 KiB per-command cap still applies.
 The full-suite command below includes baseline, CLI and endpoint validation tests; device runs stay UNRUN.
 
 5 fixtures + fake-adb live-path tests prove the contract: valid→ok,

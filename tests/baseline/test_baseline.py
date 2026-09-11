@@ -70,7 +70,7 @@ elif cmd == "dumpsys battery":
         emit("level: banana\\n")
     else:
         emit("level: 87\\nscale: 100\\nstatus: 3\\n")
-elif cmd == "dumpsys gfxinfo":
+elif cmd == "dumpsys gfxinfo com.android.systemui":
     if mode == "truncated-out":
         emit("frames...[TRUNCATED]")
     else:
@@ -137,8 +137,14 @@ class BaselineTest(unittest.TestCase):
         self.assertEqual(c["status"], "unsupported")
 
     def test_exit_zero_truncated_is_error(self):
-        c = classify(("dumpsys", "gfxinfo"), 0, "frames...[TRUNCATED]", "")
+        c = classify(baseline.GFXINFO_COMMAND, 0,
+                     "frames...[TRUNCATED]", "")
         self.assertEqual(c["status"], "error")
+
+    def test_gfxinfo_is_scoped_to_systemui(self):
+        self.assertIn(("dumpsys", "gfxinfo", "com.android.systemui"),
+                      baseline.ALLOWLIST)
+        self.assertNotIn(("dumpsys", "gfxinfo"), baseline.ALLOWLIST)
 
     def test_malformed_battery_not_a_measurement(self):
         c = classify(("dumpsys", "battery"), 0, "level: banana\n", "")
@@ -207,7 +213,9 @@ class BaselineTest(unittest.TestCase):
     def test_live_truncated_error(self):
         code, rep = self._live("truncated-out")
         by_id = {c["test_id"]: c for c in rep["cases"]}
-        self.assertEqual(by_id["dumpsys gfxinfo"]["status"], "error")
+        self.assertEqual(
+            by_id["dumpsys gfxinfo com.android.systemui"]["status"],
+            "error")
 
     def test_live_bad_battery_malformed(self):
         code, rep = self._live("bad-battery")
@@ -256,7 +264,7 @@ class BaselineTest(unittest.TestCase):
 
     def test_gfxinfo_keeps_stats_drops_names(self):
         out = "package: com.example.app\nframes rendered: 60\n"
-        c = classify(("dumpsys", "gfxinfo"), 0, out, "")
+        c = classify(baseline.GFXINFO_COMMAND, 0, out, "")
         self.assertNotIn("com.example.app", c["observed"])
         self.assertIn("60", c["observed"])
 
