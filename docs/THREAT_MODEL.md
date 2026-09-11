@@ -1,19 +1,25 @@
 # DiamaneOS Threat Model and Product Boundaries — Initial
 
-Status: initial assumptions, no FP6 measurements yet. Intended protections only.
+Status: initial threat model for an OS under development. Protections below are
+requirements, not validated properties of a DiamaneOS build.
 No hardware claim below is demonstrated protection until its validation work passes.
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
-## Product statement
+## Current product scope
 
-DiamaneOS is a GrapheneOS-derived daily driver for Fairphone 6 (one device,
-one variant), for privacy- and security-focused users, with locked bootloader
-on a custom AVB root and monthly releases. The launch scope below must pass qualification before public release. No root, no microG, no signature spoofing, no Magisk
+DiamaneOS targets daily use by privacy- and security-focused users. This threat
+model covers the current GrapheneOS-based Fairphone 6 port (one device, one
+variant), which is under development. Its requirements include a locked
+bootloader on a custom AVB root and monthly releases. The launch scope below must pass
+qualification before public release. No root, no microG, no signature spoofing, no Magisk
 accommodation, no unlocked-bootloader daily use, no bundled cloud account.
 A clear, expressive UI with measured maintenance; accessibility and localization are
 acceptance criteria, not polish. No global security score, no stock-parity
 promise, no superiority claim without dated like-for-like evidence.
+
+GrapheneOS-derived describes source lineage; it does not establish equivalent
+security to GrapheneOS on its supported devices.
 
 PIN-optional is not in v1. Passphrase-first is mandatory (passphrase onboarding / credential-policy enforcement).
 A future PIN-optional-with-warning change needs an explicit scope decision
@@ -69,7 +75,9 @@ owner, measured rebase cost, and regression checks. No shell rewrite presumed.
 
 - Daily-driver scope for privacy/security-focused users, full v1 retained.
 - Passphrase-first mandatory now; PIN-optional only via later explicit decision.
-- No scores, no parity claims, GrapheneOS disclaimer on every public surface.
+- No scores or unsupported parity claims. Keep upstream attribution and a clear
+  separate project identity in the relevant overview and distribution pages;
+  component documentation follows the contribution guidance.
 
 ## Architecture and verification review
 

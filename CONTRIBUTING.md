@@ -18,6 +18,30 @@ Task IDs may accompany descriptive commit messages and remain in existing machin
 
 Review the entire staged diff, filenames and commit message for public suitability. Removing text from the current checkout does not remove it from Git history. History rewriting requires explicit authorization, a private recovery copy, reference migration and verification; never publish backup refs or old objects as part of cleanup. Preserve third-party source attribution and genuine unresolved safety requirements.
 
+## Project identity and upstream attribution
+
+Use DiamaneOS as the product identity. General repository descriptions explain
+the component's purpose without making the current upstream base or device
+target part of the permanent product name or tagline. Record the current base,
+development status and device scope in the project overview and relevant
+source, build, compatibility and device documentation. A future change updates
+those current-scope records; historical attribution remains accurate for the
+work it describes.
+
+Follow the [GrapheneOS branding guidance](https://grapheneos.org/faq#trademarks):
+do not present DiamaneOS as GrapheneOS itself, an official GrapheneOS port or
+merely an unofficial GrapheneOS build. Source lineage alone does not establish
+equivalent security or inherited certification.
+
+Keep accurate upstream names, source links, technical identifiers and required
+copyright/licence notices. Where a project overview or distribution page
+describes the GrapheneOS-based OS, make its separate identity clear, for example:
+"Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project."
+Component READMEs and technical documents do not need to repeat that notice
+unless their presentation could suggest affiliation. Commit messages name the
+upstream or device when relevant to the change; no stock tagline or disclaimer
+is required in each commit.
+
 ## Issue / PR handoff (one note per task)
 
 ```text
