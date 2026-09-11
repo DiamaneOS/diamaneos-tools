@@ -1,5 +1,19 @@
 # DiamaneOS Testing
 
+## Stock hardware observations
+
+The [stock hardware report](../reports-public/stock-capabilities.json) records
+observed component results for one Fairphone 6 on the stated stock build.
+It combines operator-observed stock diagnostics and ordinary app use with
+selected ADB identity, charging and disposable-file transfer checks. Each
+component has its own result; removable storage remains untested because no
+spare test card was available.
+
+The stock build remained unchanged and the bootloader remained locked.
+Performance/battery measurements, custom-OS qualification, restoration and
+unlock/relock acceptance require their own evidence. This report also does
+not establish acceptance of the baseline collector CLI described below.
+
 ## Baseline collectors (fixture-only, no hardware)
 
 ```sh
@@ -29,8 +43,8 @@ preserved (full-report checked, not just case fields); ambiguous target
 refuses before any adb command. Over-producers are killed at the byte
 cap (termination proven, not just detected); failed captures keep partial
 stdout+stderr evidence with hashes; device-gone stays error/partial, never
-unsupported-complete. Live capture (`--target`) stays UNRUN until a real FP6
-is connected. Host bounds: 20s per adb call plus 256KB streaming byte cap
+unsupported-complete. Live capture (`--target`) remains UNRUN; standalone ADB
+checks do not establish collector acceptance. Host bounds: 20s per adb call plus 256KB streaming byte cap
 (byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
 git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
 
@@ -42,7 +56,7 @@ until sync. High-risk requirements + fixtures in
 `tests/requirements/early-risks.json` (9 risks, all UNRESOLVED-assigned);
 coverage ledger in `tests/requirements/coverage.json` (full CDD enumeration
 completes during release-gate integration and manual compatibility qualification). Suite revisions are bound when the compatibility harness is configured.
-No hardware pass claimed; no Google-private suites assumed.
+No custom-OS compatibility pass is claimed; no Google-private suites are assumed.
 
 ## Endpoint contracts
 
