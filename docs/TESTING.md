@@ -14,6 +14,39 @@ Performance/battery measurements, custom-OS qualification, restoration and
 unlock/relock acceptance require their own evidence. This report also does
 not establish acceptance of the baseline collector CLI described below.
 
+## Stock recovery inputs
+
+The [stock-input inventory](../config/stock-inputs.json) binds the observed FP6
+product/build to official factory-package URLs, exact byte sizes and published
+SHA-256 values. The final Android 15 package and the EU Android 16 package
+explicitly offered by the phone are verified recovery inputs: for each, two
+complete reads reproduced Fairphone's outer hash, the full ZIP CRC passed,
+required recovery members were present and all 76 files declared by the
+embedded checksum list matched. The phone remains on its received Android 15
+build. This is archive verification, not a successful update, restore or
+relock.
+
+Recovery copies must be read from two independent storage locations and match
+the recorded byte count and SHA-256 before destructive work. Two directories on
+one physical volume do not meet that requirement. The inventory keeps copy
+status explicit and currently records only the verified primary copy. A path or
+filename never substitutes for content verification.
+
+The official factory script wipes user data by default and requires both normal
+and critical bootloader unlock. It also contains a fallback that continues when
+no checksum utility is found; that fallback is prohibited by the project
+recovery procedure. Verify the complete archive against the independently read
+official hash and verify its embedded declared files before execution. The
+regional Android 16 package must match the build explicitly offered by the
+phone; do not infer EU/US selection from a maintainer's location. For this
+device the observed offer is FP6.QREL.16.100.0, so the US 16.104.0 package is
+excluded.
+
+Raw partition bodies, per-partition device hashes and rollback-index values
+were not available under the accepted locked, non-root capture. They remain
+unknown. Package contents are separately derived inputs and must not be
+misreported as device dumps.
+
 ## Baseline collectors (fixture-only, no hardware)
 
 ```sh
