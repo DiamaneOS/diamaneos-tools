@@ -25,15 +25,15 @@
       "verification_method": "NOT YET RUN"
     },
     {
-      "applicability": "Stock input pairing TBD until stock device inspection / stock recovery archiving phone arrival. Device-specific claims require hardware tests.",
+      "applicability": "The received locked FP6 runs FP6.QREL.15.176.0 and explicitly offers the EU FP6.QREL.16.100.0 update. The final Android 15 FP6.QREL.15.178.0 and selected Android 16 FP6.QREL.16.100.0 factory packages are hash-verified recovery inputs; update, restore and relock behavior remain untested.",
       "authoritative_url": "Fairphone support factory images + release notes",
-      "current_revision": "Factory FP6.QREL.16.95.0.20260708185435 (Jul 8 2026); OTA 16.82.0 (Jun 22 2026, patch 2026-06-05); DETECTED 2026-09-10: FP6.QREL.16.104.0 referenced in LineageOS commit 4512f51 (unconfirmed until Fairphone page/download); blobs 16.61.0.20260401 (not downloaded)",
-      "discovery_method": "Web search 2026-09-10 (support page 403 on direct fetch; values from search excerpts, re-verify at download)",
+      "current_revision": "Observed device FP6.QREL.15.176.0 (patch 2025-12-05), with FP6.QREL.16.100.0 offered but not installed. Verified recovery archives: FP6.QREL.15.178.0.20260204144956_VS22-factory.zip, 3523656068 bytes, SHA-256 85ea44178af4cd0385cce45a8204000665436a70207a9261465ef43846206692; FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip, 3755004133 bytes, SHA-256 5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d. The US 16.104.0 package is excluded because it is not offered by this device.",
+      "discovery_method": "Fairphone support API article 18896094650513, updated 2026-09-09 and retrieved 2026-09-11; official archive response metadata; two complete local SHA-256 reads; ZIP CRC/path/member checks and all 76 embedded declared hashes",
       "id": "fairphone-stock",
-      "public_verifier_ref": "SHA256 checksums published on Fairphone support page (verify at download)",
+      "public_verifier_ref": "Fairphone manual-install article 18896094650513 and config/stock-inputs.json",
       "release_channel": "Fairphone monthly/quarterly (lags ASB by months)",
-      "support_evidence_ref": "Fairphone 8-year support claim; per-release patch dates above",
-      "verification_method": "NOT YET RUN — hash + build/model check at download (stock recovery archiving)"
+      "support_evidence_ref": "Fairphone 8-year support claim; per-release patch dates and regional package identities in the current support article",
+      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. Update, restore, rollback, slots, AVB and relock remain NOT_RUN. Independent cloud copies await owner transfer and hash verification."
     },
     {
       "applicability": "Source for kernel/module/DT inventory (device source inventory). Closed-UAPI coupling unknown until recon.",
@@ -49,13 +49,13 @@
     {
       "applicability": "Support lifecycle is tracked separately from compatibility and recovery validation.",
       "authoritative_url": "Fairphone support release notes (per-build patch level)",
-      "current_revision": "Observed patch 2026-06-05 / 2026-07-05 (rows above); firmware bodies stay in protected store (stock recovery archiving / FP6 product integration)",
-      "discovery_method": "Same search 2026-09-10",
+      "current_revision": "Observed device patch 2025-12-05; verified final Android 15 recovery package patch 2026-02-05; verified selected EU Android 16 recovery package patch 2026-08-05. Exact factory archives remain the hash-verified recovery and generator inputs.",
+      "discovery_method": "Fairphone support API article 18896094650513 and device acceptance evidence, checked 2026-09-11",
       "id": "fairphone-firmware-support",
       "public_verifier_ref": "Build IDs + SHA256 at download",
       "release_channel": "Vendor firmware cadence",
       "support_evidence_ref": "Per-release notes; lag vs ASB recorded per release",
-      "verification_method": "NOT YET RUN"
+      "verification_method": "Android 15 and selected EU Android 16 factory archive bytes and published hashes verified; update and restore behavior remain untested"
     },
     {
       "applicability": "Launch kernel candidate. Module/UAPI compat per device source inventory / kernel and module integration; no major-branch move (stays 6.1).",

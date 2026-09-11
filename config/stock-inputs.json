@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "record_state": "awaiting-secondary-copy-verification",
+  "observed_device": {
+    "product": "FP6",
+    "marketing_model": "Fairphone 6",
+    "storage_variant": "SM_KIMOLOS UFS",
+    "received_build": "FP6.QREL.15.176.0",
+    "android_version": 15,
+    "security_patch": "2025-12-05",
+    "boot_state": "locked-green-stock",
+    "offered_update_build": "FP6.QREL.16.100.0",
+    "offered_update_source": "owner read-only observation of the phone's update screen",
+    "update_installed_since_acceptance": false,
+    "source": "dated redacted stock acceptance record"
+  },
+  "official_sources": [
+    {
+      "id": "fairphone-manual-install",
+      "url": "https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone",
+      "api_url": "https://support.fairphone.com/api/v2/help_center/en-us/articles/18896094650513.json",
+      "article_updated_at": "2026-09-09T15:25:48Z",
+      "observed_at": "2026-09-11T14:20:01Z",
+      "purpose": "Official factory-package identity, download link, release metadata and published SHA-256"
+    },
+    {
+      "id": "fairphone-fp6-release-notes",
+      "url": "https://support.fairphone.com/hc/en-us/articles/24463713641234-The-Fairphone-Gen-6-Gen-6-Release-Notes",
+      "observed_at": "2026-09-11",
+      "purpose": "Regional current-version and security-patch context"
+    }
+  ],
+  "archives": [
+    {
+      "id": "fairphone-fp6-a15-final-factory",
+      "status": "VERIFIED_PRIMARY_COPY",
+      "product": "FP6",
+      "region": "all-listed",
+      "package_type": "user-factory",
+      "filename": "FP6.QREL.15.178.0.20260204144956_VS22-factory.zip",
+      "download_url": "https://android-builds.fairphone.com/FP6/A15/FP6.QREL.15.178.0.20260204144956_VS22-factory.zip",
+      "build_id": "FP6.QREL.15.178.0",
+      "android_version": 15,
+      "release_date": "2026-03-05",
+      "security_patch": "2026-02-05",
+      "size_bytes": 3523656068,
+      "sha256": "85ea44178af4cd0385cce45a8204000665436a70207a9261465ef43846206692",
+      "verification": {
+        "official_sha256_match": "PASS",
+        "repeat_read_sha256_match": "PASS",
+        "zip_crc": "PASS",
+        "safe_unique_member_paths": "PASS",
+        "required_recovery_members": "PASS",
+        "embedded_sha256_declared_files": 76,
+        "embedded_sha256_mismatches": 0,
+        "archive_executed": false,
+        "archive_extracted": false
+      },
+      "compatibility_with_observed_device": {
+        "product_match": "PASS",
+        "security_patch_not_older": "PASS",
+        "ufs_factory_layout_present": "PASS",
+        "result": "VERIFIED_INPUT_RESTORE_NOT_TESTED",
+        "limits": [
+          "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
+          "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
+        ]
+      },
+      "copies": {
+        "required": 2,
+        "verified": 1,
+        "locations": [
+          {
+            "id": "primary-private-archive",
+            "storage_class": "operator-private-primary",
+            "status": "VERIFIED"
+          },
+          {
+            "id": "owner-managed-cloud-copy",
+            "storage_class": "independent-provider",
+            "status": "AWAITING_OWNER_COPY_AND_HASH_VERIFICATION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fairphone-fp6-a16-eu-factory",
+      "status": "VERIFIED_PRIMARY_COPY_SELECTED_BY_DEVICE_OFFER",
+      "product": "FP6",
+      "region": "EU",
+      "package_type": "user-factory",
+      "filename": "FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip",
+      "download_url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip",
+      "build_id": "FP6.QREL.16.100.0",
+      "android_version": 16,
+      "release_date": "2026-08-24",
+      "security_patch": "2026-08-05",
+      "size_bytes": 3755004133,
+      "sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+      "verification": {
+        "phone_offered_build_match": "PASS",
+        "official_sha256_match": "PASS",
+        "repeat_read_sha256_match": "PASS",
+        "zip_crc": "PASS",
+        "safe_unique_member_paths": "PASS",
+        "required_recovery_members": "PASS",
+        "embedded_sha256_declared_files": 76,
+        "embedded_sha256_mismatches": 0,
+        "archive_executed": false,
+        "archive_extracted": false
+      },
+      "compatibility_with_observed_device": {
+        "product_match": "PASS",
+        "phone_offered_build_match": "PASS",
+        "ufs_factory_layout_present": "PASS",
+        "result": "VERIFIED_SELECTED_INPUT_UPDATE_NOT_INSTALLED_RESTORE_NOT_TESTED",
+        "limits": [
+          "The verified package matches the update offered by the phone, but the phone remains on its received Android 15 build.",
+          "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
+          "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
+        ]
+      },
+      "copies": {
+        "required": 2,
+        "verified": 1,
+        "locations": [
+          {
+            "id": "primary-private-archive",
+            "storage_class": "operator-private-primary",
+            "status": "VERIFIED"
+          },
+          {
+            "id": "owner-managed-cloud-copy",
+            "storage_class": "independent-provider",
+            "status": "AWAITING_OWNER_COPY_AND_HASH_VERIFICATION"
+          }
+        ]
+      }
+    }
+  ],
+  "excluded_current_alternative": {
+    "region": "US",
+    "build_id": "FP6.QREL.16.104.0",
+    "filename": "FP6.QREL.16.104.0.20260806185558_WS1N-factory.zip",
+    "download_url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.104.0.20260806185558_WS1N-factory.zip",
+    "security_patch": "2026-08-05",
+    "size_bytes": 3755049964,
+    "sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
+    "archive_status": "EXCLUDED_NOT_DOWNLOADED",
+    "reason": "The phone offers FP6.QREL.16.100.0, not this US build."
+  },
+  "device_metadata": {
+    "captured": [
+      "product and storage variant",
+      "hardware revision",
+      "locked and secure state",
+      "physical partition types and sizes exposed by fastboot",
+      "A/B slot status exposed by fastboot",
+      "current stock build, Android version, kernel and security patch",
+      "exact build offered by the stock updater"
+    ],
+    "not_captured_or_not_exportable": [
+      "raw stock partition bodies and per-partition hashes",
+      "partition start offsets from the device",
+      "logical partition inventory inside super",
+      "rollback index values and locations",
+      "non-empty bootloader and baseband version strings"
+    ],
+    "policy": "Locked stock access is not escalated. Unavailable fields remain unknown rather than being replaced by package contents or inferred values."
+  },
+  "user_data_backup": {
+    "status": "NOT_REQUIRED_OWNER_CONFIRMED",
+    "scope": "The owner confirmed that the phone contains no non-disposable data requiring backup.",
+    "recheck": "Confirm this remains true immediately before any future destructive operation."
+  },
+  "remaining_gates": [
+    "Copy both accepted recovery archives and the checksum manifest to the owner-managed cloud location, then reproduce both hashes from that independent copy.",
+    "Review the final backup/restore prerequisite after the secondary-copy evidence is recorded.",
+    "Test actual stock restoration, AVB/slot/rollback prerequisites and relock in the destructive recovery task."
+  ],
+  "safety": {
+    "device_update_authorized": false,
+    "device_flash_authorized": false,
+    "archive_path_is_identity": false,
+    "published_hash_and_observed_bytes_required": true
+  }
+}
