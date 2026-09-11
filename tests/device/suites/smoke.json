@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "suite_id": "smoke",
+  "description": "Read-only device identity, boot, battery, optional IMS and SELinux checks for an explicitly mapped harness phone.",
+  "cases": [
+    {
+      "test_id": "inspect-build-id",
+      "requirement_ids": ["traceable-build"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["getprop", "ro.build.id"],
+      "preconditions": ["The selected mapped device is authorized over the approved USB path."],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "The installed build reports a non-empty build ID."
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "inspect-build-type",
+      "requirement_ids": ["traceable-build-type"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["getprop", "ro.build.type"],
+      "preconditions": ["The selected mapped device is authorized over the approved USB path."],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "The installed build reports a build type so user and userdebug evidence cannot be conflated."
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "smoke-boot-completed",
+      "requirement_ids": ["boot-complete"],
+      "stage": "smoke",
+      "adapter": "adb-shell-read-only",
+      "argv": ["getprop", "sys.boot_completed"],
+      "preconditions": ["Android has been allowed to finish booting before the run starts."],
+      "expected": {
+        "oracle": "equals",
+        "description": "Android reports the completed boot state.",
+        "value": "1"
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "smoke-battery-service",
+      "requirement_ids": ["battery-service-readable"],
+      "stage": "smoke",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "battery"],
+      "preconditions": ["The Android battery service is running."],
+      "expected": {
+        "oracle": "contains",
+        "description": "The battery service returns a level field.",
+        "value": "level:"
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "smoke-ims-service",
+      "requirement_ids": ["ims-service-observation"],
+      "stage": "smoke",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "imsservice"],
+      "preconditions": ["IMS applicability depends on the installed build and exposed service interface."],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "The build exposes a non-empty IMS service observation when that service is available."
+      },
+      "applicability": {
+        "kind": "optional",
+        "skip_reason": "The installed build does not expose the optional IMS dumpsys service."
+      },
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "security-selinux-enforcing",
+      "requirement_ids": ["selinux-enforcing"],
+      "stage": "security",
+      "adapter": "adb-shell-read-only",
+      "argv": ["getenforce"],
+      "preconditions": ["The result is attributed only to the installed build identified in this run."],
+      "expected": {
+        "oracle": "equals",
+        "description": "SELinux reports Enforcing.",
+        "value": "Enforcing"
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    }
+  ]
+}

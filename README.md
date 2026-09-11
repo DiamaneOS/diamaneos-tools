@@ -25,6 +25,7 @@ fastboot --version
 ## Documentation
 
 - [Testing and command setup](docs/TESTING.md)
+- [Host-tooling and device-suite development](docs/BUILD.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Repository map](config/repositories.json)
 - [Verified stock recovery inputs](config/stock-inputs.json)
