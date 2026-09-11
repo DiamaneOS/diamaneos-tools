@@ -26,6 +26,7 @@ import subprocess
 import sys
 
 SCHEMA_VERSION = 1
+GFXINFO_COMMAND = ("dumpsys", "gfxinfo", "com.android.systemui")
 
 # Inner `adb shell ...` allowlist: exact argv only, no shell, no pipes.
 ALLOWLIST = {
@@ -34,7 +35,7 @@ ALLOWLIST = {
     ("dumpsys", "telephony.registry"),
     ("dumpsys", "imsservice"),
     ("dumpsys", "battery"),
-    ("dumpsys", "gfxinfo"),
+    GFXINFO_COMMAND,
 }
 
 DEFAULT_TIMEOUT = 20  # seconds per adb call: host safety bound, not a device claim.
@@ -52,7 +53,7 @@ DROP_LINE = {
         r"(?i)[a-z]*(tac|cell_?id|cgi|pci|arfcn|lac|ci|nid|bid|sid)\s*=",
         r"(?i)\b(tac|pci|arfcn|lac|cgi|cellinfo|nid|bid|sid|ci)\b",
         r"(?i)(tracking.area|cell.identit|location.area|routing.area|location.info)"],
-    ("dumpsys", "gfxinfo"): [r"(?i)\b(package|applicationId)\b\s*[:=]"],
+    GFXINFO_COMMAND: [r"(?i)\b(package|applicationId)\b\s*[:=]"],
 }
 
 SAFE_LINE = {
@@ -62,7 +63,7 @@ SAFE_LINE = {
     ("dumpsys", "imsservice"): [r"(?i)\b(registered|available|enabled|provisioned|voice|video|sms|ut|capable)"],
     ("dumpsys", "battery"): [r"^\s*(level|scale|status|health|temperature|voltage|technology)\s*:"],
     # Graphics stats only: a kept line must carry a digit (package-name lines drop).
-    ("dumpsys", "gfxinfo"): [r"^\s*[\w ./-]+:\s*[-+.\w%]*\d"],
+    GFXINFO_COMMAND: [r"^\s*[\w ./-]+:\s*[-+.\w%]*\d"],
 }
 
 REDACTIONS = [
