@@ -1,4 +1,4 @@
-# DiamaneOS Threat Model and Product Boundaries — Initial (threat modeling)
+# DiamaneOS Threat Model and Product Boundaries — Initial
 
 Status: initial assumptions, no FP6 measurements yet. Intended protections only.
 No hardware claim below is demonstrated protection until its validation work passes.
@@ -11,7 +11,7 @@ DiamaneOS is a GrapheneOS-derived daily driver for Fairphone 6 (one device,
 one variant), for privacy- and security-focused users, with locked bootloader
 on a custom AVB root and monthly releases. The launch scope below must pass qualification before public release. No root, no microG, no signature spoofing, no Magisk
 accommodation, no unlocked-bootloader daily use, no bundled cloud account.
-Fresh, calm UI with measured maintenance; accessibility and localization are
+A clear, expressive UI with measured maintenance; accessibility and localization are
 acceptance criteria, not polish. No global security score, no stock-parity
 promise, no superiority claim without dated like-for-like evidence.
 
@@ -84,5 +84,4 @@ owner, measured rebase cost, and regression checks. No shell rewrite presumed.
 
 ## Next validation
 
-licence review rights, source research source pins, interface design prototypes, compatibility planning compatibility
-target, then encryption and hardening validation / credential-policy enforcement credentials, custom-key relock validation locked boot, DRM and attestation validation attestation.
+Complete licence review, source binding, interface validation and compatibility qualification. Validate credential enforcement, locked boot and attestation on the actual candidate before claiming those protections.

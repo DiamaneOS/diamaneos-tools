@@ -1,17 +1,12 @@
 # diamaneos-tools
 
-Host tooling and machine-readable project maps for DiamaneOS (FP6, GrapheneOS-derived).
+Host tooling and machine-readable project maps for DiamaneOS, a GrapheneOS-derived operating system for Fairphone 6.
 
-## Layout
+## Workspace and tools
 
-- `WORK_ROOT` = a caller-selected parent directory for related checkouts
-- `TOOLS_ROOT` = `WORK_ROOT/tools` (this repo)
-- `PRIVATE_ROOT` = a caller-selected private evidence directory (outside all repos; serials, raw logs, tester data; never signing secrets)
-- `OFFLINE_ROOT` lives only on the offline signer, never on a development workstation
+Clone into any directory. Commands in this repository are run from its root unless stated otherwise. `WORK_ROOT` in repository maps is a configurable parent of related checkouts, not a required path on a maintainer's computer. `TOOLS_ROOT` is this checkout; `PRIVATE_ROOT` is a caller-selected directory outside public repositories for raw device evidence. `OFFLINE_ROOT` refers to isolated release-signing storage and is not a development checkout.
 
-## Setup
-
-Use Git, Python 3 and the official Android platform tools. Record versions alongside reproducible test results.
+Use Git, Python 3 and the official Android platform tools (`adb` and `fastboot`) for host capture. Put tools on `PATH` or supply the documented executable option. Full Android builds use the reproducible Linux build environment; running host-side fixtures does not require a full OS checkout or device.
 
 ```sh
 git --version
@@ -20,12 +15,11 @@ adb --version
 fastboot --version
 ```
 
-Missing platform-tools only from the official Google distribution.
-Full OS sync/build uses the reproducible Linux builder (Linux builder setup / reproducible Linux builds).
+## Documentation
 
-## Use
+- [Testing and command setup](docs/TESTING.md)
+- [Contribution and public-data rules](CONTRIBUTING.md)
+- [Repository map](config/repositories.json)
+- [Threat model and product boundaries](docs/THREAT_MODEL.md)
 
-See `CONTRIBUTING.md` for the issue/PR handoff template.
-`config/repositories.json` is the single repo/path map (`codeberg_owner: DiamaneOS`).
-Security/product boundaries: `docs/THREAT_MODEL.md` (threat modeling, assumptions only).
-Additional commands are documented when implemented.
+Only implemented commands can be run. Planned features and unresolved evidence are identified in their component contracts; a planning record is not a runtime result.

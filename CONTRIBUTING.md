@@ -10,6 +10,14 @@ Never commit: serials, IMEI, SIM/eSIM data, purchase prices, recovery codes,
 raw diagnostics, tester contacts, custody details, production secrets/shares.
 Redact before staging. `.gitignore` is a last guard, not permission.
 
+## Public documentation and identifiers
+
+Write for a contributor who has this repository and no private planning documents. Describe behavior, component ownership, prerequisites and unresolved evidence in plain language. Use repository-relative file links and configurable workspace placeholders. Do not include a maintainer's home directory, private checkout paths, hostname, workstation inventory, account state or chat/review transcript. Document supported platforms and relevant tested tool versions only when they help reproduce a build or result.
+
+Task IDs may accompany descriptive commit messages and remain in existing machine-readable ownership fields for compatibility. Such fields are tracking metadata, not the explanation of a requirement. Keep private task mappings and completion ledgers outside public repositories. CLI help, user-visible output and report values should describe behavior or status without private task IDs. Stable file paths, schema keys, source pins and test/requirement IDs remain part of the technical interface; do not rename them merely for editorial cleanup.
+
+Review the entire staged diff, filenames and commit message for public suitability. Removing text from the current checkout does not remove it from Git history. History rewriting requires explicit authorization, a private recovery copy, reference migration and verification; never publish backup refs or old objects as part of cleanup. Preserve third-party source attribution and genuine unresolved safety requirements.
+
 ## Issue / PR handoff (one note per task)
 
 ```text
@@ -25,7 +33,7 @@ Next implementation step or unblock condition:
 ```
 
 One active implementation per person; split oversized work into named children
-preserving parent AC. Source/format-only changes use review/validation, not ritual tests.
+preserving the parent acceptance criteria. Source/format-only changes use review/validation, not ritual tests.
 
 ## Roles and access
 
@@ -37,7 +45,7 @@ preserving parent AC. Source/format-only changes use review/validation, not ritu
 - Account recovery details stay private (`PRIVATE_ROOT`); public records hold
   roles only, never codes/secrets. Credential changes require the responsible operator.
 
-## Translations and accessibility (localization and accessibility)
+## Translations and accessibility
 
 - Source locale English (complete); German first priority — advertised only
   after critical flows are reviewed. Other locales AI-assisted, never
@@ -50,4 +58,4 @@ preserving parent AC. Source/format-only changes use review/validation, not ritu
   by default; no contributor personal-data or disability disclosure required.
   Translation path cannot touch code, keys, or production branches.
 - Accessibility issue reports welcome with the same format; manual assistive
-  checks happen on device (accessible journey validation), never proven by scanners alone.
+  checks happen on device, never proven by scanners alone.
