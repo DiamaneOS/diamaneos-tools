@@ -196,6 +196,25 @@ sudo -u diamaneos-test -H \
   /opt/diamaneos/tools/bin/diamaneos baseline capture --dry-run
 ```
 
+After deploying a revision that contains the staged device runner, create its
+private roots and validate the committed plan. Do not place the map in the
+root-owned public checkout:
+
+```sh
+sudo install -d -o diamaneos-test -g diamaneos-test -m 0750 \
+  /var/lib/diamaneos-test/devices \
+  /var/lib/diamaneos-test/test-runs
+sudo -u diamaneos-test -H \
+  /opt/diamaneos/tools/bin/diamaneos test run \
+  --suite smoke --dry-run
+```
+
+Populate `/var/lib/diamaneos-test/devices/test-host.json` using the private-map
+contract in `docs/BUILD.md`, owned by `diamaneos-test:diamaneos-test` at mode
+`0640`. Bind the `harness` role to the already approved USB serial without
+printing it into logs. Mark it disposable only when that phone is genuinely
+reserved for tests and contains no data requiring preservation.
+
 ## Live capture and evidence
 
 Run from Bash under the protected runner identity with `umask 027`. Require
@@ -217,6 +236,27 @@ TEST_RUN_ID=$(date -u +live-%Y%m%dT%H%M%SZ)
   --raw-dir /var/lib/diamaneos-test/runs \
   --output "/var/lib/diamaneos-test/runs/$TEST_RUN_ID.report.json"
 ```
+
+The corresponding initial staged smoke run is read-only:
+
+```sh
+TEST_RUN_ID=$(date -u +smoke-%Y%m%dT%H%M%SZ)
+
+/opt/diamaneos/tools/bin/diamaneos test run \
+  --suite smoke \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map /var/lib/diamaneos-test/devices/test-host.json \
+  --evidence-kind real-device \
+  --run-id "$TEST_RUN_ID" \
+  --conditions "<build, cable, network, power and ambient conditions>" \
+  --output /var/lib/diamaneos-test/test-runs
+```
+
+The result is `/var/lib/diamaneos-test/test-runs/$TEST_RUN_ID/result.json`.
+Check its full expected inventory and per-case statuses; exit zero alone is not
+acceptance. Keep the whole directory private, verify its hashes before any
+retry, and review the structured report for publication separately.
 
 Raw files may contain device and network identifiers. Keep them outside Git at
 `0640` beneath a `0750` run directory. Share only the sanitized report after a

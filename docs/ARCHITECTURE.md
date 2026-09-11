@@ -6,7 +6,7 @@ This map describes component responsibilities and permitted dependencies. The pr
 
 | Component (repository ID) | Responsible role | Inputs | Owned state | Authority boundary |
 | --- | --- | --- | --- | --- |
-| tools | Host-tooling maintainer | Pinned manifests and immutable inputs | Host maps and read-only collection | No signing or release-promotion credentials |
+| tools | Host-tooling maintainer | Pinned manifests, reviewed suites and immutable inputs | Private target maps, per-target locks and bounded run evidence | No signing or release-promotion credentials; destructive recipes remain in the installer/runbook |
 | manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Preserve imported project definitions |
 | device/product | Device-integration maintainer | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
 | vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
@@ -18,6 +18,30 @@ This map describes component responsibilities and permitted dependencies. The pr
 | Auditor/attestation | Attestation maintainer | Reviewed upstream client/protocol/server | Verification policy and authenticated reports | No invented hardware guarantees |
 
 Platform code owns credential, permission, update and hardware enforcement. Shared visual components coordinate presentation without duplicating those authorities. Keep dependencies directed: tools and manifests define source inputs; generated/device integration feeds builds; release evidence derives from the resulting candidate.
+
+## Hardware-runner boundary
+
+The host-tooling maintainer owns the suite parser, adapter allowlist and run
+schema. The private deployment owns exact device-role mappings and raw output;
+public reports use non-identifying roles. Suite configuration cannot introduce
+an arbitrary command, select an unmapped target or grant destructive authority.
+
+Each physical role has one lock owner at a time. The run directory owns
+checkpoint state from creation through atomic finalization; interruption keeps
+completed cases and produces an explicit rerun set rather than resuming an
+unverified command. Retry verifies the suite/candidate identity, installed
+build identity and referenced raw-file hashes before executing any retry case.
+
+Inspect, smoke and security stages currently use a narrow read-only ADB
+adapter. Destructive cases cross a distinct installer/runbook boundary: an
+explicit flag and disposable role are necessary but not sufficient, and this
+runner does not implement flashing. Unit fixtures prove parsing and failure
+paths; only an explicitly labelled real-device run proves a physical result.
+
+The current executable source binding is the official ADB command-line
+interface over the accepted USB path. Fastboot and UI-automation adapters are
+not implemented; they require their own reviewed target, timeout, cleanup and
+evidence contracts when a later suite genuinely needs them.
 
 ## Release path (planned)
 

@@ -96,6 +96,84 @@ bounds: 20s per adb call plus 256KB streaming byte cap
 (byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
 git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
 
+## Staged device runner
+
+The hardware runner consumes reviewed suites, requires an exact target plus a
+private target-role map, and produces a checkpointed, schema-versioned run.
+First validate the committed smoke plan without contacting ADB or writing an
+output directory:
+
+```sh
+bin/diamaneos test run --suite smoke --dry-run
+```
+
+For a live read-only smoke run, create the private device map described in
+[BUILD.md](BUILD.md), select the already authorized USB serial without printing
+it, and run under the unprivileged test account:
+
+```sh
+bin/diamaneos test run \
+  --suite smoke \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --evidence-kind real-device \
+  --run-id <run-id> \
+  --conditions "<build, USB, network, power and ambient setup>" \
+  --output <PRIVATE_ROOT>/test-runs
+```
+
+`--stage` is repeatable when an intentional subset is needed. A subset can
+exit successfully but is labelled `SELECTED`, with the full expected inventory
+still present as `NOT_RUN`; it is not a complete-suite claim. Every case names
+its stage, preconditions, oracle, installed build/firmware, duration, evidence
+kind, status and redacted/raw references. Optional capabilities are `SKIP` with
+a declared reason when genuinely unavailable; a missing required case is never
+converted to a pass.
+
+The runner is fail-stop. A timeout or output overflow is `HARNESS_ERROR`, a
+device loss is `BLOCKED`, an oracle mismatch is `FAIL`, and later selected
+cases remain `NOT_RUN`. On interruption, completed results and partial streams
+survive. Repeat only the unresolved cases under a new immutable run ID:
+
+```sh
+bin/diamaneos test run \
+  --suite smoke \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --evidence-kind real-device \
+  --run-id <new-run-id> \
+  --rerun-from <PRIVATE_ROOT>/test-runs/<prior-run-id>/result.json \
+  --conditions "<repeat setup and any deliberate differences>" \
+  --output <PRIVATE_ROOT>/test-runs
+```
+
+Retry input and raw hashes, the exact suite, role, and installed build identity
+must still agree. Exit codes are `0` complete/explicit selected success, `2`
+invalid arguments or data, `3` prerequisite/target/lock blocked, `4` test
+rejection and `5` execution failure, timeout or interruption. The exit code
+does not replace per-case completeness.
+
+Destructive suites are a separate stage and additionally require
+`--destructive` plus a private map entry with `disposable: true`. The v1 runner
+contains no flash/wipe implementation: after enforcing those gates, an
+`installer-runbook` case remains explicitly `BLOCKED` for the separate reviewed
+operator action. Never change such a case to `PASS` merely because the gate was
+accepted.
+
+Runner contract tests are synthetic evidence, not hardware results:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover \
+  -s tests/runner -t .
+```
+
+They cover multiple-device binding, wrong target, unavailable capability,
+timeout, device loss, interruption/checkpoint, verified rerun selection,
+immutable collisions and the destructive boundary. A separate live run on the
+accepted test host is required before the harness itself is accepted.
+
 ## Compatibility target (provisional, design only; no device evidence)
 
 Target: GOS branch-17 proposal vs FP6 Android-16 vendor (UNPROVEN pairing);

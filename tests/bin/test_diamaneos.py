@@ -22,6 +22,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(out.returncode, 0)
         self.assertIn("target_required", out.stdout)
 
+    def test_device_runner_dry_run(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"),
+             "test", "run", "--suite", "smoke", "--dry-run"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('"device_commands_executed": 0', out.stdout)
+
     def test_unknown_command(self):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "nope"],
                              capture_output=True, text=True, timeout=30)
