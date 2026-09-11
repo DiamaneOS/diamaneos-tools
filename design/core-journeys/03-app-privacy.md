@@ -1,6 +1,6 @@
 # 03 — App privacy
 
-Proposed interface mockup. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
+Refined browser reference; native implementation remains pending. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
 sheets: preset selection and individual controls.
 
 ## Intent and inherited comparison
@@ -33,7 +33,7 @@ Standard with network allowed and sensors blocked; preserve real overrides.
 | Loading | Read current permissions | Back/Home |
 | Ready | Current preset and capabilities | Preview then Apply |
 | Applied | Per-control state and acknowledgement | Individual controls |
-| Partial failure | Network still allowed; actual other states kept | Retry failed request or individual control |
+| Partial failure | Failed capability remains unchanged; successful/unchanged controls are explicit | Retry failed request or individual control |
 | Unavailable | Unknown state; no reliable summary or preset write | Retry individual state read |
 | Empty | No app target means no applicable preset | Return to app selection in native UI |
 
@@ -48,6 +48,13 @@ substitute a false all-applied status.
 Order: Back → app/profile → preset → preview cells → Apply → result.
 Switches expose name/role/state; sheets restore invoking focus and support
 cancel without swiping. Partial result uses an alert and nearby retry.
+
+In the independent Atlas example, permission alternatives are matching full-width
+buttons. Approximate precision is a labelled information row, not an editable
+field or a selectable pill. Allow and Don’t allow commit their respective
+sample states; Close/Back cancels and preserves any previous grant. This visual
+contract also applies to peer permission choices in native components. Different
+roles (switch, navigation row, information, explicit decision) remain distinct.
 
 Consequences wrap at large text sizes. Do not rely on colour alone. German
 is partial draft, RTL is layout stress; capability meanings need fluent review.

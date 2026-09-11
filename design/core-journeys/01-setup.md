@@ -1,6 +1,6 @@
 # 01 — Setup
 
-Proposed interface mockup. Owners: passphrase onboarding / credential-policy enforcement / accessible journey validation. Pages: `setup`, `review`,
+Refined browser reference; native implementation remains pending. Owners: passphrase onboarding / credential-policy enforcement / accessible journey validation. Pages: `setup`, `review`,
 `practice`, `setupDone`. All words are public examples.
 
 ## Intent and inherited comparison
