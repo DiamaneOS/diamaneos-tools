@@ -171,8 +171,22 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover \
 
 They cover multiple-device binding, wrong target, unavailable capability,
 timeout, device loss, interruption/checkpoint, verified rerun selection,
-immutable collisions and the destructive boundary. A separate live run on the
-accepted test host is required before the harness itself is accepted.
+immutable collisions and the destructive boundary.
+
+FP6-034 hardware-harness acceptance used signed implementation commit
+`1aee77342a504fe622c52f6925938d09b7ee0bed` on the accepted test host. The
+read-only `smoke` suite ran on the locked stock Android 15 FP6 build
+`FP6.QREL.15.176.0` (`VS21`, user build) as
+`fp6-034-stock15-20260911T234004Z`. The schema-valid, complete report selected
+and completed all six expected cases: five `PASS`, one reasoned `SKIP` for the
+optional IMS dumpsys service, and no failure, harness error or unresolved
+check. The sanitized report SHA-256 is
+`c300c05ca6fcf787a2590aba19844a7d00cf53e397d35ff7a7b40733a56bb4e9`;
+all 19 referenced private raw artifacts reproduced their recorded hashes.
+This accepts the runner and this stock read-only evidence only. It is not a
+custom-OS, compatibility, recovery, destructive-operation, release or signer
+qualification, and raw diagnostics/device identifiers remain outside public
+Git.
 
 ## Compatibility target (provisional, design only; no device evidence)
 
