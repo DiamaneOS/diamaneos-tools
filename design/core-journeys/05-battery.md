@@ -1,6 +1,6 @@
 # 05 — Battery
 
-Proposed interface mockup. Owners: power and thermal validation / charge-limit integration / battery health reporting. Pages: `battery`, `health`;
+Refined browser reference; native implementation remains pending. Owners: power and thermal validation / charge-limit integration / battery health reporting. Pages: `battery`, `health`;
 sheets: care/export. All readings are synthetic.
 
 ## Intent and inherited comparison

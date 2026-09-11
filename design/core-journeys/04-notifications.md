@@ -1,6 +1,6 @@
 # 04 — Notifications
 
-Proposed interface mockup. Owner: notification compatibility; shell composition candidate native UI integration.
+Refined browser reference; native implementation remains pending. Owner: notification compatibility; shell composition candidate native UI integration.
 Pages: `notifications`, `diagnosis`, `profile`.
 
 ## Intent and inherited comparison
@@ -33,14 +33,26 @@ rechecks delivery. Channels, per-app background limits and supported
 distributor state must be diagnosed rather than inferred from silence.
 Compatible delivery mechanisms are not universal support.
 
+Open the shade by pulling down on the status area or tapping/activating its
+labelled button. Dismiss using the centred upward chevron, an upward swipe on
+an edge handle or the date area, or Back/Escape. Dismiss returns to the previous page and its
+invoking control; entering troubleshooting creates a normal page whose Back
+returns to the shade. The shade enters downward from above and exits upward,
+including Back/Home; it never uses the horizontal page-dismiss transition.
+The Home middle pull-down opens Search instead. The shade has no
+page-style Back button or redundant bell in its header.
+
 Back preserves unrelated settings. No global exemption or disabling of
 security/battery policy follows from diagnosis. Quick settings and brightness
 only change local prototype state.
 
 ## Focus and locale
 
-Shade: navigation → connectivity → brightness → entries → troubleshooting
-→ Settings. Diagnosis: app/profile → cause → action → retest. State changes
+Shade reading order: status → date/Settings → connectivity → brightness →
+notification entries/troubleshooting → dismiss → Home. Keyboard order follows
+the actionable elements; the date is static. Diagnosis: Back → app/profile →
+cause → action → retest. Empty/loading shades keep quick settings and dismiss
+available; Settings still leads to app notification controls. State changes
 and test receipt are announced. Text expresses cause and consequence.
 
 Large text stacks connectivity controls. German wraps, RTL mirrors. Native

@@ -1,6 +1,6 @@
 # 06 — Updates
 
-Proposed interface mockup. Owners: OTA installation testing / interrupted-update recovery testing / offline signed OTA and updater integration.
+Refined browser reference; native implementation remains pending. Owners: OTA installation testing / interrupted-update recovery testing / offline signed OTA and updater integration.
 Page: `updates`; sheets: details, connection and restart.
 
 ## Intent and inherited comparison
@@ -21,7 +21,7 @@ Android execution or performance. Preview 01/02 and 428 MB are sample values.
 | Available | Identity, size, verification requirement | Download or leave |
 | Download/verify/install | Stage/progress; Later/Home | State continues in the running example |
 | Restart needed | Explicit choice | Restart or Later |
-| Complete | New running build and retention fixture | Native next-update check still required |
+| Complete | New running build and available files/apps fixture | Native next-update check still required |
 | Verification failure | Damaged download rejected before install; current build active | Download a fresh copy |
 | Unavailable | No connection; installed version unchanged | Connection/Retry |
 | No update | Installed identity and last-check context | Check again |

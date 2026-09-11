@@ -1,6 +1,6 @@
 # DiamaneOS UX — Facet, direction 01
 
-**Status: working design direction, 2026-09-10.** Aim for a fresh, enjoyable OS that remains straightforward for normal Android users, with clean, fast motion and consistency across system surfaces and apps where supported. Exact tokens, polished compositions and native behavior require design refinement and device validation.
+**Status: refined browser reference, 2026-09-11.** A fresh, enjoyable OS for normal Android users, with clean, fast motion and consistency across system surfaces and apps where supported. The six mockups and their visual baseline are refined; native integration, device qualification and intended-user acceptance remain separate gates.
 
 ## The vision
 
@@ -83,15 +83,18 @@ of any byte-identical mirror.
 
 ## Small visual system
 
-Proposed values are in [tokens.json](../design/prototypes/tokens.json).
+The selected browser baseline is in [tokens.json](../design/prototypes/tokens.json).
 Use semantic roles rather than per-screen decisions. Native integration maps
 the study's scoped variables to Android resources and app components.
 
 - **Type:** local platform sans, regular/medium; 12/14/16 supporting/body,
-  20/28/40 hierarchy, 88 for a focal number. The display clock is a deliberate
-  composition exception. Use native scalable units and font fallback.
+  20/24/28/40 hierarchy, 88 for a focal number. Quiet uses an 80 sp clock;
+  large text uses 28/24 sp heading bases and a 64 sp focal-number base before
+  scaling. The clock stacks whole hours/minutes; app icons become a labelled
+  list. Use native scalable units and font fallback.
 - **Spacing:** 4/8/12/16/24/32 dp; 24 dp reference content inset, reduced on
-  narrow layouts.
+  narrow layouts to 16 dp. Toolbar side tracks are equal; grouped rows use
+  16 dp insets, 8 dp group separation and 24 dp section separation.
 - **Shape:** 16 dp controls, 24 dp grouped surfaces, 28 dp sheet tops, 18 dp
   icon containers. Home's accent shape never changes a hit target or status.
 - **Elevation:** opaque groups and sheets with restrained separation. No
@@ -99,7 +102,7 @@ the study's scoped variables to Android resources and app components.
 - **Icons:** familiar and labelled. Lucide is for this browser study only;
   reuse local platform assets before adding native dependencies. Preserve
   recognisable launcher app identity.
-- **Motion:** 90 ms press, 140 ms state, 200 ms page, 240 ms sheet proposals;
+- **Motion:** 90 ms press, 140 ms state, 200 ms page, 240 ms shell surface/sheet reference;
   zero displacement under reduced motion. See the
   [motion contract](../design/prototypes/motion.md).
 
@@ -112,7 +115,7 @@ It uses sample data and changes only in-memory state. The
 | Journey | Main improvement | Implementing owners |
 | --- | --- | --- |
 | [Setup](../design/core-journeys/01-setup.md) | Deliberate phrase review and practice in a short flow | passphrase onboarding / credential-policy enforcement / accessible journey validation |
-| [Home](../design/core-journeys/02-home-discovery.md) | Distinctive Home with obvious app, file and settings access | everyday app flows / native UI integration |
+| [Home](../design/core-journeys/02-home-discovery.md) | Distinctive Home, middle pull-down search, accessible All apps discovery | everyday app flows / native UI integration |
 | [App privacy](../design/core-journeys/03-app-privacy.md) | Preview capability changes and show actual partial results | app privacy presets |
 | [Notifications](../design/core-journeys/04-notifications.md) | Scoped action after an identified cause | notification compatibility; shell integration candidate |
 | [Battery](../design/core-journeys/05-battery.md) | Requested and confirmed limits remain distinct | power and thermal validation / charge-limit integration / battery health reporting |
@@ -128,6 +131,12 @@ buttons, labelled fields, focus restoration, modal focus containment and
 restrained status announcements. Externalise critical production wording as
 complete strings rather than concatenated translated sentences.
 
+Peer permission decisions use comparable buttons and clear consequence labels.
+Read-only information has a labelled value; editable fields, switches and
+navigation rows retain their own roles. Closing a decision sheet cancels;
+explicit denial changes the sample grant. Native permission controllers retain
+authority over the actual grant and any supported precision choices.
+
 The study provides 100/150/200% text, German draft labels with English fallback,
 and RTL layout with English strings. It is not a full German translation or
 Arabic locale. Complete critical-copy review, TalkBack, switch navigation,
@@ -142,7 +151,9 @@ algorithm. No real secret should be entered.
 
 ## Adoption and validation
 
-Refine the selected working direction and freeze necessary tokens before native integration.
+Use the selected mockup baseline for implementation references. Bind its semantic
+roles to the actual upstream resources and validate native font/layout results
+before accepting visual integration. Prototype constants are not device policy.
 Compare Expressive, Quiet and the inherited baseline on the same tasks:
 finish setup, find a download, restrict an app, restore missing notifications,
 set a charge limit and recover from an update failure. Record completion,
@@ -161,7 +172,9 @@ hardware-enforcement or measured-usability claims in this proposal.
 
 ## Design refinement requirements
 
-The first preview establishes direction, not final screen geometry. Refine its uneven spacing, repeated text, All apps affordance and notification-shade navigation before native implementation.
+The refined browser reference resolves the first preview’s geometry, copy and
+navigation issues. These requirements continue to apply when porting the
+reference into native components; browser checks cannot close device gates.
 
 | Item | Required refinement | Ownership |
 | --- | --- | --- |
@@ -176,6 +189,24 @@ The first preview establishes direction, not final screen geometry. Refine its u
 
 UI-01–04 capture the observed first-pass feedback. UI-05–08 carry the existing
 interaction, accessibility and authority requirements into the same handoff.
-The design maintainer refines affected screens before implementation. Native UI integration checks them on-device, and usability acceptance evaluates real tasks with intended users. Defects return to the responsible component maintainer. These are refinement
-items within the existing design and implementation scope. The current
-preview has not yet received these refinements.
+The current reference applies shared insets, symmetric toolbar tracks, aligned
+cards, reflowing text and effective 48 px controls (UI-01). Setup and app context
+are stated once; sample-data context lives outside the phone, with explicit
+warnings retained where a public passphrase or simulated side effect could be
+misunderstood (UI-02). All apps is a centred chevron with an accessible name,
+tap/keyboard activation and an upward swipe on its handle. It opens upward
+and closes downward. Home's permanent search bar is replaced by clock/empty
+middle pull-down search; All apps → Search remains available without gestures
+(UI-03). The shade opens downward from the status area and dismisses upward
+through its centred chevron, date/edge swipe or Back/Escape. Home also closes
+the drawer/shade along the same vertical axis. The shade has no page Back/bell
+header (UI-04). Gestures supplement reachable controls; native arbitration must
+preserve widget interaction, ordinary scrolling and platform navigation.
+
+The [prototype record](../design/prototypes/README.md) describes actual browser
+checks. [Journey annotations](../design/core-journeys/README.md) carry the
+reading/focus order, state and component handoff. Native UI integration checks
+fixed viewports and Android navigation on-device; accessibility and usability
+owners evaluate assistive tools and real tasks with intended users. Defects
+return to the responsible component maintainer. Native performance, haptics,
+TalkBack, Switch Access and actual hardware/service state remain unverified.
