@@ -1,1 +1,800 @@
-{"$schema": "http://json-schema.org/draft-07/schema#", "additionalProperties": false, "definitions": {"blocker": {"additionalProperties": false, "description": "Explicit unresolved input: what is unknown, who owns resolution, and what unblocks it", "properties": {"description": {"maxLength": 1000, "type": "string"}, "owner_task": {"pattern": "^FP6-[0-9]{3}$", "type": "string"}}, "required": ["description", "owner_task"], "type": "object"}, "client_default": {"additionalProperties": false, "properties": {"default": {"maxLength": 500, "type": "string"}, "disclosure": {"maxLength": 1000, "type": "string"}, "jurisdiction": {"enum": ["eu-primary", "eu-proxy-to-non-eu-upstream", "non-eu-direct-exception"], "type": "string"}, "name": {"maxLength": 64, "type": "string"}, "owner_task": {"pattern": "^FP6-[0-9]{3}$", "type": "string"}}, "required": ["name", "default", "jurisdiction", "disclosure", "owner_task"], "type": "object"}, "endpoint": {"additionalProperties": false, "description": "One Appendix B endpoint. Bounds: ids <=64 chars, free-text fields <=2000 chars, field arrays <=64 items.", "properties": {"blocker": {"$ref": "#/definitions/blocker", "description": "REQUIRED when protocol_status or status is blocked; absent only when fully specified"}, "cache_freshness": {"maxLength": 2000, "type": "string"}, "consumer": {"maxLength": 500, "type": "string"}, "consumer_version": {"maxLength": 500, "type": "string"}, "exposed_data": {"maxLength": 2000, "type": "string"}, "failure_fallback": {"description": "Exact stale/failure behavior (never a generic retry-forever)", "maxLength": 2000, "type": "string"}, "id": {"maxLength": 64, "pattern": "^[a-z0-9-]+$", "type": "string"}, "jurisdiction": {"enum": ["eu-primary", "eu-proxy-to-non-eu-upstream", "non-eu-mirror"], "type": "string"}, "owner_task": {"pattern": "^FP6-[0-9]{3}$", "type": "string"}, "path_method": {"maxLength": 1000, "type": "string"}, "protocol": {"maxLength": 2000, "type": "string"}, "protocol_status": {"enum": ["specified", "blocked"], "type": "string"}, "purpose": {"maxLength": 1000, "type": "string"}, "replacement_host": {"description": "Planned DiamaneOS host (candidate until infrastructure staging provisions it); never a GrapheneOS host", "maxLength": 500, "type": "string"}, "request_fields": {"items": {"type": "string"}, "maxItems": 64, "type": "array"}, "response_fields": {"items": {"type": "string"}, "maxItems": 64, "type": "array"}, "retention": {"maxLength": 1000, "type": "string"}, "status": {"enum": ["specified", "blocked-contract"], "type": "string"}, "timeout_retry": {"maxLength": 1000, "type": "string"}, "upstream_host": {"description": "Appendix B GrapheneOS host being replaced", "maxLength": 500, "type": "string"}, "verification_root": {"maxLength": 1000, "type": "string"}}, "required": ["id", "upstream_host", "replacement_host", "consumer", "consumer_version", "purpose", "protocol", "protocol_status", "path_method", "request_fields", "response_fields", "verification_root", "timeout_retry", "cache_freshness", "failure_fallback", "exposed_data", "retention", "jurisdiction", "owner_task", "status"], "type": "object"}, "provider": {"additionalProperties": false, "properties": {"candidate": {"maxLength": 500, "type": "string"}, "jurisdiction": {"maxLength": 16, "type": "string"}, "layer": {"maxLength": 64, "type": "string"}, "status": {"enum": ["candidate"], "type": "string"}, "verify_at": {"pattern": "^FP6-[0-9]{3}$", "type": "string"}}, "required": ["layer", "candidate", "jurisdiction", "status", "verify_at"], "type": "object"}, "topology": {"additionalProperties": false, "description": "Actual host addresses, management access and secrets are private deployment inputs and never appear here.", "properties": {"community_separation": {"maxLength": 2000, "type": "string"}, "eu_primary": {"maxLength": 1000, "type": "string"}, "management_path": {"maxLength": 1000, "type": "string"}, "non_eu_mirror": {"maxLength": 1000, "type": "string"}}, "required": ["eu_primary", "non_eu_mirror", "community_separation", "management_path"], "type": "object"}}, "description": "endpoint contract design endpoint/hosting contract inventory. Consumed by service-health inputs (service monitoring) and staged deployment (infrastructure staging); no runtime device use. Unknown protocol fields are explicit blockers owned by later tasks, never guessed values.", "properties": {"canonical_domain": {"description": "Single canonical project domain (R11.1: diamaneos.de; diamane.de redirects, never load-bearing)", "type": "string"}, "client_defaults": {"description": "OS client defaults that select a non-EU service (disclosed distinctly from EU-primary hosting)", "items": {"$ref": "#/definitions/client_default"}, "type": "array"}, "endpoints": {"description": "One contract per Appendix B endpoint (none silently left on GrapheneOS or silently removed)", "items": {"$ref": "#/definitions/endpoint"}, "maxItems": 64, "minItems": 1, "type": "array"}, "note": {"description": "Provenance: producing task, date, and what this file does NOT claim (no signup, no provisioning, no device result)", "type": "string"}, "providers": {"description": "Candidate providers only (no signup/cost implied; verified at infrastructure staging provisioning)", "items": {"$ref": "#/definitions/provider"}, "type": "array"}, "schema_version": {"const": 1, "description": "Schema version; bump on any required-field change", "type": "integer"}, "topology": {"$ref": "#/definitions/topology", "description": "Minimal deployment selection: EU primary, independent non-EU mirror, community/release separation"}}, "required": ["schema_version", "note", "canonical_domain", "providers", "topology", "endpoints", "client_defaults"], "title": "EndpointContracts", "type": "object"}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Version 2 endpoint contract design. Validated with jsonschema plus explicit cross-reference and coverage checks. Design validation never activates services.",
+  "properties": {
+    "canonical_domain": {
+      "const": "diamaneos.de",
+      "type": "string"
+    },
+    "client_defaults": {
+      "description": "OS client defaults that select a non-EU service (disclosed distinctly from EU-primary hosting)",
+      "items": {
+        "$ref": "#/definitions/client_default"
+      },
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8
+    },
+    "endpoints": {
+      "description": "One contract per inherited endpoint (none silently left on GrapheneOS or silently removed)",
+      "items": {
+        "$ref": "#/definitions/endpoint"
+      },
+      "maxItems": 14,
+      "minItems": 14,
+      "type": "array"
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "\\S"
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/provider"
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "schema_version": {
+      "const": 2,
+      "description": "Schema version; bump on any required-field change",
+      "type": "integer"
+    },
+    "topology": {
+      "$ref": "#/definitions/topology",
+      "description": "Minimal deployment selection: EU primary, independent non-EU mirror, community/release separation"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/source"
+      },
+      "minItems": 1,
+      "maxItems": 96
+    },
+    "limits_profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/limits"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "canonical_domain",
+    "client_defaults",
+    "endpoints",
+    "note",
+    "providers",
+    "schema_version",
+    "topology",
+    "sources",
+    "limits_profiles"
+  ],
+  "title": "EndpointContracts",
+  "type": "object",
+  "definitions": {
+    "client_default": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "maxLength": 500,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "disclosure": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "jurisdiction": {
+          "enum": [
+            "eu-primary",
+            "eu-proxy-to-non-eu-upstream",
+            "non-eu-direct-exception"
+          ],
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "maxLength": 64,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "owner_task": {
+          "pattern": "^FP6-[0-9]{3}$",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "default",
+        "jurisdiction",
+        "disclosure",
+        "owner_task"
+      ],
+      "type": "object"
+    },
+    "endpoint": {
+      "additionalProperties": false,
+      "description": "One inherited endpoint. Bounds: ids <=64 chars, free-text fields <=2000 chars, field arrays <=64 items.",
+      "properties": {
+        "cache_freshness": {
+          "maxLength": 2000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "consumer": {
+          "maxLength": 500,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "consumer_version": {
+          "maxLength": 500,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "exposed_data": {
+          "maxLength": 2000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "failure_fallback": {
+          "description": "Exact stale/failure behavior (never a generic retry-forever)",
+          "maxLength": 2000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9-]+$",
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "enum": [
+            "eu-primary",
+            "eu-proxy-to-non-eu-upstream",
+            "non-eu-mirror"
+          ],
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_task": {
+          "pattern": "^FP6-[0-9]{3}$",
+          "type": "string",
+          "minLength": 1
+        },
+        "path_method": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "protocol": {
+          "maxLength": 2000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "protocol_status": {
+          "enum": [
+            "specified",
+            "blocked"
+          ],
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "replacement_host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+        },
+        "request_fields": {
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "minItems": 1
+        },
+        "response_fields": {
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "minItems": 1
+        },
+        "retention": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "status": {
+          "enum": [
+            "specified",
+            "blocked-contract"
+          ],
+          "type": "string",
+          "minLength": 1
+        },
+        "timeout_retry": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "upstream_host": {
+          "description": "inherited GrapheneOS host being replaced",
+          "maxLength": 500,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "verification_root": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "limits_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "upstreams": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/hop"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "implementation_blockers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/implementation_blocker"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "example": {
+          "$ref": "#/definitions/example"
+        }
+      },
+      "required": [
+        "cache_freshness",
+        "consumer",
+        "consumer_version",
+        "exposed_data",
+        "failure_fallback",
+        "id",
+        "jurisdiction",
+        "owner_task",
+        "path_method",
+        "protocol",
+        "protocol_status",
+        "purpose",
+        "replacement_host",
+        "request_fields",
+        "response_fields",
+        "retention",
+        "status",
+        "timeout_retry",
+        "upstream_host",
+        "verification_root",
+        "source_refs",
+        "limits_profile",
+        "upstreams",
+        "implementation_blockers",
+        "example"
+      ],
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "protocol_status": {
+                "const": "blocked"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "blocked-contract"
+              },
+              "implementation_blockers": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "status": {
+                "const": "specified"
+              },
+              "implementation_blockers": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "candidate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16,
+          "pattern": "\\S"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "existing",
+            "selected-candidate",
+            "planned",
+            "not-selected"
+          ]
+        },
+        "verify_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 7,
+          "pattern": "^FP6-[0-9]{3}$"
+        },
+        "reviewed_on": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10,
+          "pattern": "^2026-[0-9]{2}-[0-9]{2}$"
+        },
+        "evidence_urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "^https://[^@\\s?#]+$"
+          },
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "layer",
+        "candidate",
+        "jurisdiction",
+        "status",
+        "verify_at",
+        "reviewed_on",
+        "evidence_urls"
+      ],
+      "additionalProperties": false
+    },
+    "topology": {
+      "additionalProperties": false,
+      "description": "Actual host addresses, management access and secrets are private deployment inputs and never appear here.",
+      "properties": {
+        "community_separation": {
+          "maxLength": 2000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "eu_primary": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "management_path": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "non_eu_mirror": {
+          "maxLength": 1000,
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "eu_primary",
+        "non_eu_mirror",
+        "community_separation",
+        "management_path"
+      ],
+      "type": "object"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^https://github.com/GrapheneOS/[A-Za-z0-9_.-]+$"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[A-Za-z0-9_.+/-]+$"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "\\S"
+          },
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true
+        },
+        "sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "manifest-pin",
+            "research-pin",
+            "server-reference"
+          ]
+        },
+        "observed_on": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10,
+          "pattern": "^2026-[0-9]{2}-[0-9]{2}$"
+        }
+      },
+      "required": [
+        "id",
+        "repository",
+        "revision",
+        "path",
+        "symbols",
+        "sha256",
+        "role",
+        "observed_on"
+      ],
+      "additionalProperties": false
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "https",
+            "http-https",
+            "tls-stream",
+            "dns"
+          ]
+        },
+        "basis": {
+          "const": "project-staging-policy"
+        },
+        "request_body_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "response_body_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "request_header_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "request_target_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "deadline_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "connect_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "idle_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "attempts": {
+          "const": 1
+        },
+        "redirects": {
+          "const": 0
+        },
+        "requests_per_minute_per_ip": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "burst_per_ip": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "global_requests_per_second": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "max_active": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        },
+        "max_queued": {
+          "const": 0
+        },
+        "cache_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "refresh_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "max_verified_age_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "access_log_retention_seconds": {
+          "const": 0
+        },
+        "aggregate_log_retention_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 68719476736
+        },
+        "aggregate_log_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 68719476736
+        }
+      },
+      "required": [
+        "id",
+        "transport",
+        "basis",
+        "request_body_bytes",
+        "response_body_bytes",
+        "request_header_bytes",
+        "request_target_bytes",
+        "deadline_seconds",
+        "connect_seconds",
+        "idle_seconds",
+        "attempts",
+        "redirects",
+        "requests_per_minute_per_ip",
+        "burst_per_ip",
+        "global_requests_per_second",
+        "max_active",
+        "max_queued",
+        "cache_bytes",
+        "refresh_seconds",
+        "max_verified_age_seconds",
+        "access_log_retention_seconds",
+        "aggregate_log_retention_seconds",
+        "aggregate_log_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "implementation_blocker": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9-]+$"
+        },
+        "owner_task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 7,
+          "pattern": "^FP6-[0-9]{3}$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "id",
+        "owner_task",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "hop": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+        },
+        "operator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "\\S"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "enum": [
+            "US",
+            "CA",
+            "CH",
+            "DE",
+            "SE",
+            "IS"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "scheduled-acquisition",
+            "bounded-proxy",
+            "device-default"
+          ]
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "host",
+        "operator",
+        "jurisdiction",
+        "mode",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "wire-shape",
+            "schematic-not-conformance"
+          ]
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        },
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "kind",
+        "request",
+        "response",
+        "expected"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

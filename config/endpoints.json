@@ -1,545 +1,1600 @@
 {
-  "schema_version": 1,
-  "note": "endpoint contract design endpoint/hosting contracts 2026-09-11. Paper specification from R11/Appendix B + account security / source research / manifest integration inputs; no provider signup, no provisioning, no device result claimed. Unknown protocol fields are explicit blockers owned by later tasks. Provisioning/verification happens in infrastructure staging; protocol blockers resolve in their owning tasks.",
+  "schema_version": 2,
+  "note": "endpoint contract design contract design reviewed 2026-09-11. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
   "canonical_domain": "diamaneos.de",
   "providers": [
     {
       "layer": "registrar",
-      "candidate": "INWX (alternates: united-domains, Netim)",
+      "candidate": "INWX",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "existing",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://www.inwx.de/en/"
+      ]
     },
     {
       "layer": "authoritative-dns",
-      "candidate": "deSEC (alternate: self-hosted)",
+      "candidate": "INWX DNS",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "existing",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://kb.inwx.com/en-us/3-nameserver/104-can-i-use-dnssec",
+        "https://www.inwx.de/de/hosting/anycast-dns"
+      ]
     },
     {
       "layer": "vps-primary",
-      "candidate": "Hetzner (alternate: netcup)",
+      "candidate": "Hetzner Cloud, Germany",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "selected-candidate",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://www.hetzner.com/cloud/cost-optimized/",
+        "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+        "https://www.hetzner.com/legal/terms-and-conditions/",
+        "https://docs.hetzner.com/general/security-and-identify/two-factor-authentication/"
+      ]
     },
     {
       "layer": "artifact-mirror-non-eu",
-      "candidate": "1984 Hosting Iceland (alternates: Switzerland, Norway)",
+      "candidate": "1984 Hosting, Iceland",
       "jurisdiction": "IS",
-      "status": "candidate",
-      "verify_at": "FP6-101"
-    },
-    {
-      "layer": "object-storage",
-      "candidate": "Hetzner Storage Box",
-      "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "selected-candidate",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://management.1984.hosting/product/pricelist/",
+        "https://1984.hosting/tos/",
+        "https://management.1984.hosting/knowledge-base/dashboard/"
+      ]
     },
     {
       "layer": "git-primary",
-      "candidate": "Codeberg e.V.",
+      "candidate": "Codeberg",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "existing",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://codeberg.org/"
+      ]
     },
     {
       "layer": "git-backup",
-      "candidate": "self-hosted Forgejo on release VPS",
+      "candidate": "Self-hosted Forgejo, isolated process on primary; no publishing authority",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "planned",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://forgejo.org/docs/latest/admin/"
+      ]
     },
     {
       "layer": "git-mirror",
-      "candidate": "GitHub read-only mirror (issues/PRs disabled)",
+      "candidate": "GitHub, read-only publication mirror",
       "jurisdiction": "US",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "planned",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository"
+      ]
     },
     {
       "layer": "email",
-      "candidate": "TBD in support infrastructure (shortlist: mailbox.org, Posteo, Tuta)",
+      "candidate": "mailbox.org",
       "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "existing",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://mailbox.org/en/"
+      ]
     },
     {
       "layer": "monitoring",
-      "candidate": "self-hosted Uptime Kuma on release VPS",
-      "jurisdiction": "DE",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "candidate": "Self-hosted on primary, with independent external checks on mirror",
+      "jurisdiction": "DE-IS",
+      "status": "planned",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": [
+        "https://github.com/louislam/uptime-kuma"
+      ]
     },
     {
       "layer": "cdn",
-      "candidate": "none at launch (revisit only on measured traffic need with privacy disclosure)",
+      "candidate": "None at launch",
       "jurisdiction": "n/a",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "status": "not-selected",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": []
     },
     {
-      "layer": "cloudflare",
-      "candidate": "excluded entirely (CDN, DNS, registrar all US)",
-      "jurisdiction": "excluded",
-      "status": "candidate",
-      "verify_at": "FP6-101"
+      "layer": "object-storage",
+      "candidate": "No separate storage service selected; size local disks before provisioning",
+      "jurisdiction": "n/a",
+      "status": "not-selected",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-09-11",
+      "evidence_urls": []
     }
   ],
   "topology": {
-    "eu_primary": "EU (DE) primary hosts all OS endpoints and release origin; TLS terminated on own servers; no CDN at launch.",
-    "non_eu_mirror": "Independent non-EU mirror (IS candidate) serves identical signed artifacts + proof bundles; clients verify pinned signatures + rollback state; freshness + canonical channel selection monitored; mirror never authenticates first install by itself.",
+    "eu_primary": "Project HTTP/TCP delivery uses the selected German primary with TLS on own servers and no CDN. INWX authoritative DNS is separately administered and uses global Anycast; the chosen recursive DNS default and upstream acquisition jurisdictions are disclosed separately.",
+    "non_eu_mirror": "Independent 1984 Iceland candidate serves identical verified release objects, proof bundles and recovery/site copy. Separate provider account and SSH identities; no private signing keys. Canonical selector publication and mirror freshness are checked separately; a first installer still needs an independently obtained verification root.",
     "community_separation": "Community/federation hosts and credentials are separate from release/update infrastructure . A community-host compromise cannot administer release infrastructure: distinct hosts, distinct credentials, no shared admin path, no release secrets on community hosts.",
-    "management_path": "Protected management path independent of federation; actual host addresses, management access and secrets are private deployment inputs injected at infrastructure staging provisioning, never stored in this file."
+    "management_path": "Owner workstation -> distinct host-scoped SSH identities over protected management VPN; provider console is an independent recovery path. Community accounts, federation login, git tokens and serving processes cannot use either path. infrastructure staging proves denied access and recovery; no addresses or secret values in public configuration."
   },
   "client_defaults": [
     {
       "name": "private-dns",
-      "default": "Quad9 (CH) as explicit Private DNS/DoT default; dns0.eu (FR) optional candidate subject to availability check",
+      "default": "Quad9 Private DNS/DoT: dns.quad9.net",
       "jurisdiction": "non-eu-direct-exception",
-      "disclosure": "Quad9 is an explicit non-EU default exception to the EU-primary posture; shown in Settings + public endpoint table with supported alternatives. Never justified by claims about a country's treatment of privacy projects.",
+      "disclosure": "Swiss operator; the device connects directly to its chosen resolver. INWX authoritative DNS is a separate layer. dns0.eu is not selected: availability was not established during this review. Publish active resolver and supported alternatives; do not silently fall back to plaintext.",
       "owner_task": "FP6-079"
     },
     {
       "name": "authenticated-time",
-      "default": "PTB Braunschweig + Netnod candidates under multi-source agreement policy (6 sources, >=3 agreeing)",
-      "jurisdiction": "eu-proxy-to-non-eu-upstream",
-      "disclosure": "Sources verified for protocol/terms/availability in time and connectivity integration before provisioning; standard-server alternative kept visible.",
+      "default": "Server-side NTS source agreement; Netnod is a verified EU service candidate, PTB authenticated support remains unverified.",
+      "jurisdiction": "eu-primary",
+      "disclosure": "Netnod is Swedish. Multiple Netnod hosts are one operator, not independent operators. Six source slots and at least three agreeing samples are project service policy, not fields or quorum checks in the Android HTTPS client. Qualify source diversity in TIME-SOURCES before enabling this service.",
       "owner_task": "FP6-102"
+    }
+  ],
+  "sources": [
+    {
+      "id": "updater",
+      "repository": "https://github.com/GrapheneOS/platform_packages_apps_Updater",
+      "revision": "52c34a55bd26f7856f9141d7e4237397084d6936",
+      "path": "src/app/seamlessupdate/client/Service.java",
+      "symbols": [
+        "fetchData",
+        "onHandleIntent",
+        "CONNECT_TIMEOUT",
+        "READ_TIMEOUT"
+      ],
+      "sha256": "4a75d4b4d4a02201ff58bb3fb0148d5bbc04f0cc050796570dac8d9bee6af2e1",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "updater-jobs",
+      "repository": "https://github.com/GrapheneOS/platform_packages_apps_Updater",
+      "revision": "52c34a55bd26f7856f9141d7e4237397084d6936",
+      "path": "src/app/seamlessupdate/client/PeriodicJob.java",
+      "symbols": [
+        "schedule",
+        "onStartJob"
+      ],
+      "sha256": "c315e82cf5cd11e62b0da8465b5ee0526991b347a6d6374dd6e46e9eaff1d890",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "updater-url",
+      "repository": "https://github.com/GrapheneOS/platform_packages_apps_Updater",
+      "revision": "52c34a55bd26f7856f9141d7e4237397084d6936",
+      "path": "res/values/config.xml",
+      "symbols": [
+        "url"
+      ],
+      "sha256": "bf91595fb7d229ae752bf25e6ab806950f848adb4a9dde9f9d1f8778d811d59a",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "network-config",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_NetworkStack",
+      "revision": "22adb6f742fdf27f2a4a2d42db06be0e490f54e0",
+      "path": "res/values/config.xml",
+      "symbols": [
+        "default_captive_portal_http_url",
+        "default_captive_portal_https_url",
+        "default_captive_portal_fallback_urls"
+      ],
+      "sha256": "5f309710080fb87b2cbaf633df90c5ff1f6d631ac361eec5d16914d2bd4c5887",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "network-monitor",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_NetworkStack",
+      "revision": "22adb6f742fdf27f2a4a2d42db06be0e490f54e0",
+      "path": "src/com/android/server/connectivity/NetworkMonitor.java",
+      "symbols": [
+        "sendHttpProbe",
+        "getPrivateDnsHostSuffix",
+        "SOCKET_TIMEOUT_MS",
+        "PROBE_TIMEOUT_MS"
+      ],
+      "sha256": "9d019c83188d1fc91f6573a25fc1543b18823505af7daba438002d3bb6b38f0b",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "rkp-client",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_RemoteKeyProvisioning",
+      "revision": "069767f2d1960ae3c6eb4d253cbb8c5b659c01fb",
+      "path": "app/src/com/android/rkpdapp/interfaces/ServerInterface.java",
+      "symbols": [
+        "generateUrl",
+        "requestData",
+        "TIMEOUT_MS"
+      ],
+      "sha256": "dc0da4a1481c4f5a4c21b534cdff97d8881f15cc7914b0dfd7a7dabb96bc5bc8",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "rkp-settings",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/ext/settings/RemoteKeyProvisioningSettings.java",
+      "symbols": [
+        "getServerUrlOverride"
+      ],
+      "sha256": "3254b0ad228ed1b5229ed5bbeddb17928b7e5cc46f54e993a60f825663eb51ac",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "widevine-client",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_RemoteKeyProvisioning",
+      "revision": "069767f2d1960ae3c6eb4d253cbb8c5b659c01fb",
+      "path": "app/src/com/android/rkpdapp/provisioner/WidevineProvisioner.java",
+      "symbols": [
+        "provision",
+        "fetchWidevineCertificate"
+      ],
+      "sha256": "2dc051b9b7ec40ad3d1cb916f3df4713c849703e023641f3a565bb58d35c0fca",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "widevine-settings",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/ext/settings/WidevineProvisioningSettings.java",
+      "symbols": [
+        "getServerHostnameOverride"
+      ],
+      "sha256": "a5ebff9c7966c837b8167992e5e83921b38f4ea795ef1acbd618af7761ca2672",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "dns-client",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_DnsResolver",
+      "revision": "215bd613910d77fbf58e55d4b8ec73f1a3713373",
+      "path": "DnsTlsTransport.cpp",
+      "symbols": [
+        "makeDnsQuery",
+        "checkDnsResponse"
+      ],
+      "sha256": "b77e773ff05e10d37a32e1894f1c73b12c2be8e341a0321dbf8d00117053bf05",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "dns-zone",
+      "repository": "https://github.com/GrapheneOS/ns1.grapheneos.org",
+      "revision": "642a854be0b66b7b7b3d9d584e88531ad23c9590",
+      "path": "zones/grapheneos.org.zone",
+      "symbols": [
+        "*.dnscheck"
+      ],
+      "sha256": "d1ad84e5b45d0998742176abd3bca3add4d0190e92c20b3a886c82e531e8d065",
+      "role": "server-reference",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "time-client",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/net/HttpsTimeClient.java",
+      "symbols": [
+        "requestTime",
+        "X-Time"
+      ],
+      "sha256": "da55cef611cc71c1023762c283db4cbcff895aeff2bf48b4c8869bded0af8371",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "framework-config",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/res/res/values/config.xml",
+      "symbols": [
+        "config_httpsTimeUrls",
+        "config_ntpTimeout"
+      ],
+      "sha256": "b73676466ebdae0c9042dc6ef6648032108d88d6d47d4b13a228e420ba96574d",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "gnss-settings",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/ext/settings/GnssSettings.java",
+      "symbols": [
+        "PSDS_SERVER",
+        "SUPL_SERVER"
+      ],
+      "sha256": "26097fcf52ff3c704794ceaec5576d9f07716dd3e22eb2196a93e92aeb51a8dd",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "gnss-downloader",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "services/core/java/com/android/server/location/gnss/GnssPsdsDownloader.java",
+      "symbols": [
+        "doDownload",
+        "MAXIMUM_CONTENT_LENGTH_BYTES"
+      ],
+      "sha256": "69af91cc144434b5bf90a9a9390c24f0747417f575e794ff10b6dad7fd4af0cb",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "gnss-config",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "services/core/java/com/android/server/location/gnss/GnssConfiguration.java",
+      "symbols": [
+        "getSuplHost",
+        "getSuplPort",
+        "getPsdsPropNames",
+        "applyPsdsConfigOverrides",
+        "config_gnssPsdsType"
+      ],
+      "sha256": "d93b83b048c45ac44a2961502ff0eeef8393a8ad4e71d766c7a95d0b312d6706",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "apps-repo",
+      "repository": "https://github.com/GrapheneOS/AppStore",
+      "revision": "bdfeafd48ee39fd15df9150877ccd5bc09ae061e",
+      "path": "app/src/main/java/app/grapheneos/apps/core/RepoRetriever.kt",
+      "symbols": [
+        "fetchRepo",
+        "fetchInner",
+        "MIN_TIMESTAMP"
+      ],
+      "sha256": "4dc6651ed441e29d3434e395c226d9f1a417dc57aa69e974fe42e0d937dd1b17",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "apps-format",
+      "repository": "https://github.com/GrapheneOS/AppStore",
+      "revision": "bdfeafd48ee39fd15df9150877ccd5bc09ae061e",
+      "path": "app/src/main/java/app/grapheneos/apps/core/Repo.kt",
+      "symbols": [
+        "parse",
+        "downloadUrl"
+      ],
+      "sha256": "313f6a2244826a318cbb8f92ed486b6218057d008168370edfee2f2e43f9bc83",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "apps-install",
+      "repository": "https://github.com/GrapheneOS/AppStore",
+      "revision": "bdfeafd48ee39fd15df9150877ccd5bc09ae061e",
+      "path": "app/src/main/java/app/grapheneos/apps/core/InstallTask.kt",
+      "symbols": [
+        "download",
+        "Range"
+      ],
+      "sha256": "d48f81b7ddfe32d34fd0f11f62d9ff5721e94e8210d9af3b11b18e2ca27c795f",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "apps-verify",
+      "repository": "https://github.com/GrapheneOS/AppStore",
+      "revision": "bdfeafd48ee39fd15df9150877ccd5bc09ae061e",
+      "path": "app/src/main/java/app/grapheneos/apps/core/FileVerifier.kt",
+      "symbols": [
+        "verifySignature"
+      ],
+      "sha256": "94c78b4356b8f70d0b5c85c8a1fa13e14a5ba115b7228f163462da158c5ce634",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "apps-http",
+      "repository": "https://github.com/GrapheneOS/AppStore",
+      "revision": "bdfeafd48ee39fd15df9150877ccd5bc09ae061e",
+      "path": "app/src/main/java/app/grapheneos/apps/util/HttpUtils.kt",
+      "symbols": [
+        "openConnection"
+      ],
+      "sha256": "0430e67acd58bbd287d62f48cb8611744918ec522568b1661f4a68e3cbd2424f",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "vanadium-components",
+      "repository": "https://github.com/GrapheneOS/Vanadium",
+      "revision": "02d87ad8e17aee77d0fea49d122349a5da87ed2e",
+      "path": "patches/0118-use-vanadium.app-for-component-updates.patch",
+      "symbols": [
+        "URL_OMAHA_SERVER",
+        "kUpdaterJSONDefaultUrl",
+        "UrlFetcherDownloader::DoStartDownload"
+      ],
+      "sha256": "38f64730d4dc7bbe0dab94f22e5422760cbb82bd8822802b69250d3e859e0021",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "info-client",
+      "repository": "https://github.com/GrapheneOS/Info",
+      "revision": "f5216fe1c86163fde86ddbe7b1f4d0cab816f42b",
+      "path": "app/src/main/kotlin/app/grapheneos/info/ui/releases/ReleasesViewModel.kt",
+      "symbols": [
+        "updateChangelog"
+      ],
+      "sha256": "30ae1d974416521526bad0cdcce729886be916dc5689198b66b31ef3e49c928e",
+      "role": "research-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "info-prebuilt",
+      "repository": "https://github.com/GrapheneOS/platform_external_Info",
+      "revision": "09b5bc8d26eadb57cf8e375156d2af22b341111e",
+      "path": "Android.bp",
+      "symbols": [
+        "InfoApp"
+      ],
+      "sha256": "ec9f80d20cf0dfdec105c71a7ee82d07d5baa1594c8243d38c8b3c3e24def0be",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "network-server",
+      "repository": "https://github.com/GrapheneOS/grapheneos.org",
+      "revision": "7964a206035a2a7bbf85770e70a86b4538f78a69",
+      "path": "nginx/nginx.conf",
+      "symbols": [
+        "server_name time.grapheneos.org",
+        "server_name remoteprovisioning.grapheneos.org",
+        "server_name update.vanadium.app",
+        "server_name gstatic.grapheneos.org"
+      ],
+      "sha256": "43d00dfd62da95c63106c1d7e2e020536b301a7f505506e2854873d9ff54c9c9",
+      "role": "server-reference",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "psds-fetch",
+      "repository": "https://github.com/GrapheneOS/grapheneos.org",
+      "revision": "7964a206035a2a7bbf85770e70a86b4538f78a69",
+      "path": "psds",
+      "symbols": [
+        "xtra3Mgrbeji.bin"
+      ],
+      "sha256": "88dff13bbcd4dfaaa9db3b75005ae150e889562ee41e7a5636784aaab2511efc",
+      "role": "server-reference",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-config",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
+      "revision": "e77de9b029c49faf31265bf6747f2b5d907020b3",
+      "path": "networksecurity/service/src/com/android/server/net/ct/Config.java",
+      "symbols": [
+        "baseUrl",
+        "logListV2Url",
+        "logListV3Url",
+        "publicKeyUrl"
+      ],
+      "sha256": "283045b0d6c9e2a3ab404b896574b08aa551ccec2e7f073053ce85137c27b83a",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-download",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
+      "revision": "e77de9b029c49faf31265bf6747f2b5d907020b3",
+      "path": "networksecurity/service/src/com/android/server/net/ct/CertificateTransparencyDownloader.java",
+      "symbols": [
+        "startPublicKeyDownload",
+        "handleContentDownloadCompleted"
+      ],
+      "sha256": "b55cb734c2bcb12b1c424e882bde99060f657d75f01bdc7dec5f3ad3f2704517",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-verify",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
+      "revision": "e77de9b029c49faf31265bf6747f2b5d907020b3",
+      "path": "networksecurity/service/src/com/android/server/net/ct/SignatureVerifier.java",
+      "symbols": [
+        "setPublicKey",
+        "verify",
+        "mAllowedKeys"
+      ],
+      "sha256": "c82ed05dd53f3a6c25e1fc8f7a884e1b9efb817fe19ab1828345fbb28ae97c0d",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-install",
+      "repository": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
+      "revision": "e77de9b029c49faf31265bf6747f2b5d907020b3",
+      "path": "networksecurity/service/src/com/android/server/net/ct/CompatibilityVersion.java",
+      "symbols": [
+        "install"
+      ],
+      "sha256": "bdea7df80f2e2f5bcdfad13a5bd3747bb7b4cbf948e9b2d875a993ee81d498c2",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-age",
+      "repository": "https://github.com/GrapheneOS/platform_external_conscrypt",
+      "revision": "f77e70e5d9c7daa3347233e186c8fd4244e6406e",
+      "path": "platform/src/main/java/org/conscrypt/ct/PolicyImpl.java",
+      "symbols": [
+        "isLogStoreCompliantAt",
+        "seventyDaysInMs"
+      ],
+      "sha256": "6b8ef50b9956a7711ac4a6265a075be005f156de66a48844ef7c8be7368e52a0",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    },
+    {
+      "id": "ct-enforcement",
+      "repository": "https://github.com/GrapheneOS/platform_external_conscrypt",
+      "revision": "f77e70e5d9c7daa3347233e186c8fd4244e6406e",
+      "path": "common/src/main/java/org/conscrypt/ct/CertificateTransparency.java",
+      "symbols": [
+        "checkCT",
+        "LogStore.State.COMPLIANT"
+      ],
+      "sha256": "7d93438e66f1911e544b75060d1015e0757588226354b18cd8dd27561a84d2bb",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-11"
+    }
+  ],
+  "limits_profiles": [
+    {
+      "id": "artifacts",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 8589934592,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 3600,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 68719476736,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 86400,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "catalog",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 8589934592,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 3600,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 68719476736,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 86400,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "component-meta",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 16384,
+      "response_body_bytes": 4194304,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 30,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "component-bytes",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 268435456,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 600,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 2147483648,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 86400,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "time",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 0,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 5,
+      "connect_seconds": 5,
+      "idle_seconds": 5,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 64,
+      "max_verified_age_seconds": 300,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "probe",
+      "transport": "http-https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 0,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 3,
+      "connect_seconds": 3,
+      "idle_seconds": 3,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "psds",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 1000000,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 60,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 8000000,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 86400,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "supl",
+      "transport": "tls-stream",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 1048576,
+      "response_body_bytes": 4194304,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 60,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "provisioning",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 16384,
+      "response_body_bytes": 4194304,
+      "request_header_bytes": 32768,
+      "request_target_bytes": 8192,
+      "deadline_seconds": 20,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "ct",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 8388608,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 60,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 67108864,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 172800,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "dns",
+      "transport": "dns",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 512,
+      "response_body_bytes": 512,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 10,
+      "connect_seconds": 5,
+      "idle_seconds": 10,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 3600,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "feed",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 2097152,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 30,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 60,
+      "burst_per_ip": 20,
+      "global_requests_per_second": 120,
+      "max_active": 64,
+      "max_queued": 0,
+      "cache_bytes": 16777216,
+      "refresh_seconds": 3600,
+      "max_verified_age_seconds": 86400,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
     }
   ],
   "endpoints": [
     {
       "id": "os-updates",
       "upstream_host": "releases.grapheneos.org",
-      "replacement_host": "releases.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "OS Updater (pinned release client)",
-      "consumer_version": "pinned at release publication release instance",
-      "purpose": "Signed full/incremental OTA + factory image metadata and bytes for the FP6 port",
-      "protocol": "Existing Updater metadata/verification contract; exact metadata schema, channel selection and proof-bundle verification frozen in release publication from the pinned client.",
+      "replacement_host": "releases.diamaneos.de",
+      "consumer": "OS Updater Service",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Channel selection and signed OTA delivery; signed factory/recovery objects share the artifact origin.",
+      "protocol": "Existing text selector, not a newly invented JSON or proof protocol. Verification is performed after complete download.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Exact Updater metadata schema, channel/rollback rules and transparency proof verification must be traced from the pinned Updater client before server behavior is frozen.",
-        "owner_task": "FP6-128"
-      },
-      "path_method": "TBD from pinned client trace (release publication); replacement serves under releases.diamaneos.de only.",
+      "path_method": "GET /{DEVICE}-{channel}; GET /{DEVICE}-incremental-{current}-{target}.zip, falling back on 404 to /{DEVICE}-ota_update-{target}.zip; optional Range.",
       "request_fields": [
-        "device",
-        "version",
-        "channel"
+        "Model, channel and current/target incremental in path; Range: bytes={offset}- on resume."
       ],
       "response_fields": [
-        "target-version",
-        "package-url",
-        "package-hash",
-        "proof-bundle-ref"
+        "Selector first line: targetIncremental targetBuildDate targetDevice targetChannel (space separated); date is Unix seconds.",
+        "ZIP byte stream; HTTP 206 on valid Range, 404 missing object; signed OTA metadata checked inside package."
       ],
-      "verification_root": "DiamaneOS release signing keys (ceremony release key ceremony); devices pin release certs + enforce rollback policy; first-install trust via independent AVB fingerprint comparison, never the origin page alone.",
-      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; exact values frozen by release publication before activation; never retry-forever.",
-      "cache_freshness": "Immutable artifacts cached indefinitely by hash; channel selection metadata has explicit freshness; stale selection never auto-promotes.",
-      "failure_fallback": "Invalid OTA signature: hard reject. Missing transparency proof: v1 documented warning policy (observation, not prevention). Forbidden downgrade: reject with supported recovery guidance. Offline: signed microSD path (offline signed OTA) through the same trusted pipeline.",
-      "exposed_data": "Device model/version/channel + IP (unavoidable); mirror/CDN-free origin sees request IPs \u2014 disclosed on privacy page.",
-      "retention": "Server request logs: none, or <=24h where operationally justified (privacy page states actual).",
+      "verification_root": "RecoverySystem.verifyPackage with device-pinned OTA certificates; update_engine payload checks; expected device/channel and newer build date checked. Release key ceremony release key ceremony and verified boot/rollback remain separate. No invented transparency verification in current Updater.",
+      "timeout_retry": "Observed: connect/read 30 s; scheduled checks every 6 h, failed background job rescheduled after >=4 min. Server transfer deadline 3600 s; one attempt per request. No blanket three-retry native claim.",
+      "cache_freshness": "Project selector body <=4096 bytes; canonical selector publication check <=24 h, HTTP max-age=5. Verified immutable objects remain available by exact name within 64 GiB store; never garbage-collect referenced objects. Publish bytes then selector atomically.",
+      "failure_fallback": "No fresh approved selector: HTTP 503 (no redirect); existing installed OS runs. Invalid signature/metadata: client refuses update. Missing incremental: full OTA path. Interrupted bytes remain untrusted until full verification. Offline signed recovery/OTA is owned by offline signed OTA / release publication.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Path reveals OS model/version/channel. Updater does not need a serial in the request.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-128",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "updater",
+        "updater-url",
+        "updater-jobs"
+      ],
+      "limits_profile": "artifacts",
+      "upstreams": [],
+      "implementation_blockers": [
+        {
+          "id": "OTA-BIND",
+          "owner_task": "FP6-128",
+          "description": "Bind actual FP6 DEVICE/channel and accepted release certs; validate 4096-byte selector and 8 GiB object ceilings against native client and candidate. Proof-log observation policy is separate from Updater authentication. Freeze factory/recovery object path grammar at this release binding as well."
+        }
+      ],
+      "example": {
+        "kind": "wire-shape",
+        "request": "GET /FP6-stable HTTP/1.1\r\nHost: releases.diamaneos.de\r\n\r\n",
+        "response": "2026091100 1789084800 FP6 stable\n",
+        "expected": "Illustrative selector syntax only; FP6 device token, timestamps and release values are not accepted production metadata. A mismatch against the bound device/channel must be rejected."
+      }
     },
     {
       "id": "apps-catalog",
       "upstream_host": "apps.grapheneos.org",
-      "replacement_host": "apps.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "Forked Apps client with own signify key + repo URL (Apps repository integration)",
-      "consumer_version": "fork revision pinned at Apps repository integration",
-      "purpose": "Authenticated app catalog metadata + package bytes (first-party rebuilds under project keys; permitted unmodified upstream mirrors retain upstream certs)",
-      "protocol": "Pinned upstream client catalog/signify protocol; narrow branding/endpoint changes only. Exact metadata schema + verification key frozen at Apps repository integration fork.",
+      "replacement_host": "apps.diamaneos.de",
+      "consumer": "Forked AppStore client; also supplies Vanadium APKs",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Signed catalog and gzip APK delivery",
+      "protocol": "metadata.1.{KEY_VERSION}.sjson: JSON bytes + LF + 100 base64 signature characters + LF. Signify Ed25519 verification covers original JSON bytes; 304 reuses an already verified repo.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Bind the pinned Apps client catalog/signify protocol, package identities and key-pinning before freezing server metadata format.",
-        "owner_task": "FP6-110"
-      },
-      "path_method": "TBD from pinned client trace (Apps repository integration); replacement serves under apps.diamaneos.de only.",
+      "path_method": "GET /metadata.1.{KEY_VERSION}.sjson with optional If-None-Match; GET /packages/{manifestPackageName}/{versionCode}/{name}.gz with optional Range.",
       "request_fields": [
-        "package",
-        "installed-version",
-        "os-version",
-        "abi"
+        "Catalog ETag; package/version/name in download path; Range offset. Local installed package filtering is not a transmitted package inventory."
       ],
       "response_fields": [
-        "catalog-entry",
-        "apk-url",
-        "apk-hash",
-        "signing-cert",
-        "dependencies"
+        "JSON time (Unix seconds) and packages; per-variant metadata with packages, hashes, sizes and gzSizes arrays; exact parser in apps-format.",
+        "Signed envelope <=8 MiB project cap; APK gzip and decoded size each <=8 GiB and equal signed metadata; SHA-256 decoded APK and installed signer checks."
       ],
-      "verification_root": "Project catalog signify key (own) + per-package signing certs (project keys for rebuilds; upstream certs for unmodified mirrors). TLS alone never substitutes for catalog/package verification.",
-      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; exact values frozen by Apps repository integration before activation.",
-      "cache_freshness": "Immutable APKs cached by hash; catalog metadata carries explicit version/freshness; stale catalog never authorizes install.",
-      "failure_fallback": "Wrong signer / stale catalog / missing dependency / interrupted download: reject with actionable error; retry verifies complete bytes before install; no unsigned fallback. ",
-      "exposed_data": "Installed/queried package set + IP; never account identity (no project account exists).",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
-      "jurisdiction": "eu-primary",
+      "verification_root": "Own signify catalog verification key; package APK certificates checked by installer. Mirror acquisition authenticates upstream catalog/cert before project catalog signing. No hash or TLS alone replaces either signature boundary.",
+      "timeout_retry": "Observed: 10 s connect /30 s read. Upstream readBytes has no total catalog cap; implement 8 MiB stream cap in Apps repository integration. Server has bounded streams; clients retain native scheduling until tested.",
+      "cache_freshness": "Client rejects timestamps below max(current repo, 1770000000); no observed wall-clock TTL. Project stops serving current catalog after 24 h without an authoritative freshness check, retains verified objects and verified client cache. 304 only for a verified matching ETag.",
+      "failure_fallback": "Catalog unavailable: HTTP 503; existing verified client cache may still describe/install cached packages under native policy, not claimed automatically age-rejected. Hash/signature/dependency failure prevents promotion/install. Missing mirrored object: 404; never acquire on a device cache miss.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU origin sees selected package/version downloads, not a whole installed package list. Server-side acquisition contacts the upstream operator.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-110",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "apps-repo",
+        "apps-format",
+        "apps-install",
+        "apps-verify",
+        "apps-http"
+      ],
+      "limits_profile": "catalog",
+      "upstreams": [
+        {
+          "host": "apps.grapheneos.org",
+          "operator": "GrapheneOS",
+          "jurisdiction": "CA",
+          "mode": "scheduled-acquisition",
+          "data": "Server IP, catalog fetch and selected upstream package downloads; no device request headers or IP forwarding."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "APPS-BIND",
+          "owner_task": "FP6-110",
+          "description": "Bind fork revision, actual shipped APK/source mapping, catalog key version/public verifier and package identities; run native signed fixtures and byte limits. Browser APK dependencies are included here, not on component endpoints."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "GET /metadata.1.{KEY_VERSION}.sjson with optional If-None-Match; GET /packages/{manifestPackageName}/{versionCode}/{name}.gz with optional Range.",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
-      "id": "browser-update-meta",
+      "id": "browser-component-check",
       "upstream_host": "update.vanadium.app",
-      "replacement_host": "browser.diamaneos.de update path (candidate; provisioned infrastructure staging)",
-      "consumer": "Mirrored Vanadium browser + WebView update client (browser APK delivery)",
-      "consumer_version": "upstream-signed packages only; client version pinned at browser APK delivery",
-      "purpose": "Browser/WebView update metadata pointing at EU-mirrored upstream-signed packages",
-      "protocol": "Upstream update contract validated against the pinned client; exact metadata schema + dependency set frozen in browser APK delivery. Signed APK bytes never edited or re-signed.",
+      "replacement_host": "components-update.diamaneos.de",
+      "consumer": "Vanadium Chromium component updater",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Chromium component update discovery, not browser APK updates",
+      "protocol": "Omaha component check and CRX component delivery. The observed patch rewrites the download hostname in UrlFetcherDownloader::DoStartDownload.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Validate the pinned browser/WebView update contract (metadata schema, certs, dependency set, WebView coupling) before freezing mirror metadata.",
-        "owner_task": "FP6-111"
-      },
-      "path_method": "TBD from pinned client trace (browser APK delivery).",
+      "path_method": "POST /service/update2 or /service/update2/json",
       "request_fields": [
-        "package",
-        "installed-version"
+        "Omaha XML/JSON request with component IDs/versions and client platform metadata; exact accepted body awaits COMPONENT-BIND."
       ],
       "response_fields": [
-        "latest-version",
-        "package-url",
-        "package-hash",
-        "signing-cert"
+        "Omaha update response naming component package URLs/hashes and update checks; no APK catalog fields."
       ],
-      "verification_root": "Upstream GrapheneOS package signatures (preserved byte-identical); mirror verifies signature before staging; client verifies on install.",
-      "timeout_retry": "Bounded timeouts; transient retry <=3 with backoff; urgent security delivery independent of monthly OS cadence with measured upstream-to-delivery delay.",
-      "cache_freshness": "Mirror polls upstream feed at most hourly; each release fetched once, verified, stored on own infra; freshness alerts independent of OS monthlies.",
-      "failure_fallback": "Cache miss: return not-yet-available, never proxy-on-miss to upstream. Wrong cert / stale metadata: reject promotion. Devices never contact upstream hosts.",
-      "exposed_data": "Package/version queries + IP.",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
-      "jurisdiction": "eu-primary",
-      "owner_task": "FP6-111",
-      "status": "blocked-contract"
+      "verification_root": "Preserve Chromium component verification/CUP/CRX trust. Exact component verifier keys and supported Android configuration are activation blockers; upstream APK signing cannot be replaced by editing a signed APK.",
+      "timeout_retry": "Server check 30 s or download 600 s total, 5 s connect, 15 s idle, one attempt, no redirects. Native timeout/retry and full wire fields await pinned Chromium/APK binding.",
+      "cache_freshness": "Metadata is live, no cached successful checks. Download objects staged by scheduler within 2 GiB store; verified bytes immutable, selectors fresh <=24 h. Requests cannot trigger upstream acquisition.",
+      "failure_fallback": "Upstream check outage: HTTP 503; installed components remain subject to native validity. Download miss: 404, never proxy-on-miss. Corrupt/unverified or stale activation data: do not promote, preserve prior verified set; no verifier bypass.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU TLS termination exposes outer component metadata. Upstream Google sees server IP and protocol metadata on allowed checks; acquisition sees component paths. No forwarding client IP/cookies.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-105",
+      "status": "blocked-contract",
+      "source_refs": [
+        "vanadium-components",
+        "network-server"
+      ],
+      "limits_profile": "component-meta",
+      "upstreams": [
+        {
+          "host": "update.googleapis.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "bounded-proxy",
+          "data": "Component update protocol body; server IP only."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "COMPONENT-BIND",
+          "owner_task": "FP6-105",
+          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the owner; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "POST /service/update2 or /service/update2/json",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
-      "id": "browser-apk-dl",
+      "id": "browser-component-download",
       "upstream_host": "dl.vanadium.app",
-      "replacement_host": "browser.diamaneos.de download path (candidate; provisioned infrastructure staging)",
-      "consumer": "Mirrored Vanadium browser + WebView installer (browser APK delivery)",
-      "consumer_version": "upstream-signed packages only; versions pinned per staged release",
-      "purpose": "Byte delivery of EU-mirrored upstream-signed browser/WebView APKs",
-      "protocol": "Plain authenticated byte delivery; integrity via package hash + upstream signature verified at staging and on device.",
-      "protocol_status": "specified",
-      "path_method": "GET immutable package object by hash-qualified path (exact layout frozen browser APK delivery).",
+      "replacement_host": "components-download.diamaneos.de",
+      "consumer": "Vanadium Chromium component updater",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Chromium CRX/delta component bytes, not browser APKs",
+      "protocol": "Omaha component check and CRX component delivery. The observed patch rewrites the download hostname in UrlFetcherDownloader::DoStartDownload.",
+      "protocol_status": "blocked",
+      "path_method": "GET /{chrome_component|chromewebstore|diffgen-puffin|release2}/{path}; GET /dl/{path}; GET /edgedl/{path}",
       "request_fields": [
-        "package-hash"
+        "Allowlisted component object path; preserve only documented range/conditional headers."
       ],
       "response_fields": [
-        "apk-bytes"
+        "Unmodified CRX/delta byte stream, at most 256 MiB project ceiling."
       ],
-      "verification_root": "Upstream GrapheneOS package signatures; staged metadata hash must match exact APK bytes.",
-      "timeout_retry": "Bounded timeouts; resumable bounded downloads; retry verifies complete bytes before install.",
-      "cache_freshness": "Immutable by hash; cached indefinitely; rollback follows version/dependency constraints, never silent downgrade.",
-      "failure_fallback": "Hash mismatch or wrong cert: reject before install. Interrupted download: resume/retry with full-byte verification. No unsigned fallback.",
-      "exposed_data": "Downloaded package/version + IP.",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
-      "jurisdiction": "eu-primary",
-      "owner_task": "FP6-111",
-      "status": "specified"
+      "verification_root": "Preserve Chromium component verification/CUP/CRX trust. Exact component verifier keys and supported Android configuration are activation blockers; upstream APK signing cannot be replaced by editing a signed APK.",
+      "timeout_retry": "Server check 30 s or download 600 s total, 5 s connect, 15 s idle, one attempt, no redirects. Native timeout/retry and full wire fields await pinned Chromium/APK binding.",
+      "cache_freshness": "Metadata is live, no cached successful checks. Download objects staged by scheduler within 2 GiB store; verified bytes immutable, selectors fresh <=24 h. Requests cannot trigger upstream acquisition.",
+      "failure_fallback": "Upstream check outage: HTTP 503; installed components remain subject to native validity. Download miss: 404, never proxy-on-miss. Corrupt/unverified or stale activation data: do not promote, preserve prior verified set; no verifier bypass.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU TLS termination exposes outer component metadata. Upstream Google sees server IP and protocol metadata on allowed checks; acquisition sees component paths. No forwarding client IP/cookies.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-105",
+      "status": "blocked-contract",
+      "source_refs": [
+        "vanadium-components",
+        "network-server"
+      ],
+      "limits_profile": "component-bytes",
+      "upstreams": [
+        {
+          "host": "dl.google.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "scheduled-acquisition",
+          "data": "Allowlisted CRX/delta paths; server IP."
+        },
+        {
+          "host": "www.google.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "scheduled-acquisition",
+          "data": "Only /dl/ component paths; server IP."
+        },
+        {
+          "host": "edgedl.me.gvt1.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "scheduled-acquisition",
+          "data": "Only /edgedl/ mapped component paths; server IP."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "COMPONENT-BIND",
+          "owner_task": "FP6-105",
+          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the owner; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "GET /{chrome_component|chromewebstore|diffgen-puffin|release2}/{path}; GET /dl/{path}; GET /edgedl/{path}",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "time",
       "upstream_host": "time.grapheneos.org",
-      "replacement_host": "time.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "OS time bootstrap client (pinned release)",
-      "consumer_version": "pinned at time and connectivity integration implementation",
-      "purpose": "Authenticated multi-source time for fresh-device bootstrap",
-      "protocol": "Exact pinned client protocol incl. X-Time representation/units; reference design of 6 sources with >=3 agreeing; agreement tolerance + stale behavior from validated time and connectivity integration configuration.",
+      "replacement_host": "time.diamaneos.de",
+      "consumer": "Android HttpsTimeClient.requestTime",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Network time bootstrap",
+      "protocol": "HTTPS GET /generate_204; HTTP 204 empty body and X-Time decimal signed-64-bit Unix milliseconds. No client nonce or quorum fields. Client warms connection then requests again with Connection: close; Date fallback exists if X-Time missing/unparseable.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the pinned client time protocol (fields, units, trust bootstrap) and validate source agreement/stale policy before freezing server behavior.",
-        "owner_task": "FP6-102"
-      },
-      "path_method": "TBD from pinned client trace (time and connectivity integration).",
+      "path_method": "GET /generate_204",
       "request_fields": [
-        "client-nonce"
+        "No request body; ordinary TLS/HTTP headers."
       ],
       "response_fields": [
-        "time-value",
-        "time-unit",
-        "source-agreement-state"
+        "HTTP 204; zero response body bytes; X-Time integer Unix milliseconds; Cache-Control: no-store."
       ],
-      "verification_root": "Authenticated time-source service (multi-source agreement); single source never authoritative.",
-      "timeout_retry": "Bounded timeouts; exact values frozen by time and connectivity integration; a single failed source never breaks all devices.",
-      "cache_freshness": "Responses carry source agreement state + age; stale/implausible sources excluded by policy, never served as current.",
-      "failure_fallback": "Insufficient agreeing fresh sources: defined unavailable state, never invented time. Disabling TLS verification is never a bootstrap solution. Offline boot follows the documented no-network path.",
-      "exposed_data": "Time query + IP.",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "verification_root": "Inherited bootstrap TLS still checks chain/hostname but treats certificate dates relative to build time; time before Build.TIME is rejected. Do not turn off verification. NTS validation and quorum are server responsibilities.",
+      "timeout_retry": "Observed config_ntpTimeout=5000 ms; first successful configured URL returns. Serve within 5 s total, one request attempt; underlying client warmup makes two GETs. No upstream time lookup per user request.",
+      "cache_freshness": "Never cache time. Serve only when >=3 of 6 authenticated source slots agree within 500 ms and samples <=300 s old (chosen server policy, untested). Check health before every response; freshness based on monotonic sampling age.",
+      "failure_fallback": "No quorum, stale samples, implausible time: HTTP 503 and no X-Time header; do not send 204, cached time or invented agreement. Client may retain its prior estimate and try configured alternatives. time and connectivity integration must prove 503/Date handling and fresh-device TLS bootstrap on native client.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. NTS providers receive service IP only; no client query forwarded. The pinned time client uses getPrivateDnsBypassingCopy for bootstrap resolution, so the network resolver may see its hostname even with Quad9 configured; this is distinct from the default DoT data path.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "time-client",
+        "framework-config",
+        "network-server"
+      ],
+      "limits_profile": "time",
+      "upstreams": [],
+      "implementation_blockers": [
+        {
+          "id": "TIME-SOURCES",
+          "owner_task": "FP6-102",
+          "description": "Qualify six NTS source slots and operator independence, serve only with >=3 agreeing fresh samples; Netnod capabilities verified but PTB NTS unverified. Validate 500 ms/300 s health policy and source loss/clock step/old-build TLS behavior before activation. DNS filtering / time and connectivity integration must bind and disclose bootstrap DNS bypass behavior; the current code does not establish all-bootstrap DNS encryption."
+        }
+      ],
+      "example": {
+        "kind": "wire-shape",
+        "request": "GET /generate_204 HTTP/1.1\r\nHost: time.diamaneos.de\r\n\r\n",
+        "response": "HTTP/1.1 204 No Content\r\nX-Time: 1789084800123\r\nCache-Control: no-store\r\n\r\n",
+        "expected": "Synthetic milliseconds example, not measured current time. A seconds value or body is not a conforming project response."
+      }
     },
     {
       "id": "connectivity-check",
       "upstream_host": "connectivitycheck.grapheneos.network",
-      "replacement_host": "connectivitycheck.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "OS connectivity/captive-portal detection (pinned release)",
-      "consumer_version": "pinned at time and connectivity integration implementation",
-      "purpose": "Connectivity + captive-portal detection responses matching the pinned client contract",
-      "protocol": "Exact pinned client HTTP/HTTPS response contract (status/body/headers); portal vs failure paths distinguished.",
-      "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the pinned client connectivity response contract (status/body, portal detection) before freezing server responses.",
-        "owner_task": "FP6-102"
-      },
-      "path_method": "TBD from pinned client trace (time and connectivity integration).",
+      "replacement_host": "connectivitycheck.diamaneos.de",
+      "consumer": "NetworkStack NetworkMonitor",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Primary connectivity/portal check",
+      "protocol": "Exact 204 with empty body; HTTP intentionally detects interception and is not authenticated proof. Native portal heuristics distinguish other statuses/body shapes; do not replace them with a fabricated portal-signal field.",
+      "protocol_status": "specified",
+      "path_method": "HTTP and HTTPS GET /generate_204",
       "request_fields": [
-        "probe-request"
+        "No request body; standard HTTP headers."
       ],
       "response_fields": [
-        "status",
-        "body",
-        "portal-signal"
+        "HTTP 204; zero body bytes; Cache-Control: no-store; no redirects, cookies or Location. Unknown path 404; unsupported method 405."
       ],
-      "verification_root": "Exact-match client contract (no third-party attestation involved); portal interception must not be forgeable into false success.",
-      "timeout_retry": "Bounded timeouts; exact values frozen by time and connectivity integration; no forged success through arbitrary portal content.",
-      "cache_freshness": "Probe responses are live; no caching of success across networks.",
-      "failure_fallback": "Portal interception: documented portal path. Unreachable: documented failure path. Small user base fingerprinting tradeoff disclosed; standard-server toggle kept visible.",
-      "exposed_data": "Probe request + IP (itself an OS fingerprint to network observers \u2014 disclosed).",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "verification_root": "HTTPS uses system trust; HTTP probe is a network observation that can be spoofed. Preserve HTTPS cross-check and portal UI; no claim that HTTP 204 is unforgeable.",
+      "timeout_retry": "Observed socket timeout 10 s, parallel probe evaluation timeout 3 s; reevaluation delay grows to 10 min. Project server responds within 3 s total; no server retries.",
+      "cache_freshness": "No cached probe success; endpoint returns current reachability only. Neither probe is an update/attestation trust service.",
+      "failure_fallback": "Endpoint outage: timeout or HTTP 503, never synthesize 204. Portal interception reaches native captive-portal flow. Keep standard-server/disabled settings and explain changed exposure; switching is user-visible, not an automatic redirect to inherited hosts.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Hostname is an OS fingerprint to network observers. No upstream fetch.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
-      "status": "blocked-contract"
+      "status": "specified",
+      "source_refs": [
+        "network-config",
+        "network-monitor",
+        "network-server"
+      ],
+      "limits_profile": "probe",
+      "upstreams": [],
+      "implementation_blockers": [],
+      "example": {
+        "kind": "wire-shape",
+        "request": "GET /generate_204 HTTP/1.1\r\nHost: connectivitycheck.diamaneos.de\r\n\r\n",
+        "response": "HTTP/1.1 204 No Content\r\nCache-Control: no-store\r\n\r\n",
+        "expected": "Exact empty success body; 302 is interception, 503 is unavailable. Actual native classification cases belong to time and connectivity integration."
+      }
     },
     {
       "id": "online-probe",
       "upstream_host": "grapheneos.online",
-      "replacement_host": "TBD at time and connectivity integration client trace (candidate host under diamaneos.de only if a real client need is confirmed)",
-      "consumer": "TBD from pinned client trace",
-      "consumer_version": "unresolved",
-      "purpose": "UNRESOLVED: purpose must be traced from the pinned client before any replacement decision (repoint, proxy, or documented removal with owner decision).",
-      "protocol": "Unknown until client trace; no guessed HTTP contract is an implementation basis.",
-      "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the actual pinned consumer(s) of grapheneos.online and determine purpose/protocol; then repoint or document removal. Attestation use, if any, routes to project attestation.",
-        "owner_task": "FP6-102"
-      },
-      "path_method": "unresolved (see blocker)",
-      "request_fields": [],
-      "response_fields": [],
-      "verification_root": "unresolved (see blocker)",
-      "timeout_retry": "unresolved (see blocker); no retry-forever fallback will be accepted.",
-      "cache_freshness": "unresolved (see blocker)",
-      "failure_fallback": "Unresolved endpoint keeps an explicit blocker and cannot silently stay on GrapheneOS nor be silently removed ; fallback defined with its owning task before activation.",
-      "exposed_data": "unresolved (see blocker)",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "replacement_host": "online.diamaneos.de",
+      "consumer": "NetworkStack NetworkMonitor",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Fallback HTTP connectivity probes",
+      "protocol": "Exact 204 with empty body; HTTP intentionally detects interception and is not authenticated proof. Native portal heuristics distinguish other statuses/body shapes; do not replace them with a fabricated portal-signal field.",
+      "protocol_status": "specified",
+      "path_method": "HTTP GET /gen_204 and /generate_204",
+      "request_fields": [
+        "No request body; standard HTTP headers."
+      ],
+      "response_fields": [
+        "HTTP 204; zero body bytes; Cache-Control: no-store; no redirects, cookies or Location. Unknown path 404; unsupported method 405."
+      ],
+      "verification_root": "HTTPS uses system trust; HTTP probe is a network observation that can be spoofed. Preserve HTTPS cross-check and portal UI; no claim that HTTP 204 is unforgeable.",
+      "timeout_retry": "Observed socket timeout 10 s, parallel probe evaluation timeout 3 s; reevaluation delay grows to 10 min. Project server responds within 3 s total; no server retries.",
+      "cache_freshness": "No cached probe success; endpoint returns current reachability only. Neither probe is an update/attestation trust service.",
+      "failure_fallback": "Endpoint outage: timeout or HTTP 503, never synthesize 204. Portal interception reaches native captive-portal flow. Keep standard-server/disabled settings and explain changed exposure; switching is user-visible, not an automatic redirect to inherited hosts.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Hostname is an OS fingerprint to network observers. No upstream fetch.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
-      "status": "blocked-contract"
+      "status": "specified",
+      "source_refs": [
+        "network-config",
+        "network-monitor",
+        "network-server"
+      ],
+      "limits_profile": "probe",
+      "upstreams": [],
+      "implementation_blockers": [],
+      "example": {
+        "kind": "wire-shape",
+        "request": "GET /generate_204 HTTP/1.1\r\nHost: online.diamaneos.de\r\n\r\n",
+        "response": "HTTP/1.1 204 No Content\r\nCache-Control: no-store\r\n\r\n",
+        "expected": "Exact empty success body; 302 is interception, 503 is unavailable. Actual native classification cases belong to time and connectivity integration."
+      }
     },
     {
       "id": "psds-cache",
       "upstream_host": "qualcomm.psds.grapheneos.org",
-      "replacement_host": "psds.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "FP6 GNSS stack (PSDS/XTRA assistance client)",
-      "consumer_version": "pinned at assisted-GNSS integration implementation",
-      "purpose": "Privacy-preserving EU cache of Qualcomm PSDS/XTRA almanacs with identifying-header minimisation",
-      "protocol": "Cache serves checked assistance objects; upstream fetch cron-refreshed server-side; User-Agent stripped (leaks SoC serial). Exact payload bounds + freshness frozen in assisted-GNSS integration.",
+      "replacement_host": "psds.diamaneos.de",
+      "consumer": "GNSS configuration plus platform PSDS downloader; FP6 native vendor binding outstanding",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Qualcomm PSDS/XTRA assistance cache",
+      "protocol": "GET fixed binary assistance object; no JSON protocol. Reference upstream cache fetch maps to Qualcomm path1.xtracloud.net. Framework downloader is evidence of one path, not proof of FP6 vendor use. GnssConfiguration.applyPsdsConfigOverrides selects the hostname from config_gnssPsdsType and preserves original file paths; an empty type disables PSDS.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Bind actual GNSS client protocol, assistance object bounds and freshness rules before freezing cache behavior.",
-        "owner_task": "FP6-103"
-      },
-      "path_method": "TBD from actual client config (assisted-GNSS integration); egress restricted to the approved Qualcomm upstream only.",
+      "path_method": "GET /xtra3Mgrbeji.bin; other paths rejected",
       "request_fields": [
-        "assistance-request"
+        "No body; strip all device headers including User-Agent before scheduled upstream fetch."
       ],
       "response_fields": [
-        "assistance-object",
-        "freshness"
+        "200 unmodified binary bytes <=1000000; 503 if absent/too old."
       ],
-      "verification_root": "Upstream payload integrity as applicable + freshness policy; expired objects follow documented reject/fallback policy, never false success.",
-      "timeout_retry": "Bounded timeouts; exact values frozen by assisted-GNSS integration.",
-      "cache_freshness": "Cron-refreshed EU cache with checked freshness; expired objects rejected per policy; GPS fallback success alone never proves assistance works.",
-      "failure_fallback": "Stale/failed assistance: documented fallback, never false success report. Arbitrary-destination relay: refused (no open proxy/SSRF path).",
-      "exposed_data": "Assistance requests + IP reach the EU cache only; stripped/minimised headers toward Qualcomm (US upstream disclosed on privacy page).",
-      "retention": "No raw location logs; server request logs: none, or <=24h where operationally justified.",
+      "verification_root": "HTTPS to fixed Qualcomm origin; preserve any vendor format/integrity checks. No project signature is invented for this proprietary payload.",
+      "timeout_retry": "Observed platform downloader: 30 s connect, 60 s read, body cap 1000000 bytes. Project fetch/serve total 60 s, one attempt; scheduled refresh hourly, no request-triggered fetch.",
+      "cache_freshness": "Serve last fetched validated-format object only up to 24 h since successful upstream refresh, within 8 MB cache. Stale bytes never acquire a new freshness timestamp by local copy. Exact FP6 validity check requires PSDS-BIND.",
+      "failure_fallback": "Refresh failure: keep prior qualified bytes until 24 h boundary then 503. Oversize/invalid fetch: discard temp file. GNSS continues without this assistance; acquisition delay impact requires hardware evidence.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Qualcomm gets cache-server IP and fixed object path; no device IP/User-Agent. EU cache itself sees request IP; never log assistance headers.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-103",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "gnss-settings",
+        "gnss-config",
+        "gnss-downloader",
+        "psds-fetch",
+        "network-server",
+        "framework-config"
+      ],
+      "limits_profile": "psds",
+      "upstreams": [
+        {
+          "host": "path1.xtracloud.net",
+          "operator": "Qualcomm",
+          "jurisdiction": "US",
+          "mode": "scheduled-acquisition",
+          "data": "Server IP and fixed assistance object path."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "PSDS-BIND",
+          "owner_task": "FP6-103",
+          "description": "device source inventory / assisted-GNSS integration must bind actual Qualcomm configuration/consumer, allowed assistance filenames, format verification and validity to the stock/vendor revision. Do not assume platform downloader handles FP6; qualify 24 h/1 MB bounds before enabling."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "GET /xtra3Mgrbeji.bin; other paths rejected",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "supl",
       "upstream_host": "supl.grapheneos.org",
-      "replacement_host": "supl.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "FP6 GNSS stack (SUPL client)",
-      "consumer_version": "pinned at assisted-GNSS integration implementation",
-      "purpose": "Assisted-GNSS SUPL via its actual supported protocol with reviewed access limits",
-      "protocol": "SUPL implemented through its correct protocol only (never an assumed HTTP proxy). Exact protocol/transport frozen in assisted-GNSS integration from the actual client.",
+      "replacement_host": "supl.diamaneos.de",
+      "consumer": "GNSS SUPL client selected by GnssSettings; native implementation not yet bound",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "SUPL assisted positioning",
+      "protocol": "TLS TCP stream to fixed supl.google.com:7275, not an HTTP endpoint. Reference terminates TLS and makes a new upstream TLS connection.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Bind the actual SUPL protocol/transport and reviewed access limits from the FP6 client before implementing the endpoint.",
-        "owner_task": "FP6-103"
-      },
-      "path_method": "SUPL protocol path (exact form frozen assisted-GNSS integration).",
+      "path_method": "TLS TCP port 7275; no HTTP path or method",
       "request_fields": [
-        "supl-request"
+        "Native SUPL ASN.1 messages; device identifiers/cell/location-related data may be present."
       ],
       "response_fields": [
-        "supl-response"
+        "Native SUPL protocol messages; no synthetic HTTP status or success."
       ],
-      "verification_root": "Protocol-correct exchange with the actual FP6 client; no HTTP imitation accepted as success.",
-      "timeout_retry": "Bounded timeouts; exact values frozen by assisted-GNSS integration.",
-      "cache_freshness": "Session-scoped; no stale assistance presented as fresh.",
-      "failure_fallback": "Upstream loss: documented fallback; acquisition measured with/without assistance. No generic proxy behavior.",
-      "exposed_data": "SUPL session + IP reach EU endpoint; upstream exposure disclosed on privacy page with minimised identifiers.",
-      "retention": "No raw location logs; server logs: none, or <=24h where operationally justified.",
+      "verification_root": "TLS hostname/chain validation on both legs plus native SUPL validation. EU proxy can see the terminated stream. Do not copy the reference server legacy cipher concessions without FP6 evidence.",
+      "timeout_retry": "Project: 5 s connect, 15 s idle, 60 s total/session, 1 MiB client-to-server and 4 MiB server-to-client. One fixed upstream connection; no queue or automatic retry. Native timings await SUPL-BIND.",
+      "cache_freshness": "No shared SUPL response cache. Device may retain valid assistance under its native policy.",
+      "failure_fallback": "Timeout, quota or upstream failure closes stream; never return fake assistance. Satellite-only fix remains available subject to device conditions. Standard-server setting is an explicit user action with changed data exposure.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU TLS terminator and Google receive native SUPL messages, potentially location-related identifiers. Replacing device IP with server IP does not anonymize protocol content.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-103",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "gnss-settings",
+        "gnss-config",
+        "network-server"
+      ],
+      "limits_profile": "supl",
+      "upstreams": [
+        {
+          "host": "supl.google.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "bounded-proxy",
+          "data": "Native SUPL messages; server IP replaces network source IP."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "SUPL-BIND",
+          "owner_task": "FP6-103",
+          "description": "Trace actual FP6 native SUPL transport/version, TLS/SNI and payload boundaries using device source inventory stock evidence. Validate the selected stream ceilings without weakening TLS before activation."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "TLS TCP port 7275; no HTTP path or method",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "rkp-proxy",
       "upstream_host": "remoteprovisioning.grapheneos.org",
-      "replacement_host": "rkp.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "OS Remote Key Provisioning client (pinned release)",
-      "consumer_version": "pinned at provisioning integration implementation",
-      "purpose": "Bounded EU reverse proxy for RKP attestation key provisioning (US upstream); proxy cannot decrypt pass-through",
-      "protocol": "Minimal bounded relay: allowed methods/body bounds/timeout/retry/cache rules frozen in provisioning integration from the actual client + approved upstream behavior.",
+      "replacement_host": "remoteprovisioning.diamaneos.de",
+      "consumer": "Rkpd ServerInterface",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "RKP certificate provisioning",
+      "protocol": "Fixed-destination HTTPS POST relay; forward accepted native protocol bytes without modifying signed/encrypted structures.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the actual RKP client + approved upstream behavior (methods, body bounds, cache rules) before freezing relay limits.",
-        "owner_task": "FP6-104"
-      },
-      "path_method": "Documented relay paths only (exact set frozen provisioning integration); disallowed upstream/path rejected, never open-proxy.",
+      "path_method": "POST /v1/:fetchEekChain, /v1/:signCertificates, /v1/:confirmCertificates; optional request_id UUID query",
       "request_fields": [
-        "provisioning-request"
+        "CBOR EEK/CSR/confirmation bodies; request_id UUID."
       ],
       "response_fields": [
-        "provisioning-response"
+        "Native provisioning response bytes/status; 16 KiB request and 4 MiB response project caps, 32 KiB total headers and 8 KiB target including query."
       ],
-      "verification_root": "Upstream + device trust verified by client; proxy success never reported as attestation success; no manufactured hardware eligibility.",
-      "timeout_retry": "Bounded timeout + retry with documented limits (frozen provisioning integration).",
-      "cache_freshness": "Cached-key behavior follows actual client semantics; outage with valid cached keys reflects real client behavior, never blanket all-apps-broken.",
-      "failure_fallback": "Outage: client-defined behavior with cached keys where valid; provisioning payloads never logged; TLS/payload verification never bypassed.",
-      "exposed_data": "Provisioning sessions + IP reach EU proxy only; payload content opaque to proxy and never logged.",
-      "retention": "No provisioning payload logs; server logs: none, or <=24h where operationally justified.",
+      "verification_root": "Preserve native KeyMint/RKP or MediaDrm verification, certificate chains and device eligibility. Proxy TLS is not attestation authority and cannot manufacture registration or a DRM security level.",
+      "timeout_retry": "Observed modern clients use 20 s timeouts; RKP connect varies 400 ms/1 s synchronous, 20 s async, exponential internal backoff within time budget. Server: 5 s connect, 15 s idle, 20 s total, one attempt; no replay of stateful POST.",
+      "cache_freshness": "No shared cache, body persistence or retry queue. Never replay one device response to another.",
+      "failure_fallback": "Upstream 4xx preserved; timeout/unavailable => 502/504 or closed stream, not a success. Oversized request =>413; oversized response discarded =>502. Client retains valid already provisioned certificates under native policy; new provisioning remains unavailable. No alternate signer or eligibility bypass.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. TLS termination exposes outer protocol data; some cryptographic fields are encrypted, but the whole payload is not opaque. Upstream receives protocol payload and server IP. Strip forwarding/IP/cookie/auth headers; no query/body logging.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-104",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "rkp-client",
+        "rkp-settings",
+        "network-server"
+      ],
+      "limits_profile": "provisioning",
+      "upstreams": [
+        {
+          "host": "remoteprovisioning.googleapis.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "bounded-proxy",
+          "data": "Provisioning protocol payload and server IP; device identifying protocol content may remain."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "RKP-BIND",
+          "owner_task": "FP6-104",
+          "description": "Bind FP6 KeyMint/MediaDrm eligibility and native request/response fixtures; freeze accepted query grammar and qualify selected byte/time caps. RKP operations are traced; proprietary Widevine query details must not be guessed from modern framework flow."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "POST /v1/:fetchEekChain, /v1/:signCertificates, /v1/:confirmCertificates; optional request_id UUID query",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "widevine-proxy",
       "upstream_host": "widevineprovisioning.grapheneos.org",
-      "replacement_host": "widevine.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "Widevine provisioning client (pinned release)",
-      "consumer_version": "pinned at provisioning integration implementation",
-      "purpose": "Bounded EU reverse proxy for Widevine provisioning (US upstream); ships regardless of L1/L3 outcome",
-      "protocol": "Minimal bounded relay frozen in provisioning integration from the actual client + approved upstream behavior.",
+      "replacement_host": "widevineprovisioning.diamaneos.de",
+      "consumer": "MediaDrm / WidevineProvisioner; FP6 native flow binding required",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Widevine device provisioning",
+      "protocol": "Fixed-destination HTTPS POST relay; forward accepted native protocol bytes without modifying signed/encrypted structures.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the actual Widevine client + approved upstream behavior before freezing relay limits; record actual DRM/attestation consequences separately.",
-        "owner_task": "FP6-104"
-      },
-      "path_method": "Documented relay paths only (exact set frozen provisioning integration); disallowed upstream/path rejected.",
+      "path_method": "POST /certificateprovisioning/v1 (only native reviewed query fields)",
       "request_fields": [
-        "provisioning-request"
+        "MediaDrm provision request bytes; signedRequest query may exist in older native flow and remains explicitly blocked until captured."
       ],
       "response_fields": [
-        "provisioning-response"
+        "Native provisioning response bytes/status; 16 KiB request and 4 MiB response project caps, 32 KiB total headers and 8 KiB target including query."
       ],
-      "verification_root": "Upstream + device trust verified by client; proxy success never reported as DRM/attestation capability.",
-      "timeout_retry": "Bounded timeout + retry with documented limits (frozen provisioning integration).",
-      "cache_freshness": "Follows actual client cache/renewal semantics; outage behavior measured, never blanket failure claims.",
-      "failure_fallback": "Outage: actual client behavior with cached state; no StrongBox/provider-acceptance fabrication; provisioning partitions never manipulated to repair trust.",
-      "exposed_data": "Provisioning sessions + IP reach EU proxy only; payloads never logged.",
-      "retention": "No provisioning payload logs; server logs: none, or <=24h where operationally justified.",
+      "verification_root": "Preserve native KeyMint/RKP or MediaDrm verification, certificate chains and device eligibility. Proxy TLS is not attestation authority and cannot manufacture registration or a DRM security level.",
+      "timeout_retry": "Observed modern clients use 20 s timeouts; RKP connect varies 400 ms/1 s synchronous, 20 s async, exponential internal backoff within time budget. Server: 5 s connect, 15 s idle, 20 s total, one attempt; no replay of stateful POST.",
+      "cache_freshness": "No shared cache, body persistence or retry queue. Never replay one device response to another.",
+      "failure_fallback": "Upstream 4xx preserved; timeout/unavailable => 502/504 or closed stream, not a success. Oversized request =>413; oversized response discarded =>502. Client retains valid already provisioned certificates under native policy; new provisioning remains unavailable. No alternate signer or eligibility bypass.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. TLS termination exposes outer protocol data; some cryptographic fields are encrypted, but the whole payload is not opaque. Upstream receives protocol payload and server IP. Strip forwarding/IP/cookie/auth headers; no query/body logging.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-104",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "widevine-client",
+        "widevine-settings",
+        "network-server"
+      ],
+      "limits_profile": "provisioning",
+      "upstreams": [
+        {
+          "host": "www.googleapis.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "bounded-proxy",
+          "data": "Provisioning protocol payload and server IP; device identifying protocol content may remain."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "WIDEVINE-BIND",
+          "owner_task": "FP6-104",
+          "description": "Bind FP6 KeyMint/MediaDrm eligibility and native request/response fixtures; freeze accepted query grammar and qualify selected byte/time caps. RKP operations are traced; proprietary Widevine query details must not be guessed from modern framework flow."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "POST /certificateprovisioning/v1 (only native reviewed query fields)",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "ct-mirror",
       "upstream_host": "gstatic.grapheneos.org",
-      "replacement_host": "ct.diamaneos.de (candidate; provisioned infrastructure staging)",
-      "consumer": "Pinned browser CT verification (CT and browser-component delivery)",
-      "consumer_version": "pinned at CT and browser-component delivery implementation",
-      "purpose": "Verified atomic EU mirror of signed Certificate Transparency log lists with client-specific expiry handling",
-      "protocol": "Fetch into staging, verify supported metadata/signature, then activate atomically. Signed object format, verification key + freshness rules frozen in CT and browser-component delivery; client CT expiry/enforcement verified for the pinned browser (no remembered fixed-day number).",
+      "replacement_host": "ct.diamaneos.de",
+      "consumer": "Android Connectivity CertificateTransparencyDownloader (distinct from browser component CT updates)",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Android platform certificate-transparency log lists",
+      "protocol": "Download allowlisted RSA public key then signature and matching list; client independently allowlists key and verifies SHA256withRSA before install.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Pin the browser CT update contract (schema, signing identity, version/freshness rules) and verify client expiry/enforcement before freezing mirror behavior.",
-        "owner_task": "FP6-105"
-      },
-      "path_method": "Mirror object paths (exact layout frozen CT and browser-component delivery).",
+      "path_method": "GET /android/certificate_transparency/log_list.pub; GET /android/certificate_transparency/v2/log_list.json and /v2/log_list.sig; GET /android/certificate_transparency/v3/log_list.ctfb and /v3/log_list.sig (all v2/v3 paths under common prefix).",
       "request_fields": [
-        "object-request"
+        "Fixed paths; no client body."
       ],
       "response_fields": [
-        "signed-ct-object",
-        "metadata"
+        "Base64 X.509 RSA public key; base64 signature; v2 JSON list or v3 FlatBuffer list (not interchangeable)."
       ],
-      "verification_root": "Upstream signing identity pinned in CT and browser-component delivery; altered signed content rejected by client; signatures never stripped.",
-      "timeout_retry": "Bounded fetch timeouts; cron refresh with freshness monitoring; exact cadence frozen CT and browser-component delivery.",
-      "cache_freshness": "Staleness detected before documented enforcement expiry (70-day cliff watched); expired data never served as fresh; partial downloads never replace the last complete valid object.",
-      "failure_fallback": "Failed refresh keeps last complete valid object + raises freshness alert; monitoring independent of monthly OS releases.",
-      "exposed_data": "Object fetches + IP.",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "verification_root": "SignatureVerifier loads R.raw.ct_public_keys independently, rejects downloaded keys outside allowlist and verifies SHA256withRSA over exact content bytes. Preserve that boundary and independently pin keys at staging.",
+      "timeout_retry": "Inherited DownloadManager schedules transfers; downloader readAllBytes lacks this project total bound. Project: 5 s connect, 15 s idle, 60 s total, <=8 MiB per object, hourly scheduler.",
+      "cache_freshness": "Atomically stage each list/signature pair and verified key, keeping prior versions in 64 MiB store. Project stops serving activation set after 48 h without validated refresh; alert after 24 h. Immutable archived bytes are not advertised as current.",
+      "failure_fallback": "Bad signature/key, partial pair or refresh failure: preserve last verified pair only until 48 h then 503. Pinned Conscrypt marks a list non-compliant if its timestamp is in the future or older than 70 days (strictly greater); checkCT skips CT enforcement when the store is non-compliant/unusable. This inherited fail-open behavior is a security degradation, not a total TLS outage and not a new project bypass. Alert on list age and refresh failures; do not rewrite signed timestamps or claim server 503 prevents native fail-open.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Google sees mirror IP and fixed file paths; no device requests forwarded.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-105",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "ct-config",
+        "ct-download",
+        "ct-verify",
+        "ct-install",
+        "network-server",
+        "ct-age",
+        "ct-enforcement"
+      ],
+      "limits_profile": "ct",
+      "upstreams": [
+        {
+          "host": "www.gstatic.com",
+          "operator": "Google",
+          "jurisdiction": "US",
+          "mode": "scheduled-acquisition",
+          "data": "Mirror IP and fixed CT paths."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "CT-BIND",
+          "owner_task": "FP6-105",
+          "description": "Bind shipped key resource and native v2/v3 signed fixtures; test the observed Conscrypt 70-day/future-list/non-compliant fail-open paths on the accepted build. Qualify 8 MiB/48 h service bounds. Any change to inherited CT policy requires the owning security decision, not a proxy workaround."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "GET /android/certificate_transparency/log_list.pub; GET /android/certificate_transparency/v2/log_list.json and /v2/log_list.sig; GET /android/certificate_transparency/v3/log_list.ctfb and /v3/log_list.sig (all v2/v3 paths under common prefix).",
+        "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
+        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+      }
     },
     {
       "id": "dns-check",
       "upstream_host": "dnscheck.grapheneos.org",
-      "replacement_host": "dnscheck.diamaneos.de (candidate; provisioned infrastructure staging, only if client need confirmed)",
-      "consumer": "TBD from pinned client trace (DNS configuration check candidate)",
-      "consumer_version": "unresolved",
-      "purpose": "UNRESOLVED: confirm actual client purpose from the pinned tree before deciding repoint vs documented removal.",
-      "protocol": "Unknown until client trace; no guessed contract is an implementation basis.",
-      "protocol_status": "blocked",
-      "blocker": {
-        "description": "Trace the actual pinned consumer(s) of dnscheck and determine purpose/protocol; then repoint or document removal with owner decision.",
-        "owner_task": "FP6-102"
-      },
-      "path_method": "unresolved (see blocker)",
-      "request_fields": [],
-      "response_fields": [],
-      "verification_root": "unresolved (see blocker)",
-      "timeout_retry": "unresolved (see blocker); no retry-forever fallback will be accepted.",
-      "cache_freshness": "unresolved (see blocker)",
-      "failure_fallback": "Unresolved endpoint keeps an explicit blocker and cannot silently stay on GrapheneOS nor be silently removed ; fallback defined with its owning task before activation.",
-      "exposed_data": "unresolved (see blocker)",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "replacement_host": "dnscheck.diamaneos.de",
+      "consumer": "DnsResolver DnsTlsTransport.makeDnsQuery and NetworkMonitor private-DNS checks",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Validate configured Private DNS resolver; DNS records, not another web server",
+      "protocol": "DNS AAAA IN query over chosen resolver/DoT. DnsTlsTransport uses random six-character prefix plus -dnsotls-ds.dnscheck.grapheneos.org. NetworkMonitor also probes under the configured suffix.",
+      "protocol_status": "specified",
+      "path_method": "DNS query: {random}-dnsotls-ds.dnscheck.diamaneos.de. Authoritative wildcard *.dnscheck.diamaneos.de; no HTTP URL.",
+      "request_fields": [
+        "Random probe label, QTYPE AAAA, QCLASS IN; DNS wire header."
+      ],
+      "response_fields": [
+        "Wildcard A 192.0.2.1 and AAAA 100::1, TTL 3600; discard/documentation addresses are answers, not machines to deploy."
+      ],
+      "verification_root": "Chosen DoT resolver TLS authentication; native checkDnsResponse checks minimum 12-byte response/header and one question, not strictly a positive AAAA answer. DNS response is not proof of whole internet reachability.",
+      "timeout_retry": "Native resolver scheduling remains independent of web probes. Query/answer staging ceiling 512 bytes; selected service checks 10 s. Authoritative provider rate/latency policy is external, not enforced by our VPS.",
+      "cache_freshness": "Authoritative TTL 3600; recursive caches may keep records. Never mistake cached DNS answers for live connectivity.",
+      "failure_fallback": "Authoritative/resolver outage: DNS failure and native Private DNS validation/backoff; no HTTP fallback service. Preserve explicit standard-resolver setting. Non-answer acceptance in inherited validator is documented, not claimed cryptographic positive-answer proof.",
+      "exposed_data": "Configured recursive resolver sees device IP and query. INWX authority normally sees recursive resolver IP and query; authoritative query metadata may still reveal OS use. Quad9 is a Swiss direct-device default exception, not an EU proxy. INWX uses global Anycast: German operator jurisdiction does not mean all DNS query processing occurs in Germany.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
-      "status": "blocked-contract"
+      "status": "specified",
+      "source_refs": [
+        "dns-client",
+        "network-monitor",
+        "dns-zone"
+      ],
+      "limits_profile": "dns",
+      "upstreams": [
+        {
+          "host": "dns.quad9.net",
+          "operator": "Quad9",
+          "jurisdiction": "CH",
+          "mode": "device-default",
+          "data": "Device IP and DNS queries; user-selected resolver may differ."
+        }
+      ],
+      "implementation_blockers": [],
+      "example": {
+        "kind": "wire-shape",
+        "request": "AAAA abc123-dnsotls-ds.dnscheck.diamaneos.de. IN",
+        "response": "*.dnscheck.diamaneos.de. 3600 IN AAAA 100::1",
+        "expected": "DNS zone example, not an HTTPS service; wildcard must cover both resolver probe labels and return configured records. DNSSEC/MFA provisioning is infrastructure staging."
+      }
     },
     {
       "id": "info-release-feed",
       "upstream_host": "grapheneos.org/releases.atom",
-      "replacement_host": "diamaneos.de releases feed (candidate; built public documentation, served infrastructure staging infra)",
-      "consumer": "Info app release feed (forked/repointed, system app delivery)",
-      "consumer_version": "fork revision pinned at system app delivery",
-      "purpose": "Release notes feed for the on-device Info app pointing at project releases",
-      "protocol": "Feed format + update URL repointed in the fork; default URLs must point at intended project destinations (no silently stale branding).",
+      "replacement_host": "diamaneos.de",
+      "consumer": "Info ReleasesViewModel.updateChangelog; manifest contains InfoApp prebuilt",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Informational release notes",
+      "protocol": "HTTPS Atom UTF-8 text; current client finds entry/id/title with regular expressions, so generated entries need one-line serialization. Feed content is not release authentication.",
       "protocol_status": "blocked",
-      "blocker": {
-        "description": "Confirm fork/delivery decision for the Info app (rebuild vs permitted mirror) and repointed feed URL before freezing feed behavior.",
-        "owner_task": "FP6-112"
-      },
-      "path_method": "Feed path on diamaneos.de (exact layout frozen public documentation).",
+      "path_method": "GET /releases.atom",
       "request_fields": [
-        "feed-request"
+        "No device body; ordinary HTTPS request."
       ],
       "response_fields": [
-        "release-entries"
+        "Atom XML with entry/id/title and notes; <=2 MiB project cap."
       ],
-      "verification_root": "Feed served from project origin + non-EU mirror; release records signed per transparency policy (release transparency publication).",
-      "timeout_retry": "Bounded timeouts; feed staleness surfaced, never silent.",
-      "cache_freshness": "Feed freshness monitored; stale feed never presented as current releases.",
-      "failure_fallback": "Unreachable feed: client shows last-known state as stale with retry; never fabricated entries.",
-      "exposed_data": "Feed fetches + IP.",
-      "retention": "Server request logs: none, or <=24h where operationally justified.",
+      "verification_root": "HTTPS system trust and controlled project publication. Any update/installer bytes still require independent release verification; never derive a trust root from feed text.",
+      "timeout_retry": "Observed: 10 s connect, 30 s read; upstream readBytes unbounded. Project total 30 s, 2 MiB cap; native bounding and error UI work in system app delivery.",
+      "cache_freshness": "Feed refreshed on release and checked hourly; do not advertise feed >24 h beyond successful publication/freshness check. Existing local entries may remain visible; no implemented stale banner is claimed.",
+      "failure_fallback": "Server returns503 if stale/unavailable. Client catches network error and shows snackbar, retaining existing entries in memory. Malformed data must not authorize an update; native parser robustness/byte limits remain INFO-BIND.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. No hardware identifier needed.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-112",
-      "status": "blocked-contract"
+      "status": "blocked-contract",
+      "source_refs": [
+        "info-client",
+        "info-prebuilt"
+      ],
+      "limits_profile": "feed",
+      "upstreams": [],
+      "implementation_blockers": [
+        {
+          "id": "INFO-BIND",
+          "owner_task": "FP6-112",
+          "description": "Bind shipping Info prebuilt to reviewed fork revision; repoint feed URL, retain one-line entry compatibility, add/test 2 MiB bound and explicit stale/error presentation."
+        }
+      ],
+      "example": {
+        "kind": "wire-shape",
+        "request": "GET /releases.atom HTTP/1.1\r\nHost: diamaneos.de\r\n\r\n",
+        "response": "<feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>urn:diamaneos:example</id><title>Example release</title><content type=\"text\">Illustrative notes</content></entry></feed>\n",
+        "expected": "Synthetic single-line Atom entry, not an accepted release; feed text never authenticates an OTA."
+      }
     }
   ]
 }

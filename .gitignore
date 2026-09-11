@@ -36,3 +36,8 @@ os/
 manifest/
 out/
 .cache/
+
+# Local Python development environment and caches
+.venv/
+__pycache__/
+*.py[cod]

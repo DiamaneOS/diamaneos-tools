@@ -1,4 +1,4 @@
-"""baseline capture acceptance: unsupported-not-zero, target guard, redaction,
+"""Baseline acceptance: unsupported-not-zero, target guard, redaction,
 plus live-boundary classification through a fake adb transport (no hardware)."""
 import json
 import os
@@ -44,7 +44,7 @@ if mode == "shell-gone":
     sys.exit(1)
 if mode == "sleep-partial":
     print("level: 8")
-    sys.stdout.flush
+    sys.stdout.flush()
     time.sleep(30)
 if mode == "bad-encoding":
     sys.stdout.buffer.write(bytes([255, 254, 10]))
