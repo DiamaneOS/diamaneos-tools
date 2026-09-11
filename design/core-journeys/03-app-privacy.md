@@ -1,6 +1,6 @@
 # 03 — App privacy
 
-Proposed interface design mockup. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
+Proposed interface mockup. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
 sheets: preset selection and individual controls.
 
 ## Intent and inherited comparison

@@ -114,13 +114,11 @@ It uses sample data and changes only in-memory state. The
 | [Setup](../design/core-journeys/01-setup.md) | Deliberate phrase review and practice in a short flow | passphrase onboarding / credential-policy enforcement / accessible journey validation |
 | [Home](../design/core-journeys/02-home-discovery.md) | Distinctive Home with obvious app, file and settings access | everyday app flows / native UI integration |
 | [App privacy](../design/core-journeys/03-app-privacy.md) | Preview capability changes and show actual partial results | app privacy presets |
-| [Notifications](../design/core-journeys/04-notifications.md) | Scoped action after an identified cause | notification compatibility; shell candidate native UI integration |
+| [Notifications](../design/core-journeys/04-notifications.md) | Scoped action after an identified cause | notification compatibility; shell integration candidate |
 | [Battery](../design/core-journeys/05-battery.md) | Requested and confirmed limits remain distinct | power and thermal validation / charge-limit integration / battery health reporting |
 | [Updates](../design/core-journeys/06-updates.md) | Clear identity, stages, restart and recovery | OTA installation testing / interrupted-update recovery testing / offline signed OTA; updater integration |
 
-The [journey index](../design/core-journeys/README.md) maps examples to
-interface design. It replaces old assertions that language expansion was
-already verified. Stress controls expose cases, not native test evidence.
+The [journey index](../design/core-journeys/README.md) describes successful and unsuccessful outcomes for each journey. Text and layout stress controls expose cases; native language and accessibility validation is still required.
 
 ## Accessibility, language and truthfulness
 
@@ -153,7 +151,7 @@ infer user reception from our judgement or the Dank discussion.
 
 Use resources/RRO, then standard APIs and shared components, then justified
 narrow patches. The shade composition and launcher transitions are candidates,
-not approval for a broad shell rewrite. native UI integration must bind actual source, name
+not approval for a broad shell rewrite. Native UI integration must bind actual source, name
 an owner, measure rebase cost and define regressions. Shared visuals carry no
 platform authority and require no new background service.
 
@@ -163,13 +161,11 @@ hardware-enforcement or measured-usability claims in this proposal.
 
 ## Design refinement requirements
 
-The first preview establishes direction, not final screen geometry. The first preview has uneven alignment/spacing, redundant text, the All apps label/arrow
-treatment and page-like chrome on the notification shade. These require explicit
-design work, not instructions to reproduce the first preview verbatim.
+The first preview establishes direction, not final screen geometry. Refine its uneven spacing, repeated text, All apps affordance and notification-shade navigation before native implementation.
 
 | Item | Required refinement | Ownership |
 | --- | --- | --- |
-| UI-01 | Consistent insets, baselines, grouping and vertical spacing; inspect actual rendered screens | interface design design → native UI integration native |
+| UI-01 | Consistent insets, baselines, grouping and vertical spacing; inspect actual rendered screens | Interface design → native UI integration |
 | UI-02 | Remove repeated headings, redundant text and preview-only explanations from ordinary product flows; retain meaningful state and critical consequences | interface design / translation integration → native UI integration |
 | UI-03 | Refine All apps to a centred chevron with a labelled accessible tap target and familiar swipe-up route; keep app discovery obvious | interface design → everyday app flows / native UI integration |
 | UI-04 | Treat the notification shade as a pull-down/swipe-up system surface; remove redundant page-style Back/bell chrome while preserving Android Back and assistive alternatives | interface design → notification compatibility / native UI integration |
@@ -180,8 +176,6 @@ design work, not instructions to reproduce the first preview verbatim.
 
 UI-01–04 capture the observed first-pass feedback. UI-05–08 carry the existing
 interaction, accessibility and authority requirements into the same handoff.
-interface design refines the affected designs before they become implementation
-references. native UI integration checks them on-device; usability acceptance evaluates actual tasks with
-intended users and routes defects back to their owners. These are refinement
+The design maintainer refines affected screens before implementation. Native UI integration checks them on-device, and usability acceptance evaluates real tasks with intended users. Defects return to the responsible component maintainer. These are refinement
 items within the existing design and implementation scope. The current
 preview has not yet received these refinements.

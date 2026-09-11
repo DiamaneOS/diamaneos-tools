@@ -1,28 +1,28 @@
-# DiamaneOS Architecture — Initial Component Map (manifest integration)
+# DiamaneOS Architecture
 
-Living map. Updated only when actual design changes (manifest integration establishes it).
-Upstream proposal: GrapheneOS branch 17 (source research, unproven vs FP6-16 vendor).
-No code modules created here; smallest viable structure until device source inventory / FP6 product integration selects sources.
+This map describes component responsibilities and permitted dependencies. The proposed GrapheneOS 17 base is not yet proven compatible with the Fairphone 6 vendor input. Repository layout and source selection remain subject to actual integration evidence.
 
 ## Ownership and allowed dependencies
 
-| Component (repo id) | Owner | May depend on | Owns state | Privileged boundary | Removal condition |
-| --- | --- | --- | --- | --- | --- |
-| tools | host-tooling maintainer | pinned manifests, immutable inputs | host maps, no device truth | host-only, no signing/promotion creds | never (project tooling) |
-| manifest | source-integration maintainer | GOS branch-17 proposal | input identity at sync | read-only discovery | superseded by pinned release manifest |
-| device/product | TBD (FP6 product integration) | GOS product base, descriptor lists | product config, overlays | device/vendor policy only | unused Lineage deps removed with justification |
-| vendor/firmware | generator (FP6 product integration) | exact stock inputs + extraction recipe | generated blobs only, never hand-edited | no manual edits | regenerated on approved input refresh |
-| kernel/modules/dt | TBD (kernel and module integration) | ACK android14-6.1 + Fairphone sources | keep upstream grouping unless split justified | no weakened verification | prebuilts listed explicitly if irreducible |
-| apps/build | only when genuinely needed | supported APIs | one module per real feature | no umbrella privileged app | removed if gap covered by inherited app |
-| infra/site/installer/app-repository | TBD (endpoint contract design / public documentation / CLI installer integration / Apps repository integration) | pinned contracts | see owning task | secrets injected privately, never in git | unused services never deployed |
-| Apps/Auditor/attestation | TBD (project attestation / Apps repository integration) | upstream layout preserved | client/protocol/server split kept | report transport authenticated | retired when upstream covers need |
+| Component (repository ID) | Responsible role | Inputs | Owned state | Authority boundary |
+| --- | --- | --- | --- | --- |
+| tools | Host-tooling maintainer | Pinned manifests and immutable inputs | Host maps and read-only collection | No signing or release-promotion credentials |
+| manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Preserve imported project definitions |
+| device/product | Device-integration maintainer | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
+| vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
+| kernel/modules/dt | Kernel maintainer | ACK branch and Fairphone sources | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
+| apps/build | Owning feature maintainer | Supported platform APIs | Feature-specific state | No umbrella privileged application |
+| infrastructure | Service maintainer | Endpoint contracts | Bounded serving, staging and monitoring | Privately injected credentials; no release signing keys |
+| site/installer | Documentation and installer maintainers | Verified release metadata and recovery requirements | Public guidance and installer flow | Independent verification before destructive operations |
+| app-repository/Apps | App-delivery maintainer | Signed catalog and package contracts | Catalog, acquisition and delivery | Preserve package identity and signer validation |
+| Auditor/attestation | Attestation maintainer | Reviewed upstream client/protocol/server | Verification policy and authenticated reports | No invented hardware guarantees |
 
-No circular dependencies: tools → manifests → generated/device → build; release evidence derives downstream. Platform (GrapheneOS/AOSP) owns credential/permission/update/hardware truth; owned code coordinates or configures, never duplicates authority.
+Platform code owns credential, permission, update and hardware enforcement. Shared visual components coordinate presentation without duplicating those authorities. Keep dependencies directed: tools and manifests define source inputs; generated/device integration feeds builds; release evidence derives from the resulting candidate.
 
-## Example end-to-end path (proposal, not deployed)
+## Release path (planned)
 
-Updater OTA: manifest pins GOS Updater + endpoint config → builder produces unsigned target-files → offline signer creates full/incremental OTAs → final-content comparison (signed-content comparison) → device verifies via existing trusted pipeline. No new verifier, no new authority.
+A pinned manifest and endpoint contract feed a reproducible build. The build produces unsigned target-files, the isolated release signer creates full/incremental OTAs, and independent final-content comparison checks the result. The device verifies through the existing trusted update pipeline.
 
-## Material choice (manifest integration)
+## Source-layout decisions
 
-Remotes-only `diamaneos.xml`, local-only manifest repo, no empty repos — keeps rebase surface minimal until source selection. Revisit when device source inventory / FP6 product integration pins projects.
+The manifest delta uses generated revision-only overrides for the selected fork commits and preserves imported project definitions. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.

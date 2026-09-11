@@ -1,6 +1,6 @@
 # 05 — Battery
 
-Proposed interface design mockup. Owners: power and thermal validation / charge-limit integration / battery health reporting. Pages: `battery`, `health`;
+Proposed interface mockup. Owners: power and thermal validation / charge-limit integration / battery health reporting. Pages: `battery`, `health`;
 sheets: care/export. All readings are synthetic.
 
 ## Intent and inherited comparison

@@ -47,7 +47,7 @@
       "verification_method": "NOT YET RUN — manifest -r at sync"
     },
     {
-      "applicability": "Support tracked separately as required; lifecycle only, no distribution claim here.",
+      "applicability": "Support lifecycle is tracked separately from compatibility and recovery validation.",
       "authoritative_url": "Fairphone support release notes (per-build patch level)",
       "current_revision": "Observed patch 2026-06-05 / 2026-07-05 (rows above); firmware bodies stay in protected store (stock recovery archiving / FP6 product integration)",
       "discovery_method": "Same search 2026-09-10",

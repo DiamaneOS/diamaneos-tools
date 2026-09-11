@@ -1,6 +1,6 @@
 # 02 — Home and discovery
 
-Proposed interface design mockup. Owners: everyday app flows / native UI integration. Pages: `home`, `search`, `apps`,
+Proposed interface mockup. Owners: everyday app flows / native UI integration. Pages: `home`, `search`, `apps`,
 `files`, `file`, `settings`; `atlas` illustrates an independent-app boundary.
 
 ## Intent and inherited comparison
