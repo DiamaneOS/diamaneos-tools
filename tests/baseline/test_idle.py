@@ -149,6 +149,25 @@ class ResultTest(unittest.TestCase):
             report, protocol(), 26.0, 361, network, False)
         self.assertEqual(5, len(reasons))
 
+    def test_declared_profile_binds_eight_hours_and_repeat_identity(self):
+        plan = baseline_idle.dry_run(
+            str(TOOLS / "config" / "baseline.json"), 1,
+            "fp6-stock16-baseline-20260912")
+        self.assertEqual("declared", plan["measurement_kind"])
+        self.assertEqual("DECLARED_STOCK_BASELINE_EVIDENCE", plan["label"])
+        self.assertEqual(28800, plan["duration_seconds"])
+        self.assertEqual(1, plan["repeat_index"])
+        self.assertEqual(2, plan["repeat_count"])
+
+    def test_declared_profile_requires_series_identity(self):
+        with self.assertRaisesRegex(baseline_idle.IdleError, "--series-id"):
+            baseline_idle.dry_run(
+                str(TOOLS / "config" / "baseline.json"), 1, None)
+        with self.assertRaisesRegex(baseline_idle.IdleError, "pilot idle"):
+            baseline_idle.dry_run(
+                str(TOOLS / "config" / "baseline.json"), None,
+                "fp6-stock16-baseline-20260912")
+
     def test_private_ref_verifier_accepts_bounded_large_batterystats(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -202,6 +221,22 @@ class CliContractTest(unittest.TestCase):
         ])
         self.assertTrue(args.wait_for_reconnect)
         self.assertEqual(120, args.reconnect_timeout_seconds)
+
+    def test_start_parser_carries_declared_series_binding(self):
+        args = baseline_idle.build_parser().parse_args([
+            "start", "--target", "private-target",
+            "--device-role", "idle-pilot",
+            "--device-map", "/private/map.json",
+            "--run-id", "idle-declared-r1",
+            "--output", "/private/runs",
+            "--expected-build", "FP6.QREL.16.100.0",
+            "--conditions", "controlled",
+            "--ambient-start-c", "22.0",
+            "--declared-repeat-index", "1",
+            "--series-id", "fp6-stock16-baseline-20260912",
+        ])
+        self.assertEqual(1, args.declared_repeat_index)
+        self.assertEqual("fp6-stock16-baseline-20260912", args.series_id)
 
 
 if __name__ == "__main__":
