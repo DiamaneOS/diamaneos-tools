@@ -86,8 +86,9 @@ def parse_am_start(output: str) -> dict:
         timing_ms = int(fields[timing_key])
     except (KeyError, ValueError):
         return {"status": STATUS_FAIL, "reason": "am start omitted a numeric launch time"}
-    if timing_ms < 0:
-        return {"status": STATUS_FAIL, "reason": "am start reported a negative launch time"}
+    if timing_ms <= 0:
+        return {"status": STATUS_FAIL,
+                "reason": "am start did not report a positive launch time"}
     return {
         "status": STATUS_PASS,
         "timing_ms": timing_ms,
@@ -125,6 +126,19 @@ def parse_gfxinfo(output: str) -> dict:
     }
 
 
+def enforce_frame_minimum(parsed: dict, swipe_count: int,
+                          minimum_frames_per_swipe: int) -> dict:
+    if parsed["status"] != STATUS_PASS:
+        return parsed
+    minimum_frames = swipe_count * minimum_frames_per_swipe
+    if parsed["total_frames"] < minimum_frames:
+        return {"status": STATUS_FAIL,
+                "reason": "gfxinfo recorded fewer frames than completed swipes",
+                "observed_frames": parsed["total_frames"],
+                "minimum_frames": minimum_frames}
+    return parsed
+
+
 def parse_battery(output: str) -> dict:
     fields = {}
     for line in output.splitlines():
@@ -157,6 +171,13 @@ def parse_wifi_status(output: str) -> bool:
     if first == "Wifi is enabled":
         return True
     raise ValueError("dedicated Wi-Fi status is unavailable")
+
+
+def parse_power_wakefulness(output: str) -> str:
+    match = re.search(r"(?m)^[ \t]*mWakefulness=([A-Za-z]+)[ \t]*$", output)
+    if not match or match.group(1) not in {"Awake", "Asleep", "Dreaming", "Dozing"}:
+        raise ValueError("display wakefulness is unavailable")
+    return match.group(1)
 
 
 def parse_package_version(output: str) -> dict:
@@ -307,6 +328,8 @@ def evaluate_preflight(observed: dict, protocol: dict,
         reasons.append("50 percent brightness was not operator-confirmed")
     if not unlocked_confirmed:
         reasons.append("unlocked and awake state was not operator-confirmed")
+    if observed["display"].get("wakefulness") != "Awake":
+        reasons.append("display is not awake")
     if observed["display"]["adaptive_brightness"] is not False:
         reasons.append("adaptive brightness is enabled")
     if observed["display"]["screen_timeout_ms"] != expected_display[
@@ -428,6 +451,14 @@ def _collect_preflight(collector: Collector, protocol: dict,
     except ValueError as exc:
         raise CaseFailure(STATUS_FAIL, str(exc), refs) from exc
 
+    power_result, power_refs = collector.command(
+        "preflight-power", ["dumpsys", "power"])
+    refs.extend(power_refs)
+    try:
+        wakefulness = parse_power_wakefulness(power_result["stdout"])
+    except ValueError as exc:
+        raise CaseFailure(STATUS_FAIL, str(exc), refs) from exc
+
     sim_result, sim_refs = collector.command(
         "preflight-sim-state", ["getprop", "gsm.sim.state"])
     refs.extend(sim_refs)
@@ -465,6 +496,7 @@ def _collect_preflight(collector: Collector, protocol: dict,
             "physical_width_px": width,
             "physical_height_px": height,
             "physical_density_dpi": density,
+            "wakefulness": wakefulness,
         },
         "network": {
             "profile": protocol["environment_controls"]["performance_network"]["profile"],
@@ -497,26 +529,50 @@ def _run_launches(collector: Collector, protocol: dict) -> dict:
     for app in params["apps"]:
         package = app["package"]
         component = app["component"]
-        for state in ("cold", "warm"):
-            _, step_refs = collector.command(
-                f"launch-{app['role']}-{state}-home", ["input", "keyevent", "KEYCODE_HOME"])
+        for name, argv in (
+                ("cold-home", ["input", "keyevent", "KEYCODE_HOME"]),
+                ("cold-force-stop", ["am", "force-stop", package])):
+            _, step_refs = collector.command(f"launch-{app['role']}-{name}", argv)
             refs.extend(step_refs)
-            if state == "cold":
-                _, step_refs = collector.command(
-                    f"launch-{app['role']}-{state}-force-stop", ["am", "force-stop", package])
-                refs.extend(step_refs)
-            time.sleep(params["settle_seconds"])
-            result, step_refs = collector.command(
-                f"launch-{app['role']}-{state}-start",
-                ["am", "start", "-W", "-n", component])
-            refs.extend(step_refs)
-            parsed = parse_am_start(result["stdout"])
-            sample = {"role": app["role"], "state": state, **parsed}
-            samples.append(sample)
-            if parsed["status"] != STATUS_PASS:
-                return {"test_id": "app-launch", "status": STATUS_FAIL,
-                        "reason": f"{app['role']} {state} launch failed",
-                        "samples": samples, "raw_evidence_refs": refs}
+        time.sleep(params["settle_seconds"])
+        result, step_refs = collector.command(
+            f"launch-{app['role']}-cold-start",
+            ["am", "start", "-W", "-n", component])
+        refs.extend(step_refs)
+        parsed = parse_am_start(result["stdout"])
+        samples.append({"role": app["role"], "state": "cold", **parsed})
+        expected = params["cold_expected_launch_state"]
+        if parsed["status"] != STATUS_PASS or parsed.get("launch_state") != expected:
+            return {"test_id": "app-launch", "status": STATUS_FAIL,
+                    "reason": f"{app['role']} cold launch did not report {expected}",
+                    "samples": samples, "raw_evidence_refs": refs}
+
+        _, step_refs = collector.command(
+            f"launch-{app['role']}-warm-finish-cold",
+            ["input", "keyevent", "KEYCODE_BACK"])
+        refs.extend(step_refs)
+        time.sleep(params["settle_seconds"])
+        resident, step_refs = collector.command(
+            f"launch-{app['role']}-warm-resident-process",
+            ["pidof", package], required=False)
+        refs.extend(step_refs)
+        pids = resident.get("stdout", "").split()
+        if (resident.get("transport") != "ok" or not pids
+                or any(not re.fullmatch(r"[1-9][0-9]{0,9}", pid) for pid in pids)):
+            return {"test_id": "app-launch", "status": STATUS_FAIL,
+                    "reason": f"{app['role']} process was not resident for warm launch",
+                    "samples": samples, "raw_evidence_refs": refs}
+        result, step_refs = collector.command(
+            f"launch-{app['role']}-warm-start",
+            ["am", "start", "-W", "-n", component])
+        refs.extend(step_refs)
+        parsed = parse_am_start(result["stdout"])
+        samples.append({"role": app["role"], "state": "warm", **parsed})
+        expected = params["warm_expected_launch_state"]
+        if parsed["status"] != STATUS_PASS or parsed.get("launch_state") != expected:
+            return {"test_id": "app-launch", "status": STATUS_FAIL,
+                    "reason": f"{app['role']} warm launch did not report {expected}",
+                    "samples": samples, "raw_evidence_refs": refs}
     return {"test_id": "app-launch", "status": STATUS_PASS,
             "reason": "all one-per-state pilot launches completed",
             "samples": samples, "raw_evidence_refs": refs}
@@ -554,6 +610,8 @@ def _run_frame(collector: Collector, protocol: dict) -> dict:
         "frame-gfxinfo", ["dumpsys", "gfxinfo", params["package"]])
     refs.extend(step_refs)
     parsed = parse_gfxinfo(result["stdout"])
+    parsed = enforce_frame_minimum(
+        parsed, swipe_count, interaction["minimum_frames_per_swipe"])
     return {"test_id": "frame-time", **parsed,
             "reason": ("package-scoped frame aggregate parsed" if parsed["status"] == STATUS_PASS
                        else parsed["reason"]),
@@ -1007,7 +1065,7 @@ def dry_run_plan(config: str) -> dict:
             "thermal_workers": thermal["workers"],
         },
         "device_state_changes": [
-            "HOME key and deterministic Settings swipes",
+            "HOME/BACK keys and deterministic Settings swipes",
             "force-stop exact benchmark packages; app data is not cleared",
             "reset package-scoped Settings gfxinfo counters",
             "bounded CPU load with temporary PID file and mandatory cleanup",

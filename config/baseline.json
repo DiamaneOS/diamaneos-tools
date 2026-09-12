@@ -131,11 +131,13 @@
       "id": "app-launch",
       "owner": "FP6-022",
       "units": "ms per launch",
-      "method": "For each exact component, HOME then am force-stop plus am start -W is cold; HOME plus am start -W without force-stop is warm. App data is never cleared.",
+      "method": "For each exact component, HOME then am force-stop plus am start -W is cold. Finish the measured cold activity with BACK, require its package process to remain resident, then use am start -W for warm. Require positive timing and the matching Android launch state. App data is never cleared.",
       "fixed_parameters": {
         "cold_repetitions": 3,
         "warm_repetitions": 3,
         "settle_seconds": 2,
+        "cold_expected_launch_state": "COLD",
+        "warm_expected_launch_state": "WARM",
         "apps": [
           {
             "role": "settings",
@@ -171,7 +173,8 @@
           "top_y_px": 600,
           "bottom_y_px": 1900,
           "swipe_duration_ms": 500,
-          "interval_seconds": 2
+          "interval_seconds": 2,
+          "minimum_frames_per_swipe": 1
         }
       }
     },

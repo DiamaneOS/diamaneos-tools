@@ -110,17 +110,23 @@ The connected pilot is shorter than the declared series and is always labelled
 `PILOT_ONLY_NOT_BASELINE_EVIDENCE`. It checks an exact private device-role
 mapping before ADB, requires the operator to confirm an unlocked phone and a
 visible 50% brightness setting, and independently verifies the remaining
-display, radio, SIM, battery and build controls. A mismatch stops before the
-launch, frame or thermal workload.
+display, radio, SIM, battery and build controls. The live power-service reading
+must also report an awake display; an earlier operator confirmation is not
+treated as current state. A mismatch stops before the launch, frame or thermal
+workload.
 
-The live pilot records one cold and one warm launch for each bound stock app, a
-10-second package-scoped Settings frame sample, a bounded 30-second four-worker
-CPU load plus 30-second cooldown, before/after memory signals, and an ending
-battery/charging snapshot. It
-force-stops only the named packages, never clears app data, and uses Android's
-existing thermal policy. Current HAL battery/skin values enforce conservative
-stop thresholds; read-only sysfs thermal-zone type/temp pairs are retained as
-additional raw observations.
+The live pilot records one cold and one warm launch for each bound stock app.
+Cold requires a force-stopped package and Android's `COLD` launch state; warm
+finishes the cold activity with BACK, verifies that its process remains
+resident, and requires Android's `WARM` state. Both require a positive reported
+time. The 10-second package-scoped Settings frame sample must record at least
+one rendered frame per completed swipe. The remaining connected sequence is a
+bounded 30-second four-worker CPU load plus 30-second cooldown, before/after
+memory signals, and an ending battery/charging snapshot. It force-stops only
+the named packages, never clears app data, and uses Android's existing thermal
+policy. Current HAL battery/skin values enforce conservative stop thresholds;
+read-only sysfs thermal-zone type/temp pairs are retained as additional raw
+observations.
 
 On the locked stock user build, `/proc/pressure/memory` is not readable by the
 shell user. The pilot retains that permission failure as `UNSUPPORTED` and uses

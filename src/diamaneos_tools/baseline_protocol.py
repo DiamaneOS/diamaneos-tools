@@ -244,12 +244,17 @@ def validate_protocol(protocol):
         _validate_common_procedure(_find_procedure(protocol, procedure_id), procedure_id)
 
     launch = _find_procedure(protocol, "app-launch")["fixed_parameters"]
-    _expect_keys(launch, {"cold_repetitions", "warm_repetitions", "settle_seconds", "apps"},
-                 {"cold_repetitions", "warm_repetitions", "settle_seconds", "apps"},
+    launch_keys = {"cold_repetitions", "warm_repetitions", "settle_seconds",
+                   "cold_expected_launch_state", "warm_expected_launch_state", "apps"}
+    _expect_keys(launch, launch_keys, launch_keys,
                  "app-launch parameters")
     if launch["cold_repetitions"] != 3 or launch["warm_repetitions"] != 3:
         raise ProtocolError("full launch repetition counts must remain three")
     _integer(launch["settle_seconds"], "launch settle seconds", 1, 30)
+    if launch["cold_expected_launch_state"] != "COLD":
+        raise ProtocolError("cold launch state must remain COLD")
+    if launch["warm_expected_launch_state"] != "WARM":
+        raise ProtocolError("warm launch state must remain WARM")
     apps = launch["apps"]
     if not isinstance(apps, list) or len(apps) < 2:
         raise ProtocolError("at least two fixed launch apps are required")
@@ -278,7 +283,8 @@ def validate_protocol(protocol):
         raise ProtocolError("frame component is invalid")
     interaction = frame["interaction"]
     interaction_keys = {"kind", "x_px", "top_y_px", "bottom_y_px",
-                        "swipe_duration_ms", "interval_seconds"}
+                        "swipe_duration_ms", "interval_seconds",
+                        "minimum_frames_per_swipe"}
     _expect_keys(interaction, interaction_keys, interaction_keys, "frame interaction")
     if interaction["kind"] != "alternating-vertical-swipes":
         raise ProtocolError("frame interaction kind is unsupported")
@@ -289,6 +295,8 @@ def validate_protocol(protocol):
         raise ProtocolError("frame swipe geometry is invalid")
     _integer(interaction["swipe_duration_ms"], "swipe duration", 1, 5000)
     _integer(interaction["interval_seconds"], "swipe interval", 1, 30)
+    _integer(interaction["minimum_frames_per_swipe"],
+             "minimum frames per swipe", 1, 1000)
 
     idle = _find_procedure(protocol, "idle-drain")["fixed_parameters"]
     idle_keys = {"duration_hours", "repetitions", "screen", "interaction",

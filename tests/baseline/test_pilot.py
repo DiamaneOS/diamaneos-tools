@@ -32,6 +32,12 @@ class ParserTest(unittest.TestCase):
         self.assertEqual("FAIL", parsed["status"])
         self.assertNotIn("timing_ms", parsed)
 
+    def test_zero_launch_time_is_not_a_measurement(self):
+        parsed = baseline_pilot.parse_am_start(
+            "Status: ok\nLaunchState: UNKNOWN (0)\nTotalTime: 0\n")
+        self.assertEqual("FAIL", parsed["status"])
+        self.assertNotIn("timing_ms", parsed)
+
     def test_gfxinfo_parser_uses_package_aggregate(self):
         parsed = baseline_pilot.parse_gfxinfo(
             "Total frames rendered: 411\n"
@@ -51,6 +57,18 @@ class ParserTest(unittest.TestCase):
             "95th percentile: 0ms\n99th percentile: 0ms\n")
         self.assertEqual("FAIL", parsed["status"])
         self.assertNotIn("total_frames", parsed)
+
+    def test_frame_count_must_cover_completed_swipes(self):
+        parsed = {"status": "PASS", "total_frames": 1}
+        checked = baseline_pilot.enforce_frame_minimum(parsed, 4, 1)
+        self.assertEqual("FAIL", checked["status"])
+        self.assertEqual(4, checked["minimum_frames"])
+
+    def test_awake_power_state_is_parsed_exactly(self):
+        self.assertEqual("Awake", baseline_pilot.parse_power_wakefulness(
+            "Power Manager State:\n  mWakefulness=Awake\n"))
+        with self.assertRaisesRegex(ValueError, "unavailable"):
+            baseline_pilot.parse_power_wakefulness("mInteractive=true\n")
 
     def test_battery_parser_preserves_fairphone_ac_classification(self):
         parsed = baseline_pilot.parse_battery(
@@ -141,6 +159,7 @@ class PreflightTest(unittest.TestCase):
             "display": {
                 "adaptive_brightness": False,
                 "brightness_raw": 512,
+                "wakefulness": "Awake",
                 "screen_timeout_ms": 600000,
                 "peak_refresh_rate_hz": 90.0,
                 "minimum_refresh_rate_hz": 1.0,
@@ -171,6 +190,7 @@ class PreflightTest(unittest.TestCase):
     def test_every_changed_control_is_visible(self):
         observed = self.valid_observed()
         observed["display"]["adaptive_brightness"] = True
+        observed["display"]["wakefulness"] = "Asleep"
         observed["network"]["wifi"] = True
         observed["battery"]["level_percent"] = 90
         reasons = baseline_pilot.evaluate_preflight(
@@ -178,6 +198,7 @@ class PreflightTest(unittest.TestCase):
         self.assertGreaterEqual(len(reasons), 6)
         self.assertTrue(any("room temperature" in reason for reason in reasons))
         self.assertTrue(any("brightness" in reason for reason in reasons))
+        self.assertTrue(any("not awake" in reason for reason in reasons))
         self.assertTrue(any("Wi-Fi" in reason for reason in reasons))
         self.assertTrue(any("battery level" in reason for reason in reasons))
 
