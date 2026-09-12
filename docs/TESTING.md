@@ -176,8 +176,14 @@ records two consecutive authorized-ADB observations and begins the ending
 capture immediately, avoiding operator or SSH delay in the measured interval.
 The legacy finish path accepts a target that is already connected, but its
 invocation time is the reconnect time and therefore remains subject to the
-60-second pilot tolerance. The declared baseline, after the pilot, remains two
-eight-hour repetitions. Wi-Fi and telephony service output is reduced to
+60-second finish tolerance. After the pilot passes, select the declared
+eight-hour state machine by supplying both `--declared-repeat-index` (`1` or
+`2`) and one shared, valid `--series-id` to `dry-run` and `start`. The command
+then binds the immutable report to `DECLARED_STOCK_BASELINE_EVIDENCE`, the
+eight-hour protocol duration, the series, and its exact repeat. Omitting either
+declared argument fails closed; omitting both remains the five-minute pilot.
+The declared baseline requires both eight-hour repetitions. Wi-Fi and
+telephony service output is reduced to
 connection/registration booleans in memory: SSID, BSSID, subscriber and cell
 identifiers are not persisted.
 
