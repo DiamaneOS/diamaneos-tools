@@ -160,11 +160,11 @@ def parse_wifi_status(output: str) -> bool:
 
 
 def parse_package_version(output: str) -> dict:
-    version_name = re.search(r"(?m)^\s*versionName=(\S+)\s*$", output)
-    version_code = re.search(r"(?m)^\s*versionCode=([0-9]+)", output)
-    if not version_name or not version_code:
+    version_name = re.search(r"(?m)^[ \t]*versionName=([^\r\n]*)$", output)
+    version_code = re.search(r"(?m)^[ \t]*versionCode=([0-9]+)", output)
+    if not version_name or not version_code or not version_name.group(1).strip():
         raise ValueError("package version fields are incomplete")
-    return {"version_name": version_name.group(1),
+    return {"version_name": version_name.group(1).strip(),
             "version_code": int(version_code.group(1))}
 
 
