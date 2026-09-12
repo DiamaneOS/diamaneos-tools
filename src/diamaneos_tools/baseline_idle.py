@@ -83,6 +83,25 @@ def parse_battery_snapshot(output: str) -> dict:
     return parsed
 
 
+def parse_display_panel_state(output: str) -> str:
+    match = re.search(
+        r"(?m)^\s*mState=(OFF|ON|DOZE|DOZE_SUSPEND|VR|UNKNOWN)\s*$",
+        output)
+    if not match:
+        raise ValueError("built-in display panel state is unavailable")
+    return match.group(1)
+
+
+def _display_panel_state_remote() -> str:
+    script = ("dumpsys display | grep -m 1 -E "
+              "'^[[:space:]]*mState=(OFF|ON|DOZE|DOZE_SUSPEND|VR|UNKNOWN)$'")
+    return "sh -c " + repr(script)
+
+
+def screen_off_state_is_valid(wakefulness: str, panel_state: str) -> bool:
+    return wakefulness in {"Asleep", "Dozing"} and panel_state == "OFF"
+
+
 def evaluate_idle_preflight(observed: dict, protocol: dict,
                             ambient_start_c: float,
                             display_50_confirmed: bool,
@@ -538,13 +557,18 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             args.adb, args.target, [baseline_pilot._power_wakefulness_remote()])
         reset_refs.extend(_write_command_evidence(
             partial, "screen-sleep-verification", power_result))
+        panel_result = _run_required(
+            args.adb, args.target, [_display_panel_state_remote()])
+        reset_refs.extend(_write_command_evidence(
+            partial, "screen-panel-verification", panel_result))
         try:
             wakefulness = baseline_pilot.parse_power_wakefulness(
                 power_result["stdout"])
+            panel_state = parse_display_panel_state(panel_result["stdout"])
         except ValueError as exc:
             raise IdleError(str(exc), 5) from exc
-        if wakefulness != "Asleep":
-            raise IdleError("display did not enter the required asleep state", 4)
+        if not screen_off_state_is_valid(wakefulness, panel_state):
+            raise IdleError("display did not enter a verified panel-off state", 4)
         report["reset"] = {
             "authorized": True,
             "completed_at_utc": _utc_now(),
@@ -553,6 +577,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
         report["screen_off"] = {
             "method": "ADB KEYCODE_SLEEP after the authorized reset",
             "verified_wakefulness": wakefulness,
+            "verified_builtin_panel_state": panel_state,
             "verified_at_utc": _utc_now(),
         }
         report["reset_evidence_refs"] = reset_refs
@@ -586,15 +611,20 @@ def observe_disconnect(args) -> Path:
             raise IdleError("idle role does not match the partial report", 3)
         power_result = _run_required(
             args.adb, args.target, [baseline_pilot._power_wakefulness_remote()])
+        panel_result = _run_required(
+            args.adb, args.target, [_display_panel_state_remote()])
         try:
             wakefulness = baseline_pilot.parse_power_wakefulness(
                 power_result["stdout"])
+            panel_state = parse_display_panel_state(panel_result["stdout"])
         except ValueError as exc:
             raise IdleError(str(exc), 5) from exc
-        if wakefulness != "Asleep":
-            raise IdleError("display is not asleep immediately before disconnect", 4)
+        if not screen_off_state_is_valid(wakefulness, panel_state):
+            raise IdleError("display panel is not off immediately before disconnect", 4)
         refs = _write_command_evidence(
             run_dir, "pre-disconnect-screen-verification", power_result)
+        refs.extend(_write_command_evidence(
+            run_dir, "pre-disconnect-panel-verification", panel_result))
         wait_started = _utc_now()
         print("READY_TO_DISCONNECT: physically unplug the phone USB-C cable now",
               flush=True)
