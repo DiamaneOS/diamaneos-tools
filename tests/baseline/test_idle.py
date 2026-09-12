@@ -57,6 +57,22 @@ class ParserTest(unittest.TestCase):
         self.assertIn("grep -m 1", remote)
         self.assertIn("mState=(OFF|ON|DOZE|DOZE_SUSPEND|VR|UNKNOWN)", remote)
 
+    def test_screen_off_wait_tolerates_transition_and_requires_stability(self):
+        states = iter([
+            ("Awake", "ON"),
+            ("Dozing", "OFF"),
+            ("Dozing", "OFF"),
+        ])
+        observations = baseline_idle.wait_for_screen_off(
+            lambda: next(states), 1.0, 0.0, 2)
+        self.assertEqual(3, len(observations))
+        self.assertEqual("OFF", observations[-1]["builtin_panel_state"])
+
+    def test_screen_off_wait_fails_closed_after_bound(self):
+        with self.assertRaisesRegex(baseline_idle.IdleError, "did not settle"):
+            baseline_idle.wait_for_screen_off(
+                lambda: ("Awake", "ON"), 0.0, 0.0, 2)
+
 
 class PreflightTest(unittest.TestCase):
     def valid_observed(self):
