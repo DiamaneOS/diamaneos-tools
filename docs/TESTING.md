@@ -96,6 +96,60 @@ bounds: 20s per adb call plus 256KB streaming byte cap
 (byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
 git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
 
+## Stock performance protocol and pilot
+
+`config/baseline.json` is the consumed FP6 stock-performance and camera
+protocol. Validate it without contacting a device or creating output:
+
+```sh
+bin/diamaneos baseline protocol validate
+bin/diamaneos baseline pilot --dry-run
+```
+
+The connected pilot is shorter than the declared series and is always labelled
+`PILOT_ONLY_NOT_BASELINE_EVIDENCE`. It checks an exact private device-role
+mapping before ADB, requires the operator to confirm an unlocked phone and a
+visible 50% brightness setting, and independently verifies the remaining
+display, radio, SIM, battery and build controls. A mismatch stops before the
+launch, frame or thermal workload.
+
+The live pilot records one cold and one warm launch for each bound stock app, a
+10-second package-scoped Settings frame sample, a bounded 30-second four-worker
+CPU load plus 30-second cooldown, before/after memory signals, and an ending
+battery/charging snapshot. It
+force-stops only the named packages, never clears app data, and uses Android's
+existing thermal policy. Current HAL battery/skin values enforce conservative
+stop thresholds; read-only sysfs thermal-zone type/temp pairs are retained as
+additional raw observations.
+
+On the locked stock user build, `/proc/pressure/memory` is not readable by the
+shell user. The pilot retains that permission failure as `UNSUPPORTED` and uses
+bounded `dumpsys meminfo`, selected `/proc/vmstat` deltas, and run-bounded LMKD
+and ActivityManager event logs. Activity kill events are not called LMKD kills
+without corroborating evidence. Unsupported and failed measurements are never
+converted to numeric zero.
+
+Live connected-pilot shape (private values substituted by the operator):
+
+```sh
+bin/diamaneos baseline pilot \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --run-id <run-id> \
+  --output <PRIVATE_ROOT>/baseline-runs \
+  --ambient-start-c <room-thermometer-reading> \
+  --operator-confirmed-display-50 \
+  --operator-confirmed-unlocked \
+  --conditions "<stock build, USB path and controlled setup>"
+```
+
+The command produces immutable private raw files with SHA-256 references and a
+serial-redacted result. It covers only the connected pilot. The fixed-scene
+camera pilot and physical-disconnect idle pilot remain explicit `NOT_RUN`
+phases until their supervised operator steps are completed; a connected-pilot
+pass does not complete FP6-022 or authorize an Android-version comparison.
+
 ## Staged device runner
 
 The hardware runner consumes reviewed suites, requires an exact target plus a
