@@ -1,1 +1,297 @@
-{"environment_controls": {"ambient": "recorded per run in degC (no invented value)", "battery": "charging state + start/end level recorded", "conditions_flag": "live runs should pass --conditions; unrecorded runs are labelled, not compared", "display": "brightness/timeout recorded", "network": "SIM state recorded; no-SIM runs labelled"}, "procedures": [{"cases": ["cold-launch", "warm-launch"], "collector": ["getprop"], "fixed_parameters": {"cold_reps": 3, "warm_reps": 3}, "id": "app-launch", "method": "harness runs am start -W; collector records build identity only", "owner": "FP6-034", "pending": "fixed app set selected by stock baseline measurement at first stock run and recorded there", "units": "ms per launch"}, {"cases": ["framestats"], "collector": ["dumpsys gfxinfo com.android.systemui"], "fixed_parameters": {"interaction": "60s scroll in the fixed app", "reps": 3}, "id": "frame-time", "method": "host-readiness capture uses bounded SystemUI gfxinfo; FP6-034 binds its fixed app before comparative measurement; perfetto traces stay outside git with hashes", "owner": "FP6-034", "pending": "fixed app selected by stock baseline measurement", "units": "ms, jank percentiles"}, {"cases": ["overnight-idle"], "collector": ["dumpsys battery"], "fixed_parameters": {"duration_h": 8, "reps": 2}, "id": "idle-drain", "method": "batterystats over controlled overnight idle; collector stores battery snapshots + metadata", "owner": "FP6-034", "pending": "none (durations fixed here)", "units": "mAh and %/h with conditions"}, {"cases": ["sustained-load", "cooldown"], "collector": [], "fixed_parameters": {"cooldown_min": 10, "sustained_min": 15}, "id": "thermal", "method": "read-only thermal-zone observation under fixed load; vendor safety limits preserved, never overridden", "owner": "FP6-034", "pending": "exact workload binary selected by stock baseline measurement", "units": "degC per zone over time"}, {"cases": ["daylight-chart", "tungsten", "low-light"], "collector": [], "fixed_parameters": {"per_lens_modes": "all advertised (enumerated on device)", "scenes": ["daylight-chart", "tungsten", "low-light"]}, "id": "camera-scene", "method": "fixed scene/lighting captures; samples outside git with hashes", "owner": "FP6-022", "pending": "scene rig + chart selected by stock baseline measurement", "units": "files + conditions"}, {"cases": ["carrier_config", "telephony.registry", "imsservice"], "collector": ["dumpsys carrier_config", "dumpsys telephony.registry", "dumpsys imsservice"], "fixed_parameters": {"sims": "both inserted on stock"}, "id": "carrier-ims", "method": "allowlisted dumpsys set from the recovery preflight and baseline collector", "owner": "FP6-023", "pending": "subscription matrix not bound", "units": "redacted fields + private raw"}], "schema_version": 1}
+{
+  "schema_version": 2,
+  "protocol_id": "fp6-stock-baseline-v1",
+  "target": {
+    "device": "FP6",
+    "build_type": "user",
+    "display": {
+      "physical_width_px": 1116,
+      "physical_height_px": 2484,
+      "physical_density_dpi": 480,
+      "supported_refresh_range_hz": [
+        1.0,
+        90.0
+      ]
+    }
+  },
+  "source_references": [
+    {
+      "id": "fairphone-fp6-operating-temperature",
+      "url": "https://support.fairphone.com/hc/en-us/articles/24463093338898-The-Fairphone-Gen-6-Frequently-Asked-Questions-FAQ",
+      "applies_to": "manufacturer operating and charging temperature limits"
+    },
+    {
+      "id": "fairphone-fp6-camera-specifications",
+      "url": "https://www.fairphone.com/wp-content/uploads/2025/08/Fairphone-Gen.-6_-Information-on-how-to-repair-dispose-of-and-recycle-EN-NL-FR-DE.pdf",
+      "applies_to": "main, ultrawide and front camera hardware"
+    },
+    {
+      "id": "android-adb-activity-manager",
+      "url": "https://developer.android.com/tools/adb",
+      "applies_to": "am start -W launch measurement"
+    },
+    {
+      "id": "android-gfxinfo-rendering",
+      "url": "https://developer.android.com/topic/performance/vitals/render",
+      "applies_to": "package-scoped dumpsys gfxinfo frame observations"
+    },
+    {
+      "id": "android-batterystats",
+      "url": "https://developer.android.com/topic/performance/power/setup-battery-historian",
+      "applies_to": "reset, physical disconnect and post-run batterystats capture"
+    },
+    {
+      "id": "android-lmkd",
+      "url": "https://source.android.com/docs/core/perf/lmkd",
+      "applies_to": "LMKD pressure strategy and PSI availability interpretation"
+    },
+    {
+      "id": "linux-thermal-sysfs",
+      "url": "https://docs.kernel.org/5.10/driver-api/thermal/sysfs-api.html",
+      "applies_to": "read-only thermal-zone type and millidegree-Celsius temp attributes"
+    },
+    {
+      "id": "linux-usb-power-management",
+      "url": "https://docs.kernel.org/driver-api/usb/power-management.html",
+      "applies_to": "logical USB port disable is not accepted as proof that charging VBUS is absent"
+    }
+  ],
+  "environment_controls": {
+    "ambient_temperature": {
+      "unit": "degC",
+      "source": "manual digital room thermometer",
+      "sample_points": [
+        "start",
+        "end"
+      ],
+      "continuous_logging": false,
+      "full_run_allowed_range": {
+        "minimum": 18.0,
+        "maximum": 28.0
+      },
+      "maximum_within_run_span": 3.0,
+      "maximum_between_repeat_starts": 2.0,
+      "comparison_rule": "Outside the range or tolerance is NON_COMPARABLE, never silently adjusted. The absence of continuous ambient logging is retained as a limitation."
+    },
+    "display": {
+      "adaptive_brightness": false,
+      "brightness_slider_percent": 50,
+      "screen_timeout_ms": 600000,
+      "peak_refresh_rate_hz": 90.0,
+      "record_raw_brightness_value": true,
+      "comparison_rule": "Raw brightness value, mode, timeout and refresh settings must match across repeat runs."
+    },
+    "performance_network": {
+      "profile": "offline-radio-controlled",
+      "airplane_mode": true,
+      "wifi": "off",
+      "bluetooth": "off",
+      "sim": "inserted but radios disabled",
+      "comparison_rule": "All values must match; the SIM identifier is never recorded."
+    },
+    "idle_network": {
+      "profile": "connected-wifi-and-sim",
+      "airplane_mode": false,
+      "wifi": "connected",
+      "sim": "inserted and registered",
+      "comparison_rule": "Connection state and material outages are recorded; SSID, subscriber and cell identifiers are excluded."
+    },
+    "connected_power": {
+      "profile": "usb-data-at-full-battery",
+      "start_level_percent": {
+        "minimum": 98,
+        "maximum": 100
+      },
+      "required_status": "full",
+      "note": "Launch, frame and thermal measurements retain USB ADB. Power-source and charge-counter observations are recorded before and after."
+    },
+    "idle_power": {
+      "profile": "battery-only-physical-disconnect",
+      "start_level_percent": {
+        "minimum": 98,
+        "maximum": 100
+      },
+      "usb": "physically disconnected after the start capture and reconnected only for the finish capture",
+      "note": "Logical USB disable is not accepted as proof that VBUS charging stopped."
+    }
+  },
+  "pilot": {
+    "label": "PILOT_ONLY_NOT_BASELINE_EVIDENCE",
+    "launch_repetitions_per_state": 1,
+    "frame_repetitions": 1,
+    "frame_duration_seconds": 10,
+    "thermal_load_seconds": 30,
+    "thermal_cooldown_seconds": 30,
+    "thermal_sample_interval_seconds": 5,
+    "idle_duration_seconds": 300,
+    "camera_repetitions": 1
+  },
+  "procedures": [
+    {
+      "id": "app-launch",
+      "owner": "FP6-022",
+      "units": "ms per launch",
+      "method": "For each exact component, HOME then am force-stop plus am start -W is cold; HOME plus am start -W without force-stop is warm. App data is never cleared.",
+      "fixed_parameters": {
+        "cold_repetitions": 3,
+        "warm_repetitions": 3,
+        "settle_seconds": 2,
+        "apps": [
+          {
+            "role": "settings",
+            "package": "com.android.settings",
+            "component": "com.android.settings/.Settings"
+          },
+          {
+            "role": "calculator",
+            "package": "com.google.android.calculator",
+            "component": "com.google.android.calculator/com.android.calculator2.Calculator"
+          },
+          {
+            "role": "camera",
+            "package": "com.fps.camera",
+            "component": "com.fps.camera/com.android.camera.CameraLauncher"
+          }
+        ]
+      }
+    },
+    {
+      "id": "frame-time",
+      "owner": "FP6-022",
+      "units": "frames, percent and ms percentiles",
+      "method": "Reset package-scoped gfxinfo counters, open Settings and alternate deterministic vertical swipes before collecting package-scoped framestats.",
+      "fixed_parameters": {
+        "repetitions": 3,
+        "duration_seconds": 60,
+        "package": "com.android.settings",
+        "component": "com.android.settings/.Settings",
+        "interaction": {
+          "kind": "alternating-vertical-swipes",
+          "x_px": 558,
+          "top_y_px": 600,
+          "bottom_y_px": 1900,
+          "swipe_duration_ms": 500,
+          "interval_seconds": 2
+        }
+      }
+    },
+    {
+      "id": "idle-drain",
+      "owner": "FP6-022",
+      "units": "mAh, percentage points and percent/hour",
+      "method": "Capture start state, explicitly reset batterystats, physically disconnect USB, leave the screen off for the fixed interval, reconnect once and immediately capture end state plus batterystats.",
+      "fixed_parameters": {
+        "duration_hours": 8,
+        "repetitions": 2,
+        "screen": "off",
+        "interaction": "none",
+        "network_profile": "connected-wifi-and-sim",
+        "batterystats_reset_requires_explicit_operator_step": true
+      }
+    },
+    {
+      "id": "thermal",
+      "owner": "FP6-022",
+      "units": "degC and Android thermal status over elapsed seconds",
+      "method": "Run four bounded toybox dd zero-to-null workers while sampling dumpsys thermalservice; then sample through a fixed cooldown. Preserve Android throttling and abort conservatively without overriding thermal policy.",
+      "fixed_parameters": {
+        "workload": "toybox-dd-zero-to-null",
+        "observation_sources": [
+          "dumpsys thermalservice current HAL temperatures and Android thermal status",
+          "/sys/class/thermal/thermal_zone*/type and temp read-only snapshots"
+        ],
+        "sysfs_maximum_zones": 128,
+        "safety_sensor_source": "dumpsys thermalservice current HAL battery and skin readings",
+        "workers": 4,
+        "block_size_bytes": 1048576,
+        "sustained_load_minutes": 15,
+        "cooldown_minutes": 10,
+        "sample_interval_seconds": 5,
+        "safety": {
+          "manufacturer_internal_operating_minimum_degC": -10.0,
+          "manufacturer_internal_operating_maximum_degC": 55.0,
+          "manufacturer_maximum_ambient_charging_degC": 40.0,
+          "abort_android_thermal_status_at_or_above": 3,
+          "abort_battery_degC_at_or_above": 50.0,
+          "abort_skin_degC_at_or_above": 50.0
+        }
+      }
+    },
+    {
+      "id": "memory-pressure",
+      "owner": "FP6-022",
+      "units": "Linux PSI averages and cumulative microseconds",
+      "method": "Capture bounded meminfo, vmstat, LMKD-tagged logs, activity kill events and the PSI permission/result around the fixed connected sequence. Treat unavailable PSI explicitly and do not infer LMKD kills from uncorroborated activity events.",
+      "fixed_parameters": {
+        "summary_source": "dumpsys meminfo",
+        "kernel_counter_source": "/proc/vmstat",
+        "lmkd_event_source": "logcat lmkd and lowmemorykiller tags bounded to the run start",
+        "activity_kill_event_source": "logcat events am_kill and am_low_memory tags bounded to the run start",
+        "psi_source": "/proc/pressure/memory",
+        "unavailable_rule": "A permission-denied PSI read on a locked stock user build is UNSUPPORTED with raw stderr retained; it is never converted to zero.",
+        "sample_points": [
+          "before",
+          "after"
+        ],
+        "interpretation": "Meminfo and kernel-counter deltas plus bounded event logs are observations of the fixed connected sequence. Activity-manager kill events are not labelled LMKD kills without a matching LMKD record or explicit reason. No causal claim is made from these counters alone."
+      }
+    },
+    {
+      "id": "camera-scene",
+      "owner": "FP6-022",
+      "units": "original media files plus SHA-256 and recorded conditions",
+      "method": "Operator captures a privacy-safe fixed desktop-microphone subject from a marked stand position. Lamp setting, distance, camera/lens/mode and focus action are recorded for every original file; no beauty filter or edit is applied.",
+      "fixed_parameters": {
+        "repetitions": 2,
+        "subject": "fixed desktop microphone with LEDs disabled",
+        "focus": "tap the same marked point on the subject before every capture",
+        "lighting_control": "manual terminal settings on the existing USB lamp; no programmable control interface is claimed",
+        "scenes": [
+          {
+            "id": "neutral-white-maximum",
+            "color": "neutral white",
+            "brightness": "maximum terminal setting"
+          },
+          {
+            "id": "warm-white-maximum",
+            "color": "off-white/warm white",
+            "brightness": "maximum terminal setting"
+          },
+          {
+            "id": "neutral-white-minimum",
+            "color": "neutral white",
+            "brightness": "minimum terminal setting"
+          }
+        ],
+        "standard_photo_matrix": [
+          {
+            "camera": "rear-main",
+            "mode": "photo",
+            "zoom": "1x"
+          },
+          {
+            "camera": "rear-ultrawide",
+            "mode": "photo",
+            "zoom": "0.6x"
+          },
+          {
+            "camera": "front",
+            "mode": "photo",
+            "zoom": "1x"
+          }
+        ],
+        "advertised_mode_survey": "Record every mode exposed by the installed stock camera UI and one representative original per applicable still-image mode; unavailable lens/mode combinations are explicit, not inferred."
+      }
+    },
+    {
+      "id": "carrier-ims",
+      "owner": "FP6-023",
+      "included_in_fp6_022": false,
+      "units": "redacted fields plus private raw",
+      "method": "Use the allowlisted carrier, telephony and IMS collectors in the dedicated carrier task.",
+      "fixed_parameters": {
+        "subscription_matrix": "owned and bound by FP6-023"
+      }
+    }
+  ]
+}
