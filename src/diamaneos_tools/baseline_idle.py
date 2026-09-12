@@ -34,6 +34,9 @@ STATUS_DISCONNECTED = "PHYSICALLY_DISCONNECTED_INTERVAL"
 MAX_BATTERYSTATS_BYTES = 8 * 1024 * 1024
 DISCONNECT_TIMEOUT_SECONDS = 120
 DISCONNECT_CONFIRMATION_SAMPLES = 2
+RECONNECT_TIMEOUT_SECONDS = 120
+RECONNECT_POLL_INTERVAL_SECONDS = 0.25
+RECONNECT_CONFIRMATION_SAMPLES = 2
 PILOT_FINISH_TOLERANCE_SECONDS = 60
 SCREEN_OFF_SETTLE_TIMEOUT_SECONDS = 5
 SCREEN_OFF_POLL_INTERVAL_SECONDS = 0.25
@@ -131,6 +134,40 @@ def wait_for_screen_off(observer, timeout_seconds: float,
         if remaining <= 0:
             raise IdleError(
                 "display did not settle into a verified panel-off state", 4)
+        time.sleep(min(poll_interval_seconds, remaining))
+
+
+def wait_for_authorized_reconnect(observer, clock, timeout_seconds: float,
+                                  poll_interval_seconds: float,
+                                  required_consecutive: int = 2) -> dict:
+    """Return the first clock sample from a stable authorized reconnect."""
+    if timeout_seconds < 0 or poll_interval_seconds < 0 or required_consecutive < 1:
+        raise IdleError("invalid reconnect observation bounds", 5)
+    started = time.monotonic()
+    first_present = None
+    consecutive = 0
+    observations = 0
+    while True:
+        present = bool(observer())
+        observations += 1
+        if present:
+            sample = clock()
+            if first_present is None:
+                first_present = sample
+            consecutive += 1
+            if consecutive >= required_consecutive:
+                return {
+                    "first_present": first_present,
+                    "confirmed_present_samples": consecutive,
+                    "observation_count": observations,
+                }
+        else:
+            first_present = None
+            consecutive = 0
+        remaining = timeout_seconds - (time.monotonic() - started)
+        if remaining <= 0:
+            raise IdleError(
+                "authorized ADB reconnect was not observed before the timeout", 3)
         time.sleep(min(poll_interval_seconds, remaining))
 
 
@@ -771,16 +808,52 @@ def finish(args) -> tuple[int, Path]:
     lock_fd = _acquire_lock(root, args.device_role)
     try:
         report = _load_report(run_dir, STATUS_DISCONNECTED)
-        now = _host_clock_sample()
+        armed = _host_clock_sample()
         disconnect = report["disconnect"]
+        if armed["host_boot_id_sha256"] != disconnect["host_boot_id_sha256"]:
+            raise IdleError("tester rebooted during the idle interval", 4)
+        elapsed_at_arm = armed["host_boottime_seconds"] - disconnect[
+            "host_boottime_seconds"]
+        if elapsed_at_arm < report["pilot_duration_seconds"]:
+            raise IdleError("idle interval has not reached its declared duration", 3)
+        authorized = args.target in test_runner._authorized_devices(args.adb)
+        if args.wait_for_reconnect:
+            if authorized:
+                raise IdleError(
+                    "selected idle target must still be disconnected when "
+                    "--wait-for-reconnect is armed", 3)
+            wait_started = _utc_now()
+            print("READY_TO_RECONNECT: physically reconnect the phone USB-C "
+                  "cable now", flush=True)
+            observation = wait_for_authorized_reconnect(
+                lambda: args.target in test_runner._authorized_devices(args.adb),
+                _host_clock_sample,
+                args.reconnect_timeout_seconds,
+                RECONNECT_POLL_INTERVAL_SECONDS,
+                RECONNECT_CONFIRMATION_SAMPLES)
+            now = observation["first_present"]
+            reconnect_observation = {
+                "mode": "wait-for-authorized-adb",
+                "wait_started_at_utc": wait_started,
+                "confirmed_present_samples": observation[
+                    "confirmed_present_samples"],
+                "observation_count": observation["observation_count"],
+            }
+        else:
+            if not authorized:
+                raise IdleError(
+                    "selected idle target is not reconnected and authorized", 3)
+            now = _host_clock_sample()
+            reconnect_observation = {
+                "mode": "already-authorized-at-finish",
+                "wait_started_at_utc": None,
+                "confirmed_present_samples": 1,
+                "observation_count": 1,
+            }
         if now["host_boot_id_sha256"] != disconnect["host_boot_id_sha256"]:
             raise IdleError("tester rebooted during the idle interval", 4)
         elapsed = now["host_boottime_seconds"] - disconnect[
             "host_boottime_seconds"]
-        if elapsed < report["pilot_duration_seconds"]:
-            raise IdleError("idle interval has not reached its declared duration", 3)
-        if args.target not in test_runner._authorized_devices(args.adb):
-            raise IdleError("selected idle target is not reconnected and authorized", 3)
         reconnected_at = now["utc"]
         protocol, digest = baseline_protocol.load_protocol(args.config)
         if digest != report["protocol"]["sha256"]:
@@ -805,6 +878,7 @@ def finish(args) -> tuple[int, Path]:
         report["finish_evidence_refs"] = finish_refs
         report["disconnect"]["reconnected_at_utc"] = reconnected_at
         report["disconnect"]["elapsed_seconds"] = round(elapsed, 3)
+        report["disconnect"]["reconnect_observation"] = reconnect_observation
         report["operator_attestations"].update({
             "physical_usb_disconnect": True,
             "no_interaction_during_interval": True,
@@ -883,7 +957,8 @@ def dry_run(config: str) -> dict:
         "physical_actions": [
             "physically unplug USB only after start reports ARMED",
             "leave the screen off and do not interact",
-            "physically reconnect once only after status reports ready",
+            "after status reports ready, arm finish with --wait-for-reconnect",
+            "physically reconnect only after finish reports READY_TO_RECONNECT",
         ],
         "privacy": "network output is reduced to booleans before persistence",
     }
@@ -930,6 +1005,11 @@ def build_parser() -> argparse.ArgumentParser:
     finish_parser.add_argument("--adb", default="adb")
     finish_parser.add_argument("--run-dir", required=True)
     finish_parser.add_argument("--ambient-end-c", required=True, type=float)
+    finish_parser.add_argument("--wait-for-reconnect", action="store_true")
+    finish_parser.add_argument(
+        "--reconnect-timeout-seconds", type=int,
+        default=RECONNECT_TIMEOUT_SECONDS,
+        choices=range(10, 301), metavar="10..300")
     finish_parser.add_argument(
         "--operator-confirmed-physical-disconnect", action="store_true")
     finish_parser.add_argument(
