@@ -150,6 +150,15 @@ def parse_battery(output: str) -> dict:
         raise ValueError("battery service fields are not numeric") from exc
 
 
+def parse_wifi_status(output: str) -> bool:
+    first = next((line.strip() for line in output.splitlines() if line.strip()), "")
+    if first == "Wifi is disabled":
+        return False
+    if first == "Wifi is enabled":
+        return True
+    raise ValueError("dedicated Wi-Fi status is unavailable")
+
+
 def parse_package_version(output: str) -> dict:
     version_name = re.search(r"(?m)^\s*versionName=(\S+)\s*$", output)
     version_code = re.search(r"(?m)^\s*versionCode=([0-9]+)", output)
@@ -388,7 +397,7 @@ def _collect_preflight(collector: Collector, protocol: dict,
         "peak_refresh_rate_hz": ("system", "peak_refresh_rate", float),
         "minimum_refresh_rate_hz": ("system", "min_refresh_rate", float),
         "airplane_mode": ("global", "airplane_mode_on", int),
-        "wifi": ("global", "wifi_on", int),
+        "wifi_global_raw": ("global", "wifi_on", int),
         "bluetooth": ("global", "bluetooth_on", int),
     }
     for label, (scope, key, kind) in settings.items():
@@ -424,6 +433,13 @@ def _collect_preflight(collector: Collector, protocol: dict,
     refs.extend(sim_refs)
     sim_states = [state.strip().upper() for state in
                   sim_result["stdout"].strip().split(",") if state.strip()]
+    wifi_result, wifi_refs = collector.command(
+        "preflight-wifi-status", ["cmd", "wifi", "status"])
+    refs.extend(wifi_refs)
+    try:
+        wifi_enabled = parse_wifi_status(wifi_result["stdout"])
+    except ValueError as exc:
+        raise CaseFailure(STATUS_FAIL, str(exc), refs) from exc
 
     apps = []
     for app in _procedure(protocol, "app-launch")["fixed_parameters"]["apps"]:
@@ -453,7 +469,8 @@ def _collect_preflight(collector: Collector, protocol: dict,
         "network": {
             "profile": protocol["environment_controls"]["performance_network"]["profile"],
             "airplane_mode": values["airplane_mode"] == 1,
-            "wifi": values["wifi"] == 1,
+            "wifi": wifi_enabled,
+            "wifi_global_raw": values["wifi_global_raw"],
             "bluetooth": values["bluetooth"] == 1,
             "sim_states": sim_states,
             "subscriber_identifiers_collected": False,
