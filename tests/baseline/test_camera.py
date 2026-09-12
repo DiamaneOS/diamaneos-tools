@@ -255,6 +255,15 @@ class MediaParserTest(unittest.TestCase):
 
 
 class CliContractTest(unittest.TestCase):
+    def test_declared_mode_is_explicit_and_defaults_to_pilot(self):
+        parser = baseline_camera.build_parser()
+        self.assertFalse(parser.parse_args(["dry-run"]).declared)
+        self.assertTrue(parser.parse_args(["dry-run", "--declared"]).declared)
+        declared = baseline_camera.dry_run(str(TOOLS / "config" / "baseline.json"),
+                                           declared=True)
+        self.assertEqual("DECLARED_STOCK_BASELINE_EVIDENCE", declared["label"])
+        self.assertEqual(24, declared["capture_count"])
+
     def test_start_names_the_human_facing_build_property(self):
         parser = baseline_camera.build_parser()
         args = parser.parse_args([

@@ -1,4 +1,4 @@
-"""Private original-media registrar for the FP6-022 camera pilot.
+"""Private original-media registrar for FP6-022 camera measurements.
 
 The command is deliberately staged because changing the physical lamp and
 reversing the phone are operator actions.  A run is started once, each shutter
@@ -28,6 +28,7 @@ from diamaneos_tools import test_runner
 
 SCHEMA_VERSION = 1
 PILOT_LABEL = "PILOT_ONLY_NOT_BASELINE_EVIDENCE"
+DECLARED_LABEL = "DECLARED_STOCK_BASELINE_EVIDENCE"
 MAX_MEDIA_BYTES = 100 * 1024 * 1024
 MEDIA_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 MEDIA_EXTENSIONS = {".jpg", ".jpeg", ".heic", ".dng"}
@@ -49,6 +50,18 @@ def _utc_now() -> str:
 def _procedure(protocol: dict, procedure_id: str) -> dict:
     return next(item for item in protocol["procedures"]
                 if item["id"] == procedure_id)
+
+
+def camera_profile(protocol: dict, declared: bool) -> dict:
+    repetitions = (_procedure(protocol, "camera-scene")["fixed_parameters"][
+        "repetitions"] if declared else protocol["pilot"]["camera_repetitions"])
+    return {
+        "mode": "declared" if declared else "pilot",
+        "operation": ("baseline-camera-measurement" if declared
+                      else "baseline-camera-pilot"),
+        "label": DECLARED_LABEL if declared else PILOT_LABEL,
+        "standard_matrix_repetitions": repetitions,
+    }
 
 
 def build_capture_plan(protocol: dict, repetitions: int) -> list[dict]:
@@ -571,8 +584,13 @@ def _load_report(run_dir: Path) -> dict:
     _owner_controlled_directory(run_dir)
     value, _ = test_runner._load_unique_json(
         run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
+    operation_labels = {
+        "baseline-camera-pilot": PILOT_LABEL,
+        "baseline-camera-measurement": DECLARED_LABEL,
+    }
     if (not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION
-            or value.get("operation") != "baseline-camera-pilot"
+            or value.get("operation") not in operation_labels
+            or value.get("label") != operation_labels.get(value.get("operation"))
             or value.get("status") != "INCOMPLETE"):
         raise CameraError("camera partial report is invalid", 5)
     return value
@@ -619,7 +637,8 @@ def start(args, repo_root: Path) -> Path:
     if args.ambient_start_c is None or not (-50 <= args.ambient_start_c <= 100):
         raise CameraError("camera start requires a plausible ambient temperature")
     protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
-    repetitions = protocol["pilot"]["camera_repetitions"]
+    profile = camera_profile(protocol, getattr(args, "declared", False))
+    repetitions = profile["standard_matrix_repetitions"]
     plan = build_capture_plan(protocol, repetitions)
     _validate_target(args)
     root = Path(args.output).resolve()
@@ -629,7 +648,9 @@ def start(args, repo_root: Path) -> Path:
     try:
         partial = root / f"{args.run_id}.partial"
         final = root / args.run_id
-        if partial.exists() or final.exists():
+        if (partial.exists() or final.exists()
+                or final.with_name(final.name + ".non-comparable").exists()
+                or final.with_name(final.name + ".harness-error").exists()):
             raise CameraError("immutable camera output collision", 3)
         partial.mkdir(mode=0o750)
         (partial / "raw").mkdir(mode=0o750)
@@ -657,10 +678,11 @@ def start(args, repo_root: Path) -> Path:
         camera = _procedure(protocol, "camera-scene")["fixed_parameters"]
         report = {
             "schema_version": SCHEMA_VERSION,
-            "operation": "baseline-camera-pilot",
-            "label": PILOT_LABEL,
+            "operation": profile["operation"],
+            "label": profile["label"],
             "run_id": args.run_id,
             "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
+            "run_profile": profile,
             "tool": {
                 "revision": test_runner._git_revision(repo_root),
                 "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -692,11 +714,15 @@ def start(args, repo_root: Path) -> Path:
             "attempts": [],
             "identity_evidence_refs": refs,
             "mode_inventory": camera["advertised_mode_survey"],
-            "limitations": [
+            "limitations": ([
+                "Continuous ambient logging is unavailable; only start and end readings are recorded.",
+            ] if profile["mode"] == "declared" else [
                 "Pilot only; source media is not declared baseline evidence.",
+            ]) + [
                 "Fixture registration is repeatable to its stated tolerance, not pixel-exact.",
                 "Lamp colour descriptions are operator descriptions, not measured colour temperatures.",
             ],
+            "comparability_exclusions": [],
             "errors": [],
         }
         _atomic_report(partial / "result.json", report, args.target)
@@ -883,14 +909,32 @@ def finalize(args) -> Path:
                     item.get("runner_sha256") not in declared_runners
                     for item in captures)):
                 raise CameraError("camera capture runner provenance is incomplete", 5)
-        report["status"] = ("FAIL" if any(
-            item.get("status") != "PASS" for item in captures) else "PASS")
         report["ambient_end_c"] = args.ambient_end_c
         report["finished_at_utc"] = _utc_now()
         report["tool"]["finalizer_sha256"] = hashlib.sha256(
             Path(__file__).read_bytes()).hexdigest()
         report["ambient_span_c"] = round(
             abs(args.ambient_end_c - report["ambient_start_c"]), 2)
+        exclusions = []
+        if report["operation"] == "baseline-camera-measurement":
+            protocol, digest = baseline_protocol.load_protocol(args.config)
+            if digest != report["protocol"]["sha256"]:
+                raise CameraError("baseline protocol changed during the camera run", 5)
+            control = protocol["environment_controls"]["ambient_temperature"]
+            allowed = control["full_run_allowed_range"]
+            if not allowed["minimum"] <= args.ambient_end_c <= allowed["maximum"]:
+                exclusions.append("end ambient temperature is outside the protocol range")
+            if report["ambient_span_c"] > control["maximum_within_run_span"]:
+                exclusions.append("ambient temperature span exceeds the protocol tolerance")
+        report["comparability_exclusions"] = exclusions
+        if any(item.get("status") != "PASS" for item in captures):
+            report["status"] = "FAIL"
+        else:
+            report["status"] = "NON_COMPARABLE" if exclusions else "PASS"
+        if exclusions:
+            final = final.with_name(final.name + ".non-comparable")
+            if final.exists():
+                raise CameraError("immutable camera final output collision", 3)
         _atomic_report(report_path, report, args.target)
         os.rename(run_dir, final)
         test_runner._sync_directory(final.parent)
@@ -939,14 +983,16 @@ def quarantine(args) -> Path:
         _release_lock(lock_fd)
 
 
-def dry_run(config: str) -> dict:
+def dry_run(config: str, declared: bool = False) -> dict:
     protocol, digest = baseline_protocol.load_protocol(config)
-    plan = build_capture_plan(protocol, protocol["pilot"]["camera_repetitions"])
+    profile = camera_profile(protocol, declared)
+    plan = build_capture_plan(protocol, profile["standard_matrix_repetitions"])
     return {
         "schema_version": SCHEMA_VERSION,
-        "operation": "baseline-camera-pilot-dry-run",
-        "label": PILOT_LABEL,
+        "operation": profile["operation"] + "-dry-run",
+        "label": profile["label"],
         "protocol_sha256": digest,
+        "run_profile": profile,
         "device_commands_executed": 0,
         "output_directories_created": 0,
         "capture_count": len(plan),
@@ -964,10 +1010,11 @@ def _repo_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="FP6-022 camera pilot registrar")
+    parser = argparse.ArgumentParser(description="FP6-022 camera measurement registrar")
     parser.add_argument("--config", default=str(_repo_root() / "config" / "baseline.json"))
     sub = parser.add_subparsers(dest="action", required=True)
-    sub.add_parser("dry-run")
+    dry_parser = sub.add_parser("dry-run")
+    dry_parser.add_argument("--declared", action="store_true")
     start_parser = sub.add_parser("start")
     for target in (start_parser,):
         target.add_argument("--target", required=True)
@@ -984,6 +1031,7 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--operator-confirmed-defaults", action="store_true")
     start_parser.add_argument("--operator-confirmed-display-50", action="store_true")
     start_parser.add_argument("--operator-confirmed-unlocked", action="store_true")
+    start_parser.add_argument("--declared", action="store_true")
     capture_parser = sub.add_parser("capture")
     capture_parser.add_argument("--target", required=True)
     capture_parser.add_argument("--device-role", required=True)
@@ -1018,7 +1066,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action == "dry-run":
-            print(json.dumps(dry_run(args.config), indent=2, sort_keys=True))
+            print(json.dumps(dry_run(args.config, args.declared), indent=2, sort_keys=True))
             return 0
         if args.action == "start":
             print(f"run_dir={start(args, _repo_root())}")
@@ -1028,8 +1076,11 @@ def main(argv=None) -> int:
             print(f"result={result}")
             return code
         if args.action == "finalize":
-            print(f"result={finalize(args)}")
-            return 0
+            result = finalize(args)
+            print(f"result={result}")
+            report, _ = test_runner._load_unique_json(
+                result, test_runner.MAX_REPORT_BYTES)
+            return 4 if report.get("status") == "NON_COMPARABLE" else 0
         print(f"result={quarantine(args)}")
         return 0
     except (CameraError, baseline_protocol.ProtocolError,

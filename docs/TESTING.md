@@ -156,6 +156,39 @@ camera pilot and physical-disconnect idle pilot remain explicit `NOT_RUN`
 phases until their supervised operator steps are completed; a connected-pilot
 pass does not complete FP6-022 or authorize an Android-version comparison.
 
+After that harness pilot succeeds, inspect the declared connected plan with
+`bin/diamaneos baseline connected dry-run`. The declared `run` action consumes
+the protocol's three cold and three warm launches per app, three independent
+60-second Settings frame runs, and the 15-minute load plus 10-minute cooldown.
+It requires a shared series ID and repeat index 1 or 2 so two whole runs cannot
+be mistaken for unrelated samples. A successful workload remains
+`AWAITING_AMBIENT_END` in its `.partial` directory; immediately read the room
+thermometer and supply that directory to `finalize`. Finalization verifies all
+evidence hashes and the unchanged protocol, records the ending temperature,
+and makes an out-of-range or over-tolerance run `NON_COMPARABLE` rather than a
+pass. Both finalized whole-run repetitions are required for the declared
+connected baseline.
+
+```sh
+bin/diamaneos baseline connected run \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --run-id <unique-run-id> \
+  --series-id <shared-series-id> \
+  --repeat-index 1 \
+  --expected-build FP6.QREL.16.100.0 \
+  --output <PRIVATE_ROOT>/baseline-runs \
+  --ambient-start-c <room-thermometer-reading> \
+  --operator-confirmed-display-50 \
+  --operator-confirmed-unlocked \
+  --conditions "<stock build, USB path and controlled setup>"
+
+bin/diamaneos baseline connected finalize \
+  --run-dir <PRIVATE_ROOT>/baseline-runs/<unique-run-id>.partial \
+  --ambient-end-c <room-thermometer-reading>
+```
+
 The idle pilot is a staged five-minute harness check. `baseline idle start`
 captures the build, app versions, display, connected Wi-Fi/SIM and battery
 state before performing an explicitly authorized `dumpsys batterystats
@@ -202,9 +235,13 @@ the modes neutral white, cool white and warm, respectively; these labels are
 not measured colour temperatures. Record the camera/mode/zoom and
 tap-focus action with every original; do not edit or transcode source media.
 Use `bin/diamaneos baseline camera dry-run` to inspect the exact pilot order
-without contacting a device or creating output. The staged `start`, `capture`
-and `finalize` actions keep one immutable private run open across manual lamp
-changes. Each `capture` snapshots the camera media directory, triggers one
+without contacting a device or creating output. Add `--declared` to `dry-run`
+and `start` only after the pilot succeeds; that repeats the nine standard
+matrix captures twice while retaining the six advertised-mode survey captures
+once, for 24 originals total. Declared camera finalization enforces the ambient
+range and within-run tolerance. The staged `start`, `capture` and `finalize`
+actions keep one immutable private run open across manual lamp changes. Each
+`capture` snapshots the camera media directory, triggers one
 tap-focus and shutter action, requires exactly one new original, compares the
 device and pulled SHA-256 values, and records the pre-capture UI hierarchy.
 The advertised still-mode survey also retains rear-main 1x originals for
