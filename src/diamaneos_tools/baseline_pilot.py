@@ -180,6 +180,11 @@ def parse_power_wakefulness(output: str) -> str:
     return match.group(1)
 
 
+def _power_wakefulness_remote() -> str:
+    script = "dumpsys power | grep -m 1 '^[[:space:]]*mWakefulness='"
+    return "sh -c " + shlex.quote(script)
+
+
 def parse_package_version(output: str) -> dict:
     version_name = re.search(r"(?m)^[ \t]*versionName=([^\r\n]*)$", output)
     version_code = re.search(r"(?m)^[ \t]*versionCode=([0-9]+)", output)
@@ -452,7 +457,7 @@ def _collect_preflight(collector: Collector, protocol: dict,
         raise CaseFailure(STATUS_FAIL, str(exc), refs) from exc
 
     power_result, power_refs = collector.command(
-        "preflight-power", ["dumpsys", "power"])
+        "preflight-power", [_power_wakefulness_remote()])
     refs.extend(power_refs)
     try:
         wakefulness = parse_power_wakefulness(power_result["stdout"])
