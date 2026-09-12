@@ -43,6 +43,20 @@ class ParserTest(unittest.TestCase):
             "temperature: 250\nCharge counter: 4455000\n")
         self.assertEqual(4455000, parsed["charge_counter_uah"])
 
+    def test_panel_off_doze_is_a_valid_screen_off_state(self):
+        self.assertEqual("OFF", baseline_idle.parse_display_panel_state(
+            "Display Device:\n    mState=OFF\n"))
+        self.assertTrue(baseline_idle.screen_off_state_is_valid("Dozing", "OFF"))
+        self.assertTrue(baseline_idle.screen_off_state_is_valid("Asleep", "OFF"))
+        self.assertFalse(baseline_idle.screen_off_state_is_valid("Awake", "OFF"))
+        self.assertFalse(baseline_idle.screen_off_state_is_valid("Dozing", "DOZE"))
+
+    def test_panel_state_remote_filter_is_bounded_to_known_states(self):
+        remote = baseline_idle._display_panel_state_remote()
+        self.assertTrue(remote.startswith("sh -c "))
+        self.assertIn("grep -m 1", remote)
+        self.assertIn("mState=(OFF|ON|DOZE|DOZE_SUSPEND|VR|UNKNOWN)", remote)
+
 
 class PreflightTest(unittest.TestCase):
     def valid_observed(self):
