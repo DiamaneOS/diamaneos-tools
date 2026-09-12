@@ -35,6 +35,9 @@ MAX_BATTERYSTATS_BYTES = 8 * 1024 * 1024
 DISCONNECT_TIMEOUT_SECONDS = 120
 DISCONNECT_CONFIRMATION_SAMPLES = 2
 PILOT_FINISH_TOLERANCE_SECONDS = 60
+SCREEN_OFF_SETTLE_TIMEOUT_SECONDS = 5
+SCREEN_OFF_POLL_INTERVAL_SECONDS = 0.25
+SCREEN_OFF_REQUIRED_CONSECUTIVE = 2
 
 
 class IdleError(Exception):
@@ -100,6 +103,35 @@ def _display_panel_state_remote() -> str:
 
 def screen_off_state_is_valid(wakefulness: str, panel_state: str) -> bool:
     return wakefulness in {"Asleep", "Dozing"} and panel_state == "OFF"
+
+
+def wait_for_screen_off(observer, timeout_seconds: float,
+                        poll_interval_seconds: float,
+                        required_consecutive: int = 2) -> list[dict]:
+    """Poll through the asynchronous sleep transition with a fixed bound."""
+    if timeout_seconds < 0 or poll_interval_seconds < 0 or required_consecutive < 1:
+        raise IdleError("invalid screen-off settling bounds", 5)
+    started = time.monotonic()
+    observations = []
+    consecutive = 0
+    while True:
+        wakefulness, panel_state = observer()
+        observations.append({
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "wakefulness": wakefulness,
+            "builtin_panel_state": panel_state,
+        })
+        if screen_off_state_is_valid(wakefulness, panel_state):
+            consecutive += 1
+            if consecutive >= required_consecutive:
+                return observations
+        else:
+            consecutive = 0
+        remaining = timeout_seconds - (time.monotonic() - started)
+        if remaining <= 0:
+            raise IdleError(
+                "display did not settle into a verified panel-off state", 4)
+        time.sleep(min(poll_interval_seconds, remaining))
 
 
 def evaluate_idle_preflight(observed: dict, protocol: dict,
@@ -553,22 +585,41 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             args.adb, args.target, ["input", "keyevent", "KEYCODE_SLEEP"])
         reset_refs.extend(_write_command_evidence(
             partial, "screen-sleep", sleep_result))
-        power_result = _run_required(
-            args.adb, args.target, [baseline_pilot._power_wakefulness_remote()])
+        final_state = {}
+
+        def observe_screen_off():
+            power_result = _run_required(
+                args.adb, args.target,
+                [baseline_pilot._power_wakefulness_remote()])
+            panel_result = _run_required(
+                args.adb, args.target, [_display_panel_state_remote()])
+            try:
+                wakefulness = baseline_pilot.parse_power_wakefulness(
+                    power_result["stdout"])
+                panel_state = parse_display_panel_state(panel_result["stdout"])
+            except ValueError as exc:
+                raise IdleError(str(exc), 5) from exc
+            final_state.update(
+                power_result=power_result, panel_result=panel_result,
+                wakefulness=wakefulness, panel_state=panel_state)
+            return wakefulness, panel_state
+
+        transition = wait_for_screen_off(
+            observe_screen_off, SCREEN_OFF_SETTLE_TIMEOUT_SECONDS,
+            SCREEN_OFF_POLL_INTERVAL_SECONDS,
+            SCREEN_OFF_REQUIRED_CONSECUTIVE)
         reset_refs.extend(_write_command_evidence(
-            partial, "screen-sleep-verification", power_result))
-        panel_result = _run_required(
-            args.adb, args.target, [_display_panel_state_remote()])
+            partial, "screen-sleep-verification", final_state["power_result"]))
         reset_refs.extend(_write_command_evidence(
-            partial, "screen-panel-verification", panel_result))
-        try:
-            wakefulness = baseline_pilot.parse_power_wakefulness(
-                power_result["stdout"])
-            panel_state = parse_display_panel_state(panel_result["stdout"])
-        except ValueError as exc:
-            raise IdleError(str(exc), 5) from exc
-        if not screen_off_state_is_valid(wakefulness, panel_state):
-            raise IdleError("display did not enter a verified panel-off state", 4)
+            partial, "screen-panel-verification", final_state["panel_result"]))
+        transition_name = "screen-off-transition.json"
+        transition_digest = _write_json_evidence(
+            partial / "raw" / transition_name,
+            {"settle_timeout_seconds": SCREEN_OFF_SETTLE_TIMEOUT_SECONDS,
+             "required_consecutive": SCREEN_OFF_REQUIRED_CONSECUTIVE,
+             "observations": transition})
+        reset_refs.append(
+            f"raw/{transition_name}@sha256:{transition_digest}")
         report["reset"] = {
             "authorized": True,
             "completed_at_utc": _utc_now(),
@@ -576,8 +627,9 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
         }
         report["screen_off"] = {
             "method": "ADB KEYCODE_SLEEP after the authorized reset",
-            "verified_wakefulness": wakefulness,
-            "verified_builtin_panel_state": panel_state,
+            "verified_wakefulness": final_state["wakefulness"],
+            "verified_builtin_panel_state": final_state["panel_state"],
+            "settle_observation_count": len(transition),
             "verified_at_utc": _utc_now(),
         }
         report["reset_evidence_refs"] = reset_refs
@@ -609,22 +661,40 @@ def observe_disconnect(args) -> Path:
         report = _load_report(run_dir, STATUS_ARMED)
         if report["target"]["role"] != args.device_role:
             raise IdleError("idle role does not match the partial report", 3)
-        power_result = _run_required(
-            args.adb, args.target, [baseline_pilot._power_wakefulness_remote()])
-        panel_result = _run_required(
-            args.adb, args.target, [_display_panel_state_remote()])
-        try:
-            wakefulness = baseline_pilot.parse_power_wakefulness(
-                power_result["stdout"])
-            panel_state = parse_display_panel_state(panel_result["stdout"])
-        except ValueError as exc:
-            raise IdleError(str(exc), 5) from exc
-        if not screen_off_state_is_valid(wakefulness, panel_state):
-            raise IdleError("display panel is not off immediately before disconnect", 4)
+        final_state = {}
+
+        def observe_screen_off():
+            power_result = _run_required(
+                args.adb, args.target,
+                [baseline_pilot._power_wakefulness_remote()])
+            panel_result = _run_required(
+                args.adb, args.target, [_display_panel_state_remote()])
+            try:
+                wakefulness = baseline_pilot.parse_power_wakefulness(
+                    power_result["stdout"])
+                panel_state = parse_display_panel_state(panel_result["stdout"])
+            except ValueError as exc:
+                raise IdleError(str(exc), 5) from exc
+            final_state.update(
+                power_result=power_result, panel_result=panel_result)
+            return wakefulness, panel_state
+
+        transition = wait_for_screen_off(
+            observe_screen_off, 2.0, SCREEN_OFF_POLL_INTERVAL_SECONDS,
+            SCREEN_OFF_REQUIRED_CONSECUTIVE)
         refs = _write_command_evidence(
-            run_dir, "pre-disconnect-screen-verification", power_result)
+            run_dir, "pre-disconnect-screen-verification",
+            final_state["power_result"])
         refs.extend(_write_command_evidence(
-            run_dir, "pre-disconnect-panel-verification", panel_result))
+            run_dir, "pre-disconnect-panel-verification",
+            final_state["panel_result"]))
+        transition_name = "pre-disconnect-screen-off-transition.json"
+        transition_digest = _write_json_evidence(
+            run_dir / "raw" / transition_name,
+            {"settle_timeout_seconds": 2.0,
+             "required_consecutive": SCREEN_OFF_REQUIRED_CONSECUTIVE,
+             "observations": transition})
+        refs.append(f"raw/{transition_name}@sha256:{transition_digest}")
         wait_started = _utc_now()
         print("READY_TO_DISCONNECT: physically unplug the phone USB-C cable now",
               flush=True)

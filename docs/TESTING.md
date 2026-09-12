@@ -163,6 +163,9 @@ state before performing an explicitly authorized `dumpsys batterystats
 Dozing while the authoritative built-in panel state is `OFF`. Stock Android 15
 on the FP6 reports `Dozing` with the panel off, so wakefulness alone is not the
 screen-off oracle.
+The sleep transition is asynchronous: the harness polls for at most five
+seconds and requires two consecutive non-awake/`OFF` observations rather than
+sampling immediately after the key event.
 `baseline idle observe-disconnect` records stable ADB loss, but physical VBUS
 removal remains an operator attestation. Keep the cable physically unplugged,
 the screen off and the phone untouched until `baseline idle status` reports
