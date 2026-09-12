@@ -159,7 +159,10 @@ pass does not complete FP6-022 or authorize an Android-version comparison.
 The idle pilot is a staged five-minute harness check. `baseline idle start`
 captures the build, app versions, display, connected Wi-Fi/SIM and battery
 state before performing an explicitly authorized `dumpsys batterystats
---reset`; it then sends `KEYCODE_SLEEP` and verifies the display is asleep.
+--reset`; it then sends `KEYCODE_SLEEP` and verifies that Android is Asleep or
+Dozing while the authoritative built-in panel state is `OFF`. Stock Android 15
+on the FP6 reports `Dozing` with the panel off, so wakefulness alone is not the
+screen-off oracle.
 `baseline idle observe-disconnect` records stable ADB loss, but physical VBUS
 removal remains an operator attestation. Keep the cable physically unplugged,
 the screen off and the phone untouched until `baseline idle status` reports
