@@ -61,6 +61,13 @@ class ParserTest(unittest.TestCase):
         self.assertFalse(parsed["usb_powered"])
         self.assertEqual(25.0, parsed["temperature_c"])
 
+    def test_dedicated_wifi_status_not_global_integer_is_authoritative(self):
+        self.assertFalse(baseline_pilot.parse_wifi_status("Wifi is disabled\n"))
+        self.assertTrue(baseline_pilot.parse_wifi_status(
+            "Wifi is enabled\nWifi scanning is always available\n"))
+        with self.assertRaisesRegex(ValueError, "unavailable"):
+            baseline_pilot.parse_wifi_status("3\n")
+
     def test_meminfo_and_vmstat_parsers_keep_real_counters(self):
         meminfo = baseline_pilot.parse_meminfo_summary(
             "Total RAM: 7,579,252K (status moderate)\n"
