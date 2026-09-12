@@ -92,6 +92,26 @@ class ProtocolValidationTest(unittest.TestCase):
                                     "exceeds its maximum"):
             baseline_protocol.validate_protocol(protocol)
 
+    def test_camera_fixture_distance_is_bounded(self):
+        protocol = actual_protocol()
+        camera = next(item for item in protocol["procedures"]
+                      if item["id"] == "camera-scene")
+        camera["fixed_parameters"]["fixture"][
+            "nominal_phone_to_focus_target_distance_cm"] = 0
+        with self.assertRaisesRegex(baseline_protocol.ProtocolError,
+                                    "below its minimum"):
+            baseline_protocol.validate_protocol(protocol)
+
+    def test_camera_settle_time_is_bounded(self):
+        protocol = actual_protocol()
+        camera = next(item for item in protocol["procedures"]
+                      if item["id"] == "camera-scene")
+        camera["fixed_parameters"]["capture_defaults"][
+            "lamp_settle_seconds"] = 121
+        with self.assertRaisesRegex(baseline_protocol.ProtocolError,
+                                    "exceeds its maximum"):
+            baseline_protocol.validate_protocol(protocol)
+
 
 class NumericSummaryTest(unittest.TestCase):
     def test_failure_is_retained_and_never_averaged_as_zero(self):

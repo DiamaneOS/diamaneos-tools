@@ -243,27 +243,50 @@
       "id": "camera-scene",
       "owner": "FP6-022",
       "units": "original media files plus SHA-256 and recorded conditions",
-      "method": "Operator captures a privacy-safe fixed desktop-microphone subject from a marked stand position. Lamp setting, distance, camera/lens/mode and focus action are recorded for every original file; no beauty filter or edit is applied.",
+      "method": "Operator captures a privacy-safe fixed enclosed-box scene from one marked stand position. Lamp setting, camera-facing orientation, distance, camera/lens/mode and focus action are recorded for every original file; no beauty filter or edit is applied.",
       "fixed_parameters": {
         "repetitions": 2,
-        "subject": "fixed desktop microphone with LEDs disabled",
-        "focus": "tap the same marked point on the subject before every capture",
-        "lighting_control": "manual terminal settings on the existing USB lamp; no programmable control interface is claimed",
+        "subject": "fixed green timer and Johnson's Buds blue box with its front text visible",
+        "focus": "tap the center of the green timer dial before every capture",
+        "lighting_control": "USB lamp powered by the MacBook, fixed to the box with its cable secured externally; operate the manual inline controls outside the closed box and claim no programmable interface. Its reproducible controls are three cyclic colour modes and ten discrete brightness levels: colour mode 1 is operator-labelled neutral white, mode 2 cool white, and mode 3 warm. These are repeatable control labels, not measured colour temperatures.",
+        "capture_defaults": {
+          "camera_app": "stock com.fps.camera",
+          "camera_component": "com.fps.camera/com.android.camera.CameraLauncher",
+          "photo_ratio": "4:3",
+          "flash": "off",
+          "timer": "off",
+          "hdr": "stock camera-managed default; the displayed HDR badge is not exposed as an actionable accessibility control",
+          "focus_settle_seconds": 2,
+          "lamp_settle_seconds": 10,
+          "source_media": "retain the exact camera-generated file without edit, conversion or metadata rewrite"
+        },
+        "fixture": {
+          "id": "closed-cardboard-box-v1",
+          "enclosure": "closed corrugated-cardboard box",
+          "room_control": "blinds and door closed; room light off",
+          "controller_host": "MacBook controls the phone over ADB and powers the USB lamp",
+          "phone_position": "one marked stand-base position; align it to the fixture markings and reference photographs and do not move the base between captures",
+          "rear_orientation": "screen faces away from the subjects so the rear cameras face them",
+          "front_orientation": "phone is reversed 180 degrees in the same marked stand so the screen and front camera face the subjects",
+          "nominal_phone_to_focus_target_distance_cm": 21.25,
+          "distance_uncertainty_cm": 0.25,
+          "stability_control": "mark the Buds box and stand positions; align the stand and timer to the fixture and reference photographs before closing the enclosure; millimetre-scale repositioning variation is accepted and must not be described as exact registration"
+        },
         "scenes": [
           {
-            "id": "neutral-white-maximum",
-            "color": "neutral white",
-            "brightness": "maximum terminal setting"
+            "id": "colour-mode-1-level-10",
+            "color": "cyclic colour mode 1 of 3; operator-labelled neutral white",
+            "brightness": "discrete brightness level 10 of 10"
           },
           {
-            "id": "warm-white-maximum",
-            "color": "off-white/warm white",
-            "brightness": "maximum terminal setting"
+            "id": "colour-mode-3-level-10",
+            "color": "cyclic colour mode 3 of 3; operator-labelled warm",
+            "brightness": "discrete brightness level 10 of 10"
           },
           {
-            "id": "neutral-white-minimum",
-            "color": "neutral white",
-            "brightness": "minimum terminal setting"
+            "id": "colour-mode-1-level-1",
+            "color": "cyclic colour mode 1 of 3; operator-labelled neutral white",
+            "brightness": "discrete brightness level 1 of 10"
           }
         ],
         "standard_photo_matrix": [
@@ -283,7 +306,77 @@
             "zoom": "1x"
           }
         ],
-        "advertised_mode_survey": "Record every mode exposed by the installed stock camera UI and one representative original per applicable still-image mode; unavailable lens/mode combinations are explicit, not inferred."
+        "advertised_mode_survey": {
+          "policy": "Inventory every exposed control. Retain one original per applicable additional still-image control under colour mode 1 at brightness 10; record any runtime rejection or unavailable lens/mode combination explicitly rather than inferring support.",
+          "observed_controls": [
+            "Super Macro",
+            "0.6x",
+            "1x",
+            "2x",
+            "Time Lapse",
+            "Video",
+            "Photo",
+            "Portrait",
+            "Pro",
+            "Pano",
+            "Super Night",
+            "Front single-person field of view",
+            "Front multi-person field of view",
+            "Face Beauty"
+          ],
+          "additional_still_matrix": [
+            {
+              "camera": "rear-main",
+              "mode": "photo",
+              "zoom": "2x",
+              "scene": "colour-mode-1-level-10"
+            },
+            {
+              "camera": "rear-super-macro",
+              "mode": "super-macro",
+              "zoom": "macro",
+              "scene": "colour-mode-1-level-10"
+            },
+            {
+              "camera": "rear-main",
+              "mode": "portrait",
+              "zoom": "1x",
+              "scene": "colour-mode-1-level-10"
+            },
+            {
+              "camera": "rear-main",
+              "mode": "pro",
+              "zoom": "1x",
+              "scene": "colour-mode-1-level-10"
+            },
+            {
+              "camera": "rear-main",
+              "mode": "super-night",
+              "zoom": "1x",
+              "scene": "colour-mode-1-level-10"
+            },
+            {
+              "camera": "front",
+              "mode": "photo",
+              "zoom": "multi-person",
+              "scene": "colour-mode-1-level-10"
+            }
+          ],
+          "not_applicable": [
+            {
+              "mode": "pano",
+              "reason": "requires camera movement and would invalidate the fixed stand position"
+            },
+            {
+              "mode": "video",
+              "reason": "motion capture is outside this still-image source-media survey"
+            },
+            {
+              "mode": "time-lapse",
+              "reason": "motion capture is outside this still-image source-media survey"
+            }
+          ]
+        }
       }
     },
     {
