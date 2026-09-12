@@ -68,6 +68,14 @@ class ParserTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unavailable"):
             baseline_pilot.parse_wifi_status("3\n")
 
+    def test_package_version_preserves_spaces_and_build_suffix(self):
+        parsed = baseline_pilot.parse_package_version(
+            "  Package [com.example] (abc):\n"
+            "    versionCode=85022643 minSdk=32 targetSdk=37\n"
+            "    versionName=9.3 (967717812)\n")
+        self.assertEqual(85022643, parsed["version_code"])
+        self.assertEqual("9.3 (967717812)", parsed["version_name"])
+
     def test_meminfo_and_vmstat_parsers_keep_real_counters(self):
         meminfo = baseline_pilot.parse_meminfo_summary(
             "Total RAM: 7,579,252K (status moderate)\n"
