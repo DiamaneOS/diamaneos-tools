@@ -371,13 +371,38 @@ def validate_protocol(protocol):
         _text(memory[key], f"memory.{key}", 1000)
 
     camera = _find_procedure(protocol, "camera-scene")["fixed_parameters"]
-    camera_keys = {"repetitions", "subject", "focus", "lighting_control", "scenes",
-                   "standard_photo_matrix", "advertised_mode_survey"}
+    camera_keys = {"repetitions", "subject", "focus", "lighting_control",
+                   "capture_defaults", "fixture", "scenes", "standard_photo_matrix",
+                   "advertised_mode_survey"}
     _expect_keys(camera, camera_keys, camera_keys, "camera parameters")
     if camera["repetitions"] != 2:
         raise ProtocolError("camera protocol requires two repetitions")
-    for key in ("subject", "focus", "lighting_control", "advertised_mode_survey"):
+    for key in ("subject", "focus", "lighting_control"):
         _text(camera[key], f"camera.{key}", 1000)
+    defaults = camera["capture_defaults"]
+    default_keys = {"camera_app", "camera_component", "photo_ratio", "flash",
+                    "timer", "hdr", "focus_settle_seconds",
+                    "lamp_settle_seconds", "source_media"}
+    _expect_keys(defaults, default_keys, default_keys, "camera capture defaults")
+    for key in default_keys - {"focus_settle_seconds", "lamp_settle_seconds"}:
+        _text(defaults[key], f"camera.capture_defaults.{key}", 1000)
+    _number(defaults["focus_settle_seconds"], "camera focus settle seconds", 0, 30)
+    _number(defaults["lamp_settle_seconds"], "camera lamp settle seconds", 0, 120)
+    fixture = camera["fixture"]
+    fixture_keys = {"id", "enclosure", "room_control", "controller_host",
+                    "phone_position", "rear_orientation", "front_orientation",
+                    "nominal_phone_to_focus_target_distance_cm",
+                    "distance_uncertainty_cm", "stability_control"}
+    _expect_keys(fixture, fixture_keys, fixture_keys, "camera fixture")
+    if not isinstance(fixture["id"], str) or not TOKEN_RE.fullmatch(fixture["id"]):
+        raise ProtocolError("camera fixture has an invalid id")
+    for key in fixture_keys - {"id", "nominal_phone_to_focus_target_distance_cm",
+                               "distance_uncertainty_cm"}:
+        _text(fixture[key], f"camera.fixture.{key}", 1000)
+    _number(fixture["nominal_phone_to_focus_target_distance_cm"],
+            "camera fixture distance", 1, 500)
+    _number(fixture["distance_uncertainty_cm"],
+            "camera fixture distance uncertainty", 0, 10)
     scenes = camera["scenes"]
     if not isinstance(scenes, list) or len(scenes) != 3:
         raise ProtocolError("camera protocol requires exactly three fixed scenes")
@@ -404,6 +429,35 @@ def validate_protocol(protocol):
         cameras.add(capture["camera"])
     if cameras != {"rear-main", "rear-ultrawide", "front"}:
         raise ProtocolError("camera matrix does not cover the three physical camera roles")
+    survey = camera["advertised_mode_survey"]
+    survey_keys = {"policy", "observed_controls", "additional_still_matrix",
+                   "not_applicable"}
+    _expect_keys(survey, survey_keys, survey_keys, "camera advertised-mode survey")
+    _text(survey["policy"], "camera advertised-mode policy", 1000)
+    controls = survey["observed_controls"]
+    if (not isinstance(controls, list) or not controls
+            or any(not isinstance(item, str) or not (1 <= len(item) <= 100)
+                   for item in controls) or len(set(controls)) != len(controls)):
+        raise ProtocolError("camera observed controls are invalid")
+    additional = survey["additional_still_matrix"]
+    if not isinstance(additional, list) or not additional:
+        raise ProtocolError("camera additional still matrix is empty")
+    for capture in additional:
+        _expect_keys(capture, {"camera", "mode", "zoom", "scene"},
+                     {"camera", "mode", "zoom", "scene"},
+                     "camera additional still capture")
+        for value in capture.values():
+            _text(value, "camera additional still value", 100)
+        if capture["scene"] not in scene_ids:
+            raise ProtocolError("camera additional still references an unknown scene")
+    not_applicable = survey["not_applicable"]
+    if not isinstance(not_applicable, list) or not not_applicable:
+        raise ProtocolError("camera non-applicable mode inventory is empty")
+    for item in not_applicable:
+        _expect_keys(item, {"mode", "reason"}, {"mode", "reason"},
+                     "camera non-applicable mode")
+        _text(item["mode"], "camera non-applicable mode name", 100)
+        _text(item["reason"], "camera non-applicable mode reason", 500)
 
     carrier = _find_procedure(protocol, "carrier-ims")
     if carrier.get("included_in_fp6_022") is not False:

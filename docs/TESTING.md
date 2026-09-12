@@ -156,6 +156,47 @@ camera pilot and physical-disconnect idle pilot remain explicit `NOT_RUN`
 phases until their supervised operator steps are completed; a connected-pilot
 pass does not complete FP6-022 or authorize an Android-version comparison.
 
+The idle pilot is a staged five-minute harness check. `baseline idle start`
+captures the build, app versions, display, connected Wi-Fi/SIM and battery
+state before performing an explicitly authorized `dumpsys batterystats
+--reset`; it then sends `KEYCODE_SLEEP` and verifies the display is asleep.
+`baseline idle observe-disconnect` records stable ADB loss, but physical VBUS
+removal remains an operator attestation. Keep the cable physically unplugged,
+the screen off and the phone untouched until `baseline idle status` reports
+that the interval is complete. Reconnect once and immediately run `baseline
+idle finish` with the ending thermometer reading. The declared baseline, after
+the pilot, remains two eight-hour repetitions. Wi-Fi and telephony service
+output is reduced to connection/registration booleans in memory: SSID, BSSID,
+subscriber and cell identifiers are not persisted.
+
+The camera fixture is a closed cardboard enclosure with fixed green-timer and
+Johnson's Buds-box subjects, one marked phone-stand position, a secured USB lamp
+and a 21.25 cm ±0.25 cm nominal phone-to-focus-target distance. The MacBook
+powers the lamp and controls the phone over ADB from outside. Align the stand
+and timer from the fixture marks and reference photographs; millimetre-scale
+repositioning variation is accepted rather than claimed as exact registration.
+Close the room blinds and door, switch off the room light, then close the box.
+Use the unambiguous rear-facing orientation for the main/ultrawide captures and
+reverse the phone 180 degrees in the same stand position for the front camera.
+The lamp controls are recorded by their physical cyclic position (colour mode
+1, 2 or 3) and discrete brightness level (1 through 10). The operator labels
+the modes neutral white, cool white and warm, respectively; these labels are
+not measured colour temperatures. Record the camera/mode/zoom and
+tap-focus action with every original; do not edit or transcode source media.
+Use `bin/diamaneos baseline camera dry-run` to inspect the exact pilot order
+without contacting a device or creating output. The staged `start`, `capture`
+and `finalize` actions keep one immutable private run open across manual lamp
+changes. Each `capture` snapshots the camera media directory, triggers one
+tap-focus and shutter action, requires exactly one new original, compares the
+device and pulled SHA-256 values, and records the pre-capture UI hierarchy.
+The advertised still-mode survey also retains rear-main 1x originals for
+Portrait, Pro and Super Night, the exposed 2x and Super Macro controls, and the
+front multi-person field of view. The standard front capture explicitly selects
+the single-person view, and Face Beauty remains disabled. Pano and motion modes
+remain inventoried but not applicable to this fixed-still fixture. If a physical
+condition was wrong, preserve the partial run with
+`quarantine --status NON_COMPARABLE` and state the exact exclusion reason.
+
 ## Staged device runner
 
 The hardware runner consumes reviewed suites, requires an exact target plus a
