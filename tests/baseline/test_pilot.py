@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -18,6 +19,20 @@ def protocol():
 
 
 class ParserTest(unittest.TestCase):
+    def test_profiles_bind_exact_pilot_and_declared_protocol_counts(self):
+        pilot = baseline_pilot.connected_profile(protocol(), False)
+        declared = baseline_pilot.connected_profile(protocol(), True)
+        self.assertEqual("PILOT_ONLY_NOT_BASELINE_EVIDENCE", pilot["label"])
+        self.assertEqual({"cold": 1, "warm": 1},
+                         pilot["launch_repetitions_per_state"])
+        self.assertEqual("DECLARED_STOCK_BASELINE_EVIDENCE", declared["label"])
+        self.assertEqual({"cold": 3, "warm": 3},
+                         declared["launch_repetitions_per_state"])
+        self.assertEqual(3, declared["frame_repetitions"])
+        self.assertEqual(60, declared["frame_duration_seconds"])
+        self.assertEqual(900, declared["thermal_load_seconds"])
+        self.assertEqual(600, declared["thermal_cooldown_seconds"])
+
     def test_launch_parser_keeps_reported_time_and_state(self):
         parsed = baseline_pilot.parse_am_start(
             "Status: ok\nLaunchState: COLD\nActivity: com.example/.Main\n"
@@ -157,6 +172,54 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(5, len(argv))
         self.assertIn("sh -c '", argv[4])
         self.assertIn("/data/local/tmp/fixed.pids 4 30 1048576", argv[4])
+
+
+class DeclaredExecutionShapeTest(unittest.TestCase):
+    class Collector:
+        def __init__(self):
+            self.names = []
+
+        def command(self, name, argv, **_kwargs):
+            self.names.append(name)
+            output = ""
+            if "-start" in name and name.startswith("launch-"):
+                state = "COLD" if "-cold-" in name else "WARM"
+                output = (f"Status: ok\nLaunchState: {state}\n"
+                          "Activity: package/.Activity\nTotalTime: 10\n")
+            elif argv and argv[0] == "pidof":
+                output = "123\n"
+            elif name.endswith("-gfxinfo"):
+                output = (
+                    "Total frames rendered: 100\nJanky frames: 1 (1.00%)\n"
+                    "50th percentile: 6ms\n90th percentile: 17ms\n"
+                    "95th percentile: 19ms\n99th percentile: 30ms\n")
+            return {"transport": "ok", "stdout": output, "stderr": ""}, []
+
+    def test_declared_launches_are_all_repeated_with_unique_evidence_names(self):
+        collector = self.Collector()
+        profile = baseline_pilot.connected_profile(protocol(), True)
+        with mock.patch.object(baseline_pilot.time, "sleep", return_value=None):
+            result = baseline_pilot._run_launches(collector, protocol(), profile)
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual(18, len(result["samples"]))
+        self.assertEqual(len(collector.names), len(set(collector.names)))
+
+    def test_declared_frame_runs_are_independent_and_indexed(self):
+        collector = self.Collector()
+        profile = baseline_pilot.connected_profile(protocol(), True)
+        clock = {"now": 0.0}
+
+        def sleep(seconds):
+            clock["now"] += seconds
+
+        with (mock.patch.object(baseline_pilot.time, "monotonic",
+                                side_effect=lambda: clock["now"]),
+              mock.patch.object(baseline_pilot.time, "sleep", side_effect=sleep)):
+            result = baseline_pilot._run_frame(collector, protocol(), profile)
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual(3, len(result["runs"]))
+        self.assertTrue(all(item["swipe_count"] == 30 for item in result["runs"]))
+        self.assertEqual(len(collector.names), len(set(collector.names)))
 
 
 class PreflightTest(unittest.TestCase):

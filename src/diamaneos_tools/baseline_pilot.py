@@ -1,4 +1,4 @@
-"""Target-bound FP6 stock-baseline connected pilot.
+"""Target-bound FP6 stock-baseline connected measurement runner.
 
 This command exercises the connected portions of the FP6-022 protocol before
 the declared Android 16 baseline series.  It writes immutable private raw
@@ -29,6 +29,7 @@ from diamaneos_tools import test_runner
 
 SCHEMA_VERSION = 1
 PILOT_LABEL = "PILOT_ONLY_NOT_BASELINE_EVIDENCE"
+DECLARED_LABEL = "DECLARED_STOCK_BASELINE_EVIDENCE"
 DEFAULT_TIMEOUT_SECONDS = 20
 MAX_TEXT_BYTES = 262_144
 STATUS_PASS = "PASS"
@@ -67,6 +68,44 @@ def _utc_now() -> str:
 def _procedure(protocol: dict, procedure_id: str) -> dict:
     return next(item for item in protocol["procedures"]
                 if item["id"] == procedure_id)
+
+
+def connected_profile(protocol: dict, declared: bool) -> dict:
+    """Resolve every duration/count from one explicit pilot/declared mode."""
+    launch = _procedure(protocol, "app-launch")["fixed_parameters"]
+    frame = _procedure(protocol, "frame-time")["fixed_parameters"]
+    thermal = _procedure(protocol, "thermal")["fixed_parameters"]
+    if declared:
+        return {
+            "mode": "declared",
+            "operation": "baseline-connected-measurement",
+            "label": DECLARED_LABEL,
+            "launch_repetitions_per_state": {
+                "cold": launch["cold_repetitions"],
+                "warm": launch["warm_repetitions"],
+            },
+            "frame_repetitions": frame["repetitions"],
+            "frame_duration_seconds": frame["duration_seconds"],
+            "thermal_load_seconds": thermal["sustained_load_minutes"] * 60,
+            "thermal_cooldown_seconds": thermal["cooldown_minutes"] * 60,
+            "thermal_sample_interval_seconds": thermal["sample_interval_seconds"],
+        }
+    repetitions = protocol["pilot"]["launch_repetitions_per_state"]
+    return {
+        "mode": "pilot",
+        "operation": "baseline-connected-pilot",
+        "label": PILOT_LABEL,
+        "launch_repetitions_per_state": {
+            "cold": repetitions,
+            "warm": repetitions,
+        },
+        "frame_repetitions": protocol["pilot"]["frame_repetitions"],
+        "frame_duration_seconds": protocol["pilot"]["frame_duration_seconds"],
+        "thermal_load_seconds": protocol["pilot"]["thermal_load_seconds"],
+        "thermal_cooldown_seconds": protocol["pilot"]["thermal_cooldown_seconds"],
+        "thermal_sample_interval_seconds": protocol["pilot"][
+            "thermal_sample_interval_seconds"],
+    }
 
 
 def parse_am_start(output: str) -> dict:
@@ -295,13 +334,13 @@ def _thermal_sysfs_remote() -> str:
 def thermal_stop_reason(sample: dict, safety: dict) -> str | None:
     if sample["android_status"] >= safety[
             "abort_android_thermal_status_at_or_above"]:
-        return "Android thermal status reached the pilot stop threshold"
+        return "Android thermal status reached the protocol stop threshold"
     if sample["temperatures_c"]["battery"] >= safety[
             "abort_battery_degC_at_or_above"]:
-        return "battery sensor reached the pilot stop threshold"
+        return "battery sensor reached the protocol stop threshold"
     if sample["temperatures_c"]["skin"] >= safety[
             "abort_skin_degC_at_or_above"]:
-        return "skin sensor reached the pilot stop threshold"
+        return "skin sensor reached the protocol stop threshold"
     return None
 
 
@@ -527,100 +566,123 @@ def _collect_preflight(collector: Collector, protocol: dict,
     }
 
 
-def _run_launches(collector: Collector, protocol: dict) -> dict:
+def _run_launches(collector: Collector, protocol: dict, profile: dict) -> dict:
     params = _procedure(protocol, "app-launch")["fixed_parameters"]
     samples = []
     refs = []
     for app in params["apps"]:
         package = app["package"]
         component = app["component"]
-        for name, argv in (
-                ("cold-home", ["input", "keyevent", "KEYCODE_HOME"]),
-                ("cold-force-stop", ["am", "force-stop", package])):
-            _, step_refs = collector.command(f"launch-{app['role']}-{name}", argv)
+        for repetition in range(1, profile["launch_repetitions_per_state"]["cold"] + 1):
+            prefix = f"launch-{app['role']}-cold-r{repetition}"
+            for name, argv in (
+                    ("home", ["input", "keyevent", "KEYCODE_HOME"]),
+                    ("force-stop", ["am", "force-stop", package])):
+                _, step_refs = collector.command(f"{prefix}-{name}", argv)
+                refs.extend(step_refs)
+            time.sleep(params["settle_seconds"])
+            result, step_refs = collector.command(
+                f"{prefix}-start", ["am", "start", "-W", "-n", component])
             refs.extend(step_refs)
-        time.sleep(params["settle_seconds"])
-        result, step_refs = collector.command(
-            f"launch-{app['role']}-cold-start",
-            ["am", "start", "-W", "-n", component])
-        refs.extend(step_refs)
-        parsed = parse_am_start(result["stdout"])
-        samples.append({"role": app["role"], "state": "cold", **parsed})
-        expected = params["cold_expected_launch_state"]
-        if parsed["status"] != STATUS_PASS or parsed.get("launch_state") != expected:
-            return {"test_id": "app-launch", "status": STATUS_FAIL,
-                    "reason": f"{app['role']} cold launch did not report {expected}",
-                    "samples": samples, "raw_evidence_refs": refs}
+            parsed = parse_am_start(result["stdout"])
+            samples.append({"role": app["role"], "state": "cold",
+                            "repetition": repetition, **parsed})
+            expected = params["cold_expected_launch_state"]
+            if (parsed["status"] != STATUS_PASS
+                    or parsed.get("launch_state") != expected):
+                return {"test_id": "app-launch", "status": STATUS_FAIL,
+                        "reason": f"{app['role']} cold launch did not report {expected}",
+                        "samples": samples, "raw_evidence_refs": refs}
+            _, step_refs = collector.command(
+                f"{prefix}-finish", ["input", "keyevent", "KEYCODE_BACK"])
+            refs.extend(step_refs)
+            time.sleep(params["settle_seconds"])
 
-        _, step_refs = collector.command(
-            f"launch-{app['role']}-warm-finish-cold",
-            ["input", "keyevent", "KEYCODE_BACK"])
-        refs.extend(step_refs)
-        time.sleep(params["settle_seconds"])
-        resident, step_refs = collector.command(
-            f"launch-{app['role']}-warm-resident-process",
-            ["pidof", package], required=False)
-        refs.extend(step_refs)
-        pids = resident.get("stdout", "").split()
-        if (resident.get("transport") != "ok" or not pids
-                or any(not re.fullmatch(r"[1-9][0-9]{0,9}", pid) for pid in pids)):
-            return {"test_id": "app-launch", "status": STATUS_FAIL,
-                    "reason": f"{app['role']} process was not resident for warm launch",
-                    "samples": samples, "raw_evidence_refs": refs}
-        result, step_refs = collector.command(
-            f"launch-{app['role']}-warm-start",
-            ["am", "start", "-W", "-n", component])
-        refs.extend(step_refs)
-        parsed = parse_am_start(result["stdout"])
-        samples.append({"role": app["role"], "state": "warm", **parsed})
-        expected = params["warm_expected_launch_state"]
-        if parsed["status"] != STATUS_PASS or parsed.get("launch_state") != expected:
-            return {"test_id": "app-launch", "status": STATUS_FAIL,
-                    "reason": f"{app['role']} warm launch did not report {expected}",
-                    "samples": samples, "raw_evidence_refs": refs}
+        for repetition in range(1, profile["launch_repetitions_per_state"]["warm"] + 1):
+            prefix = f"launch-{app['role']}-warm-r{repetition}"
+            resident, step_refs = collector.command(
+                f"{prefix}-resident-process", ["pidof", package], required=False)
+            refs.extend(step_refs)
+            pids = resident.get("stdout", "").split()
+            if (resident.get("transport") != "ok" or not pids
+                    or any(not re.fullmatch(r"[1-9][0-9]{0,9}", pid) for pid in pids)):
+                return {"test_id": "app-launch", "status": STATUS_FAIL,
+                        "reason": f"{app['role']} process was not resident for warm launch",
+                        "samples": samples, "raw_evidence_refs": refs}
+            result, step_refs = collector.command(
+                f"{prefix}-start", ["am", "start", "-W", "-n", component])
+            refs.extend(step_refs)
+            parsed = parse_am_start(result["stdout"])
+            samples.append({"role": app["role"], "state": "warm",
+                            "repetition": repetition, **parsed})
+            expected = params["warm_expected_launch_state"]
+            if (parsed["status"] != STATUS_PASS
+                    or parsed.get("launch_state") != expected):
+                return {"test_id": "app-launch", "status": STATUS_FAIL,
+                        "reason": f"{app['role']} warm launch did not report {expected}",
+                        "samples": samples, "raw_evidence_refs": refs}
+            _, step_refs = collector.command(
+                f"{prefix}-finish", ["input", "keyevent", "KEYCODE_BACK"])
+            refs.extend(step_refs)
+            time.sleep(params["settle_seconds"])
     return {"test_id": "app-launch", "status": STATUS_PASS,
-            "reason": "all one-per-state pilot launches completed",
+            "reason": "all protocol-selected cold and warm launches completed",
             "samples": samples, "raw_evidence_refs": refs}
 
 
-def _run_frame(collector: Collector, protocol: dict) -> dict:
+def _run_frame(collector: Collector, protocol: dict, profile: dict) -> dict:
     params = _procedure(protocol, "frame-time")["fixed_parameters"]
     interaction = params["interaction"]
     refs = []
-    for name, argv in (
-            ("frame-reset", ["dumpsys", "gfxinfo", params["package"], "reset"]),
-            ("frame-force-stop", ["am", "force-stop", params["package"]]),
-            ("frame-start", ["am", "start", "-W", "-n", params["component"]])):
-        _, step_refs = collector.command(name, argv)
+    runs = []
+    for repetition in range(1, profile["frame_repetitions"] + 1):
+        prefix = f"frame-r{repetition}"
+        for name, argv in (
+                ("reset", ["dumpsys", "gfxinfo", params["package"], "reset"]),
+                ("force-stop", ["am", "force-stop", params["package"]]),
+                ("start", ["am", "start", "-W", "-n", params["component"]])):
+            _, step_refs = collector.command(f"{prefix}-{name}", argv)
+            refs.extend(step_refs)
+        deadline = time.monotonic() + profile["frame_duration_seconds"]
+        direction_up = True
+        swipe_count = 0
+        while time.monotonic() < deadline:
+            start_y = (interaction["bottom_y_px"] if direction_up
+                       else interaction["top_y_px"])
+            end_y = (interaction["top_y_px"] if direction_up
+                     else interaction["bottom_y_px"])
+            _, step_refs = collector.command(
+                f"{prefix}-swipe-{swipe_count + 1:02d}",
+                ["input", "swipe", str(interaction["x_px"]), str(start_y),
+                 str(interaction["x_px"]), str(end_y),
+                 str(interaction["swipe_duration_ms"])])
+            refs.extend(step_refs)
+            swipe_count += 1
+            direction_up = not direction_up
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(interaction["interval_seconds"], remaining))
+        result, step_refs = collector.command(
+            f"{prefix}-gfxinfo", ["dumpsys", "gfxinfo", params["package"]])
         refs.extend(step_refs)
-    duration = protocol["pilot"]["frame_duration_seconds"]
-    deadline = time.monotonic() + duration
-    direction_up = True
-    swipe_count = 0
-    while time.monotonic() < deadline:
-        start_y = interaction["bottom_y_px"] if direction_up else interaction["top_y_px"]
-        end_y = interaction["top_y_px"] if direction_up else interaction["bottom_y_px"]
-        _, step_refs = collector.command(
-            f"frame-swipe-{swipe_count + 1:02d}",
-            ["input", "swipe", str(interaction["x_px"]), str(start_y),
-             str(interaction["x_px"]), str(end_y),
-             str(interaction["swipe_duration_ms"])])
-        refs.extend(step_refs)
-        swipe_count += 1
-        direction_up = not direction_up
-        remaining = deadline - time.monotonic()
-        if remaining > 0:
-            time.sleep(min(interaction["interval_seconds"], remaining))
-    result, step_refs = collector.command(
-        "frame-gfxinfo", ["dumpsys", "gfxinfo", params["package"]])
-    refs.extend(step_refs)
-    parsed = parse_gfxinfo(result["stdout"])
-    parsed = enforce_frame_minimum(
-        parsed, swipe_count, interaction["minimum_frames_per_swipe"])
-    return {"test_id": "frame-time", **parsed,
-            "reason": ("package-scoped frame aggregate parsed" if parsed["status"] == STATUS_PASS
-                       else parsed["reason"]),
-            "swipe_count": swipe_count, "raw_evidence_refs": refs}
+        parsed = enforce_frame_minimum(
+            parse_gfxinfo(result["stdout"]), swipe_count,
+            interaction["minimum_frames_per_swipe"])
+        runs.append({"repetition": repetition, **parsed,
+                     "swipe_count": swipe_count})
+        if parsed["status"] != STATUS_PASS:
+            return {"test_id": "frame-time", "status": STATUS_FAIL,
+                    "reason": parsed["reason"], "runs": runs,
+                    "raw_evidence_refs": refs}
+    completed = {"test_id": "frame-time", "status": STATUS_PASS,
+                 "reason": "every package-scoped frame aggregate parsed",
+                 "runs": runs, "raw_evidence_refs": refs}
+    if len(runs) == 1:
+        # Retain the schema-1 pilot convenience fields while making the
+        # repeated declared samples independently addressable.
+        completed.update({key: value for key, value in runs[0].items()
+                          if key not in {"status", "repetition"}})
+    return completed
 
 
 def _thermal_workload_argv(adb: str, target: str, pidfile: str,
@@ -661,12 +723,13 @@ def _stop_remote_thermal(collector: Collector, pidfile: str) -> list[str]:
     return refs
 
 
-def _run_thermal(collector: Collector, protocol: dict, run_id: str) -> dict:
+def _run_thermal(collector: Collector, protocol: dict, run_id: str,
+                 profile: dict) -> dict:
     params = _procedure(protocol, "thermal")["fixed_parameters"]
     safety = params["safety"]
-    load_seconds = protocol["pilot"]["thermal_load_seconds"]
-    cooldown_seconds = protocol["pilot"]["thermal_cooldown_seconds"]
-    sample_interval = protocol["pilot"]["thermal_sample_interval_seconds"]
+    load_seconds = profile["thermal_load_seconds"]
+    cooldown_seconds = profile["thermal_cooldown_seconds"]
+    sample_interval = profile["thermal_sample_interval_seconds"]
     token = hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:20]
     pidfile = f"/data/local/tmp/diamaneos-thermal-{token}.pids"
     refs = []
@@ -869,13 +932,18 @@ def _git_revision(repo_root: Path) -> str:
 
 
 def _report_template(args, protocol: dict, protocol_hash: str,
-                     repo_root: Path, identity: dict, identity_refs: list[str]) -> dict:
+                     repo_root: Path, identity: dict, identity_refs: list[str],
+                     profile: dict) -> dict:
+    declared = profile["mode"] == "declared"
     return {
         "schema_version": SCHEMA_VERSION,
-        "operation": "baseline-connected-pilot",
-        "label": PILOT_LABEL,
+        "operation": profile["operation"],
+        "label": profile["label"],
         "run_id": args.run_id,
+        "series_id": getattr(args, "series_id", None),
+        "repeat_index": getattr(args, "repeat_index", None),
         "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
+        "run_profile": profile,
         "tool": {
             "revision": _git_revision(repo_root),
             "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -891,6 +959,7 @@ def _report_template(args, protocol: dict, protocol_hash: str,
             "build_type": identity["build_type"],
             "security_patch": identity["security_patch"],
             "evidence_label": identity["evidence_label"],
+            "expected_build": getattr(args, "expected_build", None),
         },
         "conditions": args.conditions,
         "ambient_start_c": args.ambient_start_c,
@@ -907,11 +976,17 @@ def _report_template(args, protocol: dict, protocol_hash: str,
             {"id": "camera-scene", "status": "NOT_RUN",
              "reason": "requires the fixed physical scene and original media registration"},
         ],
-        "limitations": [
+        "limitations": ([
+            "The manual end temperature must be added by declared finalization before this run is complete.",
+            "A complete declared stock baseline requires both whole-run repetitions in the same series.",
+            "Continuous ambient logging is unavailable; only start and end readings are recorded.",
+        ] if declared else [
             "Connected pilot only; it is not baseline evidence.",
-            "The manual end temperature is recorded after the run outside this immutable connected result.",
+            "The manual end temperature is recorded outside this immutable connected pilot result.",
+        ]) + [
             "A visible 50 percent brightness setting is operator-attested because this build exposes no normalized brightness value through settings.",
         ],
+        "comparability_exclusions": [],
         "errors": [],
     }
 
@@ -925,7 +1000,9 @@ def _prepare_output(args) -> tuple[Path, Path, int]:
         raise PilotError("private output root must be owner-controlled mode 0750 or stricter", 3)
     partial = root / f"{args.run_id}.partial"
     final = root / args.run_id
-    if partial.exists() or final.exists():
+    if (partial.exists() or final.exists()
+            or final.with_name(final.name + ".non-comparable").exists()
+            or final.with_name(final.name + ".harness-error").exists()):
         raise PilotError("immutable output collision", 3)
     locks = root / ".locks"
     locks.mkdir(mode=0o750, exist_ok=True)
@@ -941,7 +1018,7 @@ def _prepare_output(args) -> tuple[Path, Path, int]:
     return partial, final, lock_fd
 
 
-def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
+def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[int, Path]:
     if not args.run_id or not test_runner.RUN_ID_RE.fullmatch(args.run_id):
         raise PilotError("execution requires a valid --run-id")
     if not args.target or not args.device_role or not args.device_map:
@@ -961,6 +1038,18 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
         protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
     except baseline_protocol.ProtocolError as exc:
         raise PilotError(f"invalid baseline protocol: {exc}") from exc
+    profile = connected_profile(protocol, declared)
+    if declared:
+        if (not getattr(args, "expected_build", None)
+                or len(args.expected_build) > 200):
+            raise PilotError("declared execution requires a bounded --expected-build")
+        if (not getattr(args, "series_id", None)
+                or not test_runner.RUN_ID_RE.fullmatch(args.series_id)):
+            raise PilotError("declared execution requires a valid --series-id")
+        if getattr(args, "repeat_index", None) not in {1, 2}:
+            raise PilotError("declared execution requires --repeat-index 1 or 2")
+        if args.target in args.series_id:
+            raise PilotError("series metadata must not contain the private target")
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
     devices = test_runner._authorized_devices(args.adb)
     if args.target not in devices:
@@ -973,13 +1062,20 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
         identity, identity_refs = test_runner._capture_identity(
             args.adb, args.target, partial, DEFAULT_TIMEOUT_SECONDS)
         report = _report_template(
-            args, protocol, protocol_hash, repo_root, identity, identity_refs)
+            args, protocol, protocol_hash, repo_root, identity, identity_refs,
+            profile)
         report_path = partial / "result.json"
         report = _scrub(report, args.target)
         test_runner._atomic_json(report_path, report)
         collector = Collector(args.adb, args.target, partial)
 
         try:
+            if (declared
+                    and identity["build_id"] != args.expected_build):
+                raise CaseFailure(
+                    "BLOCKED",
+                    "connected target build does not match the expected stock build",
+                    identity_refs)
             preflight = _collect_preflight(
                 collector, protocol, args.ambient_start_c,
                 args.operator_confirmed_display_50,
@@ -991,27 +1087,28 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
                 raise CaseFailure(STATUS_FAIL, preflight["reason"])
 
             memory_start, memory_refs = _memory_start(collector)
-            launches = _run_launches(collector, protocol)
+            launches = _run_launches(collector, protocol, profile)
             report["cases"].append(launches)
             if launches["status"] != STATUS_PASS:
                 raise CaseFailure(STATUS_FAIL, launches["reason"])
-            frame = _run_frame(collector, protocol)
+            frame = _run_frame(collector, protocol, profile)
             report["cases"].append(frame)
             if frame["status"] != STATUS_PASS:
                 raise CaseFailure(STATUS_FAIL, frame["reason"])
-            thermal = _run_thermal(collector, protocol, args.run_id)
+            thermal = _run_thermal(collector, protocol, args.run_id, profile)
             report["cases"].append(thermal)
             if thermal["status"] != STATUS_PASS:
                 raise CaseFailure(thermal["status"], thermal["reason"])
             report["cases"].append(_memory_finish(
                 collector, memory_start, memory_refs))
             report["cases"].append(_collect_postflight(collector))
-            report["status"] = STATUS_PASS
+            report["status"] = ("AWAITING_AMBIENT_END" if declared
+                                else STATUS_PASS)
             exit_code = 0
         except CaseFailure as exc:
             if not report["cases"] or report["cases"][-1].get("status") != exc.status:
                 report["cases"].append({
-                    "test_id": "connected-pilot-harness", "status": exc.status,
+                    "test_id": "connected-harness", "status": exc.status,
                     "reason": exc.reason,
                     "raw_evidence_refs": exc.raw_evidence_refs,
                 })
@@ -1019,7 +1116,8 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
             report["errors"].append(exc.reason)
             exit_code = 3 if exc.status == "BLOCKED" else 5 if (
                 exc.status == STATUS_HARNESS) else 4
-        report["finished_at_utc"] = _utc_now()
+        if not (declared and report["status"] == "AWAITING_AMBIENT_END"):
+            report["finished_at_utc"] = _utc_now()
         report["run_order"] = [case["test_id"] for case in report["cases"]]
         report = _scrub(report, args.target)
         test_runner._atomic_json(report_path, report)
@@ -1030,6 +1128,9 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
                 report_path, case.get("raw_evidence_refs", []))
         if args.target in report_path.read_text(encoding="utf-8"):
             raise PilotError("private target escaped report redaction", 5)
+        if declared and report["status"] == "AWAITING_AMBIENT_END":
+            test_runner._sync_directory(partial)
+            return exit_code, partial / "result.json"
         os.rename(partial, final)
         test_runner._sync_directory(final.parent)
         return exit_code, final / "result.json"
@@ -1048,14 +1149,15 @@ def execute_connected(args, repo_root: Path) -> tuple[int, Path]:
         os.close(lock_fd)
 
 
-def dry_run_plan(config: str) -> dict:
+def dry_run_plan(config: str, declared: bool = False) -> dict:
     protocol, digest = baseline_protocol.load_protocol(config)
     launch = _procedure(protocol, "app-launch")["fixed_parameters"]
     thermal = _procedure(protocol, "thermal")["fixed_parameters"]
+    profile = connected_profile(protocol, declared)
     return {
         "schema_version": SCHEMA_VERSION,
-        "operation": "baseline-connected-pilot-dry-run",
-        "label": PILOT_LABEL,
+        "operation": profile["operation"] + "-dry-run",
+        "label": profile["label"],
         "protocol_id": protocol["protocol_id"],
         "protocol_sha256": digest,
         "device_commands_executed": 0,
@@ -1063,19 +1165,15 @@ def dry_run_plan(config: str) -> dict:
         "connected_cases": ["preflight", "app-launch", "frame-time",
                             "thermal", "memory-pressure", "postflight"],
         "launch_components": [item["component"] for item in launch["apps"]],
-        "pilot_bounds": {
-            "frame_seconds": protocol["pilot"]["frame_duration_seconds"],
-            "thermal_load_seconds": protocol["pilot"]["thermal_load_seconds"],
-            "thermal_cooldown_seconds": protocol["pilot"]["thermal_cooldown_seconds"],
-            "thermal_workers": thermal["workers"],
-        },
+        "run_profile": profile,
+        "thermal_workers": thermal["workers"],
         "device_state_changes": [
             "HOME/BACK keys and deterministic Settings swipes",
             "force-stop exact benchmark packages; app data is not cleared",
             "reset package-scoped Settings gfxinfo counters",
             "bounded CPU load with temporary PID file and mandatory cleanup",
         ],
-        "deferred": ["physical-disconnect idle pilot", "fixed-scene camera pilot"],
+        "deferred": ["physical-disconnect idle phase", "fixed-scene camera phase"],
     }
 
 
