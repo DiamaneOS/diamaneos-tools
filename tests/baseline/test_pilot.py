@@ -70,6 +70,12 @@ class ParserTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unavailable"):
             baseline_pilot.parse_power_wakefulness("mInteractive=true\n")
 
+    def test_power_wakefulness_capture_is_a_bounded_remote_filter(self):
+        remote = baseline_pilot._power_wakefulness_remote()
+        self.assertTrue(remote.startswith("sh -c '"))
+        self.assertIn("grep -m 1", remote)
+        self.assertIn("mWakefulness=", remote)
+
     def test_battery_parser_preserves_fairphone_ac_classification(self):
         parsed = baseline_pilot.parse_battery(
             "Battery Service state:\n  AC powered: true\n  USB powered: false\n"
