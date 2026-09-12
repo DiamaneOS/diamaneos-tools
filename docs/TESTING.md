@@ -169,11 +169,17 @@ sampling immediately after the key event.
 `baseline idle observe-disconnect` records stable ADB loss, but physical VBUS
 removal remains an operator attestation. Keep the cable physically unplugged,
 the screen off and the phone untouched until `baseline idle status` reports
-that the interval is complete. Reconnect once and immediately run `baseline
-idle finish` with the ending thermometer reading. The declared baseline, after
-the pilot, remains two eight-hour repetitions. Wi-Fi and telephony service
-output is reduced to connection/registration booleans in memory: SSID, BSSID,
-subscriber and cell identifiers are not persisted.
+that the interval is complete. Read the ending thermometer while the phone is
+still disconnected, then run `baseline idle finish --wait-for-reconnect` with
+that value. Reconnect only after it prints `READY_TO_RECONNECT`; the command
+records two consecutive authorized-ADB observations and begins the ending
+capture immediately, avoiding operator or SSH delay in the measured interval.
+The legacy finish path accepts a target that is already connected, but its
+invocation time is the reconnect time and therefore remains subject to the
+60-second pilot tolerance. The declared baseline, after the pilot, remains two
+eight-hour repetitions. Wi-Fi and telephony service output is reduced to
+connection/registration booleans in memory: SSID, BSSID, subscriber and cell
+identifiers are not persisted.
 
 The camera fixture is a closed cardboard enclosure with fixed green-timer and
 Johnson's Buds-box subjects, one marked phone-stand position, a secured USB lamp

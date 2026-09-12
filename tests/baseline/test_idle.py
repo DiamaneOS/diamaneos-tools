@@ -73,6 +73,25 @@ class ParserTest(unittest.TestCase):
             baseline_idle.wait_for_screen_off(
                 lambda: ("Awake", "ON"), 0.0, 0.0, 2)
 
+    def test_reconnect_wait_uses_first_sample_from_stable_presence(self):
+        states = iter([False, True, False, True, True])
+        samples = iter([
+            {"utc": "discarded"},
+            {"utc": "first-stable"},
+            {"utc": "confirmed-stable"},
+        ])
+        observed = baseline_idle.wait_for_authorized_reconnect(
+            lambda: next(states), lambda: next(samples), 1.0, 0.0, 2)
+        self.assertEqual("first-stable", observed["first_present"]["utc"])
+        self.assertEqual(2, observed["confirmed_present_samples"])
+        self.assertEqual(5, observed["observation_count"])
+
+    def test_reconnect_wait_fails_closed_after_bound(self):
+        with self.assertRaisesRegex(baseline_idle.IdleError,
+                                    "reconnect was not observed"):
+            baseline_idle.wait_for_authorized_reconnect(
+                lambda: False, lambda: {}, 0.0, 0.0, 2)
+
 
 class PreflightTest(unittest.TestCase):
     def valid_observed(self):
@@ -166,6 +185,23 @@ class CliContractTest(unittest.TestCase):
         self.assertEqual(300, plan["duration_seconds"])
         self.assertIn("dumpsys batterystats --reset",
                       " ".join(plan["device_state_changes"]))
+        self.assertIn("--wait-for-reconnect",
+                      " ".join(plan["physical_actions"]))
+
+    def test_finish_can_arm_before_physical_reconnect(self):
+        args = baseline_idle.build_parser().parse_args([
+            "finish", "--target", "private-target",
+            "--device-role", "idle-pilot",
+            "--device-map", "/private/map.json",
+            "--run-dir", "/private/runs/idle-pilot-1.partial",
+            "--ambient-end-c", "22.0",
+            "--wait-for-reconnect",
+            "--operator-confirmed-physical-disconnect",
+            "--operator-confirmed-no-interaction",
+            "--operator-confirmed-no-known-network-outage",
+        ])
+        self.assertTrue(args.wait_for_reconnect)
+        self.assertEqual(120, args.reconnect_timeout_seconds)
 
 
 if __name__ == "__main__":
