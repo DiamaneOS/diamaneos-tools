@@ -1,11 +1,13 @@
-"""Staged physical-disconnect idle pilot for FP6-022.
+"""Staged physical-disconnect idle measurement for FP6-022.
 
 The start stage captures controlled state, performs the one explicitly
 authorized batterystats reset, and turns the display off.  A separate stage
 observes loss of the ADB transport; the operator's later attestation is what
 establishes that the cable was physically removed rather than logically
-disabled.  Finish refuses an early reconnect and preserves private evidence
-without writing SSID, BSSID, subscriber, cell, or ADB identifiers to reports.
+disabled.  Pilot mode uses five minutes; declared mode binds one of the two
+eight-hour repetitions to a shared series ID.  Finish refuses an early
+reconnect and preserves private evidence without writing SSID, BSSID,
+subscriber, cell, or ADB identifiers to reports.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from diamaneos_tools import test_runner
 
 SCHEMA_VERSION = 1
 PILOT_LABEL = "PILOT_ONLY_NOT_BASELINE_EVIDENCE"
+DECLARED_LABEL = "DECLARED_STOCK_BASELINE_EVIDENCE"
 STATUS_ARMED = "ARMED_FOR_PHYSICAL_DISCONNECT"
 STATUS_DISCONNECTED = "PHYSICALLY_DISCONNECTED_INTERVAL"
 MAX_BATTERYSTATS_BYTES = 8 * 1024 * 1024
@@ -37,7 +40,7 @@ DISCONNECT_CONFIRMATION_SAMPLES = 2
 RECONNECT_TIMEOUT_SECONDS = 120
 RECONNECT_POLL_INTERVAL_SECONDS = 0.25
 RECONNECT_CONFIRMATION_SAMPLES = 2
-PILOT_FINISH_TOLERANCE_SECONDS = 60
+FINISH_TOLERANCE_SECONDS = 60
 SCREEN_OFF_SETTLE_TIMEOUT_SECONDS = 5
 SCREEN_OFF_POLL_INTERVAL_SECONDS = 0.25
 SCREEN_OFF_REQUIRED_CONSECUTIVE = 2
@@ -58,6 +61,43 @@ def _utc_now() -> str:
 def _procedure(protocol: dict, procedure_id: str) -> dict:
     return next(item for item in protocol["procedures"]
                 if item["id"] == procedure_id)
+
+
+def _run_profile(protocol: dict, repeat_index: int | None,
+                 series_id: str | None) -> dict:
+    if repeat_index is None:
+        if series_id:
+            raise IdleError("pilot idle runs cannot declare a series ID")
+        return {
+            "kind": "pilot",
+            "operation": "baseline-idle-pilot",
+            "label": PILOT_LABEL,
+            "duration_seconds": protocol["pilot"]["idle_duration_seconds"],
+            "series_id": None,
+            "repeat_index": None,
+            "repeat_count": 1,
+        }
+    params = _procedure(protocol, "idle-drain")["fixed_parameters"]
+    if not series_id or not test_runner.RUN_ID_RE.fullmatch(series_id):
+        raise IdleError("declared idle runs require a valid --series-id")
+    if not 1 <= repeat_index <= params["repetitions"]:
+        raise IdleError("declared idle repeat index is outside the protocol")
+    return {
+        "kind": "declared",
+        "operation": "baseline-idle-measurement",
+        "label": DECLARED_LABEL,
+        "duration_seconds": params["duration_hours"] * 3600,
+        "series_id": series_id,
+        "repeat_index": repeat_index,
+        "repeat_count": params["repetitions"],
+    }
+
+
+def _report_duration_seconds(report: dict) -> int:
+    value = report.get("duration_seconds", report.get("pilot_duration_seconds"))
+    if not isinstance(value, int) or value < 1:
+        raise IdleError("idle report duration is invalid", 5)
+    return value
 
 
 def parse_wifi_connection(output: str) -> dict:
@@ -257,9 +297,9 @@ def evaluate_comparability(report: dict, protocol: dict,
     if abs(ambient_end_c - report["ambient_start_c"]) > ambient[
             "maximum_within_run_span"]:
         reasons.append("room-temperature span exceeds the protocol tolerance")
-    duration = report["pilot_duration_seconds"]
-    if elapsed_seconds > duration + PILOT_FINISH_TOLERANCE_SECONDS:
-        reasons.append("finish capture exceeded the pilot timing tolerance")
+    duration = _report_duration_seconds(report)
+    if elapsed_seconds > duration + FINISH_TOLERANCE_SECONDS:
+        reasons.append("finish capture exceeded the timing tolerance")
     if not end_network["wifi_enabled"] or not end_network["wifi_connected"]:
         reasons.append("Wi-Fi was not connected at finish")
     if not end_network["sim_registered"]:
@@ -308,7 +348,8 @@ def _load_report(run_dir: Path, expected_status: str | None = None) -> dict:
     value, _ = test_runner._load_unique_json(
         run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
     if (not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION
-            or value.get("operation") != "baseline-idle-pilot"):
+            or value.get("operation") not in {
+                "baseline-idle-pilot", "baseline-idle-measurement"}):
         raise IdleError("idle partial report is invalid", 5)
     if expected_status is not None and value.get("status") != expected_status:
         raise IdleError("idle run is not in the required stage", 3)
@@ -513,6 +554,8 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "idle start requires display, unlocked, and batterystats-reset authorization", 3)
 
     protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
+    profile = _run_profile(
+        protocol, args.declared_repeat_index, args.series_id)
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
     if args.target not in test_runner._authorized_devices(args.adb):
         raise IdleError("selected idle target is not an authorized USB device", 3)
@@ -540,9 +583,13 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             mismatches.append("target build does not match the expected stock build")
         report = {
             "schema_version": SCHEMA_VERSION,
-            "operation": "baseline-idle-pilot",
-            "label": PILOT_LABEL,
+            "operation": profile["operation"],
+            "label": profile["label"],
             "run_id": args.run_id,
+            "measurement_kind": profile["kind"],
+            "series_id": profile["series_id"],
+            "repeat_index": profile["repeat_index"],
+            "repeat_count": profile["repeat_count"],
             "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
             "tool": {
                 "revision": test_runner._git_revision(repo_root),
@@ -564,8 +611,8 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "ambient_start_c": args.ambient_start_c,
             "ambient_end_c": None,
             "ambient_span_c": None,
-            "pilot_duration_seconds": protocol["pilot"]["idle_duration_seconds"],
-            "finish_tolerance_seconds": PILOT_FINISH_TOLERANCE_SECONDS,
+            "duration_seconds": profile["duration_seconds"],
+            "finish_tolerance_seconds": FINISH_TOLERANCE_SECONDS,
             "started_at_utc": _utc_now(),
             "finished_at_utc": None,
             "status": "PREFLIGHT" if not mismatches else "PREFLIGHT_REJECTED",
@@ -590,8 +637,11 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "reset_evidence_refs": [],
             "finish_evidence_refs": [],
             "comparability_exclusions": [],
-            "limitations": [
-                "Pilot only; this is not declared baseline evidence.",
+            "limitations": ([
+                "Pilot only; this is not declared baseline evidence."
+            ] if profile["kind"] == "pilot" else [
+                "This is one component run in the declared stock baseline series."
+            ]) + [
                 "Ambient temperature is sampled manually only at start and finish.",
                 "Network service output is privacy-minimized before persistence; SSID, BSSID, subscriber and cell identifiers are not retained.",
                 "Physical VBUS removal depends on operator attestation in addition to observed ADB loss.",
@@ -760,7 +810,7 @@ def observe_disconnect(args) -> Path:
             "host_boot_id_sha256": first_absent["host_boot_id_sha256"],
             "finish_not_before_boottime_seconds": round(
                 first_absent["host_boottime_seconds"]
-                + report["pilot_duration_seconds"], 3),
+                + _report_duration_seconds(report), 3),
             "reconnected_at_utc": None,
             "observed_transport_loss": True,
             "physical_disconnect_requires_finish_attestation": True,
@@ -814,7 +864,7 @@ def finish(args) -> tuple[int, Path]:
             raise IdleError("tester rebooted during the idle interval", 4)
         elapsed_at_arm = armed["host_boottime_seconds"] - disconnect[
             "host_boottime_seconds"]
-        if elapsed_at_arm < report["pilot_duration_seconds"]:
+        if elapsed_at_arm < _report_duration_seconds(report):
             raise IdleError("idle interval has not reached its declared duration", 3)
         authorized = args.target in test_runner._authorized_devices(args.adb)
         if args.wait_for_reconnect:
@@ -937,18 +987,24 @@ def quarantine(args) -> Path:
         _release_lock(lock_fd)
 
 
-def dry_run(config: str) -> dict:
+def dry_run(config: str, declared_repeat_index: int | None = None,
+            series_id: str | None = None) -> dict:
     protocol, digest = baseline_protocol.load_protocol(config)
+    profile = _run_profile(protocol, declared_repeat_index, series_id)
     return {
         "schema_version": SCHEMA_VERSION,
-        "operation": "baseline-idle-pilot-dry-run",
-        "label": PILOT_LABEL,
+        "operation": profile["operation"] + "-dry-run",
+        "label": profile["label"],
+        "measurement_kind": profile["kind"],
+        "series_id": profile["series_id"],
+        "repeat_index": profile["repeat_index"],
+        "repeat_count": profile["repeat_count"],
         "protocol_id": protocol["protocol_id"],
         "protocol_sha256": digest,
         "device_commands_executed": 0,
         "output_directories_created": 0,
-        "duration_seconds": protocol["pilot"]["idle_duration_seconds"],
-        "finish_tolerance_seconds": PILOT_FINISH_TOLERANCE_SECONDS,
+        "duration_seconds": profile["duration_seconds"],
+        "finish_tolerance_seconds": FINISH_TOLERANCE_SECONDS,
         "stages": ["start", "observe-disconnect", "status", "finish"],
         "device_state_changes": [
             "explicitly authorized dumpsys batterystats --reset",
@@ -969,10 +1025,12 @@ def _repo_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="FP6-022 idle pilot registrar")
+    parser = argparse.ArgumentParser(description="FP6-022 staged idle registrar")
     parser.add_argument("--config", default=str(_repo_root() / "config" / "baseline.json"))
     sub = parser.add_subparsers(dest="action", required=True)
-    sub.add_parser("dry-run")
+    dry_parser = sub.add_parser("dry-run")
+    dry_parser.add_argument("--declared-repeat-index", type=int, choices=(1, 2))
+    dry_parser.add_argument("--series-id")
     start_parser = sub.add_parser("start")
     start_parser.add_argument("--target", required=True)
     start_parser.add_argument("--device-role", required=True)
@@ -983,6 +1041,8 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--expected-build", required=True)
     start_parser.add_argument("--conditions", required=True)
     start_parser.add_argument("--ambient-start-c", required=True, type=float)
+    start_parser.add_argument("--declared-repeat-index", type=int, choices=(1, 2))
+    start_parser.add_argument("--series-id")
     start_parser.add_argument("--operator-confirmed-display-50", action="store_true")
     start_parser.add_argument("--operator-confirmed-unlocked", action="store_true")
     start_parser.add_argument(
@@ -1032,7 +1092,9 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action == "dry-run":
-            print(json.dumps(dry_run(args.config), indent=2, sort_keys=True))
+            print(json.dumps(dry_run(
+                args.config, args.declared_repeat_index, args.series_id),
+                indent=2, sort_keys=True))
             return 0
         if args.action == "start":
             code, path = start(args, _repo_root())
