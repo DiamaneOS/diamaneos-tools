@@ -50,3 +50,26 @@ A pinned manifest and endpoint contract feed a reproducible build. The build pro
 ## Source-layout decisions
 
 The manifest delta uses generated revision-only overrides for the selected fork commits and preserves imported project definitions. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.
+
+The FP6 port consumes two separate upstream trees: QSSI for the common system
+side and the Fairphone target tree for device, kernel, module and vendor-side
+integration. `config/fp6-sources.json` is the source/prebuilt/partition map;
+`config/fp6-capabilities.json` records what may be inherited, must be adapted,
+is unsupported or is still unverified. They deliberately do not flatten the
+published module repositories into one invented source project. The later
+kernel checkout may preserve those upstream boundaries while exposing one
+reproducible build entry point.
+
+Generated vendor content is accepted only from one version-aligned, approved
+stock input. A missing blob, HAL, module, device-tree or firmware input fails
+the build rather than falling back to a similar Pixel component or a different
+FP6 release. Sharing an ACK family never establishes that a Pixel patch is
+portable; the kernel owner must bind ancestry, KMI/UAPI and device tests for
+each retained change.
+
+The selected stock image declares device VINTF target level 8, vendor
+API/VNDK 34 and a 6.1 Android GKI runtime. This is the actual vendor-side
+compatibility boundary, not a reason to pin the framework indefinitely. Every
+newer GrapheneOS assembly must pass `assemble_vintf`/`checkvintf`, boot and the
+applicable VTS interface checks. Disabling VINTF enforcement or adding a broad
+shim is a port failure, not a recovery path.

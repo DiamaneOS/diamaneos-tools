@@ -1,5 +1,5 @@
 {
-  "note": "source research proposal 2026-09-10, partially pinned 2026-09-10 (F05): GOS manifest + Lineage ref carry observed immutable SHAs via weaker HTTPS-API method (signature check at sync); all other commits resolve at builder sync. No port-compatibility claim.",
+  "note": "Source research proposal begun 2026-09-10 and extended by the FP6 source inventory on 2026-09-13. GrapheneOS, LineageOS and Fairphone public branches carry observed immutable SHAs via HTTPS API/Gitiles; signature and full repo-manifest verification still run at builder sync. No port-compatibility or redistribution-clearance claim.",
   "schema_version": 1,
   "sources": [
     {
@@ -25,48 +25,48 @@
       "verification_method": "NOT YET RUN"
     },
     {
-      "applicability": "The received locked FP6 runs FP6.QREL.15.176.0 and explicitly offers the EU FP6.QREL.16.100.0 update. The final Android 15 FP6.QREL.15.178.0 and selected Android 16 FP6.QREL.16.100.0 factory packages are hash-verified recovery inputs; update, restore and relock behavior remain untested.",
+      "applicability": "The locked FP6 now runs the selected EU FP6.QREL.16.100.0 OTA as a green verified-boot user build. The final Android 15 FP6.QREL.15.178.0 and selected Android 16 FP6.QREL.16.100.0 factory packages are hash-verified recovery inputs; restore and custom-key relock behavior remain untested.",
       "authoritative_url": "Fairphone support factory images + release notes",
-      "current_revision": "Observed device FP6.QREL.15.176.0 (patch 2025-12-05), with FP6.QREL.16.100.0 offered but not installed. Verified recovery archives: FP6.QREL.15.178.0.20260204144956_VS22-factory.zip, 3523656068 bytes, SHA-256 85ea44178af4cd0385cce45a8204000665436a70207a9261465ef43846206692; FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip, 3755004133 bytes, SHA-256 5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d. The US 16.104.0 package is excluded because it is not offered by this device.",
-      "discovery_method": "Fairphone support API article 18896094650513, updated 2026-09-09 and retrieved 2026-09-11; official archive response metadata; two complete local SHA-256 reads; ZIP CRC/path/member checks and all 76 embedded declared hashes",
+      "current_revision": "Observed installed device FP6.QREL.16.100.0 (Android 16, SDK 36, patch 2026-08-05, locked/green user build). Verified recovery archives: FP6.QREL.15.178.0.20260204144956_VS22-factory.zip, 3523656068 bytes, SHA-256 85ea44178af4cd0385cce45a8204000665436a70207a9261465ef43846206692; FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip, 3755004133 bytes, SHA-256 5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d. The US 16.104.0 package remains excluded because it is not the selected regional input.",
+      "discovery_method": "Fairphone support API article 18896094650513, updated 2026-09-09 and retrieved 2026-09-11; official archive response metadata; two complete local SHA-256 reads; ZIP CRC/path/member checks and all 76 embedded declared hashes; bounded post-OTA device verification on 2026-09-12",
       "id": "fairphone-stock",
       "public_verifier_ref": "Fairphone manual-install article 18896094650513 and config/stock-inputs.json",
       "release_channel": "Fairphone monthly/quarterly (lags ASB by months)",
       "support_evidence_ref": "Fairphone 8-year support claim; per-release patch dates and regional package identities in the current support article",
-      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. The owner confirmed both independent cloud-copy SHA-256 values reproduce the manifest. Update, restore, rollback, slots, AVB and relock remain NOT_RUN."
+      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. The owner confirmed both independent cloud-copy SHA-256 values reproduce the manifest. The official Android 16 OTA installed and the bounded post-update health/lock check passed. An identifier-free read-only capture parsed all 117 installed VINTF XML files without error and observed target level 8, vendor API/VNDK 34 and the stock interface set. Restore, rollback, slot-failure behavior, custom AVB and relock remain NOT_RUN."
     },
     {
-      "applicability": "Source for kernel/module/DT inventory (device source inventory). Closed-UAPI coupling unknown until recon.",
+      "applicability": "Pinned source input for the FP6 kernel/module/device-tree and selected open HAL inventory. Source availability does not prove licence clearance, binary equivalence or compatibility with the selected GrapheneOS framework.",
       "authoritative_url": "https://code.fairphone.com/projects/fairphone-gen-6/build-instructions.html",
-      "current_revision": "Branches odm/public-build/16/fp6 (qssi.xml/target.xml); commits TBD at sync via repo manifest -r",
-      "discovery_method": "Fairphone build-instructions page (documents odm/public-build/16/fp6 qssi.xml/target.xml init commands); ODM overview page shows older branch locators, so 16-branch evidence rests on the build-instructions page until Gerrit is inspected at sync",
+      "current_revision": "Manifest branch odm/public-build/16/fp6 observed at 0c3980b8d385fa047d1fe4fc893bce9449a5a9c9 on 2026-09-13; target.xml SHA-256 61d8f4e4289ffc2354e6bd178b53680c62758e3a62858cf8997acf218d143d13 and qssi.xml SHA-256 71f136ff6082c026a9381a321a0b975bbe05e24ba773be6cbc5527801ae67eae. Exact relevant project commits are in config/fp6-sources.json.",
+      "discovery_method": "Fairphone build instructions plus direct official Gerrit REST/Gitiles inspection of qssi.xml, target.xml and each relevant effective project branch on 2026-09-13",
       "id": "fairphone-odm",
-      "public_verifier_ref": "Fairphone Gerrit manifest + repo sync",
+      "public_verifier_ref": "Fairphone Gerrit manifest, config/fp6-sources.json and repo manifest -r at builder sync",
       "release_channel": "ODM public branches",
-      "support_evidence_ref": "Same docs; QSSI + target trees required",
-      "verification_method": "NOT YET RUN — manifest -r at sync"
+      "support_evidence_ref": "Official build instructions require separate QSSI and target trees and identify the fps kernel/product build entry points",
+      "verification_method": "WEAKER SOURCE OBSERVATION: immutable Gerrit commit IDs and manifest bytes were observed over HTTPS. Full repo sync, signed provenance where available, per-file licence audit and build equivalence remain NOT_RUN."
     },
     {
       "applicability": "Support lifecycle is tracked separately from compatibility and recovery validation.",
       "authoritative_url": "Fairphone support release notes (per-build patch level)",
-      "current_revision": "Observed device patch 2025-12-05; verified final Android 15 recovery package patch 2026-02-05; verified selected EU Android 16 recovery package patch 2026-08-05. Exact factory archives remain the hash-verified recovery and generator inputs.",
+      "current_revision": "Observed installed selected EU Android 16 build patch 2026-08-05; verified final Android 15 recovery package patch 2026-02-05 and selected Android 16 recovery package patch 2026-08-05. Exact factory archives remain the hash-verified recovery and generator inputs.",
       "discovery_method": "Fairphone support API article 18896094650513 and device acceptance evidence, checked 2026-09-11",
       "id": "fairphone-firmware-support",
       "public_verifier_ref": "Build IDs + SHA256 at download",
       "release_channel": "Vendor firmware cadence",
       "support_evidence_ref": "Per-release notes; lag vs ASB recorded per release",
-      "verification_method": "Android 15 and selected EU Android 16 factory archive bytes and published hashes verified; update and restore behavior remain untested"
+      "verification_method": "Android 15 and selected EU Android 16 factory archive bytes and published hashes verified; official Android 16 OTA and post-update health/lock check passed; restore behavior remains untested"
     },
     {
       "applicability": "Launch kernel candidate. Module/UAPI compat per device source inventory / kernel and module integration; no major-branch move (stays 6.1).",
       "authoritative_url": "https://source.android.com/docs/core/architecture/kernel/android-common",
-      "current_revision": "Branch android14-6.1 (exact ACK commit TBD at sync; ~6.1.129 baseline observation only, not a freeze)",
-      "discovery_method": "Plan the documented product requirements + AOSP ACK lifecycle; commit resolves at sync",
+      "current_revision": "Fairphone target kernel/common observed at 221d6fa50ed25ad745e769d04163c25a4890281f and kernel/qcom at 80da648332ffb13f3415224058d286e47429eca7. The exact upstream android14-6.1 ACK ancestor is still unresolved; sharing a 6.1 family is not compatibility proof.",
+      "discovery_method": "Android ACK lifecycle documentation plus Fairphone target-manifest/Gerrit inspection; ancestry resolves from the synced Git graph",
       "id": "ack-6_1",
       "public_verifier_ref": "ACK tags + Linux-stable provenance at sync",
       "release_channel": "ACK maintained",
       "support_evidence_ref": "Published support end 2029-07-01 (recheck at launch/support reviews)",
-      "verification_method": "NOT YET RUN — tag + commit pin at sync"
+      "verification_method": "FAIRPHONE COMMITS OBSERVED; ACK ancestry/tag verification NOT YET RUN at builder sync"
     },
     {
       "applicability": "Reference only. Inherited deps reviewed in device source inventory; Pixel/GOS assumptions not portable by default.",
@@ -93,13 +93,13 @@
     {
       "id": "vendor-modules-support",
       "authoritative_url": "https://code.fairphone.com/projects/fairphone-gen-6/kernel.html",
-      "discovery_method": "Fairphone kernel-repositories page lists module/DT repos; per-module source availability is device source inventory recon",
-      "verification_method": "device source inventory maps each module (incl. WLAN/audio) to source or explicit prebuilt",
-      "public_verifier_ref": "Fairphone kernel page + Gerrit at sync",
-      "current_revision": "Per-module TBD (device source inventory)",
+      "discovery_method": "Fairphone kernel-repositories page cross-checked against target.xml; every required family and supplemental manifest family was resolved to an immutable Gerrit commit on 2026-09-13",
+      "verification_method": "config/fp6-sources.json maps each required family, including all four WLAN repositories and audio-kernel, to published source or an explicit prebuilt/missing boundary; build/load checks and consumed open-source licence checks remain owned",
+      "public_verifier_ref": "Fairphone kernel page, Gerrit manifest and config/fp6-sources.json",
+      "current_revision": "Exact kernel/module/device-tree commit set recorded in config/fp6-sources.json; manifest branch observation 0c3980b8d385fa047d1fe4fc893bce9449a5a9c9",
       "release_channel": "Fairphone ODM branches",
       "applicability": "Determines GKI-rebase flexibility; closed UAPI coupling kills branch moves",
-      "support_evidence_ref": "Module-page listing + device source inventory inventory (pending)"
+      "support_evidence_ref": "Official module page plus exact source inventory; FP6-041 still must prove KMI/UAPI compatibility and every output/load path"
     },
     {
       "id": "browser-lifecycle",

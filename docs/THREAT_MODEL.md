@@ -53,16 +53,43 @@ remaining limit | validation work | evidence state.
 | Powered-off (BFU) data | Opportunistic physical access, powered off | Flash readout | FBE + mandatory 6–8-word CSPRNG passphrase (owner + every independent user/profile), no weak-credential path | TEE Gatekeeper backoff only, no SE/Weaver; brute-force resistance rests on passphrase strength, not hardware | encryption and hardening validation / passphrase onboarding / credential-policy enforcement | Assumption |
 | Powered-on/locked (AFU) data | Physical access to AFU device, forensics | USB, lockscreen, sensors, EDL | Auto-reboot/inactivity reboot, USB software control, panic-to-BFU reboot, duress logical reset; EDL `adb reboot edl`/sys.powerctl refused | No hardware USB disable; EDL reachable via keys/test points with signed programmer; duress is flash key-destruction + reset, not SE erase; no forensic-proof claim | debug exposure auditing / credential-policy enforcement / panic reboot / scheduled reboot | Assumption |
 | Secondary-profile data | Other user/profile on same device | User switch, stopped/running profiles, unified vs separate challenge | Same credential policy on every independent challenge via real service boundary; CE/DE separation; session-end is not deletion | Unified-challenge profiles follow platform semantics, no invented independent key; stopped session still data-bearing until deletion | encryption and hardening validation / credential-policy enforcement  | Assumption |
-| Vendor/firmware trust | Firmware or baseband compromise | XBL/TZ/modem/ABL, closed HALs, provisioning | Ship Fairphone images only, record hashes/support gaps, narrow HAL manifest, no permissive domains; RKP/Widevine via bounded EU relay | Firmware unpatchable by project; lags ASB by months; TEE-only attestation, no StrongBox; L1/L3 decided by Phase-0 test | device source inventory / kernel and module integration / DRM and attestation validation / provisioning integration | Assumption |
+| Vendor/firmware trust | Firmware or baseband compromise | XBL/TZ/modem/ABL, closed HALs, provisioning | Ship one matching Fairphone image set only, record hashes/support gaps, narrow HAL manifest, no permissive domains; RKP/Widevine via bounded EU relay | Firmware unpatchable by project; lags ASB by months; stock exposes TEE KeyMint/Gatekeeper but no StrongBox or Weaver HAL; L1/L3 remain device-test questions | kernel and module integration / encryption and hardening validation / DRM and attestation validation / provisioning integration | Source and stock-interface inventory complete; candidate behavior unverified |
 | Install-time trust | Impersonating site/mirror, malicious installer | Browser download, WebUSB/CLI installer, first AVB enrollment | Out-of-band fingerprint in 3 independent places + bootloader-displayed comparison before lock; `get_unlock_ability=1` gate refuses on 0; verified downloads before flash | First install has no prior key; page-controlled checkbox is not evidence; compromised origin can substitute installer + key | recovery preflight / unlock and stock restoration testing / CLI installer integration / WebUSB installer integration / independent verification guidance | Assumption |
 | Everyday-use traps | User error, confusing warning, inaccessible flow | Setup, permissions, updates, backup/restore, recovery | Plain outcomes, progressive disclosure, scoped grants, explicit destructive confirmations; first-boot assistive path before setup needs it; critical wording gets fluent review or disclosed source-language fallback | Bootloader/firmware screens may stay inaccessible; English fallback alone is not usability proof | interface design / localization and accessibility / passphrase onboarding / accessible journey validation | Assumption |
 
-## Explicit hardware gaps — all unverified until device checks
+## FP6 source and firmware boundary
 
-No StrongBox/Weaver; TEE-only Gatekeeper/attestation; no MTE; firmware ASB lag;
-GKI 6.1 oldest permitted; custom-key relock reported feasible, must pass
-relock/update/rollback tests; A/B behavior, pKVM, hardware USB disable
-unverified (software-only expected); SoC-level radio isolation only.
+Fairphone publishes the Android 16 FP6 kernel, required external-module and
+device-tree repositories, including the WLAN and audio families. That source
+availability does not prove GrapheneOS/Pixel patches apply, that modules meet
+the selected KMI/UAPI, or that the resulting binaries reproduce stock. The
+camera, radio/IMS, secure-world, sensor, DRM and substantial graphics/media
+runtime still depends on proprietary userspace or firmware.
+
+The selected and installed EU stock input is `FP6.QREL.16.100.0`. The public
+Android 16 binary packages observed during inventory were `FP6.QREL.16.61.0`.
+They are not interchangeable inputs. Product assembly must fail closed until
+one complete source/blob/firmware set is version-aligned. Exact source revisions, interfaces and resolving
+experiments are in `config/fp6-sources.json` and
+`config/fp6-capabilities.json`.
+
+The selected locked stock build declares VINTF target level 8 with vendor
+API/VNDK 34. Its current system/vendor pair boots, but that does not establish
+compatibility with the selected newer GrapheneOS framework. Product assembly
+must still pass `checkvintf` and applicable VTS checks without weakened
+enforcement or broad compatibility shims.
+
+## Explicit hardware gaps and remaining device checks
+
+The stock arm64 CPU feature set does not expose MTE, and its memtag control
+properties are absent. Stock also advertises no StrongBox feature, declares
+only default KeyMint/RKP instances and has no Weaver HAL. These Pixel-class
+hardware features are therefore unsupported for the initial FP6 port; the
+candidate must not falsely expose or depend on them. TEE KeyMint/Gatekeeper and
+attestation behavior still require candidate testing. Firmware ASB lag
+remains; GKI 6.1 is the oldest permitted launch candidate. Custom-key relock,
+A/B failure recovery, pKVM and hardware USB data disable remain unverified;
+SoC-level radio isolation is the current boundary.
 
 ## Fresh-UI boundary
 
@@ -92,4 +119,8 @@ owner, measured rebase cost, and regression checks. No shell rewrite presumed.
 
 ## Next validation
 
-Complete licence review, source binding, interface validation and compatibility qualification. Validate credential enforcement, locked boot and attestation on the actual candidate before claiming those protections.
+Complete the consumed-file open-source licence review, bind the generated
+inputs to the selected stock build, verify the full source manifest at builder sync, and run interface/compatibility
+qualification. Validate credential enforcement, reported hardware security
+levels, locked boot and attestation on the actual candidate before claiming
+those protections.
