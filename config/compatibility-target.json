@@ -1,1 +1,39 @@
-{"capabilities_proposal": {"abi": "arm64 (verify on device)", "entries": ["telephony 2G/3G/4G/5G + eSIM + physical SIM", "Wi-Fi 802.11ax, Bluetooth 5.4", "cameras (multi-lens, modes TBD on device)", "GNSS BeiDou/Galileo/GLONASS/GPS", "fingerprint, NFC, microSD to 2TB, USB OTG"], "source": "LineageOS FP6 wiki specs; advertised set, not a pass claim"}, "check_date": "2026-09-11", "custom_os": {"android_version": "17 (GOS branch-17 proposal, source research)", "api_level": null, "api_note": "Do NOT assume 37; resolve from pinned manifest at sync"}, "firmware_vendor": {"build_proposal": "Observed device FP6.QREL.15.176.0; verified recovery archives FP6.QREL.15.178.0 and EU FP6.QREL.16.100.0; the phone explicitly offers 16.100.0 but remains on Android 15", "kernel": "android14-6.1 ACK (support end 2029-07-01, recheck at reviews)", "status": "device-observed-recovery-input-verified-pairing-unproven"}, "launch": {"api_level": 35, "api_source": "Observed on the received stock Android 15 device; custom build/API compatibility remains unproven", "shipped_android": 15}, "schema_version": 1, "status": "provisional", "status_rule": "Re-bind before compatibility harness integration harness setup; provisional base does not block early port work but release qualification cannot use it", "suites": {"applicability": "UNRESOLVED until harness binds installed packages", "cdd": "matching Android-17 CDD (version/URL TBD at compatibility harness integration)", "cts": "version-matched CTS (package/hash TBD at compatibility harness integration)", "cts_verifier": "matching Verifier + exports (TBD)", "vts": "applicable VTS/interface config (TBD from chosen suite, not inferred)"}}
+{
+  "capabilities_proposal": {
+    "abi": "arm64-v8a with 4096-byte pages on selected stock; verify the built candidate preserves the required ABI",
+    "entries": [
+      "telephony 2G/3G/4G/5G + eSIM + physical SIM",
+      "Wi-Fi 802.11ax, Bluetooth 5.4",
+      "cameras (multi-lens and modes require device validation)",
+      "GNSS BeiDou/Galileo/GLONASS/GPS",
+      "fingerprint, NFC, microSD, USB OTG"
+    ],
+    "source": "Advertised/reference capability set only; source/prebuilt boundaries and GrapheneOS port classifications are in config/fp6-sources.json and config/fp6-capabilities.json"
+  },
+  "check_date": "2026-09-13",
+  "custom_os": {
+    "android_version": "17 (GrapheneOS branch-17 proposal)",
+    "api_level": null,
+    "api_note": "Resolve from the fully synced, verified selected manifest; no API value is assumed by the inventory"
+  },
+  "firmware_vendor": {
+    "build_proposal": "Installed and verified locked/green stock FP6.QREL.16.100.0; matching factory archive SHA-256 5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+    "kernel": "Selected stock runs 6.1.138-android14-11-g098619d7de55-ab13585033. Fairphone target source pins are kernel/common@221d6fa50ed25ad745e769d04163c25a4890281f and kernel/qcom@80da648332ffb13f3415224058d286e47429eca7; exact upstream ACK ancestry and binary equivalence remain unresolved.",
+    "status": "device-observed-and-recovery-input-verified; stock VINTF target-level 8 with vendor API/VNDK 34 observed; selected GrapheneOS and version-aligned proprietary-input compatibility unproven"
+  },
+  "launch": {
+    "api_level": 35,
+    "api_source": "Observed on the received stock Android 15 device; custom build compatibility remains unproven",
+    "shipped_android": 15
+  },
+  "schema_version": 1,
+  "status": "provisional",
+  "status_rule": "Re-bind after full builder sync and product assembly. This provisional target permits early port work but cannot qualify a release.",
+  "suites": {
+    "applicability": "UNRESOLVED until the built product and installed packages bind the matching official suites",
+    "cdd": "matching Android-17 CDD (version and URL resolve at compatibility-harness integration)",
+    "cts": "version-matched CTS (package and hash resolve at compatibility-harness integration)",
+    "cts_verifier": "matching Verifier plus exports (resolve at compatibility-harness integration)",
+    "vts": "applicable VTS/interface configuration derived from actual product VINTF; never inferred from the reference tree alone"
+  }
+}

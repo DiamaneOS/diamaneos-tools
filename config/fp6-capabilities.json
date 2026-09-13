@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "status": "port-classification-with-device-validation-pending",
+  "observed_at": "2026-09-13",
+  "device": "Fairphone 6 (FP6)",
+  "classification_values": ["inherited-candidate", "adaptation-required", "unsupported", "unverified"],
+  "claim_boundary": "Inherited-candidate means generic source appears in the selected GrapheneOS framework, not that a DiamaneOS FP6 build has passed. Hardware and Pixel-specific behavior requires the named build/device experiment.",
+  "compatibility": {
+    "selected_framework": "GrapheneOS branch 17 at observed revision 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287",
+    "selected_vendor": "Fairphone Android 16 FP6.QREL.16.100.0",
+    "reference_device_target_level": 8,
+    "reference_device_manifest": "LineageOS android_device_fairphone_FP6@4512f510190c931c2ca6a11fac1ba10bae2275b5/vintf/manifest.xml",
+    "reference_framework_matrix": "LineageOS android_device_fairphone_FP6@4512f510190c931c2ca6a11fac1ba10bae2275b5/vintf/framework_compatibility_matrix.xml",
+    "reference_declared_interfaces": [
+      "android.hardware.audio@7.1::IDevicesFactory/default",
+      "android.hardware.audio.effect@7.0::IEffectsFactory/default",
+      "android.hardware.gatekeeper@1::IGatekeeper/default",
+      "android.hardware.bluetooth@1.1::IBluetoothHci/default",
+      "vendor.qti.hardware.bluetooth_audio@2.1",
+      "vendor.qti.hardware.btconfigstore@2.0",
+      "vendor.qti.hardware.wifi.wifilearner@1.0",
+      "vendor.qti.hardware.secureprocessor.device@1.0",
+      "Qualcomm IMS/UCE interfaces"
+    ],
+    "reference_optional_framework_interfaces": ["vendor.tcl.camera.algoservice@2::ITctCameraAlgoService/default"],
+    "stock_runtime_vintf": {
+      "capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
+      "identifier_recorded": false,
+      "xml_files_parsed": 117,
+      "parse_errors": 0,
+      "device_manifest_schema": "7.0",
+      "device_target_level": 8,
+      "vendor_ndk_version": 34,
+      "system_sdk_version": 34,
+      "device_sepolicy_version": "34.0",
+      "installed_framework_matrix_levels": ["5", "6", "7", "8", "202404", "202504"],
+      "kernel_release": "6.1.138-android14-11-g098619d7de55-ab13585033",
+      "page_size_bytes": 4096,
+      "selected_interfaces": [
+        "android.hardware.audio@7.1::IDevicesFactory/default",
+        "android.hardware.audio.effect@7.0::IEffectsFactory/default",
+        "android.hardware.bluetooth@1.1::IBluetoothHci/default",
+        "android.hardware.biometrics.fingerprint AIDL 3 IFingerprint/default",
+        "android.hardware.camera.provider AIDL 2 ICameraProvider/vendor_qti/0",
+        "android.hardware.gatekeeper AIDL IGatekeeper/default",
+        "android.hardware.gnss AIDL 3 IGnss/default",
+        "android.hardware.graphics.allocator AIDL 1 IAllocator/default",
+        "android.hardware.graphics.composer3 AIDL 2 IComposer/default",
+        "android.hardware.health AIDL 2 IHealth/default",
+        "android.hardware.nfc AIDL 1 INfc/default via nfc-service-sec.xml",
+        "android.hardware.power AIDL 4 IPower/default",
+        "android.hardware.radio AIDL 2 slot1/slot2 families",
+        "android.hardware.security.keymint AIDL 3 default device and remotely provisioned component",
+        "android.hardware.secure_element AIDL 1 ISecureElement/SIM1",
+        "android.hardware.sensors AIDL 2 ISensors/default",
+        "android.hardware.thermal AIDL 1 IThermal/default",
+        "android.hardware.usb and usb.gadget AIDL 1 default",
+        "android.hardware.vibrator AIDL 2 IVibrator/default",
+        "android.hardware.wifi, hostapd and supplicant AIDL default",
+        "vendor.qti.hardware.radio.ims AIDL 16 imsradio0/imsradio1",
+        "vendor.tcl.camera.algoservice AIDL 2 ITctCameraAlgoService/default"
+      ],
+      "absent_security_interfaces": [
+        "android.hardware.security.keymint IKeyMintDevice/strongbox",
+        "android.hardware.security.keymint IRemotelyProvisionedComponent/strongbox",
+        "android.hardware.weaver IWeaver/default"
+      ]
+    },
+    "result": "stock system/vendor contract observed; selected GrapheneOS framework compatibility unverified",
+    "rule": "Treble/VINTF is a compatibility contract, not proof that the newer GrapheneOS framework works with this vendor image. Never bypass enforcement to make the build boot."
+  },
+  "capabilities": [
+    {
+      "id": "application-sandbox-and-hardened-userspace",
+      "classification": "inherited-candidate",
+      "basis": "Generic GrapheneOS/AOSP framework capability; no FP6-specific hardware interface is intrinsically required.",
+      "next_experiment": "Build the selected framework and run early CTS plus exploit-mitigation/config audits.",
+      "owner": "FP6-040 and FP6-048"
+    },
+    {
+      "id": "network-and-sensors-permissions-and-storage-contact-scopes",
+      "classification": "inherited-candidate",
+      "basis": "Generic GrapheneOS framework/package features; product inclusion and profile behavior still need build validation.",
+      "next_experiment": "Verify package inclusion, permission enforcement and multi-user/profile cases on the candidate.",
+      "owner": "FP6-040 and FP6-048"
+    },
+    {
+      "id": "verified-boot-custom-root",
+      "classification": "adaptation-required",
+      "basis": "FP6 reference configuration defines AVB image keys and rollback locations, but GrapheneOS Pixel keys/layout are not portable and locked custom-key boot is untested.",
+      "next_experiment": "Generate dummy-key images, verify the complete AVB chain, then perform the separately authorized relock/rollback/recovery test.",
+      "owner": "FP6-035 and locked-boot validation"
+    },
+    {
+      "id": "virtual-a-b-ota",
+      "classification": "adaptation-required",
+      "basis": "The reference device lists 15 A/B OTA partitions and virtual A/B without compression. Pixel target-files and OTA assumptions are not portable.",
+      "next_experiment": "Build full and incremental target-files/OTAs, verify signatures and exercise slot, interruption and recovery behavior.",
+      "owner": "FP6-035, FP6-046 and OTA validation"
+    },
+    {
+      "id": "file-based-encryption-and-metadata-encryption",
+      "classification": "adaptation-required",
+      "basis": "The FP6 exposes metadata/userdata partitions, but the selected vendor KeyMint/Gatekeeper and user/profile credential paths are unverified.",
+      "next_experiment": "Bind fstab/vold/KeyMint/Gatekeeper inputs and run the full encryption and credential matrix.",
+      "owner": "encryption and hardening validation"
+    },
+    {
+      "id": "strongbox-and-hardware-weaver",
+      "classification": "unsupported",
+      "basis": "The selected locked stock build exposes hardware_keystore and app-attestation features but no strongbox_keystore feature; its device VINTF declares only the default KeyMint/RKP instances and no Weaver HAL. This agrees with the Fairphone product selecting non-SPU Gatekeeper.",
+      "next_experiment": "Keep StrongBox/Weaver-dependent product features disabled, verify TEE KeyMint/Gatekeeper and attestation behavior on the candidate, and reject any build that falsely advertises the absent interfaces.",
+      "owner": "FP6-035 and encryption/hardening validation"
+    },
+    {
+      "id": "memory-tagging-extension",
+      "classification": "unsupported",
+      "pixel_source_only": true,
+      "basis": "The selected locked stock build's arm64 CPU feature line does not expose mte and all inspected memtag boot-control properties are absent. MTE cannot be inherited from Pixel configuration.",
+      "next_experiment": "Keep MTE-dependent UI and product declarations disabled; verify the candidate does not falsely advertise or require MTE after kernel and product integration.",
+      "owner": "FP6-040 and FP6-048"
+    },
+    {
+      "id": "pixel-kernel-hardening-delta",
+      "classification": "adaptation-required",
+      "pixel_source_only": true,
+      "basis": "The FP6 and Pixel trees sharing an Android 6.1 kernel family does not prove Pixel patches apply to the Qualcomm/Fairphone source, configuration, KMI or firmware interfaces.",
+      "next_experiment": "Classify each desired patch by generic-kernel versus Pixel-device dependency, port narrowly, build and regression-test it; reject any patch lacking a maintained FP6 path.",
+      "owner": "FP6-041"
+    },
+    {
+      "id": "pixel-power-thermal-and-usb-hal-configuration",
+      "classification": "adaptation-required",
+      "pixel_source_only": true,
+      "basis": "FP6 has Qualcomm/Fairphone-specific power, thermal and USB implementations and sysfs/controller nodes.",
+      "next_experiment": "Use the pinned Qualcomm implementations and FP6 device configuration, then run suspend, thermal, charging and USB mode tests.",
+      "owner": "FP6-040 and hardware bring-up"
+    },
+    {
+      "id": "hardware-usb-data-disable",
+      "classification": "unverified",
+      "basis": "Published USB software support does not establish an FP6 hardware data-line cutoff.",
+      "next_experiment": "Trace controller support and test data removal independently from VBUS on the candidate; describe software-only behavior if no hardware primitive exists.",
+      "owner": "debug exposure auditing and hardware bring-up"
+    },
+    {
+      "id": "pkvm-hardware-virtualization",
+      "classification": "unverified",
+      "basis": "The reference build includes the Virtualization APEX and pvmfw partition, which is configuration intent rather than runtime evidence.",
+      "next_experiment": "Verify protected-VM capabilities, firmware compatibility and applicable virtualization tests on the candidate.",
+      "owner": "FP6-040 and FP6-048"
+    },
+    {
+      "id": "cellular-ims-dual-sim-esim",
+      "classification": "adaptation-required",
+      "basis": "Stock VINTF declares AIDL 2 radio families for slot1 and slot2 plus Qualcomm IMS AIDL 16 instances imsradio0 and imsradio1. Those services are proprietary and declarations do not prove provider behavior.",
+      "next_experiment": "Bind the matching vendor services and run the provider-varied physical-SIM/eSIM voice, SMS, data, VoLTE, VoWiFi and 5G matrix.",
+      "owner": "FP6-040, FP6-023 and FP6-089"
+    },
+    {
+      "id": "camera-stack",
+      "classification": "adaptation-required",
+      "basis": "Kernel source is published but camera userspace, algorithms, calibration and firmware are device/vendor-specific prebuilts.",
+      "next_experiment": "Bind matching blobs and the optional TCL algorithm interface only if required, then run the complete declared camera matrix.",
+      "owner": "FP6-040 and camera/peripheral bring-up"
+    },
+    {
+      "id": "wifi-bluetooth-nfc-audio",
+      "classification": "adaptation-required",
+      "basis": "Kernel and substantial HAL source is published. Stock VINTF confirms the Qualcomm Wi-Fi stack, Bluetooth HIDL 1.1, audio HIDL 7.1/effect 7.0 and Samsung-named NFC service; firmware, some userspace and exact candidate module ordering remain vendor-specific.",
+      "next_experiment": "Build every declared module, bind matching firmware/HALs and validate load, suspend/restart and functional matrices.",
+      "owner": "FP6-040, FP6-041 and hardware bring-up"
+    },
+    {
+      "id": "pixel-tensor-firmware-and-hardware-services",
+      "classification": "unsupported",
+      "pixel_source_only": true,
+      "basis": "Pixel/Tensor firmware, device HALs and trust hardware are not FP6 components.",
+      "next_experiment": "Exclude them from the FP6 product and fail dependency validation if a selected framework component requires one without an FP6 implementation.",
+      "owner": "FP6-040"
+    }
+  ],
+  "acceptance_rules": {
+    "pixel_only": "Any entry with pixel_source_only=true must be adaptation-required, unsupported or unverified; it can never be inherited-candidate without new device evidence.",
+    "hardware_claims": "No capability becomes supported from source inspection alone; only the named candidate/device evidence may promote it.",
+    "vintf": "Missing or incompatible required interfaces stop the affected port work; broad shims or disabled VINTF enforcement are not fallbacks."
+  }
+}
