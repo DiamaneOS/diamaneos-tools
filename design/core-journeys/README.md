@@ -1,5 +1,8 @@
 # Six journeys — Facet interface study
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Open `../prototypes/diamaneos-ui.html` and use its gallery. The standalone
 browser provides Preview theme (system/light/dark); optional host design controls
 select appearance, composition, palette, motion, text/layout stress and the

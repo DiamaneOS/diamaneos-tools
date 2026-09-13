@@ -1,5 +1,7 @@
 # Motion: immediate response, a clear destination
 
+> Historical baseline. See [Lumen motion](lumen-motion.md) for the selected direction.
+
 Motion is part of navigation. These selected timings bind the browser
 reference; they are not measurements from Android or Fairphone hardware.
 

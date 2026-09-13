@@ -1,5 +1,8 @@
 # 05 — Battery
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owners: power and thermal validation / charge-limit integration / battery health reporting. Pages: `battery`, `health`;
 sheets: care/export. All readings are synthetic.
 

@@ -1,5 +1,8 @@
 # 03 — App privacy
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owner: app privacy presets. Pages: `privacy`, `privacyPreview`;
 sheets: preset selection and individual controls.
 

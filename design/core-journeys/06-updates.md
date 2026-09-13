@@ -1,5 +1,8 @@
 # 06 — Updates
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owners: OTA installation testing / interrupted-update recovery testing / offline signed OTA and updater integration.
 Page: `updates`; sheets: details, connection and restart.
 

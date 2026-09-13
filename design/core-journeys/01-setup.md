@@ -1,5 +1,8 @@
 # 01 — Setup
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owners: passphrase onboarding / credential-policy enforcement / accessible journey validation. Pages: `setup`, `review`,
 `practice`, `setupDone`. All words are public examples.
 

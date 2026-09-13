@@ -41,3 +41,8 @@ out/
 .venv/
 __pycache__/
 *.py[cod]
+
+# Local visual-review captures and runtime state
+/.impeccable/review/
+/.impeccable/hook.cache.json
+/.impeccable/hook.pending.json
