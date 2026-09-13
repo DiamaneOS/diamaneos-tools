@@ -1,0 +1,1129 @@
+{
+  "schema_version": 1,
+  "status": "inventory-complete-with-explicit-integration-blockers",
+  "observed_at": "2026-09-13",
+  "scope": "Fairphone 6 (FP6), Fairphone Android 16 target source and the selected EU stock firmware",
+  "claim_boundary": "A published repository and an observed branch commit establish source availability only. They do not establish licence clearance, reproducibility, binary equivalence, ABI compatibility, load success or suitability of a Pixel-specific patch.",
+  "inputs": {
+    "fairphone_manifest": {
+      "repository": "https://gerrit-public.fairphone.software/admin/repos/manifest",
+      "branch": "odm/public-build/16/fp6",
+      "revision_observed": "0c3980b8d385fa047d1fe4fc893bce9449a5a9c9",
+      "target_manifest_sha256": "61d8f4e4289ffc2354e6bd178b53680c62758e3a62858cf8997acf218d143d13",
+      "qssi_manifest_sha256": "71f136ff6082c026a9381a321a0b975bbe05e24ba773be6cbc5527801ae67eae",
+      "verification": "HTTPS Gerrit REST/Gitiles observation; immutable project commits were resolved from each effective branch on 2026-09-13. Signature verification and repo manifest -r remain builder-sync checks."
+    },
+    "fairphone_device_configuration": {
+      "project": "vendor/fairphone/fps",
+      "path": "device/fairphone/fps",
+      "revision": "51648f54c2a7d31fc24833adcae3758cb251966f",
+      "archive_sha256": "cee1137843bd2bf545a736ca8b72c21963dfeb662c075f3478676cb3de4de362",
+      "build_entry_point": "RECOMPILE_KERNEL=1 bash kernel_platform/build/android/prepare_vendor.sh fps consolidate; then bash build.sh dist --target_only",
+      "important_paths": [
+        "device/fairphone/fps/BoardConfig.mk",
+        "device/fairphone/fps/fps.mk",
+        "device/fairphone/fps/kernel-platform.mk",
+        "kernel_platform/msm-kernel/build.config.msm.fps",
+        "kernel_platform/msm-kernel/fps.bzl",
+        "kernel_platform/msm-kernel/modules.list.msm.fps"
+      ],
+      "kernel_source_revisions": {
+        "kernel/build": "f19534bc201764082056c886279fb69aeb423641",
+        "kernel/common": "221d6fa50ed25ad745e769d04163c25a4890281f",
+        "kernel/qcom": "80da648332ffb13f3415224058d286e47429eca7"
+      }
+    },
+    "lineage_reference": {
+      "repository": "https://github.com/LineageOS/android_device_fairphone_FP6",
+      "branch": "lineage-23.2",
+      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
+      "archive_sha256": "483a2672da81ef2722568a6b7a50c111ef775c6a47c90b871827a1a9d02abcdb",
+      "role": "Reference-only source for module ordering, extraction categories, init/fstab and candidate VINTF declarations; it is not a DiamaneOS base and does not prove stock or GrapheneOS compatibility.",
+      "stock_blob_note": "Its proprietary-files.txt says unpinned blobs are from FP6.QREL.16.104.0, which is not the selected EU stock input."
+    },
+    "selected_stock": {
+      "build": "FP6.QREL.16.100.0",
+      "archive": "FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip",
+      "archive_size_bytes": 3755004133,
+      "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+      "installed_observation": "Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build",
+      "runtime_interface_capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
+      "raw_partition_hashes": "not collected while the stock device remains locked"
+    },
+    "published_binary_packages": {
+      "build": "FP6.QREL.16.61.0",
+      "qssi_sha256": "42b1c31e49fcc04297354da2df45d1b31767adff1a78ce9d308a10533dc20970",
+      "target_sha256": "53d1eaaa1e207549dff809bdcc7e75ecce0dbb2d6f7e65eeb92592312a6eda30",
+      "selected_stock_match": false,
+      "downloaded_or_terms_accepted_by_this_task": false
+    }
+  },
+  "device_sources": [
+    {
+      "id": "fairphone-common",
+      "project": "vendor/fairphone/common",
+      "path": "device/fairphone/common",
+      "revision": "daff23672648ef26966cbffde503cbb36d01525c",
+      "function": "Fairphone common board configuration and SELinux policy inputs",
+      "licence_profile": "published-source-review-required"
+    },
+    {
+      "id": "fairphone-fps",
+      "project": "vendor/fairphone/fps",
+      "path": "device/fairphone/fps",
+      "revision": "51648f54c2a7d31fc24833adcae3758cb251966f",
+      "function": "FP6 product, partition, AVB, kernel-prebuilt and device configuration",
+      "licence_profile": "published-source-review-required",
+      "opaque_content": "This published source repository also contains opaque userdata, audio-amplifier and haptic binary inputs; those files are not described as rebuilt from source."
+    },
+    {
+      "id": "qualcomm-volcano",
+      "project": "platform/vendor/qcom/volcano",
+      "path": "device/qcom/volcano",
+      "revision": "0ce43e6912dd237ea76cfd0324266bde8330d07a",
+      "function": "Qualcomm Volcano platform product and board base inherited by fps",
+      "licence_profile": "published-source-review-required"
+    },
+    {
+      "id": "qualcomm-wlan-device",
+      "project": "platform/vendor/qcom/wlan",
+      "path": "device/qcom/wlan",
+      "revision": "47b1b99d286f30cc58262412a5f12018d149eddd",
+      "function": "Qualcomm WLAN product integration included by the target manifest",
+      "licence_profile": "published-source-review-required"
+    }
+  ],
+  "licence_profiles": {
+    "kernel-copying-observed": {
+      "status": "licence-file-observed-not-full-audit",
+      "evidence": "The pinned kernel/qcom COPYING declares GPL-2.0 WITH Linux-syscall-note and explicitly says other licences may apply; individual files and imported subtrees still require a generated licence/notice audit.",
+      "distribution_decision": "unresolved"
+    },
+    "published-source-review-required": {
+      "status": "per-file-licence-audit-required",
+      "evidence": "The exact public source revision is recorded. Some roots contain NOTICE/LICENSE files and others do not; repository publication is not treated as redistribution clearance.",
+      "distribution_decision": "unresolved",
+      "owner": "FP6-006 and the component's integration task"
+    },
+    "lineage-reference": {
+      "status": "reference-only-mixed",
+      "evidence": "The reference device tree uses per-file SPDX declarations; any imported open-source code retains those exact obligations.",
+      "distribution_decision": "Audit the exact open-source files consumed from this reference."
+    }
+  },
+  "resolved_integration_paths": {
+    "official_fairphone_device_configuration": {
+      "revision": "51648f54c2a7d31fc24833adcae3758cb251966f",
+      "product_entry_points": [
+        "device/fairphone/fps/AndroidProducts.mk",
+        "device/fairphone/fps/fps.mk",
+        "device/fairphone/fps/BoardConfig.mk"
+      ],
+      "kernel_entry_points": [
+        "device/fairphone/fps/kernel-platform.mk",
+        "kernel_platform/msm-kernel/build.config.msm.fps",
+        "kernel_platform/msm-kernel/fps.bzl",
+        "kernel_platform/msm-kernel/modules.list.msm.fps"
+      ],
+      "fstab_candidates": [
+        "device/fairphone/fps/default/fstab.qcom",
+        "device/fairphone/fps/emmc/fstab.qcom",
+        "device/fairphone/fps/fstab_non_AB.qcom"
+      ],
+      "vintf_and_device_init_status": "not present in the inspected public device-configuration archive; bind the generated matching target package and compare it with the read-only stock runtime capture before product assembly"
+    },
+    "lineage_reference_only": {
+      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
+      "vintf": [
+        "vintf/manifest.xml",
+        "vintf/framework_manifest.xml",
+        "vintf/framework_compatibility_matrix.xml"
+      ],
+      "fstab_and_init": [
+        "rootdir/etc/fstab.default",
+        "rootdir/etc/recovery.fstab",
+        "rootdir/etc/init.qcom.rc",
+        "rootdir/etc/init.target.rc",
+        "rootdir/etc/init.recovery.qcom.rc",
+        "rootdir/bin/init.class_main.sh",
+        "rootdir/bin/init.qcom.early_boot.sh",
+        "rootdir/bin/init.qcom.post_boot.sh",
+        "rootdir/bin/init.qcom.sh"
+      ],
+      "module_lists": [
+        "modules/modules.list.first_stage",
+        "modules/modules.list.second_stage",
+        "modules/modules.list.system_dlkm",
+        "modules/modules.list.vendor_dlkm"
+      ],
+      "use_rule": "These paths are discovery references only. Import no file until it is compared with the matching Fairphone target input and every Lineage-specific dependency is removed or justified."
+    },
+    "selected_stock_runtime": {
+      "build": "FP6.QREL.16.100.0",
+      "capture": "identifier-free read-only property, package-feature and installed VINTF XML capture",
+      "capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
+      "parsed_xml_files": 117,
+      "parse_errors": 0,
+      "device_manifest": "/vendor/etc/vintf/manifest_volcano.xml; schema 7.0, target-level 8",
+      "device_compatibility_matrix": "/vendor/etc/vintf/compatibility_matrix.xml; schema 7.0, vendor NDK 34 and system SDK 34",
+      "framework_matrices_present": [
+        "5",
+        "6",
+        "7",
+        "8",
+        "202404",
+        "202504"
+      ],
+      "device_specific_framework_matrix": "/system/etc/vintf/compatibility_matrix.device.xml; schema 9.0",
+      "boundary": "The running stock system/vendor pair is compatible enough to boot. This does not establish compatibility with the selected newer GrapheneOS framework; checkvintf and VTS remain build/device gates."
+    }
+  },
+  "kernel_abi_contract": {
+    "kernel_family": "Linux 6.1 Android GKI / Fairphone Qualcomm fps target",
+    "selected_stock_runtime": "6.1.138-android14-11-g098619d7de55-ab13585033, arm64-v8a, 4096-byte pages, vendor API/VNDK 34 and VINTF target-level 8",
+    "observed_build_configuration": "build.config.msm.fps inherits the Fairphone msm common and GKI configs, builds vendor_dlkm, prepares system_dlkm, exports Module.symvers and trims unused modules.",
+    "interfaces": [
+      "GKI KMI and exported symbol versions",
+      "generated kernel UAPI headers consumed by vendor userspace",
+      "Qualcomm module-to-module symbols and ordering",
+      "device-tree bindings and firmware/DSP protocols"
+    ],
+    "unresolved": "The exact ACK ancestor and compatibility with the selected GrapheneOS branch are not established by both trees using a 6.1 family. FP6-041 must build, compare ABI/KMI and load every declared module."
+  },
+  "module_load_contract": {
+    "candidate_load_paths": [
+      "vendor_boot first-stage ramdisk /lib/modules",
+      "/system_dlkm/lib/modules",
+      "/vendor_dlkm/lib/modules"
+    ],
+    "reference_image_lists": {
+      "vendor_boot_first_stage": "modules/modules.list.first_stage",
+      "vendor_boot_second_stage": "modules/modules.list.second_stage",
+      "system_dlkm": "modules/modules.list.system_dlkm",
+      "vendor_dlkm": "modules/modules.list.vendor_dlkm"
+    },
+    "ordering_evidence": "Fairphone modules.list.msm.fps plus the reference tree's modules.list.first_stage, modules.list.second_stage, modules.list.system_dlkm and modules.list.vendor_dlkm.",
+    "acceptance_rule": "A family remains incomplete until FP6-041 binds its built .ko files to one declared image/load list and proves successful loading without unresolved symbols."
+  },
+  "module_families": [
+    {
+      "id": "kernel-qcom",
+      "function": "Qualcomm SoC core, clocks, power, storage, IPC, security and in-tree FP6 drivers",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "kernel/common",
+          "path": "kernel_platform/common",
+          "revision": "221d6fa50ed25ad745e769d04163c25a4890281f"
+        },
+        {
+          "project": "kernel/qcom",
+          "path": "kernel_platform/msm-kernel",
+          "revision": "80da648332ffb13f3415224058d286e47429eca7"
+        },
+        {
+          "project": "kernel/build",
+          "path": "kernel_platform/build/kernel",
+          "revision": "f19534bc201764082056c886279fb69aeb423641"
+        }
+      ],
+      "licence_profile": "kernel-copying-observed",
+      "abi_uapi": "GKI 6.1 KMI, Module.symvers, Qualcomm internal exported symbols and generated UAPI headers",
+      "load_path": "mixed first-stage, system_dlkm and vendor_dlkm; exact .ko binding deferred to FP6-041"
+    },
+    {
+      "id": "camera-kernel",
+      "function": "Camera request manager, sensor and imaging kernel interfaces",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/camera-kernel",
+          "path": "vendor/qcom/opensource/camera-kernel",
+          "revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "Qualcomm camera UAPI, Synx/MMRM and proprietary camera HAL coupling",
+      "load_path": "/vendor_dlkm/lib/modules candidate; bind exact list in FP6-041"
+    },
+    {
+      "id": "dataipa",
+      "function": "Qualcomm IP Accelerator and cellular/Wi-Fi data path",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/dataipa",
+          "path": "vendor/qcom/opensource/dataipa",
+          "revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "IPA kernel UAPI, rmnet clients and modem firmware protocol",
+      "load_path": "/vendor_dlkm/lib/modules candidate; dependency-ordered before rmnet"
+    },
+    {
+      "id": "datarmnet",
+      "function": "Qualcomm rmnet cellular data modules required by the radio data path",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/datarmnet",
+          "path": "vendor/qcom/opensource/datarmnet",
+          "revision": "1f9d44114ba7129c0c7e0a0b01462ef9c0acd963"
+        },
+        {
+          "project": "platform/vendor/qcom/opensource/datarmnet-ext",
+          "path": "vendor/qcom/opensource/datarmnet-ext",
+          "revision": "a00d9d886cc0e47a652578b607383ccf0e02d5bc"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "network stack hooks, IPA symbols and proprietary modem/radio clients",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "display-drivers",
+      "function": "Display controller and DRM/KMS integration",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/display-drivers",
+          "path": "vendor/qcom/opensource/display-drivers",
+          "revision": "a3519ad7b983c6ab59df302243392e34b344a23d"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "DRM/KMS, dma-buf, Synx and proprietary display composer userspace",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "eva-kernel",
+      "function": "Qualcomm computer-vision accelerator",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/eva-kernel",
+          "path": "vendor/qcom/opensource/eva-kernel",
+          "revision": "ae10fb1739f4c4c841cb05d01b19dc1dc07cc30b"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "EVA UAPI, Synx and proprietary CV userspace/firmware",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "mm-drivers",
+      "function": "Multimedia fences and external-display support",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/mm-drivers",
+          "path": "vendor/qcom/opensource/mm-drivers",
+          "revision": "a7b138e9ad13cfdca39fb86f599fa16c0ced2282"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "dma-fence, DRM and dependent multimedia modules",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "mm-sys-kernel",
+      "function": "UBWCP multimedia compression support",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/mm-sys-kernel",
+          "path": "vendor/qcom/opensource/mm-sys-kernel",
+          "revision": "a76f665f9e09fb220d23c71fefa370bb85c68836"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "dma-buf and proprietary multimedia clients",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "mmrm-driver",
+      "function": "Multimedia resource manager",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/mmrm-driver",
+          "path": "vendor/qcom/opensource/mmrm-driver",
+          "revision": "caebb7aea11c2bb9c04ef53c1e3c4c486df5b35e"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "resource-manager kernel API used by camera/video/display clients",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "synx-kernel",
+      "function": "Cross-subsystem synchronization",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/synx-kernel",
+          "path": "vendor/qcom/opensource/synx-kernel",
+          "revision": "86615db72c6f2852ab5650f7283a7a244754bb75"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "Synx UAPI and exported symbols consumed by camera/display/video",
+      "load_path": "/vendor_dlkm/lib/modules candidate; ordered before dependants"
+    },
+    {
+      "id": "touch-drivers",
+      "function": "FP6 touch controller",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/touch-drivers",
+          "path": "vendor/qcom/opensource/touch-drivers",
+          "revision": "37908c61a4589f25fca8a078873124e97faadb6d"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "Linux input subsystem, device-tree bindings and controller firmware",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "video-driver",
+      "function": "Video codec kernel driver",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/opensource/video-driver",
+          "path": "vendor/qcom/opensource/video-driver",
+          "revision": "9f32033e6d3c574a22af778e8841c62034020d93"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "V4L2/video UAPI, MMRM/Synx and proprietary codec userspace/firmware",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "bt-kernel",
+      "function": "Bluetooth transport and controller integration",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom-opensource/bt-kernel",
+          "path": "vendor/qcom/opensource/bt-kernel",
+          "revision": "00d8248a3643bf6939ff886a6ba6a59d05b43554"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "Bluetooth character/serial transport and Qualcomm controller firmware/userspace",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "graphics-kernel",
+      "function": "Adreno GPU kernel integration",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/graphics-kernel",
+          "path": "vendor/qcom/opensource/graphics-kernel",
+          "revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "KGSL/DRM UAPI and proprietary Adreno userspace/firmware",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "securemsm-kernel",
+      "function": "Trusted execution and secure-buffer interfaces",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/securemsm-kernel",
+          "path": "vendor/qcom/opensource/securemsm-kernel",
+          "revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "QSEE/SCM and proprietary TEE clients; security-critical coupling",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "spu-kernel",
+      "function": "Qualcomm secure-processing-unit interface",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/spu-kernel",
+          "path": "vendor/qcom/opensource/spu-kernel",
+          "revision": "8209e34e04c393339b8ca49f8f9b9feae3f0908d"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "SPU kernel API and proprietary secureprocessor userspace/firmware",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "dsp-kernel",
+      "function": "Audio/compute DSP RPC transport",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/dsp-kernel",
+          "path": "vendor/qcom/opensource/dsp-kernel",
+          "revision": "92510955132be5961ba4f51f42a49bc77ccbca8f"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "FastRPC/DSP UAPI and proprietary ADSP/CDSP firmware services",
+      "load_path": "/vendor_dlkm/lib/modules candidate"
+    },
+    {
+      "id": "nfc",
+      "function": "NFC/eSE controller transport",
+      "origin": "published-source-stock-selection-observed",
+      "sources": [
+        {
+          "project": "vendor/samsung/nfc",
+          "path": "vendor/samsung_slsi/nfc",
+          "revision": "94a2731a51ccb5c60cc5f715ee95daa5f71ad5fd"
+        },
+        {
+          "project": "platform/vendor/nxp/opensource/driver",
+          "path": "vendor/nxp/opensource/driver",
+          "revision": "cbd4b1fd28f4681ea74fe038d96f464da4a28e45"
+        },
+        {
+          "project": "platform/vendor/st/opensource/driver",
+          "path": "vendor/st/opensource/driver",
+          "revision": "9564cbb00af95b2c05b62977c7c787d92f2b6a67"
+        },
+        {
+          "project": "platform/vendor/st/opensource/eSE-driver",
+          "path": "vendor/st/opensource/eSE-driver",
+          "revision": "11285a0aef9d24749e8e0a6eae1f7f833a7bb56d"
+        }
+      ],
+      "selected_stock_source": {
+        "project": "vendor/samsung/nfc",
+        "path": "vendor/samsung_slsi/nfc",
+        "revision": "94a2731a51ccb5c60cc5f715ee95daa5f71ad5fd"
+      },
+      "selection_evidence": "The pinned reference module list places sec_nfc.ko in vendor_dlkm and the selected stock VINTF declares android.hardware.nfc AIDL 1 INfc/default from nfc-service-sec.xml.",
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "NFC/eSE ioctl and the selected vendor service",
+      "load_path": "/vendor_dlkm/lib/modules/sec_nfc.ko in the pinned reference image list; reproduce and verify on the built candidate",
+      "unresolved": "The stock service and reference module identify the Samsung path, but the matching generated vendor makefile, userspace binary hashes and custom-build load proof still bind in FP6-040/041."
+    },
+    {
+      "id": "wlan-qcacld-3.0",
+      "function": "QCA6750 Wi-Fi host driver, common layer and platform glue",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom-opensource/wlan/fw-api",
+          "path": "vendor/qcom/opensource/wlan/fw-api",
+          "revision": "11b7398a61abee5996626222558139f3817fa63c"
+        },
+        {
+          "project": "platform/vendor/qcom-opensource/wlan/platform",
+          "path": "vendor/qcom/opensource/wlan/platform",
+          "revision": "9c69b3184709b293f04acc66662076d1ea6d78bd"
+        },
+        {
+          "project": "platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn",
+          "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
+          "revision": "2109d77b6964f27434ec9ea5c284e6bae5c887a9"
+        },
+        {
+          "project": "platform/vendor/qcom-opensource/wlan/qcacld-3.0",
+          "path": "vendor/qcom/opensource/wlan/qcacld-3.0",
+          "revision": "fd08604385a181351af0302bb52b3eff22d92ea0"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "cfg80211/mac80211, Qualcomm host-common APIs, firmware API and proprietary WLAN firmware",
+      "load_path": "/vendor_dlkm/lib/modules (qca_cld3 variants) after platform/common dependencies",
+      "completeness_rule": "All four repositories and the firmware/config inputs are mandatory; omitting any required Wi-Fi source keeps the inventory incomplete."
+    },
+    {
+      "id": "audio-techpack",
+      "function": "ALSA/ASoC and Qualcomm AudioReach kernel integration",
+      "origin": "published-source",
+      "sources": [
+        {
+          "project": "platform/vendor/qcom/opensource/audio-kernel-ar",
+          "path": "vendor/qcom/opensource/audio-kernel",
+          "revision": "5bfffea5cc2dbb996e773cdc2b5daf1a30602ac1"
+        }
+      ],
+      "licence_profile": "published-source-review-required",
+      "abi_uapi": "ALSA/ASoC, GPR/AudioReach DSP protocols and the primary/PAL/AGM userspace stack",
+      "load_path": "/vendor_dlkm/lib/modules candidate",
+      "userspace_dependency": "audio HAL family below"
+    }
+  ],
+  "device_tree_families": [
+    {
+      "id": "qcom-base",
+      "project": "platform/kernel_platform/qcom/proprietary/devicetree",
+      "path": "kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "revision": "e54c8cb7d2d1d99026eff5d0d1c858db4739c478"
+    },
+    {
+      "id": "audio",
+      "project": "platform/vendor/qcom/proprietary/audio-devicetree",
+      "path": "vendor/qcom/proprietary/audio-devicetree",
+      "revision": "2d52d12f549c9048d3381e869a23ffce1932ffb8"
+    },
+    {
+      "id": "bt",
+      "project": "platform/vendor/qcom/proprietary/bt-devicetree",
+      "path": "vendor/qcom/proprietary/bt-devicetree",
+      "revision": "0058fc983ee62ae98f0a2001db481af124a0504f"
+    },
+    {
+      "id": "camera",
+      "project": "platform/vendor/qcom/proprietary/camera-devicetree",
+      "path": "vendor/qcom/proprietary/camera-devicetree",
+      "revision": "41489bebf06c9ffc211a2071c937d086e7568032"
+    },
+    {
+      "id": "data",
+      "project": "platform/vendor/qcom/proprietary/data-devicetree",
+      "path": "vendor/qcom/proprietary/data-devicetree",
+      "revision": "5bc4c7d1fad5e828e3e497d2e47eeba72a403820"
+    },
+    {
+      "id": "display",
+      "project": "platform/vendor/qcom/proprietary/display-devicetree",
+      "path": "vendor/qcom/proprietary/display-devicetree",
+      "revision": "56394aacd960d7e6d71ef88b9b073f7ea3754be6"
+    },
+    {
+      "id": "dsp",
+      "project": "platform/vendor/qcom/proprietary/dsp-devicetree",
+      "path": "vendor/qcom/proprietary/dsp-devicetree",
+      "revision": "1db24dbe32d6cf1a7a7b0d3b40ff8603b57d7d7f"
+    },
+    {
+      "id": "ese",
+      "project": "platform/vendor/qcom/proprietary/eSE-devicetree",
+      "path": "vendor/qcom/proprietary/eSE-devicetree",
+      "revision": "97a97695fa13047048b7ee31190375d7faecfe61"
+    },
+    {
+      "id": "eva",
+      "project": "platform/vendor/qcom/proprietary/eva-devicetree",
+      "path": "vendor/qcom/proprietary/eva-devicetree",
+      "revision": "caf290576c7464d2d2d1d7cf799908df6fc8c936"
+    },
+    {
+      "id": "graphics",
+      "project": "platform/vendor/qcom/proprietary/graphics-devicetree",
+      "path": "vendor/qcom/proprietary/graphics-devicetree",
+      "revision": "8e48ed292e5ecf81385eaed08da461c5e9b76b44"
+    },
+    {
+      "id": "mm",
+      "project": "platform/vendor/qcom/proprietary/mm-devicetree",
+      "path": "vendor/qcom/proprietary/mm-devicetree",
+      "revision": "50fd8de5ee2209dcca9e8da52ecd1da28d68f3be"
+    },
+    {
+      "id": "mmrm",
+      "project": "platform/vendor/qcom/proprietary/mmrm-devicetree",
+      "path": "vendor/qcom/proprietary/mmrm-devicetree",
+      "revision": "65a45468614a8f7f3fb779c30ba7369c89c5ae13"
+    },
+    {
+      "id": "mm-sys",
+      "project": "platform/vendor/qcom/proprietary/mm-sys-devicetree",
+      "path": "vendor/qcom/proprietary/mm-sys-devicetree",
+      "revision": "8e62c3a3a618568405746ceaf3936ba659e5baa6"
+    },
+    {
+      "id": "nfc",
+      "project": "platform/vendor/qcom/proprietary/nfc-devicetree",
+      "path": "vendor/qcom/proprietary/nfc-devicetree",
+      "revision": "1b3efd987aa8986aff24158aac1a36182ae35c63"
+    },
+    {
+      "id": "synx",
+      "project": "platform/vendor/qcom/proprietary/synx-devicetree",
+      "path": "vendor/qcom/proprietary/synx-devicetree",
+      "revision": "d92eb461b1e27edea9e35b0fce91cf8872d88ea0"
+    },
+    {
+      "id": "video",
+      "project": "platform/vendor/qcom/proprietary/video-devicetree",
+      "path": "vendor/qcom/proprietary/video-devicetree",
+      "revision": "3bc60301c49ef68f70784cb57ddae1df689ec851"
+    },
+    {
+      "id": "wlan",
+      "project": "platform/vendor/qcom/proprietary/wlan-devicetree",
+      "path": "vendor/qcom/proprietary/wlan-devicetree",
+      "revision": "3ac75d0b258162ca0f6f6df2dfddd79e7392adc0"
+    }
+  ],
+  "device_tree_contract": {
+    "origin": "published-source",
+    "licence_profile": "published-source-review-required",
+    "build_output": "DTB/DTBO selected by the fps kernel build and consumed by boot/dtbo images",
+    "abi_uapi": "Linux device-tree bindings plus the exact kernel/module and board configuration revisions",
+    "warning": "The word proprietary in a public Gerrit project path is not evidence that the tree is a prebuilt."
+  },
+  "userspace_hal_families": [
+    {
+      "id": "audio",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "vendor/qcom/opensource/audio-hal/primary-hal",
+          "revision": "4d39b3c97e163578e55c74b9e3c2d7262dc5c07c"
+        },
+        {
+          "path": "vendor/qcom/opensource/audio-hal/st-hal",
+          "revision": "ee7acc79d1a85658f97a3e862c628bab54b3c006"
+        },
+        {
+          "path": "vendor/qcom/opensource/audio/graphservices",
+          "revision": "4d05487f252482978aeba9fc9c4c377ac1adbdb1"
+        },
+        {
+          "path": "vendor/qcom/opensource/agm",
+          "revision": "f451a8d153c78aae63fdaeba5e8ee1881fda7fed"
+        },
+        {
+          "path": "vendor/qcom/opensource/pal",
+          "revision": "6d6f50dba430a80b7eaf2c59cc9d63ced5125e99"
+        }
+      ],
+      "reference_vintf": [
+        "android.hardware.audio@7.1",
+        "android.hardware.audio.effect@7.0"
+      ],
+      "abi_uapi": "HIDL audio/effect interfaces, ALSA controls and AudioReach DSP protocol",
+      "load_path": "source-built service/libraries plus generated vendor blobs; exact paths bind in FP6-040",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "partial only"
+    },
+    {
+      "id": "boot-control",
+      "origin": "published-source",
+      "source_revisions": [
+        {
+          "path": "hardware/qcom/bootctrl",
+          "revision": "7733efc0cce1149ce909e41cdf43164ab7bed8bf"
+        }
+      ],
+      "abi_uapi": "stable boot-control HAL and A/B slot metadata",
+      "load_path": "/vendor/bin/hw candidate; exact service manifest binds in FP6-040",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": true
+    },
+    {
+      "id": "bluetooth",
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "source_revisions": [],
+      "reference_vintf": [
+        "android.hardware.bluetooth@1.1",
+        "vendor.qti.hardware.bluetooth_audio@2.1",
+        "vendor.qti.hardware.btconfigstore@2.0",
+        "vendor.qti.hardware.bluetooth_sar@1.1"
+      ],
+      "abi_uapi": "Android/Qualcomm Bluetooth HALs, bt-kernel transport and controller firmware",
+      "load_path": "generated vendor tree plus bluetooth partition; bind exact services in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "camera",
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "source_revisions": [],
+      "reference_vintf": [
+        "vendor.tcl.camera.algoservice@2 optional framework requirement"
+      ],
+      "abi_uapi": "Camera provider/framework interfaces, Qualcomm camera UAPI and sensor/DSP firmware",
+      "load_path": "generated vendor tree; bind exact binaries/services in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "radio-ims",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "source_revisions": [],
+      "reference_vintf": [
+        "com.qualcomm.qti.uceservice@2.3",
+        "vendor.qti.ims.callinfo@1.0",
+        "com.qualcomm.qti.imscmservice@2.2",
+        "vendor.qti.ims.factory@1.1"
+      ],
+      "abi_uapi": "Android telephony interfaces, Qualcomm QCRIL/QMI/IMS interfaces and modem protocol",
+      "load_path": "generated vendor tree and modem partition; bind exact binaries/services in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "fingerprint",
+      "origin": "mixed-published-configuration-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "vendor/focaltech/fingerprint",
+          "revision": "b41f33613a22e362ff7b462e7817e770cf93e217"
+        }
+      ],
+      "abi_uapi": "fingerprint AIDL/HIDL contract, SPI/input kernel interfaces and trusted-app protocol",
+      "load_path": "generated vendor tree; exact service and trusted-app paths bind in FP6-040",
+      "rebuilt_from_source": "partial only",
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "gatekeeper-keymint-secureprocessor",
+      "origin": "proprietary-prebuilt-runtime-with-published-generic-integration-source",
+      "source_revisions": [
+        {
+          "path": "vendor/nxp/opensource/keymaster",
+          "revision": "486e8dbdb08ed10f8a500207f9e41082b178edd5"
+        }
+      ],
+      "reference_vintf": [
+        "android.hardware.gatekeeper@1 AIDL",
+        "vendor.qti.hardware.secureprocessor.device@1.0"
+      ],
+      "abi_uapi": "stable Gatekeeper/KeyMint interfaces, QSEE/SPU kernel APIs and trusted-app protocol",
+      "load_path": "generated vendor tree plus keymaster/tz/spu firmware partitions",
+      "rebuilt_from_source": false,
+      "unresolved": "Manifest link files for KeyMint/Weaver are generic availability, not proof that FP6 exposes hardware-backed Weaver or StrongBox. FP6-035 must measure the actual security levels and credential behavior.",
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "gnss",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "hardware/qcom/gps",
+          "revision": "ec46034bf80b932f8b1571e57bc71342b90474e1"
+        }
+      ],
+      "abi_uapi": "GNSS AIDL, location libraries, QMI/modem and assistance-data protocols",
+      "load_path": "source-built service/libraries plus generated vendor blobs",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "partial only"
+    },
+    {
+      "id": "graphics-display-media",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "hardware/qcom/media",
+          "revision": "1f5c610ec2c750017978e3ee67e39b7574a6af21"
+        }
+      ],
+      "abi_uapi": "graphics allocator/composer/mapper, media codec APIs and kernel DRM/KGSL/video UAPI",
+      "load_path": "source-built services plus generated vendor libraries/firmware",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "partial only"
+    },
+    {
+      "id": "nfc-secure-element",
+      "origin": "published-source-selection-unresolved-plus-possible-prebuilts",
+      "source_revisions": [
+        {
+          "path": "vendor/nxp/opensource/interfaces/nfc",
+          "revision": "e48755e2060da21c881259bf202bb2b94944998a"
+        }
+      ],
+      "abi_uapi": "NFC AIDL/HIDL, OMAPI secure-element interfaces and selected NFC/eSE driver",
+      "load_path": "reference product names android.hardware.nfc-service.sec; exact FP6 generated selection unresolved",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "unverified until selection is bound"
+    },
+    {
+      "id": "power-thermal-lights-vibrator-usb",
+      "origin": "published-source-with-device-specific-adaptation",
+      "source_revisions": [
+        {
+          "path": "vendor/qcom/opensource/power",
+          "revision": "2aa3974fc92a0d130e989a203b9a231398834071"
+        },
+        {
+          "path": "vendor/qcom/opensource/thermal-hal",
+          "revision": "3ccdfb5200c578ce349bcd985e1f95a241bc50d5"
+        },
+        {
+          "path": "vendor/qcom/opensource/lights",
+          "revision": "a5d6338d75992bc6ad748459638e558835848da3"
+        },
+        {
+          "path": "vendor/qcom/opensource/vibrator",
+          "revision": "ee288ad6ab45e39069aedb5122f7fa198050f533"
+        },
+        {
+          "path": "vendor/qcom/opensource/usb",
+          "revision": "7e65693c12f98c3aca9721287dc2c648ea83e65a"
+        }
+      ],
+      "abi_uapi": "stable Android HAL interfaces plus FP6 sysfs, thermal and USB-controller nodes",
+      "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": true
+    },
+    {
+      "id": "sensors",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "source_revisions": [],
+      "abi_uapi": "sensors multihal, sensor DSP interfaces and firmware",
+      "load_path": "generated vendor tree plus DSP firmware",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "vendor-auxiliary-services",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "source_revisions": [],
+      "reference_vintf": [
+        "vendor.qti.hardware.dsp@1.0",
+        "com.qualcomm.qti.dpm.api@1.0",
+        "vendor.qti.hardware.cacert@1.0",
+        "vendor.qti.hardware.factory@1.1",
+        "vendor.qti.hardware.fm@1.0",
+        "com.dsi.ant@1.0"
+      ],
+      "abi_uapi": "Vendor HIDL contracts plus DSP, modem and device-specific protocols",
+      "load_path": "generated vendor tree and matching firmware partitions; exact paths bind in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "wifi",
+      "origin": "published-host-source-plus-proprietary-firmware",
+      "source_revisions": [
+        {
+          "path": "hardware/qcom/wlan",
+          "revision": "4db04e2fe5f3166f7b688a3d66c90da8fd6f27d5"
+        },
+        {
+          "path": "device/qcom/wlan",
+          "revision": "47b1b99d286f30cc58262412a5f12018d149eddd"
+        }
+      ],
+      "abi_uapi": "Android Wi-Fi HAL/supplicant, nl80211/cfg80211 and QCA6750 firmware API",
+      "load_path": "system/vendor Wi-Fi services plus /vendor_dlkm modules and vendor firmware",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "host stack and kernel portions only"
+    },
+    {
+      "id": "widevine-drm",
+      "origin": "proprietary-prebuilt",
+      "source_revisions": [],
+      "abi_uapi": "Android DRM/Crypto HAL and trusted execution environment",
+      "load_path": "vendor Widevine APEX/libraries; exact paths bind in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    }
+  ],
+  "firmware_families": [
+    {
+      "id": "boot-and-trust-firmware",
+      "partitions": [
+        "xbl_a/b",
+        "xbl_config_a/b",
+        "abl_a/b",
+        "aop_a/b",
+        "aop_config_a/b",
+        "devcfg_a/b",
+        "hyp_a/b",
+        "keymaster_a/b",
+        "tz_a/b",
+        "uefi_a/b",
+        "uefisecapp_a/b",
+        "qupfw_a/b",
+        "spunvm"
+      ],
+      "origin": "proprietary-prebuilt",
+      "revision": "FP6.QREL.16.100.0",
+      "hash": "bound only by the verified outer factory archive SHA-256 until extraction in FP6-040",
+      "abi_uapi": "boot image headers, AVB chain, SCM/QSEE/SPU protocols and rollback metadata",
+      "load_path": "dedicated raw A/B partitions",
+      "function": "boot chain, hypervisor, trusted execution, key services and power firmware",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "radio-connectivity-dsp-firmware",
+      "partitions": [
+        "modem_a/b",
+        "bluetooth_a/b",
+        "dsp_a/b",
+        "cpucp_a/b",
+        "cpucp_dtb_a/b",
+        "shrm_a/b"
+      ],
+      "origin": "proprietary-prebuilt",
+      "revision": "FP6.QREL.16.100.0",
+      "hash": "bound only by the verified outer factory archive SHA-256 until extraction in FP6-040",
+      "abi_uapi": "modem/QMI/IMS, Bluetooth controller, DSP RPC and CPU-control protocols",
+      "load_path": "dedicated raw A/B partitions and firmware mount points",
+      "function": "cellular, Bluetooth, audio/compute DSP and supporting controllers",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "vendor-peripheral-firmware",
+      "partitions": [
+        "vendor",
+        "vendor_dlkm"
+      ],
+      "origin": "mixed-proprietary-prebuilt-and-opaque-files-in-published-device-tree",
+      "revision": "device/fairphone/fps@51648f54c2a7d31fc24833adcae3758cb251966f plus selected stock FP6.QREL.16.100.0",
+      "hash": "device-tree Git revision and outer stock archive SHA-256; per-file hashes bind in FP6-040",
+      "abi_uapi": "controller-specific audio amplifier, haptics, touch, WLAN and other peripheral protocols",
+      "load_path": "/vendor/firmware and /vendor/firmware_mnt/image",
+      "function": "runtime firmware/configuration for peripheral controllers",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    }
+  ],
+  "partition_contract": {
+    "observed_stock_partition_count": 109,
+    "dynamic_super_size_bytes": 9663676416,
+    "a_b_build_partitions": [
+      "boot",
+      "dtbo",
+      "init_boot",
+      "odm",
+      "product",
+      "pvmfw",
+      "recovery",
+      "system",
+      "system_dlkm",
+      "system_ext",
+      "vbmeta",
+      "vbmeta_system",
+      "vendor",
+      "vendor_boot",
+      "vendor_dlkm"
+    ],
+    "source_built_images": [
+      "boot",
+      "dtbo",
+      "init_boot",
+      "pvmfw",
+      "recovery",
+      "system",
+      "system_dlkm",
+      "system_ext",
+      "product",
+      "vbmeta",
+      "vbmeta_system",
+      "vendor_boot",
+      "vendor_dlkm"
+    ],
+    "generated_mixed_images": [
+      "odm",
+      "vendor"
+    ],
+    "vendor_firmware_images": [
+      "xbl",
+      "xbl_config",
+      "abl",
+      "aop",
+      "aop_config",
+      "bluetooth",
+      "cpucp",
+      "cpucp_dtb",
+      "devcfg",
+      "dsp",
+      "hyp",
+      "keymaster",
+      "modem",
+      "qupfw",
+      "shrm",
+      "tz",
+      "uefi",
+      "uefisecapp"
+    ],
+    "warning": "Image membership and raw hashes must be regenerated from the selected stock archive. This inventory does not authorize flashing or publication."
+  },
+  "blockers": [
+    {
+      "id": "FP6-SRC-001",
+      "rank": 1,
+      "area": "boot/vendor input alignment",
+      "status": "blocked",
+      "finding": "The public Android 16 QSSI/target binary packages are QREL.16.61.0, while the selected and installed EU stock input is QREL.16.100.0.",
+      "next_experiment": "Obtain an authorized, hash-verifiable binary input matching the selected build or select and justify a complete matching source/blob/firmware set; extraction must fail closed on any missing or mismatched component.",
+      "owner": "FP6-006 and FP6-040"
+    },
+    {
+      "id": "FP6-SRC-002",
+      "rank": 2,
+      "area": "framework/vendor compatibility",
+      "status": "blocked-until-build",
+      "finding": "The reference device VINTF target level is 8, but the selected GrapheneOS branch-17 framework has not been built or checked against the FP6 Android 16 vendor matrix.",
+      "next_experiment": "Assemble the minimal product, run assemble_vintf/checkvintf, boot it and run applicable VTS/VINTF checks without disabling enforcement or adding broad shims.",
+      "owner": "FP6-040 and FP6-048"
+    },
+    {
+      "id": "FP6-SRC-003",
+      "rank": 3,
+      "area": "encryption and hardware-backed credentials",
+      "status": "unverified",
+      "finding": "Published generic KeyMint/Weaver integration and an SPU module do not prove the FP6's actual KeyMint, Gatekeeper, Weaver or StrongBox security levels.",
+      "next_experiment": "Bind the actual services from the generated vendor tree, then test FBE metadata encryption, every user/profile credential path, reported security levels, attestation and rollback behavior on the device.",
+      "owner": "FP6-035 and encryption/hardening validation"
+    },
+    {
+      "id": "FP6-SRC-004",
+      "rank": 4,
+      "area": "kernel/module ABI",
+      "status": "unverified",
+      "finding": "Fairphone's kernel, module and device-tree sources are published, but the ACK ancestor, symbol/KMI match and closed-userspace UAPI coupling are not established.",
+      "next_experiment": "Sync exact pins, record ACK ancestry, build the fps GKI and every module, compare ABI/KMI, then verify load lists and hardware smoke tests on the candidate.",
+      "owner": "FP6-041"
+    },
+    {
+      "id": "FP6-SRC-005",
+      "rank": 5,
+      "area": "camera",
+      "status": "unverified",
+      "finding": "Camera kernel source is public, but the camera provider, algorithms, calibration and firmware remain prebuilt and the reference matrix carries a TCL-specific optional algorithm interface.",
+      "next_experiment": "Extract the matching generated vendor set, bind provider/algorithm services and run full lens/mode/video/flash/camera2 and restart tests without copying a Pixel camera stack.",
+      "owner": "FP6-040 and camera/peripheral bring-up"
+    },
+    {
+      "id": "FP6-SRC-006",
+      "rank": 6,
+      "area": "radio and IMS",
+      "status": "unverified",
+      "finding": "QCRIL, QMI and IMS runtime components are proprietary and carrier behavior cannot be inferred from manifest presence.",
+      "next_experiment": "Bind the matching radio/IMS services, validate VINTF, then run the declared dual-SIM/eSIM voice, SMS, data, VoLTE, VoWiFi and 5G matrix with provider variance.",
+      "owner": "FP6-040 and FP6-023"
+    },
+    {
+      "id": "FP6-SRC-007",
+      "rank": 7,
+      "area": "A/B OTA and verified boot",
+      "status": "unverified",
+      "finding": "The reference tree defines A/B partitions and custom AVB keys, but source configuration is not evidence that locked custom-key boot, rollback and full/delta OTA recovery work.",
+      "next_experiment": "Build with dummy keys, verify every image signature/rollback location, then perform authorized locked-device full, delta, interrupted-update and slot-recovery tests.",
+      "owner": "FP6-035, FP6-046 and OTA validation"
+    },
+    {
+      "id": "FP6-SRC-008",
+      "rank": 8,
+      "area": "NFC generated userspace and build binding",
+      "status": "selection-observed-input-blocked",
+      "finding": "The selected stock VINTF names nfc-service-sec and the pinned reference maps sec_nfc.ko to vendor_dlkm, selecting the Samsung kernel path from the manifest candidates. Matching generated userspace inputs remain unavailable for QREL.16.100.0.",
+      "next_experiment": "Trace the matching generated vendor makefile and binary hashes, retain the Samsung path, reject unused NXP/ST driver candidates, then prove module load plus NFC/UICC behavior on the candidate.",
+      "owner": "FP6-040 and FP6-041"
+    }
+  ],
+  "provenance_profiles": {
+    "exact-stock-non-source": {
+      "status": "exact-origin-and-hash-binding-required",
+      "evidence": "Generated inputs bind the declared stock build, region, source path, destination path and per-file hash.",
+      "validation": "FP6-040 rejects unexpected versions, hashes, missing files and unrelated substitutions."
+    }
+  }
+}
