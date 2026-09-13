@@ -125,6 +125,34 @@
       "revision": "tools@e2fd9c5 (observed; advances with repo)",
       "source_url": "https://codeberg.org/DiamaneOS/diamaneos-tools",
       "status": "needs-review"
+    },
+    {
+      "component": "Fairphone FP6 Android 16 device, kernel, module and device-tree sources",
+      "decision_owner": "designated project maintainer",
+      "distribution_form": "Pinned upstream source inputs; downstream integration is planned",
+      "evidence": "Official Fairphone qssi/target manifest branch observed at 0c3980b8d385fa047d1fe4fc893bce9449a5a9c9 on 2026-09-13; every required module and device-tree family has an immutable Gerrit revision in config/fp6-sources.json. An identifier-free locked-stock capture parsed 117 installed VINTF files without error and bound target level 8 plus the selected interface set.",
+      "id": "fairphone-fp6-source-set",
+      "licence": "Mixed and per-file; kernel/qcom COPYING declares GPL-2.0 WITH Linux-syscall-note and notes that other licences may apply. Some projects have NOTICE/LICENSE files and others do not. Full generated per-file licence/notice review is required before redistribution.",
+      "modifications": "None in this inventory; later FP6 product/kernel work must retain source boundaries and record downstream patches",
+      "notices_obligation": "Preserve every upstream per-file notice and licence; generate a consumed-file notice set at sync/build rather than applying one blanket licence to the manifest",
+      "owner_task": "FP6-006, FP6-040 and FP6-041",
+      "revision": "Manifest 0c3980b8d385fa047d1fe4fc893bce9449a5a9c9; exact relevant project pins in config/fp6-sources.json",
+      "source_url": "https://gerrit-public.fairphone.software/admin/repos/manifest",
+      "status": "needs-review"
+    },
+    {
+      "component": "LineageOS FP6 device reference",
+      "decision_owner": "designated project maintainer",
+      "distribution_form": "Read-only source reference",
+      "evidence": "lineage-23.2 revision 4512f510190c931c2ca6a11fac1ba10bae2275b5 inspected for module lists, VINTF, init/fstab and blob categories; its unpinned blob list names FP6.QREL.16.104.0",
+      "id": "lineage-fp6-reference",
+      "licence": "Per-file SPDX in the source tree; comply with the exact licences of any imported open-source code.",
+      "modifications": "None; reference decisions must be re-derived against Fairphone and GrapheneOS pins",
+      "notices_obligation": "Preserve licences and attribution for open-source code actually imported later; use the reference extraction list only as a candidate allowlist and re-derive it against the selected stock/framework inputs",
+      "owner_task": "FP6-024 and FP6-040",
+      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
+      "source_url": "https://github.com/LineageOS/android_device_fairphone_FP6",
+      "status": "needs-review"
     }
   ],
   "schema_version": 1
