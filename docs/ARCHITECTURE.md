@@ -60,12 +60,48 @@ published module repositories into one invented source project. The later
 kernel checkout may preserve those upstream boundaries while exposing one
 reproducible build entry point.
 
-Generated vendor content is accepted only from one version-aligned, approved
-stock input. A missing blob, HAL, module, device-tree or firmware input fails
-the build rather than falling back to a similar Pixel component or a different
-FP6 release. Sharing an ACK family never establishes that a Pixel patch is
-portable; the kernel owner must bind ancestry, KMI/UAPI and device tests for
-each retained change.
+Generated vendor content is derived from an exact, hash-pinned stock input.
+For the EU port, the primary extraction source is the verified
+`FP6.QREL.16.100.0` factory package; the phone running that build verifies
+runtime declarations and may supplement ordinary mounted files, but is not the
+sole extraction source. A stock production ADB session cannot provide every
+partition, and a device also contains calibration, identity and provisioning
+state that must never enter a generated vendor tree.
+
+The generator is manifest-driven and fail-closed. Each retained input records
+its source build, region, partition, path, expected hash, component role,
+source/prebuilt classification and consuming module or service. It writes a
+new temporary tree, verifies completeness and hashes, emits a provenance and
+integrity report, and only then replaces the prior valid generated tree.
+It rejects unexpected versions, missing files and substitutions from a Pixel
+or different FP6 release. Device-unique partitions and credentials, including
+persistent calibration/provisioning, modem NV/EFS, IMEI, DRM, attestation,
+keystore and userdata material, are excluded by policy.
+
+Minimization is performed against an explicit allowlist and demonstrated
+dependency closure, not by hand-editing generated output. Removing an active
+component also removes or adapts its init, VINTF, permissions, feature,
+SELinux and client declarations. Core radio/IMS, camera, GPU, secure-world,
+fingerprint, NFC, Wi-Fi/Bluetooth and DSP inputs remain until a maintained
+alternative passes the same compatibility, security, power and hardware
+tests. An open-source substitute is preferred only when its exact licence and
+those properties are established; replacing a hardware-backed service with a
+weaker software fallback is not accepted as attack-surface reduction.
+
+The intended regional architecture is one product when the evidence permits
+it. `FP6.QREL.16.100.0` is the EU baseline; `FP6.QREL.16.104.0` is a US
+comparison/validation input, not an EU restore input. Only byte-identical files
+may enter a common generated set without further adaptation. Any real regional
+delta must be isolated and selected using an observed trustworthy hardware or
+boot SKU property, never locale or mutable location. Boot-critical differences
+require separately bound variants. A US-region FP6 operated by the second
+maintainer is the required US device-validation path; its availability and
+state have not yet been evidenced. Until its stock comparison and candidate
+tests pass, the US target is unverified.
+
+Sharing an ACK family never establishes that a Pixel patch is portable; the
+kernel owner must bind ancestry, KMI/UAPI and device tests for each retained
+change.
 
 The selected stock image declares device VINTF target level 8, vendor
 API/VNDK 34 and a 6.1 Android GKI runtime. This is the actual vendor-side
