@@ -1,5 +1,8 @@
 # 02 — Home and discovery
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owners: everyday app flows / native UI integration. Pages: `home`, `search`, `apps`,
 `files`, `file`, `settings`; `atlas` illustrates an independent-app boundary.
 

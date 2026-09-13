@@ -1,5 +1,14 @@
 # Interface study changes
 
+
+## 2026-09-13 — Lumen selected and extended
+
+- Added the six-journey Lumen reference, preserving the original study and comparison.
+- Added full sample-phrase practice, exact/partial privacy outcomes, scoped notification recovery, battery/export states, and staged update/restart recovery.
+- Added fixed phone viewports, scalable layouts, keyboard-safe sheets, preserved context, and reduced motion.
+- Recorded the owner's selection, palette, motion and native implementation boundaries.
+- Corrected the earlier credential critique: passphrase-only primary credentials do not categorically prohibit supported fingerprint use.
+
 ## Unreleased
 
 - Make the existing browser file work offline with bundled, attributed Lucide

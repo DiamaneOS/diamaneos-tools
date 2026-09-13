@@ -1,11 +1,6 @@
-# DiamaneOS UX — Facet, Lumen
+# DiamaneOS UX — Facet, direction 01
 
-**Status: Lumen selected for browser design, 2026-09-13.** The owner chose Lumen
-from three interactive alternatives and requested its extension across all six
-journeys. [Open the current reference](../design/prototypes/facet-lumen.html).
-Native integration, device qualification, and intended-user acceptance remain
-separate work. The [previous UX record](../design/reviews/2026-09-13-pre-lumen-ux.md)
-and original mockup remain available for comparison.
+**Status: refined browser reference, 2026-09-11.** A fresh, enjoyable OS for normal Android users, with clean, fast motion and consistency across system surfaces and apps where supported. The six mockups and their visual baseline are refined; native integration, device qualification and intended-user acceptance remain separate gates.
 
 ## The vision
 
@@ -19,15 +14,14 @@ hundredth interaction.
 The working name **Facet** describes one visual language seen across different
 surfaces. It is a design-study name, not a product rename, logo or new feature.
 
-1. **Give important content presence.** Choose emphasis for the task:
-   a clock on Home, exact permission changes in privacy, and readable stages
-   in updates. Avoid repeating a dominant accent panel on every screen. Keep
+1. **Give important content presence.** Use one large focal element per
+   screen: the time, charge level, update identity or current task. Keep
    secondary settings compact and readable. Reflow at large text sizes rather
    than shrinking or truncating the action.
-2. **Make colour purposeful.** Lumen uses porcelain surfaces and
-   cobalt accents with paired dark roles. Accent identifies the main action or selected
-   state. It is not a security rating. Light and dark are equally intentional. Historical
-   palette alternatives remain in the original study.
+2. **Make colour purposeful.** The proposal uses graphite, warm neutral
+   surfaces and bright citrine. Accent identifies the main action or selected
+   state. It is not a security rating. Iris and Glacier are alternative paired
+   palettes, and light and dark are equally intentional.
 3. **Keep the next action close.** Put completion controls toward the bottom
    when content fits. A short contextual decision can use an opaque bottom
    sheet; a deeper task remains a normal page. Long content scrolls in the
@@ -41,11 +35,11 @@ surfaces. It is a design-study name, not a product rename, logo or new feature.
    hidden. No blanket “secure” score, false all-applied preset, invented health
    estimate, or successful update inferred from a download.
 
-Lumen retains ordinary app icons, visible search, grouped Settings, and a
-consistent tonal language. Still and Contour remain in the
-[comparison](../design/prototypes/facet-directions.html). Expressive/Quiet and
-Citrine/Iris/Glacier belong to the older study, not additional committed OS
-appearance settings.
+“Expressive” and “Quiet” are two compositions of the same system in the
+prototype. Expressive is the recommended first exploration: larger display
+type and more accent coverage. Quiet reduces those features. Neither changes
+the information, navigation or capabilities. These comparisons do not commit
+the OS to another appearance setting.
 
 ## What the Dank reference contributes
 
@@ -81,51 +75,53 @@ depends on app integration. [Runtime resource overlays](https://source.android.c
 change permitted resource values, not arbitrary application behaviour. Verify
 these mechanisms against the pinned upstream during implementation.
 
-The illustrative Atlas app retains its identity while the system-owned location
-request identifies the app/profile and offers equally weighted decisions.
-It is fictional, not a proposed bundled app or an app claimed to be modified.
-Files and Settings explore inherited surfaces without expanding mirror scope.
+The illustrative Atlas app deliberately retains a different typeface and
+warm brand surface while its location request uses DiamaneOS chrome. It is
+fictional, not a proposed bundled app or a real app we claim to have modified.
+Files and Settings explore inherited surfaces; they do not expand the scope
+of any byte-identical mirror.
 
 ## Small visual system
 
-The selected roles are in [lumen-palette.json](../design/prototypes/lumen-palette.json)
-and [DESIGN.md](../DESIGN.md). Native integration must map semantic roles to
-actual platform resources rather than treating CSS values as device policy.
+The selected browser baseline is in [tokens.json](../prototypes/tokens.json).
+Use semantic roles rather than per-screen decisions. Native integration maps
+the study's scoped variables to Android resources and app components.
 
-- **Type:** platform sans-serif; 11–14 px supporting text, 19–34 px task
-  hierarchy, and a 76 px Home clock at the comparison's desktop base. Enlarged
-  text reflows and reduces heading/clock bases before scaling. Native units,
-  font fallback and font scaling still need implementation and verification.
-- **Spacing:** 16–22 px content insets and task-specific density. Desktop phone
-  is at most 390 × 800 px; the narrow review uses 780 px height. Content scrolls
-  inside the phone rather than growing its frame.
-- **Shape:** 18 px primary groups/actions, 12 px search fields, 16 px phrase and
-  choice containers, 26 px decision-sheet tops. Shapes reinforce hierarchy;
-  labels and semantics still communicate state.
-- **Elevation:** opaque tonal groups and sheets; no blur is needed to read controls.
-- **Icons:** bundled Lucide for the browser only. Prefer native platform assets
-  before adding dependencies; preserve recognisable app identities.
-- **Motion:** 120 ms control state, 170 ms page movement, 230/220 ms shell
-  entry/exit; immediate decision sheets. Reduced motion removes displacement.
-  See [Lumen motion](../design/prototypes/lumen-motion.md). These are browser
-  intent, not native performance measurements.
+- **Type:** local platform sans, regular/medium; 12/14/16 supporting/body,
+  20/24/28/40 hierarchy, 88 for a focal number. Quiet uses an 80 sp clock;
+  large text uses 28/24 sp heading bases and a 64 sp focal-number base before
+  scaling. The clock stacks whole hours/minutes; app icons become a labelled
+  list. Use native scalable units and font fallback.
+- **Spacing:** 4/8/12/16/24/32 dp; 24 dp reference content inset, reduced on
+  narrow layouts to 16 dp. Toolbar side tracks are equal; grouped rows use
+  16 dp insets, 8 dp group separation and 24 dp section separation.
+- **Shape:** 16 dp controls, 24 dp grouped surfaces, 28 dp sheet tops, 18 dp
+  icon containers. Home's accent shape never changes a hit target or status.
+- **Elevation:** opaque groups and sheets with restrained separation. No
+  frosted surface is required to read a control.
+- **Icons:** familiar and labelled. Lucide is for this browser study only;
+  reuse local platform assets before adding native dependencies. Preserve
+  recognisable launcher app identity.
+- **Motion:** 90 ms press, 140 ms state, 200 ms page, 240 ms shell surface/sheet reference;
+  zero displacement under reduced motion. See the
+  [motion contract](../prototypes/motion.md).
 
 ## Six reviewable journeys
 
-The editable preview is [facet-lumen.html](../design/prototypes/facet-lumen.html).
+The editable preview is [diamaneos-ui.html](../prototypes/diamaneos-ui.html).
 It uses sample data and changes only in-memory state. The
-[prototype README](../design/prototypes/README.md) describes controls and limits.
+[prototype README](../prototypes/README.md) describes controls and limits.
 
 | Journey | Main improvement | Implementing owners |
 | --- | --- | --- |
-| [Setup](../design/lumen-journeys.md#setup) | Deliberate phrase review and practice in a short flow | passphrase onboarding / credential-policy enforcement / accessible journey validation |
-| [Home](../design/lumen-journeys.md#home-and-discovery) | Familiar Home, visible search, accessible All apps discovery | everyday app flows / native UI integration |
-| [App privacy](../design/lumen-journeys.md#app-privacy) | Preview capability changes and show actual partial results | app privacy presets |
-| [Notifications](../design/lumen-journeys.md#notifications) | Scoped action after an identified cause | notification compatibility; shell integration candidate |
-| [Battery](../design/lumen-journeys.md#battery-and-health) | Requested and confirmed limits remain distinct | power and thermal validation / charge-limit integration / battery health reporting |
-| [Updates](../design/lumen-journeys.md#updates) | Clear identity, stages, restart and recovery | OTA installation testing / interrupted-update recovery testing / offline signed OTA; updater integration |
+| [Setup](../core-journeys/01-setup.md) | Deliberate phrase review and practice in a short flow | passphrase onboarding / credential-policy enforcement / accessible journey validation |
+| [Home](../core-journeys/02-home-discovery.md) | Distinctive Home, middle pull-down search, accessible All apps discovery | everyday app flows / native UI integration |
+| [App privacy](../core-journeys/03-app-privacy.md) | Preview capability changes and show actual partial results | app privacy presets |
+| [Notifications](../core-journeys/04-notifications.md) | Scoped action after an identified cause | notification compatibility; shell integration candidate |
+| [Battery](../core-journeys/05-battery.md) | Requested and confirmed limits remain distinct | power and thermal validation / charge-limit integration / battery health reporting |
+| [Updates](../core-journeys/06-updates.md) | Clear identity, stages, restart and recovery | OTA installation testing / interrupted-update recovery testing / offline signed OTA; updater integration |
 
-The [journey reference](../design/lumen-journeys.md) describes successful and unsuccessful outcomes for each journey. Text and layout stress controls expose cases; native language and accessibility validation is still required.
+The [journey index](../core-journeys/README.md) describes successful and unsuccessful outcomes for each journey. Text and layout stress controls expose cases; native language and accessibility validation is still required.
 
 ## Accessibility, language and truthfulness
 
@@ -147,11 +143,8 @@ Arabic locale. Complete critical-copy review, TalkBack, switch navigation,
 bidirectional text and fixed-device viewport checks remain with localization and accessibility / accessible journey validation / native UI integration
 and each feature owner. No accessibility certification is implied.
 
-Passphrase-only normal credentials remain required across independently
-challenged users/profiles. The credential-policy contract preserves supported
-biometric and strong-auth semantics; fingerprint does not bypass required
-passphrase entry. This distinction corrects the initial review’s overly broad
-fingerprint conflict finding. The recorded compatibility conflict remains unresolved; this design
+Passphrase-only remains required across independently challenged users and
+profiles. The recorded compatibility conflict remains unresolved; this design
 introduces no weak-credential or test-only exception. The public sample words
 and short practice are fixtures, not a generator or production confirmation
 algorithm. No real secret should be entered.
@@ -161,7 +154,7 @@ algorithm. No real secret should be entered.
 Use the selected mockup baseline for implementation references. Bind its semantic
 roles to the actual upstream resources and validate native font/layout results
 before accepting visual integration. Prototype constants are not device policy.
-Compare Lumen and the inherited baseline on the same tasks:
+Compare Expressive, Quiet and the inherited baseline on the same tasks:
 finish setup, find a download, restrict an app, restore missing notifications,
 set a charge limit and recover from an update failure. Record completion,
 wrong turns, misunderstood labels, assistance and access failures. Do not
@@ -210,17 +203,10 @@ the drawer/shade along the same vertical axis. The shade has no page Back/bell
 header (UI-04). Gestures supplement reachable controls; native arbitration must
 preserve widget interaction, ordinary scrolling and platform navigation.
 
-The [prototype record](../design/prototypes/README.md) describes actual browser
-checks. [Journey annotations](../design/core-journeys/README.md) carry the
+The [prototype record](../prototypes/README.md) describes actual browser
+checks. [Journey annotations](../core-journeys/README.md) carry the
 reading/focus order, state and component handoff. Native UI integration checks
 fixed viewports and Android navigation on-device; accessibility and usability
 owners evaluate assistive tools and real tasks with intended users. Defects
 return to the responsible component maintainer. Native performance, haptics,
 TalkBack, Switch Access and actual hardware/service state remain unverified.
-
-## Lumen adoption record
-
-The browser direction was selected on 13 September 2026. This supersedes the
-older visual treatment for new design work while retaining its useful state
-and recovery contracts. The native acceptance requirements above remain.
-See [Lumen implementation and verification](../design/reviews/2026-09-13-lumen-journeys.md).

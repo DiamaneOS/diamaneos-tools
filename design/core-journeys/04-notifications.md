@@ -1,5 +1,8 @@
 # 04 — Notifications
 
+> Historical baseline annotations. The selected Lumen journey reference is
+> [documented here](../lumen-journeys.md) and [interactive here](../prototypes/facet-lumen.html).
+
 Refined browser reference; native implementation remains pending. Owner: notification compatibility; shell composition candidate native UI integration.
 Pages: `notifications`, `diagnosis`, `profile`.
 
