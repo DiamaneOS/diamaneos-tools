@@ -54,6 +54,19 @@ REQUIRED_WIFI_SOURCE_PATHS = {
     "vendor/qcom/opensource/wlan/qcacld-3.0",
 }
 
+REQUIRED_VENDOR_MANIFEST_FIELDS = {
+    "stock_build",
+    "region",
+    "partition",
+    "source_path",
+    "destination_path",
+    "sha256",
+    "component_role",
+    "source_or_prebuilt",
+    "consumer",
+    "provenance_profile",
+}
+
 PROPRIETARY_ORIGINS = {
     "proprietary-prebuilt",
     "proprietary-prebuilt-userspace-and-firmware",
@@ -119,7 +132,9 @@ def validate_sources(data):
             if entry.get("rebuilt_from_source") is not False:
                 errors.append(f"{entry.get('id')}: proprietary prebuilt called source-built")
             if entry.get("provenance_profile") != "exact-stock-non-source":
-                errors.append(f"{entry.get('id')}: proprietary prebuilt lacks its provenance profile")
+                errors.append(
+                    f"{entry.get('id')}: proprietary prebuilt lacks its provenance profile"
+                )
 
     for entry in data.get("firmware_families", []):
         if entry.get("origin") == "proprietary-prebuilt":
@@ -140,11 +155,52 @@ def validate_sources(data):
         if not SHA256_RE.fullmatch(str(manifest.get(field, ""))):
             errors.append(f"fairphone_manifest.{field}: invalid SHA-256")
     if inputs.get("published_binary_packages", {}).get("selected_stock_match") is not False:
-        errors.append("mismatched public binary package is not fail-closed")
+        errors.append("mismatched public binary package is not excluded")
     if not SHA256_RE.fullmatch(
         str(inputs.get("selected_stock", {}).get("runtime_interface_capture_sha256", ""))
     ):
         errors.append("selected stock runtime capture lacks a valid SHA-256")
+
+    vendor_strategy = data.get("proprietary_input_strategy", {})
+    if "FP6.QREL.16.100.0" not in vendor_strategy.get("primary_eu_source", ""):
+        errors.append("EU vendor generator is not bound to QREL.16.100.0")
+    missing_fields = REQUIRED_VENDOR_MANIFEST_FIELDS - set(
+        vendor_strategy.get("manifest_required_fields", [])
+    )
+    if missing_fields:
+        errors.append(
+            "vendor manifest lacks fields: " + ", ".join(sorted(missing_fields))
+        )
+    if not vendor_strategy.get("device_unique_exclusions"):
+        errors.append("vendor generator has no device-unique exclusion policy")
+    for field in (
+        "supplemental_source",
+        "generation_rule",
+        "minimization_rule",
+        "open_source_replacement_rule",
+    ):
+        if not vendor_strategy.get(field):
+            errors.append(f"vendor strategy lacks {field}")
+
+    regional = data.get("regional_support_strategy", {})
+    if regional.get("initial_supported_region") != "EU":
+        errors.append("EU is not bound as the initial supported target")
+    if regional.get("eu_stock_build") != "FP6.QREL.16.100.0":
+        errors.append("EU regional input is not QREL.16.100.0")
+    if regional.get("us_stock_build") != "FP6.QREL.16.104.0":
+        errors.append("US regional comparison input is not QREL.16.104.0")
+    if not SHA256_RE.fullmatch(str(regional.get("us_factory_expected_sha256", ""))):
+        errors.append("US regional input lacks an expected SHA-256")
+    if not regional.get("comparison_scope"):
+        errors.append("EU-US comparison scope is missing")
+    for field in (
+        "desired_shape",
+        "selection_rule",
+        "validation_resource",
+        "claim_boundary",
+    ):
+        if not regional.get(field):
+            errors.append(f"regional strategy lacks {field}")
 
     paths = data.get("resolved_integration_paths", {})
     official = paths.get("official_fairphone_device_configuration", {})
