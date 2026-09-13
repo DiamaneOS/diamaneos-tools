@@ -53,7 +53,7 @@ remaining limit | validation work | evidence state.
 | Powered-off (BFU) data | Opportunistic physical access, powered off | Flash readout | FBE + mandatory 6–8-word CSPRNG passphrase (owner + every independent user/profile), no weak-credential path | TEE Gatekeeper backoff only, no SE/Weaver; brute-force resistance rests on passphrase strength, not hardware | encryption and hardening validation / passphrase onboarding / credential-policy enforcement | Assumption |
 | Powered-on/locked (AFU) data | Physical access to AFU device, forensics | USB, lockscreen, sensors, EDL | Auto-reboot/inactivity reboot, USB software control, panic-to-BFU reboot, duress logical reset; EDL `adb reboot edl`/sys.powerctl refused | No hardware USB disable; EDL reachable via keys/test points with signed programmer; duress is flash key-destruction + reset, not SE erase; no forensic-proof claim | debug exposure auditing / credential-policy enforcement / panic reboot / scheduled reboot | Assumption |
 | Secondary-profile data | Other user/profile on same device | User switch, stopped/running profiles, unified vs separate challenge | Same credential policy on every independent challenge via real service boundary; CE/DE separation; session-end is not deletion | Unified-challenge profiles follow platform semantics, no invented independent key; stopped session still data-bearing until deletion | encryption and hardening validation / credential-policy enforcement  | Assumption |
-| Vendor/firmware trust | Firmware or baseband compromise | XBL/TZ/modem/ABL, closed HALs, provisioning | Ship one matching Fairphone image set only, record hashes/support gaps, narrow HAL manifest, no permissive domains; RKP/Widevine via bounded EU relay | Firmware unpatchable by project; lags ASB by months; stock exposes TEE KeyMint/Gatekeeper but no StrongBox or Weaver HAL; L1/L3 remain device-test questions | kernel and module integration / encryption and hardening validation / DRM and attestation validation / provisioning integration | Source and stock-interface inventory complete; candidate behavior unverified |
+| Vendor/firmware trust | Firmware or baseband compromise | XBL/TZ/modem/ABL, closed HALs, provisioning | Generate an allowlisted set from the exact declared regional stock input; share only proven-identical EU/US files; record hashes/support gaps, narrow HAL manifest and avoid permissive domains; RKP/Widevine via bounded EU relay | Firmware unpatchable by project; lags ASB by months; stock exposes TEE KeyMint/Gatekeeper but no StrongBox or Weaver HAL; L1/L3 and US-region behavior remain device-test questions | vendor-input generation and minimization / EU-US stock comparison / kernel and module integration / encryption and hardening validation / DRM and attestation validation / provisioning integration | Source and EU stock-interface inventory complete; candidate and US behavior unverified |
 | Install-time trust | Impersonating site/mirror, malicious installer | Browser download, WebUSB/CLI installer, first AVB enrollment | Out-of-band fingerprint in 3 independent places + bootloader-displayed comparison before lock; `get_unlock_ability=1` gate refuses on 0; verified downloads before flash | First install has no prior key; page-controlled checkbox is not evidence; compromised origin can substitute installer + key | recovery preflight / unlock and stock restoration testing / CLI installer integration / WebUSB installer integration / independent verification guidance | Assumption |
 | Everyday-use traps | User error, confusing warning, inaccessible flow | Setup, permissions, updates, backup/restore, recovery | Plain outcomes, progressive disclosure, scoped grants, explicit destructive confirmations; first-boot assistive path before setup needs it; critical wording gets fluent review or disclosed source-language fallback | Bootloader/firmware screens may stay inaccessible; English fallback alone is not usability proof | interface design / localization and accessibility / passphrase onboarding / accessible journey validation | Assumption |
 
@@ -66,12 +66,38 @@ the selected KMI/UAPI, or that the resulting binaries reproduce stock. The
 camera, radio/IMS, secure-world, sensor, DRM and substantial graphics/media
 runtime still depends on proprietary userspace or firmware.
 
-The selected and installed EU stock input is `FP6.QREL.16.100.0`. The public
-Android 16 binary packages observed during inventory were `FP6.QREL.16.61.0`.
-They are not interchangeable inputs. Product assembly must fail closed until
-one complete source/blob/firmware set is version-aligned. Exact source revisions, interfaces and resolving
-experiments are in `config/fp6-sources.json` and
-`config/fp6-capabilities.json`.
+The selected and installed EU stock input is `FP6.QREL.16.100.0`, and its
+verified factory package is the authoritative EU extraction input. The public
+Android 16 binary packages observed during inventory were
+`FP6.QREL.16.61.0`; they are historical reference material and must not be
+silently mixed into the selected build. The version difference is therefore a
+generator requirement, not evidence that the newer stock vendor interfaces
+are incompatible with the proposed framework.
+
+Vendor generation uses an explicit per-file allowlist with source-build,
+partition, path, hash, role and consumer bindings. The verified factory package
+is the complete deterministic source; any future OTA source requires its own
+exact verification. The matching stock phone is a runtime
+verifier and optional source only for ordinary readable mounted files. The
+generator excludes per-device identity, modem NV/EFS, calibration,
+provisioning, DRM, attestation, keystore and userdata material. Candidate
+removals must eliminate the complete reachable service/declaration path and
+pass subsystem tests. Candidate open-source replacements require exact
+licence compliance and must preserve security and capability; a software
+fallback is not automatically safer than proprietary hardware-backed code.
+
+Open-source code imported or modified by the project remains fail-closed on
+per-file licence, notice, attribution and corresponding-source obligations.
+Exact source revisions, interfaces and resolving experiments are in
+`config/fp6-sources.json` and `config/fp6-capabilities.json`.
+
+The intended US path requires a real US-region FP6 operated by the second
+maintainer; its availability and state have not yet been evidenced.
+`FP6.QREL.16.104.0` is a comparison and validation input, not an EU restore
+input. A shared release is allowed only after the EU/US partition, AVB,
+firmware, VINTF, init/policy and carrier-configuration delta is recorded and
+the actual US device passes candidate hardware and telephony tests. Until then,
+EU is the supported target and US remains unverified.
 
 The selected locked stock build declares VINTF target level 8 with vendor
 API/VNDK 34. Its current system/vendor pair boots, but that does not establish
@@ -119,8 +145,9 @@ owner, measured rebase cost, and regression checks. No shell rewrite presumed.
 
 ## Next validation
 
-Complete the consumed-file open-source licence review, bind the generated
-inputs to the selected stock build, verify the full source manifest at builder sync, and run interface/compatibility
-qualification. Validate credential enforcement, reported hardware security
-levels, locked boot and attestation on the actual candidate before claiming
-those protections.
+Implement the exact-stock manifest-driven generator and open-source
+licence/notice audit, compare the EU and US regional inputs, verify the full
+source manifest at builder sync, and run interface/compatibility qualification.
+Validate credential enforcement, reported hardware security levels, locked
+boot and attestation on the actual EU candidate and run the regional matrix on
+the actual US candidate before claiming those protections or US support.

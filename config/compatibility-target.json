@@ -19,7 +19,7 @@
   "firmware_vendor": {
     "build_proposal": "Installed and verified locked/green stock FP6.QREL.16.100.0; matching factory archive SHA-256 5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
     "kernel": "Selected stock runs 6.1.138-android14-11-g098619d7de55-ab13585033. Fairphone target source pins are kernel/common@221d6fa50ed25ad745e769d04163c25a4890281f and kernel/qcom@80da648332ffb13f3415224058d286e47429eca7; exact upstream ACK ancestry and binary equivalence remain unresolved.",
-    "status": "device-observed-and-recovery-input-verified; stock VINTF target-level 8 with vendor API/VNDK 34 observed; selected GrapheneOS and version-aligned proprietary-input compatibility unproven"
+    "status": "EU device observed and QREL.16.100.0 recovery/generator input verified; stock VINTF target-level 8 with vendor API/VNDK 34 observed; selected GrapheneOS assembly compatibility and US QREL.16.104.0 regional compatibility remain unproven"
   },
   "launch": {
     "api_level": 35,

@@ -46,13 +46,36 @@ recovery procedure. Verify the complete archive against the independently read
 official hash and verify its embedded declared files before execution. The
 regional Android 16 package must match the build explicitly offered by the
 phone; do not infer EU/US selection from a maintainer's location. For this
-device the observed offer is FP6.QREL.16.100.0, so the US 16.104.0 package is
-excluded.
+EU device the observed offer is `FP6.QREL.16.100.0`, so the US
+`FP6.QREL.16.104.0` package is excluded as a restore or flash input for this
+device. It remains a planned comparison input for the separately controlled US
+FP6; “excluded here” does not mean excluded from regional qualification.
 
 Raw partition bodies, per-partition device hashes and rollback-index values
 were not available under the accepted locked, non-root capture. They remain
 unknown. Package contents are separately derived inputs and must not be
 misreported as device dumps.
+
+## Regional FP6 qualification
+
+EU is the initial supported hardware target. The second maintainer's planned
+US-region FP6 will supply the independent US stock and candidate evidence once
+available; no EU result, version-label similarity or reference-ROM support
+substitutes for that device run.
+
+Before one image is claimed for both regions, compare the exact EU and US stock
+inputs for partition/super layout, AVB chain and rollback locations, boot and
+vendor images, firmware, VINTF, init/SELinux policy, feature/permission files,
+SKU properties, modem profiles and carrier/regulatory configuration. Record
+byte-identical common inputs separately from the regional delta. If a delta is
+selected at runtime, bind it to an observed trustworthy hardware/boot SKU
+property rather than locale, language, timezone or location. A boot-critical
+delta requires separately bound variants.
+
+The US candidate must then pass the applicable hardware matrix on the US phone
+and the declared T-Mobile-oriented voice, SMS, data, 5G, VoLTE and VoWiFi
+tests. Until both stock comparison and candidate runs are accepted, report US
+as `UNVERIFIED`, not supported or assumed compatible.
 
 ## Baseline collector
 

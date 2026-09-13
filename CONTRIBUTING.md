@@ -18,6 +18,18 @@ Task IDs may accompany descriptive commit messages and remain in existing machin
 
 Review the entire staged diff, filenames and commit message for public suitability. Removing text from the current checkout does not remove it from Git history. History rewriting requires explicit authorization, a private recovery copy, reference migration and verification; never publish backup refs or old objects as part of cleanup. Preserve third-party source attribution and genuine unresolved safety requirements.
 
+## Upstream licences
+
+Every open-source component that is forked, copied, modified, linked, packaged
+or redistributed must retain its applicable licence and copyright notices.
+Pin the exact upstream revision, inspect per-file SPDX/licence declarations and
+record downstream patches. Generate the notice and corresponding-source
+inventory from the files actually consumed by the build; a public repository,
+another ROM's use or a top-level licence file is not sufficient evidence. Do
+not merge or release affected code while its licence is unknown, incompatible
+with the intended use, or has an unmet attribution, notice,
+corresponding-source, relinking or Installation Information obligation.
+
 ## Project identity and upstream attribution
 
 Use DiamaneOS as the product identity. General repository descriptions explain
@@ -61,8 +73,11 @@ preserving the parent acceptance criteria. Source/format-only changes use review
 
 ## Roles and access
 
-- Release signing authority: designated release maintainer. Second maintainer: independent
-  builder/reviewer (device + own build server), no signing authority.
+- Release signing authority: designated release maintainer. Second maintainer:
+  independent builder/reviewer in the US (own build server and a planned
+  US-region FP6), no signing authority. A US support claim requires evidence
+  from the actual regional device once available; an EU-device result or
+  matching version label is not a substitute.
 - Routine administration uses individually assigned credentials
   and MFA; production signing tokens never attach to a development workstation
   after the ceremony and never serve as routine MFA.
