@@ -130,8 +130,11 @@
     },
     {
       "component": "microSD",
-      "status": "NOT_RUN",
-      "reason": "No spare test card available."
+      "status": "PASS",
+      "observed_on": "2026-09-13",
+      "stock_build": "FP6.QREL.16.100.0",
+      "observation": "A 4194304-byte synthetic file was written to a stock-formatted exFAT portable microSD volume reporting 127.993 GB, read back with identical SHA-256, deleted by its exact unique name and verified absent.",
+      "evidence_method": "Owner-confirmed stock portable format and mapped USB ADB commands"
     },
     {
       "component": "call-sms",
@@ -142,6 +145,7 @@
   ],
   "limits": [
     "Basic stock observations on the stated handset model and build.",
+    "The microSD row is a separately dated stock Android 16 follow-up; the report-level software and boot state describe the original Android 15 arrival inspection.",
     "Wi-Fi internet, Bluetooth headset audio, NFC tag interaction, call and SMS were operator-observed; individual radio bands, codecs, ranges and carrier scenarios were not fully qualified.",
     "USB transfer used ADB; MTP and other USB modes were not separately qualified.",
     "Measured camera/performance/battery baselines and custom-OS qualification are separate work.",

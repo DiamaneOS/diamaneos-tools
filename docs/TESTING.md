@@ -6,13 +6,19 @@ The [stock hardware report](../reports-public/stock-capabilities.json) records
 observed component results for one Fairphone 6 on the stated stock build.
 It combines operator-observed stock diagnostics and ordinary app use with
 selected ADB identity, charging and disposable-file transfer checks. Each
-component has its own result; removable storage remains untested because no
-spare test card was available.
+component has its own result. A separately dated Android 16 stock follow-up
+formatted a disposable 128 GB microSD as portable storage and completed a
+4 MiB create/read/hash/delete round trip. The report-level software and boot
+state still describe the original Android 15 arrival inspection; the microSD
+row identifies its later build explicitly.
 
-The stock build remained unchanged and the bootloader remained locked.
-Performance/battery measurements, custom-OS qualification, restoration and
-unlock/relock acceptance require their own evidence. This report also does
-not establish acceptance of the baseline collector CLI described below.
+During the original arrival inspection, the stock build remained unchanged
+and the bootloader remained locked. The removable-storage follow-up occurred
+after the separately verified official Android 16 OTA; it does not imply that
+the arrival build remained installed. Performance/battery measurements,
+custom-OS qualification, restoration and unlock/relock acceptance require
+their own evidence. This report also does not establish acceptance of the
+baseline collector CLI described below.
 
 ## Stock recovery inputs
 
