@@ -146,8 +146,8 @@
     "security_patch": "2026-08-05",
     "size_bytes": 3755049964,
     "sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
-    "archive_status": "EXCLUDED_NOT_DOWNLOADED",
-    "reason": "The phone offers FP6.QREL.16.100.0, not this US build."
+    "archive_status": "EXCLUDED_FROM_EU_RESTORE_NOT_DOWNLOADED",
+    "reason": "The EU phone offers FP6.QREL.16.100.0, so this US build must not be used to restore or flash it. Retain QREL.16.104.0 as the planned US stock comparison and US-device validation input."
   },
   "device_metadata": {
     "captured": [

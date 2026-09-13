@@ -1,9 +1,10 @@
 {
   "schema_version": 1,
-  "status": "inventory-complete-with-explicit-integration-blockers",
+  "status": "inventory-complete-with-explicit-integration-gates",
   "observed_at": "2026-09-13",
+  "decision_updated_at": "2026-09-14",
   "scope": "Fairphone 6 (FP6), Fairphone Android 16 target source and the selected EU stock firmware",
-  "claim_boundary": "A published repository and an observed branch commit establish source availability only. They do not establish licence clearance, reproducibility, binary equivalence, ABI compatibility, load success or suitability of a Pixel-specific patch.",
+  "claim_boundary": "A published repository and an observed branch commit establish source availability only. They do not establish compliance with the licences of consumed files, reproducibility, binary equivalence, ABI compatibility, load success or suitability of a Pixel-specific patch.",
   "inputs": {
     "fairphone_manifest": {
       "repository": "https://gerrit-public.fairphone.software/admin/repos/manifest",
@@ -39,7 +40,7 @@
       "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
       "archive_sha256": "483a2672da81ef2722568a6b7a50c111ef775c6a47c90b871827a1a9d02abcdb",
       "role": "Reference-only source for module ordering, extraction categories, init/fstab and candidate VINTF declarations; it is not a DiamaneOS base and does not prove stock or GrapheneOS compatibility.",
-      "stock_blob_note": "Its proprietary-files.txt says unpinned blobs are from FP6.QREL.16.104.0, which is not the selected EU stock input."
+      "stock_blob_note": "Its proprietary-files.txt says unpinned blobs are from FP6.QREL.16.104.0. Treat that list as a US-region reference and candidate allowlist only; re-derive every retained path and fixup against the selected EU stock input and GrapheneOS-derived framework."
     },
     "selected_stock": {
       "build": "FP6.QREL.16.100.0",
@@ -48,15 +49,66 @@
       "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
       "installed_observation": "Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build",
       "runtime_interface_capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
-      "raw_partition_hashes": "not collected while the stock device remains locked"
+      "raw_partition_hashes": "not collected while the stock device remains locked",
+      "generator_role": "Authoritative EU factory-package extraction input; a future OTA source requires its own exact verification. The matching phone is a runtime verifier and optional source only for ordinary readable mounted files."
     },
     "published_binary_packages": {
       "build": "FP6.QREL.16.61.0",
       "qssi_sha256": "42b1c31e49fcc04297354da2df45d1b31767adff1a78ce9d308a10533dc20970",
       "target_sha256": "53d1eaaa1e207549dff809bdcc7e75ecce0dbb2d6f7e65eeb92592312a6eda30",
       "selected_stock_match": false,
-      "downloaded_or_terms_accepted_by_this_task": false
+      "downloaded_or_terms_accepted_by_this_task": false,
+      "role": "Historical reference only; never substitute these QREL.16.61.0 files for the selected EU QREL.16.100.0 generator input."
     }
+  },
+  "proprietary_input_strategy": {
+    "implementation_owner": "FP6-040",
+    "primary_eu_source": "Verified FP6.QREL.16.100.0 factory package",
+    "supplemental_source": "Matching locked stock phone for runtime declarations and ordinary readable mounted files only",
+    "manifest_required_fields": [
+      "stock_build",
+      "region",
+      "partition",
+      "source_path",
+      "destination_path",
+      "sha256",
+      "component_role",
+      "source_or_prebuilt",
+      "consumer",
+      "provenance_profile"
+    ],
+    "device_unique_exclusions": [
+      "userdata and metadata",
+      "persist and device calibration/provisioning",
+      "modemst, fsg, fsc and other modem NV/EFS",
+      "IMEI and subscriber identifiers",
+      "keystore, attestation and secure-world provisioning",
+      "DRM provisioning and device certificates"
+    ],
+    "generation_rule": "Write and verify a temporary generated tree, provenance inventory and integrity report before atomically replacing the prior valid output. Reject unexpected versions, hashes, missing files and unrelated substitutions.",
+    "minimization_rule": "Use an explicit allowlist and demonstrated dependency closure. Remove or adapt the complete init/VINTF/permission/feature/SELinux/client path for an omitted active component; never hand-edit generated output.",
+    "open_source_replacement_rule": "Prefer a maintained open-source implementation only after exact licence obligations, maintenance ownership, ABI/API compatibility, security properties, power/performance and actual hardware behavior pass. Do not replace hardware-backed protection with a weaker software fallback."
+  },
+  "regional_support_strategy": {
+    "initial_supported_region": "EU",
+    "eu_stock_build": "FP6.QREL.16.100.0",
+    "us_stock_build": "FP6.QREL.16.104.0",
+    "desired_shape": "One product only if stock comparison and device evidence establish a safe common set; otherwise isolate and bind regional variants.",
+    "comparison_scope": [
+      "partition and super metadata",
+      "AVB chain and rollback locations",
+      "boot, vendor, ODM and kernel-module images",
+      "firmware hashes",
+      "VINTF, init and SELinux policy",
+      "feature and permission declarations",
+      "hardware/SKU properties",
+      "modem profiles and carrier/regulatory configuration"
+    ],
+    "selection_rule": "A regional delta may use only an observed trustworthy hardware or boot SKU property, never locale, language, timezone or location.",
+    "validation_resource": "Second maintainer in the US plans to supply an actual US-region FP6 and independent device evidence.",
+    "us_factory_expected_sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
+    "us_input_status": "Official expected metadata recorded; archive not downloaded or independently verified by this project.",
+    "claim_boundary": "US remains unverified until the exact US stock comparison and candidate hardware/telephony matrix pass on that device."
   },
   "device_sources": [
     {
@@ -97,12 +149,12 @@
     "kernel-copying-observed": {
       "status": "licence-file-observed-not-full-audit",
       "evidence": "The pinned kernel/qcom COPYING declares GPL-2.0 WITH Linux-syscall-note and explicitly says other licences may apply; individual files and imported subtrees still require a generated licence/notice audit.",
-      "distribution_decision": "unresolved"
+      "distribution_decision": "Open-source obligations must be resolved for the files actually consumed before import or release."
     },
     "published-source-review-required": {
       "status": "per-file-licence-audit-required",
-      "evidence": "The exact public source revision is recorded. Some roots contain NOTICE/LICENSE files and others do not; repository publication is not treated as redistribution clearance.",
-      "distribution_decision": "unresolved",
+      "evidence": "The exact public source revision is recorded. Some roots contain NOTICE/LICENSE files and others do not; repository publication alone does not establish the applicable obligations for the files actually consumed.",
+      "distribution_decision": "Open-source obligations must be resolved for the files actually consumed before import or release.",
       "owner": "FP6-006 and the component's integration task"
     },
     "lineage-reference": {
@@ -1043,17 +1095,17 @@
       "uefi",
       "uefisecapp"
     ],
-    "warning": "Image membership and raw hashes must be regenerated from the selected stock archive. This inventory does not authorize flashing or publication."
+    "warning": "Image membership and raw hashes must be regenerated from the selected stock archive. No flashing or publication occurred during this inventory."
   },
   "blockers": [
     {
       "id": "FP6-SRC-001",
       "rank": 1,
       "area": "boot/vendor input alignment",
-      "status": "blocked",
-      "finding": "The public Android 16 QSSI/target binary packages are QREL.16.61.0, while the selected and installed EU stock input is QREL.16.100.0.",
-      "next_experiment": "Obtain an authorized, hash-verifiable binary input matching the selected build or select and justify a complete matching source/blob/firmware set; extraction must fail closed on any missing or mismatched component.",
-      "owner": "FP6-006 and FP6-040"
+      "status": "ready-for-generator-implementation",
+      "finding": "The verified EU QREL.16.100.0 factory archive is the selected exact extraction input. The public QREL.16.61.0 packages remain useful historical references but are not selected build inputs.",
+      "next_experiment": "Implement the manifest-driven generator against the verified QREL.16.100.0 factory package, verify every retained file and dependency, and fail closed on any missing, mismatched or unrelated component.",
+      "owner": "FP6-040"
     },
     {
       "id": "FP6-SRC-002",
@@ -1113,10 +1165,19 @@
       "id": "FP6-SRC-008",
       "rank": 8,
       "area": "NFC generated userspace and build binding",
-      "status": "selection-observed-input-blocked",
-      "finding": "The selected stock VINTF names nfc-service-sec and the pinned reference maps sec_nfc.ko to vendor_dlkm, selecting the Samsung kernel path from the manifest candidates. Matching generated userspace inputs remain unavailable for QREL.16.100.0.",
+      "status": "selection-observed-awaiting-generation",
+      "finding": "The selected stock VINTF names nfc-service-sec and the pinned reference maps sec_nfc.ko to vendor_dlkm, selecting the Samsung kernel path from the manifest candidates. Matching QREL.16.100.0 userspace inputs have not yet been generated from the verified stock archive.",
       "next_experiment": "Trace the matching generated vendor makefile and binary hashes, retain the Samsung path, reject unused NXP/ST driver candidates, then prove module load plus NFC/UICC behavior on the candidate.",
       "owner": "FP6-040 and FP6-041"
+    },
+    {
+      "id": "FP6-SRC-009",
+      "rank": 9,
+      "area": "EU and US regional compatibility",
+      "status": "planned-external-device-validation",
+      "finding": "EU QREL.16.100.0 is the selected baseline. US QREL.16.104.0 is a comparison input, and the second maintainer plans to provide an actual US-region FP6, but no US stock delta or candidate-device result has been accepted.",
+      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against EU QREL.16.100.0, then run the candidate hardware and T-Mobile-oriented telephony matrix on the US device before claiming shared support.",
+      "owner": "FP6-040 and compatibility/device qualification"
     }
   ],
   "provenance_profiles": {
