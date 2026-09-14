@@ -164,6 +164,9 @@ class RunnerTest(unittest.TestCase):
                 "stdout": (
                     "mServiceState voiceRegState=0 operatorNumeric=26202\n" * 7000),
             },
+            "dumpsys phone": {
+                "stdout": "ImsRegistration state=synthetic subscriber=+4915123456789\n",
+            },
             "dumpsys imsservice": {
                 "stderr": "Can't find service: imsservice\n", "returncode": 1,
             },
@@ -173,19 +176,21 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(0, out.returncode, out.stderr)
         report = self.read_result("telephony-fixture")
         self.assertEqual("PASS", report["status"])
-        self.assertEqual(2, report["counts"]["PASS"])
+        self.assertEqual(3, report["counts"]["PASS"])
         self.assertEqual(1, report["counts"]["SKIP"])
         self.assertEqual(0, report["counts"]["FAIL"])
         shell_calls = [call[3:] for call in self.adb_calls()
                        if len(call) >= 4 and call[2] == "shell"]
         self.assertIn(["dumpsys", "carrier_config"], shell_calls)
         self.assertIn(["dumpsys", "telephony.registry"], shell_calls)
+        self.assertIn(["dumpsys", "phone"], shell_calls)
         self.assertIn(["dumpsys", "imsservice"], shell_calls)
         self.assertTrue(all(tuple(call) in api.READ_ONLY_ADB_ALLOWLIST
                             for call in shell_calls))
         registry_case = next(case for case in TELEPHONY["cases"]
                              if case["test_id"] == "inspect-telephony-registry")
         self.assertEqual(1_048_576, registry_case["output_limit_bytes"])
+        self.assertNotIn("+4915123456789", json.dumps(report))
 
     def test_suite_rejects_unbounded_case_output_limit(self):
         changed = copy.deepcopy(TELEPHONY)
