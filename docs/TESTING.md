@@ -404,6 +404,17 @@ stock build, carrier profile, place and time. It does not show that every
 transferred byte used NR, establish coverage elsewhere, or prove voice, SMS,
 VoLTE, WiFi Calling, dual-SIM defaults or eSIM lifecycle behavior.
 
+The same retained Vodafone eSIM profile was then disabled and re-enabled
+through Android Settings with explicit operator authorization. The observer
+recorded registered service before the action, no registered voice or data
+service while disabled, and registered service again after re-enable. Android
+did not require activation credentials. The identifier-free result has
+SHA-256
+`3be986ec32c64b6d70a20f6cb634a752de5c2fce69fc661bdf9b947ea7edbab0`.
+This closes only the retained-profile disable/re-enable lifecycle row on the
+observed stock build. The profile was never deleted, downloaded, transferred
+or reprovisioned, and those operations are not implied by the result.
+
 Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
 the same private role map and target-binding rules as the smoke suite:
 
