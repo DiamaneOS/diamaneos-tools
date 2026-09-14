@@ -65,8 +65,8 @@
       "plan_name": "CallYa Classic",
       "availability": "active",
       "firmware_scope": "locked stock FP6.QREL.16.100.0",
-      "apn_context": "UNRECORDED",
-      "ims_context": "UNRECORDED"
+      "apn_context": "Stock automatic configuration; cellular data path verified; APN values not recorded",
+      "ims_context": "Private stock phone and registry context captured; IMS behavior unverified"
     },
     {
       "id": "fp6-blau-physical",
@@ -110,9 +110,11 @@
       "capability": "data",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-callya-classic"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Requires a controlled Wi-Fi-off mobile-data check and restoration of the starting state."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-vodafone-esim-data-and-local-5g@sha256:1e3572527e15ec1ea6f02b8c3ac86a80ed59f9854ef8ae74409e4f6b9fc41200"
+      ],
+      "notes": "On locked stock FP6.QREL.16.100.0, the default route changed from Wi-Fi to cellular, a bounded HTTPS request returned HTTP 200 with a 559-byte body, and the starting Wi-Fi route was restored."
     },
     {
       "id": "vodafone-esim-volte",
@@ -140,9 +142,11 @@
       "capability": "5g",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-callya-classic", "vodafone-callya-conditions"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "A result is local to the observed cell, time and device configuration and is not a coverage claim."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-vodafone-esim-data-and-local-5g@sha256:1e3572527e15ec1ea6f02b8c3ac86a80ed59f9854ef8ae74409e4f6b9fc41200"
+      ],
+      "notes": "The stock telephony display state reported LTE with an NR_NSA override while the verified default route was cellular and the bounded HTTPS request passed. This is a local display-state observation, not proof that every byte used NR or a national coverage claim."
     },
     {
       "id": "vodafone-esim-lifecycle",
