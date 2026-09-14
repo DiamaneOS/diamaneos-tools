@@ -35,7 +35,8 @@
         "description": "Android returns a non-empty telephony registration snapshot for private analysis."
       },
       "applicability": {"kind": "required"},
-      "timeout_seconds": 20
+      "timeout_seconds": 20,
+      "output_limit_bytes": 1048576
     },
     {
       "test_id": "inspect-ims-service",
