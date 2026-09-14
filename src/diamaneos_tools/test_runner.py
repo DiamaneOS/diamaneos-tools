@@ -29,6 +29,7 @@ from diamaneos_tools import baseline
 SCHEMA_VERSION = 1
 DEFAULT_TIMEOUT_SECONDS = 20
 MAX_OUTPUT_BYTES = 262_144
+MAX_CASE_OUTPUT_BYTES = 1_048_576
 MAX_SUITE_BYTES = 262_144
 MAX_MAP_BYTES = 65_536
 MAX_CANDIDATE_BYTES = 16 * 1024 * 1024
@@ -154,7 +155,9 @@ def validate_suite(suite: object) -> dict:
             "test_id", "requirement_ids", "stage", "adapter",
             "preconditions", "expected", "applicability", "timeout_seconds",
         }
-        _expect_keys(case, common, common | {"argv", "runbook_ref"}, label)
+        _expect_keys(
+            case, common,
+            common | {"argv", "runbook_ref", "output_limit_bytes"}, label)
         case_id = case["test_id"]
         if not isinstance(case_id, str) or not CASE_ID_RE.fullmatch(case_id):
             raise RunnerError(f"{label} has an invalid test id", 2)
@@ -212,13 +215,19 @@ def validate_suite(suite: object) -> dict:
                 raise RunnerError(f"{label} has invalid argv", 2)
             if tuple(argv) not in READ_ONLY_ADB_ALLOWLIST:
                 raise RunnerError(f"{label} command is not allowlisted", 2)
+            output_limit = case.get("output_limit_bytes", MAX_OUTPUT_BYTES)
+            if (isinstance(output_limit, bool) or not isinstance(output_limit, int)
+                    or not (1 <= output_limit <= MAX_CASE_OUTPUT_BYTES)):
+                raise RunnerError(f"{label} has an invalid output limit", 2)
         elif adapter == "adb-temp-file-roundtrip":
             if (case["stage"] != "smoke" or "argv" in case
+                    or "output_limit_bytes" in case
                     or "runbook_ref" in case
                     or case["expected"]["oracle"] != "exit-zero"):
                 raise RunnerError("temporary-file adapter requires a smoke exit-zero case", 2)
         elif adapter == "installer-runbook":
-            if case["stage"] != "destructive" or "argv" in case:
+            if (case["stage"] != "destructive" or "argv" in case
+                    or "output_limit_bytes" in case):
                 raise RunnerError("installer-runbook is restricted to destructive cases", 2)
             ref = case.get("runbook_ref")
             if (not isinstance(ref, str) or not (1 <= len(ref) <= 500)
@@ -644,7 +653,9 @@ def _run_case(case: dict, identity: dict, run_dir: Path, adb: str,
     else:
         command = [adb, "-s", target, "shell"] + case["argv"]
         try:
-            transport = executor(command, case["timeout_seconds"])
+            transport = executor(
+                command, case["timeout_seconds"],
+                case.get("output_limit_bytes", MAX_OUTPUT_BYTES))
         except CommandInterrupted as exc:
             transport = exc.result
             interrupted = True
@@ -736,7 +747,7 @@ def _verify_evidence_refs(report_path: Path, refs: list) -> None:
             evidence_path.relative_to(root)
         except ValueError as exc:
             raise RunnerError("retry evidence escapes its run directory", 2) from exc
-        data = _read_bounded(evidence_path, MAX_OUTPUT_BYTES)
+        data = _read_bounded(evidence_path, MAX_CASE_OUTPUT_BYTES)
         if sha256_bytes(data) != digest:
             raise RunnerError("retry evidence hash mismatch", 2)
 
@@ -1104,7 +1115,14 @@ def dry_run_plan(args, suite: dict, suite_hash: str, suite_path: Path) -> dict:
         "device_state_changes": "none",
         "writes": "none",
         "timeout_cap_seconds": args.timeout,
-        "output_cap_bytes": MAX_OUTPUT_BYTES,
+        "output_cap_bytes": max(
+            (case.get("output_limit_bytes", MAX_OUTPUT_BYTES)
+             for case in selected if case["adapter"] == "adb-shell-read-only"),
+            default=MAX_OUTPUT_BYTES),
+        "case_output_caps_bytes": {
+            case["test_id"]: case.get("output_limit_bytes", MAX_OUTPUT_BYTES)
+            for case in selected if case["adapter"] == "adb-shell-read-only"
+        },
     }
 
 
