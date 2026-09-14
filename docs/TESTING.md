@@ -154,6 +154,9 @@ role-lock-to-partial-state handoff and the owner has accepted each battery
 policy. Hub qualification, least-privilege device-node access, service-owned
 ADB and reboot recovery are deployment requirements, not results of unit
 tests. See the [test-host deployment recipe](../deploy/test-host/README.md).
+The start guard also rejects persistent operation leases and automatically
+restores a maintenance-held role to its verified powered path before partial
+test state is created.
 
 ## Stock performance protocol and pilot
 
