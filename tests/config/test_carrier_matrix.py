@@ -27,7 +27,11 @@ class CarrierMatrixTest(unittest.TestCase):
         self.assertEqual("pending-test-input",
                          profiles["fp6-blau-physical"]["availability"])
         rows = {item["id"]: item for item in self.matrix["capability_rows"]}
-        observed = {"vodafone-esim-data", "vodafone-esim-5g"}
+        observed = {
+            "vodafone-esim-data",
+            "vodafone-esim-5g",
+            "vodafone-esim-lifecycle",
+        }
         self.assertTrue(all(rows[row]["observation_status"] == "PASS"
                             and rows[row]["evidence_refs"] for row in observed))
         self.assertTrue(all(row["observation_status"] in {"NOT_RUN", "BLOCKED"}
@@ -87,7 +91,7 @@ class CarrierMatrixTest(unittest.TestCase):
             cwd=TOOLS, capture_output=True, text=True, timeout=20,
             env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("13 capability rows; 11 pending observations", result.stdout)
+        self.assertIn("13 capability rows; 10 pending observations", result.stdout)
         self.assertEqual(before, self.path.read_bytes())
 
 
