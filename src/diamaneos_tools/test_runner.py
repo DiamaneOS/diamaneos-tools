@@ -57,6 +57,7 @@ READ_ONLY_ADB_ALLOWLIST = {
     ("dumpsys", "battery"),
     ("dumpsys", "carrier_config"),
     ("dumpsys", "imsservice"),
+    ("dumpsys", "phone"),
     ("dumpsys", "telephony.registry"),
     ("getenforce",),
 }

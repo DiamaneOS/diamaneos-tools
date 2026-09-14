@@ -39,6 +39,23 @@
       "output_limit_bytes": 1048576
     },
     {
+      "test_id": "inspect-phone-ims-context",
+      "requirement_ids": ["ims-context-captured"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "phone"],
+      "preconditions": [
+        "The selected stock build exposes the phone service; its raw output is private because it may contain subscriber data.",
+        "A non-empty capture supplies IMS/MMTEL diagnostic context but does not itself prove VoLTE or WiFi Calling behavior."
+      ],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "Android returns a non-empty private phone-service snapshot containing the stock IMS/MMTEL diagnostic context."
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
       "test_id": "inspect-ims-service",
       "requirement_ids": ["ims-state-captured"],
       "stage": "inspect",
