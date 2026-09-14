@@ -391,6 +391,19 @@ smaller default, and an overflow remains a fail-stop harness error.
 A successful suite means those observations were captured; it does not prove
 voice, SMS, mobile data, VoLTE, WiFi Calling, 5G or emergency behavior.
 
+The locked EU stock FP6 Vodafone eSIM check recorded mobile data and a local
+5G display-state observation separately from that read-only context capture.
+With Wi-Fi initially providing the default route and mobile data already
+enabled, the bounded operator-authorized check disabled Wi-Fi, verified a
+cellular default route, received HTTP 200 with a 559-byte HTTPS body, observed
+the stock telephony display state as LTE with an NR-NSA override, then restored
+and verified the original Wi-Fi route. The identifier-free result has SHA-256
+`1e3572527e15ec1ea6f02b8c3ac86a80ed59f9854ef8ae74409e4f6b9fc41200`.
+This establishes the two corresponding matrix rows only for the observed
+stock build, carrier profile, place and time. It does not show that every
+transferred byte used NR, establish coverage elsewhere, or prove voice, SMS,
+VoLTE, WiFi Calling, dual-SIM defaults or eSIM lifecycle behavior.
+
 Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
 the same private role map and target-binding rules as the smoke suite:
 
