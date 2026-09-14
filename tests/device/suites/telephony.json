@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "suite_id": "telephony",
+  "description": "Read-only stock carrier configuration, registration and optional IMS interface capture for the explicitly mapped FP6. Passing this suite proves readable evidence, not voice, SMS, data, VoLTE, VoWiFi or 5G behavior.",
+  "cases": [
+    {
+      "test_id": "inspect-carrier-config",
+      "requirement_ids": ["carrier-config-captured"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "carrier_config"],
+      "preconditions": [
+        "The selected FP6 is authorized over the approved USB path.",
+        "The operator has confirmed the intended carrier and SIM arrangement without disclosing subscriber identifiers."
+      ],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "Android returns a non-empty carrier configuration snapshot for private analysis."
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "inspect-telephony-registry",
+      "requirement_ids": ["registration-state-captured"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "telephony.registry"],
+      "preconditions": [
+        "The intended SIM profile is active and has been allowed to register normally.",
+        "Airplane mode is off; no call, message or subscription change is performed by this case."
+      ],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "Android returns a non-empty telephony registration snapshot for private analysis."
+      },
+      "applicability": {"kind": "required"},
+      "timeout_seconds": 20
+    },
+    {
+      "test_id": "inspect-ims-service",
+      "requirement_ids": ["ims-state-captured"],
+      "stage": "inspect",
+      "adapter": "adb-shell-read-only",
+      "argv": ["dumpsys", "imsservice"],
+      "preconditions": [
+        "IMS applicability is attributed to the installed build, plan provisioning and currently exposed Android service interface."
+      ],
+      "expected": {
+        "oracle": "nonempty",
+        "description": "The build exposes a non-empty IMS observation when this dumpsys interface is available."
+      },
+      "applicability": {
+        "kind": "optional",
+        "skip_reason": "The installed build does not expose the optional imsservice dumpsys interface; the limitation must remain explicit and IMS behavior still needs manual evidence."
+      },
+      "timeout_seconds": 20
+    }
+  ]
+}
