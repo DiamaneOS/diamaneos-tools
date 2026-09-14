@@ -377,10 +377,13 @@ an unavailable SIM or unknown exact tariff remains `BLOCKED` or `NOT_RUN`.
 Each FP6 profile also keeps its firmware, APN and IMS context explicit;
 unobserved context is `UNRECORDED`, never inferred from a carrier page.
 
-The `telephony` device suite performs only three allowlisted read-only captures:
-`dumpsys carrier_config`, `dumpsys telephony.registry` and the optional
-`dumpsys imsservice` interface. It writes complete raw streams only under the
-private output root and keeps only bounded, redacted fields in `result.json`.
+The `telephony` device suite performs only four allowlisted read-only captures:
+`dumpsys carrier_config`, `dumpsys telephony.registry`, the private raw
+`dumpsys phone` IMS/MMTEL context and the optional legacy `dumpsys imsservice`
+interface. It writes complete raw streams only under the private output root
+and keeps only bounded, redacted fields in `result.json`. The phone-service
+dump has no public-safe field allowlist, so its contents never enter the
+structured report.
 A reviewed case may raise the default 256 KiB stream limit up to the runner's
 hard 1 MiB ceiling; the stock FP6 telephony-registry snapshot uses that ceiling
 because its measured output exceeded the default. Other cases retain the
