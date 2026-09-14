@@ -161,7 +161,8 @@ class RunnerTest(unittest.TestCase):
                 "stdout": "config_mccmnc=26202 carrier_volte_available_bool=true\n",
             },
             "dumpsys telephony.registry": {
-                "stdout": "mServiceState voiceRegState=0 operatorNumeric=26202\n",
+                "stdout": (
+                    "mServiceState voiceRegState=0 operatorNumeric=26202\n" * 7000),
             },
             "dumpsys imsservice": {
                 "stderr": "Can't find service: imsservice\n", "returncode": 1,
@@ -182,6 +183,15 @@ class RunnerTest(unittest.TestCase):
         self.assertIn(["dumpsys", "imsservice"], shell_calls)
         self.assertTrue(all(tuple(call) in api.READ_ONLY_ADB_ALLOWLIST
                             for call in shell_calls))
+        registry_case = next(case for case in TELEPHONY["cases"]
+                             if case["test_id"] == "inspect-telephony-registry")
+        self.assertEqual(1_048_576, registry_case["output_limit_bytes"])
+
+    def test_suite_rejects_unbounded_case_output_limit(self):
+        changed = copy.deepcopy(TELEPHONY)
+        changed["cases"][1]["output_limit_bytes"] = api.MAX_CASE_OUTPUT_BYTES + 1
+        with self.assertRaisesRegex(api.RunnerError, "invalid output limit"):
+            api.validate_suite(changed)
 
     def test_selected_stage_keeps_full_inventory_visible(self):
         out = self.invoke(self.command() + ["--stage", "inspect"])
