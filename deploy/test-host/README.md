@@ -157,11 +157,107 @@ Invoke ADB through `/usr/local/bin/adb`, not the versioned executable directly,
 so the USB-only discovery boundary remains in effect. Verify the ADB daemon is
 owned by `diamaneos-test`, TCP 5037 is loopback-only and UDP 5353 is absent.
 
-Do not install a switchable hub speculatively. Manual unplug/reconnect is the
-supported initial power-control path. A hub is justified only by a concrete
-scheduled test that requires remotely controlled VBUS and by a verified
-per-port-power implementation; USB data deauthorization is not equivalent to
+Manual unplug/reconnect remains the fallback until a specific hub passes the
+complete qualification below. USB data deauthorization is not equivalent to
 removing bus power.
+
+## Controlled USB rig
+
+The rig controller binds each non-identifying role to both its private ADB map
+entry and one exact qualified downstream path. It accepts only explicit `on`
+and `off` operations; it has no cycle operation. Every transition verifies the
+hub controller identities, the selected port's USB2/USB3 power-state agreement,
+the selected role and path, and non-interference with every other present role.
+Its structured output never contains ADB serials.
+
+Before configuring it, independently establish all of these on the actual
+host, hub, power supply, cables and phones:
+
+- each selected port removes both ADB and the phone's external-power indication;
+- the other selected ports remain authorized and powered;
+- power-on restores the same mapped role on the same topology path;
+- the topology and roles recover after hub and host reboot;
+- loss and restoration of the hub supply have a recorded result; and
+- host back-powering is understood. If downstream ports remain powered after
+  supply loss, supply removal is not a charging-off mechanism or a safe
+  fallback. The separately verified per-port `off` path must remove VBUS.
+
+Copy `rig.example.json` to a private root-owned `/etc/diamaneos/rig.json` and
+replace every synthetic hub identity, topology path, port and policy. The
+runtime file must be root-owned, group-readable by `diamaneos-test`, and mode
+`0640`; the private device map remains runner-owned mode `0640`. Validate the
+file before any hardware action:
+
+```sh
+sudo install -d -o root -g diamaneos-test -m 0750 /etc/diamaneos
+sudo install -d -o diamaneos-test -g diamaneos-test -m 0750 \
+  /var/lib/diamaneos-test/rig-state
+sudo -u diamaneos-test -H \
+  /opt/diamaneos/tools/bin/diamaneos rig validate \
+  --config /etc/diamaneos/rig.json
+sudo -u diamaneos-test -H \
+  /opt/diamaneos/tools/bin/diamaneos rig dry-run \
+  --config /etc/diamaneos/rig.json
+```
+
+`validate` and `dry-run` contact no device and write nothing. Runtime commands
+additionally reject a configuration that is not root-owned at mode `0640` or
+stricter. `status` is read-only. A deliberate manual transition has the form:
+
+```sh
+sudo -u diamaneos-test -H \
+  /opt/diamaneos/tools/bin/diamaneos rig power \
+  --config /etc/diamaneos/rig.json \
+  --role <mapped-role> --action off --reason manual-hold
+```
+
+The runner needs access to only the qualified USB2 and USB3 hub controller
+nodes. Instantiate `71-diamaneos-rig.rules.template` with their exact sysfs
+paths and IDs, install it root-owned under `/etc/udev/rules.d/`, reload the
+rules, retrigger only those two existing hub devices, and prove that unrelated
+hub nodes remain inaccessible. Do not grant blanket USB-hub write access.
+
+Install `diamaneos-adb.service` so the dedicated runner, and never an
+interactive administrator, owns the boot-time ADB server on loopback port
+5037. Stop every existing ADB server before its first start, then verify the
+daemon UID, USB-only discovery state, both role/path mappings and normal reboot
+recovery. Running an administrator-owned ADB command can otherwise occupy 5037
+with the wrong authorization keys and invalidate the observation.
+
+The battery controller supports host-side low/high hysteresis and a
+`native-limit` mode for a device with a separately enabled and verified native
+charge limit. Its off-state probes temporarily restore USB, so they are for
+unattended storage health rather than idle-drain measurement. Temperature
+ceilings are stops, not permission to exceed the device manufacturer's limits.
+
+An operation outside the staged test runners must hold a persistent role
+inhibitor before it can make a flash, filesystem or other non-interruptible
+change. The lease survives process and host failure and therefore fails closed;
+release it only after the operation and its cleanup have actually finished:
+
+```sh
+bin/diamaneos rig inhibit acquire --config /etc/diamaneos/rig.json \
+  --role <mapped-role> --lease-id <stable-lease-token> \
+  --reason firmware-write
+bin/diamaneos rig inhibit list --config /etc/diamaneos/rig.json \
+  --role <mapped-role>
+bin/diamaneos rig inhibit release --config /etc/diamaneos/rig.json \
+  --role <mapped-role> --lease-id <stable-lease-token>
+```
+
+Lease IDs and reasons are deliberately restricted to non-sensitive tokens.
+Never put an ADB serial, subscriber identifier or personal ticket text in
+them. A stale lease is visible and blocks power changes until explicitly
+released; do not delete its state file as a shortcut.
+
+`diamaneos-rig-maintenance.timer` is deliberately inert without the root-owned
+sentinel `/etc/diamaneos/rig-maintenance-enabled`. Do not create that sentinel
+or enable the timer until the owner has accepted each role's battery policy and
+every active test output root is in `inhibit_roots`. Any unreadable `.partial`
+run blocks switching. Long-running and staged tests must create their protected
+partial state before releasing their role-start lock; until all deployed test
+entry points implement that race-free handoff, leave scheduled maintenance
+disabled. A test-authorized disconnect may bypass only its own exact run ID.
 
 ## Immutable tools deployment
 
@@ -217,20 +313,39 @@ reserved for tests and contains no data requiring preservation.
 
 ## Live capture and evidence
 
-Run from Bash under the protected runner identity with `umask 027`. Require
-exactly one authorized device, bind its serial to the explicit `--target`
-argument without printing it, and record truthful conditions:
+Run from Bash under the protected runner identity with `umask 027`. Resolve the
+selected target from its private role map rather than ADB enumeration order,
+bind it to the explicit `--target` argument without printing it, and record
+truthful conditions. Multiple independently mapped phones may remain attached.
+
+The examples below show the qualified-rig form. Before a controlled rig is
+accepted, omit all three rig-binding arguments from the legacy baseline
+collector; for `test run`, keep its required role/map arguments and omit only
+`--rig-config`. Scheduled maintenance must still be disabled.
 
 ```sh
-mapfile -t TEST_DEVICE_TARGETS < <(
-  adb devices | awk '$2 == "device" { print $1 }'
+TEST_DEVICE_TARGET=$(python3 - \
+  /var/lib/diamaneos-test/devices/test-host.json harness <<'PY'
+import json
+import sys
+
+path, role = sys.argv[1:]
+with open(path, encoding="utf-8") as stream:
+    document = json.load(stream)
+matches = [item.get("adb_serial") for item in document.get("devices", [])
+           if item.get("role") == role]
+if len(matches) != 1 or not isinstance(matches[0], str):
+    raise SystemExit("selected private role is not mapped exactly once")
+print(matches[0])
+PY
 )
-test "${#TEST_DEVICE_TARGETS[@]}" -eq 1
-TEST_DEVICE_TARGET=${TEST_DEVICE_TARGETS[0]}
 TEST_RUN_ID=$(date -u +live-%Y%m%dT%H%M%SZ)
 
 /opt/diamaneos/tools/bin/diamaneos baseline capture \
   --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map /var/lib/diamaneos-test/devices/test-host.json \
+  --rig-config /etc/diamaneos/rig.json \
   --run-id "$TEST_RUN_ID" \
   --conditions "<build, cable, network, power and ambient conditions>" \
   --raw-dir /var/lib/diamaneos-test/runs \
@@ -247,6 +362,7 @@ TEST_RUN_ID=$(date -u +smoke-%Y%m%dT%H%M%SZ)
   --target "$TEST_DEVICE_TARGET" \
   --device-role harness \
   --device-map /var/lib/diamaneos-test/devices/test-host.json \
+  --rig-config /etc/diamaneos/rig.json \
   --evidence-kind real-device \
   --run-id "$TEST_RUN_ID" \
   --conditions "<build, cable, network, power and ambient conditions>" \

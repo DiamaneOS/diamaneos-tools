@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an identity-bound switched-USB rig controller, persistent operation
+  inhibitors, service-owned boot ADB, battery-policy scaffolding and automated
+  verified-port idle disconnect/reconnect support.
 - Add declared FP6 connected and camera measurement modes with exact protocol
   repetitions, series identity, staged ambient finalization and explicit
   non-comparable outcomes.

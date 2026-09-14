@@ -24,6 +24,7 @@ import sys
 import time
 
 from diamaneos_tools import baseline
+from diamaneos_tools import rig
 
 
 SCHEMA_VERSION = 1
@@ -987,8 +988,17 @@ def execute_run(args, suite: dict, suite_hash: str, suite_path: Path,
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise RunnerError("physical target is already locked", 3) from exc
-        partial_dir.mkdir(mode=0o750)
-        (partial_dir / "raw").mkdir(mode=0o750)
+        try:
+            guard = rig.acquire_test_start_guard(
+                getattr(args, "rig_config", None), args.device_role,
+                args.device_map, args.target)
+            try:
+                partial_dir.mkdir(mode=0o750)
+                (partial_dir / "raw").mkdir(mode=0o750)
+            finally:
+                guard.release()
+        except rig.RigError as exc:
+            raise RunnerError(str(exc), exc.exit_code) from exc
         started = time.monotonic()
         try:
             identity, identity_refs = _capture_identity(
@@ -1142,6 +1152,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target", help="exact private ADB serial")
     parser.add_argument("--device-role", help="non-identifying role from the private map")
     parser.add_argument("--device-map", help="private target-role JSON")
+    parser.add_argument(
+        "--rig-config",
+        help="optional private rig config providing a race-free start guard")
     parser.add_argument("--evidence-kind",
                         choices=("real-device", "emulator", "synthetic-fixture",
                                  "static-review"),

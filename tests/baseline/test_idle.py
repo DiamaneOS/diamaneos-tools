@@ -2,9 +2,13 @@
 
 from pathlib import Path
 import hashlib
+import json
+import os
 import sys
 import tempfile
+import types
 import unittest
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -207,6 +211,29 @@ class CliContractTest(unittest.TestCase):
         self.assertIn("--wait-for-reconnect",
                       " ".join(plan["physical_actions"]))
 
+    def test_rig_dry_run_declares_automated_vbus_off_and_restore(self):
+        plan = baseline_idle.dry_run(
+            str(TOOLS / "config" / "baseline.json"),
+            disconnect_method=baseline_idle.DISCONNECT_METHOD_RIG)
+        self.assertEqual("verified-rig-port-off", plan["disconnect_method"])
+        actions = " ".join(plan["physical_actions"])
+        self.assertIn("physically attached", actions)
+        self.assertIn("automatically", actions)
+
+    def test_rig_start_parser_requires_explicit_method_and_config(self):
+        args = baseline_idle.build_parser().parse_args([
+            "start", "--target", "private-target",
+            "--device-role", "idle-pilot",
+            "--device-map", "/private/map.json",
+            "--rig-config", "/private/rig.json",
+            "--disconnect-method", "verified-rig-port-off",
+            "--run-id", "idle-pilot-1",
+            "--output", "/private/runs", "--expected-build", "build",
+            "--conditions", "controlled", "--ambient-start-c", "22.0",
+        ])
+        self.assertEqual("verified-rig-port-off", args.disconnect_method)
+        self.assertEqual("/private/rig.json", args.rig_config)
+
     def test_finish_can_arm_before_physical_reconnect(self):
         args = baseline_idle.build_parser().parse_args([
             "finish", "--target", "private-target",
@@ -237,6 +264,178 @@ class CliContractTest(unittest.TestCase):
         ])
         self.assertEqual(1, args.declared_repeat_index)
         self.assertEqual("fp6-stock16-baseline-20260912", args.series_id)
+
+
+class RigIdleIntegrationTest(unittest.TestCase):
+    def _run_dir(self, root):
+        root.chmod(0o750)
+        run_dir = root / "idle-rig.partial"
+        run_dir.mkdir(mode=0o750)
+        (run_dir / "raw").mkdir(mode=0o750)
+        return run_dir
+
+    def test_observe_disconnect_switches_bound_rig_port_off(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_dir = self._run_dir(root)
+            report = {
+                "schema_version": 1,
+                "operation": "baseline-idle-pilot",
+                "run_id": "idle-rig",
+                "duration_seconds": 300,
+                "disconnect_method": "verified-rig-port-off",
+                "status": baseline_idle.STATUS_ARMED_RIG,
+                "target": {"role": "harness"},
+            }
+            (run_dir / "result.json").write_text(
+                json.dumps(report), encoding="utf-8")
+            controller = mock.Mock()
+            controller.set_power.return_value = {
+                "status": "PASS", "role": "harness", "action": "off"
+            }
+            args = types.SimpleNamespace(
+                device_map="/private/map.json", device_role="harness",
+                target="private-target", run_dir=str(run_dir), adb="adb",
+                rig_config="/private/rig.json", timeout_seconds=10)
+            clock = {
+                "utc": "2026-09-14T00:00:00Z",
+                "host_boottime_seconds": 100.0,
+                "host_boot_id_sha256": "a" * 64,
+            }
+            def command(_adb, _target, argv, **_kwargs):
+                stdout = ("mWakefulness=Dozing\n"
+                          if "dumpsys power" in argv[0] else "mState=OFF\n")
+                return {"transport": "ok", "stdout": stdout, "stderr": ""}
+            with mock.patch.object(
+                    baseline_idle.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_idle.rig, "controller_for_target",
+                        return_value=controller), \
+                    mock.patch.object(
+                        baseline_idle, "_run_required", side_effect=command), \
+                    mock.patch.object(
+                        baseline_idle.test_runner, "_authorized_devices",
+                        return_value=[]), \
+                    mock.patch.object(
+                        baseline_idle, "_host_clock_sample", return_value=clock), \
+                    mock.patch.object(baseline_idle.time, "sleep"):
+                result = baseline_idle.observe_disconnect(args)
+            self.assertEqual(result, (run_dir / "result.json").resolve())
+            controller.set_power.assert_called_once_with(
+                "harness", "off", "idle-measurement",
+                allowed_run_id="idle-rig")
+            saved = json.loads(result.read_text(encoding="utf-8"))
+            self.assertEqual(saved["status"], baseline_idle.STATUS_DISCONNECTED_RIG)
+            self.assertTrue(saved["disconnect"]["rig_port_off_verified"])
+            self.assertFalse(saved["disconnect"][
+                "physical_disconnect_requires_finish_attestation"])
+
+    def test_finish_restores_rig_without_physical_disconnect_attestation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_dir = self._run_dir(root)
+            _, protocol_digest = baseline_protocol.load_protocol(
+                TOOLS / "config" / "baseline.json")
+            report = {
+                "schema_version": 1,
+                "operation": "baseline-idle-pilot",
+                "label": "PILOT_ONLY_NOT_BASELINE_EVIDENCE",
+                "run_id": "idle-rig",
+                "duration_seconds": 300,
+                "disconnect_method": "verified-rig-port-off",
+                "status": baseline_idle.STATUS_DISCONNECTED_RIG,
+                "target": {"role": "harness"},
+                "protocol": {"sha256": protocol_digest},
+                "ambient_start_c": 22.0,
+                "start_state": {"battery": {
+                    "level_percent": 100, "charge_counter_uah": 4000000,
+                }},
+                "disconnect": {
+                    "host_boottime_seconds": 100.0,
+                    "host_boot_id_sha256": "a" * 64,
+                    "raw_evidence_refs": [],
+                },
+                "operator_attestations": {
+                    "physical_usb_disconnect": None,
+                    "verified_rig_port_off": None,
+                },
+                "identity_evidence_refs": [],
+                "condition_evidence_refs": [],
+                "reset_evidence_refs": [],
+                "finish_evidence_refs": [],
+                "comparability_exclusions": [],
+                "tool": {},
+            }
+            (run_dir / "result.json").write_text(
+                json.dumps(report), encoding="utf-8")
+            controller = mock.Mock()
+            controller.set_power.return_value = {
+                "status": "PASS", "role": "harness", "action": "on"
+            }
+            args = types.SimpleNamespace(
+                ambient_end_c=22.1,
+                operator_confirmed_physical_disconnect=False,
+                operator_confirmed_no_interaction=True,
+                operator_confirmed_no_known_network_outage=True,
+                device_map="/private/map.json", device_role="harness",
+                target="private-target", run_dir=str(run_dir), adb="adb",
+                rig_config="/private/rig.json", wait_for_reconnect=False,
+                reconnect_timeout_seconds=10,
+                config=str(TOOLS / "config" / "baseline.json"))
+            clock = {
+                "utc": "2026-09-14T00:05:01Z",
+                "host_boottime_seconds": 401.0,
+                "host_boot_id_sha256": "a" * 64,
+            }
+            end_state = {
+                "battery": {
+                    "level_percent": 99, "charge_counter_uah": 3975000,
+                },
+                "network": {
+                    "wifi_enabled": True, "wifi_connected": True,
+                    "sim_registered": True,
+                },
+            }
+            batterystats = {
+                "transport": "ok", "stdout": "bounded stats\n", "stderr": "",
+            }
+            reconnect = {
+                "first_present": clock,
+                "confirmed_present_samples": 2,
+                "observation_count": 2,
+            }
+            with mock.patch.object(
+                    baseline_idle.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_idle.test_runner, "_authorized_devices",
+                        return_value=[]), \
+                    mock.patch.object(
+                        baseline_idle.rig, "controller_for_target",
+                        return_value=controller), \
+                    mock.patch.object(
+                        baseline_idle, "_host_clock_sample", return_value=clock), \
+                    mock.patch.object(
+                        baseline_idle, "wait_for_authorized_reconnect",
+                        return_value=reconnect), \
+                    mock.patch.object(
+                        baseline_idle, "_collect_state",
+                        return_value=(end_state, [])), \
+                    mock.patch.object(
+                        baseline_idle, "_run_required",
+                        return_value=batterystats), \
+                    mock.patch.object(
+                        baseline_idle, "evaluate_comparability", return_value=[]):
+                code, result = baseline_idle.finish(args)
+            self.assertEqual(code, 0)
+            self.assertTrue(result.parent.name == "idle-rig")
+            controller.set_power.assert_called_once_with(
+                "harness", "on", "idle-finish", allowed_run_id="idle-rig")
+            saved = json.loads(result.read_text(encoding="utf-8"))
+            self.assertEqual(saved["status"], "PASS")
+            self.assertFalse(saved["operator_attestations"][
+                "physical_usb_disconnect"])
+            self.assertTrue(saved["operator_attestations"][
+                "verified_rig_port_off"])
 
 
 if __name__ == "__main__":

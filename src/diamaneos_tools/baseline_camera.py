@@ -23,6 +23,7 @@ import time
 
 from diamaneos_tools import baseline_protocol
 from diamaneos_tools import baseline_pilot
+from diamaneos_tools import rig
 from diamaneos_tools import test_runner
 
 
@@ -652,9 +653,18 @@ def start(args, repo_root: Path) -> Path:
                 or final.with_name(final.name + ".non-comparable").exists()
                 or final.with_name(final.name + ".harness-error").exists()):
             raise CameraError("immutable camera output collision", 3)
-        partial.mkdir(mode=0o750)
-        (partial / "raw").mkdir(mode=0o750)
-        (partial / "media").mkdir(mode=0o750)
+        try:
+            guard = rig.acquire_test_start_guard(
+                getattr(args, "rig_config", None), args.device_role,
+                args.device_map, args.target)
+            try:
+                partial.mkdir(mode=0o750)
+                (partial / "raw").mkdir(mode=0o750)
+                (partial / "media").mkdir(mode=0o750)
+            finally:
+                guard.release()
+        except rig.RigError as exc:
+            raise CameraError(str(exc), exc.exit_code) from exc
         identity, refs = test_runner._capture_identity(
             args.adb, args.target, partial, 20)
         if identity["build_id"] != args.expected_build:
@@ -1020,6 +1030,7 @@ def build_parser() -> argparse.ArgumentParser:
         target.add_argument("--target", required=True)
         target.add_argument("--device-role", required=True)
         target.add_argument("--device-map", required=True)
+        target.add_argument("--rig-config")
         target.add_argument("--adb", default="adb")
     start_parser.add_argument("--run-id", required=True)
     start_parser.add_argument("--output", required=True)

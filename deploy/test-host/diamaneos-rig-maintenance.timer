@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically evaluate DiamaneOS test-rig battery policy
+Documentation=file:/opt/diamaneos/tools/deploy/test-host/README.md
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=1min
+Persistent=yes
+Unit=diamaneos-rig-maintenance.service
+
+[Install]
+WantedBy=timers.target

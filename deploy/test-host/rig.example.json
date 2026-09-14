@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "adb": "/usr/local/bin/adb",
+  "uhubctl": "/usr/sbin/uhubctl",
+  "device_map": "/var/lib/diamaneos-test/devices/test-host.json",
+  "state_root": "/var/lib/diamaneos-test/rig-state",
+  "hub": {
+    "model": "Qualified independently switched USB hub",
+    "control_location": "1-2.3",
+    "control_port_count": 4,
+    "usb2": {
+      "sysfs_path": "1-2.3",
+      "vendor_id": "0001",
+      "product_id": "0002"
+    },
+    "usb3": {
+      "sysfs_path": "2-2.3",
+      "vendor_id": "0001",
+      "product_id": "0003"
+    }
+  },
+  "roles": [
+    {
+      "role": "harness",
+      "logical_port": 1,
+      "usb_path": "usb:1-2.3.1",
+      "battery": {
+        "mode": "host-hysteresis",
+        "low_percent": 50,
+        "high_percent": 80,
+        "hard_ceiling_percent": 85,
+        "maximum_temperature_c": 40,
+        "resume_temperature_c": 37,
+        "off_probe_interval_seconds": 14400
+      }
+    },
+    {
+      "role": "telephony-peer",
+      "logical_port": 2,
+      "usb_path": "usb:1-2.3.2",
+      "battery": {
+        "mode": "host-hysteresis",
+        "low_percent": 50,
+        "high_percent": 80,
+        "hard_ceiling_percent": 85,
+        "maximum_temperature_c": 40,
+        "resume_temperature_c": 37,
+        "off_probe_interval_seconds": 14400
+      }
+    }
+  ],
+  "inhibit_roots": [
+    "/var/lib/diamaneos-test/runs",
+    "/var/lib/diamaneos-test/test-runs",
+    "/var/lib/diamaneos-test/baseline-runs",
+    "/var/lib/diamaneos-test/stock-runs",
+    "/var/lib/diamaneos-test/rig-runs"
+  ]
+}

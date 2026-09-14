@@ -24,6 +24,7 @@ import sys
 import time
 
 from diamaneos_tools import baseline_protocol
+from diamaneos_tools import rig
 from diamaneos_tools import test_runner
 
 
@@ -1013,8 +1014,23 @@ def _prepare_output(args) -> tuple[Path, Path, int]:
     except BlockingIOError as exc:
         os.close(lock_fd)
         raise PilotError("physical target is already locked", 3) from exc
-    partial.mkdir(mode=0o750)
-    (partial / "raw").mkdir(mode=0o750)
+    try:
+        guard = rig.acquire_test_start_guard(
+            getattr(args, "rig_config", None), args.device_role,
+            args.device_map, args.target)
+        try:
+            partial.mkdir(mode=0o750)
+            (partial / "raw").mkdir(mode=0o750)
+        finally:
+            guard.release()
+    except rig.RigError as exc:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+        raise PilotError(str(exc), exc.exit_code) from exc
+    except Exception:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+        raise
     return partial, final, lock_fd
 
 
@@ -1190,6 +1206,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target", help="private exact ADB serial")
     parser.add_argument("--device-role", help="private device-map role")
     parser.add_argument("--device-map", help="private role-to-target map")
+    parser.add_argument(
+        "--rig-config",
+        help="optional private rig config providing a race-free start guard")
     parser.add_argument("--run-id", help="immutable private run ID")
     parser.add_argument("--output", help="owner-controlled private output root")
     parser.add_argument("--conditions", help="bounded operator conditions record")
