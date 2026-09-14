@@ -381,6 +381,10 @@ The `telephony` device suite performs only three allowlisted read-only captures:
 `dumpsys carrier_config`, `dumpsys telephony.registry` and the optional
 `dumpsys imsservice` interface. It writes complete raw streams only under the
 private output root and keeps only bounded, redacted fields in `result.json`.
+A reviewed case may raise the default 256 KiB stream limit up to the runner's
+hard 1 MiB ceiling; the stock FP6 telephony-registry snapshot uses that ceiling
+because its measured output exceeded the default. Other cases retain the
+smaller default, and an overflow remains a fail-stop harness error.
 A successful suite means those observations were captured; it does not prove
 voice, SMS, mobile data, VoLTE, WiFi Calling, 5G or emergency behavior.
 
