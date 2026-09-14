@@ -358,6 +358,56 @@ They cover multiple-device binding, wrong target, unavailable capability,
 timeout, device loss, interruption/checkpoint, verified rerun selection,
 immutable collisions and the destructive boundary.
 
+### Carrier and telephony evidence
+
+`config/carrier-matrix.json` is the public, identifier-free plan for the two
+FP6 carrier profiles and the isolated peer. Validate it without contacting a
+device or network:
+
+```sh
+bin/diamaneos carrier matrix validate
+bin/diamaneos test run --suite telephony --dry-run
+```
+
+The matrix deliberately separates `plan_eligibility` from
+`observation_status`. A carrier page can establish that a tariff is eligible,
+but it cannot establish provisioning, registration or behavior on an FP6. A
+`PASS` or `FAIL` row therefore requires build- and arrangement-bound evidence;
+an unavailable SIM or unknown exact tariff remains `BLOCKED` or `NOT_RUN`.
+Each FP6 profile also keeps its firmware, APN and IMS context explicit;
+unobserved context is `UNRECORDED`, never inferred from a carrier page.
+
+The `telephony` device suite performs only three allowlisted read-only captures:
+`dumpsys carrier_config`, `dumpsys telephony.registry` and the optional
+`dumpsys imsservice` interface. It writes complete raw streams only under the
+private output root and keeps only bounded, redacted fields in `result.json`.
+A successful suite means those observations were captured; it does not prove
+voice, SMS, mobile data, VoLTE, WiFi Calling, 5G or emergency behavior.
+
+Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
+the same private role map and target-binding rules as the smoke suite:
+
+```sh
+bin/diamaneos test run \
+  --suite telephony \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --evidence-kind real-device \
+  --run-id <run-id> \
+  --conditions "<stock build, carrier, SIM type, defaults, USB, Wi-Fi and radio setup; no subscriber identifiers>" \
+  --output <PRIVATE_ROOT>/runs/<run-id>/telephony
+```
+
+Ordinary call and SMS checks remain human-led and use only private allowlisted
+test destinations and synthetic message text. Record inbound and outbound
+voice/SMS, mobile-data transitions, VoLTE data continuity, provisioned WiFi
+Calling, locally observed 5G, audio routes, reboot/reconnect behavior and the
+selected voice/data/SMS defaults. Restore the starting connectivity state after
+each case. Never dial a live emergency number. eSIM deletion or reprovisioning
+requires a separate explicit operator authorization; the read-only suite never
+changes a subscription.
+
 FP6-034 hardware-harness acceptance used signed implementation commit
 `6c74ae646d3bca2df077090428a949c654068661` on the accepted test host. The
 read-only `smoke` suite ran on the locked stock Android 15 FP6 build

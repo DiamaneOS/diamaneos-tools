@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "matrix_id": "de-stock-telephony-v1",
+  "scope": "Two FP6 carrier profiles on the German Vodafone and Telefónica networks, plus an isolated Pixel 2 peer for ordinary bidirectional voice and SMS checks. This matrix does not claim national coverage or custom-OS compatibility.",
+  "evidence_policy": "Carrier documentation establishes plan eligibility only. PASS or FAIL requires build-bound device evidence from the stated SIM/default-subscription arrangement; unavailable or untested behavior remains NOT_RUN or BLOCKED.",
+  "safety": {
+    "emergency_calls": "prohibited",
+    "test_destinations": "private-allowlist-only",
+    "subscriber_data": "private-raw-evidence-only",
+    "esim_destructive_actions": "separate-explicit-authorization-required"
+  },
+  "sources": [
+    {
+      "id": "vodafone-callya-classic",
+      "url": "https://www.vodafone.de/freikarten/callya/?tariff=classic",
+      "checked_on": "2026-09-14",
+      "claim": "Vodafone's current CallYa Classic offer describes ordinary voice, SMS, data, VoLTE, WiFi Calling and 5G eligibility; actual provisioning and FP6 behavior still require observation."
+    },
+    {
+      "id": "vodafone-wifi-calling",
+      "url": "https://www.vodafone.de/hilfe/wifi-calling.html",
+      "checked_on": "2026-09-14",
+      "claim": "Vodafone lists CallYa Classic among tariffs with WiFi Calling and states device and connection prerequisites and emergency-call limitations."
+    },
+    {
+      "id": "vodafone-callya-conditions",
+      "url": "https://www.vodafone.de/privat/callya-prepaid-karte/callya-kunden.html",
+      "checked_on": "2026-09-14",
+      "claim": "Vodafone's current CallYa information describes WiFi Calling, 5G eligibility and device or coverage conditions for prepaid service."
+    },
+    {
+      "id": "vodafone-esim",
+      "url": "https://www.vodafone.de/hilfe/alles-zur-esim.html",
+      "checked_on": "2026-09-14",
+      "claim": "Vodafone documents prepaid eSIM activation and management; deletion or reprovisioning is outside unattended testing."
+    },
+    {
+      "id": "blau-vowifi",
+      "url": "https://www.blau.de/service/vowifi/",
+      "checked_on": "2026-09-14",
+      "claim": "Blau states that VoWiFi is generally available to eligible contract and prepaid tariffs when the device, tariff and Wi-Fi prerequisites are met."
+    },
+    {
+      "id": "blau-5g",
+      "url": "https://www.blau.de/tarife/5g-tarife/",
+      "checked_on": "2026-09-14",
+      "claim": "Blau's current 5G page contains plan-dependent wording, including a prepaid limitation; the exact selected physical-SIM tariff must therefore be verified before activation."
+    },
+    {
+      "id": "blau-volte",
+      "url": "https://www.blau.de/service/2g-abschaltung/",
+      "checked_on": "2026-09-14",
+      "claim": "Blau describes VoLTE calling and continued SMS support on modern network service; this does not prove provisioning for the selected tariff."
+    }
+  ],
+  "profiles": [
+    {
+      "id": "fp6-vodafone-callya-classic-esim",
+      "device_role": "harness",
+      "device_model": "Fairphone 6",
+      "carrier": "Vodafone DE",
+      "network": "Vodafone DE",
+      "sim_type": "esim",
+      "subscription_type": "prepaid",
+      "plan_name": "CallYa Classic",
+      "availability": "active",
+      "firmware_scope": "locked stock FP6.QREL.16.100.0",
+      "apn_context": "UNRECORDED",
+      "ims_context": "UNRECORDED"
+    },
+    {
+      "id": "fp6-blau-physical",
+      "device_role": "harness",
+      "device_model": "Fairphone 6",
+      "carrier": "Blau",
+      "network": "Telefónica Germany",
+      "sim_type": "physical",
+      "subscription_type": "to-be-verified",
+      "plan_name": null,
+      "availability": "pending-test-input",
+      "firmware_scope": "locked stock FP6.QREL.16.100.0",
+      "apn_context": "UNRECORDED",
+      "ims_context": "UNRECORDED"
+    }
+  ],
+  "capability_rows": [
+    {
+      "id": "vodafone-esim-voice",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "voice",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-callya-classic"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "Requires ordinary outbound and inbound calls to the private allowlisted peer."
+    },
+    {
+      "id": "vodafone-esim-sms",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "sms",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-callya-classic"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "Requires synthetic, non-personal SMS in both directions to the private allowlisted peer."
+    },
+    {
+      "id": "vodafone-esim-data",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "data",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-callya-classic"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "Requires a controlled Wi-Fi-off mobile-data check and restoration of the starting state."
+    },
+    {
+      "id": "vodafone-esim-volte",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "volte",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-callya-classic", "vodafone-callya-conditions"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "Registration flags alone are insufficient; verify the ordinary call remains on LTE or 5G with data continuity."
+    },
+    {
+      "id": "vodafone-esim-vowifi",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "vowifi",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-wifi-calling", "vodafone-callya-conditions"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "Verify actual IMS registration and an ordinary call over the approved fixed Wi-Fi connection."
+    },
+    {
+      "id": "vodafone-esim-5g",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "5g",
+      "plan_eligibility": "eligible",
+      "source_refs": ["vodafone-callya-classic", "vodafone-callya-conditions"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "A result is local to the observed cell, time and device configuration and is not a coverage claim."
+    },
+    {
+      "id": "vodafone-esim-lifecycle",
+      "profile_id": "fp6-vodafone-callya-classic-esim",
+      "capability": "esim-lifecycle",
+      "plan_eligibility": "not-applicable",
+      "source_refs": ["vodafone-esim"],
+      "observation_status": "NOT_RUN",
+      "evidence_refs": [],
+      "notes": "The active profile may be observed now. Reversible disable or enable needs operator confirmation; deletion or reprovisioning needs separate explicit authorization."
+    },
+    {
+      "id": "blau-physical-voice",
+      "profile_id": "fp6-blau-physical",
+      "capability": "voice",
+      "plan_eligibility": "unverified",
+      "source_refs": [],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "Blocked until the exact tariff and physical SIM are available."
+    },
+    {
+      "id": "blau-physical-sms",
+      "profile_id": "fp6-blau-physical",
+      "capability": "sms",
+      "plan_eligibility": "unverified",
+      "source_refs": ["blau-volte"],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "General carrier documentation does not replace verification of the selected tariff."
+    },
+    {
+      "id": "blau-physical-data",
+      "profile_id": "fp6-blau-physical",
+      "capability": "data",
+      "plan_eligibility": "unverified",
+      "source_refs": [],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "Blocked until the exact tariff and physical SIM are available."
+    },
+    {
+      "id": "blau-physical-volte",
+      "profile_id": "fp6-blau-physical",
+      "capability": "volte",
+      "plan_eligibility": "unverified",
+      "source_refs": ["blau-volte"],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "The general network capability must not be reported as selected-plan provisioning."
+    },
+    {
+      "id": "blau-physical-vowifi",
+      "profile_id": "fp6-blau-physical",
+      "capability": "vowifi",
+      "plan_eligibility": "unverified",
+      "source_refs": ["blau-vowifi"],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "The exact tariff and the device's provisioned behavior must both be checked."
+    },
+    {
+      "id": "blau-physical-5g",
+      "profile_id": "fp6-blau-physical",
+      "capability": "5g",
+      "plan_eligibility": "unverified",
+      "source_refs": ["blau-5g"],
+      "observation_status": "BLOCKED",
+      "evidence_refs": [],
+      "notes": "Current official wording is not sufficient to bind an unspecified prepaid tariff; verify the exact plan before activation."
+    }
+  ],
+  "dual_sim": {
+    "status": "BLOCKED",
+    "reason": "The second FP6 carrier profile is not yet available, so no default-subscription behavior has been observed.",
+    "required_recorded_defaults": ["voice", "data", "sms"],
+    "voice_default": "UNRECORDED",
+    "data_default": "UNRECORDED",
+    "sms_default": "UNRECORDED"
+  },
+  "peer": {
+    "device_role": "telephony-peer",
+    "device_model": "Pixel 2",
+    "carrier": "Vodafone DE",
+    "sim_type": "physical",
+    "availability": "pending-test-input",
+    "required_capabilities": ["voice", "sms"],
+    "optional_capabilities": ["data", "volte"],
+    "not_required_capabilities": ["vowifi", "5g", "esim-lifecycle"],
+    "limitations": "The LTE-only peer proves ordinary bidirectional interoperability; it is not used to qualify FP6 5G or WiFi Calling."
+  }
+}
