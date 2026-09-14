@@ -122,7 +122,7 @@
       "modifications": "N/A (origin)",
       "notices_obligation": "DCO sign-off; retain imported notices",
       "owner_task": "FP6-002",
-      "revision": "tools@e2fd9c5 (observed; advances with repo)",
+      "revision": "tools@f1ed952 (observed; advances with repo)",
       "source_url": "https://codeberg.org/DiamaneOS/diamaneos-tools",
       "status": "needs-review"
     },
