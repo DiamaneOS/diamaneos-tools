@@ -258,6 +258,10 @@ run blocks switching. Long-running and staged tests must create their protected
 partial state before releasing their role-start lock; until all deployed test
 entry points implement that race-free handoff, leave scheduled maintenance
 disabled. A test-authorized disconnect may bypass only its own exact run ID.
+The same start guard rejects active persistent leases and active prior runs. If
+maintenance previously left the selected role off, it restores and verifies
+that exact role/path under the lock before creating partial test state; tests
+therefore do not depend on an operator noticing the current charge-hold state.
 
 ## Immutable tools deployment
 

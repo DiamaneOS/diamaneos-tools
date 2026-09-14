@@ -287,9 +287,8 @@ class RigTest(unittest.TestCase):
         self.assertEqual(self.executor.calls, [])
 
     def test_start_guard_holds_same_role_lock_until_partial_exists(self):
-        with mock.patch.object(rig, "load_config", return_value=self.config), \
-                mock.patch.object(
-                    rig.RigController, "verify_hub", return_value={}):
+        with mock.patch.object(
+                rig, "controller_for_target", return_value=self.controller):
             guard = rig.acquire_test_start_guard(
                 "/synthetic/rig.json", "harness", str(self.map), "synthetic-a")
         with self.assertRaisesRegex(rig.RigError, "already locked"):
@@ -297,6 +296,39 @@ class RigTest(unittest.TestCase):
         guard.release()
         fd = self.controller._lock("harness")
         self.controller._unlock(fd)
+
+    def test_start_guard_restores_maintenance_held_role(self):
+        self.executor.power[1] = False
+        self.executor.roles["synthetic-a"]["present"] = False
+        self.controller._write_intent("harness", False, "hysteresis-high")
+        with mock.patch.object(
+                rig, "controller_for_target", return_value=self.controller):
+            guard = rig.acquire_test_start_guard(
+                "/synthetic/rig.json", "harness", str(self.map), "synthetic-a")
+        try:
+            self.assertTrue(self.executor.power[1])
+            self.assertTrue(self.executor.roles["synthetic-a"]["present"])
+            intent = json.loads((
+                self.state / "ports" / "harness.json").read_text())
+            self.assertTrue(intent["intended_on"])
+            self.assertEqual(intent["reason"], "test-start")
+            self.assertTrue(self.executor.roles["synthetic-b"]["present"])
+        finally:
+            guard.release()
+
+    def test_persistent_inhibitor_blocks_test_start_without_power_action(self):
+        self.controller.acquire_inhibitor(
+            "harness", "flash-session", "firmware-write")
+        self.executor.calls.clear()
+        with mock.patch.object(
+                rig, "controller_for_target", return_value=self.controller):
+            with self.assertRaisesRegex(rig.RigError, "inhibits test start"):
+                rig.acquire_test_start_guard(
+                    "/synthetic/rig.json", "harness", str(self.map),
+                    "synthetic-a")
+        self.assertFalse(any(call[0] == "/synthetic/uhubctl"
+                             for call in self.executor.calls))
+        self.controller.release_inhibitor("harness", "flash-session")
 
     def test_start_guard_rejects_cross_role_target(self):
         with mock.patch.object(rig, "load_config", return_value=self.config):

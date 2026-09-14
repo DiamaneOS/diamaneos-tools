@@ -749,6 +749,44 @@ class RigController:
         finally:
             self._unlock(lock_fd)
 
+    def acquire_test_start_lock(self, role: str) -> int:
+        """Prepare one role for a test and retain its lock for partial creation."""
+        entry = role_config(self.config, role)
+        lock_fd = self._lock(role)
+        try:
+            self.verify_hub()
+            if self._inhibitors(role):
+                raise RigError(
+                    "active test or operation inhibits test start", 3)
+            before = {item["role"]: self._device(item["role"])
+                      for item in self.config["roles"]}
+            port_powered = self._hub_port_powered(entry["logical_port"])
+            target = before[role]
+            if not port_powered:
+                if target["adb_state"] == "device":
+                    raise RigError(
+                        "USB hub and ADB power observations disagree", 4)
+                self._hub_action(role, "on")
+                self._write_intent(role, True, "test-start")
+                target = self._wait_role(role, True, 30)
+            if (target["adb_state"] != "device" or not target["path_matches"]
+                    or not target["battery"]["externally_powered"]):
+                raise RigError(
+                    "selected test role is unavailable on its configured port", 3)
+            for other_role, other_before in before.items():
+                if other_role == role or other_before["adb_state"] != "device":
+                    continue
+                other_after = self._device(other_role)
+                if (other_after["adb_state"] != "device"
+                        or other_after["usb_path"] != other_before["usb_path"]):
+                    raise RigError(
+                        "test-start power recovery disturbed another configured role",
+                        4)
+            return lock_fd
+        except Exception:
+            self._unlock(lock_fd)
+            raise
+
 
 class TestStartGuard:
     """Short role lock held until a test has created its partial state."""
@@ -788,12 +826,7 @@ def acquire_test_start_guard(config_path: str | None, role: str,
     if config_path is None:
         return TestStartGuard()
     controller = controller_for_target(config_path, role, device_map, target)
-    lock_fd = controller._lock(role)
-    try:
-        controller.verify_hub()
-    except Exception:
-        controller._unlock(lock_fd)
-        raise
+    lock_fd = controller.acquire_test_start_lock(role)
     return TestStartGuard(controller, lock_fd)
 
 
