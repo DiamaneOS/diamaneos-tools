@@ -116,7 +116,7 @@ refuses before any adb command. Over-producers are killed at the byte
 cap (termination proven, not just detected); failed captures keep partial
 stdout+stderr evidence with hashes; device-gone stays error/partial, never
 unsupported-complete. At collector revision
-`21ec91587ce47917cd92ab1c0d1277e26f643bef`, one stock Android 15 FP6 host
+`cc0bb8bce16b5283eb0fc67ba6c69e04b1553144`, one stock Android 15 FP6 host
 acceptance run produced five `ok` cases, one explicit `unsupported` service and
 zero errors; its raw bundle and device identity remain private. That proves the
 bounded read-only capture path, not custom-OS compatibility or comparative
@@ -359,7 +359,7 @@ timeout, device loss, interruption/checkpoint, verified rerun selection,
 immutable collisions and the destructive boundary.
 
 FP6-034 hardware-harness acceptance used signed implementation commit
-`1aee77342a504fe622c52f6925938d09b7ee0bed` on the accepted test host. The
+`6c74ae646d3bca2df077090428a949c654068661` on the accepted test host. The
 read-only `smoke` suite ran on the locked stock Android 15 FP6 build
 `FP6.QREL.15.176.0` (`VS21`, user build) as
 `fp6-034-stock15-20260911T234004Z`. The schema-valid, complete report selected
