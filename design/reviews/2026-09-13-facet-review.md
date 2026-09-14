@@ -18,7 +18,7 @@ is required; it does not remove biometrics or change policy.
 ## Evidence and scope
 
 Reviewed the running original `design/prototypes/diamaneos-ui.html`, backed by
-commit `df3b435477f6d7b8743b4f2c4083c4c18efb0403`, through the in-app browser.
+commit `49c92b9abe12f32f2f8dc95086e7bf276d99ac06`, through the in-app browser.
 The original HTML remains unchanged. The companion `baseline-review.html`
 exposes the original study's existing review hooks for theme, text, language,
 motion, and scenario selection. Its adapter changes preview controls only.
