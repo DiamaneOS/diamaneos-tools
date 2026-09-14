@@ -1,13 +1,13 @@
-"""Staged physical-disconnect idle measurement for FP6-022.
+"""Staged verified-VBUS-off idle measurement for FP6-022.
 
 The start stage captures controlled state, performs the one explicitly
 authorized batterystats reset, and turns the display off.  A separate stage
-observes loss of the ADB transport; the operator's later attestation is what
-establishes that the cable was physically removed rather than logically
-disabled.  Pilot mode uses five minutes; declared mode binds one of the two
-eight-hour repetitions to a shared series ID.  Finish refuses an early
-reconnect and preserves private evidence without writing SSID, BSSID,
-subscriber, cell, or ADB identifiers to reports.
+observes loss of the ADB transport. The disconnect may be either an attested
+physical unplug or an identity-bound, independently qualified hub-port power
+off. Pilot mode uses five minutes; declared mode binds one of the two eight-hour
+repetitions to a shared series ID. Finish refuses an early reconnect and
+preserves private evidence without writing SSID, BSSID, subscriber, cell, or
+ADB identifiers to reports.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ import time
 
 from diamaneos_tools import baseline_pilot
 from diamaneos_tools import baseline_protocol
+from diamaneos_tools import rig
 from diamaneos_tools import test_runner
 
 
@@ -34,6 +35,11 @@ PILOT_LABEL = "PILOT_ONLY_NOT_BASELINE_EVIDENCE"
 DECLARED_LABEL = "DECLARED_STOCK_BASELINE_EVIDENCE"
 STATUS_ARMED = "ARMED_FOR_PHYSICAL_DISCONNECT"
 STATUS_DISCONNECTED = "PHYSICALLY_DISCONNECTED_INTERVAL"
+STATUS_ARMED_RIG = "ARMED_FOR_RIG_PORT_OFF"
+STATUS_DISCONNECTED_RIG = "RIG_PORT_OFF_INTERVAL"
+DISCONNECT_METHOD_PHYSICAL = "physical-unplug"
+DISCONNECT_METHOD_RIG = "verified-rig-port-off"
+DISCONNECT_METHODS = {DISCONNECT_METHOD_PHYSICAL, DISCONNECT_METHOD_RIG}
 MAX_BATTERYSTATS_BYTES = 8 * 1024 * 1024
 DISCONNECT_TIMEOUT_SECONDS = 120
 DISCONNECT_CONFIRMATION_SAMPLES = 2
@@ -52,6 +58,22 @@ class IdleError(Exception):
     def __init__(self, message: str, exit_code: int = 2):
         super().__init__(message)
         self.exit_code = exit_code
+
+
+def _disconnect_method(report: dict) -> str:
+    method = report.get("disconnect_method", DISCONNECT_METHOD_PHYSICAL)
+    if method not in DISCONNECT_METHODS:
+        raise IdleError("idle report has an invalid disconnect method", 5)
+    return method
+
+
+def _armed_status(method: str) -> str:
+    return STATUS_ARMED_RIG if method == DISCONNECT_METHOD_RIG else STATUS_ARMED
+
+
+def _disconnected_status(method: str) -> str:
+    return (STATUS_DISCONNECTED_RIG
+            if method == DISCONNECT_METHOD_RIG else STATUS_DISCONNECTED)
 
 
 def _utc_now() -> str:
@@ -552,6 +574,13 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             and args.operator_authorized_batterystats_reset):
         raise IdleError(
             "idle start requires display, unlocked, and batterystats-reset authorization", 3)
+    disconnect_method = getattr(
+        args, "disconnect_method", DISCONNECT_METHOD_PHYSICAL)
+    if disconnect_method not in DISCONNECT_METHODS:
+        raise IdleError("idle start has an invalid disconnect method")
+    if (disconnect_method == DISCONNECT_METHOD_RIG
+            and not getattr(args, "rig_config", None)):
+        raise IdleError("rig-port idle requires --rig-config", 3)
 
     protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
     profile = _run_profile(
@@ -569,8 +598,17 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
     try:
         if partial.exists() or final.exists() or rejected.exists():
             raise IdleError("immutable idle output collision", 3)
-        partial.mkdir(mode=0o750)
-        (partial / "raw").mkdir(mode=0o750)
+        try:
+            guard = rig.acquire_test_start_guard(
+                getattr(args, "rig_config", None), args.device_role,
+                args.device_map, args.target)
+            try:
+                partial.mkdir(mode=0o750)
+                (partial / "raw").mkdir(mode=0o750)
+            finally:
+                guard.release()
+        except rig.RigError as exc:
+            raise IdleError(str(exc), exc.exit_code) from exc
         identity, identity_refs = test_runner._capture_identity(
             args.adb, args.target, partial, 20)
         observed, condition_refs = _collect_state(
@@ -590,6 +628,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "series_id": profile["series_id"],
             "repeat_index": profile["repeat_index"],
             "repeat_count": profile["repeat_count"],
+            "disconnect_method": disconnect_method,
             "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
             "tool": {
                 "revision": test_runner._git_revision(repo_root),
@@ -629,6 +668,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                 "batterystats_reset_authorized":
                     args.operator_authorized_batterystats_reset,
                 "physical_usb_disconnect": None,
+                "verified_rig_port_off": None,
                 "no_interaction_during_interval": None,
                 "no_known_material_network_outage": None,
             },
@@ -644,7 +684,9 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             ]) + [
                 "Ambient temperature is sampled manually only at start and finish.",
                 "Network service output is privacy-minimized before persistence; SSID, BSSID, subscriber and cell identifiers are not retained.",
-                "Physical VBUS removal depends on operator attestation in addition to observed ADB loss.",
+                ("Physical VBUS removal depends on operator attestation in addition to observed ADB loss."
+                 if disconnect_method == DISCONNECT_METHOD_PHYSICAL else
+                 "VBUS removal uses the identity-bound qualified hub port and records its verified controller result."),
                 "Reconnect precedes the ending ADB capture and can begin charging; reconnect time is recorded before capture.",
             ],
             "errors": [],
@@ -720,7 +762,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "verified_at_utc": _utc_now(),
         }
         report["reset_evidence_refs"] = reset_refs
-        report["status"] = STATUS_ARMED
+        report["status"] = _armed_status(disconnect_method)
         _atomic_report(partial / "result.json", report, args.target)
         return 0, partial / "result.json"
     except Exception as exc:
@@ -745,7 +787,10 @@ def observe_disconnect(args) -> Path:
     _owner_controlled_directory(root)
     lock_fd = _acquire_lock(root, args.device_role)
     try:
-        report = _load_report(run_dir, STATUS_ARMED)
+        report = _load_report(run_dir)
+        method = _disconnect_method(report)
+        if report.get("status") != _armed_status(method):
+            raise IdleError("idle run is not in the required stage", 3)
         if report["target"]["role"] != args.device_role:
             raise IdleError("idle role does not match the partial report", 3)
         final_state = {}
@@ -783,41 +828,101 @@ def observe_disconnect(args) -> Path:
              "observations": transition})
         refs.append(f"raw/{transition_name}@sha256:{transition_digest}")
         wait_started = _utc_now()
-        print("READY_TO_DISCONNECT: physically unplug the phone USB-C cable now",
-              flush=True)
+        controller = None
+        rig_action_completed = False
+        if method == DISCONNECT_METHOD_PHYSICAL:
+            print(
+                "READY_TO_DISCONNECT: physically unplug the phone USB-C cable now",
+                flush=True)
+        else:
+            if not getattr(args, "rig_config", None):
+                raise IdleError("rig-port idle requires --rig-config", 3)
+            try:
+                controller = rig.controller_for_target(
+                    args.rig_config, args.device_role,
+                    args.device_map, args.target)
+                rig_result = controller.set_power(
+                    args.device_role, "off", "idle-measurement",
+                    allowed_run_id=report["run_id"])
+                rig_action_completed = True
+                filename = "rig-port-off.json"
+                digest = _write_json_evidence(
+                    run_dir / "raw" / filename, rig_result)
+                refs.append(f"raw/{filename}@sha256:{digest}")
+            except rig.RigError as exc:
+                if controller is not None:
+                    try:
+                        controller.set_power(
+                            args.device_role, "on", "idle-recovery",
+                            allowed_run_id=report["run_id"])
+                    except rig.RigError as recovery_exc:
+                        raise IdleError(
+                            "rig port-off failed and automatic recovery failed",
+                            recovery_exc.exit_code) from recovery_exc
+                raise IdleError(str(exc), exc.exit_code) from exc
         absent = 0
         first_absent = None
-        deadline = time.monotonic() + args.timeout_seconds
-        while time.monotonic() < deadline:
-            devices = test_runner._authorized_devices(args.adb)
-            if args.target not in devices:
-                if first_absent is None:
-                    first_absent = _host_clock_sample()
-                absent += 1
-                if absent >= DISCONNECT_CONFIRMATION_SAMPLES:
-                    break
-            else:
-                absent = 0
-                first_absent = None
-            time.sleep(1)
-        if absent < DISCONNECT_CONFIRMATION_SAMPLES or first_absent is None:
-            raise IdleError("ADB disconnect was not observed before the timeout", 3)
-        report["disconnect"] = {
-            "wait_started_at_utc": wait_started,
-            "first_absent_at_utc": first_absent["utc"],
-            "confirmed_absent_samples": absent,
-            "host_boottime_seconds": first_absent["host_boottime_seconds"],
-            "host_boot_id_sha256": first_absent["host_boot_id_sha256"],
-            "finish_not_before_boottime_seconds": round(
-                first_absent["host_boottime_seconds"]
-                + _report_duration_seconds(report), 3),
-            "reconnected_at_utc": None,
-            "observed_transport_loss": True,
-            "physical_disconnect_requires_finish_attestation": True,
-            "raw_evidence_refs": refs,
-        }
-        report["status"] = STATUS_DISCONNECTED
-        _atomic_report(run_dir / "result.json", report, args.target)
+        try:
+            deadline = time.monotonic() + args.timeout_seconds
+            while time.monotonic() < deadline:
+                devices = test_runner._authorized_devices(args.adb)
+                if args.target not in devices:
+                    if first_absent is None:
+                        first_absent = _host_clock_sample()
+                    absent += 1
+                    if absent >= DISCONNECT_CONFIRMATION_SAMPLES:
+                        break
+                else:
+                    absent = 0
+                    first_absent = None
+                time.sleep(1)
+            if absent < DISCONNECT_CONFIRMATION_SAMPLES or first_absent is None:
+                raise IdleError(
+                    "ADB disconnect was not observed before the timeout", 3)
+        except Exception:
+            if rig_action_completed and controller is not None:
+                try:
+                    controller.set_power(
+                        args.device_role, "on", "idle-recovery",
+                        allowed_run_id=report["run_id"])
+                except rig.RigError as recovery_exc:
+                    raise IdleError(
+                        "disconnect observation failed and automatic rig recovery failed",
+                        recovery_exc.exit_code) from recovery_exc
+            raise
+        try:
+            report["disconnect"] = {
+                "method": method,
+                "wait_started_at_utc": wait_started,
+                "first_absent_at_utc": first_absent["utc"],
+                "confirmed_absent_samples": absent,
+                "host_boottime_seconds": first_absent["host_boottime_seconds"],
+                "host_boot_id_sha256": first_absent["host_boot_id_sha256"],
+                "finish_not_before_boottime_seconds": round(
+                    first_absent["host_boottime_seconds"]
+                    + _report_duration_seconds(report), 3),
+                "reconnected_at_utc": None,
+                "observed_transport_loss": True,
+                "physical_disconnect_requires_finish_attestation": (
+                    method == DISCONNECT_METHOD_PHYSICAL),
+                "rig_port_off_verified": method == DISCONNECT_METHOD_RIG,
+                "raw_evidence_refs": refs,
+            }
+            report["status"] = _disconnected_status(method)
+            _atomic_report(run_dir / "result.json", report, args.target)
+        except Exception:
+            if rig_action_completed and controller is not None:
+                try:
+                    controller.set_power(
+                        args.device_role, "on", "idle-recovery",
+                        allowed_run_id=report["run_id"])
+                except rig.RigError as recovery_exc:
+                    raise IdleError(
+                        "idle checkpoint failed and automatic rig recovery failed",
+                        recovery_exc.exit_code) from recovery_exc
+            raise
+        if method == DISCONNECT_METHOD_RIG:
+            print("RIG_PORT_OFF=PASS", flush=True)
         return run_dir / "result.json"
     finally:
         _release_lock(lock_fd)
@@ -827,7 +932,7 @@ def status(args) -> dict:
     run_dir = Path(args.run_dir).resolve()
     report = _load_report(run_dir)
     result = {"run_id": report["run_id"], "status": report["status"]}
-    if report["status"] == STATUS_DISCONNECTED:
+    if report["status"] in {STATUS_DISCONNECTED, STATUS_DISCONNECTED_RIG}:
         now = _host_clock_sample()
         disconnect = report["disconnect"]
         if now["host_boot_id_sha256"] != disconnect["host_boot_id_sha256"]:
@@ -846,18 +951,31 @@ def status(args) -> dict:
 def finish(args) -> tuple[int, Path]:
     if args.ambient_end_c is None or not (-50 <= args.ambient_end_c <= 100):
         raise IdleError("idle finish requires a plausible ambient temperature")
-    if not (args.operator_confirmed_physical_disconnect
-            and args.operator_confirmed_no_interaction
+    if not (args.operator_confirmed_no_interaction
             and args.operator_confirmed_no_known_network_outage):
         raise IdleError(
-            "idle finish requires physical-disconnect, no-interaction, and network-outage attestations", 3)
+            "idle finish requires no-interaction and network-outage attestations", 3)
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
     run_dir = Path(args.run_dir).resolve()
     root = run_dir.parent
     _owner_controlled_directory(root)
     lock_fd = _acquire_lock(root, args.device_role)
     try:
-        report = _load_report(run_dir, STATUS_DISCONNECTED)
+        report = _load_report(run_dir)
+        method = _disconnect_method(report)
+        if report.get("status") != _disconnected_status(method):
+            raise IdleError("idle run is not in the required stage", 3)
+        if (method == DISCONNECT_METHOD_PHYSICAL
+                and not args.operator_confirmed_physical_disconnect):
+            raise IdleError(
+                "physical idle finish requires the physical-disconnect attestation",
+                3)
+        if method == DISCONNECT_METHOD_RIG:
+            if not getattr(args, "rig_config", None):
+                raise IdleError("rig-port idle finish requires --rig-config", 3)
+            if args.wait_for_reconnect:
+                raise IdleError(
+                    "--wait-for-reconnect applies only to physical unplug runs", 3)
         armed = _host_clock_sample()
         disconnect = report["disconnect"]
         if armed["host_boot_id_sha256"] != disconnect["host_boot_id_sha256"]:
@@ -867,7 +985,41 @@ def finish(args) -> tuple[int, Path]:
         if elapsed_at_arm < _report_duration_seconds(report):
             raise IdleError("idle interval has not reached its declared duration", 3)
         authorized = args.target in test_runner._authorized_devices(args.adb)
-        if args.wait_for_reconnect:
+        if method == DISCONNECT_METHOD_RIG:
+            if authorized:
+                raise IdleError(
+                    "rig-controlled idle target became authorized before finish", 3)
+            try:
+                controller = rig.controller_for_target(
+                    args.rig_config, args.device_role,
+                    args.device_map, args.target)
+                wait_started = _utc_now()
+                rig_result = controller.set_power(
+                    args.device_role, "on", "idle-finish",
+                    allowed_run_id=report["run_id"])
+            except rig.RigError as exc:
+                raise IdleError(str(exc), exc.exit_code) from exc
+            filename = "rig-port-on.json"
+            digest = _write_json_evidence(
+                run_dir / "raw" / filename, rig_result)
+            report["disconnect"]["raw_evidence_refs"].append(
+                f"raw/{filename}@sha256:{digest}")
+            observation = wait_for_authorized_reconnect(
+                lambda: args.target in test_runner._authorized_devices(args.adb),
+                _host_clock_sample,
+                args.reconnect_timeout_seconds,
+                RECONNECT_POLL_INTERVAL_SECONDS,
+                RECONNECT_CONFIRMATION_SAMPLES)
+            now = observation["first_present"]
+            reconnect_observation = {
+                "mode": "verified-rig-port-on",
+                "wait_started_at_utc": wait_started,
+                "confirmed_present_samples": observation[
+                    "confirmed_present_samples"],
+                "observation_count": observation["observation_count"],
+            }
+            print("RIG_PORT_ON=PASS", flush=True)
+        elif args.wait_for_reconnect:
             if authorized:
                 raise IdleError(
                     "selected idle target must still be disconnected when "
@@ -930,7 +1082,8 @@ def finish(args) -> tuple[int, Path]:
         report["disconnect"]["elapsed_seconds"] = round(elapsed, 3)
         report["disconnect"]["reconnect_observation"] = reconnect_observation
         report["operator_attestations"].update({
-            "physical_usb_disconnect": True,
+            "physical_usb_disconnect": method == DISCONNECT_METHOD_PHYSICAL,
+            "verified_rig_port_off": method == DISCONNECT_METHOD_RIG,
             "no_interaction_during_interval": True,
             "no_known_material_network_outage": True,
         })
@@ -968,6 +1121,36 @@ def quarantine(args) -> Path:
     lock_fd = _acquire_lock(root, args.device_role)
     try:
         report = _load_report(run_dir)
+        method = _disconnect_method(report)
+        if method == DISCONNECT_METHOD_RIG:
+            if not getattr(args, "rig_config", None):
+                raise IdleError(
+                    "quarantining a rig-port run requires --rig-config", 3)
+            recovery = {
+                "mode": "already-authorized",
+                "completed_at_utc": _utc_now(),
+            }
+            if args.target not in test_runner._authorized_devices(args.adb):
+                try:
+                    controller = rig.controller_for_target(
+                        args.rig_config, args.device_role,
+                        args.device_map, args.target)
+                    rig_result = controller.set_power(
+                        args.device_role, "on", "idle-quarantine",
+                        allowed_run_id=report["run_id"])
+                except rig.RigError as exc:
+                    raise IdleError(
+                        "rig-port quarantine could not restore the target",
+                        exc.exit_code) from exc
+                filename = "rig-port-quarantine-on.json"
+                digest = _write_json_evidence(
+                    run_dir / "raw" / filename, rig_result)
+                recovery = {
+                    "mode": "verified-rig-port-on",
+                    "completed_at_utc": _utc_now(),
+                    "raw_evidence_ref": f"raw/{filename}@sha256:{digest}",
+                }
+            report["rig_quarantine_recovery"] = recovery
         report["status"] = args.status
         report["finished_at_utc"] = _utc_now()
         if args.status == "HARNESS_ERROR":
@@ -988,7 +1171,10 @@ def quarantine(args) -> Path:
 
 
 def dry_run(config: str, declared_repeat_index: int | None = None,
-            series_id: str | None = None) -> dict:
+            series_id: str | None = None,
+            disconnect_method: str = DISCONNECT_METHOD_PHYSICAL) -> dict:
+    if disconnect_method not in DISCONNECT_METHODS:
+        raise IdleError("idle dry run has an invalid disconnect method")
     protocol, digest = baseline_protocol.load_protocol(config)
     profile = _run_profile(protocol, declared_repeat_index, series_id)
     return {
@@ -999,6 +1185,7 @@ def dry_run(config: str, declared_repeat_index: int | None = None,
         "series_id": profile["series_id"],
         "repeat_index": profile["repeat_index"],
         "repeat_count": profile["repeat_count"],
+        "disconnect_method": disconnect_method,
         "protocol_id": protocol["protocol_id"],
         "protocol_sha256": digest,
         "device_commands_executed": 0,
@@ -1010,12 +1197,16 @@ def dry_run(config: str, declared_repeat_index: int | None = None,
             "explicitly authorized dumpsys batterystats --reset",
             "KEYCODE_SLEEP to turn the display off before disconnect",
         ],
-        "physical_actions": [
+        "physical_actions": ([
             "physically unplug USB only after start reports ARMED",
             "leave the screen off and do not interact",
             "after status reports ready, arm finish with --wait-for-reconnect",
             "physically reconnect only after finish reports READY_TO_RECONNECT",
-        ],
+        ] if disconnect_method == DISCONNECT_METHOD_PHYSICAL else [
+            "leave the phone physically attached and do not interact",
+            "the qualified rig turns its bound port off after screen verification",
+            "finish restores and verifies the same role and USB path automatically",
+        ]),
         "privacy": "network output is reduced to booleans before persistence",
     }
 
@@ -1031,10 +1222,17 @@ def build_parser() -> argparse.ArgumentParser:
     dry_parser = sub.add_parser("dry-run")
     dry_parser.add_argument("--declared-repeat-index", type=int, choices=(1, 2))
     dry_parser.add_argument("--series-id")
+    dry_parser.add_argument(
+        "--disconnect-method", choices=sorted(DISCONNECT_METHODS),
+        default=DISCONNECT_METHOD_PHYSICAL)
     start_parser = sub.add_parser("start")
     start_parser.add_argument("--target", required=True)
     start_parser.add_argument("--device-role", required=True)
     start_parser.add_argument("--device-map", required=True)
+    start_parser.add_argument("--rig-config")
+    start_parser.add_argument(
+        "--disconnect-method", choices=sorted(DISCONNECT_METHODS),
+        default=DISCONNECT_METHOD_PHYSICAL)
     start_parser.add_argument("--adb", default="adb")
     start_parser.add_argument("--run-id", required=True)
     start_parser.add_argument("--output", required=True)
@@ -1051,6 +1249,7 @@ def build_parser() -> argparse.ArgumentParser:
     disconnect_parser.add_argument("--target", required=True)
     disconnect_parser.add_argument("--device-role", required=True)
     disconnect_parser.add_argument("--device-map", required=True)
+    disconnect_parser.add_argument("--rig-config")
     disconnect_parser.add_argument("--adb", default="adb")
     disconnect_parser.add_argument("--run-dir", required=True)
     disconnect_parser.add_argument(
@@ -1062,6 +1261,7 @@ def build_parser() -> argparse.ArgumentParser:
     finish_parser.add_argument("--target", required=True)
     finish_parser.add_argument("--device-role", required=True)
     finish_parser.add_argument("--device-map", required=True)
+    finish_parser.add_argument("--rig-config")
     finish_parser.add_argument("--adb", default="adb")
     finish_parser.add_argument("--run-dir", required=True)
     finish_parser.add_argument("--ambient-end-c", required=True, type=float)
@@ -1080,6 +1280,8 @@ def build_parser() -> argparse.ArgumentParser:
     quarantine_parser.add_argument("--target", required=True)
     quarantine_parser.add_argument("--device-role", required=True)
     quarantine_parser.add_argument("--device-map", required=True)
+    quarantine_parser.add_argument("--rig-config")
+    quarantine_parser.add_argument("--adb", default="adb")
     quarantine_parser.add_argument("--run-dir", required=True)
     quarantine_parser.add_argument("--reason", required=True)
     quarantine_parser.add_argument(
@@ -1093,7 +1295,8 @@ def main(argv=None) -> int:
     try:
         if args.action == "dry-run":
             print(json.dumps(dry_run(
-                args.config, args.declared_repeat_index, args.series_id),
+                args.config, args.declared_repeat_index, args.series_id,
+                args.disconnect_method),
                 indent=2, sort_keys=True))
             return 0
         if args.action == "start":

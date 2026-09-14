@@ -1,0 +1,5 @@
+# TEMPLATE ONLY: replace each all-caps value with the independently qualified
+# USB2/USB3 controller identity and exact sysfs topology. The service account
+# receives access only to those two hub device nodes.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="USB2_SYSFS_PATH", ATTR{idVendor}=="USB2_VENDOR_ID", ATTR{idProduct}=="USB2_PRODUCT_ID", GROUP="diamaneos-test", MODE="0660"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="USB3_SYSFS_PATH", ATTR{idVendor}=="USB3_VENDOR_ID", ATTR{idProduct}=="USB3_PRODUCT_ID", GROUP="diamaneos-test", MODE="0660"

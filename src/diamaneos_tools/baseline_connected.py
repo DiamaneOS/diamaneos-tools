@@ -157,6 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--target", required=True, help="private exact ADB serial")
     run.add_argument("--device-role", required=True)
     run.add_argument("--device-map", required=True)
+    run.add_argument("--rig-config")
     run.add_argument("--run-id", required=True)
     run.add_argument("--series-id", required=True)
     run.add_argument("--repeat-index", required=True, type=int, choices=(1, 2))

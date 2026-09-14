@@ -24,6 +24,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 SCHEMA_VERSION = 1
 GFXINFO_COMMAND = ("dumpsys", "gfxinfo", "com.android.systemui")
@@ -241,7 +242,6 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
     visible instead of vanishing. A killed over-producer counts as overflow,
     never success. Never raises for tool/setup failures.
     """
-    import time
     try:
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
@@ -599,6 +599,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Read-only FP6 baseline collector")
     ap.add_argument("--fixture", help="offline fixture JSON (no adb)")
     ap.add_argument("--target", help="explicit adb serial (required for live)")
+    ap.add_argument("--device-role", help="private rig role for live collection")
+    ap.add_argument("--device-map", help="private role-to-target map")
+    ap.add_argument("--rig-config", help="private rig config holding a live-run lock")
     ap.add_argument("--adb", default="adb", help="adb executable")
     ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     ap.add_argument("--dry-run", action="store_true",
@@ -636,21 +639,47 @@ def main(argv=None):
         print("error: --target required (refusing before any adb command)",
               file=sys.stderr)
         return 2
-    code, report = live_capture(args.target, adb=args.adb,
-                                timeout=args.timeout, run_id=args.run_id,
-                                conditions=args.conditions,
-                                raw_dir=args.raw_dir,
-                                config_path=args.config)
-    if code == 0:
-        text = json.dumps(report, indent=2) + "\n"
-        if args.output:
-            with open(args.output, "w") as fh:
-                fh.write(text)
+    rig_fields = (args.rig_config, args.device_role, args.device_map)
+    if any(rig_fields) and not all(rig_fields):
+        print("error: rig-bound live capture requires --rig-config, "
+              "--device-role and --device-map", file=sys.stderr)
+        return 2
+    guard = None
+    if args.rig_config:
+        try:
+            from diamaneos_tools import rig as rig_module
+        except ModuleNotFoundError:
+            # Preserve the documented direct-script entry point as well as the
+            # package-aware bin/diamaneos entry point.
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+            from diamaneos_tools import rig as rig_module
+        try:
+            guard = rig_module.acquire_test_start_guard(
+                args.rig_config, args.device_role, args.device_map, args.target)
+        except rig_module.RigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return exc.exit_code
+    try:
+        code, report = live_capture(
+            args.target, adb=args.adb, timeout=args.timeout,
+            run_id=args.run_id, conditions=args.conditions,
+            raw_dir=args.raw_dir, config_path=args.config)
+        if args.device_role and code == 0:
+            report["environment"]["device_role"] = args.device_role
+        if code == 0:
+            text = json.dumps(report, indent=2) + "\n"
+            if args.output:
+                with open(args.output, "w") as fh:
+                    fh.write(text)
+            else:
+                sys.stdout.write(text)
         else:
-            sys.stdout.write(text)
-    else:
-        print(f"error: {report.get('observed')}", file=sys.stderr)
-    return code
+            print(f"error: {report.get('observed')}", file=sys.stderr)
+        return code
+    finally:
+        if guard is not None:
+            guard.release()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+[Unit]
+Description=DiamaneOS service-owned USB ADB server
+Documentation=file:/opt/diamaneos/tools/deploy/test-host/README.md
+After=local-fs.target systemd-udevd.service
+Before=diamaneos-rig-maintenance.service
+
+[Service]
+Type=simple
+User=diamaneos-test
+Group=diamaneos-test
+Environment=HOME=/var/lib/diamaneos-test
+Environment=ADB_MDNS=0
+UMask=0027
+ExecStart=/usr/local/bin/adb -L tcp:localhost:5037 nodaemon server
+ExecStop=/usr/local/bin/adb kill-server
+Restart=on-failure
+RestartSec=2s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/diamaneos-test
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
