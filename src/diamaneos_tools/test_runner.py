@@ -54,7 +54,9 @@ READ_ONLY_ADB_ALLOWLIST = {
     ("getprop", "gsm.version.baseband"),
     ("getprop", "sys.boot_completed"),
     ("dumpsys", "battery"),
+    ("dumpsys", "carrier_config"),
     ("dumpsys", "imsservice"),
+    ("dumpsys", "telephony.registry"),
     ("getenforce",),
 }
 

@@ -22,6 +22,8 @@ from diamaneos_tools import test_runner as api
 FAKE_ADB = Path(__file__).parent / "fixtures" / "fake_adb.py"
 SCHEMA = json.loads((TOOLS / "schemas" / "test-run.schema.json").read_text())
 SMOKE = json.loads((TOOLS / "tests" / "device" / "suites" / "smoke.json").read_text())
+TELEPHONY = json.loads(
+    (TOOLS / "tests" / "device" / "suites" / "telephony.json").read_text())
 
 IDENTITY = {
     "getprop ro.product.model": {"stdout": "The Fairphone (Gen. 6)\n"},
@@ -151,6 +153,35 @@ class RunnerTest(unittest.TestCase):
         serialized = json.dumps(report)
         self.assertNotIn("SERIAL-A", serialized)
         self.assertNotIn("SERIAL-B", serialized)
+
+    def test_committed_telephony_suite_is_read_only_and_bounded(self):
+        api.validate_suite(TELEPHONY)
+        changed = responses(**{
+            "dumpsys carrier_config": {
+                "stdout": "config_mccmnc=26202 carrier_volte_available_bool=true\n",
+            },
+            "dumpsys telephony.registry": {
+                "stdout": "mServiceState voiceRegState=0 operatorNumeric=26202\n",
+            },
+            "dumpsys imsservice": {
+                "stderr": "Can't find service: imsservice\n", "returncode": 1,
+            },
+        })
+        self.env["FAKE_ADB_RESPONSES"] = json.dumps(changed)
+        out = self.invoke(self.command(run_id="telephony-fixture", suite="telephony"))
+        self.assertEqual(0, out.returncode, out.stderr)
+        report = self.read_result("telephony-fixture")
+        self.assertEqual("PASS", report["status"])
+        self.assertEqual(2, report["counts"]["PASS"])
+        self.assertEqual(1, report["counts"]["SKIP"])
+        self.assertEqual(0, report["counts"]["FAIL"])
+        shell_calls = [call[3:] for call in self.adb_calls()
+                       if len(call) >= 4 and call[2] == "shell"]
+        self.assertIn(["dumpsys", "carrier_config"], shell_calls)
+        self.assertIn(["dumpsys", "telephony.registry"], shell_calls)
+        self.assertIn(["dumpsys", "imsservice"], shell_calls)
+        self.assertTrue(all(tuple(call) in api.READ_ONLY_ADB_ALLOWLIST
+                            for call in shell_calls))
 
     def test_selected_stage_keeps_full_inventory_visible(self):
         out = self.invoke(self.command() + ["--stage", "inspect"])
