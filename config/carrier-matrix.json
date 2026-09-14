@@ -154,9 +154,11 @@
       "capability": "esim-lifecycle",
       "plan_eligibility": "not-applicable",
       "source_refs": ["vodafone-esim"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "The active profile may be observed now. Reversible disable or enable needs operator confirmation; deletion or reprovisioning needs separate explicit authorization."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-vodafone-esim-retained-lifecycle@sha256:3be986ec32c64b6d70a20f6cb634a752de5c2fce69fc661bdf9b947ea7edbab0"
+      ],
+      "notes": "With explicit owner authorization on locked stock FP6.QREL.16.100.0, the installed profile was disabled through Android Settings, reached a verified unregistered service state, was re-enabled without activation credentials, and returned to registered service. Deletion, download, transfer and reprovisioning were not tested."
     },
     {
       "id": "blau-physical-voice",
