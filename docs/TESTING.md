@@ -93,13 +93,19 @@ bin/diamaneos baseline capture --dry-run
 Live command:
 
 ```sh
-bin/diamaneos baseline capture --target <serial> --conditions "<env>" \
+bin/diamaneos baseline capture --target <serial> \
+  --device-role <mapped-role> \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --rig-config <PRIVATE_ROOT>/rig.json \
+  --conditions "<env>" \
   --raw-dir <PRIVATE_ROOT>/runs/<run-id>/ --output report.json
 ```
 
 Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
 evidence refs; without --raw-dir the run is ephemeral (not accepted
-evidence). Public reports carry a device alias only; serials stay private.
+evidence). On a controlled rig, the three role/map/rig arguments hold the
+selected role lock for the complete live capture; supply all three or none.
+Public reports carry a device alias only; serials stay private.
 Graphics capture is fixed to `dumpsys gfxinfo com.android.systemui`. An
 unscoped `gfxinfo` query can enumerate enough installed-package state to
 exceed the bounded collector output, while SystemUI provides a stable,
@@ -124,6 +130,30 @@ performance. Standalone ADB checks do not establish collector acceptance. Host
 bounds: 20s per adb call plus 256KB streaming byte cap
 (byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
 git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
+
+## Controlled USB rig
+
+`bin/diamaneos rig` provides identity-bound status, explicit port power and
+battery-maintenance operations for an independently qualified switchable hub.
+The private configuration binds each role to an exact ADB map entry, logical
+port and USB topology path. The controller refuses `cycle`, checks the USB2 and
+USB3 companion port states agree, verifies the selected role after power-on,
+and checks that every other present mapped role remains on its original path.
+
+Configuration validation and planning contact no device:
+
+```sh
+bin/diamaneos rig validate --config <PRIVATE_ROOT>/rig.json
+bin/diamaneos rig dry-run --config <PRIVATE_ROOT>/rig.json
+```
+
+An active or unreadable `.partial` run in any configured private output root
+inhibits maintenance and ordinary power changes. The scheduled maintenance
+unit remains disabled until all deployed test starters have a race-free
+role-lock-to-partial-state handoff and the owner has accepted each battery
+policy. Hub qualification, least-privilege device-node access, service-owned
+ADB and reboot recovery are deployment requirements, not results of unit
+tests. See the [test-host deployment recipe](../deploy/test-host/README.md).
 
 ## Stock performance protocol and pilot
 
@@ -171,6 +201,7 @@ bin/diamaneos baseline pilot \
   --target "$TEST_DEVICE_TARGET" \
   --device-role harness \
   --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --rig-config <PRIVATE_ROOT>/rig.json \
   --run-id <run-id> \
   --output <PRIVATE_ROOT>/baseline-runs \
   --ambient-start-c <room-thermometer-reading> \
@@ -203,6 +234,7 @@ bin/diamaneos baseline connected run \
   --target "$TEST_DEVICE_TARGET" \
   --device-role harness \
   --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --rig-config <PRIVATE_ROOT>/rig.json \
   --run-id <unique-run-id> \
   --series-id <shared-series-id> \
   --repeat-index 1 \
@@ -228,17 +260,31 @@ screen-off oracle.
 The sleep transition is asynchronous: the harness polls for at most five
 seconds and requires two consecutive non-awake/`OFF` observations rather than
 sampling immediately after the key event.
-`baseline idle observe-disconnect` records stable ADB loss, but physical VBUS
-removal remains an operator attestation. Keep the cable physically unplugged,
-the screen off and the phone untouched until `baseline idle status` reports
-that the interval is complete. Read the ending thermometer while the phone is
-still disconnected, then run `baseline idle finish --wait-for-reconnect` with
-that value. Reconnect only after it prints `READY_TO_RECONNECT`; the command
-records two consecutive authorized-ADB observations and begins the ending
-capture immediately, avoiding operator or SSH delay in the measured interval.
-The legacy finish path accepts a target that is already connected, but its
-invocation time is the reconnect time and therefore remains subject to the
-60-second finish tolerance. After the pilot passes, select the declared
+`baseline idle observe-disconnect` supports two explicitly distinguished
+methods. The default `physical-unplug` method records stable ADB loss, but
+physical VBUS removal remains an operator attestation. Keep the cable
+physically unplugged, the screen off and the phone untouched until `baseline
+idle status` reports that the interval is complete. Read the ending
+thermometer while the phone is still disconnected, then run `baseline idle
+finish --wait-for-reconnect` with that value. Reconnect only after it prints
+`READY_TO_RECONNECT`; the command records two consecutive authorized-ADB
+observations and begins the ending capture immediately.
+
+For a qualified controlled hub, pass `--disconnect-method
+verified-rig-port-off` and `--rig-config <PRIVATE_ROOT>/rig.json` to `start`,
+then pass the same rig config to `observe-disconnect` and `finish`. The observer
+verifies screen-off state, selects the configured role and port, switches only
+that port off, verifies USB2/USB3 power-off state plus ADB absence and records
+the redacted controller result. Leave the cable attached. At the threshold,
+`finish` switches the same port on, verifies the mapped role returns on the
+same path, checks the other mapped phone was not disturbed, records stable ADB
+presence and immediately captures the ending state. This method requires no
+physical-disconnect attestation and never represents hub power-off as a cable
+unplug. If disconnect observation fails, it attempts to restore the port.
+
+The legacy physical finish path accepts a target that is already connected,
+but its invocation time is the reconnect time and therefore remains subject
+to the 60-second finish tolerance. After the pilot passes, select the declared
 eight-hour state machine by supplying both `--declared-repeat-index` (`1` or
 `2`) and one shared, valid `--series-id` to `dry-run` and `start`. The command
 then binds the immutable report to `DECLARED_STOCK_BASELINE_EVIDENCE`, the

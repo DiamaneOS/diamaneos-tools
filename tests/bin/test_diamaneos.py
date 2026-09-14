@@ -22,6 +22,18 @@ class CliTest(unittest.TestCase):
         self.assertEqual(out.returncode, 0)
         self.assertIn("target_required", out.stdout)
 
+    def test_baseline_capture_rejects_incomplete_rig_binding_before_adb(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"),
+             "baseline", "capture", "--target", "private-target",
+             "--rig-config", "/private/rig.json",
+             "--adb", "/does/not/exist"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30)
+        self.assertEqual(out.returncode, 2)
+        self.assertIn("requires --rig-config, --device-role and --device-map",
+                      out.stderr)
+        self.assertNotIn("executable not found", out.stderr)
+
     def test_baseline_protocol_validate(self):
         out = subprocess.run(
             [os.path.join(TOOLS, "bin", "diamaneos"),
@@ -55,6 +67,13 @@ class CliTest(unittest.TestCase):
             capture_output=True, text=True, cwd=TOOLS, timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("Plan eligibility is not device evidence", out.stdout)
+
+    def test_rig_help(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"), "rig", "--help"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("identity-bound USB test-rig control", out.stdout)
 
     def test_unknown_command(self):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "nope"],
