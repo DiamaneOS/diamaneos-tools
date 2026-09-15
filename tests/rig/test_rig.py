@@ -215,10 +215,49 @@ class RigTest(unittest.TestCase):
             "run_id": "active",
             "target": {"role": "harness"},
         }), encoding="utf-8")
+        (partial / "result.json").chmod(0o640)
         with self.assertRaisesRegex(rig.RigError, "active test"):
             self.controller.set_power("harness", "off", "manual-hold")
         self.assertFalse(any(call[0] == "/synthetic/uhubctl"
                              for call in self.executor.calls))
+
+    def test_partial_without_valid_target_inhibits_every_role(self):
+        partial = self.runs / "invalid-target.partial"
+        partial.mkdir()
+        result = partial / "result.json"
+        result.write_text(json.dumps({"run_id": "invalid-target"}),
+                          encoding="utf-8")
+        result.chmod(0o640)
+        with self.assertRaisesRegex(rig.RigError, "active test"):
+            self.controller.set_power(
+                "telephony-peer", "off", "manual-hold")
+
+    def test_non_owner_controlled_partial_inhibits_every_role(self):
+        partial = self.runs / "open-mode.partial"
+        partial.mkdir()
+        result = partial / "result.json"
+        result.write_text(json.dumps({
+            "run_id": "open-mode",
+            "target": {"role": "harness"},
+        }), encoding="utf-8")
+        result.chmod(0o644)
+        with self.assertRaisesRegex(rig.RigError, "active test"):
+            self.controller.set_power(
+                "telephony-peer", "off", "manual-hold")
+
+    def test_symbolic_link_partial_inhibits_every_role(self):
+        outside = Path(self.temp.name) / "outside"
+        outside.mkdir()
+        result = outside / "result.json"
+        result.write_text(json.dumps({
+            "run_id": "linked",
+            "target": {"role": "harness"},
+        }), encoding="utf-8")
+        result.chmod(0o640)
+        (self.runs / "linked.partial").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(rig.RigError, "active test"):
+            self.controller.set_power(
+                "telephony-peer", "off", "manual-hold")
 
     def test_unreadable_partial_inhibits_every_role(self):
         partial = self.runs / "forming.partial"
@@ -249,6 +288,12 @@ class RigTest(unittest.TestCase):
         self.assertEqual(result["decision"]["action"], "hold")
         self.assertFalse(self.executor.power[1])
         self.assertFalse(self.executor.roles["synthetic-a"]["present"])
+
+    def test_maintenance_detects_other_role_disturbance(self):
+        self.executor.roles["synthetic-a"]["level"] = 80
+        self.executor.disrupt_other = True
+        with self.assertRaisesRegex(rig.RigError, "disturbed another"):
+            self.controller.maintain("harness")
 
     def test_failed_off_state_probe_restores_power_off(self):
         self.controller._write_intent("harness", False, "hysteresis-high")
