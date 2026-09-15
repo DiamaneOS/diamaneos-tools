@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-09-13T09:44:03.437493+00:00",
-  "title": "Facet: selected Lumen browser direction",
+  "title": "Facet: Lumen interface and Lift branding",
   "extensions": {
     "motion": [
       {
@@ -100,11 +100,12 @@
   ],
   "narrative": {
     "northStar": "A familiar phone. A different feeling.",
-    "overview": "Lumen was selected by the owner on 13 September 2026 and extended across six browser journeys. Native implementation and qualification remain pending.",
+    "overview": "Lumen was selected by the owner on 13 September 2026 and extended across six browser journeys. Native implementation and qualification remain pending. Lift was selected on 15 September 2026; design/branding/ contains the mark, artwork and browser motion reference.",
     "keyCharacteristics": [
       "Recognisable Android destinations and visible search.",
       "Task-specific hierarchy in a coherent tonal system.",
-      "State and recovery that remain understandable while navigating."
+      "State and recovery that remain understandable while navigating.",
+      "Lift folded-plane branding with separate semantic UI colours and preserved app identities."
     ],
     "rules": [],
     "dos": [

@@ -30,5 +30,7 @@ fastboot --version
 - [Repository map](config/repositories.json)
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
+- [Interface design reference](DESIGN.md)
+- [Lift branding and reusable assets](design/branding/README.md)
 
 Only implemented commands can be run. Planned features and unresolved evidence are identified in their component contracts; a planning record is not a runtime result.

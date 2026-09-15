@@ -1,6 +1,6 @@
 ---
-name: Facet — Lumen
-description: Selected Lumen browser direction for six Android journeys; native integration remains pending.
+name: Facet — Lumen with Lift branding
+description: Selected Lumen browser direction and Lift brand reference; native integration remains pending.
 colors:
   preview-muted: "#56635a"
   preview-selection-ink: "#254d9a"
@@ -108,7 +108,7 @@ components:
     rounded: "{rounded.field}"
     padding: "0 12px"
 ---
-# Facet design reference — comparative proposals
+# Facet design reference — Lumen and Lift
 
 ## Overview
 
@@ -136,6 +136,28 @@ the actual feature contracts.
 - Recognisable Android destinations and visible search.
 - Task-specific hierarchy in a coherent tonal system.
 - State and recovery that remain understandable while navigating.
+
+## Branding — Lift
+
+Lift was selected on 15 September 2026. Its three asymmetric folded planes
+form the DiamaneOS mark. Use the [brand guide](design/branding/README.md) and
+[offline reference](design/branding/lift/preview.html) for logo spacing,
+outlined wordmarks, paired colour assets, wallpapers, banners and motion.
+The [source record](design/branding/lift/source.json) preserves the selected
+geometry; the [earlier options](design/branding/archive/fold-options.html)
+remain available for comparison.
+
+DiamaneOS remains the public name. Facet, Lumen and Lift describe the interface
+and branding work, not additional consumer products. The master logo remains
+independent of the current device and upstream base. Source attribution stays
+in the relevant project and technical records.
+
+Lift's logo uses one colour; larger artwork may separate its planes with the
+documented illustration tones. The brand does not replace status/error colours
+or app identities. Instrument Sans is used for the brand lettering and preview,
+with local font files and outlined export assets. Native Android typography
+remains governed by the interface implementation. The Lift boot motion is a
+browser reference, not an integrated native animation.
 
 ## Colors
 

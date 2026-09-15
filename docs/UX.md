@@ -7,6 +7,12 @@ Native integration, device qualification, and intended-user acceptance remain
 separate work. The [previous UX record](../design/reviews/2026-09-13-pre-lumen-ux.md)
 and original mockup remain available for comparison.
 
+**Branding: Lift selected, 2026-09-15.** The [brand guide](../design/branding/README.md)
+and [offline reference](../design/branding/lift/preview.html) contain the folded-plane
+mark, wordmark assets, wallpapers, banners and motion study. DiamaneOS remains
+the public identity; Lift's artwork does not replace semantic status colours,
+ordinary Android navigation or app identity. Native boot integration is separate.
+
 ## The vision
 
 **Crisp, expressive, immediately understandable.** A DiamaneOS phone should

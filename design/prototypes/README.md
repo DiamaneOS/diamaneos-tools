@@ -5,6 +5,11 @@ See [journey annotations](../lumen-journeys.md), [palette](lumen-palette.json),
 [motion](lumen-motion.md), and [verification](../reviews/2026-09-13-lumen-journeys.md).
 The review rail resets a journey; ordinary navigation preserves state.
 
+**Branding: [Lift](../branding/lift/preview.html), selected on 15 September 2026.**
+The [brand guide](../branding/README.md) provides logo assets, banners, wallpapers,
+and a browser boot-motion study. The Lumen reference header links to this kit;
+the original UI and branding comparisons remain available.
+
 ## Preserved comparison and baseline
 
 The [13 September review](../reviews/2026-09-13-facet-review.md) explores three
@@ -15,8 +20,10 @@ stress controls without modifying its source.
 
 The new comparison works as a standalone file with its adjacent CSS, JavaScript,
 and icon assets. The baseline review wrapper requires HTTP. To serve both from
-the repository root, run `python3 -m http.server 8766 --bind 127.0.0.1`, then open
+the repository root, run `python3 design/serve.py --port 8766`, then open
 `http://127.0.0.1:8766/design/prototypes/facet-directions.html`.
+The preview server declares UTF-8 for text resources, including linked Markdown,
+so punctuation and mathematical symbols display correctly in the browser.
 
 Open `diamaneos-ui.html` directly in a modern browser for the six documented
 journeys. Keep its adjacent `assets/` folder: the bundled Lucide runtime renders
