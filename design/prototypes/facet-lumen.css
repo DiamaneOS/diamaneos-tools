@@ -1,8 +1,10 @@
 /* The selected Lumen foundation is shared with the preserved comparison. */
 @import url("facet-directions.css");
 
-.lumen-header { max-width: 1200px; margin: auto; min-height: 72px; padding: 18px 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.lumen-header nav { display: flex; gap: 24px; font-size: 13px; }
+.lumen-header { max-width: 1200px; margin: auto; min-height: 72px; padding: 18px 30px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+.lumen-header .wordmark { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.lift-header-mark { display: block; flex-shrink: 0; }
+.lumen-header nav { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 13px; }
 .lumen-study { max-width: 1140px; margin: 12px auto 40px; padding: 0 30px; display: grid; grid-template-columns: minmax(180px,1fr) 390px minmax(205px,1fr); gap: 40px; align-items: start; }
 .journey-rail { padding-top: 16px; }
 .journey-rail h1 { font-size: 38px; font-weight: 580; letter-spacing: -.035em; margin: 0 0 10px; }
@@ -133,8 +135,8 @@
   .rail-doc { margin-top: 15px; }
 }
 @media (max-width: 620px) {
-  .lumen-header { padding: 16px; align-items: flex-start; }
-  .lumen-header nav { display: grid; gap: 8px; font-size: 11px; text-align: end; }
+  .lumen-header { padding: 16px; align-items: flex-start; flex-direction: column; gap: 12px; }
+  .lumen-header nav { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; text-align: start; }
   .lumen-study { display: flex; flex-direction: column; padding: 0 14px; gap: 24px; max-width: 470px; }
   .journey-rail { width: 100%; padding-top: 0; }
   .journey-rail h1 { font-size: 31px; }

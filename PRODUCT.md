@@ -71,3 +71,12 @@ current reference is `design/prototypes/facet-lumen.html`; preserve the original
 baseline and three-direction comparison. This authorizes adoption for design
 work, not changing platform capability/security policy or declaring native
 implementation complete.
+
+## Selected branding — 15 September 2026
+
+Lift is the selected DiamaneOS branding direction: three asymmetric folded
+planes with softened outer corners. Its source assets, usage guidance,
+wallpapers, banners and motion reference live in `design/branding/`.
+The public product name remains DiamaneOS. Lift complements Lumen without
+changing interface semantics, native capability claims, or independent app
+identities. Earlier branding concepts remain available for comparison.

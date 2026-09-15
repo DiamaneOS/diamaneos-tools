@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DiamaneOS · Fold variations</title><link rel="stylesheet" href="archive.css"></head><body><header><a href="../lift/preview.html">Selected Lift reference</a><span>Archived exploration · Fold variations</span></header><main>
+<style>
+#dm-fold-options { width:100%; }
+#dm-fold-options .dm-toolbar { margin-bottom:18px; }
+#dm-fold-options .dm-choices { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px; }
+#dm-fold-options .dm-choice { min-width:0; }
+#dm-fold-options .dm-paper { --dm-paper:light-dark(#f2f5fa,#151e30);--dm-ink:light-dark(#1e2a40,#edf1fc);--dm-cobalt:light-dark(#305dd0,#acc8ff);--dm-medium:light-dark(#7696e5,#668bcf);--dm-soft:light-dark(#dbe6ff,#30466d);background:var(--dm-paper);color:var(--dm-ink);font-family:'Instrument Sans',sans-serif; }
+#dm-fold-options[data-theme="light"] .dm-paper { color-scheme:light; }
+#dm-fold-options[data-theme="dark"] .dm-paper { color-scheme:dark; }
+#dm-fold-options[data-theme="ink"] .dm-paper { --dm-paper:light-dark(#fff,#181818);--dm-ink:light-dark(#181818,#fff);--dm-cobalt:var(--dm-ink);--dm-medium:light-dark(#858585,#a0a0a0);--dm-soft:light-dark(#e0e0e0,#414141); }
+#dm-fold-options .dm-specimen { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;height:206px;margin-bottom:9px; }
+#dm-fold-options .dm-logo { width:94px;height:104px;color:var(--dm-cobalt);display:block; }
+#dm-fold-options .dm-tiny { display:flex;align-items:center;justify-content:center;gap:18px;color:var(--dm-ink); }
+#dm-fold-options .dm-tiny svg { display:block; }
+#dm-fold-options .dm-button-row { display:flex;justify-content:center; }
+#dm-fold-options .dm-label { margin:0 0 8px; }
+#dm-fold-options .dm-banner { position:relative;isolation:isolate;min-height:210px;overflow:hidden;display:flex;align-items:center;padding:28px;box-sizing:border-box; }
+#dm-fold-options .dm-lockup { display:flex;align-items:center;gap:12px;position:relative;z-index:1; }
+#dm-fold-options .dm-lockup svg { width:44px;height:48px;flex-shrink:0;color:var(--dm-cobalt); }
+#dm-fold-options .dm-wordmark { font-size:31px;line-height:1.1;letter-spacing:-.035em;font-weight:500;white-space:nowrap; }
+#dm-fold-options .dm-wordmark span { font-weight:400; }
+#dm-fold-options .dm-banner-graphic { position:absolute;width:335px;height:335px;right:-34px;top:-50px;color:var(--dm-soft);transform:rotate(-11deg);z-index:0;--dm-face-a:var(--dm-soft);--dm-face-b:var(--dm-cobalt);--dm-face-c:var(--dm-medium); }
+#dm-fold-options .dm-lower { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px; }
+#dm-fold-options .dm-wallpaper { position:relative;height:254px;overflow:hidden;isolation:isolate; }
+#dm-fold-options .dm-wallpaper-graphic { position:absolute;width:390px;height:390px;right:-98px;bottom:-113px;color:var(--dm-soft);--dm-face-a:var(--dm-soft);--dm-face-b:var(--dm-cobalt);--dm-face-c:var(--dm-medium);transform:rotate(10deg); }
+#dm-fold-options .dm-clock { position:absolute;left:22px;top:19px;z-index:1;font-size:46px;line-height:1.1;font-weight:400;letter-spacing:-.04em; }
+#dm-fold-options .dm-date { position:absolute;left:25px;top:76px;z-index:1;font-size:12px;line-height:1.3; }
+#dm-fold-options .dm-boot { height:254px;display:flex;flex-direction:column;gap:28px;justify-content:center;align-items:center;overflow:hidden; }
+#dm-fold-options .dm-boot-symbol { width:96px;height:106px;color:var(--dm-cobalt);overflow:visible; }
+#dm-fold-options .dm-boot-name { font-size:18px;line-height:1.2;letter-spacing:-.025em;font-weight:500; }
+#dm-fold-options .dm-motion-controls { display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px; }
+#dm-fold-options .dm-view-heading { display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px; }
+#dm-fold-options .dm-view-heading p { margin:0; }
+#dm-fold-options .dm-face { transform-box:fill-box;transform-origin:center; }
+#dm-fold-options[data-running="true"] .dm-boot-symbol .dm-face { animation:dm-fold-in 1550ms cubic-bezier(.16,1,.3,1) both; }
+#dm-fold-options[data-running="true"] .dm-boot-symbol .dm-face:nth-child(2) { animation-delay:90ms; }
+#dm-fold-options[data-running="true"] .dm-boot-symbol .dm-face:nth-child(3) { animation-delay:180ms; }
+#dm-fold-options[data-kind="lift"] .dm-face:nth-child(1) { --dm-x:-17px;--dm-y:-8px;--dm-rotation:-17deg;--dm-skew:-8deg; }
+#dm-fold-options[data-kind="lift"] .dm-face:nth-child(2) { --dm-x:17px;--dm-y:-10px;--dm-rotation:15deg;--dm-skew:8deg; }
+#dm-fold-options[data-kind="lift"] .dm-face:nth-child(3) { --dm-x:0px;--dm-y:19px;--dm-rotation:-6deg;--dm-skew:0deg; }
+#dm-fold-options[data-kind="ribbon"] .dm-face:nth-child(1) { --dm-x:22px;--dm-y:-10px;--dm-rotation:0deg;--dm-skew:28deg; }
+#dm-fold-options[data-kind="ribbon"] .dm-face:nth-child(2) { --dm-x:-14px;--dm-y:0px;--dm-rotation:0deg;--dm-skew:-22deg; }
+#dm-fold-options[data-kind="ribbon"] .dm-face:nth-child(3) { --dm-x:-23px;--dm-y:10px;--dm-rotation:0deg;--dm-skew:28deg; }
+#dm-fold-options[data-kind="arc"] .dm-face:nth-child(1) { --dm-x:0px;--dm-y:-14px;--dm-rotation:-32deg;--dm-skew:0deg; }
+#dm-fold-options[data-kind="arc"] .dm-face:nth-child(2) { --dm-x:16px;--dm-y:7px;--dm-rotation:-32deg;--dm-skew:0deg; }
+#dm-fold-options[data-kind="arc"] .dm-face:nth-child(3) { --dm-x:-13px;--dm-y:12px;--dm-rotation:-32deg;--dm-skew:0deg; }
+@keyframes dm-fold-in { 0% { transform:translate(var(--dm-x),var(--dm-y)) rotate(var(--dm-rotation)) skewY(var(--dm-skew));clip-path:inset(0 0 22% 0); } 70%,100% { transform:translate(0,0) rotate(0deg) skewY(0deg);clip-path:inset(0); } }
+@media(prefers-reduced-motion:reduce) { #dm-fold-options[data-running="true"] .dm-boot-symbol .dm-face { animation:none; } }
+@media(max-width:620px) { #dm-fold-options .dm-banner { min-height:190px;padding:20px;align-items:flex-start; } #dm-fold-options .dm-lockup { gap:8px; } #dm-fold-options .dm-wordmark { font-size:27px; } #dm-fold-options .dm-lockup svg { width:33px;height:37px; } #dm-fold-options .dm-banner-graphic { width:270px;height:270px;top:43px;right:-100px; } }
+@media(max-width:420px) { #dm-fold-options .dm-choices { gap:8px; } #dm-fold-options .dm-specimen { height:165px;gap:18px; } #dm-fold-options .dm-logo { width:70px;height:80px; } #dm-fold-options .dm-tiny { gap:12px; } #dm-fold-options .dm-tiny svg:last-child { display:none; } #dm-fold-options .dm-lower { grid-template-columns:1fr; } }
+</style>
+<div id="dm-fold-options" data-theme="auto" data-kind="lift" data-running="false">
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+    <defs>
+      <symbol id="dm-lift" viewBox="0 0 108 106">
+        <path fill="var(--dm-face-a,currentColor)" d="M15 34L71 9Q75 7 73 12L55 40L15 61Q9 64 9 57V43Q9 37 15 34Z"/>
+        <path fill="var(--dm-face-b,currentColor)" d="M80 17L98 69Q100 73 96 76L71 93Q67 96 68 91L75 66L63 43Z"/>
+        <path fill="var(--dm-face-c,currentColor)" d="M14 70L55 48L68 69L61 91Q60 95 56 93L14 78Q7 74 14 70Z"/>
+      </symbol>
+      <symbol id="dm-ribbon" viewBox="0 0 108 130">
+        <path fill="var(--dm-face-a,currentColor)" d="M12 24L72 7Q76 6 79 10L94 28L33 46Z"/>
+        <path fill="var(--dm-face-b,currentColor)" d="M35 53L94 36L69 77L10 94Z"/>
+        <path fill="var(--dm-face-c,currentColor)" d="M14 101L70 85L89 107L34 122Q29 123 26 119Z"/>
+      </symbol>
+      <symbol id="dm-arc" viewBox="0 0 120 120">
+        <path fill="var(--dm-face-a,currentColor)" d="M29 14H73Q92 14 100 31L63 47H16V27Q16 14 29 14Z"/>
+        <path fill="var(--dm-face-b,currentColor)" d="M103 38Q112 55 100 73L76 100Q66 112 52 111L66 65Z"/>
+        <path fill="var(--dm-face-c,currentColor)" d="M16 54H58L44 108Q16 101 16 78Z"/>
+      </symbol>
+    </defs>
+  </svg>
+  <div class="viz-controls dm-toolbar">
+    <label class="form-label">Appearance<select class="form-select" id="dm-fold-theme"><option value="auto">Follow theme</option><option value="light">Light</option><option value="dark">Dark</option><option value="ink">Monochrome</option></select></label>
+    <span class="text-small text-muted">Fold studies · shared Lumen palette</span>
+  </div>
+  <div class="dm-choices" aria-label="Fold variations">
+    <section class="dm-choice" aria-label="Lift logo">
+      <div class="dm-paper dm-specimen">
+        <svg class="dm-logo" role="img" aria-label="Lift: three asymmetric planes with softened outer corners"><use href="#dm-lift"/></svg>
+        <div class="dm-tiny" aria-label="Lift at 16, 24 and 32 pixels in one colour"><svg width="16" height="16" aria-hidden="true"><use href="#dm-lift"/></svg><svg width="24" height="24" aria-hidden="true"><use href="#dm-lift"/></svg><svg width="32" height="32" aria-hidden="true"><use href="#dm-lift"/></svg></div>
+      </div>
+      <div class="dm-button-row"><button class="btn" type="button" data-choose="lift" aria-pressed="true">Lift</button></div>
+    </section>
+    <section class="dm-choice" aria-label="Ribbon logo">
+      <div class="dm-paper dm-specimen">
+        <svg class="dm-logo" role="img" aria-label="Ribbon: an angular strip folded into a diagonal zigzag"><use href="#dm-ribbon"/></svg>
+        <div class="dm-tiny" aria-label="Ribbon at 16, 24 and 32 pixels in one colour"><svg width="16" height="16" aria-hidden="true"><use href="#dm-ribbon"/></svg><svg width="24" height="24" aria-hidden="true"><use href="#dm-ribbon"/></svg><svg width="32" height="32" aria-hidden="true"><use href="#dm-ribbon"/></svg></div>
+      </div>
+      <div class="dm-button-row"><button class="btn" type="button" data-choose="ribbon" aria-pressed="false">Ribbon</button></div>
+    </section>
+    <section class="dm-choice" aria-label="Arc logo">
+      <div class="dm-paper dm-specimen">
+        <svg class="dm-logo" role="img" aria-label="Arc: three rounded folded surfaces around an offset junction"><use href="#dm-arc"/></svg>
+        <div class="dm-tiny" aria-label="Arc at 16, 24 and 32 pixels in one colour"><svg width="16" height="16" aria-hidden="true"><use href="#dm-arc"/></svg><svg width="24" height="24" aria-hidden="true"><use href="#dm-arc"/></svg><svg width="32" height="32" aria-hidden="true"><use href="#dm-arc"/></svg></div>
+      </div>
+      <div class="dm-button-row"><button class="btn" type="button" data-choose="arc" aria-pressed="false">Arc</button></div>
+    </section>
+  </div>
+  <div class="dm-view-heading"><p><strong id="dm-fold-active" aria-live="polite">Lift applications</strong></p><span class="text-small text-muted">Banner study</span></div>
+  <div class="dm-paper dm-banner" role="img" aria-label="DiamaneOS banner with the selected mark and enlarged folded planes">
+    <div class="dm-lockup"><svg aria-hidden="true"><use data-active-mark href="#dm-lift"/></svg><span class="dm-wordmark">Diamane<span>OS</span></span></div>
+    <svg class="dm-banner-graphic" aria-hidden="true"><use data-active-mark href="#dm-lift"/></svg>
+  </div>
+  <div class="dm-lower">
+    <div><p class="dm-label text-small text-muted">Wallpaper · clock placement study</p><div class="dm-paper dm-wallpaper" role="img" aria-label="Wallpaper study with a clock in the quiet upper left and enlarged fold geometry at the bottom right"><svg class="dm-wallpaper-graphic" aria-hidden="true"><use data-active-mark href="#dm-lift"/></svg><div class="dm-clock">09:41</div><div class="dm-date">Tuesday, 15 September</div></div></div>
+    <div><p class="dm-label text-small text-muted">Boot motion study</p><div class="dm-paper dm-boot"><svg class="dm-boot-symbol" id="dm-fold-boot" viewBox="0 0 108 106" role="img" aria-label="Lift boot symbol"><path class="dm-face" fill="currentColor" d="M15 34L71 9Q75 7 73 12L55 40L15 61Q9 64 9 57V43Q9 37 15 34Z"/><path class="dm-face" fill="currentColor" d="M80 17L98 69Q100 73 96 76L71 93Q67 96 68 91L75 66L63 43Z"/><path class="dm-face" fill="currentColor" d="M14 70L55 48L68 69L61 91Q60 95 56 93L14 78Q7 74 14 70Z"/></svg><div class="dm-boot-name">DiamaneOS</div></div></div>
+  </div>
+  <div class="dm-motion-controls"><button class="btn" type="button" id="dm-fold-play">Play Lift motion</button><span class="text-small text-muted" id="dm-fold-status" aria-live="polite">Planes settle into place</span></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('dm-fold-options');
+  const boot = root.querySelector('#dm-fold-boot');
+  const play = root.querySelector('#dm-fold-play');
+  const status = root.querySelector('#dm-fold-status');
+  const title = root.querySelector('#dm-fold-active');
+  const choices = [...root.querySelectorAll('[data-choose]')];
+  const variants = {lift:{name:'Lift',motion:'Planes settle into place'},ribbon:{name:'Ribbon',motion:'A strip folds into a zigzag'},arc:{name:'Arc',motion:'Curves turn into alignment'}};
+  let kind = 'lift';
+  let motionTimer;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const stop = () => { clearTimeout(motionTimer); root.dataset.running = 'false'; };
+  choices.forEach(button => button.addEventListener('click', () => {
+    stop();
+    kind = button.dataset.choose;
+    root.dataset.kind = kind;
+    choices.forEach(b => b.setAttribute('aria-pressed',String(b === button)));
+    root.querySelectorAll('[data-active-mark]').forEach(mark => mark.setAttribute('href','#dm-' + kind));
+    const symbol = root.querySelector('#dm-' + kind);
+    boot.setAttribute('viewBox',symbol.getAttribute('viewBox'));
+    boot.setAttribute('aria-label',variants[kind].name + ' boot symbol');
+    boot.replaceChildren(...[...symbol.children].map(path => {const copy = path.cloneNode(true);copy.classList.add('dm-face');copy.setAttribute('fill','currentColor');return copy;}));
+    title.textContent = variants[kind].name + ' applications';
+    play.textContent = 'Play ' + variants[kind].name + ' motion';
+    status.textContent = reduce.matches ? 'Reduced motion · static mark' : variants[kind].motion;
+  }));
+  root.querySelector('#dm-fold-theme').addEventListener('change', event => { root.dataset.theme = event.target.value; });
+  play.addEventListener('click', () => {
+    stop();
+    if(reduce.matches) { status.textContent = 'Reduced motion · static mark';return; }
+    void boot.getBoundingClientRect();
+    root.dataset.running = 'true';
+    status.textContent = 'Playing ' + variants[kind].name;
+    motionTimer = setTimeout(() => { stop();status.textContent = variants[kind].name + ' motion complete'; },1800);
+  });
+  reduce.addEventListener('change', () => { if(reduce.matches) {stop();status.textContent = 'Reduced motion · static mark';} });
+})();
+</script>
+
+</main></body></html>

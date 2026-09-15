@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DiamaneOS · Initial brand directions</title><link rel="stylesheet" href="archive.css"></head><body><header><a href="../lift/preview.html">Selected Lift reference</a><span>Archived exploration · Initial brand directions</span></header><main>
+<style>
+#diamane-brand { width:100%; }
+#diamane-brand .brand-controls { margin-bottom:16px; }
+#diamane-brand .brand-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+#diamane-brand .brand-option { min-width:0; }
+#diamane-brand .brand-label { margin:0 0 8px; }
+#diamane-brand .brand-art { --paper:light-dark(#f2f5fa,#151e30); --ink:light-dark(#1e2a40,#edf1fc); --key:light-dark(#305dd0,#acc8ff); --soft:light-dark(#dbe6ff,#30466d); --deep:light-dark(#244fa2,#6e9aeb); background:var(--paper); color:var(--ink); overflow:hidden; font-family:'Instrument Sans',sans-serif; }
+#diamane-brand .brand-art.fold { --paper:light-dark(#eeeee8,#20251f); --ink:light-dark(#293a30,#edf0e5); --key:light-dark(#416d55,#bfd6a4); --soft:light-dark(#d8e0ce,#3b4f3d); --deep:light-dark(#a4b697,#80966c); }
+#diamane-brand .brand-art.editorial { --paper:light-dark(#f7f2e9,#242122); --ink:light-dark(#322b38,#f2e9e2); --key:light-dark(#765078,#dfb2d4); --soft:light-dark(#e6d6df,#594554); --deep:light-dark(#b184a3,#a789ad); }
+#diamane-brand[data-tone="light"] .brand-art, #diamane-brand[data-tone="light"] .brand-boot { color-scheme:light; }
+#diamane-brand[data-tone="dark"] .brand-art, #diamane-brand[data-tone="dark"] .brand-boot { color-scheme:dark; }
+#diamane-brand[data-tone="mono"] .brand-art { --paper:light-dark(#ffffff,#191919); --ink:light-dark(#191919,#ffffff); --key:var(--ink); --soft:light-dark(#dedede,#444444); --deep:var(--ink); }
+#diamane-brand .brand-lockup { height:244px; display:flex; flex-direction:column; gap:25px; align-items:center; justify-content:center; padding:24px 8px; box-sizing:border-box; }
+#diamane-brand .brand-symbol { width:82px; height:82px; color:var(--key); flex-shrink:0; }
+#diamane-brand .brand-wordmark { font-size:28px; line-height:1.1; font-weight:500; letter-spacing:-.035em; white-space:nowrap; }
+#diamane-brand .brand-wordmark span { font-size:.57em; letter-spacing:-.01em; margin-left:3px; }
+#diamane-brand .editorial .brand-wordmark { font-size:36px; font-weight:400; letter-spacing:-.04em; }
+#diamane-brand .brand-size-row { height:62px; display:flex; align-items:center; justify-content:center; gap:22px; color:var(--ink); }
+#diamane-brand .brand-size-row svg { flex-shrink:0; }
+#diamane-brand .brand-motif { width:100%; height:184px; display:block; }
+#diamane-brand .brand-caption { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:9px; }
+#diamane-brand .brand-boot-area { margin-top:18px; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+#diamane-brand .brand-boot { display:flex; align-items:center; justify-content:center; width:76px; height:76px; background:light-dark(#f2f5fa,#151e30); color:light-dark(#305dd0,#acc8ff); }
+#diamane-brand .brand-boot svg { width:40px; height:40px; }
+#diamane-brand[data-tone="mono"] .brand-boot { background:light-dark(#ffffff,#191919); color:light-dark(#191919,#ffffff); }
+#diamane-brand .brand-boot.play svg { animation:brand-settle .85s cubic-bezier(.16,1,.3,1) both; }
+@keyframes brand-settle { from { clip-path:inset(0 0 0 80%); transform:translateX(4px); } to { clip-path:inset(0); transform:translateX(0); } }
+@media(prefers-reduced-motion:reduce) { #diamane-brand .brand-boot.play svg { animation:none; } }
+@media(max-width:620px) { #diamane-brand .brand-grid { grid-template-columns:1fr; gap:24px; } #diamane-brand .brand-lockup { height:220px; } #diamane-brand .brand-motif { height:160px; } }
+</style>
+<div id="diamane-brand" data-tone="auto">
+  <div class="viz-controls brand-controls">
+    <label class="form-label">Appearance
+      <select class="form-select" id="brand-appearance">
+        <option value="auto">Follow theme</option><option value="light">Light</option><option value="dark">Dark</option><option value="mono">One colour</option>
+      </select>
+    </label>
+    <span class="text-small text-muted">Exploratory marks · wallpaper studies</span>
+  </div>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+    <defs>
+      <symbol id="brand-aperture" viewBox="0 0 100 100">
+        <path fill="currentColor" d="M16 10H44C55 10 64 13 71 18L59 32C55 30 49 28 44 28H34V72H44C59 72 69 63 69 50C69 46 68 42 66 39L79 24C85 31 88 40 88 50C88 74 70 90 44 90H16Z"/>
+      </symbol>
+      <symbol id="brand-fold" viewBox="0 0 100 100">
+        <path fill="currentColor" d="M12 35L59 8L43 39L12 57Z"/>
+        <path fill="currentColor" d="M49 40L66 9L88 66L58 92L70 62Z"/>
+        <path fill="currentColor" d="M13 64L43 47L63 64L52 91Z"/>
+      </symbol>
+      <symbol id="brand-human" viewBox="0 0 100 100">
+        <path fill="currentColor" fill-rule="evenodd" d="M67 8H84V88H67V81C62 87 55 90 44 90C24 90 12 76 12 57C12 38 25 24 44 24C53 24 61 27 67 33ZM48 40C36 40 29 47 29 57C29 67 36 74 48 74C59 74 67 67 67 57C67 47 59 40 48 40Z"/>
+      </symbol>
+    </defs>
+  </svg>
+  <div class="brand-grid">
+    <section class="brand-option" aria-labelledby="aperture-title">
+      <p class="brand-label" id="aperture-title"><strong>Aperture</strong> <span class="text-small text-muted">· recommended</span></p>
+      <div class="brand-art aperture">
+        <div class="brand-lockup">
+          <svg class="brand-symbol" role="img" aria-label="A bold capital D opened by a diagonal cut at its upper right"><use href="#brand-aperture"/></svg>
+          <div class="brand-wordmark">Diamane<span>OS</span></div>
+        </div>
+        <div class="brand-size-row" aria-label="Aperture in one colour at 16, 24, and 40 pixels">
+          <svg width="16" height="16" aria-hidden="true"><use href="#brand-aperture"/></svg>
+          <svg width="24" height="24" aria-hidden="true"><use href="#brand-aperture"/></svg>
+          <svg width="40" height="40" aria-hidden="true"><use href="#brand-aperture"/></svg>
+        </div>
+        <svg class="brand-motif" viewBox="0 0 240 184" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Wallpaper study: a large blue curve and a clean diagonal opening">
+          <rect width="240" height="184" fill="var(--soft)"/>
+          <path d="M8 198V-58H164C256-58 314 6 314 86S256 230 164 230H70V198H164C230 198 278 147 278 86S230-22 164-22H44V198Z" fill="var(--key)"/>
+          <path d="M136-25L161-44L282 83L257 102Z" fill="var(--paper)"/>
+        </svg>
+      </div>
+      <div class="brand-caption text-small"><span>Porcelain / cobalt</span><span>Open curves</span></div>
+    </section>
+    <section class="brand-option" aria-labelledby="fold-title">
+      <p class="brand-label" id="fold-title"><strong>Fold</strong></p>
+      <div class="brand-art fold">
+        <div class="brand-lockup">
+          <svg class="brand-symbol" role="img" aria-label="Three separated angular planes forming an asymmetric folded symbol"><use href="#brand-fold"/></svg>
+          <div class="brand-wordmark">Diamane<span>OS</span></div>
+        </div>
+        <div class="brand-size-row" aria-label="Fold in one colour at 16, 24, and 40 pixels">
+          <svg width="16" height="16" aria-hidden="true"><use href="#brand-fold"/></svg>
+          <svg width="24" height="24" aria-hidden="true"><use href="#brand-fold"/></svg>
+          <svg width="40" height="40" aria-hidden="true"><use href="#brand-fold"/></svg>
+        </div>
+        <svg class="brand-motif" viewBox="0 0 240 184" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Wallpaper study: oversized olive folded planes separated by pale channels">
+          <rect width="240" height="184" fill="var(--paper)"/>
+          <path d="M-35 49L140-32L79 73L-35 141Z" fill="var(--soft)"/>
+          <path d="M92 74L153-31L262 133L164 228L196 135Z" fill="var(--key)"/>
+          <path d="M-33 153L79 86L185 136L151 228Z" fill="var(--deep)"/>
+        </svg>
+      </div>
+      <div class="brand-caption text-small"><span>Chalk / botanical</span><span>Layered planes</span></div>
+    </section>
+    <section class="brand-option" aria-labelledby="human-title">
+      <p class="brand-label" id="human-title"><strong>Humanist</strong></p>
+      <div class="brand-art editorial">
+        <div class="brand-lockup">
+          <div class="brand-wordmark" aria-label="diamane OS in lowercase lettering">diamane<span>OS</span></div>
+          <svg width="104" height="24" viewBox="0 0 104 24" role="img" aria-label="A soft plum underline with one rounded end"><path d="M0 4H94A8 8 0 0 1 94 20H0Z" fill="var(--key)"/></svg>
+        </div>
+        <div class="brand-size-row" aria-label="Companion lowercase d in one colour at 16, 24, and 40 pixels">
+          <svg width="16" height="16" aria-hidden="true"><use href="#brand-human"/></svg>
+          <svg width="24" height="24" aria-hidden="true"><use href="#brand-human"/></svg>
+          <svg width="40" height="40" aria-hidden="true"><use href="#brand-human"/></svg>
+        </div>
+        <svg class="brand-motif" viewBox="0 0 240 184" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Wallpaper study: warm paper and plum typographic curves">
+          <rect width="240" height="184" fill="var(--soft)"/>
+          <path d="M-18 59H231A46 46 0 0 1 231 151H-18Z" fill="var(--key)"/>
+          <path d="M44-11H80V89H44Z" fill="var(--paper)"/>
+          <path d="M44 119H80V206H44Z" fill="var(--paper)"/>
+        </svg>
+      </div>
+      <div class="brand-caption text-small"><span>Warm paper / plum</span><span>Type-led graphics</span></div>
+    </section>
+  </div>
+  <div class="brand-boot-area">
+    <div class="brand-boot" id="brand-boot" aria-hidden="true"><svg><use href="#brand-aperture"/></svg></div>
+    <button class="btn" type="button" id="brand-play">Preview Aperture reveal</button>
+    <span class="text-small text-muted" id="brand-status" aria-live="polite">Motion study</span>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('diamane-brand');
+  const appearance = root.querySelector('#brand-appearance');
+  const boot = root.querySelector('#brand-boot');
+  const play = root.querySelector('#brand-play');
+  const status = root.querySelector('#brand-status');
+  let timer;
+  appearance.addEventListener('change', () => { root.dataset.tone = appearance.value; });
+  play.addEventListener('click', () => {
+    clearTimeout(timer);
+    boot.classList.remove('play');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      status.textContent = 'Reduced motion · static mark';
+      return;
+    }
+    void boot.offsetWidth;
+    boot.classList.add('play');
+    status.textContent = 'Playing reveal';
+    timer = setTimeout(() => { boot.classList.remove('play'); status.textContent = 'Reveal complete'; }, 900);
+  });
+})();
+</script>
+
+</main></body></html>

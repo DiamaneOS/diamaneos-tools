@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/Instrument/instrument-sans",
+  "revision": "7fa22308a3d0c94ee2b3cd537a1196b65db34a3e",
+  "files": [
+    {
+      "file": "InstrumentSans[wdth,wght].woff2",
+      "source": "fonts/webfonts/InstrumentSans[wdth,wght].woff2",
+      "sha256": "aa72922aafcc0dc18f36ec1d805b0212057dabe8b9d5b8b57f67035aea1b826d"
+    },
+    {
+      "file": "InstrumentSans-Medium.ttf",
+      "source": "fonts/ttf/InstrumentSans-Medium.ttf",
+      "sha256": "56ba599d12b7cf2fff4eebf46d29253231b6f49bc5b6ce7733dfbf3d7940bfae"
+    },
+    {
+      "file": "InstrumentSans-Regular.ttf",
+      "source": "fonts/ttf/InstrumentSans-Regular.ttf",
+      "sha256": "69fd3f7c467c70c1f73b232812407f688f3d87dd7a801ea7281aa97d29cf53d5"
+    },
+    {
+      "file": "OFL.txt",
+      "source": "OFL.txt",
+      "sha256": "9e27a72ed30eb49a08678f6a5d6ed98ec7ba5368f541637ee0683ec9134ef966"
+    },
+    {
+      "file": "AUTHORS.txt",
+      "source": "AUTHORS.txt",
+      "sha256": "ee3bdc931cd7b1eed27d883daa6996441cd2d1958580a6cee0017e3444fae8f0"
+    }
+  ]
+}
