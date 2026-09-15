@@ -101,7 +101,13 @@ class RunnerTest(unittest.TestCase):
         ]
 
     def invoke(self, command):
-        return subprocess.run(command, cwd=TOOLS, env=self.env,
+        environment = self.env.copy()
+        responses = environment.pop("FAKE_ADB_RESPONSES", None)
+        if responses is not None:
+            responses_file = self.root / "fake-adb-responses.json"
+            responses_file.write_text(responses, encoding="utf-8")
+            environment["FAKE_ADB_RESPONSES_FILE"] = str(responses_file)
+        return subprocess.run(command, cwd=TOOLS, env=environment,
                               capture_output=True, text=True, timeout=30)
 
     def read_result(self, run_id):
