@@ -30,7 +30,8 @@ Install a minimal Debian system, then patch it and install the host tools:
 sudo apt update
 sudo apt full-upgrade
 sudo apt install --no-install-recommends \
-  openssh-server sudo git ca-certificates curl unzip rsync python3 \
+  openssh-server sudo git ca-certificates curl unzip rsync \
+  python3 python3-jsonschema \
   smartmontools usbutils pciutils systemd-timesyncd \
   android-sdk-platform-tools-common android-udev-rules
 sudo systemctl enable --now ssh NetworkManager systemd-timesyncd
