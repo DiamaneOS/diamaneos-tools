@@ -391,19 +391,57 @@ class RigController:
             for candidate in sorted(root.glob("*.partial")):
                 result = candidate / "result.json"
                 try:
-                    if result.stat().st_size > MAX_STATE_BYTES:
+                    candidate_metadata = candidate.lstat()
+                    if (not stat.S_ISDIR(candidate_metadata.st_mode)
+                            or candidate_metadata.st_uid != os.geteuid()
+                            or candidate_metadata.st_mode & 0o027):
                         raise ValueError
-                    report = json.loads(result.read_text(encoding="utf-8"))
+                    raw, metadata = _read_bounded_regular(
+                        result, MAX_STATE_BYTES, "active run state")
+                    if (metadata.st_uid != os.geteuid()
+                            or metadata.st_mode & 0o037):
+                        raise RigError(
+                            "active run state is not owner-controlled", 5)
+                    report = json.loads(raw)
                     target = report.get("target")
                     report_role = target.get("role") if isinstance(target, dict) else None
                     run_id = report.get("run_id")
-                except (OSError, UnicodeDecodeError, json.JSONDecodeError,
+                    if (not isinstance(report_role, str)
+                            or not TOKEN_RE.fullmatch(report_role)
+                            or not any(entry["role"] == report_role
+                                       for entry in self.config["roles"])
+                            or not isinstance(run_id, str)
+                            or not RUN_ID_RE.fullmatch(run_id)):
+                        raise ValueError
+                except (OSError, RigError, UnicodeDecodeError, json.JSONDecodeError,
                         AttributeError, ValueError):
                     found.append("unreadable-active-run")
                     continue
                 if report_role == role and run_id != allowed_run_id:
                     found.append("active-run:" + str(run_id or "unknown"))
         return found
+
+    def _other_roles(self, role: str) -> dict[str, dict]:
+        return {
+            entry["role"]: self._device(entry["role"])
+            for entry in self.config["roles"]
+            if entry["role"] != role
+        }
+
+    def _verify_present_other_roles(
+            self, before: dict[str, dict]) -> None:
+        for other_role, other_before in before.items():
+            if other_before["adb_state"] != "device":
+                continue
+            other_after = self._device(other_role)
+            if (other_after["adb_state"] != "device"
+                    or other_after["usb_path"] != other_before["usb_path"]
+                    or not other_after["battery"]["externally_powered"]
+                    or not self._hub_port_powered(
+                        role_config(
+                            self.config, other_role)["logical_port"])):
+                raise RigError(
+                    "USB action disturbed another configured role", 4)
 
     def _inhibitor_root(self, role: str) -> Path:
         role_config(self.config, role)
@@ -667,13 +705,11 @@ class RigController:
                     raise RigError("selected role returned on an unexpected USB path", 4)
                 if not target_after["battery"]["externally_powered"]:
                     raise RigError("selected role returned without verified external power", 4)
-            for other_role, other_before in before.items():
-                if other_role == role or other_before["adb_state"] != "device":
-                    continue
-                other_after = self._device(other_role)
-                if (other_after["adb_state"] != "device"
-                        or other_after["usb_path"] != other_before["usb_path"]):
-                    raise RigError("USB action disturbed another configured role", 4)
+            self._verify_present_other_roles({
+                other_role: other_before
+                for other_role, other_before in before.items()
+                if other_role != role
+            })
             return {
                 "schema_version": SCHEMA_VERSION,
                 "status": "PASS",
@@ -695,6 +731,7 @@ class RigController:
             if self._inhibitors(role):
                 return {"status": "INHIBITED", "role": role,
                         "reason": "active-test-state"}
+            other_roles = self._other_roles(role)
             intent = self._read_intent(role)
             port_powered = self._hub_port_powered(entry["logical_port"])
             observation = self._device(role)
@@ -720,6 +757,7 @@ class RigController:
                 except RigError:
                     self._hub_action(role, "off")
                     self._write_intent(role, False, "probe-target-unavailable")
+                    self._verify_present_other_roles(other_roles)
                     return {"status": "HELD", "role": role,
                             "reason": "probe-target-unavailable"}
             if observation["adb_state"] != "device" or not observation["path_matches"]:
@@ -744,6 +782,7 @@ class RigController:
                 self._hub_action(role, "off")
                 self._write_intent(role, False, "probe-complete-above-low-threshold")
                 self._wait_role(role, False, 15)
+            self._verify_present_other_roles(other_roles)
             return {"status": "PASS", "role": role, "decision": decision,
                     "battery": observation["battery"]}
         finally:
