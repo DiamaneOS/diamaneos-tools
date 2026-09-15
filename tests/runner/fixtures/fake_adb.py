@@ -45,7 +45,12 @@ def main():
             return 0
         if len(argv) >= 7 and argv[3:6] == ["test", "!", "-e"] and state is not None:
             return 0 if not state.exists() else 1
-        responses = json.loads(os.environ.get("FAKE_ADB_RESPONSES", "{}"))
+        responses_file = os.environ.get("FAKE_ADB_RESPONSES_FILE")
+        if responses_file:
+            with open(responses_file, encoding="utf-8") as stream:
+                responses = json.load(stream)
+        else:
+            responses = json.loads(os.environ.get("FAKE_ADB_RESPONSES", "{}"))
         response = responses.get(key, {})
         if response.get("sleep"):
             time.sleep(response["sleep"])
