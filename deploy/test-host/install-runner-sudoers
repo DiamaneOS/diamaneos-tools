@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+source_file=/opt/diamaneos/tools/deploy/test-host/diamaneos-runner.sudoers
+target_file=/etc/sudoers.d/diamaneos-runner
+
+[ "$(id -u)" -eq 0 ] || {
+    echo "ERROR: installer must run as root" >&2
+    exit 1
+}
+[ -f "$source_file" ] || {
+    echo "ERROR: reviewed sudoers source is missing" >&2
+    exit 1
+}
+[ "$(stat -c '%U:%G' /opt/diamaneos/tools)" = "root:root" ] || {
+    echo "ERROR: tools checkout root is not root-owned" >&2
+    exit 1
+}
+find /opt/diamaneos/tools -xdev \( ! -user root -o -perm /022 \) -print -quit |
+    grep -q . && {
+        echo "ERROR: tools checkout is not an immutable root-owned tree" >&2
+        exit 1
+    }
+
+/usr/sbin/visudo -cf "$source_file"
+install -o root -g root -m 0440 "$source_file" "$target_file"
+/usr/sbin/visudo -cf /etc/sudoers
+
+echo "DIAMANEOS_RUNNER_SUDOERS=INSTALLED"
