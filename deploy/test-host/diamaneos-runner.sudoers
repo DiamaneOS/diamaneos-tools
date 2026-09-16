@@ -1,0 +1,30 @@
+# Permit members of the protected evidence-review group to invoke only the
+# reviewed DiamaneOS device workflows as the non-login test runner. This file
+# deliberately grants no root command, shell, package, service, deployment,
+# flashing or signing authority.
+
+Runas_Alias DIAMANEOS_TEST_RUNNER = diamaneos-test
+
+Cmnd_Alias DIAMANEOS_BASELINE_RUNS = \
+    /opt/diamaneos/tools/bin/diamaneos baseline capture *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline pilot *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline connected *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline camera *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline idle *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline protocol validate *
+
+Cmnd_Alias DIAMANEOS_DEVICE_RUNS = \
+    /opt/diamaneos/tools/bin/diamaneos carrier matrix validate *, \
+    /opt/diamaneos/tools/bin/diamaneos endpoints validate *, \
+    /opt/diamaneos/tools/bin/diamaneos test run *, \
+    /opt/diamaneos/tools/bin/diamaneos rig validate *, \
+    /opt/diamaneos/tools/bin/diamaneos rig dry-run *, \
+    /opt/diamaneos/tools/bin/diamaneos rig status *, \
+    /opt/diamaneos/tools/bin/diamaneos rig power *, \
+    /opt/diamaneos/tools/bin/diamaneos rig maintain *, \
+    /opt/diamaneos/tools/bin/diamaneos rig inhibit list *, \
+    /opt/diamaneos/tools/bin/diamaneos rig inhibit acquire *, \
+    /opt/diamaneos/tools/bin/diamaneos rig inhibit release *
+
+%diamaneos-test ALL=(DIAMANEOS_TEST_RUNNER) NOPASSWD: \
+    DIAMANEOS_BASELINE_RUNS, DIAMANEOS_DEVICE_RUNS
