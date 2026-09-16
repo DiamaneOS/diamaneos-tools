@@ -24,18 +24,25 @@ class CarrierMatrixTest(unittest.TestCase):
         profiles = {item["id"]: item for item in self.matrix["profiles"]}
         self.assertEqual("active",
                          profiles["fp6-vodafone-callya-classic-esim"]["availability"])
-        self.assertEqual("pending-test-input",
+        self.assertEqual("active",
                          profiles["fp6-blau-physical"]["availability"])
+        self.assertEqual("prepaid",
+                         profiles["fp6-blau-physical"]["subscription_type"])
         rows = {item["id"]: item for item in self.matrix["capability_rows"]}
         observed = {
             "vodafone-esim-data",
             "vodafone-esim-5g",
             "vodafone-esim-lifecycle",
+            "blau-physical-data",
         }
         self.assertTrue(all(rows[row]["observation_status"] == "PASS"
                             and rows[row]["evidence_refs"] for row in observed))
         self.assertTrue(all(row["observation_status"] in {"NOT_RUN", "BLOCKED"}
                             for row_id, row in rows.items() if row_id not in observed))
+        self.assertEqual("PASS", self.matrix["dual_sim"]["status"])
+        self.assertTrue(all(
+            self.matrix["dual_sim"][field] == "Vodafone DE eSIM"
+            for field in ("voice_default", "data_default", "sms_default")))
 
     def test_plan_eligibility_cannot_become_an_unsourced_claim(self):
         changed = copy.deepcopy(self.matrix)
@@ -91,7 +98,7 @@ class CarrierMatrixTest(unittest.TestCase):
             cwd=TOOLS, capture_output=True, text=True, timeout=20,
             env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("13 capability rows; 10 pending observations", result.stdout)
+        self.assertIn("13 capability rows; 9 pending observations", result.stdout)
         self.assertEqual(before, self.path.read_bytes())
 
 
