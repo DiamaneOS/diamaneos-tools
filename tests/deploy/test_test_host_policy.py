@@ -24,6 +24,15 @@ class TestHostPolicyTest(unittest.TestCase):
 
     def test_only_reviewed_cli_routes_are_delegated(self):
         policy = POLICY.read_text(encoding="utf-8")
+        self.assertIn(
+            "/opt/diamaneos/tools/bin/diamaneos baseline protocol validate,",
+            policy)
+        self.assertIn(
+            "/opt/diamaneos/tools/bin/diamaneos carrier matrix validate,",
+            policy)
+        self.assertIn(
+            "/opt/diamaneos/tools/bin/diamaneos endpoints validate,",
+            policy)
         routes = {
             match.group(1).strip()
             for match in re.finditer(

@@ -11,10 +11,13 @@ Cmnd_Alias DIAMANEOS_BASELINE_RUNS = \
     /opt/diamaneos/tools/bin/diamaneos baseline connected *, \
     /opt/diamaneos/tools/bin/diamaneos baseline camera *, \
     /opt/diamaneos/tools/bin/diamaneos baseline idle *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline protocol validate, \
     /opt/diamaneos/tools/bin/diamaneos baseline protocol validate *
 
 Cmnd_Alias DIAMANEOS_DEVICE_RUNS = \
+    /opt/diamaneos/tools/bin/diamaneos carrier matrix validate, \
     /opt/diamaneos/tools/bin/diamaneos carrier matrix validate *, \
+    /opt/diamaneos/tools/bin/diamaneos endpoints validate, \
     /opt/diamaneos/tools/bin/diamaneos endpoints validate *, \
     /opt/diamaneos/tools/bin/diamaneos test run *, \
     /opt/diamaneos/tools/bin/diamaneos rig validate *, \
