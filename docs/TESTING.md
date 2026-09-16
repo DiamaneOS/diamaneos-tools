@@ -464,6 +464,27 @@ This closes only the retained-profile disable/re-enable lifecycle row on the
 observed stock build. The profile was never deleted, downloaded, transferred
 or reprovisioned, and those operations are not implied by the result.
 
+The locked stock FP6 was subsequently observed with that Vodafone eSIM and an
+active Blau 9 Cent physical SIM enabled together. The bounded read-only suite
+again completed with three required captures passing and the unavailable
+legacy `imsservice` interface explicitly skipped. All 15 raw and identity
+evidence references verified; the identifier-free result has SHA-256
+`f982b30ea14ab141bc2dc787b01ea05114db742a2bf5f303b45e00e46ba32908`.
+The operator then observed Vodafone selected as the Android default for voice,
+SMS and mobile data without changing any selection. This closes only the
+dual-SIM context and default-subscription observation.
+
+The operator later authorized a bounded Blau mobile-data check. The runner
+temporarily selected Blau for mobile data, disabled Wi-Fi, verified a cellular
+default route and received HTTP 200 with a 559-byte HTTPS body. It then
+restored and verified both Wi-Fi and the original Vodafone mobile-data
+default. All 15 referenced evidence files verified, and the identifier-free
+result has SHA-256
+`c9e4c12e61d5ea5f23521175d9e06a2bbc5512e352e57978b4022bf29e7f12d4`.
+This closes only the Blau data row. It does not establish Blau voice, SMS,
+VoLTE, WiFi Calling or 5G behavior, and the permanent peer remains required
+for bidirectional call and message checks.
+
 Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
 the same private role map and target-binding rules as the smoke suite:
 
