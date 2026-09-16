@@ -35,6 +35,12 @@
       "claim": "Vodafone documents prepaid eSIM activation and management; deletion or reprovisioning is outside unattended testing."
     },
     {
+      "id": "blau-9-cent",
+      "url": "https://www.blau.de/prepaid-tarife/blau-9ct/",
+      "checked_on": "2026-09-16",
+      "claim": "Blau identifies its no-package prepaid base arrangement as Blau 9 Cent, with ordinary domestic voice, SMS and metered data available from prepaid balance; this does not establish IMS or radio-access behavior."
+    },
+    {
       "id": "blau-vowifi",
       "url": "https://www.blau.de/service/vowifi/",
       "checked_on": "2026-09-14",
@@ -75,12 +81,12 @@
       "carrier": "Blau",
       "network": "Telefónica Germany",
       "sim_type": "physical",
-      "subscription_type": "to-be-verified",
-      "plan_name": null,
-      "availability": "pending-test-input",
+      "subscription_type": "prepaid",
+      "plan_name": "Blau 9 Cent base tariff; no package option active",
+      "availability": "active",
       "firmware_scope": "locked stock FP6.QREL.16.100.0",
-      "apn_context": "UNRECORDED",
-      "ims_context": "UNRECORDED"
+      "apn_context": "Stock automatic dual-SIM configuration captured; mobile-data behavior unverified",
+      "ims_context": "Private dual-SIM phone and registry context captured; IMS behavior unverified"
     }
   ],
   "capability_rows": [
@@ -164,31 +170,33 @@
       "id": "blau-physical-voice",
       "profile_id": "fp6-blau-physical",
       "capability": "voice",
-      "plan_eligibility": "unverified",
-      "source_refs": [],
-      "observation_status": "BLOCKED",
+      "plan_eligibility": "eligible",
+      "source_refs": ["blau-9-cent"],
+      "observation_status": "NOT_RUN",
       "evidence_refs": [],
-      "notes": "Blocked until the exact tariff and physical SIM are available."
+      "notes": "The active prepaid base tariff permits ordinary calls from balance; bidirectional FP6 behavior still requires the permanent allowlisted peer."
     },
     {
       "id": "blau-physical-sms",
       "profile_id": "fp6-blau-physical",
       "capability": "sms",
-      "plan_eligibility": "unverified",
-      "source_refs": ["blau-volte"],
-      "observation_status": "BLOCKED",
+      "plan_eligibility": "eligible",
+      "source_refs": ["blau-9-cent", "blau-volte"],
+      "observation_status": "NOT_RUN",
       "evidence_refs": [],
-      "notes": "General carrier documentation does not replace verification of the selected tariff."
+      "notes": "The active prepaid base tariff permits ordinary SMS from balance; bidirectional FP6 behavior still requires the permanent allowlisted peer."
     },
     {
       "id": "blau-physical-data",
       "profile_id": "fp6-blau-physical",
       "capability": "data",
-      "plan_eligibility": "unverified",
-      "source_refs": [],
-      "observation_status": "BLOCKED",
-      "evidence_refs": [],
-      "notes": "Blocked until the exact tariff and physical SIM are available."
+      "plan_eligibility": "eligible",
+      "source_refs": ["blau-9-cent"],
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-blau-physical-data@sha256:c9e4c12e61d5ea5f23521175d9e06a2bbc5512e352e57978b4022bf29e7f12d4"
+      ],
+      "notes": "With explicit operator authorization on locked stock FP6.QREL.16.100.0, Blau was temporarily selected for mobile data, Wi-Fi was disabled, a cellular default route returned HTTP 200 with a 559-byte HTTPS body, and both Wi-Fi and the Vodafone data default were restored and verified. This does not establish 5G or IMS behavior."
     },
     {
       "id": "blau-physical-volte",
@@ -196,7 +204,7 @@
       "capability": "volte",
       "plan_eligibility": "unverified",
       "source_refs": ["blau-volte"],
-      "observation_status": "BLOCKED",
+      "observation_status": "NOT_RUN",
       "evidence_refs": [],
       "notes": "The general network capability must not be reported as selected-plan provisioning."
     },
@@ -206,7 +214,7 @@
       "capability": "vowifi",
       "plan_eligibility": "unverified",
       "source_refs": ["blau-vowifi"],
-      "observation_status": "BLOCKED",
+      "observation_status": "NOT_RUN",
       "evidence_refs": [],
       "notes": "The exact tariff and the device's provisioned behavior must both be checked."
     },
@@ -215,19 +223,19 @@
       "profile_id": "fp6-blau-physical",
       "capability": "5g",
       "plan_eligibility": "unverified",
-      "source_refs": ["blau-5g"],
-      "observation_status": "BLOCKED",
+      "source_refs": ["blau-5g", "blau-9-cent"],
+      "observation_status": "NOT_RUN",
       "evidence_refs": [],
-      "notes": "Current official wording is not sufficient to bind an unspecified prepaid tariff; verify the exact plan before activation."
+      "notes": "Current official wording does not establish 5G eligibility for the active no-package base tariff; actual behavior remains unobserved."
     }
   ],
   "dual_sim": {
-    "status": "BLOCKED",
-    "reason": "The second FP6 carrier profile is not yet available, so no default-subscription behavior has been observed.",
+    "status": "PASS",
+    "reason": "With both profiles active on locked stock FP6.QREL.16.100.0, the operator observed Vodafone selected for all three Android default-subscription settings after the bounded dual-SIM context capture.",
     "required_recorded_defaults": ["voice", "data", "sms"],
-    "voice_default": "UNRECORDED",
-    "data_default": "UNRECORDED",
-    "sms_default": "UNRECORDED"
+    "voice_default": "Vodafone DE eSIM",
+    "data_default": "Vodafone DE eSIM",
+    "sms_default": "Vodafone DE eSIM"
   },
   "peer": {
     "device_role": "telephony-peer",
