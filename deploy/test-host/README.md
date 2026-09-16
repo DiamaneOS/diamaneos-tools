@@ -79,6 +79,25 @@ review. It retains password-gated `sudo`; the runner has neither an SSH login
 nor `sudo`. Use a dedicated management SSH key, disable agent forwarding, and
 verify a second key-only session before disabling password authentication.
 
+For an attended test host, repeated fresh SSH sessions do not need repeated
+password entry merely to invoke reviewed device workflows. After the tools
+checkout is deployed as an immutable root-owned tree, install the constrained
+runner policy once:
+
+```sh
+sudo /opt/diamaneos/tools/deploy/test-host/install-runner-sudoers
+```
+
+The policy permits members of the protected `diamaneos-test` evidence-review
+group to run only enumerated `diamaneos` routes as the non-login
+`diamaneos-test` account. Invoke them with `sudo -n -u diamaneos-test -H`.
+There is no passwordless root command, generic shell, `env`, Git deployment,
+package/service management, flashing or signing path. The reviewed CLI still
+enforces exact device mapping, rig locks, persistent inhibitors, protected
+partial state and peer non-interference. New CLI routes are not delegated
+until the policy is explicitly reviewed and updated. Code deployment and host
+administration therefore continue to require the administrator password.
+
 A minimal server hardening drop-in includes:
 
 ```text
