@@ -965,10 +965,6 @@ def execute_run(args, suite: dict, suite_hash: str, suite_path: Path,
     if has_destructive and (not args.destructive or not map_entry["disposable"]):
         raise RunnerError("destructive stage requires explicit mode and an approved disposable role", 3)
 
-    devices = _authorized_devices(args.adb, executor)
-    if args.target not in devices:
-        raise RunnerError("selected private target is not an authorized USB device", 3)
-
     output_root = Path(args.output).resolve()
     output_root.mkdir(parents=True, exist_ok=True, mode=0o750)
     output_stat = output_root.stat()
@@ -993,6 +989,14 @@ def execute_run(args, suite: dict, suite_hash: str, suite_path: Path,
                 getattr(args, "rig_config", None), args.device_role,
                 args.device_map, args.target)
             try:
+                # Scheduled maintenance may deliberately hold an otherwise
+                # idle role off.  The start guard restores and verifies that
+                # exact mapped role, so authorization must be checked only
+                # after the guard has completed its restoration work.
+                devices = _authorized_devices(args.adb, executor)
+                if args.target not in devices:
+                    raise RunnerError(
+                        "selected private target is not an authorized USB device", 3)
                 partial_dir.mkdir(mode=0o750)
                 (partial_dir / "raw").mkdir(mode=0o750)
             finally:

@@ -268,6 +268,58 @@ class RunnerTest(unittest.TestCase):
         self.assertTrue(shell_calls)
         self.assertTrue(all(call[1] == "SERIAL-A" for call in shell_calls))
 
+    def test_rig_start_guard_restores_before_device_authorization(self):
+        suite = copy.deepcopy(SMOKE)
+        suite["cases"] = suite["cases"][:1]
+        suite_path = self.root / "guard-order.json"
+        suite_path.write_text(json.dumps(suite))
+        suite, suite_hash, _ = api.load_suite(str(suite_path), TOOLS)
+        state = {"restored": False, "released": False}
+
+        def ok_result(stdout=""):
+            return {"transport": "ok", "stdout": stdout, "stderr": "",
+                    "returncode": 0, "duration_ms": 1}
+
+        class Guard:
+            def release(inner_self):
+                self.assertTrue(
+                    (self.output / "guard-order.partial" / "raw").is_dir())
+                state["released"] = True
+
+        def acquire_guard(config, role, device_map, target):
+            self.assertEqual("synthetic-rig.json", config)
+            self.assertEqual("harness", role)
+            self.assertEqual(str(self.mapping), device_map)
+            self.assertEqual("SERIAL-A", target)
+            self.assertTrue((self.output / ".locks" / "harness.lock").exists())
+            state["restored"] = True
+            return Guard()
+
+        def executor(argv, timeout_seconds, *unused):
+            if argv == ["adb", "devices"]:
+                attached = "SERIAL-A\tdevice\n" if state["restored"] else ""
+                return ok_result("List of devices attached\n" + attached)
+            if argv[:3] == ["adb", "-s", "SERIAL-A"]:
+                key = " ".join(argv[4:])
+                return ok_result(responses()[key]["stdout"])
+            if argv == ["adb", "version"]:
+                return ok_result("Android Debug Bridge version synthetic\n")
+            if argv[0] == "git":
+                return ok_result("a" * 40 + "\n")
+            self.fail(f"unexpected argv: {argv}")
+
+        args = self.args("guard-order", suite_path)
+        args.rig_config = "synthetic-rig.json"
+        with patch.object(api.rig, "acquire_test_start_guard",
+                          side_effect=acquire_guard):
+            code, result_path = api.execute_run(
+                args, suite, suite_hash, suite_path, TOOLS,
+                executor=executor)
+        self.assertEqual(0, code)
+        self.assertTrue(state["restored"])
+        self.assertTrue(state["released"])
+        self.assertEqual("PASS", json.loads(result_path.read_text())["status"])
+
     def test_wrong_private_role_target_refuses_before_adb(self):
         self.write_map("SERIAL-B", disposable=True)
         out = self.invoke(self.command())
