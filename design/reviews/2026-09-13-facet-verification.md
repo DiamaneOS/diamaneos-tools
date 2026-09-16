@@ -6,7 +6,7 @@ The owner subsequently selected Lumen; see [the extension record](2026-09-13-lum
 ## Preservation and reproducibility
 
 - Original `design/prototypes/diamaneos-ui.html` is byte-identical to commit
-  `49c92b9abe12f32f2f8dc95086e7bf276d99ac06`.
+  `7d797d3cf42f04ca1574e85d66a32acfec0abba7`.
 - Original HTML SHA-256:
   `c46317e4a4880736ca1a66fa5e9177279e46c0ab2280c8f87e26691c02d5593a`.
 - Baseline review wrapper exposes the original preview hooks without editing

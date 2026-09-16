@@ -107,7 +107,7 @@ updater keyboard-focus improvement was checked directly as described above.
   corresponding dark pairs are 5.25:1, 6.45:1, 8.07:1, and 7.00:1.
   These checks are not a complete accessibility audit.
 - Original `diamaneos-ui.html` remains byte-identical to commit
-  `49c92b9abe12f32f2f8dc95086e7bf276d99ac06`, SHA-256
+  `7d797d3cf42f04ca1574e85d66a32acfec0abba7`, SHA-256
   `c46317e4a4880736ca1a66fa5e9177279e46c0ab2280c8f87e26691c02d5593a`.
 - Comparison JavaScript and styling were preserved. Its HTML gained a link to
   the selected six-journey extension. No native source or dependency changed.
