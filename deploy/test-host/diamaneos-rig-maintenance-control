@@ -1,0 +1,123 @@
+#!/bin/sh
+set -eu
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+timer=diamaneos-rig-maintenance.timer
+service=diamaneos-rig-maintenance.service
+sentinel=/etc/diamaneos/rig-maintenance-enabled
+config=/etc/diamaneos/rig.json
+tools=/opt/diamaneos/tools/bin/diamaneos
+status_file=$(mktemp /tmp/diamaneos-maintenance-control.XXXXXX)
+trap 'rm -f "$status_file"' EXIT HUP INT TERM
+
+[ "$(id -u)" -eq 0 ] || {
+    echo "ERROR: maintenance control must run as root" >&2
+    exit 1
+}
+[ "$#" -eq 1 ] || {
+    echo "usage: diamaneos-rig-maintenance-control {enable|disable-and-restore}" >&2
+    exit 2
+}
+
+runner() {
+    /usr/sbin/runuser -u diamaneos-test -- env \
+        HOME=/var/lib/diamaneos-test \
+        "$tools" "$@"
+}
+
+verify_both_present() {
+    runner rig status --config "$config" >"$status_file"
+    python3 - "$status_file" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+roles = {entry.get("role"): entry for entry in report.get("roles", [])}
+if set(roles) != {"harness", "telephony-peer"}:
+    raise SystemExit("ERROR: expected exactly the two configured roles")
+for role, entry in roles.items():
+    battery = entry.get("battery")
+    if (entry.get("adb_state") != "device"
+            or entry.get("path_matches") is not True
+            or entry.get("port_powered") is not True
+            or not isinstance(battery, dict)
+            or battery.get("externally_powered") is not True):
+        raise SystemExit(f"ERROR: {role} is not verified on its powered path")
+print("BOTH_MAPPED_ROLES_PRESENT=PASS")
+PY
+}
+
+verify_no_leases() {
+    for role in harness telephony-peer; do
+        runner rig inhibit list --config "$config" --role "$role" \
+            >"$status_file"
+        python3 - "$status_file" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+if report.get("inhibitors") != []:
+    raise SystemExit("ERROR: persistent rig inhibitor is active")
+PY
+    done
+    echo "PERSISTENT_INHIBITORS=NONE"
+}
+
+case "$1" in
+    enable)
+        if systemctl is-enabled --quiet "$timer" \
+                && systemctl is-active --quiet "$timer" \
+                && [ -e "$sentinel" ]; then
+            echo "SCHEDULED_MAINTENANCE=ALREADY_ENABLED"
+            exit 0
+        fi
+        if systemctl is-active --quiet "$timer" \
+                || systemctl is-active --quiet "$service" \
+                || [ -e "$sentinel" ]; then
+            echo "ERROR: maintenance is not in a clean disabled state" >&2
+            exit 1
+        fi
+        verify_both_present
+        verify_no_leases
+        install -o root -g root -m 0644 /dev/null "$sentinel"
+        if ! systemctl enable --now "$timer"; then
+            rm -f "$sentinel"
+            exit 1
+        fi
+        if ! systemctl start "$service"; then
+            systemctl disable --now "$timer" || true
+            rm -f "$sentinel"
+            echo "ERROR: first maintenance cycle failed; maintenance disabled" >&2
+            exit 1
+        fi
+        systemctl is-enabled --quiet "$timer"
+        systemctl is-active --quiet "$timer"
+        [ -e "$sentinel" ]
+        echo "SCHEDULED_MAINTENANCE=ENABLED"
+        ;;
+    disable-and-restore)
+        systemctl disable --now "$timer"
+        limit=30
+        while systemctl is-active --quiet "$service"; do
+            [ "$limit" -gt 0 ] || {
+                echo "ERROR: maintenance service did not stop" >&2
+                exit 1
+            }
+            limit=$((limit - 1))
+            sleep 1
+        done
+        rm -f "$sentinel"
+        runner rig power --config "$config" --role harness --action on \
+            --reason maintenance-disabled >/dev/null
+        runner rig power --config "$config" --role telephony-peer --action on \
+            --reason maintenance-disabled >/dev/null
+        verify_both_present
+        echo "SCHEDULED_MAINTENANCE=DISABLED_AND_ROLES_RESTORED"
+        ;;
+    *)
+        echo "usage: diamaneos-rig-maintenance-control {enable|disable-and-restore}" >&2
+        exit 2
+        ;;
+esac

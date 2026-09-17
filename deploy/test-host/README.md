@@ -91,12 +91,14 @@ sudo /opt/diamaneos/tools/deploy/test-host/install-runner-sudoers
 The policy permits members of the protected `diamaneos-test` evidence-review
 group to run only enumerated `diamaneos` routes as the non-login
 `diamaneos-test` account. Invoke them with `sudo -n -u diamaneos-test -H`.
-There is no passwordless root command, generic shell, `env`, Git deployment,
-package/service management, flashing or signing path. The reviewed CLI still
-enforces exact device mapping, rig locks, persistent inhibitors, protected
-partial state and peer non-interference. New CLI routes are not delegated
-until the policy is explicitly reviewed and updated. Code deployment and host
-administration therefore continue to require the administrator password.
+Its only passwordless root entry is the fixed maintenance controller described
+below, with exactly `enable` and `disable-and-restore` actions. There is no
+generic root command, shell, `env`, Git deployment, arbitrary service/package
+management, flashing or signing path. The reviewed CLI still enforces exact
+device mapping, rig locks, persistent inhibitors, protected partial state and
+peer non-interference. New CLI routes are not delegated until the policy is
+explicitly reviewed and updated. Code deployment and other host administration
+therefore continue to require the administrator password.
 
 A minimal server hardening drop-in includes:
 
@@ -249,6 +251,34 @@ The battery controller supports host-side low/high hysteresis and a
 charge limit. Its off-state probes temporarily restore USB, so they are for
 unattended storage health rather than idle-drain measurement. Temperature
 ceilings are stops, not permission to exceed the device manufacturer's limits.
+
+After installing the constrained runner policy, use the fixed controller for
+operator-requested maintenance transitions:
+
+```sh
+sudo -n /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control \
+  disable-and-restore
+sudo -n /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control \
+  enable
+```
+
+`disable-and-restore` stops and disables the timer, waits for an active cycle,
+removes the sentinel and restores both exact mapped roles through the rig
+controller. `enable` is accepted only from a clean disabled state with both
+roles identity-, path- and power-verified and no persistent leases; it creates
+the sentinel, enables the timer and runs one immediate cycle. A failed restore
+leaves maintenance disabled. Neither action accepts a path, unit, role or
+command argument.
+
+An upstream host-cable or host-power interruption is different from an
+ordinary managed port transition. A hub may report a downstream power bit even
+while the phone reports no external power and ADB cannot authenticate it. Treat
+that disagreement as a physical-path failure: do not relabel it as an ADB
+authorization issue and do not repeatedly bypass the controller. Keep
+maintenance disabled, verify the unaffected peer, reseat the hub's upstream
+host connection and require both roles to return on their exact mapped paths
+with external power before releasing a recovery inhibitor or re-enabling
+maintenance. Record the actual recovery action privately.
 
 An operation outside the staged test runners must hold a persistent role
 inhibitor before it can make a flash, filesystem or other non-interruptible

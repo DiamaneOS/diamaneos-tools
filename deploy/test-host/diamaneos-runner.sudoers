@@ -1,7 +1,8 @@
 # Permit members of the protected evidence-review group to invoke only the
 # reviewed DiamaneOS device workflows as the non-login test runner. This file
-# deliberately grants no root command, shell, package, service, deployment,
-# flashing or signing authority.
+# deliberately grants no generic root command, shell, package, deployment,
+# flashing or signing authority. Its only root routes are the two fixed actions
+# of the reviewed rig-maintenance controller below.
 
 Runas_Alias DIAMANEOS_TEST_RUNNER = diamaneos-test
 
@@ -29,5 +30,11 @@ Cmnd_Alias DIAMANEOS_DEVICE_RUNS = \
     /opt/diamaneos/tools/bin/diamaneos rig inhibit acquire *, \
     /opt/diamaneos/tools/bin/diamaneos rig inhibit release *
 
+Cmnd_Alias DIAMANEOS_MAINTENANCE_CONTROL = \
+    /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control enable, \
+    /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control disable-and-restore
+
 %diamaneos-test ALL=(DIAMANEOS_TEST_RUNNER) NOPASSWD: \
     DIAMANEOS_BASELINE_RUNS, DIAMANEOS_DEVICE_RUNS
+
+%diamaneos-test ALL=(root) NOPASSWD: DIAMANEOS_MAINTENANCE_CONTROL
