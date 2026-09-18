@@ -556,6 +556,13 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             and args.operator_authorized_batterystats_reset):
         raise IdleError(
             "idle start requires display, unlocked, and batterystats-reset authorization", 3)
+    unattended_commitment = bool(getattr(
+        args, "operator_committed_no_interaction", False))
+    unattended_network = bool(getattr(
+        args, "operator_declared_no_planned_network_outage", False))
+    if unattended_commitment != unattended_network:
+        raise IdleError(
+            "unattended idle commitments must be supplied together", 3)
     disconnect_method = getattr(
         args, "disconnect_method", DISCONNECT_METHOD_PHYSICAL)
     if disconnect_method not in DISCONNECT_METHODS:
@@ -651,6 +658,11 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                 "no_interaction_during_interval": None,
                 "no_known_material_network_outage": None,
             },
+            "unattended_series_commitments": ({
+                "no_phone_interaction_planned": True,
+                "no_material_network_outage_planned": True,
+                "recorded_at_start_utc": _utc_now(),
+            } if unattended_commitment else None),
             "identity_evidence_refs": identity_refs,
             "condition_evidence_refs": condition_refs,
             "reset_evidence_refs": [],
@@ -666,7 +678,9 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                  if disconnect_method == DISCONNECT_METHOD_PHYSICAL else
                  "VBUS removal uses the identity-bound qualified hub port and records its verified controller result."),
                 "Reconnect precedes the ending ADB capture and can begin charging; reconnect time is recorded before capture.",
-            ],
+            ] + ([
+                "The unattended rig series verifies phone network state at the start and finish, but does not claim continuous phone-side connectivity observation while USB is off.",
+            ] if unattended_commitment else []),
             "errors": [],
         }
         _atomic_report(partial / "result.json", report, args.target)
@@ -927,10 +941,6 @@ def status(args) -> dict:
 
 
 def finish(args) -> tuple[int, Path]:
-    if not (args.operator_confirmed_no_interaction
-            and args.operator_confirmed_no_known_network_outage):
-        raise IdleError(
-            "idle finish requires no-interaction and network-outage attestations", 3)
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
     run_dir = Path(args.run_dir).resolve()
     root = run_dir.parent
@@ -939,6 +949,27 @@ def finish(args) -> tuple[int, Path]:
     try:
         report = _load_report(run_dir)
         method = _disconnect_method(report)
+        automated_series = bool(getattr(args, "automated_rig_series", False))
+        if automated_series:
+            commitments = report.get("unattended_series_commitments")
+            if (method != DISCONNECT_METHOD_RIG
+                    or not isinstance(commitments, dict)
+                    or commitments.get("no_phone_interaction_planned") is not True
+                    or commitments.get(
+                        "no_material_network_outage_planned") is not True):
+                raise IdleError(
+                    "automated finish requires bound unattended rig commitments",
+                    3)
+            no_interaction = True
+            no_known_network_outage = True
+        else:
+            no_interaction = bool(args.operator_confirmed_no_interaction)
+            no_known_network_outage = bool(
+                args.operator_confirmed_no_known_network_outage)
+            if not (no_interaction and no_known_network_outage):
+                raise IdleError(
+                    "idle finish requires no-interaction and network-outage attestations",
+                    3)
         if report.get("status") != _disconnected_status(method):
             raise IdleError("idle run is not in the required stage", 3)
         if (method == DISCONNECT_METHOD_PHYSICAL
@@ -1046,7 +1077,7 @@ def finish(args) -> tuple[int, Path]:
         exclusions = evaluate_comparability(
             report, protocol, elapsed,
             end_state["network"],
-            args.operator_confirmed_no_known_network_outage)
+            no_known_network_outage)
         report["end_state"] = end_state
         report["metrics"] = idle_metrics(
             report["start_state"]["battery"], end_state["battery"], elapsed)
@@ -1057,9 +1088,20 @@ def finish(args) -> tuple[int, Path]:
         report["operator_attestations"].update({
             "physical_usb_disconnect": method == DISCONNECT_METHOD_PHYSICAL,
             "verified_rig_port_off": method == DISCONNECT_METHOD_RIG,
-            "no_interaction_during_interval": True,
-            "no_known_material_network_outage": True,
+            "no_interaction_during_interval": no_interaction,
+            "no_known_material_network_outage": (
+                None if automated_series else no_known_network_outage),
         })
+        report["finish_attestation_basis"] = (
+            "unattended-rig-series: start commitments, verified USB-off "
+            "interval, and start/end phone network observations"
+            if automated_series else "operator finish attestation")
+        report["unattended_series_observation"] = ({
+            "operator_committed_no_interaction_before_launch": True,
+            "operator_declared_no_planned_network_outage_before_launch": True,
+            "phone_network_observed_only_at_start_and_finish": True,
+            "continuous_phone_network_observation_claimed": False,
+        } if automated_series else None)
         report["comparability_exclusions"] = exclusions
         report["finished_at_utc"] = _utc_now()
         report["tool"]["finalizer_sha256"] = hashlib.sha256(
@@ -1217,6 +1259,10 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--operator-confirmed-unlocked", action="store_true")
     start_parser.add_argument(
         "--operator-authorized-batterystats-reset", action="store_true")
+    start_parser.add_argument(
+        "--operator-committed-no-interaction", action="store_true")
+    start_parser.add_argument(
+        "--operator-declared-no-planned-network-outage", action="store_true")
     disconnect_parser = sub.add_parser("observe-disconnect")
     disconnect_parser.add_argument("--target", required=True)
     disconnect_parser.add_argument("--device-role", required=True)
@@ -1247,6 +1293,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--operator-confirmed-no-interaction", action="store_true")
     finish_parser.add_argument(
         "--operator-confirmed-no-known-network-outage", action="store_true")
+    finish_parser.add_argument(
+        "--automated-rig-series", action="store_true",
+        help=argparse.SUPPRESS)
     quarantine_parser = sub.add_parser("quarantine")
     quarantine_parser.add_argument("--target", required=True)
     quarantine_parser.add_argument("--device-role", required=True)
@@ -1258,6 +1307,43 @@ def build_parser() -> argparse.ArgumentParser:
     quarantine_parser.add_argument(
         "--status", choices=("HARNESS_ERROR", "NON_COMPARABLE"),
         default="HARNESS_ERROR")
+    series_parser = sub.add_parser("series")
+    series_sub = series_parser.add_subparsers(
+        dest="series_action", required=True)
+    launch_parser = series_sub.add_parser("launch")
+    launch_parser.add_argument("--series-id", required=True)
+    launch_parser.add_argument("--device-role", default="harness")
+    launch_parser.add_argument(
+        "--device-map", default="/var/lib/diamaneos-test/devices/test-host.json")
+    launch_parser.add_argument("--rig-config", default="/etc/diamaneos/rig.json")
+    launch_parser.add_argument("--adb", default="adb")
+    launch_parser.add_argument(
+        "--output", default="/var/lib/diamaneos-test/baseline-runs")
+    launch_parser.add_argument(
+        "--job-root", default="/var/lib/diamaneos-test/idle-series")
+    launch_parser.add_argument("--expected-build", required=True)
+    launch_parser.add_argument("--conditions", required=True)
+    launch_parser.add_argument(
+        "--operator-confirmed-display-50", action="store_true")
+    launch_parser.add_argument(
+        "--operator-confirmed-unlocked", action="store_true")
+    launch_parser.add_argument(
+        "--operator-authorized-repeat-1-batterystats-reset",
+        action="store_true")
+    launch_parser.add_argument(
+        "--operator-authorized-repeat-2-batterystats-reset",
+        action="store_true")
+    launch_parser.add_argument(
+        "--operator-committed-no-interaction", action="store_true")
+    launch_parser.add_argument(
+        "--operator-declared-no-planned-network-outage", action="store_true")
+    status_series_parser = series_sub.add_parser("status")
+    status_series_parser.add_argument("--series-id", required=True)
+    status_series_parser.add_argument(
+        "--job-root", default="/var/lib/diamaneos-test/idle-series")
+    run_series_parser = series_sub.add_parser("run", help=argparse.SUPPRESS)
+    run_series_parser.add_argument("--job-dir", required=True)
+    run_series_parser.add_argument("--expected-spec-sha256", required=True)
     return parser
 
 
@@ -1284,6 +1370,9 @@ def main(argv=None) -> int:
             code, path = finish(args)
             print(f"result={path}")
             return code
+        if args.action == "series":
+            from diamaneos_tools import baseline_idle_series
+            return baseline_idle_series.dispatch(args, _repo_root())
         print(f"result={quarantine(args)}")
         return 0
     except (IdleError, baseline_protocol.ProtocolError,
