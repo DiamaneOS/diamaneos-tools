@@ -20,7 +20,7 @@ def main(argv=None):
         print("        baseline boot -> staged declared FP6-022 restart-time measurement")
         print("        baseline connected -> staged declared FP6-022 connected measurement")
         print("        baseline camera -> staged FP6-022 original-media measurements")
-        print("        baseline idle -> staged FP6-022 physical-disconnect idle measurements")
+        print("        baseline idle -> staged or unattended verified-VBUS-off FP6-022 idle measurements")
         print("        baseline protocol validate -> strict no-device protocol validation")
         print("        carrier matrix validate -> strict no-device carrier-plan validation")
         print("        endpoints validate -> read-only contract checks")
