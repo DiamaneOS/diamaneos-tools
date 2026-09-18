@@ -311,6 +311,20 @@ class RunnerProvenanceTest(unittest.TestCase):
         self.assertEqual("b" * 64,
                          report["tool"]["runner_versions"][0]["sha256"])
 
+    def test_attempt_number_never_reuses_unreferenced_partial_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            raw = Path(directory)
+            capture_id = "r1-fixed-front-photo-1x"
+            (raw / f"{capture_id}.attempt-2.launch.stdout.txt").write_text(
+                "orphaned but retained", encoding="utf-8")
+            report = {"attempts": [{
+                "attempt_id": f"{capture_id}.attempt-1",
+                "capture_id": capture_id,
+            }]}
+            self.assertEqual(
+                3, baseline_camera._next_attempt_number(
+                    raw, capture_id, report))
+
 
 if __name__ == "__main__":
     unittest.main()

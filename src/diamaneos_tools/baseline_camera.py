@@ -641,6 +641,24 @@ def _register_runner_version(report: dict, repo_root: Path) -> str:
     return current["sha256"]
 
 
+def _next_attempt_number(raw_dir: Path, capture_id: str, report: dict) -> int:
+    """Choose a fresh attempt suffix without deleting prior partial evidence."""
+    occupied = set()
+    prefix = re.compile(
+        re.escape(capture_id) + r"\.attempt-([1-9][0-9]*)\..+")
+    for path in raw_dir.iterdir():
+        match = prefix.fullmatch(path.name)
+        if match:
+            occupied.add(int(match.group(1)))
+    attempt_prefix = re.compile(
+        re.escape(capture_id) + r"\.attempt-([1-9][0-9]*)")
+    for item in report.get("attempts", []):
+        match = attempt_prefix.fullmatch(str(item.get("attempt_id", "")))
+        if match:
+            occupied.add(int(match.group(1)))
+    return max(occupied, default=0) + 1
+
+
 def _atomic_report(path: Path, report: dict, target: str):
     serialized = json.dumps(report, sort_keys=True)
     if target in serialized:
@@ -802,7 +820,8 @@ def capture(args) -> tuple[int, Path]:
         expected = report["expected_captures"][index]
         raw_dir = run_dir / "raw"
         refs = []
-        attempt_number = len(report.get("attempts", [])) + 1
+        attempt_number = _next_attempt_number(
+            raw_dir, expected["capture_id"], report)
         attempt_prefix = f"{expected['capture_id']}.attempt-{attempt_number}"
         launch = _run_ok([
             args.adb, "-s", args.target, "shell", "am", "start", "-W", "-n",
@@ -813,8 +832,24 @@ def capture(args) -> tuple[int, Path]:
             digest = _write_text(raw_dir / filename, launch.get(stream, ""))
             refs.append(f"raw/{filename}@sha256:{digest}")
         time.sleep(2)
-        preparation_actions, preparation_observations = _prepare_camera_ui(
-            args.adb, args.target, expected)
+        try:
+            preparation_actions, preparation_observations = _prepare_camera_ui(
+                args.adb, args.target, expected)
+        except CameraError as exc:
+            report.setdefault("attempts", []).append({
+                "attempt_id": attempt_prefix,
+                "capture_id": expected["capture_id"],
+                "status": "BLOCKED" if exc.exit_code == 3 else "HARNESS_ERROR",
+                "reason": str(exc),
+                "shutter_triggered": False,
+                "ui_preparation_actions": [],
+                "ui_observations": [],
+                "recorded_at_utc": _utc_now(),
+                "raw_evidence_refs": refs,
+                "runner_sha256": runner_sha256,
+            })
+            _atomic_report(run_dir / "result.json", report, args.target)
+            return exc.exit_code, run_dir / "result.json"
         time.sleep(1)
         ui_ref, ui_xml = _capture_ui(
             args.adb, args.target, raw_dir, attempt_prefix + ".before")
