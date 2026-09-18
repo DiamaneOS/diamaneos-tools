@@ -125,6 +125,14 @@ class CameraUiTest(unittest.TestCase):
         with self.assertRaises(baseline_camera.CameraError):
             baseline_camera.camera_node_center(xml, "text", "VIDEO")
 
+    def test_duplicate_wrapper_prefers_the_one_clickable_control(self):
+        xml = ('<node content-desc="Face beauty" clickable="true" '
+               'bounds="[39,1596][141,1698]"/>'
+               '<node content-desc="Face beauty" clickable="false" '
+               'bounds="[39,1596][141,1698]"/>')
+        self.assertEqual((90, 1647), baseline_camera.camera_node_center(
+            xml, "content-desc", "Face beauty"))
+
     def test_portrait_has_mode_specific_selected_state_and_zoom_coordinate(self):
         expected = {"orientation": "rear-facing", "mode": "portrait", "zoom": "1x"}
         xml = ('<node package="com.fps.camera" content-desc="Shutter"/>'
