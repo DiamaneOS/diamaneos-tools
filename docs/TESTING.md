@@ -207,7 +207,6 @@ bin/diamaneos baseline pilot \
   --rig-config <PRIVATE_ROOT>/rig.json \
   --run-id <run-id> \
   --output <PRIVATE_ROOT>/baseline-runs \
-  --ambient-start-c <room-thermometer-reading> \
   --operator-confirmed-display-50 \
   --operator-confirmed-unlocked \
   --conditions "<stock build, USB path and controlled setup>"
@@ -224,13 +223,10 @@ After that harness pilot succeeds, inspect the declared connected plan with
 the protocol's three cold and three warm launches per app, three independent
 60-second Settings frame runs, and the 15-minute load plus 10-minute cooldown.
 It requires a shared series ID and repeat index 1 or 2 so two whole runs cannot
-be mistaken for unrelated samples. A successful workload remains
-`AWAITING_AMBIENT_END` in its `.partial` directory; immediately read the room
-thermometer and supply that directory to `finalize`. Finalization verifies all
-evidence hashes and the unchanged protocol, records the ending temperature,
-and makes an out-of-range or over-tolerance run `NON_COMPARABLE` rather than a
-pass. Both finalized whole-run repetitions are required for the declared
-connected baseline.
+be mistaken for unrelated samples. A successful workload verifies all evidence
+hashes and the unchanged protocol before atomically publishing its immutable
+result. Both whole-run repetitions are required for the declared connected
+baseline.
 
 Boot timing is a separate declared workflow because rebooting in the middle of
 the connected sequence would change app residency, thermal state and run
@@ -244,9 +240,8 @@ property supplied the signal; the ready value is the later of boot completion
 and boot-animation completion. The raw observer record and reboot stdout/stderr
 are hash-bound, while the private ADB serial is excluded from the structured
 result. This follows the AOSP boot-completion boundary while preserving the
-limits of host-side polling. A passed run remains `AWAITING_AMBIENT_END` until
-`finalize` verifies its evidence and ending room temperature. Two whole
-repetitions share one series ID.
+limits of host-side polling. A passed run verifies its evidence and publishes
+its immutable result immediately. Two whole repetitions share one series ID.
 
 ```sh
 bin/diamaneos baseline boot restart \
@@ -259,14 +254,9 @@ bin/diamaneos baseline boot restart \
   --repeat-index 1 \
   --expected-build FP6.QREL.16.100.0 \
   --output <PRIVATE_ROOT>/baseline-runs \
-  --ambient-start-c <room-thermometer-reading> \
   --operator-authorized-reboots \
   --operator-confirmed-permanent-state \
   --conditions "<stock build, permanent SIM/Wi-Fi state and controlled rig>"
-
-bin/diamaneos baseline boot finalize \
-  --run-dir <PRIVATE_ROOT>/baseline-runs/<unique-run-id>.partial \
-  --ambient-end-c <room-thermometer-reading>
 ```
 
 Do not call that result a physical cold-boot time. Cold power-on has a
@@ -289,14 +279,9 @@ bin/diamaneos baseline connected run \
   --repeat-index 1 \
   --expected-build FP6.QREL.16.100.0 \
   --output <PRIVATE_ROOT>/baseline-runs \
-  --ambient-start-c <room-thermometer-reading> \
   --operator-confirmed-display-50 \
   --operator-confirmed-unlocked \
   --conditions "<stock build, USB path and controlled setup>"
-
-bin/diamaneos baseline connected finalize \
-  --run-dir <PRIVATE_ROOT>/baseline-runs/<unique-run-id>.partial \
-  --ambient-end-c <room-thermometer-reading>
 ```
 
 The idle pilot is a staged five-minute harness check. `baseline idle start`
@@ -313,9 +298,8 @@ sampling immediately after the key event.
 methods. The default `physical-unplug` method records stable ADB loss, but
 physical VBUS removal remains an operator attestation. Keep the cable
 physically unplugged, the screen off and the phone untouched until `baseline
-idle status` reports that the interval is complete. Read the ending
-thermometer while the phone is still disconnected, then run `baseline idle
-finish --wait-for-reconnect` with that value. Reconnect only after it prints
+idle status` reports that the interval is complete. Then run `baseline idle
+finish --wait-for-reconnect`. Reconnect only after it prints
 `READY_TO_RECONNECT`; the command records two consecutive authorized-ADB
 observations and begins the ending capture immediately.
 
@@ -362,8 +346,7 @@ Use `bin/diamaneos baseline camera dry-run` to inspect the exact pilot order
 without contacting a device or creating output. Add `--declared` to `dry-run`
 and `start` only after the pilot succeeds; that repeats the nine standard
 matrix captures twice while retaining the six advertised-mode survey captures
-once, for 24 originals total. Declared camera finalization enforces the ambient
-range and within-run tolerance. The staged `start`, `capture` and `finalize`
+once, for 24 originals total. The staged `start`, `capture` and `finalize`
 actions keep one immutable private run open across manual lamp changes. Each
 `capture` snapshots the camera media directory, triggers one
 tap-focus and shutter action, requires exactly one new original, compares the
@@ -399,7 +382,7 @@ bin/diamaneos test run \
   --device-map <PRIVATE_ROOT>/devices/test-host.json \
   --evidence-kind real-device \
   --run-id <run-id> \
-  --conditions "<build, USB, network, power and ambient setup>" \
+  --conditions "<build, USB, network and power setup>" \
   --output <PRIVATE_ROOT>/test-runs
 ```
 

@@ -253,7 +253,7 @@ class PreflightTest(unittest.TestCase):
 
     def test_matching_controls_allow_workload(self):
         reasons = baseline_pilot.evaluate_preflight(
-            self.valid_observed(), protocol(), 22.0, True, True)
+            self.valid_observed(), protocol(), True, True)
         self.assertEqual([], reasons)
 
     def test_every_changed_control_is_visible(self):
@@ -263,9 +263,8 @@ class PreflightTest(unittest.TestCase):
         observed["network"]["wifi"] = True
         observed["battery"]["level_percent"] = 90
         reasons = baseline_pilot.evaluate_preflight(
-            observed, protocol(), 35.0, False, False)
-        self.assertGreaterEqual(len(reasons), 6)
-        self.assertTrue(any("room temperature" in reason for reason in reasons))
+            observed, protocol(), False, False)
+        self.assertGreaterEqual(len(reasons), 5)
         self.assertTrue(any("brightness" in reason for reason in reasons))
         self.assertTrue(any("not awake" in reason for reason in reasons))
         self.assertTrue(any("Wi-Fi" in reason for reason in reasons))

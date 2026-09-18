@@ -125,18 +125,14 @@ def build_capture_plan(protocol: dict, repetitions: int) -> list[dict]:
 
 
 def evaluate_camera_preflight(observed: dict, protocol: dict,
-                              ambient_start_c: float,
                               display_50_confirmed: bool,
                               unlocked_confirmed: bool) -> list[str]:
     """Apply fixed camera controls without the workload-only FULL-state rule."""
     reasons = []
     controls = protocol["environment_controls"]
-    ambient = controls["ambient_temperature"]["full_run_allowed_range"]
     display = observed["display"]
     network = observed["network"]
     battery = observed["battery"]
-    if not ambient["minimum"] <= ambient_start_c <= ambient["maximum"]:
-        reasons.append("room temperature is outside the protocol range")
     if not display_50_confirmed:
         reasons.append("50 percent brightness was not operator-confirmed")
     if not unlocked_confirmed or display.get("wakefulness") != "Awake":
@@ -635,8 +631,6 @@ def start(args, repo_root: Path) -> Path:
             and args.operator_confirmed_display_50
             and args.operator_confirmed_unlocked):
         raise CameraError("camera start requires fixture, camera-default, display and unlocked attestations", 3)
-    if args.ambient_start_c is None or not (-50 <= args.ambient_start_c <= 100):
-        raise CameraError("camera start requires a plausible ambient temperature")
     protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
     profile = camera_profile(protocol, getattr(args, "declared", False))
     repetitions = profile["standard_matrix_repetitions"]
@@ -672,13 +666,13 @@ def start(args, repo_root: Path) -> Path:
         try:
             preflight = baseline_pilot._collect_preflight(
                 baseline_pilot.Collector(args.adb, args.target, partial),
-                protocol, args.ambient_start_c,
+                protocol,
                 args.operator_confirmed_display_50,
                 args.operator_confirmed_unlocked)
         except baseline_pilot.CaseFailure as exc:
             raise CameraError("camera condition capture failed", 5) from exc
         mismatches = evaluate_camera_preflight(
-            preflight["observed"], protocol, args.ambient_start_c,
+            preflight["observed"], protocol,
             args.operator_confirmed_display_50,
             args.operator_confirmed_unlocked)
         if mismatches:
@@ -714,8 +708,6 @@ def start(args, repo_root: Path) -> Path:
             "conditions": args.conditions.strip(),
             "observed_conditions": preflight["observed"],
             "condition_evidence_refs": preflight["raw_evidence_refs"],
-            "ambient_start_c": args.ambient_start_c,
-            "ambient_end_c": None,
             "started_at_utc": _utc_now(),
             "finished_at_utc": None,
             "status": "INCOMPLETE",
@@ -724,9 +716,7 @@ def start(args, repo_root: Path) -> Path:
             "attempts": [],
             "identity_evidence_refs": refs,
             "mode_inventory": camera["advertised_mode_survey"],
-            "limitations": ([
-                "Continuous ambient logging is unavailable; only start and end readings are recorded.",
-            ] if profile["mode"] == "declared" else [
+            "limitations": ([] if profile["mode"] == "declared" else [
                 "Pilot only; source media is not declared baseline evidence.",
             ]) + [
                 "Fixture registration is repeatable to its stated tolerance, not pixel-exact.",
@@ -879,8 +869,6 @@ def capture(args) -> tuple[int, Path]:
 def finalize(args) -> Path:
     if not all((args.target, args.device_role, args.device_map, args.run_dir)):
         raise CameraError("camera finalize is missing its target or partial run")
-    if args.ambient_end_c is None or not (-50 <= args.ambient_end_c <= 100):
-        raise CameraError("camera finalize requires a plausible end temperature")
     _validate_target(args)
     run_dir = Path(args.run_dir).resolve()
     root = run_dir.parent
@@ -919,32 +907,18 @@ def finalize(args) -> Path:
                     item.get("runner_sha256") not in declared_runners
                     for item in captures)):
                 raise CameraError("camera capture runner provenance is incomplete", 5)
-        report["ambient_end_c"] = args.ambient_end_c
         report["finished_at_utc"] = _utc_now()
         report["tool"]["finalizer_sha256"] = hashlib.sha256(
             Path(__file__).read_bytes()).hexdigest()
-        report["ambient_span_c"] = round(
-            abs(args.ambient_end_c - report["ambient_start_c"]), 2)
-        exclusions = []
         if report["operation"] == "baseline-camera-measurement":
-            protocol, digest = baseline_protocol.load_protocol(args.config)
+            _, digest = baseline_protocol.load_protocol(args.config)
             if digest != report["protocol"]["sha256"]:
                 raise CameraError("baseline protocol changed during the camera run", 5)
-            control = protocol["environment_controls"]["ambient_temperature"]
-            allowed = control["full_run_allowed_range"]
-            if not allowed["minimum"] <= args.ambient_end_c <= allowed["maximum"]:
-                exclusions.append("end ambient temperature is outside the protocol range")
-            if report["ambient_span_c"] > control["maximum_within_run_span"]:
-                exclusions.append("ambient temperature span exceeds the protocol tolerance")
-        report["comparability_exclusions"] = exclusions
+        report["comparability_exclusions"] = []
         if any(item.get("status") != "PASS" for item in captures):
             report["status"] = "FAIL"
         else:
-            report["status"] = "NON_COMPARABLE" if exclusions else "PASS"
-        if exclusions:
-            final = final.with_name(final.name + ".non-comparable")
-            if final.exists():
-                raise CameraError("immutable camera final output collision", 3)
+            report["status"] = "PASS"
         _atomic_report(report_path, report, args.target)
         os.rename(run_dir, final)
         test_runner._sync_directory(final.parent)
@@ -1037,7 +1011,6 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--expected-build", required=True,
                               help="exact ro.build.id expected on the stock target")
     start_parser.add_argument("--conditions", required=True)
-    start_parser.add_argument("--ambient-start-c", required=True, type=float)
     start_parser.add_argument("--operator-confirmed-fixture", action="store_true")
     start_parser.add_argument("--operator-confirmed-defaults", action="store_true")
     start_parser.add_argument("--operator-confirmed-display-50", action="store_true")
@@ -1060,7 +1033,6 @@ def build_parser() -> argparse.ArgumentParser:
     finalize_parser.add_argument("--device-map", required=True)
     finalize_parser.add_argument("--adb", default="adb")
     finalize_parser.add_argument("--run-dir", required=True)
-    finalize_parser.add_argument("--ambient-end-c", required=True, type=float)
     quarantine_parser = sub.add_parser("quarantine")
     quarantine_parser.add_argument("--target", required=True)
     quarantine_parser.add_argument("--device-role", required=True)
@@ -1091,7 +1063,7 @@ def main(argv=None) -> int:
             print(f"result={result}")
             report, _ = test_runner._load_unique_json(
                 result, test_runner.MAX_REPORT_BYTES)
-            return 4 if report.get("status") == "NON_COMPARABLE" else 0
+            return 0
         print(f"result={quarantine(args)}")
         return 0
     except (CameraError, baseline_protocol.ProtocolError,

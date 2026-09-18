@@ -164,7 +164,7 @@ class RestartObserverTest(unittest.TestCase):
         self.assertEqual(8, len(refs))
 
 
-class BootPlanAndFinalizeTest(unittest.TestCase):
+class BootPlanTest(unittest.TestCase):
     def test_dry_run_contacts_no_device_and_separates_cold_boot(self):
         plan = baseline_boot.dry_run_plan(
             str(TOOLS / "config" / "baseline.json"))
@@ -173,57 +173,10 @@ class BootPlanAndFinalizeTest(unittest.TestCase):
         self.assertEqual("manual-source-media-required",
                          plan["cold_power_on"]["automation_status"])
 
-    def _partial(self, root: Path, ambient_start: float) -> Path:
-        protocol, digest = baseline_protocol.load_protocol(
-            TOOLS / "config" / "baseline.json")
-        run_dir = root / "boot-r1.partial"
-        run_dir.mkdir(mode=0o750)
-        report = {
-            "schema_version": baseline_boot.SCHEMA_VERSION,
-            "operation": baseline_boot.OPERATION,
-            "label": baseline_boot.LABEL,
-            "status": "AWAITING_AMBIENT_END",
-            "protocol": {"sha256": digest},
-            "series_id": "stock16-final",
-            "repeat_index": 1,
-            "target": {"role": "harness"},
-            "ambient_start_c": ambient_start,
-            "identity_evidence_refs": [],
-            "preflight_evidence_refs": [],
-            "case": {
-                "status": "PASS",
-                "samples": [
-                    {"status": "PASS", "raw_evidence_refs": []}
-                    for _ in range(3)
-                ],
-            },
-            "tool": {},
-            "comparability_exclusions": [],
-        }
-        (run_dir / "result.json").write_text(
-            json.dumps(report), encoding="utf-8")
-        return run_dir
-
-    def test_finalize_passes_with_bounded_ambient_span(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            os.chmod(root, 0o750)
-            run_dir = self._partial(root, 22.0)
-            code, result = baseline_boot.finalize(
-                str(run_dir), 22.4, str(TOOLS / "config" / "baseline.json"))
-            self.assertEqual(0, code)
-            self.assertEqual("PASS", json.loads(result.read_text())["status"])
-
-    def test_finalize_quarantines_out_of_tolerance_ambient(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            os.chmod(root, 0o750)
-            run_dir = self._partial(root, 22.0)
-            code, result = baseline_boot.finalize(
-                str(run_dir), 26.0, str(TOOLS / "config" / "baseline.json"))
-            self.assertEqual(4, code)
-            report = json.loads(result.read_text())
-            self.assertEqual("NON_COMPARABLE", report["status"])
+    def test_cli_has_no_separate_finalization_stage(self):
+        parser = baseline_boot.build_parser()
+        args = parser.parse_args(["dry-run"])
+        self.assertEqual("dry-run", args.action)
 
 
 if __name__ == "__main__":

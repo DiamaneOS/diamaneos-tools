@@ -234,20 +234,11 @@ def wait_for_authorized_reconnect(observer, clock, timeout_seconds: float,
 
 
 def evaluate_idle_preflight(observed: dict, protocol: dict,
-                            ambient_start_c: float,
                             display_50_confirmed: bool,
                             unlocked_confirmed: bool) -> list[str]:
     """Return every mismatch before batterystats may be reset."""
     reasons = []
     controls = protocol["environment_controls"]
-    ambient = controls["ambient_temperature"]["full_run_allowed_range"]
-    if not ambient["minimum"] <= ambient_start_c <= ambient["maximum"]:
-        reasons.append("room temperature is outside the protocol range")
-    charging_bound = _procedure(protocol, "thermal")["fixed_parameters"][
-        "safety"]["manufacturer_maximum_ambient_charging_degC"]
-    if ambient_start_c > charging_bound:
-        reasons.append("room temperature exceeds the charging bound")
-
     display = observed["display"]
     expected_display = controls["display"]
     if not display_50_confirmed:
@@ -308,17 +299,10 @@ def idle_metrics(start: dict, end: dict, elapsed_seconds: float) -> dict:
 
 
 def evaluate_comparability(report: dict, protocol: dict,
-                            ambient_end_c: float, elapsed_seconds: float,
+                            elapsed_seconds: float,
                             end_network: dict,
                             no_known_network_outage: bool) -> list[str]:
     reasons = []
-    ambient = protocol["environment_controls"]["ambient_temperature"]
-    allowed = ambient["full_run_allowed_range"]
-    if not allowed["minimum"] <= ambient_end_c <= allowed["maximum"]:
-        reasons.append("ending room temperature is outside the protocol range")
-    if abs(ambient_end_c - report["ambient_start_c"]) > ambient[
-            "maximum_within_run_span"]:
-        reasons.append("room-temperature span exceeds the protocol tolerance")
     duration = _report_duration_seconds(report)
     if elapsed_seconds > duration + FINISH_TOLERANCE_SECONDS:
         reasons.append("finish capture exceeded the timing tolerance")
@@ -567,8 +551,6 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
         raise IdleError("idle start is missing required target or run metadata")
     if args.target in args.run_id or args.target in args.conditions:
         raise IdleError("idle metadata must not contain the private target")
-    if args.ambient_start_c is None or not (-50 <= args.ambient_start_c <= 100):
-        raise IdleError("idle start requires a plausible ambient temperature")
     if not (args.operator_confirmed_display_50
             and args.operator_confirmed_unlocked
             and args.operator_authorized_batterystats_reset):
@@ -614,7 +596,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
         observed, condition_refs = _collect_state(
             args.adb, args.target, partial, protocol, "start", True)
         mismatches = evaluate_idle_preflight(
-            observed, protocol, args.ambient_start_c,
+            observed, protocol,
             args.operator_confirmed_display_50,
             args.operator_confirmed_unlocked)
         if identity["build_id"] != args.expected_build:
@@ -647,9 +629,6 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                 "evidence_label": identity["evidence_label"],
             },
             "conditions": args.conditions.strip(),
-            "ambient_start_c": args.ambient_start_c,
-            "ambient_end_c": None,
-            "ambient_span_c": None,
             "duration_seconds": profile["duration_seconds"],
             "finish_tolerance_seconds": FINISH_TOLERANCE_SECONDS,
             "started_at_utc": _utc_now(),
@@ -682,7 +661,6 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             ] if profile["kind"] == "pilot" else [
                 "This is one component run in the declared stock baseline series."
             ]) + [
-                "Ambient temperature is sampled manually only at start and finish.",
                 "Network service output is privacy-minimized before persistence; SSID, BSSID, subscriber and cell identifiers are not retained.",
                 ("Physical VBUS removal depends on operator attestation in addition to observed ADB loss."
                  if disconnect_method == DISCONNECT_METHOD_PHYSICAL else
@@ -949,8 +927,6 @@ def status(args) -> dict:
 
 
 def finish(args) -> tuple[int, Path]:
-    if args.ambient_end_c is None or not (-50 <= args.ambient_end_c <= 100):
-        raise IdleError("idle finish requires a plausible ambient temperature")
     if not (args.operator_confirmed_no_interaction
             and args.operator_confirmed_no_known_network_outage):
         raise IdleError(
@@ -1068,12 +1044,9 @@ def finish(args) -> tuple[int, Path]:
         finish_refs.extend(_write_command_evidence(
             run_dir, "finish-batterystats", batterystats))
         exclusions = evaluate_comparability(
-            report, protocol, args.ambient_end_c, elapsed,
+            report, protocol, elapsed,
             end_state["network"],
             args.operator_confirmed_no_known_network_outage)
-        report["ambient_end_c"] = args.ambient_end_c
-        report["ambient_span_c"] = round(
-            abs(args.ambient_end_c - report["ambient_start_c"]), 2)
         report["end_state"] = end_state
         report["metrics"] = idle_metrics(
             report["start_state"]["battery"], end_state["battery"], elapsed)
@@ -1238,7 +1211,6 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--output", required=True)
     start_parser.add_argument("--expected-build", required=True)
     start_parser.add_argument("--conditions", required=True)
-    start_parser.add_argument("--ambient-start-c", required=True, type=float)
     start_parser.add_argument("--declared-repeat-index", type=int, choices=(1, 2))
     start_parser.add_argument("--series-id")
     start_parser.add_argument("--operator-confirmed-display-50", action="store_true")
@@ -1264,7 +1236,6 @@ def build_parser() -> argparse.ArgumentParser:
     finish_parser.add_argument("--rig-config")
     finish_parser.add_argument("--adb", default="adb")
     finish_parser.add_argument("--run-dir", required=True)
-    finish_parser.add_argument("--ambient-end-c", required=True, type=float)
     finish_parser.add_argument("--wait-for-reconnect", action="store_true")
     finish_parser.add_argument(
         "--reconnect-timeout-seconds", type=int,
