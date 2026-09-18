@@ -191,15 +191,31 @@ def observe_restart(adb: str, target: str, parameters: dict, raw_dir: Path,
             milestones["adb-authorized"] = round(clock() - started, 3)
             break
         sleeper(poll_seconds)
+    boot_animation_signal = None
     if "adb-authorized" in milestones:
         while clock() <= completion_deadline:
             property_polls += 1
             if ("sys.boot_completed" not in milestones
                     and _property(adb, target, "sys.boot_completed", executor) == "1"):
                 milestones["sys.boot_completed"] = round(clock() - started, 3)
-            if ("service.bootanim.exit" not in milestones
-                    and _property(adb, target, "service.bootanim.exit", executor) == "1"):
-                milestones["service.bootanim.exit"] = round(clock() - started, 3)
+            if "boot-animation-complete" not in milestones:
+                exit_value = _property(
+                    adb, target, "service.bootanim.exit", executor)
+                if exit_value == "1":
+                    milestones["boot-animation-complete"] = round(
+                        clock() - started, 3)
+                    boot_animation_signal = {
+                        "property": "service.bootanim.exit", "value": "1"}
+                else:
+                    service_value = _property(
+                        adb, target, "init.svc.bootanim", executor)
+                    if service_value == "stopped":
+                        milestones["boot-animation-complete"] = round(
+                            clock() - started, 3)
+                        boot_animation_signal = {
+                            "property": "init.svc.bootanim",
+                            "value": "stopped",
+                        }
             if all(name in milestones for name in parameters["required_milestones"]):
                 break
             sleeper(poll_seconds)
@@ -212,6 +228,7 @@ def observe_restart(adb: str, target: str, parameters: dict, raw_dir: Path,
         "state_polls": state_polls,
         "property_polls": property_polls,
         "milestones_seconds": milestones,
+        "boot_animation_signal": boot_animation_signal,
         "missing_milestones": missing,
     }
     refs.append(_evidence(
@@ -222,16 +239,18 @@ def observe_restart(adb: str, target: str, parameters: dict, raw_dir: Path,
             "repetition": repetition, "status": "FAIL",
             "reason": "restart completion timed out before every required milestone",
             "milestones_seconds": milestones,
+            "boot_animation_signal": boot_animation_signal,
             "missing_milestones": missing,
             "raw_evidence_refs": refs,
         }
     ready = max(milestones["sys.boot_completed"],
-                milestones["service.bootanim.exit"])
+                milestones["boot-animation-complete"])
     return {
         "repetition": repetition,
         "status": "PASS",
         "reason": "all declared restart milestones were observed",
         "milestones_seconds": milestones,
+        "boot_animation_signal": boot_animation_signal,
         "ready_seconds": round(ready, 3),
         "raw_evidence_refs": refs,
     }

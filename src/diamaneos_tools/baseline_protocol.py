@@ -270,7 +270,7 @@ def validate_protocol(protocol):
     milestones = restart["required_milestones"]
     expected_milestones = [
         "adb-unavailable", "adb-authorized", "sys.boot_completed",
-        "service.bootanim.exit",
+        "boot-animation-complete",
     ]
     if milestones != expected_milestones:
         raise ProtocolError("restart boot-time milestones changed")
