@@ -659,6 +659,17 @@ def _next_attempt_number(raw_dir: Path, capture_id: str, report: dict) -> int:
     return max(occupied, default=0) + 1
 
 
+def _verify_runner_provenance(report: dict):
+    versions = report.get("tool", {}).get("runner_versions", [])
+    if not versions:
+        return
+    declared = {item.get("sha256") for item in versions}
+    records = report.get("captures", []) + report.get("attempts", [])
+    if (None in declared or any(
+            item.get("runner_sha256") not in declared for item in records)):
+        raise CameraError("camera capture runner provenance is incomplete", 5)
+
+
 def _atomic_report(path: Path, report: dict, target: str):
     serialized = json.dumps(report, sort_keys=True)
     if target in serialized:
@@ -980,16 +991,14 @@ def finalize(args) -> Path:
             digest, _ = _sha256_file(original)
             if digest != item["sha256"]:
                 raise CameraError("camera original failed final checksum verification", 5)
+        attempts = report.get("attempts", [])
+        for item in attempts:
+            test_runner._verify_evidence_refs(
+                report_path, item.get("raw_evidence_refs", []))
         for discovery in report.get("pilot_discoveries", []):
             verify_private_refs(
                 report_path, discovery.get("raw_evidence_refs", []))
-        runner_versions = report.get("tool", {}).get("runner_versions", [])
-        if runner_versions:
-            declared_runners = {item.get("sha256") for item in runner_versions}
-            if (None in declared_runners or any(
-                    item.get("runner_sha256") not in declared_runners
-                    for item in captures)):
-                raise CameraError("camera capture runner provenance is incomplete", 5)
+        _verify_runner_provenance(report)
         report["finished_at_utc"] = _utc_now()
         report["tool"]["finalizer_sha256"] = hashlib.sha256(
             Path(__file__).read_bytes()).hexdigest()

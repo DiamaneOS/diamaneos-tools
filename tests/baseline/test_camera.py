@@ -325,6 +325,18 @@ class RunnerProvenanceTest(unittest.TestCase):
                 3, baseline_camera._next_attempt_number(
                     raw, capture_id, report))
 
+    def test_attempt_runner_is_part_of_final_provenance_contract(self):
+        report = {
+            "tool": {"runner_versions": [{"sha256": "a" * 64}]},
+            "captures": [{"runner_sha256": "a" * 64}],
+            "attempts": [{"runner_sha256": "b" * 64}],
+        }
+        with self.assertRaisesRegex(
+                baseline_camera.CameraError, "runner provenance"):
+            baseline_camera._verify_runner_provenance(report)
+        report["attempts"][0]["runner_sha256"] = "a" * 64
+        baseline_camera._verify_runner_provenance(report)
+
 
 if __name__ == "__main__":
     unittest.main()
