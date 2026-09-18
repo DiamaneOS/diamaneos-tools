@@ -237,14 +237,16 @@ the connected sequence would change app residency, thermal state and run
 order. Inspect it without touching a device using `bin/diamaneos baseline boot
 dry-run`. One `restart` repetition issues exactly three explicitly authorized
 ordinary `adb reboot` operations. For each, the host monotonic clock reports
-ADB unavailability, authorized-ADB return, `sys.boot_completed=1`, and
-`service.bootanim.exit=1` separately; the ready value is the later of the last
-two. The raw observer record and reboot stdout/stderr are hash-bound, while the
-private ADB serial is excluded from the structured result. This follows the
-AOSP boot-completion boundary while preserving the limits of host-side
-polling. A passed run remains `AWAITING_AMBIENT_END` until `finalize` verifies
-its evidence and ending room temperature. Two whole repetitions share one
-series ID.
+ADB unavailability, authorized-ADB return, `sys.boot_completed=1`, and boot
+animation completion separately. The latter accepts either
+`service.bootanim.exit=1` or `init.svc.bootanim=stopped` and records which
+property supplied the signal; the ready value is the later of boot completion
+and boot-animation completion. The raw observer record and reboot stdout/stderr
+are hash-bound, while the private ADB serial is excluded from the structured
+result. This follows the AOSP boot-completion boundary while preserving the
+limits of host-side polling. A passed run remains `AWAITING_AMBIENT_END` until
+`finalize` verifies its evidence and ending room temperature. Two whole
+repetitions share one series ID.
 
 ```sh
 bin/diamaneos baseline boot restart \
