@@ -40,6 +40,7 @@ def conditions(run_id="run-1"):
 class ProtocolValidationTest(unittest.TestCase):
     def test_actual_protocol_is_complete(self):
         protocol, digest = baseline_protocol.load_protocol(CONFIG)
+        self.assertEqual(3, protocol["schema_version"])
         self.assertEqual(protocol["protocol_id"], "fp6-stock-baseline-v1")
         self.assertRegex(digest, r"^[0-9a-f]{64}$")
 
@@ -67,10 +68,30 @@ class ProtocolValidationTest(unittest.TestCase):
 
     def test_arbitrary_launch_component_is_rejected(self):
         protocol = actual_protocol()
-        app = protocol["procedures"][0]["fixed_parameters"]["apps"][0]
+        launch = next(item for item in protocol["procedures"]
+                      if item["id"] == "app-launch")
+        app = launch["fixed_parameters"]["apps"][0]
         app["component"] = "com.android.settings/.Settings;wipe"
         with self.assertRaisesRegex(baseline_protocol.ProtocolError,
                                     "component is invalid"):
+            baseline_protocol.validate_protocol(protocol)
+
+    def test_boot_reboot_trigger_is_allowlisted(self):
+        protocol = actual_protocol()
+        boot = next(item for item in protocol["procedures"]
+                    if item["id"] == "boot-time")
+        boot["fixed_parameters"]["restart"]["trigger"] = "reboot bootloader"
+        with self.assertRaisesRegex(baseline_protocol.ProtocolError,
+                                    "trigger is not allowlisted"):
+            baseline_protocol.validate_protocol(protocol)
+
+    def test_boot_milestones_are_fixed_and_ordered(self):
+        protocol = actual_protocol()
+        boot = next(item for item in protocol["procedures"]
+                    if item["id"] == "boot-time")
+        boot["fixed_parameters"]["restart"]["required_milestones"].pop()
+        with self.assertRaisesRegex(baseline_protocol.ProtocolError,
+                                    "milestones changed"):
             baseline_protocol.validate_protocol(protocol)
 
     def test_thermal_abort_must_leave_manufacturer_margin(self):

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "protocol_id": "fp6-stock-baseline-v1",
   "target": {
     "device": "FP6",
@@ -54,6 +54,11 @@
       "id": "linux-usb-power-management",
       "url": "https://docs.kernel.org/driver-api/usb/power-management.html",
       "applies_to": "logical USB port disable is not accepted as proof that charging VBUS is absent"
+    },
+    {
+      "id": "android-boot-time",
+      "url": "https://source.android.com/docs/core/perf/boot-times",
+      "applies_to": "Android boot-time measurement and the sys.boot_completed milestone"
     }
   ],
   "environment_controls": {
@@ -127,6 +132,37 @@
     "camera_repetitions": 1
   },
   "procedures": [
+    {
+      "id": "boot-time",
+      "owner": "FP6-022",
+      "units": "seconds from a declared trigger to separately named boot milestones",
+      "method": "Keep ordinary restart timing separate from physical cold power-on timing. For restart, measure on the host monotonic clock from issuing one allowlisted adb reboot until the mapped device disappears, returns authorized, reports sys.boot_completed=1 and reports service.bootanim.exit=1. Preserve all three raw samples and every milestone. For cold power-on, use continuous source media that visibly binds the physical power-button press to the first usable stock UI; do not substitute USB enumeration or a software reboot for the physical start event.",
+      "fixed_parameters": {
+        "restart": {
+          "repetitions": 3,
+          "trigger": "adb reboot",
+          "clock": "host CLOCK_MONOTONIC",
+          "poll_interval_ms": 250,
+          "disconnect_timeout_seconds": 30,
+          "completion_timeout_seconds": 300,
+          "settle_seconds_between_repetitions": 30,
+          "required_milestones": [
+            "adb-unavailable",
+            "adb-authorized",
+            "sys.boot_completed",
+            "service.bootanim.exit"
+          ]
+        },
+        "cold_power_on": {
+          "repetitions": 3,
+          "trigger": "physical power-button press from a verified powered-off state",
+          "timing_source": "continuous fixed-frame-rate source media or an equivalent independently reviewable recording",
+          "start_event": "first frame showing the physical power-button press",
+          "end_event": "first frame showing the stock UI visibly ready for ordinary interaction",
+          "automation_status": "manual-source-media-required"
+        }
+      }
+    },
     {
       "id": "app-launch",
       "owner": "FP6-022",
