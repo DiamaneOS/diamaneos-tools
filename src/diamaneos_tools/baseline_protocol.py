@@ -103,7 +103,7 @@ def validate_protocol(protocol):
     top = {"schema_version", "protocol_id", "target", "source_references",
            "environment_controls", "pilot", "procedures"}
     _expect_keys(protocol, top, top, "protocol")
-    if protocol["schema_version"] != 2:
+    if protocol["schema_version"] != 3:
         raise ProtocolError("unsupported baseline protocol schema version")
     if not isinstance(protocol["protocol_id"], str) or not TOKEN_RE.fullmatch(
             protocol["protocol_id"]):
@@ -232,16 +232,60 @@ def validate_protocol(protocol):
         _integer(pilot[key], f"pilot.{key}", 1, 3600)
 
     procedures = protocol["procedures"]
-    if not isinstance(procedures, list) or len(procedures) != 7:
-        raise ProtocolError("protocol must contain seven procedures")
+    if not isinstance(procedures, list) or len(procedures) != 8:
+        raise ProtocolError("protocol must contain eight procedures")
     ids = [item.get("id") if isinstance(item, dict) else None for item in procedures]
-    expected_ids = {"app-launch", "frame-time", "idle-drain", "thermal",
+    expected_ids = {"boot-time", "app-launch", "frame-time", "idle-drain", "thermal",
                     "memory-pressure", "camera-scene", "carrier-ims"}
     if set(ids) != expected_ids or len(ids) != len(set(ids)):
         raise ProtocolError("procedure inventory is incomplete or duplicated")
 
     for procedure_id in expected_ids:
         _validate_common_procedure(_find_procedure(protocol, procedure_id), procedure_id)
+
+    boot = _find_procedure(protocol, "boot-time")["fixed_parameters"]
+    _expect_keys(boot, {"restart", "cold_power_on"},
+                 {"restart", "cold_power_on"}, "boot-time parameters")
+    restart = boot["restart"]
+    restart_keys = {
+        "repetitions", "trigger", "clock", "poll_interval_ms",
+        "disconnect_timeout_seconds", "completion_timeout_seconds",
+        "settle_seconds_between_repetitions", "required_milestones",
+    }
+    _expect_keys(restart, restart_keys, restart_keys,
+                 "boot-time restart parameters")
+    if restart["repetitions"] != 3:
+        raise ProtocolError("restart boot-time protocol requires three repetitions")
+    if restart["trigger"] != "adb reboot":
+        raise ProtocolError("restart boot-time trigger is not allowlisted")
+    if restart["clock"] != "host CLOCK_MONOTONIC":
+        raise ProtocolError("restart boot-time clock must remain monotonic")
+    _integer(restart["poll_interval_ms"], "restart poll interval", 100, 2000)
+    _integer(restart["disconnect_timeout_seconds"],
+             "restart disconnect timeout", 5, 120)
+    _integer(restart["completion_timeout_seconds"],
+             "restart completion timeout", 30, 900)
+    _integer(restart["settle_seconds_between_repetitions"],
+             "restart settle duration", 0, 300)
+    milestones = restart["required_milestones"]
+    expected_milestones = [
+        "adb-unavailable", "adb-authorized", "sys.boot_completed",
+        "service.bootanim.exit",
+    ]
+    if milestones != expected_milestones:
+        raise ProtocolError("restart boot-time milestones changed")
+
+    cold = boot["cold_power_on"]
+    cold_keys = {"repetitions", "trigger", "timing_source", "start_event",
+                 "end_event", "automation_status"}
+    _expect_keys(cold, cold_keys, cold_keys,
+                 "boot-time cold-power-on parameters")
+    if cold["repetitions"] != 3:
+        raise ProtocolError("cold boot-time protocol requires three repetitions")
+    if cold["automation_status"] != "manual-source-media-required":
+        raise ProtocolError("cold boot-time automation boundary changed")
+    for key in cold_keys - {"repetitions"}:
+        _text(cold[key], f"cold_power_on.{key}", 1000)
 
     launch = _find_procedure(protocol, "app-launch")["fixed_parameters"]
     launch_keys = {"cold_repetitions", "warm_repetitions", "settle_seconds",

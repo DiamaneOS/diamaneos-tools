@@ -52,6 +52,16 @@ class CliTest(unittest.TestCase):
         self.assertIn('"device_commands_executed": 0', out.stdout)
         self.assertIn("PILOT_ONLY_NOT_BASELINE_EVIDENCE", out.stdout)
 
+    def test_baseline_boot_dry_run_contacts_no_device(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"),
+             "baseline", "boot", "dry-run"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30,
+            env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('"device_commands_executed": 0', out.stdout)
+        self.assertIn("manual-source-media-required", out.stdout)
+
     def test_device_runner_dry_run(self):
         out = subprocess.run(
             [os.path.join(TOOLS, "bin", "diamaneos"),

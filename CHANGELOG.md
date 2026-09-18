@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a declared FP6 software-restart baseline with three monotonic-clock
+  samples per repetition, separately retained Android boot milestones and an
+  explicit manual-source-media boundary for physical cold power-on timing.
 - Add an identity-bound switched-USB rig controller, persistent operation
   inhibitors, service-owned boot ADB, battery-policy scaffolding and automated
   verified-port idle disconnect/reconnect support.
