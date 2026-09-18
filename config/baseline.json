@@ -136,7 +136,7 @@
       "id": "boot-time",
       "owner": "FP6-022",
       "units": "seconds from a declared trigger to separately named boot milestones",
-      "method": "Keep ordinary restart timing separate from physical cold power-on timing. For restart, measure on the host monotonic clock from issuing one allowlisted adb reboot until the mapped device disappears, returns authorized, reports sys.boot_completed=1 and reports service.bootanim.exit=1. Preserve all three raw samples and every milestone. For cold power-on, use continuous source media that visibly binds the physical power-button press to the first usable stock UI; do not substitute USB enumeration or a software reboot for the physical start event.",
+      "method": "Keep ordinary restart timing separate from physical cold power-on timing. For restart, measure on the host monotonic clock from issuing one allowlisted adb reboot until the mapped device disappears, returns authorized, reports sys.boot_completed=1 and exposes boot-animation completion as either service.bootanim.exit=1 or init.svc.bootanim=stopped. Record which property supplied the completion signal and preserve all three raw samples and every milestone. For cold power-on, use continuous source media that visibly binds the physical power-button press to the first usable stock UI; do not substitute USB enumeration or a software reboot for the physical start event.",
       "fixed_parameters": {
         "restart": {
           "repetitions": 3,
@@ -150,7 +150,7 @@
             "adb-unavailable",
             "adb-authorized",
             "sys.boot_completed",
-            "service.bootanim.exit"
+            "boot-animation-complete"
           ]
         },
         "cold_power_on": {

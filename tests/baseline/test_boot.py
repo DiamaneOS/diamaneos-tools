@@ -33,7 +33,7 @@ class RestartObserverTest(unittest.TestCase):
             "completion_timeout_seconds": 30,
             "required_milestones": [
                 "adb-unavailable", "adb-authorized",
-                "sys.boot_completed", "service.bootanim.exit",
+                "sys.boot_completed", "boot-animation-complete",
             ],
         }
 
@@ -41,7 +41,8 @@ class RestartObserverTest(unittest.TestCase):
         clock = FakeClock()
         state_calls = 0
         prop_round = {"sys.boot_completed": 0,
-                      "service.bootanim.exit": 0}
+                      "service.bootanim.exit": 0,
+                      "init.svc.bootanim": 0}
 
         def executor(argv, _timeout, _cap):
             nonlocal state_calls
@@ -73,8 +74,47 @@ class RestartObserverTest(unittest.TestCase):
             self.assertEqual(set(self.parameters()["required_milestones"]),
                              set(sample["milestones_seconds"]))
             self.assertGreater(sample["ready_seconds"], 0)
+            self.assertEqual(
+                {"property": "service.bootanim.exit", "value": "1"},
+                sample["boot_animation_signal"])
             self.assertNotIn("private-target", json.dumps(sample))
             self.assertEqual(3, len(sample["raw_evidence_refs"]))
+
+    def test_restart_accepts_stopped_boot_animation_service(self):
+        clock = FakeClock()
+        state_calls = 0
+
+        def executor(argv, _timeout, _cap):
+            nonlocal state_calls
+            if argv[-1] == "reboot":
+                return {"transport": "ok", "stdout": "", "stderr": "",
+                        "returncode": 0}
+            if argv[-1] == "get-state":
+                state_calls += 1
+                if state_calls == 1:
+                    return {"transport": "ok", "stdout": "device\n",
+                            "stderr": "", "returncode": 0}
+                if state_calls in {2, 3}:
+                    return {"transport": "error", "stdout": "",
+                            "stderr": "not found", "returncode": 1}
+                return {"transport": "ok", "stdout": "device\n",
+                        "stderr": "", "returncode": 0}
+            values = {
+                "sys.boot_completed": "1\n",
+                "service.bootanim.exit": "\n",
+                "init.svc.bootanim": "stopped\n",
+            }
+            return {"transport": "ok", "stdout": values[argv[-1]],
+                    "stderr": "", "returncode": 0}
+
+        with tempfile.TemporaryDirectory() as directory:
+            sample = baseline_boot.observe_restart(
+                "adb", "private-target", self.parameters(), Path(directory), 1,
+                executor=executor, clock=clock, sleeper=clock.sleep)
+        self.assertEqual("PASS", sample["status"])
+        self.assertEqual(
+            {"property": "init.svc.bootanim", "value": "stopped"},
+            sample["boot_animation_signal"])
 
     def test_restart_fails_if_target_never_disappears(self):
         clock = FakeClock()
