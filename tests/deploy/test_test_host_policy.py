@@ -65,6 +65,7 @@ class TestHostPolicyTest(unittest.TestCase):
         self.assertEqual({
             "baseline capture",
             "baseline pilot",
+            "baseline boot",
             "baseline connected",
             "baseline camera",
             "baseline idle",

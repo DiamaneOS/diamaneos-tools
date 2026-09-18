@@ -9,6 +9,7 @@ Runas_Alias DIAMANEOS_TEST_RUNNER = diamaneos-test
 Cmnd_Alias DIAMANEOS_BASELINE_RUNS = \
     /opt/diamaneos/tools/bin/diamaneos baseline capture *, \
     /opt/diamaneos/tools/bin/diamaneos baseline pilot *, \
+    /opt/diamaneos/tools/bin/diamaneos baseline boot *, \
     /opt/diamaneos/tools/bin/diamaneos baseline connected *, \
     /opt/diamaneos/tools/bin/diamaneos baseline camera *, \
     /opt/diamaneos/tools/bin/diamaneos baseline idle *, \

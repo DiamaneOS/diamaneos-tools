@@ -232,6 +232,50 @@ and makes an out-of-range or over-tolerance run `NON_COMPARABLE` rather than a
 pass. Both finalized whole-run repetitions are required for the declared
 connected baseline.
 
+Boot timing is a separate declared workflow because rebooting in the middle of
+the connected sequence would change app residency, thermal state and run
+order. Inspect it without touching a device using `bin/diamaneos baseline boot
+dry-run`. One `restart` repetition issues exactly three explicitly authorized
+ordinary `adb reboot` operations. For each, the host monotonic clock reports
+ADB unavailability, authorized-ADB return, `sys.boot_completed=1`, and
+`service.bootanim.exit=1` separately; the ready value is the later of the last
+two. The raw observer record and reboot stdout/stderr are hash-bound, while the
+private ADB serial is excluded from the structured result. This follows the
+AOSP boot-completion boundary while preserving the limits of host-side
+polling. A passed run remains `AWAITING_AMBIENT_END` until `finalize` verifies
+its evidence and ending room temperature. Two whole repetitions share one
+series ID.
+
+```sh
+bin/diamaneos baseline boot restart \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --rig-config <PRIVATE_ROOT>/rig.json \
+  --run-id <unique-run-id> \
+  --series-id <shared-series-id> \
+  --repeat-index 1 \
+  --expected-build FP6.QREL.16.100.0 \
+  --output <PRIVATE_ROOT>/baseline-runs \
+  --ambient-start-c <room-thermometer-reading> \
+  --operator-authorized-reboots \
+  --operator-confirmed-permanent-state \
+  --conditions "<stock build, permanent SIM/Wi-Fi state and controlled rig>"
+
+bin/diamaneos baseline boot finalize \
+  --run-dir <PRIVATE_ROOT>/baseline-runs/<unique-run-id>.partial \
+  --ambient-end-c <room-thermometer-reading>
+```
+
+Do not call that result a physical cold-boot time. Cold power-on has a
+different declared method: three repetitions from a verified powered-off
+state, timed from the visible physical power-button press to the first visibly
+usable stock UI using continuous fixed-frame-rate source media or an
+equivalently reviewable recording. USB enumeration, `adb reboot`, a stopwatch
+started after the button press, and restart timing are not substitutes. Keep
+that source media private and retain failed attempts rather than silently
+discarding them.
+
 ```sh
 bin/diamaneos baseline connected run \
   --target "$TEST_DEVICE_TARGET" \
