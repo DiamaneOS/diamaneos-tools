@@ -8,12 +8,12 @@
 - Accept either the boot-animation exit property or the stopped boot-animation
   service as the recorded restart completion signal used by stock FP6 builds.
 - Give the bounded declared connected report enough space for its full thermal
-  observation series while retaining a strict finalization input limit.
+  observation series while retaining a strict report-size limit.
 - Add an identity-bound switched-USB rig controller, persistent operation
   inhibitors, service-owned boot ADB, battery-policy scaffolding and automated
   verified-port idle disconnect/reconnect support.
 - Add declared FP6 connected and camera measurement modes with exact protocol
-  repetitions, series identity, staged ambient finalization and explicit
+  repetitions, series identity, staged original-media registration and explicit
   non-comparable outcomes.
 - Add declared FP6 idle measurements with two series-bound eight-hour
   repetitions and an observed reconnect-before-capture flow.

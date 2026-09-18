@@ -123,7 +123,7 @@ class PreflightTest(unittest.TestCase):
 
     def test_matching_connected_idle_setup_is_accepted(self):
         self.assertEqual([], baseline_idle.evaluate_idle_preflight(
-            self.valid_observed(), protocol(), 22.0, True, True))
+            self.valid_observed(), protocol(), True, True))
 
     def test_changed_network_power_and_display_are_all_reported(self):
         observed = self.valid_observed()
@@ -132,7 +132,7 @@ class PreflightTest(unittest.TestCase):
         observed["battery"].update(level_percent=80, ac_powered=False)
         observed["display"].update(adaptive_brightness=True, wakefulness="Asleep")
         reasons = baseline_idle.evaluate_idle_preflight(
-            observed, protocol(), 35.0, False, False)
+            observed, protocol(), False, False)
         self.assertGreaterEqual(len(reasons), 8)
 
 
@@ -146,12 +146,12 @@ class ResultTest(unittest.TestCase):
         self.assertEqual(25.0, metrics["charge_counter_delta_mah"])
 
     def test_comparability_rejects_late_or_changed_finish(self):
-        report = {"ambient_start_c": 22.0, "pilot_duration_seconds": 300}
+        report = {"pilot_duration_seconds": 300}
         network = {"wifi_enabled": False, "wifi_connected": False,
                    "sim_registered": False}
         reasons = baseline_idle.evaluate_comparability(
-            report, protocol(), 26.0, 361, network, False)
-        self.assertEqual(5, len(reasons))
+            report, protocol(), 361, network, False)
+        self.assertEqual(4, len(reasons))
 
     def test_declared_profile_binds_eight_hours_and_repeat_identity(self):
         plan = baseline_idle.dry_run(
@@ -196,7 +196,7 @@ class CliContractTest(unittest.TestCase):
             "start", "--target", "private-target", "--device-role", "idle-pilot",
             "--device-map", "/private/map.json", "--run-id", "idle-pilot-1",
             "--output", "/private/runs", "--expected-build", "build",
-            "--conditions", "controlled", "--ambient-start-c", "22.0",
+            "--conditions", "controlled",
         ])
         self.assertFalse(args.operator_authorized_batterystats_reset)
 
@@ -229,7 +229,7 @@ class CliContractTest(unittest.TestCase):
             "--disconnect-method", "verified-rig-port-off",
             "--run-id", "idle-pilot-1",
             "--output", "/private/runs", "--expected-build", "build",
-            "--conditions", "controlled", "--ambient-start-c", "22.0",
+            "--conditions", "controlled",
         ])
         self.assertEqual("verified-rig-port-off", args.disconnect_method)
         self.assertEqual("/private/rig.json", args.rig_config)
@@ -240,7 +240,6 @@ class CliContractTest(unittest.TestCase):
             "--device-role", "idle-pilot",
             "--device-map", "/private/map.json",
             "--run-dir", "/private/runs/idle-pilot-1.partial",
-            "--ambient-end-c", "22.0",
             "--wait-for-reconnect",
             "--operator-confirmed-physical-disconnect",
             "--operator-confirmed-no-interaction",
@@ -258,7 +257,6 @@ class CliContractTest(unittest.TestCase):
             "--output", "/private/runs",
             "--expected-build", "FP6.QREL.16.100.0",
             "--conditions", "controlled",
-            "--ambient-start-c", "22.0",
             "--declared-repeat-index", "1",
             "--series-id", "fp6-stock16-baseline-20260912",
         ])
@@ -346,7 +344,6 @@ class RigIdleIntegrationTest(unittest.TestCase):
                 "status": baseline_idle.STATUS_DISCONNECTED_RIG,
                 "target": {"role": "harness"},
                 "protocol": {"sha256": protocol_digest},
-                "ambient_start_c": 22.0,
                 "start_state": {"battery": {
                     "level_percent": 100, "charge_counter_uah": 4000000,
                 }},
@@ -373,7 +370,6 @@ class RigIdleIntegrationTest(unittest.TestCase):
                 "status": "PASS", "role": "harness", "action": "on"
             }
             args = types.SimpleNamespace(
-                ambient_end_c=22.1,
                 operator_confirmed_physical_disconnect=False,
                 operator_confirmed_no_interaction=True,
                 operator_confirmed_no_known_network_outage=True,

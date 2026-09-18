@@ -25,7 +25,6 @@ def conditions(run_id="run-1"):
     return {
         "run_id": run_id,
         "build": "FP6.QREL.16.100.0",
-        "ambient": {"start_c": 22.0, "end_c": 22.5},
         "display": {
             "adaptive_brightness": False,
             "brightness_raw": 2048,
@@ -40,7 +39,7 @@ def conditions(run_id="run-1"):
 class ProtocolValidationTest(unittest.TestCase):
     def test_actual_protocol_is_complete(self):
         protocol, digest = baseline_protocol.load_protocol(CONFIG)
-        self.assertEqual(3, protocol["schema_version"])
+        self.assertEqual(4, protocol["schema_version"])
         self.assertEqual(protocol["protocol_id"], "fp6-stock-baseline-v1")
         self.assertRegex(digest, r"^[0-9a-f]{64}$")
 
@@ -166,21 +165,10 @@ class ComparabilityTest(unittest.TestCase):
     def test_matched_repeat_is_comparable(self):
         first = conditions("run-1")
         second = conditions("run-2")
-        second["ambient"] = {"start_c": 23.0, "end_c": 22.0}
         result = baseline_protocol.assess_comparability(
             first, second, actual_protocol())
         self.assertEqual(result["status"], "COMPARABLE")
         self.assertEqual(result["reasons"], [])
-
-    def test_changed_ambient_is_non_comparable(self):
-        first = conditions("run-1")
-        second = conditions("run-2")
-        second["ambient"] = {"start_c": 25.0, "end_c": 25.0}
-        result = baseline_protocol.assess_comparability(
-            first, second, actual_protocol())
-        self.assertEqual(result["status"], "NON_COMPARABLE")
-        self.assertIn("repeat start temperatures differ beyond tolerance",
-                      result["reasons"])
 
     def test_changed_network_is_non_comparable(self):
         first = conditions("run-1")
