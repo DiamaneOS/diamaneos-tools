@@ -404,7 +404,7 @@ TEST_RUN_ID=$(date -u +live-%Y%m%dT%H%M%SZ)
   --device-map /var/lib/diamaneos-test/devices/test-host.json \
   --rig-config /etc/diamaneos/rig.json \
   --run-id "$TEST_RUN_ID" \
-  --conditions "<build, cable, network, power and ambient conditions>" \
+  --conditions "<build, cable, network and power conditions>" \
   --raw-dir /var/lib/diamaneos-test/runs \
   --output "/var/lib/diamaneos-test/runs/$TEST_RUN_ID.report.json"
 ```
@@ -422,7 +422,7 @@ TEST_RUN_ID=$(date -u +smoke-%Y%m%dT%H%M%SZ)
   --rig-config /etc/diamaneos/rig.json \
   --evidence-kind real-device \
   --run-id "$TEST_RUN_ID" \
-  --conditions "<build, cable, network, power and ambient conditions>" \
+  --conditions "<build, cable, network and power conditions>" \
   --output /var/lib/diamaneos-test/test-runs
 ```
 

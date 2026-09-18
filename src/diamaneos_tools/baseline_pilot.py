@@ -355,20 +355,12 @@ def _parse_setting(value: str, kind):
 
 
 def evaluate_preflight(observed: dict, protocol: dict,
-                       ambient_start_c: float,
                        display_50_confirmed: bool,
                        unlocked_confirmed: bool) -> list[str]:
     """Return every preflight mismatch; an empty list permits workloads."""
     reasons = []
     controls = protocol["environment_controls"]
     expected_display = controls["display"]
-    ambient = controls["ambient_temperature"]["full_run_allowed_range"]
-    if not ambient["minimum"] <= ambient_start_c <= ambient["maximum"]:
-        reasons.append("room temperature is outside the protocol range")
-    charging_bound = _procedure(protocol, "thermal")["fixed_parameters"][
-        "safety"]["manufacturer_maximum_ambient_charging_degC"]
-    if ambient_start_c > charging_bound:
-        reasons.append("room temperature exceeds the connected charging bound")
     if not display_50_confirmed:
         reasons.append("50 percent brightness was not operator-confirmed")
     if not unlocked_confirmed:
@@ -454,7 +446,7 @@ def _parse_wm_value(output: str, label: str) -> tuple[int, int] | int:
 
 
 def _collect_preflight(collector: Collector, protocol: dict,
-                       ambient_start_c: float, confirmed_display: bool,
+                       confirmed_display: bool,
                        confirmed_unlocked: bool) -> dict:
     refs = []
     values = {}
@@ -530,7 +522,6 @@ def _collect_preflight(collector: Collector, protocol: dict,
         apps.append({"role": app["role"], "package": app["package"], **version})
 
     observed = {
-        "ambient_start_c": ambient_start_c,
         "display": {
             "adaptive_brightness": values["brightness_mode"] == 1,
             "brightness_raw": values["brightness_raw"],
@@ -557,7 +548,7 @@ def _collect_preflight(collector: Collector, protocol: dict,
         "operator_confirmed_unlocked_and_awake": confirmed_unlocked,
     }
     mismatches = evaluate_preflight(
-        observed, protocol, ambient_start_c, confirmed_display, confirmed_unlocked)
+        observed, protocol, confirmed_display, confirmed_unlocked)
     return {
         "test_id": "connected-preflight",
         "status": STATUS_PASS if not mismatches else STATUS_FAIL,
@@ -963,8 +954,6 @@ def _report_template(args, protocol: dict, protocol_hash: str,
             "expected_build": getattr(args, "expected_build", None),
         },
         "conditions": args.conditions,
-        "ambient_start_c": args.ambient_start_c,
-        "ambient_end_c": None,
         "started_at_utc": _utc_now(),
         "finished_at_utc": None,
         "status": "INCOMPLETE",
@@ -978,12 +967,9 @@ def _report_template(args, protocol: dict, protocol_hash: str,
              "reason": "requires the fixed physical scene and original media registration"},
         ],
         "limitations": ([
-            "The manual end temperature must be added by declared finalization before this run is complete.",
             "A complete declared stock baseline requires both whole-run repetitions in the same series.",
-            "Continuous ambient logging is unavailable; only start and end readings are recorded.",
         ] if declared else [
             "Connected pilot only; it is not baseline evidence.",
-            "The manual end temperature is recorded outside this immutable connected pilot result.",
         ]) + [
             "A visible 50 percent brightness setting is operator-attested because this build exposes no normalized brightness value through settings.",
         ],
@@ -1047,9 +1033,6 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
         raise PilotError("execution requires bounded non-empty --conditions")
     if args.target in args.run_id or args.target in args.conditions:
         raise PilotError("run metadata must not contain the private target")
-    if args.ambient_start_c is None or not (-50.0 <= args.ambient_start_c <= 100.0):
-        raise PilotError("execution requires a plausible --ambient-start-c")
-
     try:
         protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
     except baseline_protocol.ProtocolError as exc:
@@ -1093,7 +1076,7 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
                     "connected target build does not match the expected stock build",
                     identity_refs)
             preflight = _collect_preflight(
-                collector, protocol, args.ambient_start_c,
+                collector, protocol,
                 args.operator_confirmed_display_50,
                 args.operator_confirmed_unlocked)
             report["cases"].append(preflight)
@@ -1118,8 +1101,7 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
             report["cases"].append(_memory_finish(
                 collector, memory_start, memory_refs))
             report["cases"].append(_collect_postflight(collector))
-            report["status"] = ("AWAITING_AMBIENT_END" if declared
-                                else STATUS_PASS)
+            report["status"] = STATUS_PASS
             exit_code = 0
         except CaseFailure as exc:
             if not report["cases"] or report["cases"][-1].get("status") != exc.status:
@@ -1132,8 +1114,7 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
             report["errors"].append(exc.reason)
             exit_code = 3 if exc.status == "BLOCKED" else 5 if (
                 exc.status == STATUS_HARNESS) else 4
-        if not (declared and report["status"] == "AWAITING_AMBIENT_END"):
-            report["finished_at_utc"] = _utc_now()
+        report["finished_at_utc"] = _utc_now()
         report["run_order"] = [case["test_id"] for case in report["cases"]]
         report = _scrub(report, args.target)
         test_runner._atomic_json(report_path, report)
@@ -1144,9 +1125,6 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
                 report_path, case.get("raw_evidence_refs", []))
         if args.target in report_path.read_text(encoding="utf-8"):
             raise PilotError("private target escaped report redaction", 5)
-        if declared and report["status"] == "AWAITING_AMBIENT_END":
-            test_runner._sync_directory(partial)
-            return exit_code, partial / "result.json"
         os.rename(partial, final)
         test_runner._sync_directory(final.parent)
         return exit_code, final / "result.json"
@@ -1212,8 +1190,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", help="immutable private run ID")
     parser.add_argument("--output", help="owner-controlled private output root")
     parser.add_argument("--conditions", help="bounded operator conditions record")
-    parser.add_argument("--ambient-start-c", type=float,
-                        help="manual room thermometer reading at start")
     parser.add_argument("--operator-confirmed-display-50", action="store_true",
                         help="attest the visible brightness slider is exactly 50 percent")
     parser.add_argument("--operator-confirmed-unlocked", action="store_true",

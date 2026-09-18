@@ -74,7 +74,7 @@ class CameraPreflightTest(unittest.TestCase):
 
     def test_camera_accepts_charging_at_99_percent(self):
         reasons = baseline_camera.evaluate_camera_preflight(
-            self.valid_observed(), protocol(), 22.2, True, True)
+            self.valid_observed(), protocol(), True, True)
         self.assertEqual([], reasons)
 
     def test_camera_still_rejects_changed_controls_and_unsafe_temperature(self):
@@ -83,7 +83,7 @@ class CameraPreflightTest(unittest.TestCase):
         observed["display"]["wakefulness"] = "Asleep"
         observed["battery"]["temperature_c"] = 50.0
         reasons = baseline_camera.evaluate_camera_preflight(
-            observed, protocol(), 22.2, True, True)
+            observed, protocol(), True, True)
         self.assertTrue(any("Wi-Fi" in item for item in reasons))
         self.assertTrue(any("awake" in item for item in reasons))
         self.assertTrue(any("temperature" in item for item in reasons))
@@ -270,7 +270,7 @@ class CliContractTest(unittest.TestCase):
             "start", "--target", "private-target", "--device-role", "camera-pilot",
             "--device-map", "/private/map.json", "--run-id", "camera-pilot-1",
             "--output", "/private/runs", "--expected-build", "FP6.QREL.15.176.0",
-            "--conditions", "fixed fixture", "--ambient-start-c", "22.5",
+            "--conditions", "fixed fixture",
         ])
         self.assertEqual("FP6.QREL.15.176.0", args.expected_build)
         self.assertFalse(hasattr(args, "expected_incremental"))

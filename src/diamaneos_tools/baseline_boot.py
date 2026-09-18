@@ -367,9 +367,6 @@ def _report(args, protocol: dict, protocol_hash: str, repo_root: Path,
             "evidence_label": identity["evidence_label"],
         },
         "conditions": args.conditions,
-        "ambient_start_c": args.ambient_start_c,
-        "ambient_end_c": None,
-        "ambient_span_c": None,
         "operator_attestations": {
             "ordinary_reboots_authorized": args.operator_authorized_reboots,
             "permanent_network_and_sim_state_confirmed":
@@ -413,18 +410,11 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
         raise BootError("execution requires bounded non-empty --conditions")
     if args.target in args.run_id or args.target in args.series_id or args.target in args.conditions:
         raise BootError("run metadata must not contain the private target")
-    if not -50.0 <= args.ambient_start_c <= 100.0:
-        raise BootError("execution requires a plausible --ambient-start-c")
     if not args.operator_authorized_reboots:
         raise BootError("ordinary device reboots require explicit operator authorization", 3)
     if not args.operator_confirmed_permanent_state:
         raise BootError("permanent network and SIM state was not operator-confirmed", 3)
     protocol, protocol_hash = baseline_protocol.load_protocol(args.config)
-    ambient = protocol["environment_controls"]["ambient_temperature"]
-    if not (ambient["full_run_allowed_range"]["minimum"]
-            <= args.ambient_start_c
-            <= ambient["full_run_allowed_range"]["maximum"]):
-        raise BootError("room temperature is outside the protocol range", 3)
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
 
     partial, final, lock_fd = _prepare_output(args)
@@ -469,11 +459,10 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
             else:
                 report["case"]["status"] = "PASS"
                 report["case"]["reason"] = "all three declared restart samples passed"
-                report["status"] = "AWAITING_AMBIENT_END"
+                report["status"] = "PASS"
 
         report = _scrub(report, args.target)
-        if report["status"] != "AWAITING_AMBIENT_END":
-            report["finished_at_utc"] = _utc_now()
+        report["finished_at_utc"] = _utc_now()
         test_runner._atomic_json(result_path, report)
         refs = report["identity_evidence_refs"] + report["preflight_evidence_refs"]
         for sample in report["case"]["samples"]:
@@ -481,14 +470,17 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
         test_runner._verify_evidence_refs(result_path, refs)
         if args.target in result_path.read_text(encoding="utf-8"):
             raise BootError("private target escaped report redaction", 5)
-        if report["status"] == "AWAITING_AMBIENT_END":
-            test_runner._sync_directory(partial)
-            return 0, result_path
-        suffix = ".failed" if report["status"] in {"FAIL", "BLOCKED"} else ".harness-error"
-        destination = final.with_name(final.name + suffix)
+        if report["status"] == "PASS":
+            destination = final
+            exit_code = 0
+        else:
+            suffix = (".failed" if report["status"] in {"FAIL", "BLOCKED"}
+                      else ".harness-error")
+            destination = final.with_name(final.name + suffix)
+            exit_code = 4 if report["status"] == "FAIL" else 3
         os.rename(partial, destination)
         test_runner._sync_directory(destination.parent)
-        return 4 if report["status"] == "FAIL" else 3, destination / "result.json"
+        return exit_code, destination / "result.json"
     except Exception:
         if report is not None and partial.exists():
             try:
@@ -505,102 +497,6 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
             except Exception:
                 pass
         raise
-    finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        os.close(lock_fd)
-
-
-def _load_partial(run_dir: Path) -> dict:
-    if not run_dir.name.endswith(".partial"):
-        raise BootError("boot finalization requires a partial run directory")
-    _owner_controlled_directory(run_dir.parent)
-    _owner_controlled_directory(run_dir)
-    report, _ = test_runner._load_unique_json(
-        run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
-    if (not isinstance(report, dict) or report.get("schema_version") != SCHEMA_VERSION
-            or report.get("operation") != OPERATION or report.get("label") != LABEL
-            or report.get("status") != "AWAITING_AMBIENT_END"):
-        raise BootError("declared boot partial report is invalid", 5)
-    return report
-
-
-def _acquire_finalize_lock(root: Path, role: str) -> int:
-    if not isinstance(role, str) or not test_runner.TOKEN_RE.fullmatch(role):
-        raise BootError("declared boot report has an invalid device role", 5)
-    locks = root / ".locks"
-    locks.mkdir(mode=0o750, exist_ok=True)
-    fd = os.open(locks / f"{role}.baseline-boot.lock",
-                 os.O_RDWR | os.O_CREAT, 0o640)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError as exc:
-        os.close(fd)
-        raise BootError("physical target is already locked", 3) from exc
-    return fd
-
-
-def _finalize_locked(run_dir: Path, ambient_end_c: float,
-                     config: str) -> tuple[int, Path]:
-    if not -50.0 <= ambient_end_c <= 100.0:
-        raise BootError("finalization requires a plausible --ambient-end-c")
-    report = _load_partial(run_dir)
-    protocol, digest = baseline_protocol.load_protocol(config)
-    if digest != report.get("protocol", {}).get("sha256"):
-        raise BootError("baseline protocol changed during the boot run", 5)
-    if (report.get("repeat_index") not in {1, 2}
-            or not test_runner.RUN_ID_RE.fullmatch(report.get("series_id", ""))):
-        raise BootError("declared boot series identity is invalid", 5)
-    case = report.get("case")
-    params = _procedure(protocol)["fixed_parameters"]["restart"]
-    if (not isinstance(case, dict) or case.get("status") != "PASS"
-            or len(case.get("samples", [])) != params["repetitions"]
-            or any(sample.get("status") != "PASS"
-                   for sample in case.get("samples", []))):
-        raise BootError("declared boot sample inventory is incomplete", 5)
-    report_path = run_dir / "result.json"
-    refs = report.get("identity_evidence_refs", []) + report.get(
-        "preflight_evidence_refs", [])
-    for sample in case["samples"]:
-        refs.extend(sample.get("raw_evidence_refs", []))
-    test_runner._verify_evidence_refs(report_path, refs)
-
-    controls = protocol["environment_controls"]["ambient_temperature"]
-    allowed = controls["full_run_allowed_range"]
-    span = round(abs(ambient_end_c - report["ambient_start_c"]), 2)
-    exclusions = []
-    if not allowed["minimum"] <= ambient_end_c <= allowed["maximum"]:
-        exclusions.append("end ambient temperature is outside the protocol range")
-    if span > controls["maximum_within_run_span"]:
-        exclusions.append("ambient temperature span exceeds the protocol tolerance")
-    base = run_dir.with_name(run_dir.name.removesuffix(".partial"))
-    final = base.with_name(base.name + (".non-comparable" if exclusions else ""))
-    if (base.exists() or base.with_name(base.name + ".non-comparable").exists()
-            or base.with_name(base.name + ".failed").exists()
-            or base.with_name(base.name + ".harness-error").exists()):
-        raise BootError("immutable boot final output collision", 3)
-    report["ambient_end_c"] = ambient_end_c
-    report["ambient_span_c"] = span
-    report["comparability_exclusions"] = exclusions
-    report["finished_at_utc"] = _utc_now()
-    report["tool"]["finalizer_sha256"] = hashlib.sha256(
-        Path(__file__).read_bytes()).hexdigest()
-    report["status"] = "NON_COMPARABLE" if exclusions else "PASS"
-    test_runner._atomic_json(report_path, report)
-    os.rename(run_dir, final)
-    test_runner._sync_directory(final.parent)
-    return (4 if exclusions else 0), final / "result.json"
-
-
-def finalize(run_dir_value: str, ambient_end_c: float,
-             config: str) -> tuple[int, Path]:
-    run_dir = Path(run_dir_value).resolve()
-    report = _load_partial(run_dir)
-    lock_fd = _acquire_finalize_lock(
-        run_dir.parent, report.get("target", {}).get("role"))
-    try:
-        # Re-read and validate only after the role lock is held so a competing
-        # finalizer cannot race the first inspection.
-        return _finalize_locked(run_dir, ambient_end_c, config)
     finally:
         fcntl.flock(lock_fd, fcntl.LOCK_UN)
         os.close(lock_fd)
@@ -651,13 +547,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--expected-build", required=True)
     run.add_argument("--output", required=True)
     run.add_argument("--conditions", required=True)
-    run.add_argument("--ambient-start-c", required=True, type=float)
     run.add_argument("--operator-authorized-reboots", action="store_true")
     run.add_argument("--operator-confirmed-permanent-state", action="store_true")
     run.add_argument("--adb", default="adb")
-    finish = sub.add_parser("finalize")
-    finish.add_argument("--run-dir", required=True)
-    finish.add_argument("--ambient-end-c", required=True, type=float)
     return parser
 
 
@@ -667,10 +559,7 @@ def main(argv=None) -> int:
         if args.action == "dry-run":
             print(json.dumps(dry_run_plan(args.config), indent=2, sort_keys=True))
             return 0
-        if args.action == "restart":
-            code, result = execute_restart(args, _repo_root())
-        else:
-            code, result = finalize(args.run_dir, args.ambient_end_c, args.config)
+        code, result = execute_restart(args, _repo_root())
         print(f"result={result}")
         return code
     except (BootError, baseline_protocol.ProtocolError,

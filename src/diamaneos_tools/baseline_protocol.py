@@ -103,7 +103,7 @@ def validate_protocol(protocol):
     top = {"schema_version", "protocol_id", "target", "source_references",
            "environment_controls", "pilot", "procedures"}
     _expect_keys(protocol, top, top, "protocol")
-    if protocol["schema_version"] != 3:
+    if protocol["schema_version"] != 4:
         raise ProtocolError("unsupported baseline protocol schema version")
     if not isinstance(protocol["protocol_id"], str) or not TOKEN_RE.fullmatch(
             protocol["protocol_id"]):
@@ -146,30 +146,9 @@ def validate_protocol(protocol):
         _text(ref["applies_to"], "source reference purpose", 500)
 
     controls = protocol["environment_controls"]
-    control_keys = {"ambient_temperature", "display", "performance_network",
-                    "idle_network", "connected_power", "idle_power"}
+    control_keys = {"display", "performance_network", "idle_network",
+                    "connected_power", "idle_power"}
     _expect_keys(controls, control_keys, control_keys, "environment controls")
-    ambient = controls["ambient_temperature"]
-    ambient_keys = {"unit", "source", "sample_points", "continuous_logging",
-                    "full_run_allowed_range", "maximum_within_run_span",
-                    "maximum_between_repeat_starts", "comparison_rule"}
-    _expect_keys(ambient, ambient_keys, ambient_keys, "ambient control")
-    if ambient["unit"] != "degC" or ambient["sample_points"] != ["start", "end"]:
-        raise ProtocolError("ambient control must use start/end degC readings")
-    if ambient["continuous_logging"] is not False:
-        raise ProtocolError("continuous ambient logging availability is misstated")
-    allowed = ambient["full_run_allowed_range"]
-    _expect_keys(allowed, {"minimum", "maximum"}, {"minimum", "maximum"},
-                 "ambient allowed range")
-    minimum_ambient = _number(allowed["minimum"], "minimum ambient", -50, 100)
-    maximum_ambient = _number(allowed["maximum"], "maximum ambient", -50, 100)
-    if minimum_ambient >= maximum_ambient:
-        raise ProtocolError("ambient range is invalid")
-    _number(ambient["maximum_within_run_span"], "ambient within-run span", 0, 20)
-    _number(ambient["maximum_between_repeat_starts"],
-            "ambient repeat-start difference", 0, 20)
-    _text(ambient["source"], "ambient source", 300)
-    _text(ambient["comparison_rule"], "ambient comparison rule", 1000)
 
     display_control = controls["display"]
     display_control_keys = {"adaptive_brightness", "brightness_slider_percent",
@@ -378,7 +357,6 @@ def validate_protocol(protocol):
     safety = thermal["safety"]
     safety_keys = {"manufacturer_internal_operating_minimum_degC",
                    "manufacturer_internal_operating_maximum_degC",
-                   "manufacturer_maximum_ambient_charging_degC",
                    "abort_android_thermal_status_at_or_above",
                    "abort_battery_degC_at_or_above", "abort_skin_degC_at_or_above"}
     _expect_keys(safety, safety_keys, safety_keys, "thermal safety")
@@ -388,8 +366,6 @@ def validate_protocol(protocol):
                            "manufacturer maximum", -100, 200)
     if official_min != -10.0 or official_max != 55.0:
         raise ProtocolError("manufacturer operating range does not match the bound source")
-    if safety["manufacturer_maximum_ambient_charging_degC"] != 40.0:
-        raise ProtocolError("manufacturer charging ambient limit does not match the bound source")
     _integer(safety["abort_android_thermal_status_at_or_above"],
              "thermal status abort", 1, 6)
     for key in ("abort_battery_degC_at_or_above", "abort_skin_degC_at_or_above"):
@@ -579,27 +555,11 @@ def assess_comparability(first, second, protocol):
     for name, record in (("first", first), ("second", second)):
         if not isinstance(record, dict):
             raise ProtocolError(f"{name} conditions must be an object")
-        _expect_keys(record, {"run_id", "build", "ambient", "display", "network", "power"},
-                     {"run_id", "build", "ambient", "display", "network", "power", "camera"},
+        _expect_keys(record, {"run_id", "build", "display", "network", "power"},
+                     {"run_id", "build", "display", "network", "power", "camera"},
                      f"{name} conditions")
     if first["build"] != second["build"]:
         reasons.append("stock build differs")
-
-    ambient_control = protocol["environment_controls"]["ambient_temperature"]
-    allowed = ambient_control["full_run_allowed_range"]
-    for record in (first, second):
-        ambient = record["ambient"]
-        _expect_keys(ambient, {"start_c", "end_c"}, {"start_c", "end_c"}, "ambient")
-        start = _number(ambient["start_c"], "ambient start")
-        end = _number(ambient["end_c"], "ambient end")
-        if not (allowed["minimum"] <= start <= allowed["maximum"]
-                and allowed["minimum"] <= end <= allowed["maximum"]):
-            reasons.append(f"{record['run_id']} ambient outside protocol range")
-        if abs(end - start) > ambient_control["maximum_within_run_span"]:
-            reasons.append(f"{record['run_id']} ambient span exceeds tolerance")
-    if abs(first["ambient"]["start_c"] - second["ambient"]["start_c"]) > (
-            ambient_control["maximum_between_repeat_starts"]):
-        reasons.append("repeat start temperatures differ beyond tolerance")
 
     for key in ("display", "network", "power"):
         if first[key] != second[key]:

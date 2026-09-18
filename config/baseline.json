@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "protocol_id": "fp6-stock-baseline-v1",
   "target": {
     "device": "FP6",
@@ -18,7 +18,7 @@
     {
       "id": "fairphone-fp6-operating-temperature",
       "url": "https://support.fairphone.com/hc/en-us/articles/24463093338898-The-Fairphone-Gen-6-Frequently-Asked-Questions-FAQ",
-      "applies_to": "manufacturer operating and charging temperature limits"
+      "applies_to": "manufacturer internal operating-temperature limits"
     },
     {
       "id": "fairphone-fp6-camera-specifications",
@@ -62,22 +62,6 @@
     }
   ],
   "environment_controls": {
-    "ambient_temperature": {
-      "unit": "degC",
-      "source": "manual digital room thermometer",
-      "sample_points": [
-        "start",
-        "end"
-      ],
-      "continuous_logging": false,
-      "full_run_allowed_range": {
-        "minimum": 18.0,
-        "maximum": 28.0
-      },
-      "maximum_within_run_span": 3.0,
-      "maximum_between_repeat_starts": 2.0,
-      "comparison_rule": "Outside the range or tolerance is NON_COMPARABLE, never silently adjusted. The absence of continuous ambient logging is retained as a limitation."
-    },
     "display": {
       "adaptive_brightness": false,
       "brightness_slider_percent": 50,
@@ -249,7 +233,6 @@
         "safety": {
           "manufacturer_internal_operating_minimum_degC": -10.0,
           "manufacturer_internal_operating_maximum_degC": 55.0,
-          "manufacturer_maximum_ambient_charging_degC": 40.0,
           "abort_android_thermal_status_at_or_above": 3,
           "abort_battery_degC_at_or_above": 50.0,
           "abort_skin_degC_at_or_above": 50.0
