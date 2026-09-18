@@ -1,9 +1,11 @@
 """Declared connected-workflow contract tests."""
 
 from pathlib import Path
+import tempfile
 import types
 import sys
 import unittest
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -58,6 +60,46 @@ class ConnectedCliTest(unittest.TestCase):
             baseline_pilot._git_revision = original
             baseline_pilot.test_runner._adb_version = original_adb
         self.assertEqual("INCOMPLETE", report["status"])
+
+    def test_start_guard_restores_before_device_authorization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            restored = False
+            guard = mock.Mock()
+
+            def acquire_guard(*_args):
+                nonlocal restored
+                restored = True
+                return guard
+
+            def authorized(_adb):
+                self.assertTrue(restored)
+                return ["private-target"]
+
+            args = types.SimpleNamespace(
+                run_id="connected-r1", series_id="stock16-series",
+                repeat_index=1, target="private-target",
+                device_role="harness", device_map="/private/map.json",
+                rig_config="/private/rig.json",
+                output=str(Path(directory) / "runs"),
+                expected_build="FP6.QREL.16.100.0",
+                conditions="fixed", adb="adb",
+                config=str(TOOLS / "config/baseline.json"),
+                operator_confirmed_display_50=True,
+                operator_confirmed_unlocked=True)
+            with mock.patch.object(
+                    baseline_pilot.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_pilot.rig, "acquire_test_start_guard",
+                        side_effect=acquire_guard), \
+                    mock.patch.object(
+                        baseline_pilot.test_runner, "_authorized_devices",
+                        side_effect=authorized), \
+                    mock.patch.object(
+                        baseline_pilot.test_runner, "_capture_identity",
+                        side_effect=baseline_pilot.PilotError("stop")):
+                with self.assertRaisesRegex(baseline_pilot.PilotError, "stop"):
+                    baseline_pilot.execute_connected(args, TOOLS, True)
+            guard.release.assert_called_once_with()
 
 
 if __name__ == "__main__":

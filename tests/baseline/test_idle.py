@@ -301,6 +301,50 @@ class RigIdleIntegrationTest(unittest.TestCase):
         (run_dir / "raw").mkdir(mode=0o750)
         return run_dir
 
+    def test_start_guard_restores_before_device_authorization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            restored = False
+            guard = mock.Mock()
+
+            def acquire_guard(*_args):
+                nonlocal restored
+                restored = True
+                return guard
+
+            def authorized(_adb):
+                self.assertTrue(restored)
+                return ["private-target"]
+
+            args = types.SimpleNamespace(
+                run_id="idle-r1", target="private-target",
+                device_role="harness", device_map="/private/map.json",
+                rig_config="/private/rig.json", adb="adb",
+                output=str(Path(directory) / "runs"),
+                expected_build="FP6.QREL.16.100.0",
+                conditions="fixed", declared_repeat_index=None,
+                series_id=None,
+                disconnect_method=baseline_idle.DISCONNECT_METHOD_RIG,
+                operator_confirmed_display_50=True,
+                operator_confirmed_unlocked=True,
+                operator_authorized_batterystats_reset=True,
+                operator_committed_no_interaction=False,
+                operator_declared_no_planned_network_outage=False,
+                config=str(TOOLS / "config/baseline.json"))
+            with mock.patch.object(
+                    baseline_idle.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_idle.rig, "acquire_test_start_guard",
+                        side_effect=acquire_guard), \
+                    mock.patch.object(
+                        baseline_idle.test_runner, "_authorized_devices",
+                        side_effect=authorized), \
+                    mock.patch.object(
+                        baseline_idle.test_runner, "_capture_identity",
+                        side_effect=baseline_idle.IdleError("stop")):
+                with self.assertRaisesRegex(baseline_idle.IdleError, "stop"):
+                    baseline_idle.start(args, TOOLS)
+            guard.release.assert_called_once_with()
+
     def test_observe_disconnect_switches_bound_rig_port_off(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

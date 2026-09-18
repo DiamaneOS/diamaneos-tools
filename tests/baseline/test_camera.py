@@ -4,7 +4,9 @@ from pathlib import Path
 import hashlib
 import sys
 import tempfile
+import types
 import unittest
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -290,6 +292,47 @@ class CliContractTest(unittest.TestCase):
         ])
         self.assertEqual("FP6.QREL.15.176.0", args.expected_build)
         self.assertFalse(hasattr(args, "expected_incremental"))
+
+    def test_start_guard_restores_before_device_authorization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            restored = False
+            guard = mock.Mock()
+
+            def acquire_guard(*_args):
+                nonlocal restored
+                restored = True
+                return guard
+
+            def authorized(_adb):
+                self.assertTrue(restored)
+                return ["private-target"]
+
+            args = types.SimpleNamespace(
+                run_id="camera-r1", target="private-target",
+                device_role="harness", device_map="/private/map.json",
+                rig_config="/private/rig.json",
+                output=str(Path(directory) / "runs"),
+                expected_build="FP6.QREL.16.100.0",
+                conditions="fixed fixture", adb="adb",
+                config=str(TOOLS / "config/baseline.json"), declared=True,
+                operator_confirmed_fixture=True,
+                operator_confirmed_defaults=True,
+                operator_confirmed_display_50=True,
+                operator_confirmed_unlocked=True)
+            with mock.patch.object(
+                    baseline_camera.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_camera.rig, "acquire_test_start_guard",
+                        side_effect=acquire_guard), \
+                    mock.patch.object(
+                        baseline_camera.test_runner, "_authorized_devices",
+                        side_effect=authorized), \
+                    mock.patch.object(
+                        baseline_camera.test_runner, "_capture_identity",
+                        side_effect=baseline_camera.CameraError("stop")):
+                with self.assertRaisesRegex(baseline_camera.CameraError, "stop"):
+                    baseline_camera.start(args, TOOLS)
+            guard.release.assert_called_once_with()
 
 
 class RunnerProvenanceTest(unittest.TestCase):

@@ -89,16 +89,24 @@ sudo /opt/diamaneos/tools/deploy/test-host/install-runner-sudoers
 ```
 
 The policy permits members of the protected `diamaneos-test` evidence-review
-group to run only enumerated `diamaneos` routes as the non-login
-`diamaneos-test` account. Invoke them with `sudo -n -u diamaneos-test -H`.
+group to run only the root-owned
+`/opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner` as the
+non-login `diamaneos-test` account. Invoke that wrapper with
+`sudo -n -u diamaneos-test -H`; direct passwordless invocation of
+`bin/diamaneos` is deliberately not permitted.
 Its only passwordless root entry is the fixed maintenance controller described
 below, with exactly `enable` and `disable-and-restore` actions. There is no
 generic root command, shell, `env`, Git deployment, arbitrary service/package
 management, flashing or signing path. The reviewed CLI still enforces exact
 device mapping, rig locks, persistent inhibitors, protected partial state and
-peer non-interference. New CLI routes are not delegated until the policy is
-explicitly reviewed and updated. Code deployment and other host administration
-therefore continue to require the administrator password.
+peer non-interference. The wrapper additionally rejects caller-selected ADB
+executables, fixtures, service inventories, explicit suite paths and
+destructive mode; fixes the deployed configuration/map paths; and confines all
+private input/output paths to `/var/lib/diamaneos-test`. Development overrides
+remain available only through a normal password-gated administrator action.
+New CLI routes or options are not delegated until both the wrapper and policy
+tests are explicitly reviewed and updated. Code deployment and other host
+administration therefore continue to require the administrator password.
 
 A minimal server hardening drop-in includes:
 
@@ -214,11 +222,13 @@ file before any hardware action:
 sudo install -d -o root -g diamaneos-test -m 0750 /etc/diamaneos
 sudo install -d -o diamaneos-test -g diamaneos-test -m 0750 \
   /var/lib/diamaneos-test/rig-state
-sudo -u diamaneos-test -H \
-  /opt/diamaneos/tools/bin/diamaneos rig validate \
+sudo -n -u diamaneos-test -H \
+  /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner \
+  rig validate \
   --config /etc/diamaneos/rig.json
-sudo -u diamaneos-test -H \
-  /opt/diamaneos/tools/bin/diamaneos rig dry-run \
+sudo -n -u diamaneos-test -H \
+  /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner \
+  rig dry-run \
   --config /etc/diamaneos/rig.json
 ```
 
@@ -227,8 +237,9 @@ additionally reject a configuration that is not root-owned at mode `0640` or
 stricter. `status` is read-only. A deliberate manual transition has the form:
 
 ```sh
-sudo -u diamaneos-test -H \
-  /opt/diamaneos/tools/bin/diamaneos rig power \
+sudo -n -u diamaneos-test -H \
+  /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner \
+  rig power \
   --config /etc/diamaneos/rig.json \
   --role <mapped-role> --action off --reason manual-hold
 ```
@@ -345,8 +356,9 @@ sudo -u diamaneos-test -H env PYTHONDONTWRITEBYTECODE=1 \
   python3 -m unittest discover \
   -s /opt/diamaneos/tools/tests/baseline \
   -t /opt/diamaneos/tools
-sudo -u diamaneos-test -H \
-  /opt/diamaneos/tools/bin/diamaneos baseline capture --dry-run
+sudo -n -u diamaneos-test -H \
+  /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner \
+  baseline capture --dry-run
 ```
 
 After deploying a revision that contains the staged device runner, create its
@@ -357,8 +369,9 @@ root-owned public checkout:
 sudo install -d -o diamaneos-test -g diamaneos-test -m 0750 \
   /var/lib/diamaneos-test/devices \
   /var/lib/diamaneos-test/test-runs
-sudo -u diamaneos-test -H \
-  /opt/diamaneos/tools/bin/diamaneos test run \
+sudo -n -u diamaneos-test -H \
+  /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner \
+  test run \
   --suite smoke --dry-run
 ```
 
