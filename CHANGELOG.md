@@ -7,6 +7,8 @@
   explicit manual-source-media boundary for physical cold power-on timing.
 - Accept either the boot-animation exit property or the stopped boot-animation
   service as the recorded restart completion signal used by stock FP6 builds.
+- Give the bounded declared connected report enough space for its full thermal
+  observation series while retaining a strict finalization input limit.
 - Add an identity-bound switched-USB rig controller, persistent operation
   inhibitors, service-owned boot ADB, battery-policy scaffolding and automated
   verified-port idle disconnect/reconnect support.
