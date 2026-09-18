@@ -712,7 +712,6 @@ def start(args, repo_root: Path) -> Path:
     profile = camera_profile(protocol, getattr(args, "declared", False))
     repetitions = profile["standard_matrix_repetitions"]
     plan = build_capture_plan(protocol, repetitions)
-    _validate_target(args)
     root = Path(args.output).resolve()
     root.mkdir(parents=True, exist_ok=True, mode=0o750)
     _owner_controlled_directory(root)
@@ -736,6 +735,7 @@ def start(args, repo_root: Path) -> Path:
                 guard.release()
         except rig.RigError as exc:
             raise CameraError(str(exc), exc.exit_code) from exc
+        _validate_target(args)
         identity, refs = test_runner._capture_identity(
             args.adb, args.target, partial, 20)
         if identity["build_id"] != args.expected_build:

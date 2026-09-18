@@ -3,6 +3,7 @@ set -eu
 
 source_file=/opt/diamaneos/tools/deploy/test-host/diamaneos-runner.sudoers
 target_file=/etc/sudoers.d/diamaneos-runner
+runner_file=/opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner
 
 [ "$(id -u)" -eq 0 ] || {
     echo "ERROR: installer must run as root" >&2
@@ -10,6 +11,10 @@ target_file=/etc/sudoers.d/diamaneos-runner
 }
 [ -f "$source_file" ] || {
     echo "ERROR: reviewed sudoers source is missing" >&2
+    exit 1
+}
+[ -x "$runner_file" ] || {
+    echo "ERROR: reviewed delegated runner is missing or not executable" >&2
     exit 1
 }
 [ "$(stat -c '%U:%G' /opt/diamaneos/tools)" = "root:root" ] || {
