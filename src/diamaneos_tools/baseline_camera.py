@@ -388,10 +388,17 @@ def camera_node_bounds(xml: str, attribute: str,
         if bounds:
             left, top, right, bottom = map(int, bounds.groups())
             if right > left and bottom > top:
-                matches.append((left, top, right, bottom))
+                matches.append({
+                    "bounds": (left, top, right, bottom),
+                    "clickable": 'clickable="true"' in node,
+                })
+    if len(matches) > 1:
+        actionable = [item for item in matches if item["clickable"]]
+        if len(actionable) == 1:
+            matches = actionable
     if len(matches) != 1:
         raise CameraError("camera control is missing or ambiguous in the live UI", 5)
-    return matches[0]
+    return matches[0]["bounds"]
 
 
 def camera_node_center(xml: str, attribute: str, value: str) -> tuple[int, int]:
