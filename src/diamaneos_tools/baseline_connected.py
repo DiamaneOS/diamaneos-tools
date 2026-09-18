@@ -21,6 +21,9 @@ from diamaneos_tools import baseline_protocol
 from diamaneos_tools import test_runner
 
 
+MAX_CONNECTED_REPORT_BYTES = 4 * 1024 * 1024
+
+
 class ConnectedError(Exception):
     """Controlled declared-connected error with a stable exit category."""
 
@@ -43,7 +46,7 @@ def _load_partial(run_dir: Path) -> dict:
     _owner_controlled_directory(run_dir.parent)
     _owner_controlled_directory(run_dir)
     report, _ = test_runner._load_unique_json(
-        run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
+        run_dir / "result.json", MAX_CONNECTED_REPORT_BYTES)
     if (not isinstance(report, dict)
             or report.get("schema_version") != baseline_pilot.SCHEMA_VERSION
             or report.get("operation") != "baseline-connected-measurement"
