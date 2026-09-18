@@ -1050,14 +1050,14 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
         if args.target in args.series_id:
             raise PilotError("series metadata must not contain the private target")
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
-    devices = test_runner._authorized_devices(args.adb)
-    if args.target not in devices:
-        raise PilotError("selected private target is not an authorized USB device", 3)
-
     partial, final, lock_fd = _prepare_output(args)
     report = None
     exit_code = 5
     try:
+        devices = test_runner._authorized_devices(args.adb)
+        if args.target not in devices:
+            raise PilotError(
+                "selected private target is not an authorized USB device", 3)
         identity, identity_refs = test_runner._capture_identity(
             args.adb, args.target, partial, DEFAULT_TIMEOUT_SECONDS)
         report = _report_template(

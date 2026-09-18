@@ -1,41 +1,20 @@
 # Permit members of the protected evidence-review group to invoke only the
-# reviewed DiamaneOS device workflows as the non-login test runner. This file
-# deliberately grants no generic root command, shell, package, deployment,
-# flashing or signing authority. Its only root routes are the two fixed actions
-# of the reviewed rig-maintenance controller below.
+# fail-closed delegated wrapper as the non-login test runner. The wrapper fixes
+# executable/configuration identities, constrains private paths and rejects
+# development overrides before dispatch. This file deliberately grants no
+# generic root command, shell, package, deployment, flashing or signing
+# authority. Its only root routes are the two fixed maintenance actions below.
 
 Runas_Alias DIAMANEOS_TEST_RUNNER = diamaneos-test
 
-Cmnd_Alias DIAMANEOS_BASELINE_RUNS = \
-    /opt/diamaneos/tools/bin/diamaneos baseline capture *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline pilot *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline boot *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline connected *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline camera *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline idle *, \
-    /opt/diamaneos/tools/bin/diamaneos baseline protocol validate, \
-    /opt/diamaneos/tools/bin/diamaneos baseline protocol validate *
-
-Cmnd_Alias DIAMANEOS_DEVICE_RUNS = \
-    /opt/diamaneos/tools/bin/diamaneos carrier matrix validate, \
-    /opt/diamaneos/tools/bin/diamaneos carrier matrix validate *, \
-    /opt/diamaneos/tools/bin/diamaneos endpoints validate, \
-    /opt/diamaneos/tools/bin/diamaneos endpoints validate *, \
-    /opt/diamaneos/tools/bin/diamaneos test run *, \
-    /opt/diamaneos/tools/bin/diamaneos rig validate *, \
-    /opt/diamaneos/tools/bin/diamaneos rig dry-run *, \
-    /opt/diamaneos/tools/bin/diamaneos rig status *, \
-    /opt/diamaneos/tools/bin/diamaneos rig power *, \
-    /opt/diamaneos/tools/bin/diamaneos rig maintain *, \
-    /opt/diamaneos/tools/bin/diamaneos rig inhibit list *, \
-    /opt/diamaneos/tools/bin/diamaneos rig inhibit acquire *, \
-    /opt/diamaneos/tools/bin/diamaneos rig inhibit release *
+Cmnd_Alias DIAMANEOS_REVIEWED_RUNNER = \
+    /opt/diamaneos/tools/deploy/test-host/diamaneos-delegated-runner *
 
 Cmnd_Alias DIAMANEOS_MAINTENANCE_CONTROL = \
     /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control enable, \
     /opt/diamaneos/tools/deploy/test-host/diamaneos-rig-maintenance-control disable-and-restore
 
 %diamaneos-test ALL=(DIAMANEOS_TEST_RUNNER) NOPASSWD: \
-    DIAMANEOS_BASELINE_RUNS, DIAMANEOS_DEVICE_RUNS
+    DIAMANEOS_REVIEWED_RUNNER
 
 %diamaneos-test ALL=(root) NOPASSWD: DIAMANEOS_MAINTENANCE_CONTROL

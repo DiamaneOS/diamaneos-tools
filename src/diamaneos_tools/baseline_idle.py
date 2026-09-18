@@ -575,8 +575,6 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
     profile = _run_profile(
         protocol, args.declared_repeat_index, args.series_id)
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
-    if args.target not in test_runner._authorized_devices(args.adb):
-        raise IdleError("selected idle target is not an authorized USB device", 3)
     root = Path(args.output).resolve()
     root.mkdir(parents=True, mode=0o750, exist_ok=True)
     _owner_controlled_directory(root)
@@ -598,6 +596,9 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                 guard.release()
         except rig.RigError as exc:
             raise IdleError(str(exc), exc.exit_code) from exc
+        if args.target not in test_runner._authorized_devices(args.adb):
+            raise IdleError(
+                "selected idle target is not an authorized USB device", 3)
         identity, identity_refs = test_runner._capture_identity(
             args.adb, args.target, partial, 20)
         observed, condition_refs = _collect_state(

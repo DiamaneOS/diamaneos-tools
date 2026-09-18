@@ -110,6 +110,9 @@ class RechargeTest(unittest.TestCase):
                     "device_map": "map", "target": "target"}
             state = {}
             with mock.patch.object(
+                    baseline_idle_series, "_timer_is_inactive",
+                    return_value=True), \
+                    mock.patch.object(
                     baseline_idle_series.rig, "controller_for_target",
                     return_value=controller), \
                     mock.patch.object(
@@ -118,6 +121,25 @@ class RechargeTest(unittest.TestCase):
                 baseline_idle_series._wait_for_full(spec, state, job)
             self.assertEqual(2, controller.status.call_count)
             self.assertEqual(100, state["recharge"]["level_percent"])
+
+    def test_recharge_fails_closed_if_maintenance_is_not_inactive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            job = Path(directory)
+            controller = mock.Mock()
+            with mock.patch.object(
+                    baseline_idle_series, "_timer_is_inactive",
+                    return_value=False), \
+                    mock.patch.object(
+                        baseline_idle_series.rig, "controller_for_target",
+                        return_value=controller):
+                with self.assertRaisesRegex(
+                        baseline_idle_series.SeriesError,
+                        "maintenance became active"):
+                    baseline_idle_series._wait_for_full(
+                        {"rig_config": "rig", "device_role": "harness",
+                         "device_map": "map", "target": "target"},
+                        {}, job)
+            controller.status.assert_not_called()
 
 
 class WorkerTest(unittest.TestCase):

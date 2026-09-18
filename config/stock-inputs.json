@@ -2,6 +2,8 @@
   "schema_version": 1,
   "record_state": "complete",
   "observed_device": {
+    "record_scope": "arrival-acceptance-snapshot",
+    "observed_at": "2026-09-11",
     "product": "FP6",
     "marketing_model": "Fairphone 6",
     "storage_variant": "SM_KIMOLOS UFS",
@@ -11,8 +13,35 @@
     "boot_state": "locked-green-stock",
     "offered_update_build": "FP6.QREL.16.100.0",
     "offered_update_source": "owner read-only observation of the phone's update screen",
-    "update_installed_since_acceptance": false,
+    "ota_state_at_observation": "offered-not-installed",
     "source": "dated redacted stock acceptance record"
+  },
+  "current_stock_state": {
+    "record_scope": "post-ota-current-stock-checkpoint",
+    "observed_at_utc": "2026-09-12T13:41:04.587809Z",
+    "product": "FP6",
+    "marketing_model": "Fairphone 6",
+    "build_id": "FP6.QREL.16.100.0",
+    "incremental": "WS1M",
+    "android_version": 16,
+    "sdk": 36,
+    "security_patch": "2026-08-05",
+    "build_type": "user",
+    "boot_state": "locked-green-stock",
+    "installation_path": "official OTA from the received Android 15 build",
+    "verification_status": "PASS",
+    "source": "dated sanitized post-OTA verification record"
+  },
+  "current_restore_selection": {
+    "region": "EU",
+    "installed_build": "FP6.QREL.16.100.0",
+    "selected_archive_id": "fairphone-fp6-a16-eu-factory",
+    "status": "VERIFIED_BYTES_MATCH_INSTALLED_BUILD_RESTORE_NOT_TESTED",
+    "android_15_archive_role": "HISTORICAL_VERIFIED_INPUT_NOT_CURRENTLY_SELECTED",
+    "limits": [
+      "Archive selection does not prove rollback-index, AVB, slot, restore or relock safety.",
+      "Repeat the destructive preflight immediately before any future restore or bootloader operation."
+    ]
   },
   "official_sources": [
     {
@@ -56,7 +85,7 @@
         "archive_executed": false,
         "archive_extracted": false
       },
-      "compatibility_with_observed_device": {
+      "compatibility_with_arrival_snapshot": {
         "product_match": "PASS",
         "security_patch_not_older": "PASS",
         "ufs_factory_layout_present": "PASS",
@@ -85,7 +114,7 @@
     },
     {
       "id": "fairphone-fp6-a16-eu-factory",
-      "status": "VERIFIED_TWO_LOCATIONS_SELECTED_BY_DEVICE_OFFER",
+      "status": "VERIFIED_TWO_LOCATIONS_SELECTED_FOR_CURRENT_EU_STOCK",
       "product": "FP6",
       "region": "EU",
       "package_type": "user-factory",
@@ -99,6 +128,7 @@
       "sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
       "verification": {
         "phone_offered_build_match": "PASS",
+        "current_installed_build_match": "PASS",
         "official_sha256_match": "PASS",
         "repeat_read_sha256_match": "PASS",
         "zip_crc": "PASS",
@@ -109,13 +139,14 @@
         "archive_executed": false,
         "archive_extracted": false
       },
-      "compatibility_with_observed_device": {
+      "selection_against_current_stock_state": {
         "product_match": "PASS",
         "phone_offered_build_match": "PASS",
+        "current_installed_build_match": "PASS",
         "ufs_factory_layout_present": "PASS",
-        "result": "VERIFIED_SELECTED_INPUT_UPDATE_NOT_INSTALLED_RESTORE_NOT_TESTED",
+        "result": "VERIFIED_SELECTED_INPUT_MATCHES_INSTALLED_BUILD_RESTORE_NOT_TESTED",
         "limits": [
-          "The verified package matches the update offered by the phone, but the phone remains on its received Android 15 build.",
+          "The verified package matches the currently installed EU stock build; that build was installed through the official OTA, not restored from this archive.",
           "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
           "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
         ]
