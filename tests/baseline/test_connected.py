@@ -99,6 +99,25 @@ class ConnectedFinalizeTest(unittest.TestCase):
             self.assertTrue(report["comparability_exclusions"])
             self.assertTrue(result.parent.name.endswith(".non-comparable"))
 
+    def test_declared_report_can_exceed_generic_runner_cap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            os.chmod(root, 0o750)
+            run_dir = self._partial(root, 22.0)
+            result = run_dir / "result.json"
+            report = json.loads(result.read_text(encoding="utf-8"))
+            report["bounded_fixture_padding"] = (
+                "x" * baseline_pilot.test_runner.MAX_REPORT_BYTES)
+            result.write_text(json.dumps(report), encoding="utf-8")
+            self.assertGreater(
+                result.stat().st_size,
+                baseline_pilot.test_runner.MAX_REPORT_BYTES)
+            self.assertLess(
+                result.stat().st_size,
+                baseline_connected.MAX_CONNECTED_REPORT_BYTES)
+            loaded = baseline_connected._load_partial(run_dir)
+            self.assertEqual("AWAITING_AMBIENT_END", loaded["status"])
+
 
 if __name__ == "__main__":
     unittest.main()
