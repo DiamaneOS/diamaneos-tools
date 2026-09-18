@@ -482,8 +482,31 @@ default. All 15 referenced evidence files verified, and the identifier-free
 result has SHA-256
 `c9e4c12e61d5ea5f23521175d9e06a2bbc5512e352e57978b4022bf29e7f12d4`.
 This closes only the Blau data row. It does not establish Blau voice, SMS,
-VoLTE, WiFi Calling or 5G behavior, and the permanent peer remains required
-for bidirectional call and message checks.
+VoLTE, WiFi Calling or 5G behavior by itself.
+
+The final locked-stock campaign used the active Vodafone physical-SIM Pixel 2
+as the permanent peer. Both FP6 profiles passed ordinary inbound and outbound
+voice calls and synthetic, non-personal SMS in both directions. Connected-call
+captures recorded active call state, LTE voice service and IMS registration;
+the operator confirmed earpiece and speaker audio plus concurrent mobile-data
+use during each profile's outbound LTE call. Both profiles also passed an
+ordinary WiFi Calling call with airplane mode enabled and the approved Wi-Fi
+connection active: the stock indicator, two-way audio, IMS registration and
+IWLAN/WLAN transport evidence agreed. After an FP6 reboot, both subscriptions,
+Wi-Fi and the Vodafone voice/SMS/data defaults recovered. Emergency calling
+was not exercised.
+
+The identifier-free final behavior summary has SHA-256
+`27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e`.
+The private evidence archive has SHA-256
+`e0ab9551aab1648ce5e7477fa99b480d9b9e5f498e99f94974753a36ff052726`;
+all nine constituent result hashes and all 139 unique referenced evidence
+files were reverified before export. These results close the Vodafone and Blau
+voice, SMS, VoLTE and WiFi Calling rows for the observed stock build and
+arrangement. The active no-package Blau 9 Cent tariff remains `BLOCKED` for
+5G because the reviewed official material does not consistently establish its
+5G eligibility. That limitation is neither an FP6 nor an OS failure. Retest
+that row only after activating an option with unambiguous 5G eligibility.
 
 Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
 the same private role map and target-binding rules as the smoke suite:

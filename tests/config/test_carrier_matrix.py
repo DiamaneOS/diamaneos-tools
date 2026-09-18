@@ -30,15 +30,24 @@ class CarrierMatrixTest(unittest.TestCase):
                          profiles["fp6-blau-physical"]["subscription_type"])
         rows = {item["id"]: item for item in self.matrix["capability_rows"]}
         observed = {
+            "vodafone-esim-voice",
+            "vodafone-esim-sms",
             "vodafone-esim-data",
+            "vodafone-esim-volte",
+            "vodafone-esim-vowifi",
             "vodafone-esim-5g",
             "vodafone-esim-lifecycle",
+            "blau-physical-voice",
+            "blau-physical-sms",
             "blau-physical-data",
+            "blau-physical-volte",
+            "blau-physical-vowifi",
         }
         self.assertTrue(all(rows[row]["observation_status"] == "PASS"
                             and rows[row]["evidence_refs"] for row in observed))
-        self.assertTrue(all(row["observation_status"] in {"NOT_RUN", "BLOCKED"}
-                            for row_id, row in rows.items() if row_id not in observed))
+        self.assertEqual("BLOCKED", rows["blau-physical-5g"]["observation_status"])
+        self.assertTrue(rows["blau-physical-5g"]["evidence_refs"])
+        self.assertEqual("active", self.matrix["peer"]["availability"])
         self.assertEqual("PASS", self.matrix["dual_sim"]["status"])
         self.assertTrue(all(
             self.matrix["dual_sim"][field] == "Vodafone DE eSIM"
@@ -53,6 +62,7 @@ class CarrierMatrixTest(unittest.TestCase):
     def test_device_result_requires_evidence(self):
         changed = copy.deepcopy(self.matrix)
         changed["capability_rows"][0]["observation_status"] = "PASS"
+        changed["capability_rows"][0]["evidence_refs"] = []
         self.assertIn("observed PASS/FAIL requires an evidence reference",
                       api.validate_matrix(changed))
 
@@ -98,7 +108,7 @@ class CarrierMatrixTest(unittest.TestCase):
             cwd=TOOLS, capture_output=True, text=True, timeout=20,
             env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("13 capability rows; 9 pending observations", result.stdout)
+        self.assertIn("13 capability rows; 1 pending observations", result.stdout)
         self.assertEqual(before, self.path.read_bytes())
 
 
