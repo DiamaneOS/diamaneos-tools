@@ -263,6 +263,35 @@ class CliContractTest(unittest.TestCase):
         self.assertEqual(1, args.declared_repeat_index)
         self.assertEqual("fp6-stock16-baseline-20260912", args.series_id)
 
+    def test_series_launch_requires_two_distinct_reset_authorizations(self):
+        args = baseline_idle.build_parser().parse_args([
+            "series", "launch",
+            "--series-id", "fp6-stock16-final-20260918",
+            "--expected-build", "FP6.QREL.16.100.0",
+            "--conditions", "controlled",
+            "--operator-authorized-repeat-1-batterystats-reset",
+        ])
+        self.assertTrue(
+            args.operator_authorized_repeat_1_batterystats_reset)
+        self.assertFalse(
+            args.operator_authorized_repeat_2_batterystats_reset)
+
+    def test_unattended_start_commitments_must_be_supplied_together(self):
+        args = types.SimpleNamespace(
+            run_id="idle-declared-r1", target="private-target",
+            device_role="harness", device_map="/private/map.json",
+            output="/private/runs", expected_build="build",
+            conditions="controlled", operator_confirmed_display_50=True,
+            operator_confirmed_unlocked=True,
+            operator_authorized_batterystats_reset=True,
+            operator_committed_no_interaction=True,
+            operator_declared_no_planned_network_outage=False,
+            disconnect_method="verified-rig-port-off",
+            rig_config="/private/rig.json")
+        with self.assertRaisesRegex(
+                baseline_idle.IdleError, "supplied together"):
+            baseline_idle.start(args, TOOLS)
+
 
 class RigIdleIntegrationTest(unittest.TestCase):
     def _run_dir(self, root):
@@ -432,6 +461,37 @@ class RigIdleIntegrationTest(unittest.TestCase):
                 "physical_usb_disconnect"])
             self.assertTrue(saved["operator_attestations"][
                 "verified_rig_port_off"])
+
+    def test_automated_finish_requires_bound_start_commitments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_dir = self._run_dir(root)
+            report = {
+                "schema_version": 1,
+                "run_id": "idle-rig",
+                "duration_seconds": 300,
+                "disconnect_method": "verified-rig-port-off",
+                "status": baseline_idle.STATUS_DISCONNECTED_RIG,
+                "target": {"role": "harness"},
+                "unattended_series_commitments": None,
+            }
+            (run_dir / "result.json").write_text(
+                json.dumps(report), encoding="utf-8")
+            args = types.SimpleNamespace(
+                automated_rig_series=True,
+                operator_confirmed_no_interaction=False,
+                operator_confirmed_no_known_network_outage=False,
+                operator_confirmed_physical_disconnect=False,
+                device_map="/private/map.json", device_role="harness",
+                target="private-target", run_dir=str(run_dir), adb="adb",
+                rig_config="/private/rig.json", wait_for_reconnect=False)
+            with mock.patch.object(
+                    baseline_idle.test_runner, "load_device_map"), \
+                    mock.patch.object(
+                        baseline_idle, "_load_report", return_value=report):
+                with self.assertRaisesRegex(
+                        baseline_idle.IdleError, "bound unattended"):
+                    baseline_idle.finish(args)
 
 
 if __name__ == "__main__":

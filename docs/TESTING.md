@@ -328,6 +328,28 @@ telephony service output is reduced to
 connection/registration booleans in memory: SSID, BSSID, subscriber and cell
 identifiers are not persisted.
 
+For the final controlled-hub series, `baseline idle series launch` may own both
+repetitions on the tester without retaining SSH or another computer. Launch is
+fail-closed unless scheduled rig maintenance is disabled, the mapped role is
+currently authorized, the operator separately authorizes the repeat-1 and
+repeat-2 batterystats resets, and the operator confirms the unchanged display,
+unlock, no-interaction and no-planned-outage conditions. The detached worker
+wakes the no-lock phone, runs repeat 1, restores the exact port at the eight-hour
+boundary, waits up to four hours for a verified 100%/full state, then repeats
+the same process for repeat 2. Thus the two measurement intervals are
+back-to-back in one owned workflow but are separated by a controlled recharge;
+wall-clock completion is longer than 16 hours.
+
+`baseline idle series status --series-id <shared-series-id>` is read-only and
+reports progress from tester-owned state. Each reset authorization is recorded
+and consumed independently. A tester reboot, rejected preflight, late or
+non-comparable finish, recharge timeout, identity/path mismatch, or unexpected
+rig state fails the series and attempts to restore the mapped port. The
+unattended path records that phone connectivity is observed at start and finish
+only; it does not manufacture a claim of continuous phone-side network
+observation. Re-enable ordinary battery maintenance only after the series is
+terminal and its result paths have been reviewed.
+
 The camera fixture is a closed cardboard enclosure with fixed green-timer and
 Johnson's Buds-box subjects, one marked phone-stand position, a secured USB lamp
 and a 21.25 cm ±0.25 cm nominal phone-to-focus-target distance. The MacBook
