@@ -182,6 +182,14 @@ class CameraUiTest(unittest.TestCase):
                 with self.assertRaises(baseline_camera.CameraError):
                     baseline_camera.face_beauty_level(invalid)
 
+    def test_face_beauty_panel_is_dismissed_through_its_preview_root(self):
+        xml = ('<node resource-id="com.fps.camera:id/face_beauty_root" '
+               'bounds="[0,0][1116,2484]"/>'
+               '<node resource-id="com.fps.camera:id/face_beauty_seekbar_layout" '
+               'bounds="[0,1410][1116,1728]"/>')
+        self.assertEqual((558, 705),
+                         baseline_camera.face_beauty_dismiss_point(xml))
+
     def test_super_night_requires_selected_mode_and_retains_zoom(self):
         expected = {"orientation": "rear-facing", "mode": "super-night",
                     "zoom": "1x"}
@@ -274,6 +282,26 @@ class CliContractTest(unittest.TestCase):
         ])
         self.assertEqual("FP6.QREL.15.176.0", args.expected_build)
         self.assertFalse(hasattr(args, "expected_incremental"))
+
+
+class RunnerProvenanceTest(unittest.TestCase):
+    def test_staged_run_retains_initial_and_corrected_runner_versions(self):
+        report = {"tool": {
+            "revision": "a" * 40,
+            "runner_sha256": "b" * 64,
+        }}
+        original_revision = baseline_camera.test_runner._git_revision
+        original_file = baseline_camera.__file__
+        baseline_camera.test_runner._git_revision = lambda _root: "c" * 40
+        try:
+            current = baseline_camera._register_runner_version(report, TOOLS)
+        finally:
+            baseline_camera.test_runner._git_revision = original_revision
+        self.assertEqual(hashlib.sha256(Path(original_file).read_bytes()).hexdigest(),
+                         current)
+        self.assertEqual(2, len(report["tool"]["runner_versions"]))
+        self.assertEqual("b" * 64,
+                         report["tool"]["runner_versions"][0]["sha256"])
 
 
 if __name__ == "__main__":

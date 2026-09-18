@@ -375,8 +375,9 @@ def current_camera_orientation(xml: str) -> str:
     raise CameraError("active camera orientation is unavailable", 5)
 
 
-def camera_node_center(xml: str, attribute: str, value: str) -> tuple[int, int]:
-    """Locate one actionable accessibility node by its current live bounds."""
+def camera_node_bounds(xml: str, attribute: str,
+                       value: str) -> tuple[int, int, int, int]:
+    """Locate one accessibility node by its current live bounds."""
     matches = []
     marker = f'{attribute}="{value}"'
     for node in re.findall(r"<node\b[^>]*>", xml):
@@ -387,10 +388,29 @@ def camera_node_center(xml: str, attribute: str, value: str) -> tuple[int, int]:
         if bounds:
             left, top, right, bottom = map(int, bounds.groups())
             if right > left and bottom > top:
-                matches.append(((left + right) // 2, (top + bottom) // 2))
+                matches.append((left, top, right, bottom))
     if len(matches) != 1:
         raise CameraError("camera control is missing or ambiguous in the live UI", 5)
     return matches[0]
+
+
+def camera_node_center(xml: str, attribute: str, value: str) -> tuple[int, int]:
+    """Locate one actionable accessibility node by its current live bounds."""
+    left, top, right, bottom = camera_node_bounds(xml, attribute, value)
+    return (left + right) // 2, (top + bottom) // 2
+
+
+def face_beauty_dismiss_point(xml: str) -> tuple[int, int]:
+    """Return a preview point that dismisses the stock Face Beauty panel."""
+    left, top, right, bottom = camera_node_bounds(
+        xml, "resource-id", "com.fps.camera:id/face_beauty_root")
+    _, seekbar_top, _, _ = camera_node_bounds(
+        xml, "resource-id", "com.fps.camera:id/face_beauty_seekbar_layout")
+    x = (left + right) // 2
+    y = (top + seekbar_top) // 2
+    if not (left <= x < right and top <= y < min(bottom, seekbar_top)):
+        raise CameraError("front Face Beauty panel has no safe preview area", 5)
+    return x, y
 
 
 def _live_camera_xml(adb: str, target: str) -> str:
@@ -460,11 +480,16 @@ def _prepare_camera_ui(adb: str, target: str,
             adb, target, xml, "content-desc", "Face beauty",
             "inspect-face-beauty", 1))
         beauty_xml = _live_camera_xml(adb, target)
-        try:
-            beauty_level = face_beauty_level(beauty_xml)
-        finally:
-            _run_ok([adb, "-s", target, "shell", "input", "keyevent", "4"])
-            time.sleep(1)
+        beauty_level = face_beauty_level(beauty_xml)
+        dismiss_x, dismiss_y = face_beauty_dismiss_point(beauty_xml)
+        _run_ok([adb, "-s", target, "shell", "input", "tap",
+                 str(dismiss_x), str(dismiss_y)])
+        time.sleep(1)
+        xml = _live_camera_xml(adb, target)
+        if ('package="com.fps.camera"' not in xml
+                or 'com.fps.camera:id/face_beauty_seekbar' in xml
+                or 'content-desc="Face beauty"' not in xml):
+            raise CameraError("front Face Beauty panel did not dismiss safely", 3)
         if beauty_level != 0:
             raise CameraError("front Face Beauty is not disabled", 3)
         observations.append("Front Face Beauty level 0 (disabled) was verified.")
@@ -591,6 +616,22 @@ def _load_report(run_dir: Path) -> dict:
             or value.get("status") != "INCOMPLETE"):
         raise CameraError("camera partial report is invalid", 5)
     return value
+
+
+def _register_runner_version(report: dict, repo_root: Path) -> str:
+    """Bind every capture implementation used by a staged camera run."""
+    tool = report["tool"]
+    versions = tool.setdefault("runner_versions", [{
+        "revision": tool["revision"],
+        "sha256": tool["runner_sha256"],
+    }])
+    current = {
+        "revision": test_runner._git_revision(repo_root),
+        "sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    }
+    if current not in versions:
+        versions.append(current)
+    return current["sha256"]
 
 
 def _atomic_report(path: Path, report: dict, target: str):
@@ -747,7 +788,7 @@ def capture(args) -> tuple[int, Path]:
     lock_fd = _acquire_lock(root, args.device_role)
     try:
         report = _load_report(run_dir)
-        runner_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        runner_sha256 = _register_runner_version(report, _repo_root())
         index = len(report["captures"])
         if index >= len(report["expected_captures"]):
             raise CameraError("camera plan has no remaining captures", 3)
