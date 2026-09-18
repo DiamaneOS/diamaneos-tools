@@ -37,25 +37,25 @@
     {
       "id": "blau-9-cent",
       "url": "https://www.blau.de/prepaid-tarife/blau-9ct/",
-      "checked_on": "2026-09-16",
+      "checked_on": "2026-09-18",
       "claim": "Blau identifies its no-package prepaid base arrangement as Blau 9 Cent, with ordinary domestic voice, SMS and metered data available from prepaid balance; this does not establish IMS or radio-access behavior."
     },
     {
       "id": "blau-vowifi",
       "url": "https://www.blau.de/service/vowifi/",
-      "checked_on": "2026-09-14",
+      "checked_on": "2026-09-18",
       "claim": "Blau states that VoWiFi is generally available to eligible contract and prepaid tariffs when the device, tariff and Wi-Fi prerequisites are met."
     },
     {
       "id": "blau-5g",
       "url": "https://www.blau.de/tarife/5g-tarife/",
-      "checked_on": "2026-09-14",
-      "claim": "Blau's current 5G page contains plan-dependent wording, including a prepaid limitation; the exact selected physical-SIM tariff must therefore be verified before activation."
+      "checked_on": "2026-09-18",
+      "claim": "Blau's current official pages contain inconsistent prepaid 5G wording, while the selected no-package 9 Cent page does not establish 5G entitlement; the active base tariff therefore remains unverified for 5G."
     },
     {
       "id": "blau-volte",
       "url": "https://www.blau.de/service/2g-abschaltung/",
-      "checked_on": "2026-09-14",
+      "checked_on": "2026-09-18",
       "claim": "Blau describes VoLTE calling and continued SMS support on modern network service; this does not prove provisioning for the selected tariff."
     }
   ],
@@ -72,7 +72,7 @@
       "availability": "active",
       "firmware_scope": "locked stock FP6.QREL.16.100.0",
       "apn_context": "Stock automatic configuration; cellular data path verified; APN values not recorded",
-      "ims_context": "Private stock phone and registry context captured; IMS behavior unverified"
+      "ims_context": "Private stock phone and registry context captured; ordinary LTE and Wi-Fi calls both passed with active-call, IMS and radio-transport evidence"
     },
     {
       "id": "fp6-blau-physical",
@@ -85,8 +85,8 @@
       "plan_name": "Blau 9 Cent base tariff; no package option active",
       "availability": "active",
       "firmware_scope": "locked stock FP6.QREL.16.100.0",
-      "apn_context": "Stock automatic dual-SIM configuration captured; mobile-data behavior unverified",
-      "ims_context": "Private dual-SIM phone and registry context captured; IMS behavior unverified"
+      "apn_context": "Stock automatic dual-SIM configuration captured; bounded mobile-data behavior verified",
+      "ims_context": "Private dual-SIM phone and registry context captured; ordinary LTE and Wi-Fi calls both passed with active-call, IMS and radio-transport evidence"
     }
   ],
   "capability_rows": [
@@ -96,9 +96,11 @@
       "capability": "voice",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-callya-classic"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Requires ordinary outbound and inbound calls to the private allowlisted peer."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "Ordinary calls passed in both directions with the permanent peer; earpiece and speaker audio were confirmed and connected-call captures recorded LTE voice service and IMS registration."
     },
     {
       "id": "vodafone-esim-sms",
@@ -106,9 +108,11 @@
       "capability": "sms",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-callya-classic"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Requires synthetic, non-personal SMS in both directions to the private allowlisted peer."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "Unique synthetic non-personal messages were delivered successfully in both directions with the permanent peer."
     },
     {
       "id": "vodafone-esim-data",
@@ -128,9 +132,11 @@
       "capability": "volte",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-callya-classic", "vodafone-callya-conditions"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Registration flags alone are insufficient; verify the ordinary call remains on LTE or 5G with data continuity."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "During an ordinary outbound call with Wi-Fi off, the operator confirmed concurrent mobile-data loading and two-way audio; private capture recorded active off-hook state, in-service voice/data, LTE voice RAT and IMS registration."
     },
     {
       "id": "vodafone-esim-vowifi",
@@ -138,9 +144,11 @@
       "capability": "vowifi",
       "plan_eligibility": "eligible",
       "source_refs": ["vodafone-wifi-calling", "vodafone-callya-conditions"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Verify actual IMS registration and an ordinary call over the approved fixed Wi-Fi connection."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "With airplane mode on and approved Wi-Fi connected, an ordinary call passed with the stock Wi-Fi Calling indicator, two-way audio, active off-hook state, IMS registration and IWLAN/WLAN evidence."
     },
     {
       "id": "vodafone-esim-5g",
@@ -172,9 +180,11 @@
       "capability": "voice",
       "plan_eligibility": "eligible",
       "source_refs": ["blau-9-cent"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "The active prepaid base tariff permits ordinary calls from balance; bidirectional FP6 behavior still requires the permanent allowlisted peer."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "Ordinary calls passed in both directions with the permanent peer; earpiece and speaker audio were confirmed and connected-call captures recorded LTE voice service and IMS registration."
     },
     {
       "id": "blau-physical-sms",
@@ -182,9 +192,11 @@
       "capability": "sms",
       "plan_eligibility": "eligible",
       "source_refs": ["blau-9-cent", "blau-volte"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "The active prepaid base tariff permits ordinary SMS from balance; bidirectional FP6 behavior still requires the permanent allowlisted peer."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "Unique synthetic non-personal messages were delivered successfully in both directions with the permanent peer."
     },
     {
       "id": "blau-physical-data",
@@ -204,19 +216,23 @@
       "capability": "volte",
       "plan_eligibility": "unverified",
       "source_refs": ["blau-volte"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "The general network capability must not be reported as selected-plan provisioning."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "Actual selected-plan behavior passed: with Blau selected for voice and data and Wi-Fi off, an ordinary call retained a successful data load and private capture recorded active off-hook state, LTE voice RAT and IMS registration."
     },
     {
       "id": "blau-physical-vowifi",
       "profile_id": "fp6-blau-physical",
       "capability": "vowifi",
-      "plan_eligibility": "unverified",
+      "plan_eligibility": "eligible",
       "source_refs": ["blau-vowifi"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "The exact tariff and the device's provisioned behavior must both be checked."
+      "observation_status": "PASS",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "With airplane mode on and approved Wi-Fi connected, an ordinary call passed with the stock Wi-Fi Calling indicator, two-way audio, active off-hook state, IMS registration and IWLAN/WLAN evidence."
     },
     {
       "id": "blau-physical-5g",
@@ -224,9 +240,11 @@
       "capability": "5g",
       "plan_eligibility": "unverified",
       "source_refs": ["blau-5g", "blau-9-cent"],
-      "observation_status": "NOT_RUN",
-      "evidence_refs": [],
-      "notes": "Current official wording does not establish 5G eligibility for the active no-package base tariff; actual behavior remains unobserved."
+      "observation_status": "BLOCKED",
+      "evidence_refs": [
+        "private-evidence:fp6-023-final-stock16-behavior@sha256:27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e"
+      ],
+      "notes": "The reviewed official material does not consistently establish 5G eligibility for the active no-package 9 Cent base tariff. No device pass or failure is inferred; retest only if a clearly 5G-eligible option is activated."
     }
   ],
   "dual_sim": {
@@ -242,10 +260,10 @@
     "device_model": "Pixel 2",
     "carrier": "Vodafone DE",
     "sim_type": "physical",
-    "availability": "pending-test-input",
+    "availability": "active",
     "required_capabilities": ["voice", "sms"],
     "optional_capabilities": ["data", "volte"],
     "not_required_capabilities": ["vowifi", "5g", "esim-lifecycle"],
-    "limitations": "The LTE-only peer proves ordinary bidirectional interoperability; it is not used to qualify FP6 5G or WiFi Calling."
+    "limitations": "The permanent LTE-only peer passed ordinary bidirectional voice and SMS interoperability; it is not used to qualify FP6 5G or WiFi Calling."
   }
 }
