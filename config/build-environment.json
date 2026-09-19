@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v1",
+  "scope": "Pinned online source and build environment for the first FP6 bring-up. This record does not authorize release signing or claim FP6 compatibility.",
+  "upstream": {
+    "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
+    "release_tag": "2026091000",
+    "release_ref": "refs/tags/2026091000",
+    "tag_object": "6c939d124f3ea8dd545c1e4045f26359f501d80e",
+    "peeled_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
+    "default_manifest_sha256": "f5969292b4b68b5718e158d344e7e99b044814738889fef70311de1210d21f7f",
+    "project_count": 1057,
+    "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",
+    "project_map_format": "UTF-8 lines sorted bytewise: path TAB name TAB remote TAB 40-lowercase-hex-revision LF; missing path uses name and missing remote uses manifest default remote",
+    "allowed_signers_url": "https://grapheneos.org/allowed_signers",
+    "allowed_signers_sha256": "344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0",
+    "signer_identity": "contact@grapheneos.org",
+    "signer_key_fingerprint": "SHA256:AhgHif0mei+9aNyKLfMZBh2yptHdw/aN7Tlh/j2eFwM",
+    "release_scope": "stable; explicitly listed for emulator, generic and other targets",
+    "verified_on": "2026-09-19"
+  },
+  "host": {
+    "architecture": "x86_64",
+    "os_id": "debian",
+    "os_version_id": "13",
+    "upstream_support_status": "project-selected-deviation-requiring-clean-build",
+    "minimum_memory_bytes": 34359738368,
+    "minimum_source_free_bytes": 146028888064,
+    "minimum_build_free_bytes": 107374182400,
+    "required_packages": {
+      "ca-certificates": "20250419",
+      "curl": "8.14.1-2+deb13u5",
+      "diffutils": "1:3.10-4",
+      "fontconfig": "2.15.0-2.3",
+      "fonts-dejavu-core": "2.37-8",
+      "git": "1:2.47.3-0+deb13u1",
+      "git-lfs": "3.6.1-1+deb13u1",
+      "gnupg": "2.4.7-21+deb13u1",
+      "gperf": "3.2.1-1",
+      "hostname": "3.25",
+      "lib32gcc-s1": "14.2.0-19",
+      "libc6-dev-i386": "2.41-12+deb13u4",
+      "openssh-client": "1:10.0p1-7+deb13u4",
+      "openssl": "3.5.7-1~deb13u2",
+      "python3": "3.13.5-1",
+      "repo": "2.54-1",
+      "rsync": "3.4.1+ds1-5+deb13u4",
+      "unzip": "6.0-29+deb13u1",
+      "zip": "3.0-15+deb13u1"
+    },
+    "external_tools": {
+      "node": {
+        "version": "v24.21.0",
+        "archive_sha256": "fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6"
+      },
+      "npm": {
+        "version": "11.19.0"
+      },
+      "corepack": {
+        "version": "0.36.0"
+      },
+      "yarn": {
+        "version": "1.22.22",
+        "npm_integrity": "sha512-prL3kGtyG7o9Z9Sv8IPfBNrWTDmXB4Qbes8A9rEzt6wkJV8mUvoirjU0Mp3GGAU06Y0XQyA3/2/RQFVuK7MTfg==",
+        "source_lockfile_sha256": "69475c004b6271a3817e7c79bebf7459e9e3c80684864cd60bdf88d944904f8f"
+      }
+    }
+  },
+  "workspace": {
+    "source_subdirectory": "src/grapheneos-2026091000",
+    "cache_subdirectory": "cache",
+    "output_subdirectory": "out/grapheneos-2026091000",
+    "roots_must_be_distinct": true,
+    "source_and_output_must_not_be_nested": true,
+    "cache_policy": "Download and compiler caches may be reused only as performance inputs. They are excluded from build identity and must not contain source overrides, generated product trees or release intermediates.",
+    "clean_build_policy": "The first accepted build starts with an absent output directory and writes all intermediates below the declared output root. No output from another host is imported."
+  },
+  "project_inputs": [
+    {
+      "id": "fp6-source-inventory",
+      "repository_path": "config/fp6-sources.json",
+      "sha256": "3d4be2997eba6e9e1056ae09cd8ae7d375a8d84e118fb18b18c8f872e3cf1ca2"
+    },
+    {
+      "id": "stock-input-inventory",
+      "repository_path": "config/stock-inputs.json",
+      "sha256": "25bfb9e96e28276be5571421395f9dbd7d49a16a163ef09d164e4aa3e6e7ca5d"
+    },
+    {
+      "id": "patch-inventory",
+      "repository_path": "config/patches.json",
+      "sha256": "c8d4bfe1ffa620f1b5f03b63ba3e58e7b003eedc62deb99b887704e57d98c8dd"
+    }
+  ],
+  "device_inputs": {
+    "selected_stock_build": "FP6.QREL.16.100.0",
+    "selected_stock_factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+    "generated_input_manifest_required": true,
+    "generated_input_manifest_status": "pending-fp6-generator",
+    "device_unique_material_allowed": false
+  },
+  "build": {
+    "shell": "bash",
+    "generic_qualification_target": "sdk_phone64_x86_64-cur-userdebug",
+    "generic_qualification_command": "m",
+    "fp6_release_target": "pending-device-integration",
+    "production_signing_material_allowed": false
+  }
+}
