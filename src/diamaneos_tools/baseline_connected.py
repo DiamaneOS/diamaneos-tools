@@ -1,4 +1,4 @@
-"""Declared FP6-022 connected stock-baseline workflow.
+"""Declared connected stock-baseline workflow.
 
 A successful measurement is finalized immediately after its postflight capture.
 """

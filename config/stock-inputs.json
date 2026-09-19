@@ -12,7 +12,7 @@
     "security_patch": "2025-12-05",
     "boot_state": "locked-green-stock",
     "offered_update_build": "FP6.QREL.16.100.0",
-    "offered_update_source": "owner read-only observation of the phone's update screen",
+    "offered_update_source": "sanitized read-only observation of the stock update screen",
     "ota_state_at_observation": "offered-not-installed",
     "source": "dated redacted stock acceptance record"
   },
@@ -62,7 +62,7 @@
   "archives": [
     {
       "id": "fairphone-fp6-a15-final-factory",
-      "status": "VERIFIED_TWO_LOCATIONS",
+      "status": "VERIFIED_INPUT",
       "product": "FP6",
       "region": "all-listed",
       "package_type": "user-factory",
@@ -94,27 +94,11 @@
           "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
           "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
         ]
-      },
-      "copies": {
-        "required": 2,
-        "verified": 2,
-        "locations": [
-          {
-            "id": "primary-private-archive",
-            "storage_class": "operator-private-primary",
-            "status": "VERIFIED"
-          },
-          {
-            "id": "owner-managed-cloud-copy",
-            "storage_class": "independent-provider",
-            "status": "VERIFIED_OWNER_REPORTED_SHA256_MATCH"
-          }
-        ]
       }
     },
     {
       "id": "fairphone-fp6-a16-eu-factory",
-      "status": "VERIFIED_TWO_LOCATIONS_SELECTED_FOR_CURRENT_EU_STOCK",
+      "status": "VERIFIED_INPUT_SELECTED_FOR_CURRENT_EU_STOCK",
       "product": "FP6",
       "region": "EU",
       "package_type": "user-factory",
@@ -150,22 +134,6 @@
           "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
           "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
         ]
-      },
-      "copies": {
-        "required": 2,
-        "verified": 2,
-        "locations": [
-          {
-            "id": "primary-private-archive",
-            "storage_class": "operator-private-primary",
-            "status": "VERIFIED"
-          },
-          {
-            "id": "owner-managed-cloud-copy",
-            "storage_class": "independent-provider",
-            "status": "VERIFIED_OWNER_REPORTED_SHA256_MATCH"
-          }
-        ]
       }
     }
   ],
@@ -199,25 +167,6 @@
     ],
     "policy": "Locked stock access is not escalated. Unavailable fields remain unknown rather than being replaced by package contents or inferred values."
   },
-  "user_data_backup": {
-    "status": "NOT_REQUIRED_OWNER_CONFIRMED",
-    "scope": "The owner confirmed that the phone contains no non-disposable data requiring backup.",
-    "recheck": "Confirm this remains true immediately before any future destructive operation."
-  },
-  "acceptance": {
-    "secondary_copy_verification": {
-      "status": "PASS_OWNER_CONFIRMED",
-      "recorded_at": "2026-09-11T17:36:54Z",
-      "storage_class": "owner-managed independent cloud provider",
-      "result": "Both cloud-copy SHA-256 values reproduce the recorded manifest.",
-      "privacy": "Provider, account and path are intentionally not recorded."
-    },
-    "backup_restore_prerequisite": {
-      "status": "REVIEWED",
-      "user_data_backup": "NOT_REQUIRED_OWNER_CONFIRMED",
-      "stock_restore_readiness": "BLOCKED_PENDING_FP6-025_DESTRUCTIVE_TEST"
-    }
-  },
   "remaining_gates": [
     "Test actual stock restoration, AVB/slot/rollback prerequisites and relock in the destructive recovery task."
   ],
@@ -225,6 +174,8 @@
     "device_update_authorized": false,
     "device_flash_authorized": false,
     "archive_path_is_identity": false,
-    "published_hash_and_observed_bytes_required": true
+    "published_hash_and_observed_bytes_required": true,
+    "operator_backup_attestation_required_before_destructive_work": true,
+    "independent_private_archive_copy_required_before_destructive_work": true
   }
 }

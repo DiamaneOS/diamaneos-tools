@@ -8,7 +8,7 @@
       "jurisdiction": "DE",
       "provider_layer": "vps-primary",
       "credential_class": "release-admin",
-      "management": "owner-vpn-and-provider-console",
+      "management": "operator-vpn-and-provider-console",
       "status": "planned"
     },
     {
@@ -17,7 +17,7 @@
       "jurisdiction": "IS",
       "provider_layer": "artifact-mirror-non-eu",
       "credential_class": "mirror-admin",
-      "management": "owner-vpn-and-provider-console",
+      "management": "operator-vpn-and-provider-console",
       "status": "planned"
     },
     {

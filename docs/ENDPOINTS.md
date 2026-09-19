@@ -39,7 +39,7 @@ When selection is stale, use each endpoint's `failure_fallback`: no fresh select
 
 The ten unique implementation gates are defined once by ID in the endpoint rows (a shared gate may be referenced by both component rows). None can be cleared by changing `status` alone. A gate closes with the actual pin/key/config, valid native fixture, corrupt/truncated/oversized case, measured timeout and stale/outage result in the implementing task. Source-only and fixture-only tests cannot clear device eligibility or hardware behavior.
 
-`COMPONENT-BIND` is a real compatibility conflict: the observed Vanadium patch hardcodes the component download host. Mirroring the unmodified APK and its package repository does not prove that this host can be repointed. CT and browser-component delivery and browser APK delivery must demonstrate a supported configuration or return the decision to the owner. Rebuilding/resigning, TLS interception, leaving inherited traffic or disabling components is not an authorized automatic resolution.
+`COMPONENT-BIND` is a real compatibility conflict: the observed Vanadium patch hardcodes the component download host. Mirroring the unmodified APK and its package repository does not prove that this host can be repointed. CT and browser-component delivery and browser APK delivery must demonstrate a supported configuration or return the decision to the responsible maintainer. Rebuilding/resigning, TLS interception, leaving inherited traffic or disabling components is not an authorized automatic resolution.
 
 ## Maintenance
 

@@ -1,14 +1,15 @@
 {
   "codeberg_owner": "DiamaneOS",
+  "revision_policy": "Discovery map only. Active repositories intentionally use null revisions because a repository cannot pin its own future state and this file is not a release lock. Exact cross-repository revisions belong in a separately versioned build or release input manifest.",
   "repositories": [
     {
       "checkout_path": "WORK_ROOT/tools",
       "id": "tools",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/diamaneos-tools.git",
-      "revision": "eca32d3892079ce6a7ddeee3c407d559eb753e01",
+      "revision": null,
       "slug": "diamaneos-tools",
-      "state": "pinned",
+      "state": "active",
       "upstream_url": null
     },
     {
@@ -16,9 +17,9 @@
       "id": "manifest",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/platform_manifest.git",
-      "revision": "3bf7f2d1e2627f41d50a069a7ca1e3289e0a7945",
+      "revision": null,
       "slug": "platform_manifest",
-      "state": "pinned",
+      "state": "active",
       "upstream_url": "https://github.com/GrapheneOS/platform_manifest"
     },
     {
@@ -118,7 +119,7 @@
       "remote_url": "https://codeberg.org/DiamaneOS/infrastructure.git",
       "revision": null,
       "slug": "infrastructure",
-      "state": "planned",
+      "state": "active",
       "upstream_url": null
     },
     {
@@ -136,9 +137,9 @@
       "id": "installer",
       "publication": "public-source",
       "remote_url": "https://codeberg.org/DiamaneOS/installer.git",
-      "revision": "c1f9c866d1ee3ce93ea7c71f4e1b92ddec1ce767",
+      "revision": null,
       "slug": "installer",
-      "state": "pinned",
+      "state": "active",
       "upstream_url": null
     },
     {

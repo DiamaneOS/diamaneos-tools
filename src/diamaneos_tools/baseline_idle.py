@@ -1,4 +1,4 @@
-"""Staged verified-VBUS-off idle measurement for FP6-022.
+"""Staged verified-VBUS-off stock idle measurement.
 
 The start stage captures controlled state, performs the one explicitly
 authorized batterystats reset, and turns the display off.  A separate stage
@@ -1235,7 +1235,7 @@ def _repo_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="FP6-022 staged idle registrar")
+    parser = argparse.ArgumentParser(description="staged stock idle registrar")
     parser.add_argument("--config", default=str(_repo_root() / "config" / "baseline.json"))
     sub = parser.add_subparsers(dest="action", required=True)
     dry_parser = sub.add_parser("dry-run")

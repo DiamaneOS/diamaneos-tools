@@ -134,7 +134,7 @@
       "observed_on": "2026-09-13",
       "stock_build": "FP6.QREL.16.100.0",
       "observation": "A 4194304-byte synthetic file was written to a stock-formatted exFAT portable microSD volume reporting 127.993 GB, read back with identical SHA-256, deleted by its exact unique name and verified absent.",
-      "evidence_method": "Owner-confirmed stock portable format and mapped USB ADB commands"
+      "evidence_method": "Stock UI portable-format confirmation and mapped USB ADB commands"
     },
     {
       "component": "call-sms",
