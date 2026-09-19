@@ -38,10 +38,14 @@ unless their dedicated external meters were actually used.
 `config/build-environment.json` is the build-input authority for FP6-033. It
 binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,
 official signer-list hash, signer identity, tagged `default.xml`, canonical
-1,057-project commit map, host packages, external tools and project/device
-input hashes. The selected `2026091000` release is explicitly published for
-generic and other targets. A branch name, a GitHub verification badge or an
-existing download cache is not a substitute for the local SSH signature check.
+1,057-project commit map, the GPG-verified `repo` v2.65 tag object/commit, host
+packages, external tools and project/device input hashes. The Debian `repo`
+2.54 package is only the launcher; the self-updating implementation is a
+separate input and is pinned to commit
+`35bbf701d04de5c6a71937279bc3d16f6ce36808` instead of its moving `stable`
+branch. The selected `2026091000` release is explicitly published for generic
+and other targets. A branch name, a GitHub verification badge or an existing
+download cache is not a substitute for the local signature checks.
 
 The project-selected Debian 13 host is newer than the operating systems listed
 by the upstream build guide. This is a declared compatibility deviation. The
@@ -69,9 +73,11 @@ deploy/builder/sync-pinned-source /opt/diamaneos/tools
 ```
 
 The script downloads the current official signer list, verifies its pinned
-hash, initializes only `refs/tags/2026091000`, verifies the tag with OpenSSH,
-runs `repo sync -j8` without a fallback, and then invokes the full preflight.
-Any fetch, signature, revision, clean-tree or package mismatch terminates the
+hash, initializes only `refs/tags/2026091000`, fixes the internal `repo`
+implementation to the signed v2.65 tag commit, verifies the `repo` tag through
+the launcher's GPG keyring, verifies the GrapheneOS tag with OpenSSH, runs
+`repo sync -j8` without a fallback, and then invokes the full preflight. Any
+fetch, signature, revision, clean-tree or package mismatch terminates the
 operation. The initial recipe also requires an empty output root. Preserve the
 complete stdout/stderr and its SHA-256 as private build evidence.
 
