@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import fcntl
 import json
+import math
 import os
 from pathlib import Path
 import stat
@@ -246,10 +247,18 @@ def _wait_until_finish(run_dir: Path, state: dict, job: Path) -> None:
         status = baseline_idle.status(types.SimpleNamespace(run_dir=str(run_dir)))
         if status.get("host_rebooted"):
             raise SeriesError("tester rebooted during the idle interval", 4)
-        remaining = float(status.get("remaining_seconds", 0))
+        remaining = status.get("remaining_seconds")
+        ready = status.get("ready_to_reconnect")
+        if (status.get("status") != baseline_idle.STATUS_DISCONNECTED_RIG
+                or status.get("host_rebooted") is not False
+                or type(ready) is not bool
+                or type(remaining) not in (int, float)
+                or not math.isfinite(remaining) or remaining < 0):
+            raise SeriesError("idle interval status is missing or invalid", 5)
         state["remaining_seconds"] = remaining
         _write_state(job, state)
-        if remaining <= 0:
+        # The display countdown can round to zero before the finish gate opens.
+        if ready:
             return
         time.sleep(min(WAIT_POLL_SECONDS, max(0.1, remaining)))
 

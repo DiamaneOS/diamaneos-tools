@@ -142,6 +142,81 @@ class RechargeTest(unittest.TestCase):
             controller.status.assert_not_called()
 
 
+class FinishWaitTest(unittest.TestCase):
+    def test_rounded_zero_does_not_finish_before_duration_gate(self):
+        idle = baseline_idle_series.baseline_idle
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o750)
+            run_dir = root / "idle.partial"
+            run_dir.mkdir(mode=0o750)
+            (run_dir / "result.json").write_text(json.dumps({
+                "schema_version": 1,
+                "operation": "baseline-idle-measurement",
+                "run_id": "idle",
+                "status": idle.STATUS_DISCONNECTED_RIG,
+                "duration_seconds": 28800,
+                "disconnect": {
+                    "host_boottime_seconds": 111215.71,
+                    "finish_not_before_boottime_seconds": 140015.71,
+                    "host_boot_id_sha256": "a" * 64,
+                },
+            }), encoding="utf-8")
+            # First the displayed countdown rounds to zero. At the next
+            # sample, float subtraction is still just below the full duration.
+            # Neither sample may advance to the device-touching finish stage.
+            samples = [{"host_boottime_seconds": value,
+                        "host_boot_id_sha256": "a" * 64}
+                       for value in (140015.68, 140015.71, 140015.81)]
+            with mock.patch.object(idle, "_host_clock_sample",
+                                   side_effect=samples) as clock, \
+                    mock.patch.object(baseline_idle_series.time,
+                                      "sleep") as sleep, \
+                    mock.patch.object(baseline_idle_series, "_write_state"):
+                baseline_idle_series._wait_until_finish(run_dir, {}, root)
+            self.assertEqual(3, clock.call_count)
+            self.assertEqual([mock.call(0.1), mock.call(0.1)],
+                             sleep.call_args_list)
+
+    def test_wait_polls_at_bounded_intervals(self):
+        idle = baseline_idle_series.baseline_idle
+        statuses = [{"status": idle.STATUS_DISCONNECTED_RIG,
+                     "host_rebooted": False,
+                     "ready_to_reconnect": ready,
+                     "remaining_seconds": remaining}
+                    for ready, remaining in ((False, 90), (True, 0))]
+        with mock.patch.object(idle, "status", side_effect=statuses), \
+                mock.patch.object(baseline_idle_series.time, "sleep") as sleep, \
+                mock.patch.object(baseline_idle_series, "_write_state"):
+            baseline_idle_series._wait_until_finish(Path("run"), {}, Path("job"))
+        sleep.assert_called_once_with(30)
+
+    def test_wait_rejects_reboot_and_missing_or_invalid_interval_state(self):
+        idle = baseline_idle_series.baseline_idle
+        valid = {"status": idle.STATUS_DISCONNECTED_RIG,
+                 "host_rebooted": False, "ready_to_reconnect": False,
+                 "remaining_seconds": 0.0}
+        invalid = [{}, {**valid, "status": "HARNESS_ERROR"},
+                   {**valid, "host_rebooted": True},
+                   {**valid, "ready_to_reconnect": "false"},
+                   {**valid, "remaining_seconds": -1},
+                   {**valid, "remaining_seconds": float("nan")},
+                   {**valid, "remaining_seconds": float("inf")}]
+        invalid.extend({k: v for k, v in valid.items() if k != missing}
+                       for missing in valid)
+        for status in invalid:
+            with self.subTest(status=status), \
+                    mock.patch.object(idle, "status", return_value=status), \
+                    mock.patch.object(baseline_idle_series.time,
+                                      "sleep", side_effect=AssertionError(
+                                          "invalid state must not keep polling")) as sleep, \
+                    mock.patch.object(baseline_idle_series, "_write_state"):
+                with self.assertRaises(baseline_idle_series.SeriesError):
+                    baseline_idle_series._wait_until_finish(
+                        Path("run"), {}, Path("job"))
+                sleep.assert_not_called()
+
+
 class WorkerTest(unittest.TestCase):
     def test_worker_consumes_each_authorization_and_finishes_both_repeats(self):
         with tempfile.TemporaryDirectory() as directory:
