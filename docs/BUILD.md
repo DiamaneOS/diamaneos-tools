@@ -33,6 +33,94 @@ does not establish source compatibility, reproducibility or release
 eligibility. Whole-system AC power and acoustic results also remain unmeasured
 unless their dedicated external meters were actually used.
 
+## Pinned Android environment
+
+`config/build-environment.json` is the build-input authority for FP6-033. It
+binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,
+official signer-list hash, signer identity, tagged `default.xml`, canonical
+1,057-project commit map, host packages, external tools and project/device
+input hashes. The selected `2026091000` release is explicitly published for
+generic and other targets. A branch name, a GitHub verification badge or an
+existing download cache is not a substitute for the local SSH signature check.
+
+The project-selected Debian 13 host is newer than the operating systems listed
+by the upstream build guide. This is a declared compatibility deviation. The
+builder is not finally accepted until this exact environment completes an
+actual clean generic qualification build. That build proves only the host and
+generic source path; it does not prove that the unfinished FP6 target boots or
+meets the device requirements.
+
+The portable cold-environment check requires no source tree or private cache:
+
+```sh
+bin/diamaneos build preflight --inputs-only
+```
+
+It validates all committed input records and emits a declared build identity.
+Changing a tag, project-map pin, tool record, stock input or patch inventory
+changes that identity. It deliberately reports the generated FP6 device-input
+manifest as pending until the generator has produced and verified it.
+
+Run source synchronization as the unprivileged build identity from an exact,
+reviewed tools checkout:
+
+```sh
+deploy/builder/sync-pinned-source /opt/diamaneos/tools
+```
+
+The script downloads the current official signer list, verifies its pinned
+hash, initializes only `refs/tags/2026091000`, verifies the tag with OpenSSH,
+runs `repo sync -j8` without a fallback, and then invokes the full preflight.
+Any fetch, signature, revision, clean-tree or package mismatch terminates the
+operation. The initial recipe also requires an empty output root. Preserve the
+complete stdout/stderr and its SHA-256 as private build evidence.
+
+Before downloading source, the same script runs `--host-only` to enforce the
+exact package/tool pins, memory and free-space floors, separated workspace,
+empty clean-build output and live fan-guard preflight. A host mismatch therefore
+fails before consuming a large sync.
+
+The source revision uses a Yarn v1 lockfile. Prepare the declared Yarn
+`1.22.22` through the already pinned Corepack installation in a build-owned
+tool directory, then put only that directory ahead of the fixed system path:
+
+```sh
+install -d -m 0750 /var/lib/diamaneos-build/toolbin
+corepack enable --install-directory /var/lib/diamaneos-build/toolbin yarn
+corepack install --global yarn@1.22.22
+PATH=/var/lib/diamaneos-build/toolbin:/usr/local/bin:/usr/bin:/bin \
+  yarn --version
+```
+
+The preflight rejects another Yarn version. Its source lockfile hash and npm
+registry integrity are part of the environment record; dependency installation
+still uses the checked-in lockfile and must not rewrite it.
+
+The accepted workspace separates state as follows:
+
+- `src/grapheneos-2026091000` contains only the repo checkout;
+- `cache` contains reusable downloads and compiler cache, which may improve
+  performance but cannot define a release input;
+- `out/grapheneos-2026091000` contains the clean build intermediates and is
+  never imported from another host.
+
+Use `OUT_DIR` and `CCACHE_DIR` to enforce those boundaries. The first generic
+qualification run starts with an empty output root:
+
+```sh
+export OUT_DIR=/var/lib/diamaneos-build/out/grapheneos-2026091000
+export CCACHE_DIR=/var/lib/diamaneos-build/cache/ccache
+source build/envsetup.sh
+lunch sdk_phone64_x86_64-cur-userdebug
+m
+```
+
+Before this or any later build, the full preflight must pass and the builder
+fan-guard check must remain healthy. A clean generic result does not authorize
+production signing material on the online builder. The FP6 release-purpose
+preflight remains fail-closed until the generated exact-stock device-input
+manifest and FP6 product target are verified.
+
 ## Device-suite interface
 
 Device suites are reviewed JSON data under `tests/device/suites/`. They select

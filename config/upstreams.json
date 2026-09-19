@@ -1,17 +1,17 @@
 {
-  "note": "Source research proposal begun 2026-09-10 and extended by the FP6 source inventory on 2026-09-13 and the exact-stock/regional strategy on 2026-09-14. GrapheneOS, LineageOS and Fairphone public branches carry observed immutable SHAs via HTTPS API/Gitiles; signature, full repo-manifest verification and consumed-file open-source licence compliance still run at builder sync. No port-compatibility claim.",
+  "note": "Source research proposal begun 2026-09-10 and extended by the FP6 source inventory on 2026-09-13, the exact-stock/regional strategy on 2026-09-14 and the signed GrapheneOS release selection on 2026-09-19. The selected GrapheneOS tag, signer list and immutable 1,057-project map are pinned in config/build-environment.json. Full checkout verification, clean build and consumed-file open-source licence compliance still run on the builder. No port-compatibility claim.",
   "schema_version": 1,
   "sources": [
     {
-      "applicability": "Proposed maintained port-appropriate base. Compatibility vs FP6 Android-16 vendor UNPROVEN until device source inventory / FP6 product integration / early compatibility qualification build/device checks .",
+      "applicability": "Selected stable generic/other-target base for FP6 bring-up. Compatibility with the FP6 Android-16 vendor boundary remains UNPROVEN until FP6 product integration, clean build and device compatibility checks.",
       "authoritative_url": "https://github.com/GrapheneOS/platform_manifest",
-      "current_revision": "75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (branch 17 HEAD observed 2026-09-10 via GitHub API; committer Daniel Micay 2026-09-09) Preserved byte-identical in WORK_ROOT/manifest/default.xml (verified zero-diff 2026-09-10); per-fork HEAD SHAs in WORK_ROOT/manifest/upstream-pins-2026-09-10.json (123 grapheneos + 2 gitlab, all resolved).",
-      "discovery_method": "GitHub commits API 2026-09-10 + branch list; default.xml content fetched at this SHA (112460 bytes, 1057 projects, aosp default refs/tags/android-17.0.0_r1) into WORK_ROOT/manifest",
+      "current_revision": "Signed release tag 2026091000: tag object 6c939d124f3ea8dd545c1e4045f26359f501d80e, peeled manifest commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a, default.xml SHA-256 f5969292b4b68b5718e158d344e7e99b044814738889fef70311de1210d21f7f. The manifest has 1,057 projects pinned to full commits; canonical project-map SHA-256 31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803.",
+      "discovery_method": "Official GrapheneOS release/build pages plus direct tag fetch and local OpenSSH signature verification on 2026-09-19. The official release notes explicitly list 2026091000 for emulator, generic and other targets.",
       "id": "grapheneos-manifest",
       "public_verifier_ref": "GrapheneOS signed tags; keys sourced independently at sync",
-      "release_channel": "Maintained branch 17 (stable mapping TBD at sync)",
-      "support_evidence_ref": "https://grapheneos.org/releases (Stable 2026081300 observed); branch 17 active Sep 9 2026; 16-qpr2 stale Jun 22 2026",
-      "verification_method": "WEAKER (source observation only): unauthenticated HTTPS API observation; GitHub reports the commit unsigned. Full tag-signature check with independently sourced keys runs at builder sync per https://grapheneos.org/build (downloading-source-code); this SHA becomes the pin then."
+      "release_channel": "Stable 2026091000, Android 17",
+      "support_evidence_ref": "https://grapheneos.org/releases#2026091000 and https://grapheneos.org/build#stable-release",
+      "verification_method": "VERIFIED MANIFEST TAG: git verify-tag accepted the SSH signature for contact@grapheneos.org with ED25519 fingerprint SHA256:AhgHif0mei+9aNyKLfMZBh2yptHdw/aN7Tlh/j2eFwM using the official allowed_signers file (SHA-256 344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0). Full repo sync, clean-checkout verification and build remain builder evidence."
     },
     {
       "applicability": "Fallback only; staleness/support TBD. Not the proposal.",

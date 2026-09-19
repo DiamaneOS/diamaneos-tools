@@ -1,1 +1,6 @@
-{"patches": [], "schema_version": 1}
+{
+  "schema_version": 1,
+  "base_environment_id": "fp6-android17-grapheneos-2026091000-debian13-v1",
+  "base_project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",
+  "patches": []
+}

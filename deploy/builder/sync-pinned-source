@@ -1,0 +1,84 @@
+#!/bin/bash
+set -euo pipefail
+
+tools_root=${1:-}
+workspace_root=${2:-/var/lib/diamaneos-build}
+source_root=$workspace_root/src/grapheneos-2026091000
+cache_root=$workspace_root/cache
+output_root=$workspace_root/out/grapheneos-2026091000
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+expected_user=diamaneos-build
+tag=2026091000
+tag_object=6c939d124f3ea8dd545c1e4045f26359f501d80e
+peeled_commit=ac9f2fdf0badebea2f6ac6c3e93b125aba02116a
+allowed_signers_sha256=344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ -n $tools_root && -x $tools_root/bin/diamaneos ]] || \
+  fail "usage: sync-pinned-source <reviewed-tools-root> [workspace-root]"
+[[ $(id -un) == "$expected_user" ]] || fail "run as $expected_user"
+[[ $workspace_root == /* ]] || fail "workspace root must be absolute"
+[[ ! -L $workspace_root && ! -L $cache_root ]] || fail "workspace roots must not be symlinks"
+
+# The portable check binds this script invocation to the exact reviewed config
+# and inventories every non-runtime input before any network or source change.
+"$tools_root/bin/diamaneos" build preflight --inputs-only
+
+install -d -m 0750 "$source_root" "$cache_root/trust" "$output_root"
+if [[ ! -d $source_root/.repo ]]; then
+  [[ -z $(find "$source_root" -mindepth 1 -maxdepth 1 -print -quit) ]] || \
+    fail "new source root is not empty"
+fi
+
+PATH="$workspace_root/toolbin:/usr/local/bin:/usr/bin:/bin" \
+  "$tools_root/bin/diamaneos" build preflight \
+    --host-only \
+    --purpose generic-qualification \
+    --source-root "$source_root" \
+    --cache-root "$cache_root" \
+    --output-root "$output_root" \
+    --require-empty-output
+
+temporary_signers=$(mktemp "$cache_root/trust/.allowed-signers.XXXXXX")
+cleanup() {
+  if [[ -n ${temporary_signers:-} ]]; then
+    rm -f -- "$temporary_signers"
+  fi
+}
+trap cleanup EXIT
+curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+  https://grapheneos.org/allowed_signers -o "$temporary_signers"
+printf '%s  %s\n' "$allowed_signers_sha256" "$temporary_signers" | sha256sum -c -
+chmod 0640 "$temporary_signers"
+mv -f -- "$temporary_signers" "$allowed_signers"
+temporary_signers=
+
+cd "$source_root"
+repo init -u https://github.com/GrapheneOS/platform_manifest.git \
+  -b "refs/tags/$tag"
+
+manifest_git=$source_root/.repo/manifests
+[[ $(git -C "$manifest_git" rev-parse "$tag^{tag}") == "$tag_object" ]] || \
+  fail "manifest tag object mismatch"
+[[ $(git -C "$manifest_git" rev-parse "$tag^{}") == "$peeled_commit" ]] || \
+  fail "manifest peeled commit mismatch"
+git -C "$manifest_git" -c "gpg.ssh.allowedSignersFile=$allowed_signers" \
+  verify-tag "$tag"
+
+# No fallback branch, partial success path or stale checkout is accepted.
+repo sync -j8
+
+PATH="$workspace_root/toolbin:$PATH" \
+  "$tools_root/bin/diamaneos" build preflight \
+    --purpose generic-qualification \
+    --source-root "$source_root" \
+    --cache-root "$cache_root" \
+    --output-root "$output_root" \
+    --require-empty-output \
+    --allowed-signers "$allowed_signers"
+
+printf 'PINNED_SOURCE_SYNC=PASS\n'
