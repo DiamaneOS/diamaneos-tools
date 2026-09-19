@@ -9,6 +9,18 @@ targets Fairphone 6 and uses GrapheneOS as its upstream OS base.
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
+## Licence
+
+Original DiamaneOS code, documentation and artwork in this repository are
+licensed under [Apache-2.0](LICENSE), except where another licence is identified.
+Bundled Lucide icons retain their ISC licence and Feather MIT notice;
+Instrument Sans fonts retain the SIL Open Font License 1.1. See [NOTICE](NOTICE)
+for attribution and the locations of the complete upstream licence texts.
+
+The copyright licence is separate from use of the DiamaneOS name and logo as
+trademarks; see section 6 of the Apache licence. Referenced upstream projects
+and externally installed dependencies retain their own licences.
+
 ## Workspace and tools
 
 Clone into any directory. Commands in this repository are run from its root unless stated otherwise. `WORK_ROOT` in repository maps is a configurable parent of related checkouts, not a required path on a maintainer's computer. `TOOLS_ROOT` is this checkout; `PRIVATE_ROOT` is a caller-selected directory outside public repositories for raw device evidence. `OFFLINE_ROOT` refers to isolated release-signing storage and is not a development checkout.

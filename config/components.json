@@ -4,11 +4,11 @@
       "component": "GrapheneOS base tree",
       "decision_owner": "designated project maintainer",
       "distribution_form": "source pin + downstream delta (source research / manifest integration)",
-      "evidence": "Branch-17 HEAD 75ae9fb observed 2026-09-10; default.xml preserved byte-identical + pins artifact",
+      "evidence": "platform_manifest 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 contains COPPERHEAD-NOTICE, GLOBAL-PREUPLOAD.cfg, config.yml and default.xml. Its notice is preserved under manifest/third_party/grapheneos-platform-manifest/; manifest/UPSTREAM-LICENSING.md records the exact scope and evidence gap.",
       "id": "grapheneos-base",
-      "licence": "Apache-2.0 (project-stated; platform_manifest carries no root LICENSE file — notice set confirmed at sync)",
+      "licence": "Mixed, per-project and per-file. The pinned platform_manifest snapshot has no explicit licence file or default.xml licence header; exact identification of that imported manifest remains unresolved. The DiamaneOS Apache-2.0 default applies only to original project contributions.",
       "modifications": "Minimal diamaneos.xml delta only",
-      "notices_obligation": "Preserve upstream notices; record pins; no rebranding of unmodified mirrors",
+      "notices_obligation": "Preserve the imported manifest notice and upstream attribution; resolve its exact licence from applicable upstream evidence. Independently inventory licences/notices of the source files actually fetched and consumed.",
       "owner_task": "FP6-007",
       "revision": "branch-17 @ 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (observed 2026-09-10; frozen manifest in WORK_ROOT/manifest)",
       "source_url": "https://github.com/GrapheneOS/platform_manifest",
@@ -115,16 +115,16 @@
     {
       "component": "DiamaneOS owned code",
       "decision_owner": "designated project maintainer",
-      "distribution_form": "Apache-2.0 source",
-      "evidence": "Project default; per-file notices as added",
+      "distribution_form": "Apache-2.0 source, documentation and original project artwork; identified upstream material retains its own licences",
+      "evidence": "Standard Apache-2.0 LICENSE and project NOTICE files are present in tools, manifest, installer and infrastructure; README sections identify scope and exceptions. tools/NOTICE identifies the bundled Lucide and Instrument Sans notices.",
       "id": "diamaneos-owned",
       "licence": "Apache-2.0",
       "modifications": "N/A (origin)",
-      "notices_obligation": "DCO sign-off; retain imported notices",
+      "notices_obligation": "Distribute LICENSE and applicable NOTICE/attribution; preserve separate imported licence texts and notices. Source contributions retain their actual copyright ownership.",
       "owner_task": "FP6-002",
-      "revision": "tools@8b5641a (observed; advances with repo)",
+      "revision": "Repository revision containing the applicable LICENSE, NOTICE and source files",
       "source_url": "https://codeberg.org/DiamaneOS/diamaneos-tools",
-      "status": "needs-review"
+      "status": "repository-default-documented"
     },
     {
       "component": "Fairphone FP6 Android 16 device, kernel, module and device-tree sources",
@@ -153,6 +153,34 @@
       "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
       "source_url": "https://github.com/LineageOS/android_device_fairphone_FP6",
       "status": "licence-audit-required-at-consumption"
+    },
+    {
+      "component": "Lucide prototype icon runtime",
+      "decision_owner": "designated project maintainer",
+      "distribution_form": "Unmodified bundled JavaScript runtime and complete upstream licence text",
+      "evidence": "Bundled runtime and licence are byte-identical to package/dist/umd/lucide.min.js and package/LICENSE in the lucide 1.8.0 npm archive. The licence text includes the Feather-derived icon list and MIT notice. Attribution index: NOTICE.",
+      "id": "prototype-lucide",
+      "licence": "ISC; MIT notice applies to the listed Feather-derived icons",
+      "modifications": "None",
+      "notices_obligation": "Retain the complete design/prototypes/assets/lucide-LICENSE.txt with redistributed runtime or derived icons, including the Lucide and Feather copyright and permission notices.",
+      "owner_task": "FP6-006, FP6-012",
+      "revision": "lucide npm 1.8.0",
+      "source_url": "https://registry.npmjs.org/lucide/-/lucide-1.8.0.tgz",
+      "status": "bundled-licence-verified"
+    },
+    {
+      "component": "Instrument Sans branding fonts",
+      "decision_owner": "designated project maintainer",
+      "distribution_form": "Bundled Regular/Medium TTF and variable WOFF2 font files with upstream licence and authors file",
+      "evidence": "Bundled files match the hashes in design/branding/lift/fonts/source.json; OFL.txt is byte-identical to the pinned upstream revision. Attribution index: NOTICE.",
+      "id": "branding-instrument-sans",
+      "licence": "OFL-1.1",
+      "modifications": "None to bundled font files; the brand generator uses glyph outlines in original artwork",
+      "notices_obligation": "Keep design/branding/lift/fonts/OFL.txt and upstream copyright/author information with redistributed font software; any future font modifications must follow the OFL conditions.",
+      "owner_task": "FP6-006, FP6-012",
+      "revision": "7fa22308a3d0c94ee2b3cd537a1196b65db34a3e",
+      "source_url": "https://github.com/Instrument/instrument-sans",
+      "status": "bundled-licence-verified"
     }
   ],
   "schema_version": 1
