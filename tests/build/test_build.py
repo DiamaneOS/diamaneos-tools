@@ -73,7 +73,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "moving or non-commit"):
             build.parse_project_map(xml)
 
-    def test_nested_source_and_output_are_rejected(self):
+    def test_declared_source_local_output_is_accepted(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / "source"
@@ -82,15 +82,35 @@ class BuildEnvironmentTests(unittest.TestCase):
             source.mkdir()
             cache.mkdir()
             output.mkdir()
-            with self.assertRaisesRegex(build.BuildError, "must not be nested"):
-                build.verify_workspace(self.config, source, cache, output)
+            config = copy.deepcopy(self.config)
+            config["workspace"]["source_subdirectory"] = "source"
+            config["workspace"]["output_subdirectory"] = "source/out"
+            config["host"]["minimum_source_free_bytes"] = 1
+            config["host"]["minimum_build_free_bytes"] = 1
+            observed = build.verify_workspace(config, source, cache, output)
+            self.assertEqual(str(output.resolve()), observed["output_root"])
+
+    def test_runtime_output_must_match_declared_source_local_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            cache = root / "cache"
+            output = root / "external-output"
+            source.mkdir()
+            cache.mkdir()
+            output.mkdir()
+            config = copy.deepcopy(self.config)
+            config["workspace"]["source_subdirectory"] = "source"
+            config["workspace"]["output_subdirectory"] = "source/out"
+            with self.assertRaisesRegex(build.BuildError, "source-local"):
+                build.verify_workspace(config, source, cache, output)
 
     def test_clean_build_rejects_existing_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / "source"
             cache = root / "cache"
-            output = root / "output"
+            output = source / "out"
             source.mkdir()
             cache.mkdir()
             output.mkdir()

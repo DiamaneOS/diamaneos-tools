@@ -119,10 +119,12 @@ unset OFFICIAL_BUILD BUILD_DATETIME BUILD_NUMBER
 cd "$source_root"
 relative_out=$(realpath --relative-to="$source_root" "$output_root")
 [[ $relative_out != /* ]] || fail 'build-facing output path is not relative'
+[[ $relative_out != .. && $relative_out != ../* ]] || \
+  fail 'build-facing output path escapes the source root'
 [[ $(realpath -m "$source_root/$relative_out") == "$output_root" ]] || \
   fail 'relative output path does not resolve to the declared output root'
-# The pinned Siso resolves its config repository relative to the source exec
-# root. Keep the physical output tree separate while exporting a relative path.
+# Android's Soong and Siso paths are defined relative to the source execution
+# root. Use the standard source-local out directory declared by the environment.
 export OUT_DIR=$relative_out
 
 repo manifest -r >"$partial/resolved-manifest.xml"

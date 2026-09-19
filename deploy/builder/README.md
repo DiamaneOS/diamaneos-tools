@@ -247,11 +247,12 @@ filters that prevent nsjail from constructing its own sandbox.
 and all descendants. Changes to these controls require an actual nsjail launch
 on the supported host OS; unit-file syntax alone is insufficient.
 
-The physical output directory remains outside the source checkout. The runner
-exports it as a path relative to the source root because the pinned Siso
-release requires its generated configuration repository to be addressed
-relative to the source execution root. This is a path representation
-constraint, not permission to mix source and output trees.
+The output directory is Android's standard source-root `out/` path. The runner
+exports it relative to the source root because Soong rejects parent-relative
+paths and the pinned Siso resolves its generated configuration repository from
+the source execution root. The clean-build guard requires this directory to be
+empty; generated output is never treated as source or imported from another
+host.
 
 ## Remote-power verification
 
