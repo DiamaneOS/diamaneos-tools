@@ -1,0 +1,43 @@
+[Unit]
+Description=DiamaneOS clean generic Android qualification build
+Requires=diamaneos-builder-source-sync.service
+After=diamaneos-builder-source-sync.service
+ConditionPathIsSymbolicLink=/opt/diamaneos/tools
+
+[Service]
+Type=oneshot
+User=diamaneos-build
+Group=diamaneos-build
+WorkingDirectory=/var/lib/diamaneos-build
+Environment=HOME=/var/lib/diamaneos-build
+Environment=COREPACK_HOME=/var/lib/diamaneos-build/.cache/corepack
+Environment=PATH=/var/lib/diamaneos-build/toolbin:/opt/nodejs/v24.21.0/bin:/usr/local/bin:/usr/bin:/bin
+Environment=DIAMANEOS_TOOLS_ROOT=/opt/diamaneos/tools
+EnvironmentFile=/etc/diamaneos/builder-generic-qualification.env
+UMask=0027
+ExecStart=/opt/diamaneos/tools/deploy/builder/run-generic-qualification
+TimeoutStartSec=infinity
+Restart=no
+RemainAfterExit=yes
+StandardOutput=append:/var/log/diamaneos-builder/generic-qualification.log
+StandardError=append:/var/log/diamaneos-builder/generic-qualification.log
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+# nsjail creates its own mount namespace and remounts its bind-mounted root.
+# ProtectSystem=strict blocks that remount; full keeps /usr, /boot and /etc
+# read-only without preventing the nested sandbox from starting.
+ProtectSystem=full
+ProtectHome=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+# nsjail must create and configure its own mount, proc, UTS and network
+# namespaces. Avoid overlapping systemd namespace filters here; the cgroup BPF
+# policy below denies IP traffic for the service and every descendant.
+IPAddressDeny=any
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+LimitNOFILE=1048576

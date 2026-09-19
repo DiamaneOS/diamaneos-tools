@@ -5,7 +5,7 @@ untrusted OS compilation. It is not a release signer: never place production
 private keys, signing tokens, recovery material or offline-signer credentials
 on it.
 
-## Reference environment
+## Portable contract and reference environment
 
 - x86_64 Debian 13 installed in UEFI mode
 - headless `multi-user.target`
@@ -13,9 +13,18 @@ on it.
 - a separate `diamaneos-build` identity with neither SSH nor `sudo`
 - explicitly scheduled system updates rather than unattended package changes
 
-GrapheneOS currently lists Debian 12, Ubuntu 24.04/24.10 and Arch Linux as
-supported build hosts. Debian 13 use is a project-selected compatibility
-deviation and requires an actual clean-build result before host acceptance.
+These are software and isolation requirements, not a workstation model. Any
+x86_64 host may be used when it meets the memory and storage floors in
+`config/build-environment.json`, supplies a fail-closed thermal-safety check,
+and completes the same clean generic build. ECC, NVMe, Wake-on-LAN and firmware
+AC-loss recovery improve the reference deployment but are not silently treated
+as universal build requirements.
+
+The pinned environment record declares Debian 13 as a project-selected
+compatibility deviation. It therefore requires an actual clean-build result
+before host acceptance. Exact package versions are verified by preflight; a
+future long-term rebuild also needs an independently retained Debian package
+source or snapshot, which is not yet supplied by this repository.
 
 ## Bootstrap
 
@@ -26,11 +35,20 @@ new host and invoke it once from a verified console or SSH session:
 sudo ./bootstrap-debian13 builder-admin
 ```
 
+Wake-on-LAN is optional by default. A deployment which requires it must opt in
+and will fail bootstrap if a usable active Ethernet profile cannot be
+configured:
+
+```sh
+sudo DIAMANEOS_REQUIRE_WOL=1 ./bootstrap-debian13 builder-admin
+```
+
 The bootstrap:
 
 - updates Debian and installs distribution-owned GrapheneOS/AOSP host
   dependencies and hardware diagnostics;
-- enables synchronized time and persistent magic-packet Wake-on-LAN;
+- enables synchronized time and, when requested or available, configures
+  persistent magic-packet Wake-on-LAN;
 - creates protected source, output and cache directories under
   `/var/lib/diamaneos-build`;
 - hardens SSH after requiring an existing management public key;
@@ -46,6 +64,28 @@ simulation. It also installs the exact Node.js distribution described below.
 The build identity has a usable shell solely for locally delegated build
 processes. It is excluded by SSH `AllowUsers`, has no authorized key and is not
 a member of `sudo`.
+
+## Reviewed tools deployment
+
+Deploy a detached, root-owned tools checkout. The directory name and both
+service environment files bind the exact reviewed commit; changing the moving
+`main` branch cannot change an in-progress or scheduled build.
+
+```sh
+TOOLS_COMMIT=REPLACE_WITH_REVIEWED_40_HEX_COMMIT
+sudo git clone --no-checkout \
+  https://codeberg.org/DiamaneOS/diamaneos-tools.git \
+  "/opt/diamaneos/tools-$TOOLS_COMMIT"
+sudo git -C "/opt/diamaneos/tools-$TOOLS_COMMIT" checkout --detach "$TOOLS_COMMIT"
+sudo git -C "/opt/diamaneos/tools-$TOOLS_COMMIT" fsck --full
+sudo chown -R root:root "/opt/diamaneos/tools-$TOOLS_COMMIT"
+sudo chmod -R go-w "/opt/diamaneos/tools-$TOOLS_COMMIT"
+sudo ln -sfn "tools-$TOOLS_COMMIT" /opt/diamaneos/tools
+```
+
+Verify the selected commit under the project's trusted maintainer-key policy
+before installing it. A commit ID protects against branch movement but does not
+by itself authenticate who selected or produced the commit.
 
 ## Dependency boundary
 
@@ -79,7 +119,7 @@ Do not globally activate whatever Yarn release Corepack happens to resolve.
 The Android source revision must bind its Yarn release before vendor
 generation, so finalization reports `yarn=SOURCE_PIN_REQUIRED`.
 
-## Thermal and power acceptance
+## Portable thermal-safety interface
 
 Do not accept a builder only because a short workload exits successfully.
 Record idle and sustained-load temperatures, fan response, memory and storage
@@ -91,6 +131,17 @@ Any Linux fan policy must be fail-safe, operate only verified installed fan
 channels and survive service failure at a safe speed. Validate it against a
 temperature-bounded load before enabling unattended builds. Keep firmware
 power-loss recovery and Wake-on-LAN behavior as separate checks.
+
+Every build host must provide an absolute, root-controlled executable which
+takes no arguments and exits zero only when current sensors, cooling policy and
+cooling response are safe for a build. Configure its path with
+`DIAMANEOS_THERMAL_CHECK`; build preflight executes it with a 30-second bound.
+The executable may validate a firmware-controlled curve, a BMC policy or a
+host-specific Linux controller. Missing, stale or uncertain state must exit
+non-zero. This small interface is the portable dependency; no public build
+entry point may assume Dell fan names.
+
+## Dell Precision reference adapter
 
 On the qualified Dell builder, the firmware automatic curve approached the
 CPU thermal limit under the intended all-core workload. The bounded
@@ -109,16 +160,20 @@ point must require a fresh healthy status and acceptable fan tachometers
 before starting work. A failed guard or low-RPM result blocks the build; it
 is not an advisory warning.
 
-Invoke `diamaneos-builder-fan-check` immediately before accepting a build
-lease or starting a build process. It validates service activity, status
+On this qualified adapter, invoke `diamaneos-builder-fan-check` immediately
+before accepting a build lease or starting a build process. It validates service activity, status
 freshness, package temperature, selected mode and the mode-specific fan RPM
 floor. The later build-job wrapper must call this same executable rather than
 reimplementing or bypassing the policy.
 
-## Resource qualification
+## Reference-hardware resource qualification
 
-Run `qualify-builder` only after the fan guard, build identity, time service
-and Wake-on-LAN profile are installed. It records CPU, ECC-memory and NVMe
+`qualify-builder` records the acceptance profile of the current high-capacity
+Dell reference host; it is not the portable minimum and must not be copied to
+different hardware as though fan channels, worker count or storage controller
+names were universal. Run it only after the Dell fan guard, build identity,
+time service and any required Wake-on-LAN profile are installed. It records
+CPU, ECC-memory and NVMe
 inventory; verifies at least 90 GiB RAM and one decimal terabyte of free build
 workspace; exercises 48 CPU workers and an 80 GiB verified memory workload;
 checks EDAC counters; runs an NVMe short self-test; and measures a disposable
@@ -143,15 +198,71 @@ An accepted report ends with `BUILDER_RESOURCE_QUALIFICATION=PASS`. Preserve
 the complete report privately with its SHA-256; a successful exit alone is not
 the evidence.
 
+## Generic build qualification
+
+The committed `run-generic-qualification` entry point performs the clean
+development build as the unprivileged build identity. Install the accompanying
+service only from the same reviewed tools revision and write its exact 40-hex
+commit to `/etc/diamaneos/builder-generic-qualification.env` as:
+
+```text
+DIAMANEOS_EXPECTED_TOOLS_COMMIT=<reviewed-tools-commit>
+DIAMANEOS_THERMAL_CHECK=/absolute/path/to/qualified-thermal-check
+```
+
+Keep the file root-owned and mode `0644`; it contains no secret. The runner
+verifies that `/opt/diamaneos/tools` resolves to that exact revision, repeats
+the full pinned-input preflight, requires an empty output root and invokes the
+configured thermal-safety check before the official x86_64 generic target. The
+unit denies network access during compilation and writes only to the declared
+build and log roots.
+
+Install the source-sync and build units from the same exact checkout. Copy
+`builder-service.env.example` to both named environment files, replace its
+placeholders with the reviewed commit and the host's qualified thermal check,
+then keep both files root-owned and mode `0644`.
+
+```sh
+sudo install -o root -g root -m 0644 \
+  /opt/diamaneos/tools/deploy/builder/diamaneos-builder-source-sync.service \
+  /etc/systemd/system/
+sudo install -o root -g root -m 0644 \
+  /opt/diamaneos/tools/deploy/builder/diamaneos-builder-generic-qualification.service \
+  /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start diamaneos-builder-source-sync.service
+sudo systemctl start diamaneos-builder-generic-qualification.service
+```
+
+Neither unit is intended to start a build automatically at boot. Source sync
+has network access; the build unit requires its successful result and denies
+network access during compilation.
+
+The build unit's systemd sandbox is deliberately composed with Android's
+pinned nsjail rather than layered blindly on top of it. It keeps the strongest
+verified read-only system mode compatible with nsjail's nested root remount,
+does not add overlapping systemd mount, `/proc`, hostname or address-family
+filters that prevent nsjail from constructing its own sandbox.
+`IPAddressDeny=any` remains the cgroup-enforced no-IP boundary for the service
+and all descendants. Changes to these controls require an actual nsjail launch
+on the supported host OS; unit-file syntax alone is insufficient.
+
+The physical output directory remains outside the source checkout. The runner
+exports it as a path relative to the source root because the pinned Siso
+release requires its generated configuration repository to be addressed
+relative to the source execution root. This is a path representation
+constraint, not permission to mix source and output trees.
+
 ## Remote-power verification
 
-Wake-on-LAN is a real powered-off test, not only an `nmcli` configuration
-check. Record the boot ID, power the host off while leaving Ethernet and AC
+When Wake-on-LAN is required by a deployment, it is a real powered-off test,
+not only an `nmcli` configuration check. Record the boot ID, power the host off
+while leaving Ethernet and AC
 connected, send a magic packet from an authorized host on the LAN, and wait up
 to three minutes for SSH. On this class of workstation, a timeout shorter than
 the observed firmware and boot interval can produce a false failure. After SSH
-returns, require a changed boot ID, zero failed units, active SSH/time sync/fan
-guard, and the expected toolchain.
+returns, require a changed boot ID, zero failed units, active SSH/time sync,
+a passing thermal-safety check, and the expected toolchain.
 
 If packets were sent from more than one source before the host became
 reachable, record Wake-on-LAN as successful without claiming which path caused

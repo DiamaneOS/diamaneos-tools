@@ -1,0 +1,213 @@
+#!/bin/bash
+set -euo pipefail
+
+workspace_root=${DIAMANEOS_BUILD_ROOT:-/var/lib/diamaneos-build}
+tools_link=${DIAMANEOS_TOOLS_ROOT:-/opt/diamaneos/tools}
+expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-thermal-check}
+expected_user=diamaneos-build
+started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+run_id=generic-qualification-$(date -u +%Y%m%dT%H%M%SZ)
+evidence_root=$workspace_root/evidence/generic-qualification
+partial=$evidence_root/$run_id.partial
+final=$evidence_root/$run_id
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+write_failure() {
+  exit_code=$?
+  trap - EXIT
+  if [[ -d $partial ]]; then
+    ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    python3 - "$partial/result.json" "$run_id" "$started_at" "$ended_at" \
+      "$exit_code" <<'PY'
+import json
+import os
+import sys
+
+path, run_id, started, ended, exit_code = sys.argv[1:]
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as stream:
+    json.dump({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": "FAIL",
+        "started_at_utc": started,
+        "ended_at_utc": ended,
+        "exit_code": int(exit_code),
+    }, stream, sort_keys=True, indent=2)
+    stream.write("\n")
+os.replace(temporary, path)
+PY
+    mv -- "$partial" "$evidence_root/$run_id.failed"
+    printf 'GENERIC_QUALIFICATION_BUILD=FAIL\n' >&2
+    printf 'result=%s\n' "$evidence_root/$run_id.failed/result.json" >&2
+  fi
+  exit "$exit_code"
+}
+trap write_failure EXIT
+
+[[ $(id -un) == "$expected_user" ]] || fail "run as $expected_user"
+[[ $workspace_root == /* && ! -L $workspace_root ]] || \
+  fail 'workspace root must be an absolute non-symlink directory'
+[[ $expected_tools_commit =~ ^[0-9a-f]{40}$ ]] || \
+  fail 'expected reviewed tools commit is missing or invalid'
+[[ -x $tools_link/bin/diamaneos ]] || fail 'reviewed tools deployment is unavailable'
+tools_root=$(readlink -f "$tools_link")
+[[ $tools_root == "/opt/diamaneos/tools-$expected_tools_commit" ]] || \
+  fail 'reviewed tools symlink target mismatch'
+observed_tools_commit=$(git -c safe.directory="$tools_root" \
+  -C "$tools_root" rev-parse HEAD)
+[[ $observed_tools_commit == "$expected_tools_commit" ]] || \
+  fail 'reviewed tools commit mismatch'
+[[ -z $(git -c safe.directory="$tools_root" -C "$tools_root" \
+  status --porcelain=v1 --untracked-files=all) ]] || \
+  fail 'reviewed tools checkout is dirty'
+[[ -z $(find "$tools_root" -xdev -perm /022 -print -quit) ]] || \
+  fail 'reviewed tools checkout is writable by group or other'
+
+mapfile -t declared < <(python3 - "$tools_root/config/build-environment.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    config = json.load(stream)
+workspace = config["workspace"]
+print(workspace["source_subdirectory"])
+print(workspace["cache_subdirectory"])
+print(workspace["output_subdirectory"])
+print(config["build"]["generic_qualification_target"])
+PY
+)
+[[ ${#declared[@]} -eq 4 ]] || fail 'declared build paths or target are incomplete'
+source_root=$workspace_root/${declared[0]}
+cache_root=$workspace_root/${declared[1]}
+output_root=$workspace_root/${declared[2]}
+expected_target=${declared[3]}
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+
+[[ -d $source_root/.repo && -f $allowed_signers ]] || \
+  fail 'verified source sync is incomplete'
+[[ -d $output_root && ! -L $output_root ]] || \
+  fail 'declared output root is unavailable'
+[[ -z $(find "$output_root" -mindepth 1 -maxdepth 1 -print -quit) ]] || \
+  fail 'clean qualification output root is not empty'
+
+install -d -m 0750 "$evidence_root"
+mkdir -m 0750 "$partial"
+
+export HOME=$workspace_root
+export COREPACK_HOME=$workspace_root/.cache/corepack
+export PATH=$workspace_root/toolbin:/opt/nodejs/v24.21.0/bin:/usr/local/bin:/usr/bin:/bin
+export CCACHE_DIR=$cache_root/ccache
+export TMPDIR=$workspace_root/tmp
+install -d -m 0750 "$CCACHE_DIR" "$TMPDIR"
+unset OFFICIAL_BUILD BUILD_DATETIME BUILD_NUMBER
+
+"$tools_root/bin/diamaneos" build preflight \
+  --purpose generic-qualification \
+  --source-root "$source_root" \
+  --cache-root "$cache_root" \
+  --output-root "$output_root" \
+  --thermal-check "$thermal_check" \
+  --require-empty-output \
+  --allowed-signers "$allowed_signers" >"$partial/preflight.json"
+
+cd "$source_root"
+relative_out=$(realpath --relative-to="$source_root" "$output_root")
+[[ $relative_out != /* ]] || fail 'build-facing output path is not relative'
+[[ $(realpath -m "$source_root/$relative_out") == "$output_root" ]] || \
+  fail 'relative output path does not resolve to the declared output root'
+# The pinned Siso resolves its config repository relative to the source exec
+# root. Keep the physical output tree separate while exporting a relative path.
+export OUT_DIR=$relative_out
+
+repo manifest -r >"$partial/resolved-manifest.xml"
+sha256sum "$partial/preflight.json" "$partial/resolved-manifest.xml" \
+  >"$partial/prebuild.sha256"
+
+source build/envsetup.sh
+lunch "$expected_target"
+[[ ${TARGET_PRODUCT:-} == sdk_phone64_x86_64 ]] || \
+  fail 'selected target product mismatch'
+[[ ${TARGET_BUILD_VARIANT:-} == userdebug ]] || \
+  fail 'selected target variant mismatch'
+product_out=$(realpath -m "$ANDROID_PRODUCT_OUT")
+case $product_out in
+  "$output_root"/*) ;;
+  *) fail 'Android product output escaped the declared output root' ;;
+esac
+printf '%s\n' "$product_out" >"$partial/android-product-out.txt"
+printf '%s\n' "$relative_out" >"$partial/out-dir-export.txt"
+printf 'GENERIC_QUALIFICATION_BUILD=STARTED\n'
+printf 'run_id=%s\n' "$run_id"
+printf 'target=%s\n' "$expected_target"
+m
+
+"$tools_root/bin/diamaneos" build preflight \
+  --purpose generic-qualification \
+  --source-root "$source_root" \
+  --cache-root "$cache_root" \
+  --output-root "$output_root" \
+  --thermal-check "$thermal_check" \
+  --allowed-signers "$allowed_signers" >"$partial/postflight.json"
+
+find "$product_out" -maxdepth 1 -type f -print0 | sort -z | \
+  xargs -0 -r sha256sum >"$partial/product-out.sha256"
+[[ -s $partial/product-out.sha256 ]] || fail 'build produced no top-level product files'
+sha256sum "$partial/postflight.json" "$partial/product-out.sha256" \
+  "$partial/out-dir-export.txt" >"$partial/postbuild.sha256"
+
+ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+python3 - "$partial/result.json" "$run_id" "$started_at" "$ended_at" \
+  "$expected_tools_commit" "$expected_target" "$product_out" <<'PY'
+import hashlib
+import json
+import os
+import sys
+
+(path, run_id, started, ended, tools_commit, target, product_out) = sys.argv[1:]
+root = os.path.dirname(path)
+
+def digest(name):
+    value = hashlib.sha256()
+    with open(os.path.join(root, name), "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+with open(os.path.join(root, "out-dir-export.txt"), encoding="utf-8") as stream:
+    out_dir_export = stream.read().strip()
+
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as stream:
+    json.dump({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": "PASS",
+        "started_at_utc": started,
+        "ended_at_utc": ended,
+        "tools_commit": tools_commit,
+        "target": target,
+        "build_kind": "generic-development-host-qualification",
+        "production_signing_material_used": False,
+        "android_product_out": product_out,
+        "out_dir_export": out_dir_export,
+        "preflight_sha256": digest("preflight.json"),
+        "resolved_manifest_sha256": digest("resolved-manifest.xml"),
+        "postflight_sha256": digest("postflight.json"),
+        "product_hash_list_sha256": digest("product-out.sha256"),
+    }, stream, sort_keys=True, indent=2)
+    stream.write("\n")
+os.replace(temporary, path)
+PY
+
+sha256sum "$partial/result.json" >"$partial/result.json.sha256"
+mv -- "$partial" "$final"
+trap - EXIT
+printf 'GENERIC_QUALIFICATION_BUILD=PASS\n'
+printf 'result=%s\n' "$final/result.json"
+cat "$final/result.json.sha256"
