@@ -3,6 +3,7 @@ set -euo pipefail
 
 tools_root=${1:-}
 workspace_root=${2:-/var/lib/diamaneos-build}
+expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
 source_root=$workspace_root/src/grapheneos-2026091000
 cache_root=$workspace_root/cache
 output_root=$workspace_root/out/grapheneos-2026091000
@@ -16,6 +17,7 @@ repo_tool_url=https://gerrit.googlesource.com/git-repo
 repo_tool_tag=v2.65
 repo_tool_tag_object=2f04a7d4d2bd16170285b9b971227e8151d49f78
 repo_tool_commit=35bbf701d04de5c6a71937279bc3d16f6ce36808
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-thermal-check}
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -25,6 +27,18 @@ fail() {
 [[ -n $tools_root && -x $tools_root/bin/diamaneos ]] || \
   fail "usage: sync-pinned-source <reviewed-tools-root> [workspace-root]"
 [[ $(id -un) == "$expected_user" ]] || fail "run as $expected_user"
+[[ $expected_tools_commit =~ ^[0-9a-f]{40}$ ]] || \
+  fail "DIAMANEOS_EXPECTED_TOOLS_COMMIT is missing or invalid"
+tools_root=$(readlink -f "$tools_root")
+observed_tools_commit=$(git -c safe.directory="$tools_root" \
+  -C "$tools_root" rev-parse HEAD)
+[[ $observed_tools_commit == "$expected_tools_commit" ]] || \
+  fail "reviewed tools commit mismatch"
+[[ -z $(git -c safe.directory="$tools_root" -C "$tools_root" \
+  status --porcelain=v1 --untracked-files=all) ]] || \
+  fail "reviewed tools checkout is dirty"
+[[ -z $(find "$tools_root" -xdev -perm /022 -print -quit) ]] || \
+  fail "reviewed tools checkout is writable by group or other"
 [[ $workspace_root == /* ]] || fail "workspace root must be absolute"
 [[ ! -L $workspace_root && ! -L $cache_root ]] || fail "workspace roots must not be symlinks"
 
@@ -45,6 +59,7 @@ PATH="$workspace_root/toolbin:/usr/local/bin:/usr/bin:/bin" \
     --source-root "$source_root" \
     --cache-root "$cache_root" \
     --output-root "$output_root" \
+    --thermal-check "$thermal_check" \
     --require-empty-output
 
 temporary_signers=$(mktemp "$cache_root/trust/.allowed-signers.XXXXXX")
@@ -96,6 +111,7 @@ PATH="$workspace_root/toolbin:$PATH" \
     --source-root "$source_root" \
     --cache-root "$cache_root" \
     --output-root "$output_root" \
+    --thermal-check "$thermal_check" \
     --require-empty-output \
     --allowed-signers "$allowed_signers"
 

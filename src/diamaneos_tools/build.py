@@ -273,7 +273,7 @@ def _read_os_release(path=Path("/etc/os-release")) -> dict:
     return result
 
 
-def verify_host(config: dict, fan_check: Path) -> dict:
+def verify_host(config: dict, thermal_check: Path) -> dict:
     host = config["host"]
     os_release = _read_os_release()
     if platform.machine() != host["architecture"]:
@@ -316,9 +316,17 @@ def verify_host(config: dict, fan_check: Path) -> dict:
     if memory_bytes < host["minimum_memory_bytes"]:
         raise BuildError("host memory is below the declared minimum")
 
-    if not fan_check.is_absolute() or not fan_check.is_file() or not os.access(fan_check, os.X_OK):
-        raise BuildError("builder fan-guard preflight is unavailable")
-    _run([str(fan_check)], timeout=30)
+    if (not thermal_check.is_absolute() or not thermal_check.is_file() or
+            not os.access(thermal_check, os.X_OK)):
+        raise BuildError("builder thermal-safety preflight is unavailable")
+    resolved_thermal_check = thermal_check.resolve()
+    for controlled_path in (resolved_thermal_check,
+                            *resolved_thermal_check.parents):
+        mode = controlled_path.stat().st_mode
+        if controlled_path.stat().st_uid != 0 or mode & 0o022:
+            raise BuildError(
+                "builder thermal-safety path is not root-controlled")
+    _run([str(resolved_thermal_check)], timeout=30)
 
     package_set = _run(["dpkg-query", "-W", "-f=${binary:Package}\t${Version}\n"])
     package_lines = sorted(package_set.stdout.decode("utf-8", "strict").splitlines())
@@ -332,7 +340,7 @@ def verify_host(config: dict, fan_check: Path) -> dict:
         "required_packages": observed_packages,
         "external_tools": observed_tools,
         "installed_package_set_sha256": sha256_bytes(package_set_bytes),
-        "fan_guard_preflight": "PASS",
+        "thermal_safety_preflight": "PASS",
     }
 
 
@@ -523,8 +531,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-empty-output", action="store_true",
                         help="reject any existing build intermediate or result")
     parser.add_argument("--allowed-signers", type=Path)
-    parser.add_argument("--fan-check", type=Path,
-                        default=Path("/usr/local/sbin/diamaneos-builder-fan-check"))
+    parser.add_argument(
+        "--thermal-check", "--fan-check", dest="thermal_check", type=Path,
+        default=Path("/usr/local/sbin/diamaneos-builder-thermal-check"),
+        help=("absolute executable which exits zero only when the builder's "
+              "current thermal and cooling state is safe; --fan-check is a "
+              "backwards-compatible alias"),
+    )
     return parser
 
 
@@ -555,7 +568,7 @@ def main(argv=None) -> int:
         workspace_paths = (args.source_root, args.cache_root, args.output_root)
         if any(value is None for value in workspace_paths):
             raise BuildError("host/full preflight requires source, cache and output paths")
-        result["host"] = verify_host(config, args.fan_check)
+        result["host"] = verify_host(config, args.thermal_check)
         result["workspace"] = verify_workspace(
             config, args.source_root, args.cache_root, args.output_root,
             require_empty_output=args.require_empty_output)
