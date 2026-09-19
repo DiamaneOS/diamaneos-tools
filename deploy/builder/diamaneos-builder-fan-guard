@@ -1,0 +1,210 @@
+#!/bin/bash
+set -euo pipefail
+
+poll_seconds=1
+startup_timeout_seconds=60
+maximum_trigger_c=45
+low_return_c=38
+low_return_seconds=60
+low_state=1
+maximum_state=2
+low_fan3_min_rpm=500
+low_fan4_min_rpm=750
+maximum_fan3_min_rpm=2500
+maximum_fan4_min_rpm=3500
+maximum_spinup_seconds=8
+state_transition_seconds=5
+status_directory=/run/diamaneos-builder-fan-guard
+status_file=$status_directory/status
+
+log() {
+  printf 'diamaneos-builder-fan-guard: %s\n' "$*"
+}
+
+fail() {
+  log "ERROR: $*" >&2
+  exit 1
+}
+
+find_cooling_device() {
+  local wanted=$1 node
+  for node in /sys/class/thermal/cooling_device*; do
+    [[ -r $node/type && $(<"$node/type") == "$wanted" ]] || continue
+    printf '%s\n' "$node"
+    return 0
+  done
+  return 1
+}
+
+find_hwmon() {
+  local wanted=$1 node
+  for node in /sys/class/hwmon/hwmon*; do
+    [[ -r $node/name && $(<"$node/name") == "$wanted" ]] || continue
+    printf '%s\n' "$node"
+    return 0
+  done
+  return 1
+}
+
+read_uint() {
+  local path=$1 value
+  [[ -r $path ]] || return 1
+  value=$(<"$path")
+  [[ $value =~ ^[0-9]+$ ]] || return 1
+  printf '%s\n' "$value"
+}
+
+fan3_device=
+fan4_device=
+dell_hwmon=
+for ((elapsed = 0; elapsed < startup_timeout_seconds; elapsed++)); do
+  fan3_device=$(find_cooling_device dell-smm-fan3 || true)
+  fan4_device=$(find_cooling_device dell-smm-fan4 || true)
+  dell_hwmon=$(find_hwmon dell_smm || true)
+  if [[ -n $fan3_device && -n $fan4_device && -n $dell_hwmon ]]; then
+    break
+  fi
+  sleep 1
+done
+
+[[ -n $fan3_device && -n $fan4_device && -n $dell_hwmon ]] || \
+  fail "required Dell fan interfaces did not appear"
+[[ $(read_uint "$fan3_device/max_state") == "$maximum_state" ]] || \
+  fail "fan3 max_state differs from the qualified hardware"
+[[ $(read_uint "$fan4_device/max_state") == "$maximum_state" ]] || \
+  fail "fan4 max_state differs from the qualified hardware"
+[[ -r $dell_hwmon/fan3_input && -r $dell_hwmon/fan4_input ]] || \
+  fail "required fan tachometers are absent"
+
+core_hwmon=$(find_hwmon coretemp) || fail "coretemp hwmon is absent"
+package_input=
+for label in "$core_hwmon"/temp*_label; do
+  [[ -r $label && $(<"$label") == "Package id 0" ]] || continue
+  package_input=${label%_label}_input
+  break
+done
+[[ -n $package_input && -r $package_input ]] || \
+  fail "CPU package-temperature sensor is absent"
+[[ -d $status_directory && -w $status_directory ]] || \
+  fail "runtime status directory is unavailable"
+
+set_maximum() {
+  printf '%s\n' "$maximum_state" >"$fan3_device/cur_state"
+  printf '%s\n' "$maximum_state" >"$fan4_device/cur_state"
+}
+
+set_low() {
+  printf '%s\n' "$low_state" >"$fan3_device/cur_state"
+  printf '%s\n' "$low_state" >"$fan4_device/cur_state"
+}
+
+write_status() {
+  local health=$1 mode=$2 package_c=$3 fan3_rpm=$4 fan4_rpm=$5 temporary uptime_s
+  temporary=$(mktemp "$status_directory/.status.XXXXXX")
+  uptime_s=$(cut -d. -f1 /proc/uptime)
+  printf 'health=%s\nmode=%s\npackage_c=%s\nfan3_rpm=%s\nfan4_rpm=%s\nupdated_monotonic_s=%s\n' \
+    "$health" "$mode" "$package_c" "$fan3_rpm" "$fan4_rpm" "$uptime_s" \
+    >"$temporary"
+  chmod 0644 "$temporary"
+  mv -f "$temporary" "$status_file"
+}
+
+# On an orderly stop, retain the safest known hardware state rather than
+# returning control to the firmware curve that failed qualification.
+trap 'set_maximum 2>/dev/null || true' EXIT
+trap 'exit 0' INT TERM HUP
+
+set_maximum
+sleep 5
+
+mode=maximum
+maximum_since=$SECONDS
+state_transition_until=0
+cool_samples=0
+low_rpm_samples=0
+report_countdown=0
+while true; do
+  package_millic=$(read_uint "$package_input") || \
+    fail "cannot read CPU package temperature"
+  package_c=$((package_millic / 1000))
+  fan3_state=$(read_uint "$fan3_device/cur_state") || \
+    fail "cannot read fan3 cooling state"
+  fan4_state=$(read_uint "$fan4_device/cur_state") || \
+    fail "cannot read fan4 cooling state"
+
+  expected_state=$low_state
+  [[ $mode == low ]] || expected_state=$maximum_state
+  if [[ $fan3_state != "$expected_state" || $fan4_state != "$expected_state" ]]; then
+    if ((SECONDS >= state_transition_until)); then
+      log "cooling state changed unexpectedly: expected=$expected_state fan3=$fan3_state fan4=$fan4_state; selecting maximum"
+      set_maximum
+      mode=maximum
+      maximum_since=$SECONDS
+      state_transition_until=$((SECONDS + state_transition_seconds))
+      cool_samples=0
+      low_rpm_samples=0
+    fi
+  fi
+
+  fan3_rpm=$(read_uint "$dell_hwmon/fan3_input") || \
+    fail "cannot read fan3 tachometer"
+  fan4_rpm=$(read_uint "$dell_hwmon/fan4_input") || \
+    fail "cannot read fan4 tachometer"
+
+  if [[ $mode == low ]]; then
+    if ((package_c >= maximum_trigger_c)); then
+      log "temperature ${package_c}C reached maximum trigger"
+      set_maximum
+      mode=maximum
+      maximum_since=$SECONDS
+      state_transition_until=$((SECONDS + state_transition_seconds))
+      cool_samples=0
+      low_rpm_samples=0
+    elif ((fan3_rpm < low_fan3_min_rpm || fan4_rpm < low_fan4_min_rpm)); then
+      ((low_rpm_samples += 1))
+      if ((low_rpm_samples >= 3)); then
+        set_maximum
+        fail "low-state tachometer guard failed"
+      fi
+    else
+      low_rpm_samples=0
+    fi
+  else
+    if ((SECONDS >= maximum_since + maximum_spinup_seconds)); then
+      if ((fan3_rpm < maximum_fan3_min_rpm || fan4_rpm < maximum_fan4_min_rpm)); then
+        ((low_rpm_samples += 1))
+        if ((low_rpm_samples >= 3)); then
+          set_maximum
+          fail "maximum-state tachometer guard failed"
+        fi
+      else
+        low_rpm_samples=0
+      fi
+    fi
+    if ((package_c <= low_return_c)); then
+      ((cool_samples += 1))
+    else
+      cool_samples=0
+    fi
+    if ((cool_samples >= low_return_seconds)); then
+      log "temperature remained at or below ${low_return_c}C; selecting low state"
+      set_low
+      mode=low
+      state_transition_until=$((SECONDS + state_transition_seconds))
+      cool_samples=0
+      low_rpm_samples=0
+    fi
+  fi
+
+  health=healthy
+  if ((SECONDS < state_transition_until)); then
+    health=transitioning
+  fi
+  write_status "$health" "$mode" "$package_c" "$fan3_rpm" "$fan4_rpm"
+  if ((report_countdown == 0)); then
+    log "healthy mode=$mode package_c=$package_c fan3_rpm=$fan3_rpm fan4_rpm=$fan4_rpm"
+    report_countdown=60
+  fi
+  ((report_countdown -= 1)) || true
+  sleep "$poll_seconds"
+done

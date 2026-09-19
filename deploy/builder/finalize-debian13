@@ -1,0 +1,143 @@
+#!/bin/bash
+set -euo pipefail
+
+admin_account=${1:-builder-admin}
+node_stage=${2:-/tmp/diamaneos-node-v24.21.0}
+node_version=v24.21.0
+node_archive="node-$node_version-linux-x64.tar.xz"
+node_root=/opt/nodejs
+node_destination="$node_root/$node_version"
+build_account=diamaneos-build
+build_home=/var/lib/diamaneos-build
+
+expected_pubring_sha256=610b8d249da3d5733f5a128def2dd0294dbbf5b5713e6ca2529db8db419dee00
+expected_manifest_sha256=dd0fe71660e64f4dc01342664835509c84679d8a87ab4d76cc2f15fdda82ea3e
+expected_archive_sha256=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ $(uname -m) == x86_64 ]] || fail "x86_64 is required"
+source /etc/os-release
+[[ ${ID:-} == debian && ${VERSION_ID:-} == 13 ]] || \
+  fail "this finalizer is bound to Debian 13"
+id "$admin_account" >/dev/null 2>&1 || fail "missing management account"
+id "$build_account" >/dev/null 2>&1 || fail "bootstrap build account is absent"
+[[ $(getent passwd "$build_account" | cut -d: -f6) == "$build_home" ]] || \
+  fail "unexpected build home"
+[[ $(systemctl get-default) == multi-user.target ]] || \
+  fail "unexpected default systemd target"
+
+pubring="$node_stage/pubring.kbx"
+manifest="$node_stage/SHASUMS256.txt.asc"
+archive="$node_stage/$node_archive"
+[[ -f $pubring && -f $manifest && -f $archive ]] || \
+  fail "complete Node.js staging set is absent from $node_stage"
+
+printf '%s  %s\n' "$expected_pubring_sha256" "$pubring" | sha256sum -c -
+printf '%s  %s\n' "$expected_manifest_sha256" "$manifest" | sha256sum -c -
+printf '%s  %s\n' "$expected_archive_sha256" "$archive" | sha256sum -c -
+
+signed_sums=$(mktemp)
+simulation=$(mktemp)
+extract_root=
+cleanup() {
+  rm -f "$signed_sums" "$simulation"
+  if [[ -n ${extract_root:-} && -d $extract_root ]]; then
+    rm -rf -- "$extract_root"
+  fi
+}
+trap cleanup EXIT
+
+# SHASUMS256.txt.asc is a clear-signed manifest. gpgv authenticates it and
+# writes the signed plaintext to signed_sums before the archive is checked.
+gpgv --keyring "$pubring" --output "$signed_sums" "$manifest"
+(
+  cd "$node_stage"
+  grep -F "  $node_archive" "$signed_sums" | sha256sum -c -
+)
+
+if [[ -e $node_destination ]]; then
+  [[ $($node_destination/bin/node --version) == "$node_version" ]] || \
+    fail "existing Node.js destination does not match $node_version"
+else
+  install -d -o root -g root -m 0755 "$node_root"
+  extract_root=$(mktemp -d "$node_root/.install-$node_version.XXXXXX")
+  tar -xJf "$archive" --strip-components=1 -C "$extract_root"
+  [[ $($extract_root/bin/node --version) == "$node_version" ]] || \
+    fail "extracted Node.js version mismatch"
+  chown -R root:root "$extract_root"
+  chmod -R go-w "$extract_root"
+  # mktemp creates the extraction root as 0700. Archive members retain their
+  # distribution modes, but the installed version root must be traversable by
+  # the unprivileged build identity.
+  chmod 0755 "$extract_root"
+  mv "$extract_root" "$node_destination"
+  extract_root=
+fi
+
+# Repair the version-root mode on an idempotent rerun of an installation made
+# by an earlier finalizer revision.
+chmod 0755 "$node_root" "$node_destination"
+
+for executable in node npm npx corepack; do
+  [[ -x $node_destination/bin/$executable ]] || \
+    fail "Node.js distribution lacks $executable"
+  ln -sfn "$node_destination/bin/$executable" "/usr/local/bin/$executable"
+done
+
+systemctl disable --now \
+  lightdm.service \
+  avahi-daemon.service avahi-daemon.socket \
+  cups.service cups.socket cups.path cups-browsed.service \
+  2>/dev/null || true
+
+desktop_packages=(
+  task-xfce-desktop task-desktop
+  xfce4 xfce4-goodies lightdm xserver-xorg
+  avahi-daemon cups cups-browsed
+)
+protected_packages=(
+  openssh-server sudo network-manager systemd-sysv linux-image-amd64
+  ca-certificates curl git git-lfs gnupg repo rsync unzip zip python3
+  systemd-timesyncd smartmontools nvme-cli stress-ng lm-sensors
+  ethtool pciutils usbutils linux-cpupower
+)
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get -s autoremove --purge "${desktop_packages[@]}" >"$simulation"
+for package in "${protected_packages[@]}"; do
+  if grep -Eq "^(Remv|Purg) $package([ :]|$)" "$simulation"; then
+    fail "desktop removal would remove protected package: $package"
+  fi
+done
+apt-get autoremove --purge -y "${desktop_packages[@]}"
+systemctl mask avahi-daemon.service avahi-daemon.socket \
+  cups.service cups.socket cups.path cups-browsed.service 2>/dev/null || true
+
+for package in xfce4 xfce4-goodies lightdm xserver-xorg avahi-daemon cups cups-browsed; do
+  if dpkg-query -W -f='${db:Status-Abbrev}' "$package" 2>/dev/null | grep -q '^ii'; then
+    fail "unwanted package remains installed: $package"
+  fi
+done
+
+[[ $(stat -c '%U:%G:%a' "$build_home") == "$build_account:$build_account:750" ]] || \
+  fail "build home ownership or mode changed"
+[[ $(runuser -u "$build_account" -- "$node_destination/bin/node" --version) == "$node_version" ]] || \
+  fail "build identity cannot execute pinned Node.js"
+sshd -t
+systemctl is-active --quiet ssh
+systemctl is-active --quiet systemd-timesyncd
+[[ $(systemctl get-default) == multi-user.target ]] || \
+  fail "default target changed during finalization"
+
+printf 'BUILDER_FINALIZATION=PASS\n'
+printf 'node=%s\n' "$(node --version)"
+printf 'npm=%s\n' "$(npm --version)"
+printf 'corepack=%s\n' "$(corepack --version)"
+printf 'yarn=SOURCE_PIN_REQUIRED\n'
+printf 'desktop_stack=ABSENT\n'
+printf 'network_discovery_and_printing=DISABLED_ABSENT_OR_MASKED\n'

@@ -1,0 +1,198 @@
+#!/bin/bash
+set -euo pipefail
+
+duration_seconds=600
+sample_seconds=1
+report_seconds=5
+maximum_trigger_c=45
+reject_temperature_c=80
+low_state=1
+maximum_state=2
+low_fan3_guard_rpm=500
+low_fan4_guard_rpm=750
+maximum_fan3_guard_rpm=2500
+maximum_fan4_guard_rpm=3500
+maximum_spinup_seconds=8
+stress_pid=
+timeout_pid=
+stress_log=
+fan3_device=
+fan4_device=
+admin_account=${SUDO_USER:-builder-admin}
+admin_home=$(getent passwd "$admin_account" | cut -d: -f6)
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+log="$admin_home/diamaneos-builder-stepped-fan-$timestamp.txt"
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ -n $admin_home && -d $admin_home ]] || fail "management home is unavailable"
+: >"$log"
+chmod 0640 "$log"
+exec > >(tee -a "$log") 2>&1
+
+find_hwmon() {
+  local wanted=$1 node
+  for node in /sys/class/hwmon/hwmon*; do
+    [[ -r $node/name && $(<"$node/name") == "$wanted" ]] || continue
+    printf '%s\n' "$node"
+    return 0
+  done
+  return 1
+}
+
+find_cooling_device() {
+  local wanted=$1 node
+  for node in /sys/class/thermal/cooling_device*; do
+    [[ -r $node/type && $(<"$node/type") == "$wanted" ]] || continue
+    printf '%s\n' "$node"
+    return 0
+  done
+  return 1
+}
+
+set_fans() {
+  local state=$1
+  [[ -n $fan3_device && -n $fan4_device ]] || return 0
+  printf '%s\n' "$state" >"$fan3_device/cur_state"
+  printf '%s\n' "$state" >"$fan4_device/cur_state"
+}
+
+cleanup() {
+  [[ -z ${stress_pid:-} ]] || kill "$stress_pid" 2>/dev/null || true
+  [[ -z ${timeout_pid:-} ]] || kill "$timeout_pid" 2>/dev/null || true
+  set_fans "$maximum_state" 2>/dev/null || true
+  [[ -z ${stress_log:-} ]] || rm -f "$stress_log"
+  chown "$admin_account:$admin_account" "$log" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM HUP
+
+core_hwmon=$(find_hwmon coretemp) || fail "coretemp hwmon is absent"
+dell_hwmon=$(find_hwmon dell_smm) || fail "dell_smm hwmon is absent"
+package_input=
+for label in "$core_hwmon"/temp*_label; do
+  [[ -r $label && $(<"$label") == "Package id 0" ]] || continue
+  package_input=${label%_label}_input
+  break
+done
+[[ -n $package_input && -r $package_input ]] || \
+  fail "CPU package-temperature sensor is absent"
+
+fan3_device=$(find_cooling_device dell-smm-fan3) || \
+  fail "qualified fan3 control is absent"
+fan4_device=$(find_cooling_device dell-smm-fan4) || \
+  fail "qualified fan4 control is absent"
+[[ $(<"$fan3_device/max_state") == "$maximum_state" ]] || \
+  fail "fan3 maximum state changed"
+[[ $(<"$fan4_device/max_state") == "$maximum_state" ]] || \
+  fail "fan4 maximum state changed"
+
+printf 'BUILDER_STEPPED_FAN_QUALIFICATION_BEGIN=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'duration_seconds=%s\n' "$duration_seconds"
+printf 'maximum_trigger_c=%s\n' "$maximum_trigger_c"
+printf 'reject_temperature_c=%s\n' "$reject_temperature_c"
+printf 'cpu_online=%s\n' "$(getconf _NPROCESSORS_ONLN)"
+printf 'memory_total_kib=%s\n' "$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
+
+set_fans "$low_state"
+sleep 5
+[[ $(<"$fan3_device/cur_state") == "$low_state" ]] || \
+  fail "fan3 did not enter low state"
+[[ $(<"$fan4_device/cur_state") == "$low_state" ]] || \
+  fail "fan4 did not enter low state"
+low_fan3_rpm=$(<"$dell_hwmon/fan3_input")
+low_fan4_rpm=$(<"$dell_hwmon/fan4_input")
+printf 'low_fan3_rpm=%s\n' "$low_fan3_rpm"
+printf 'low_fan4_rpm=%s\n' "$low_fan4_rpm"
+((low_fan3_rpm >= low_fan3_guard_rpm)) || fail "fan3 low-state RPM is unsafe"
+((low_fan4_rpm >= low_fan4_guard_rpm)) || fail "fan4 low-state RPM is unsafe"
+
+stress_log=$(mktemp)
+stress-ng --cpu 48 --cpu-method all --vm 1 --vm-bytes 48G --vm-keep \
+  --timeout "${duration_seconds}s" --metrics-brief >"$stress_log" 2>&1 &
+stress_pid=$!
+(
+  sleep $((duration_seconds + 30))
+  kill "$stress_pid" 2>/dev/null || true
+) &
+timeout_pid=$!
+
+start=$(date +%s)
+peak=0
+rejection=
+mode=low
+maximum_requested_elapsed=
+maximum_low_samples=0
+next_report=0
+while kill -0 "$stress_pid" 2>/dev/null; do
+  elapsed=$(($(date +%s) - start))
+  package_c=$(( $(<"$package_input") / 1000 ))
+  fan3_rpm=$(<"$dell_hwmon/fan3_input")
+  fan4_rpm=$(<"$dell_hwmon/fan4_input")
+  ((package_c <= peak)) || peak=$package_c
+
+  if [[ $mode == low && $package_c -ge $maximum_trigger_c ]]; then
+    set_fans "$maximum_state"
+    mode=maximum
+    maximum_requested_elapsed=$elapsed
+    printf 'maximum_transition elapsed_s=%s package_c=%s\n' \
+      "$elapsed" "$package_c"
+  fi
+
+  if [[ $mode == maximum ]] && \
+     ((elapsed >= maximum_requested_elapsed + maximum_spinup_seconds)); then
+    if ((fan3_rpm < maximum_fan3_guard_rpm || fan4_rpm < maximum_fan4_guard_rpm)); then
+      ((maximum_low_samples += 1))
+    else
+      maximum_low_samples=0
+    fi
+    if ((maximum_low_samples >= 3)); then
+      rejection="maximum-state RPM guard failed for three samples"
+    fi
+  fi
+
+  if ((package_c >= reject_temperature_c)); then
+    set_fans "$maximum_state"
+    rejection="temperature reached ${package_c}C"
+  fi
+  if ((elapsed >= next_report)); then
+    printf 'sample elapsed_s=%s mode=%s package_c=%s fan3_rpm=%s fan4_rpm=%s\n' \
+      "$elapsed" "$mode" "$package_c" "$fan3_rpm" "$fan4_rpm"
+    next_report=$((elapsed + report_seconds))
+  fi
+  if [[ -n $rejection ]]; then
+    set_fans "$maximum_state"
+    kill "$stress_pid" 2>/dev/null || true
+    break
+  fi
+  sleep "$sample_seconds"
+done
+
+stress_status=0
+wait "$stress_pid" || stress_status=$?
+stress_pid=
+kill "$timeout_pid" 2>/dev/null || true
+wait "$timeout_pid" 2>/dev/null || true
+timeout_pid=
+cat "$stress_log"
+rm -f "$stress_log"
+stress_log=
+
+printf 'peak_package_c=%s\n' "$peak"
+printf 'maximum_requested_elapsed_s=%s\n' "${maximum_requested_elapsed:-never}"
+printf 'stress_exit=%s\n' "$stress_status"
+printf 'BUILDER_STEPPED_FAN_QUALIFICATION_END=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'result=%s\n' "$log"
+
+if [[ -n $rejection ]]; then
+  printf 'rejection=%s\n' "$rejection"
+  printf 'BUILDER_STEPPED_FAN_QUALIFICATION=REJECTED\n'
+  exit 3
+fi
+[[ -n $maximum_requested_elapsed ]] || fail "workload never exercised maximum transition"
+[[ $stress_status -eq 0 ]] || fail "stress workload failed with status $stress_status"
+printf 'BUILDER_STEPPED_FAN_QUALIFICATION=PASS\n'

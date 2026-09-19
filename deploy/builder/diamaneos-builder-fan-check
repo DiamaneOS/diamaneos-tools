@@ -1,0 +1,65 @@
+#!/bin/bash
+set -euo pipefail
+
+status_file=/run/diamaneos-builder-fan-guard/status
+maximum_fan3_min_rpm=2500
+maximum_fan4_min_rpm=3500
+low_fan3_min_rpm=500
+low_fan4_min_rpm=750
+maximum_status_age_seconds=5
+reject_temperature_c=80
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+read_field() {
+  local name=$1 value
+  value=$(awk -F= -v wanted="$name" '$1 == wanted {print substr($0, length($1) + 2)}' \
+    "$status_file")
+  [[ -n $value ]] || fail "fan-guard status lacks $name"
+  printf '%s\n' "$value"
+}
+
+systemctl is-active --quiet diamaneos-builder-fan-guard.service || \
+  fail "fan guard is not active"
+[[ -r $status_file ]] || fail "fan-guard status is absent"
+
+health=$(read_field health)
+mode=$(read_field mode)
+package_c=$(read_field package_c)
+fan3_rpm=$(read_field fan3_rpm)
+fan4_rpm=$(read_field fan4_rpm)
+updated=$(read_field updated_monotonic_s)
+for value in "$package_c" "$fan3_rpm" "$fan4_rpm" "$updated"; do
+  [[ $value =~ ^[0-9]+$ ]] || fail "fan-guard status contains a non-numeric value"
+done
+[[ $health == healthy ]] || fail "fan guard does not report healthy"
+((package_c < reject_temperature_c)) || fail "CPU package temperature is outside policy"
+
+uptime=$(cut -d. -f1 /proc/uptime)
+age=$((uptime - updated))
+((age >= 0 && age <= maximum_status_age_seconds)) || \
+  fail "fan-guard status is stale"
+
+case $mode in
+  low)
+    ((fan3_rpm >= low_fan3_min_rpm && fan4_rpm >= low_fan4_min_rpm)) || \
+      fail "low-state fan RPM is outside policy"
+    ;;
+  maximum)
+    ((fan3_rpm >= maximum_fan3_min_rpm && fan4_rpm >= maximum_fan4_min_rpm)) || \
+      fail "maximum-state fan RPM is outside policy"
+    ;;
+  *)
+    fail "unknown fan-guard mode"
+    ;;
+esac
+
+printf 'FAN_GUARD_PREFLIGHT=PASS\n'
+printf 'mode=%s\n' "$mode"
+printf 'package_c=%s\n' "$package_c"
+printf 'fan3_rpm=%s\n' "$fan3_rpm"
+printf 'fan4_rpm=%s\n' "$fan4_rpm"
+printf 'status_age_seconds=%s\n' "$age"
