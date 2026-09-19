@@ -24,7 +24,8 @@ OS compilation uses a separate online build host and unprivileged build
 identity. The builder setup and trust boundary are documented in
 [`deploy/builder/README.md`](../deploy/builder/README.md). Production release
 keys never enter that host. Host acceptance requires an actual clean build in
-addition to hardware, capacity, thermal and remote-management checks.
+addition to hardware, capacity and thermal checks. Remote-power features are
+deployment-specific.
 
 The builder's resource qualification is intentionally narrower than a clean
 build. Its passing report establishes the observed host resources, bounded
@@ -69,6 +70,8 @@ Run source synchronization as the unprivileged build identity from an exact,
 reviewed tools checkout:
 
 ```sh
+export DIAMANEOS_EXPECTED_TOOLS_COMMIT=REPLACE_WITH_REVIEWED_40_HEX_COMMIT
+export DIAMANEOS_THERMAL_CHECK=/absolute/path/to/qualified-thermal-check
 deploy/builder/sync-pinned-source /opt/diamaneos/tools
 ```
 
@@ -83,8 +86,8 @@ complete stdout/stderr and its SHA-256 as private build evidence.
 
 Before downloading source, the same script runs `--host-only` to enforce the
 exact package/tool pins, memory and free-space floors, separated workspace,
-empty clean-build output and live fan-guard preflight. A host mismatch therefore
-fails before consuming a large sync.
+empty clean-build output and the configured live thermal-safety preflight. A
+host mismatch therefore fails before consuming a large sync.
 
 The source revision uses a Yarn v1 lockfile. Prepare the declared Yarn
 `1.22.22` through the already pinned Corepack installation in a build-owned
@@ -111,18 +114,33 @@ The accepted workspace separates state as follows:
   never imported from another host.
 
 Use `OUT_DIR` and `CCACHE_DIR` to enforce those boundaries. The first generic
-qualification run starts with an empty output root:
+qualification run starts with an empty output root. Invoke the committed
+`deploy/builder/run-generic-qualification` wrapper through its reviewed service
+rather than exporting an absolute output path by hand. The Siso release in the
+pinned checkout resolves its configuration repository relative to the source
+execution root. The wrapper therefore keeps the physical output tree separate
+and exports its verified relative path:
 
 ```sh
-export OUT_DIR=/var/lib/diamaneos-build/out/grapheneos-2026091000
-export CCACHE_DIR=/var/lib/diamaneos-build/cache/ccache
+SOURCE_ROOT="$WORK_ROOT/src/grapheneos-2026091000"
+OUTPUT_ROOT="$WORK_ROOT/out/grapheneos-2026091000"
+cd "$SOURCE_ROOT"
+export OUT_DIR="$(realpath --relative-to="$SOURCE_ROOT" "$OUTPUT_ROOT")"
+export CCACHE_DIR="$WORK_ROOT/cache/ccache"
 source build/envsetup.sh
 lunch sdk_phone64_x86_64-cur-userdebug
 m
 ```
 
-Before this or any later build, the full preflight must pass and the builder
-fan-guard check must remain healthy. A clean generic result does not authorize
+`OUT_DIR` must resolve exactly to `OUTPUT_ROOT` before the build starts. Do not
+move the output tree into the source checkout or disable this containment check
+as a workaround. The service also binds the exact reviewed tools commit through
+`DIAMANEOS_EXPECTED_TOOLS_COMMIT`, requires the pinned source-sync unit, invokes
+the configured `DIAMANEOS_THERMAL_CHECK`, and denies network access during
+compilation.
+
+Before this or any later build, the full preflight and configured thermal-safety
+check must pass. A clean generic result does not authorize
 production signing material on the online builder. The FP6 release-purpose
 preflight remains fail-closed until the generated exact-stock device-input
 manifest and FP6 product target are verified.

@@ -4,6 +4,7 @@ set -euo pipefail
 admin_account=${1:-builder-admin}
 build_account=diamaneos-build
 build_home=/var/lib/diamaneos-build
+require_wol=${DIAMANEOS_REQUIRE_WOL:-0}
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -11,6 +12,8 @@ fail() {
 }
 
 [[ $EUID -eq 0 ]] || fail "run as root"
+[[ $require_wol == 0 || $require_wol == 1 ]] || \
+  fail "DIAMANEOS_REQUIRE_WOL must be 0 or 1"
 [[ $(uname -m) == x86_64 ]] || fail "x86_64 is required"
 source /etc/os-release
 [[ ${ID:-} == debian && ${VERSION_ID:-} == 13 ]] || \
@@ -22,16 +25,26 @@ admin_home=$(getent passwd "$admin_account" | cut -d: -f6)
 
 export DEBIAN_FRONTEND=noninteractive
 
-# Android's repo launcher is in Debian contrib. Keep all selected dependencies
+# Android's repo launcher is in Debian contrib. Support both the legacy
+# one-line format and Debian's deb822 source files. Keep selected dependencies
 # distribution-owned; project-specific Node.js is pinned separately.
-sed -i -E \
-  '/^[[:space:]]*deb(-src)?[[:space:]]/ s/[[:space:]]main[[:space:]]*$/ main contrib/' \
-  /etc/apt/sources.list
+if [[ -f /etc/apt/sources.list ]]; then
+  sed -i -E \
+    '/^[[:space:]]*deb(-src)?[[:space:]]/ { /[[:space:]]contrib([[:space:]]|$)/! s/$/ contrib/; }' \
+    /etc/apt/sources.list
+fi
+shopt -s nullglob
+for source_file in /etc/apt/sources.list.d/*.sources; do
+  sed -i -E \
+    '/^[[:space:]]*Components:[[:space:]]/ { /[[:space:]]contrib([[:space:]]|$)/! s/$/ contrib/; }' \
+    "$source_file"
+done
+shopt -u nullglob
 
 apt-get update
 apt-get -y full-upgrade
 apt-get install -y --no-install-recommends \
-  openssh-server sudo ca-certificates curl git git-lfs gnupg repo \
+  openssh-server sudo network-manager ca-certificates curl git git-lfs gnupg repo \
   diffutils fontconfig fonts-dejavu-core hostname openssl \
   rsync unzip zip gperf libc6-dev-i386 lib32gcc-s1 python3 \
   ccache ethtool jq lm-sensors nvme-cli pciutils smartmontools \
@@ -76,11 +89,25 @@ cat >/etc/apt/apt.conf.d/52diamaneos-builder-updates <<'EOF'
 APT::Periodic::Enable "0";
 EOF
 
-# Persist magic-packet wake support without cycling the active connection.
-active_connection=$(nmcli -t -f NAME,DEVICE connection show --active |
-  awk -F: '$2 != "lo" {print $1; exit}')
-[[ -n $active_connection ]] || fail "no active non-loopback NetworkManager connection"
-nmcli connection modify "$active_connection" 802-3-ethernet.wake-on-lan magic
+# Wake-on-LAN is an optional remote-management capability, not a build
+# requirement. A deployment that requires it opts in and fails closed.
+wol_status=NOT_REQUESTED
+active_connection=$(nmcli -t -f NAME,TYPE,DEVICE connection show --active |
+  awk -F: '$2 == "802-3-ethernet" && $3 != "lo" {print $1; exit}')
+if [[ -n $active_connection ]]; then
+  if nmcli connection modify "$active_connection" \
+      802-3-ethernet.wake-on-lan magic; then
+    wol_status=CONFIGURED
+  elif [[ $require_wol == 1 ]]; then
+    fail "required Wake-on-LAN configuration failed"
+  else
+    wol_status=UNAVAILABLE_OPTIONAL
+  fi
+elif [[ $require_wol == 1 ]]; then
+  fail "required active Ethernet profile is absent"
+else
+  wol_status=NO_ACTIVE_ETHERNET_OPTIONAL
+fi
 
 apt-mark manual \
   openssh-server sudo network-manager systemd-sysv linux-image-amd64 \
@@ -132,4 +159,5 @@ printf 'ssh=%s/%s\n' "$(systemctl is-enabled ssh)" "$(systemctl is-active ssh)"
 printf 'timesync=%s/%s\n' \
   "$(systemctl is-enabled systemd-timesyncd)" \
   "$(systemctl is-active systemd-timesyncd)"
+printf 'wake_on_lan=%s\n' "$wol_status"
 printf 'node24=DEFERRED_PIN_REQUIRED\n'
