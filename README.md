@@ -38,6 +38,7 @@ fastboot --version
 
 - [Testing and command setup](docs/TESTING.md)
 - [Host-tooling and device-suite development](docs/BUILD.md)
+- [FP6 component decisions and artifact closure](docs/COMPONENTS.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Repository map](config/repositories.json) — checkout discovery and lifecycle
   state only, not a release lock. Exact multi-repository build inputs are
