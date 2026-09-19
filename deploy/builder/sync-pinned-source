@@ -4,10 +4,6 @@ set -euo pipefail
 tools_root=${1:-}
 workspace_root=${2:-/var/lib/diamaneos-build}
 expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
-source_root=$workspace_root/src/grapheneos-2026091000
-cache_root=$workspace_root/cache
-output_root=$workspace_root/out/grapheneos-2026091000
-allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
 expected_user=diamaneos-build
 tag=2026091000
 tag_object=6c939d124f3ea8dd545c1e4045f26359f501d80e
@@ -40,11 +36,32 @@ observed_tools_commit=$(git -c safe.directory="$tools_root" \
 [[ -z $(find "$tools_root" -xdev -perm /022 -print -quit) ]] || \
   fail "reviewed tools checkout is writable by group or other"
 [[ $workspace_root == /* ]] || fail "workspace root must be absolute"
-[[ ! -L $workspace_root && ! -L $cache_root ]] || fail "workspace roots must not be symlinks"
+[[ ! -L $workspace_root ]] || fail "workspace root must not be a symlink"
 
 # The portable check binds this script invocation to the exact reviewed config
 # and inventories every non-runtime input before any network or source change.
 "$tools_root/bin/diamaneos" build preflight --inputs-only
+
+mapfile -t declared_workspace < <(python3 - \
+  "$tools_root/config/build-environment.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    workspace = json.load(stream)["workspace"]
+print(workspace["source_subdirectory"])
+print(workspace["cache_subdirectory"])
+print(workspace["output_subdirectory"])
+PY
+)
+[[ ${#declared_workspace[@]} -eq 3 ]] || \
+  fail "declared workspace paths are incomplete"
+source_root=$workspace_root/${declared_workspace[0]}
+cache_root=$workspace_root/${declared_workspace[1]}
+output_root=$workspace_root/${declared_workspace[2]}
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+[[ ! -L $source_root && ! -L $cache_root && ! -L $output_root ]] || \
+  fail "workspace roots must not be symlinks"
 
 install -d -m 0750 "$source_root" "$cache_root/trust" "$output_root"
 if [[ ! -d $source_root/.repo ]]; then
