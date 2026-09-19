@@ -59,10 +59,18 @@ download cache is not a substitute for the local signature checks.
 
 The project-selected Debian 13 host is newer than the operating systems listed
 by the upstream build guide. This is a declared compatibility deviation. The
-builder is not finally accepted until this exact environment completes an
-actual clean generic qualification build. That build proves only the host and
-generic source path; it does not prove that the unfinished FP6 target boots or
-meets the device requirements.
+reference builder closed that deviation for this exact environment with clean
+generic qualification run `generic-qualification-20260919T170522Z`. The run
+used signed tools commit
+`744c347cbbacb8d24ed9e985078798d0e2a2a5e5`, environment
+`fp6-android17-grapheneos-2026091000-debian13-v4`, target
+`sdk_phone64_x86_64-cur-userdebug` and an initially empty source-local `out`
+directory. Preflight and postflight retained the same 1,057-project map and
+runtime build identity; the result and 66 top-level products were hash-bound.
+This acceptance proves only the reference host and generic source path. It does
+not prove that the unfinished FP6 target builds, boots or meets the device
+requirements, and another host or changed environment still needs its own
+qualification.
 
 The portable cold-environment check requires no source tree or private cache:
 
