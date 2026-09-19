@@ -1,0 +1,135 @@
+#!/bin/bash
+set -euo pipefail
+
+admin_account=${1:-builder-admin}
+build_account=diamaneos-build
+build_home=/var/lib/diamaneos-build
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ $(uname -m) == x86_64 ]] || fail "x86_64 is required"
+source /etc/os-release
+[[ ${ID:-} == debian && ${VERSION_ID:-} == 13 ]] || \
+  fail "this bootstrap is bound to Debian 13"
+id "$admin_account" >/dev/null 2>&1 || fail "missing management account"
+id -nG "$admin_account" | grep -qw sudo || fail "management account lacks sudo"
+admin_home=$(getent passwd "$admin_account" | cut -d: -f6)
+[[ -s $admin_home/.ssh/authorized_keys ]] || fail "management SSH key is absent"
+
+export DEBIAN_FRONTEND=noninteractive
+
+# Android's repo launcher is in Debian contrib. Keep all selected dependencies
+# distribution-owned; project-specific Node.js is pinned separately.
+sed -i -E \
+  '/^[[:space:]]*deb(-src)?[[:space:]]/ s/[[:space:]]main[[:space:]]*$/ main contrib/' \
+  /etc/apt/sources.list
+
+apt-get update
+apt-get -y full-upgrade
+apt-get install -y --no-install-recommends \
+  openssh-server sudo ca-certificates curl git git-lfs gnupg repo \
+  diffutils fontconfig fonts-dejavu-core hostname openssl \
+  rsync unzip zip gperf libc6-dev-i386 lib32gcc-s1 python3 \
+  ccache ethtool jq lm-sensors nvme-cli pciutils smartmontools \
+  stress-ng systemd-timesyncd usbutils linux-cpupower
+
+systemctl enable --now ssh NetworkManager systemd-timesyncd
+timedatectl set-ntp true
+
+if ! id "$build_account" >/dev/null 2>&1; then
+  adduser --system --group --home "$build_home" --shell /bin/bash "$build_account"
+fi
+install -d -o "$build_account" -g "$build_account" -m 0750 \
+  "$build_home" "$build_home/src" "$build_home/out" "$build_home/cache"
+install -d -o root -g "$build_account" -m 0750 /var/log/diamaneos-builder
+cat >"$build_home/.profile" <<'EOF'
+umask 027
+export PATH="$PATH:/sbin:/usr/sbin:/usr/local/sbin"
+EOF
+chown "$build_account:$build_account" "$build_home/.profile"
+chmod 0640 "$build_home/.profile"
+
+cat >/etc/ssh/sshd_config.d/90-diamaneos-builder.conf <<EOF
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+AuthenticationMethods publickey
+AllowUsers $admin_account
+DisableForwarding yes
+X11Forwarding no
+PermitUserEnvironment no
+PermitEmptyPasswords no
+MaxAuthTries 3
+LoginGraceTime 30
+EOF
+sshd -t
+systemctl reload ssh
+
+# Build hosts update only during an explicit maintenance window. This avoids a
+# package transition during a long or reproducibility-sensitive build.
+cat >/etc/apt/apt.conf.d/52diamaneos-builder-updates <<'EOF'
+APT::Periodic::Enable "0";
+EOF
+
+# Persist magic-packet wake support without cycling the active connection.
+active_connection=$(nmcli -t -f NAME,DEVICE connection show --active |
+  awk -F: '$2 != "lo" {print $1; exit}')
+[[ -n $active_connection ]] || fail "no active non-loopback NetworkManager connection"
+nmcli connection modify "$active_connection" 802-3-ethernet.wake-on-lan magic
+
+apt-mark manual \
+  openssh-server sudo network-manager systemd-sysv linux-image-amd64 \
+  ca-certificates curl git git-lfs gnupg repo rsync unzip zip python3 \
+  systemd-timesyncd smartmontools nvme-cli stress-ng lm-sensors \
+  ethtool pciutils usbutils linux-cpupower
+systemctl set-default multi-user.target
+systemctl disable --now lightdm 2>/dev/null || true
+
+# The XFCE live installer can leave the desktop stack installed even after its
+# task metapackages are removed. Stop network-facing desktop services first,
+# then name the installed stack explicitly so autoremove can prune it.
+systemctl disable --now \
+  lightdm.service \
+  avahi-daemon.service avahi-daemon.socket \
+  cups.service cups.socket cups.path cups-browsed.service \
+  2>/dev/null || true
+
+desktop_packages=(
+  task-xfce-desktop task-desktop
+  xfce4 xfce4-goodies lightdm xserver-xorg
+  avahi-daemon cups cups-browsed
+)
+
+simulation=$(mktemp)
+trap 'rm -f "$simulation"' EXIT
+apt-get -s autoremove --purge "${desktop_packages[@]}" >"$simulation"
+for package in \
+  openssh-server sudo network-manager systemd-sysv linux-image-amd64 \
+  ca-certificates curl git git-lfs gnupg repo rsync unzip zip python3 \
+  systemd-timesyncd smartmontools nvme-cli stress-ng lm-sensors \
+  ethtool pciutils usbutils linux-cpupower
+do
+  if grep -Eq "^(Remv|Purg) $package([ :]|$)" "$simulation"; then
+    fail "desktop removal would remove protected package: $package"
+  fi
+done
+apt-get autoremove --purge -y "${desktop_packages[@]}"
+
+systemctl mask avahi-daemon.service avahi-daemon.socket \
+  cups.service cups.socket cups.path cups-browsed.service 2>/dev/null || true
+
+printf 'BUILDER_BOOTSTRAP=PASS\n'
+printf 'admin_account=%s\n' "$admin_account"
+printf 'build_account=%s\n' "$build_account"
+printf 'build_home=%s\n' "$build_home"
+printf 'default_target=%s\n' "$(systemctl get-default)"
+printf 'ssh=%s/%s\n' "$(systemctl is-enabled ssh)" "$(systemctl is-active ssh)"
+printf 'timesync=%s/%s\n' \
+  "$(systemctl is-enabled systemd-timesyncd)" \
+  "$(systemctl is-active systemd-timesyncd)"
+printf 'node24=DEFERRED_PIN_REQUIRED\n'
