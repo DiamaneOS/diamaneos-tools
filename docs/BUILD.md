@@ -34,6 +34,15 @@ does not establish source compatibility, reproducibility or release
 eligibility. Whole-system AC power and acoustic results also remain unmeasured
 unless their dedicated external meters were actually used.
 
+## FP6 component decisions
+
+The FP6 component model and generated artifact-closure gate are documented in
+[`COMPONENTS.md`](COMPONENTS.md). The model assigns every known source family
+and blocker to one component owner, keeps investigation states separate from
+accepted public dispositions, and rejects unmapped build outputs. It is a
+prerequisite record for later device-input generation, not evidence that a
+device build exists or works.
+
 ## Pinned Android environment
 
 `config/build-environment.json` is the build-input authority for FP6-033. It

@@ -183,5 +183,495 @@
       "status": "bundled-licence-verified"
     }
   ],
-  "schema_version": 1
+  "fp6_model": {
+    "id": "fp6-component-decisions-v1",
+    "claim_boundary": "This model classifies investigation and private bring-up inputs. It does not claim that an FP6 image builds, boots, passes compatibility testing or is eligible for public promotion. Accepted public dispositions require generated artifact closure and the recorded qualification evidence.",
+    "artifact_inventory_owner": "The generated FP6 input and target-files pipeline supplies artifact paths, hashes and dependencies. This model owns component decisions and rejects unmapped closure data rather than duplicating extracted-file lists.",
+    "update_rule": "A changed stock build, region, source revision, platform manifest, generated artifact, dependency, qualification result or maintenance status invalidates the affected decision and requires model revalidation.",
+    "inputs": {
+      "fp6_source_inventory": {
+        "path": "config/fp6-sources.json",
+        "schema_version": 1,
+        "sha256": "3d4be2997eba6e9e1056ae09cd8ae7d375a8d84e118fb18b18c8f872e3cf1ca2"
+      },
+      "selected_stock": {
+        "build": "FP6.QREL.16.100.0",
+        "region": "EU",
+        "factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+        "runtime_vintf_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577"
+      },
+      "fairphone_source_manifest": {
+        "revision_observed": "0c3980b8d385fa047d1fe4fc893bce9449a5a9c9",
+        "target_manifest_sha256": "61d8f4e4289ffc2354e6bd178b53680c62758e3a62858cf8997acf218d143d13",
+        "qssi_manifest_sha256": "71f136ff6082c026a9381a321a0b975bbe05e24ba773be6cbc5527801ae67eae"
+      },
+      "platform_environment": {
+        "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
+        "release_tag": "2026091000",
+        "manifest_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
+        "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803"
+      }
+    }
+  },
+  "fp6_components": [
+    {
+      "id": "device-platform-kernel",
+      "component": "FP6 device platform, kernel, core modules and device trees",
+      "category": "device-platform-kernel",
+      "function": "Own the board/product configuration, base kernel, core device trees and cross-subsystem kernel facilities required to assemble and boot the FP6 target.",
+      "owner_task": "FP6-041",
+      "decision_owner": "FP6 kernel and device integration maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": [
+        "device_sources:fairphone-common",
+        "device_sources:fairphone-fps",
+        "device_sources:qualcomm-volcano",
+        "device_sources:qualcomm-wlan-device",
+        "module_families:kernel-qcom",
+        "module_families:eva-kernel",
+        "module_families:mm-drivers",
+        "module_families:mm-sys-kernel",
+        "module_families:mmrm-driver",
+        "module_families:synx-kernel",
+        "module_families:touch-drivers",
+        "module_families:securemsm-kernel",
+        "module_families:spu-kernel",
+        "device_tree_families:qcom-base",
+        "device_tree_families:eva",
+        "device_tree_families:mm",
+        "device_tree_families:mmrm",
+        "device_tree_families:mm-sys",
+        "device_tree_families:synx"
+      ],
+      "blocker_refs": ["FP6-SRC-001", "FP6-SRC-004", "FP6-SRC-009"],
+      "dependencies": [],
+      "interfaces": ["Linux kernel ABI and userspace UAPI", "module signatures and load order", "device-tree overlays and reserved memory", "Android board, partition and product configuration"],
+      "source_candidates": [
+        {
+          "id": "fairphone-published-kernel-device-source",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json device_sources, module_families and device_tree_families",
+          "revision": "0c3980b8d385fa047d1fe4fc893bce9449a5a9c9 and the per-project immutable revisions in the bound inventory",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "The source set is pinned and covers the known families, but build, KMI/UAPI, boot, suspend, thermal and device qualification have not run."
+        }
+      ],
+      "decision_state": "candidate",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": false,
+        "verified_necessary_for": [],
+        "required_prebuilt_refs": [],
+        "rationale": "The available implementation is intended to be built from source; a prebuilt-kernel shortcut is not approved by this decision."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Build the exact published kernel/module/device-tree set with the selected toolchain, reconcile module output and load order, then test boot, recovery, KMI/UAPI, suspend, thermal and security behavior on FP6.",
+      "update_triggers": ["Fairphone manifest or project revision changes", "kernel toolchain or configuration changes", "EU-US platform delta is observed", "a module, DT or partition output changes"]
+    },
+    {
+      "id": "oss-vendor-libraries",
+      "component": "Open-source libraries currently supplied through vendor output",
+      "category": "oss-vendor-libraries",
+      "function": "Identify vendor libraries with usable source, rebuild the same implementation where feasible and preserve ABI, hardening and consumer compatibility.",
+      "owner_task": "FP6-201",
+      "decision_owner": "FP6 userspace source-replacement maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": [],
+      "blocker_refs": [],
+      "dependencies": ["device-platform-kernel"],
+      "interfaces": ["ELF ABI, SONAME and symbol versions", "linker namespaces and dynamic loading", "codec and parser behavior", "native consumer dependency closure"],
+      "source_candidates": [
+        {
+          "id": "target-files-library-discovery",
+          "kind": "none-identified",
+          "reference": "Generated target-files and final-image closure owned by the FP6 input generator",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "not-identified",
+          "rationale": "The source inventory is family-level and cannot identify every shipped OSS-named binary until generated output is enumerated."
+        }
+      ],
+      "decision_state": "unknown",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": false,
+        "verified_necessary_for": [],
+        "required_prebuilt_refs": [],
+        "rationale": "No library-level output inventory exists yet; convenience cannot establish private necessity."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Generate the exact vendor artifact/SBOM closure, identify source-bearing libraries and compare hashes, symbols, build flags, dependencies and callers before selecting rebuild candidates.",
+      "update_triggers": ["generated target-files become available", "a library or caller changes", "new matching source is published", "security or maintenance status changes"]
+    },
+    {
+      "id": "public-hal-services",
+      "component": "Published HAL and device-service implementations",
+      "category": "public-hal-services",
+      "function": "Build and qualify published boot-control, power, thermal, lights, vibrator, USB and other source-available service layers without confusing an open wrapper with a closed implementation.",
+      "owner_task": "FP6-202",
+      "decision_owner": "FP6 HAL and privileged-service maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["userspace_hal_families:boot-control", "userspace_hal_families:power-thermal-lights-vibrator-usb"],
+      "blocker_refs": ["FP6-SRC-002"],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot"],
+      "interfaces": ["frozen AIDL/HIDL and VINTF declarations", "SELinux domains and service permissions", "init/property activation", "failure, restart and low-power behavior"],
+      "source_candidates": [
+        {
+          "id": "fairphone-qualcomm-published-hal-source",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json userspace_hal_families",
+          "revision": "per-project immutable source_revisions in the bound inventory",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Matching source candidates are recorded, but their complete runtime dependencies and FP6 behavior remain unqualified."
+        }
+      ],
+      "decision_state": "candidate",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": false,
+        "verified_necessary_for": [],
+        "required_prebuilt_refs": [],
+        "rationale": "These selected families have source candidates and must be built and tested rather than accepted as undeclared prebuilts."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Build each selected service from its pinned source, reconcile VINTF/init/SELinux/client dependencies and run interface plus failure/restart tests on the device.",
+      "update_triggers": ["interface or VINTF version changes", "service source revision changes", "client or permission graph changes", "device failure testing changes the assessment"]
+    },
+    {
+      "id": "camera-stack",
+      "component": "Camera kernel, provider, algorithms, tuning and calibration boundary",
+      "category": "camera",
+      "function": "Deliver every required camera and privacy behavior while separating published kernel interfaces from non-source userspace algorithms, tuning and device calibration.",
+      "owner_task": "FP6-203/091",
+      "decision_owner": "FP6 camera integration maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["module_families:camera-kernel", "device_tree_families:camera", "userspace_hal_families:camera"],
+      "blocker_refs": ["FP6-SRC-005"],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "graphics-display-media", "public-hal-services"],
+      "interfaces": ["camera provider and framework contracts", "sensor, actuator, OIS and EEPROM kernel interfaces", "ISP/CHI algorithms and tuning", "media privacy, indicators and concurrent-client behavior"],
+      "source_candidates": [
+        {
+          "id": "fairphone-camera-kernel-source",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json camera kernel and device-tree records",
+          "revision": "inventory-bound immutable revisions",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Kernel and DT layers are available but do not replace the complete userspace provider, algorithms or tuning."
+        },
+        {
+          "id": "camera-userspace-replacement",
+          "kind": "none-identified",
+          "reference": "No complete maintained FP6-compatible provider/ISP replacement is identified",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "not-identified",
+          "rationale": "A generic camera implementation would not supply the FP6 ISP algorithms, tuning and calibration contracts."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["rear and front camera operation during private bring-up", "camera-dependent compatibility and quality experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:camera"],
+        "rationale": "Stock inventory identifies the userspace camera runtime as the provider for required hardware while replacement feasibility remains unproven. Device-unique calibration is never copied into generated distributable inputs."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Build the published kernel layers, generate only the declared stock userspace inputs, boot them together and compare all camera modes, privacy behavior, failures, power and like-for-like image quality.",
+      "update_triggers": ["camera provider or firmware changes", "new usable source is published", "sensor/calibration layout changes", "camera or privacy regression evidence changes"]
+    },
+    {
+      "id": "graphics-display-media",
+      "component": "GPU, display, allocator, composer, video and protected-buffer stack",
+      "category": "graphics-display-media",
+      "function": "Provide accelerated graphics, display composition and media paths while qualifying kernel/userspace interfaces and keeping optional protected-content components separately visible.",
+      "owner_task": "FP6-204",
+      "decision_owner": "FP6 graphics and display maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["module_families:display-drivers", "module_families:graphics-kernel", "module_families:video-driver", "device_tree_families:display", "device_tree_families:graphics", "device_tree_families:video", "userspace_hal_families:graphics-display-media", "userspace_hal_families:widevine-drm"],
+      "blocker_refs": [],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "oss-vendor-libraries"],
+      "interfaces": ["KGSL/DRM-MSM kernel interfaces", "GL/Vulkan userspace ABI", "gralloc, allocator and composer formats/modifiers/fences", "video and protected-buffer paths"],
+      "source_candidates": [
+        {
+          "id": "fairphone-published-graphics-layers",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json graphics/display/media families",
+          "revision": "inventory-bound immutable revisions",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Published kernel and partial userspace layers are available, but the complete stock userspace stack is mixed and unqualified."
+        },
+        {
+          "id": "mesa-freedreno-turnip",
+          "kind": "substitute",
+          "reference": "Mesa Freedreno/Turnip research candidate",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "candidate",
+          "rationale": "Generic Adreno support does not establish compatibility with the FP6 kernel, allocator, composer, protected buffers or power behavior."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["accelerated UI and display composition during private bring-up", "graphics and media compatibility experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:graphics-display-media"],
+        "rationale": "The stock userspace graphics/display/media provider is needed for initial hardware operation while source and substitution experiments are pending. Widevine is not declared necessary for initial private bring-up."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Establish the exact output/dependency graph, build available layers and compare the stock userspace path with a bounded Mesa candidate across CTS/VTS, composition, video, suspend, power and artifact tests.",
+      "update_triggers": ["kernel graphics interface changes", "GPU/display userspace changes", "Mesa support or maintenance changes", "protected-path requirements or tests change"]
+    },
+    {
+      "id": "audio-stack",
+      "component": "Audio HAL, routing, DSP integration, kernel modules and tuning",
+      "category": "audio",
+      "function": "Preserve calls, media, capture privacy, alarms and accessory routing while separating source-available layers from DSP firmware, tuning and non-source runtime components.",
+      "owner_task": "FP6-205/044/090",
+      "decision_owner": "FP6 audio and telephony-audio maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["module_families:audio-techpack", "module_families:dsp-kernel", "device_tree_families:audio", "device_tree_families:dsp", "userspace_hal_families:audio"],
+      "blocker_refs": [],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "public-hal-services"],
+      "interfaces": ["Android audio HAL and policy", "ALSA/ASoC and AudioReach DSP interfaces", "voice/IMS/VoWiFi routing", "capture mute, indicators, latency and restart behavior"],
+      "source_candidates": [
+        {
+          "id": "fairphone-qualcomm-audio-source",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json audio module, DT and HAL records",
+          "revision": "inventory-bound immutable revisions",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Published source covers part of the stack; proprietary runtime, tuning and DSP dependencies remain separate and unqualified."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["call, media, alarm and capture routing during private bring-up", "audio source-replacement and regression experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:audio"],
+        "rationale": "The mixed stock audio userspace family supplies required runtime behavior while the published layers and closed dependencies are separated and tested."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Build every usable published audio layer, enumerate the exact remaining runtime/tuning closure and test call/IMS/VoWiFi, media, alarm, capture, accessory, suspend and DSP-restart behavior.",
+      "update_triggers": ["audio policy or HAL changes", "DSP firmware or tuning changes", "telephony routing changes", "new source or maintenance evidence appears"]
+    },
+    {
+      "id": "radio-ims-data",
+      "component": "Cellular radio, IMS and data-path runtime",
+      "category": "radio-ims-data",
+      "function": "Provide voice, SMS, data, VoLTE, VoWiFi and supported 5G behavior while binding the kernel data path, modem firmware and userspace radio/IMS runtime as separate dependencies.",
+      "owner_task": "FP6-043/047/048",
+      "decision_owner": "FP6 telephony and radio integration maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["module_families:dataipa", "module_families:datarmnet", "device_tree_families:data", "userspace_hal_families:radio-ims"],
+      "blocker_refs": ["FP6-SRC-006"],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "public-hal-services"],
+      "interfaces": ["radio HAL and telephony framework", "IMS registration and calling", "rmnet/IPA data path", "modem firmware, carrier configuration and regional behavior"],
+      "source_candidates": [
+        {
+          "id": "radio-ims-source-replacement",
+          "kind": "none-identified",
+          "reference": "No complete maintained FP6-compatible radio and IMS userspace replacement is identified",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "not-identified",
+          "rationale": "Published kernel data-path source does not replace the radio/IMS runtime or modem firmware."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["ordinary voice, SMS, data, VoLTE and VoWiFi during private bring-up", "EU carrier compatibility experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:radio-ims"],
+        "rationale": "The stock radio/IMS userspace family is the recorded provider for required telephony behavior; EU stock behavior is baselined while custom-build qualification remains pending."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Integrate the exact radio/IMS/data closure with its modem inputs, then repeat the accepted carrier matrix on the custom candidate and separately validate the future US-region device.",
+      "update_triggers": ["radio or IMS runtime changes", "modem firmware changes", "carrier configuration changes", "regional comparison or telephony tests change"]
+    },
+    {
+      "id": "connectivity-peripherals",
+      "component": "Wi-Fi, Bluetooth, GNSS, NFC, sensors, touch and peripheral integration",
+      "category": "connectivity-peripherals",
+      "function": "Provide local radios, positioning, sensors, NFC/eSE, touch and peripheral behavior with explicit source, firmware and userspace boundaries.",
+      "owner_task": "FP6-202",
+      "decision_owner": "FP6 connectivity and peripheral integration maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["module_families:bt-kernel", "module_families:nfc", "module_families:wlan-qcacld-3.0", "device_tree_families:bt", "device_tree_families:ese", "device_tree_families:nfc", "device_tree_families:wlan", "userspace_hal_families:bluetooth", "userspace_hal_families:gnss", "userspace_hal_families:nfc-secure-element", "userspace_hal_families:sensors", "userspace_hal_families:wifi"],
+      "blocker_refs": ["FP6-SRC-008"],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "public-hal-services"],
+      "interfaces": ["Wi-Fi and Bluetooth framework/HAL/kernel contracts", "GNSS and sensor HALs", "NFC/eSE service and controller transport", "touch and peripheral kernel interfaces"],
+      "source_candidates": [
+        {
+          "id": "fairphone-connectivity-source-layers",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json WLAN, Bluetooth, NFC and peripheral records",
+          "revision": "inventory-bound immutable revisions",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Several host/kernel layers have matching source, while firmware and multiple userspace services remain mixed or non-source."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["Wi-Fi, Bluetooth, positioning and sensors during private bring-up", "NFC/eSE integration experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:bluetooth", "userspace_hal_families:gnss", "userspace_hal_families:sensors", "userspace_hal_families:wifi"],
+        "rationale": "These stock userspace providers are necessary for their hardware paths while matching source layers and replacement candidates are qualified. NFC/eSE remains candidate-only until its exact userspace selection is resolved."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Build the published host/kernel layers, bind the exact userspace/firmware closure and exercise connectivity, positioning, NFC, sensor, suspend, restart and privacy behavior per subsystem.",
+      "update_triggers": ["radio/peripheral source or firmware changes", "NFC userspace selection resolves", "regional hardware differs", "subsystem qualification changes"]
+    },
+    {
+      "id": "credentials-security",
+      "component": "Fingerprint, gatekeeper, KeyMint and secure-processor integration",
+      "category": "credentials-security",
+      "function": "Preserve lock-screen credentials, authentication, key storage and secure processing without inferring unavailable Pixel-specific hardware capabilities.",
+      "owner_task": "FP6-042/050/051",
+      "decision_owner": "FP6 credential and hardware-security maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["userspace_hal_families:fingerprint", "userspace_hal_families:gatekeeper-keymint-secureprocessor"],
+      "blocker_refs": ["FP6-SRC-003"],
+      "dependencies": ["device-platform-kernel", "firmware-trusted-boot", "public-hal-services"],
+      "interfaces": ["fingerprint biometric HAL", "Gatekeeper and KeyMint AIDL", "secure processor and trusted execution", "framework credential and keystore clients"],
+      "source_candidates": [
+        {
+          "id": "generic-keymint-integration-source",
+          "kind": "same-implementation",
+          "reference": "config/fp6-sources.json gatekeeper/keymint generic integration revisions",
+          "revision": "inventory-bound immutable revisions",
+          "compatibility": "exact-unqualified",
+          "assessment": "candidate",
+          "rationale": "Generic integration source exists, but the FP6 runtime, trusted applications and hardware behavior are not replaced or qualified by it."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["credential enrollment, unlock and application keystore during private bring-up", "hardware-security integration experiments"],
+        "required_prebuilt_refs": ["userspace_hal_families:fingerprint", "userspace_hal_families:gatekeeper-keymint-secureprocessor"],
+        "rationale": "The stock runtime families are the recorded providers for required credential and key functionality while device-specific secure-world dependencies remain under investigation."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Integrate the exact runtime and trusted dependencies, then test credential lifecycle, wrong-auth rejection, keystore operations, reboot recovery and the explicitly unsupported StrongBox/Weaver boundaries.",
+      "update_triggers": ["credential HAL or trusted component changes", "framework credential policy changes", "new hardware evidence appears", "security qualification changes"]
+    },
+    {
+      "id": "firmware-trusted-boot",
+      "component": "Boot, trust, modem, DSP, connectivity and peripheral firmware",
+      "category": "firmware-trusted-boot",
+      "function": "Account for every firmware and trusted early-boot dependency, its authenticated origin, loader/update path, rollback boundary and hardware function.",
+      "owner_task": "FP6-206",
+      "decision_owner": "FP6 firmware and boot-chain maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["firmware_families:boot-and-trust-firmware", "firmware_families:radio-connectivity-dsp-firmware", "firmware_families:vendor-peripheral-firmware"],
+      "blocker_refs": ["FP6-SRC-007"],
+      "dependencies": [],
+      "interfaces": ["OEM/SoC boot stages and rollback", "trusted execution and trusted applications", "modem/DSP/GPU/WLAN/BT firmware loaders", "A/B update and recovery boundaries"],
+      "source_candidates": [
+        {
+          "id": "firmware-replacement-authority",
+          "kind": "none-identified",
+          "reference": "No compatible source plus required OEM/SoC signing authority is identified",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "not-identified",
+          "rationale": "Public boot or trusted-OS projects do not establish FP6 compatibility or authority to replace OEM/SoC-signed firmware."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": ["booting and operating FP6 hardware during private bring-up", "firmware/update/rollback inventory and qualification"],
+        "required_prebuilt_refs": ["firmware_families:boot-and-trust-firmware", "firmware_families:radio-connectivity-dsp-firmware", "firmware_families:vendor-peripheral-firmware"],
+        "rationale": "The selected stock firmware families are the authenticated runtime inputs for hardware and early boot; each remains subject to exact artifact closure, update/support review and device testing."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Generate the exact firmware inventory from the selected factory input, map loaders and partitions, then verify boot, authenticity, update, rollback, recovery and subsystem behavior without attempting signature bypasses.",
+      "update_triggers": ["stock build or region changes", "firmware or loader changes", "security advisory or support status changes", "boot/update/recovery evidence changes"]
+    },
+    {
+      "id": "esim-stack",
+      "component": "eSIM LPA, protocol libraries, privileged integration and recovery",
+      "category": "esim",
+      "function": "Select a maintained core eSIM management path that works without a mandatory Play/account dependency and preserves carrier, privacy and recovery behavior.",
+      "owner_task": "FP6-207/089",
+      "decision_owner": "FP6 eSIM and telephony-product maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": [],
+      "blocker_refs": [],
+      "dependencies": ["radio-ims-data", "credentials-security"],
+      "interfaces": ["Android Euicc/LPA privileged APIs", "eUICC protocol/native libraries and assets", "carrier activation and profile lifecycle", "backup, reset and recovery behavior"],
+      "source_candidates": [
+        {
+          "id": "openeuicc",
+          "kind": "substitute",
+          "reference": "OpenEUICC unpriv-v1.7.2 candidate recorded in components",
+          "revision": "unpriv-v1.7.2 detection pin; integration revision unresolved",
+          "compatibility": "unknown",
+          "assessment": "candidate",
+          "rationale": "Source availability and licence inspection do not establish privileged FP6 integration, protocol completeness, carrier behavior or sustainable maintenance."
+        }
+      ],
+      "decision_state": "candidate",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": false,
+        "verified_necessary_for": [],
+        "required_prebuilt_refs": [],
+        "rationale": "The stock eSIM path has not yet been separated into exact component outputs in the bound source inventory, so no prebuilt exception is declared here."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Trace the exact stock LPA/protocol/native closure, bind the OpenEUICC integration revision and compare profile download, activation, switching, deletion safeguards, reset, privacy and carrier behavior.",
+      "update_triggers": ["LPA or protocol source changes", "Android Euicc APIs change", "carrier/eUICC behavior changes", "maintenance or recovery evidence changes"]
+    },
+    {
+      "id": "optional-vendor-services",
+      "component": "Vendor auxiliary, diagnostic and optional value-add packages",
+      "category": "optional-vendor-services",
+      "function": "Identify optional vendor packages and remove complete dependency/activation/grant paths only after proving required functionality and safety remain intact.",
+      "owner_task": "FP6-060/061",
+      "decision_owner": "FP6 production-surface and package-selection maintainer",
+      "region_scope": ["EU", "US-pending"],
+      "inventory_refs": ["userspace_hal_families:vendor-auxiliary-services"],
+      "blocker_refs": [],
+      "dependencies": ["public-hal-services", "connectivity-peripherals"],
+      "interfaces": ["vendor APK/JAR/native services", "init/property triggers and permissions", "SELinux domains and feature declarations", "network, telemetry, diagnostic and delayed activation paths"],
+      "source_candidates": [
+        {
+          "id": "lineage-fp6-package-reference",
+          "kind": "reference",
+          "reference": "LineageOS FP6 device reference at 4512f510190c931c2ca6a11fac1ba10bae2275b5",
+          "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
+          "compatibility": "mismatched",
+          "assessment": "reference-only",
+          "rationale": "The reference names QREL.16.104 inputs and cannot establish the selected EU stock closure, GrapheneOS-framework compatibility or a shipping decision."
+        }
+      ],
+      "decision_state": "candidate",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": false,
+        "verified_necessary_for": [],
+        "required_prebuilt_refs": [],
+        "rationale": "Optional or unidentified auxiliary services are not accepted merely because they exist in stock; necessity must be demonstrated from the generated closure and real behavior."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Enumerate the generated vendor package/service closure, identify callers and delayed triggers, then remove one bounded component or coupled group at a time with positive and negative regression coverage.",
+      "update_triggers": ["generated package closure changes", "a caller or activation path is discovered", "safety or functionality evidence changes", "stock or regional input changes"]
+    }
+  ],
+  "schema_version": 2
 }

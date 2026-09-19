@@ -1,0 +1,220 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComponentDecisionModel",
+  "description": "FP6 component investigation and disposition model. Validation does not qualify a build or component.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fp6_model", "fp6_components", "components"],
+  "properties": {
+    "schema_version": {"const": 2, "type": "integer"},
+    "fp6_model": {"$ref": "#/definitions/model"},
+    "fp6_components": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 64,
+      "items": {"$ref": "#/definitions/component"}
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {"$ref": "#/definitions/project_dependency"}
+    }
+  },
+  "definitions": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "pattern": "\\S"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "string_list": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/definitions/text"}
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "claim_boundary", "inputs", "artifact_inventory_owner", "update_rule"],
+      "properties": {
+        "id": {"const": "fp6-component-decisions-v1", "type": "string"},
+        "claim_boundary": {"$ref": "#/definitions/text"},
+        "artifact_inventory_owner": {"$ref": "#/definitions/text"},
+        "update_rule": {"$ref": "#/definitions/text"},
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fp6_source_inventory", "selected_stock", "fairphone_source_manifest", "platform_environment"],
+          "properties": {
+            "fp6_source_inventory": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "schema_version", "sha256"],
+              "properties": {
+                "path": {"const": "config/fp6-sources.json", "type": "string"},
+                "schema_version": {"const": 1, "type": "integer"},
+                "sha256": {"$ref": "#/definitions/sha256"}
+              }
+            },
+            "selected_stock": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["build", "region", "factory_sha256", "runtime_vintf_sha256"],
+              "properties": {
+                "build": {"const": "FP6.QREL.16.100.0", "type": "string"},
+                "region": {"const": "EU", "type": "string"},
+                "factory_sha256": {"$ref": "#/definitions/sha256"},
+                "runtime_vintf_sha256": {"$ref": "#/definitions/sha256"}
+              }
+            },
+            "fairphone_source_manifest": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision_observed", "target_manifest_sha256", "qssi_manifest_sha256"],
+              "properties": {
+                "revision_observed": {"$ref": "#/definitions/commit"},
+                "target_manifest_sha256": {"$ref": "#/definitions/sha256"},
+                "qssi_manifest_sha256": {"$ref": "#/definitions/sha256"}
+              }
+            },
+            "platform_environment": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["environment_id", "release_tag", "manifest_commit", "project_map_sha256"],
+              "properties": {
+                "environment_id": {"$ref": "#/definitions/text"},
+                "release_tag": {"pattern": "^[0-9]{10}$", "type": "string"},
+                "manifest_commit": {"$ref": "#/definitions/commit"},
+                "project_map_sha256": {"$ref": "#/definitions/sha256"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "source_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "reference", "revision", "compatibility", "assessment", "rationale"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "kind": {"enum": ["same-implementation", "substitute", "reference", "none-identified"]},
+        "reference": {"$ref": "#/definitions/text"},
+        "revision": {"type": ["string", "null"], "maxLength": 500},
+        "compatibility": {"enum": ["exact", "exact-unqualified", "mismatched", "unknown", "not-applicable"]},
+        "assessment": {"enum": ["candidate", "reference-only", "not-identified", "qualification-failed", "qualified"]},
+        "rationale": {"$ref": "#/definitions/text"}
+      }
+    },
+    "private_bringup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible", "verified_necessary_for", "required_prebuilt_refs", "rationale"],
+      "properties": {
+        "eligible": {"type": "boolean"},
+        "verified_necessary_for": {"$ref": "#/definitions/string_list"},
+        "required_prebuilt_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 128,
+          "items": {"type": "string", "pattern": "^[a-z_]+:[a-z0-9][a-z0-9.-]*$"}
+        },
+        "rationale": {"$ref": "#/definitions/text"}
+      }
+    },
+    "qualification_evidence": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "reference"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "exact-artifact",
+              "exact-source",
+              "build",
+              "interface",
+              "security",
+              "functional",
+              "maintenance",
+              "necessity",
+              "alternatives",
+              "integrity",
+              "exposure",
+              "absence",
+              "update-recovery"
+            ]
+          },
+          "reference": {"$ref": "#/definitions/text"}
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "component", "category", "function", "owner_task", "decision_owner", "region_scope", "inventory_refs", "blocker_refs", "dependencies", "interfaces", "source_candidates", "decision_state", "public_disposition", "private_bringup", "qualification_evidence", "next_experiment", "update_triggers"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "component": {"$ref": "#/definitions/text"},
+        "category": {"enum": ["device-platform-kernel", "oss-vendor-libraries", "public-hal-services", "camera", "graphics-display-media", "audio", "radio-ims-data", "connectivity-peripherals", "credentials-security", "firmware-trusted-boot", "esim", "optional-vendor-services"]},
+        "function": {"$ref": "#/definitions/text"},
+        "owner_task": {"pattern": "^FP6-[0-9]{3}(?:/[0-9]{3})*$", "type": "string"},
+        "decision_owner": {"$ref": "#/definitions/text"},
+        "region_scope": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["EU", "US-pending", "all"]}},
+        "inventory_refs": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z_]+:[a-z0-9][a-z0-9.-]*$"}},
+        "blocker_refs": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"pattern": "^FP6-SRC-[0-9]{3}$", "type": "string"}},
+        "dependencies": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/definitions/id"}},
+        "interfaces": {"$ref": "#/definitions/string_list"},
+        "source_candidates": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/definitions/source_candidate"}},
+        "decision_state": {"enum": ["unknown", "candidate", "private-bringup", "qualification-failed", "accepted"]},
+        "public_disposition": {"type": ["string", "null"], "enum": ["source-built", "necessary-prebuilt", "removed", "research-only", null]},
+        "public_prebuilt_refs": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z_]+:[a-z0-9][a-z0-9.-]*$"}
+        },
+        "private_bringup": {"$ref": "#/definitions/private_bringup"},
+        "qualification_evidence": {"$ref": "#/definitions/qualification_evidence"},
+        "next_experiment": {"$ref": "#/definitions/text"},
+        "update_triggers": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/definitions/text"}}
+      }
+    },
+    "project_dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "decision_owner", "distribution_form", "evidence", "id", "licence", "modifications", "notices_obligation", "owner_task", "revision", "source_url", "status"],
+      "properties": {
+        "component": {"$ref": "#/definitions/text"},
+        "decision_owner": {"$ref": "#/definitions/text"},
+        "distribution_form": {"$ref": "#/definitions/text"},
+        "evidence": {"$ref": "#/definitions/text"},
+        "id": {"$ref": "#/definitions/id"},
+        "licence": {"$ref": "#/definitions/text"},
+        "modifications": {"$ref": "#/definitions/text"},
+        "notices_obligation": {"$ref": "#/definitions/text"},
+        "owner_task": {"$ref": "#/definitions/text"},
+        "revision": {"type": ["string", "null"], "maxLength": 1000},
+        "source_url": {"$ref": "#/definitions/text"},
+        "status": {"$ref": "#/definitions/text"}
+      }
+    }
+  }
+}
