@@ -74,6 +74,10 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("DIAMANEOS_THERMAL_CHECK", script)
         self.assertIn('--thermal-check "$thermal_check"', script)
+        self.assertIn('workspace["output_subdirectory"]', script)
+        self.assertNotIn(
+            'output_root=$workspace_root/out/grapheneos-2026091000', script,
+        )
         unit = SYNC_SERVICE.read_text(encoding="utf-8")
         self.assertIn("User=diamaneos-build", unit)
         self.assertIn("EnvironmentFile=/etc/diamaneos/builder-source-sync.env", unit)
