@@ -1,5 +1,5 @@
 {
-  "note": "Source research proposal begun 2026-09-10 and extended by the FP6 source inventory on 2026-09-13, the exact-stock/regional strategy on 2026-09-14 and the signed GrapheneOS release selection on 2026-09-19. The selected GrapheneOS tag, signer list and immutable 1,057-project map are pinned in config/build-environment.json. Full checkout verification, clean build and consumed-file open-source licence compliance still run on the builder. No port-compatibility claim.",
+  "note": "Source research proposal begun 2026-09-10 and extended by the FP6 source inventory on 2026-09-13, the exact-stock/regional strategy on 2026-09-14 and the signed GrapheneOS release selection on 2026-09-19. The selected GrapheneOS tag, signer list, immutable 1,057-project map and internal repo implementation are pinned in config/build-environment.json. Full checkout verification, clean build and consumed-file open-source licence compliance still run on the builder. No port-compatibility claim.",
   "schema_version": 1,
   "sources": [
     {
@@ -12,6 +12,17 @@
       "release_channel": "Stable 2026091000, Android 17",
       "support_evidence_ref": "https://grapheneos.org/releases#2026091000 and https://grapheneos.org/build#stable-release",
       "verification_method": "VERIFIED MANIFEST TAG: git verify-tag accepted the SSH signature for contact@grapheneos.org with ED25519 fingerprint SHA256:AhgHif0mei+9aNyKLfMZBh2yptHdw/aN7Tlh/j2eFwM using the official allowed_signers file (SHA-256 344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0). Full repo sync, clean-checkout verification and build remain builder evidence."
+    },
+    {
+      "applicability": "Pinned implementation used behind the Debian repo launcher for source initialization, synchronization and resolved-manifest export.",
+      "authoritative_url": "https://gerrit.googlesource.com/git-repo",
+      "current_revision": "Signed release v2.65: tag object 2f04a7d4d2bd16170285b9b971227e8151d49f78; peeled commit 35bbf701d04de5c6a71937279bc3d16f6ce36808.",
+      "discovery_method": "Official Gitiles tag plus direct official Git fetch on 2026-09-19; the live builder log exposed that the Debian 2.54 launcher correctly delegates to a separately self-updating implementation.",
+      "id": "android-repo-tool",
+      "public_verifier_ref": "Official repo launcher GPG release verification and exact local tag-object/commit checks",
+      "release_channel": "Pinned signed release v2.65",
+      "support_evidence_ref": "https://gerrit.googlesource.com/git-repo/+/refs/tags/v2.65 and official repo-init --repo-rev documentation",
+      "verification_method": "PINNED TOOL INPUT: repo init uses the exact peeled commit via --repo-rev; the script and full preflight require the official origin, tag object, peeled commit and successful GPG tag verification through the launcher's keyring. Moving stable is rejected as build identity."
     },
     {
       "applicability": "Fallback only; staleness/support TBD. Not the proposal.",

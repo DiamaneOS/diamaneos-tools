@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v1",
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v2",
   "scope": "Pinned online source and build environment for the first FP6 bring-up. This record does not authorize release signing or claim FP6 compatibility.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -16,6 +16,13 @@
     "allowed_signers_sha256": "344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0",
     "signer_identity": "contact@grapheneos.org",
     "signer_key_fingerprint": "SHA256:AhgHif0mei+9aNyKLfMZBh2yptHdw/aN7Tlh/j2eFwM",
+    "repo_tool": {
+      "url": "https://gerrit.googlesource.com/git-repo",
+      "release_tag": "v2.65",
+      "tag_object": "2f04a7d4d2bd16170285b9b971227e8151d49f78",
+      "peeled_commit": "35bbf701d04de5c6a71937279bc3d16f6ce36808",
+      "verification": "repo-launcher-gpg-required"
+    },
     "release_scope": "stable; explicitly listed for emulator, generic and other targets",
     "verified_on": "2026-09-19"
   },
