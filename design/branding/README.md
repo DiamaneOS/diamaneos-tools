@@ -109,6 +109,8 @@ SVGs, browser geometry data and a hash manifest. No network is required.
 Review generated marks, lettering, crops and contrast after any source change.
 Raster avatars are exported from their SVGs; see [the asset export notes](lift/exports.md).
 
-Original Lift artwork was created for DiamaneOS. This design record adds no
-new blanket licence or trademark permission. Existing project licensing
-decisions apply separately; the bundled font retains its own notices.
+Original Lift artwork was created for DiamaneOS and is covered by the
+repository's [Apache-2.0 licence](../../LICENSE). The copyright licence is
+separate from use of the DiamaneOS name and logo as trademarks; see section 6
+of that licence. Bundled Instrument Sans font files retain their
+[SIL Open Font License](lift/fonts/OFL.txt) and upstream author notices.

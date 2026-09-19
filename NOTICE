@@ -1,0 +1,35 @@
+diamaneos-tools
+Copyright 2026 DiamaneOS contributors
+
+Original DiamaneOS code, documentation and artwork are licensed under the
+Apache License, Version 2.0. The full text is in LICENSE. Separately identified
+third-party material retains its own copyright and licence notices.
+
+Bundled third-party material
+---------------------------
+
+Lucide 1.8.0
+Source: https://www.npmjs.com/package/lucide/v/1.8.0
+Project: https://github.com/lucide-icons/lucide
+Bundled runtime: design/prototypes/assets/lucide-1.8.0.min.js
+Copyright (c) 2026 Lucide Icons and Contributors
+ISC License, with the MIT notice for the Feather-derived icons identified in
+design/prototypes/assets/lucide-LICENSE.txt.
+Feather attribution: Copyright (c) 2013-present Cole Bemis
+The complete upstream licence and attribution text is preserved in that file.
+
+Instrument Sans
+Source: https://github.com/Instrument/instrument-sans
+Revision: 7fa22308a3d0c94ee2b3cd537a1196b65db34a3e
+Bundled files: design/branding/lift/fonts/InstrumentSans-Regular.ttf,
+design/branding/lift/fonts/InstrumentSans-Medium.ttf, and
+design/branding/lift/fonts/InstrumentSans[wdth,wght].woff2
+Copyright 2022 The Instrument Sans Project Authors
+SIL Open Font License, Version 1.1.
+The complete licence is preserved in design/branding/lift/fonts/OFL.txt;
+the upstream authors file is design/branding/lift/fonts/AUTHORS.txt.
+Exact source paths and file hashes are in design/branding/lift/fonts/source.json.
+
+The full bundled licence texts must accompany redistribution of the respective
+third-party components as required by those licences. This attribution index
+does not replace or modify their terms.
