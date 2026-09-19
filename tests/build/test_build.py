@@ -43,6 +43,16 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertNotEqual(original["declared_build_identity_sha256"],
                             modified["declared_build_identity_sha256"])
 
+    def test_changed_repo_tool_pin_changes_build_identity(self):
+        changed = copy.deepcopy(self.config)
+        changed["upstream"]["repo_tool"]["tag_object"] = "2" * 40
+        changed["upstream"]["repo_tool"]["peeled_commit"] = "3" * 40
+        changed_raw = (json.dumps(changed, sort_keys=True) + "\n").encode()
+        original = build.declared_identity(self.config, self.raw, ROOT)
+        modified = build.declared_identity(changed, changed_raw, ROOT)
+        self.assertNotEqual(original["declared_build_identity_sha256"],
+                            modified["declared_build_identity_sha256"])
+
     def test_cold_environment_identifies_inputs_without_private_cache(self):
         result = subprocess.run(
             [str(ROOT / "bin" / "diamaneos"), "build", "preflight", "--inputs-only"],
@@ -93,10 +103,12 @@ class BuildEnvironmentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source"
             manifests = source / ".repo" / "manifests"
+            repo_tool = source / ".repo" / "repo"
             project = source / "project"
             manifests.mkdir(parents=True)
+            repo_tool.mkdir()
             project.mkdir()
-            for repository in (manifests, project):
+            for repository in (manifests, repo_tool, project):
                 git(repository, "init", "-q")
                 git(repository, "config", "user.name", "Fixture")
                 git(repository, "config", "user.email", "fixture@example.invalid")
@@ -127,6 +139,19 @@ class BuildEnvironmentTests(unittest.TestCase):
             peeled = subprocess.run(
                 ["git", "-C", str(manifests), "rev-parse", "fixture-tag^{}"],
                 check=True, capture_output=True, text=True).stdout.strip()
+            repo_revision_file = repo_tool / "repo"
+            repo_revision_file.write_text("fixture repo tool\n", encoding="utf-8")
+            git(repo_tool, "add", "repo")
+            git(repo_tool, "commit", "-q", "-m", "repo fixture")
+            git(repo_tool, "remote", "add", "origin",
+                self.config["upstream"]["repo_tool"]["url"])
+            git(repo_tool, "tag", "-a", "fixture-repo", "-m", "repo fixture")
+            repo_tag_object = subprocess.run(
+                ["git", "-C", str(repo_tool), "rev-parse", "fixture-repo^{tag}"],
+                check=True, capture_output=True, text=True).stdout.strip()
+            repo_peeled = subprocess.run(
+                ["git", "-C", str(repo_tool), "rev-parse", "fixture-repo^{}"],
+                check=True, capture_output=True, text=True).stdout.strip()
             rows, map_hash = build.parse_project_map(manifest)
             allowed = Path(temporary) / "allowed_signers"
             allowed.write_text("fixture\n", encoding="utf-8")
@@ -144,6 +169,11 @@ class BuildEnvironmentTests(unittest.TestCase):
                 "allowed_signers_sha256": build.sha256_file(allowed),
                 "signer_identity": "fixture@example.invalid",
                 "signer_key_fingerprint": "SHA256:fixture",
+            })
+            upstream["repo_tool"].update({
+                "release_tag": "fixture-repo",
+                "tag_object": repo_tag_object,
+                "peeled_commit": repo_peeled,
             })
             (project / "untracked.txt").write_text("dirty\n", encoding="utf-8")
 

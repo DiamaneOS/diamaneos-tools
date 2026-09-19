@@ -102,7 +102,7 @@ def validate_config(config: dict) -> None:
         "peeled_commit", "default_manifest_sha256", "project_count",
         "project_map_sha256", "project_map_format", "allowed_signers_url",
         "allowed_signers_sha256", "signer_identity", "signer_key_fingerprint",
-        "release_scope", "verified_on",
+        "repo_tool", "release_scope", "verified_on",
     }
     upstream = config["upstream"]
     _require_keys(upstream, upstream_keys, "upstream")
@@ -120,6 +120,19 @@ def validate_config(config: dict) -> None:
         raise BuildError("manifest URL must use HTTPS")
     if not upstream["allowed_signers_url"].startswith("https://"):
         raise BuildError("allowed-signers URL must use HTTPS")
+    repo_tool = upstream["repo_tool"]
+    _require_keys(repo_tool, {
+        "url", "release_tag", "tag_object", "peeled_commit", "verification",
+    }, "repo tool")
+    if not repo_tool["url"].startswith("https://"):
+        raise BuildError("repo tool URL must use HTTPS")
+    if not isinstance(repo_tool["release_tag"], str) or not SAFE_ID_RE.fullmatch(
+            repo_tool["release_tag"]):
+        raise BuildError("repo tool release tag is invalid")
+    for field in ("tag_object", "peeled_commit"):
+        _require_sha(repo_tool[field], f"repo tool {field}", SHA1_RE)
+    if repo_tool["verification"] != "repo-launcher-gpg-required":
+        raise BuildError("repo tool verification policy is invalid")
 
     host_keys = {
         "architecture", "os_id", "os_version_id", "upstream_support_status",
@@ -221,6 +234,8 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
         "environment_id": config["environment_id"],
         "manifest_tag_object": config["upstream"]["tag_object"],
         "manifest_commit": config["upstream"]["peeled_commit"],
+        "repo_tool_tag_object": config["upstream"]["repo_tool"]["tag_object"],
+        "repo_tool_commit": config["upstream"]["repo_tool"]["peeled_commit"],
         "project_map_sha256": config["upstream"]["project_map_sha256"],
         "project_inputs": input_hashes,
         "selected_stock_factory_sha256": config["device_inputs"][
@@ -401,6 +416,31 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
     manifests = source / ".repo" / "manifests"
     if not manifests.is_dir():
         raise BuildError("source checkout lacks .repo/manifests")
+    repo_tool = source / ".repo" / "repo"
+    repo_pin = upstream["repo_tool"]
+    if not repo_tool.is_dir():
+        raise BuildError("source checkout lacks the pinned repo implementation")
+    repo_origin = _run(["git", "-C", str(repo_tool), "remote", "get-url", "origin"])
+    if repo_origin.stdout.decode("utf-8", "strict").strip() != repo_pin["url"]:
+        raise BuildError("repo implementation origin does not match the authoritative URL")
+    repo_head = _run(["git", "-C", str(repo_tool), "rev-parse", "HEAD"])
+    if repo_head.stdout.decode().strip() != repo_pin["peeled_commit"]:
+        raise BuildError("repo implementation commit does not match the pin")
+    repo_tag = repo_pin["release_tag"]
+    repo_tag_object = _run([
+        "git", "-C", str(repo_tool), "rev-parse", f"{repo_tag}^{{tag}}",
+    ])
+    if repo_tag_object.stdout.decode().strip() != repo_pin["tag_object"]:
+        raise BuildError("repo implementation tag object does not match the pin")
+    repo_peeled = _run([
+        "git", "-C", str(repo_tool), "rev-parse", f"{repo_tag}^{{}}",
+    ])
+    if repo_peeled.stdout.decode().strip() != repo_pin["peeled_commit"]:
+        raise BuildError("repo implementation tag commit does not match the pin")
+    repo_verify_env = os.environ.copy()
+    repo_verify_env["GNUPGHOME"] = str(Path.home() / ".repoconfig" / "gnupg")
+    _run(["git", "-C", str(repo_tool), "verify-tag", repo_tag],
+         env=repo_verify_env)
     origin = _run(["git", "-C", str(manifests), "remote", "get-url", "origin"])
     if origin.stdout.decode("utf-8", "strict").strip() != upstream["manifest_url"]:
         raise BuildError("manifest origin does not match the authoritative URL")
@@ -451,6 +491,10 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
         raise BuildError("source checkout contains dirty or untracked content: "
                          + ", ".join(dirty))
     return {
+        "repo_tool_release_tag": repo_tag,
+        "repo_tool_tag_object": repo_pin["tag_object"],
+        "repo_tool_commit": repo_pin["peeled_commit"],
+        "repo_tool_signature_verification": "PASS",
         "release_tag": tag,
         "tag_object": upstream["tag_object"],
         "peeled_commit": upstream["peeled_commit"],

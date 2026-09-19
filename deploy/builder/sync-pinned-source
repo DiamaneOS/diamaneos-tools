@@ -12,6 +12,10 @@ tag=2026091000
 tag_object=6c939d124f3ea8dd545c1e4045f26359f501d80e
 peeled_commit=ac9f2fdf0badebea2f6ac6c3e93b125aba02116a
 allowed_signers_sha256=344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0
+repo_tool_url=https://gerrit.googlesource.com/git-repo
+repo_tool_tag=v2.65
+repo_tool_tag_object=2f04a7d4d2bd16170285b9b971227e8151d49f78
+repo_tool_commit=35bbf701d04de5c6a71937279bc3d16f6ce36808
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -59,7 +63,21 @@ temporary_signers=
 
 cd "$source_root"
 repo init -u https://github.com/GrapheneOS/platform_manifest.git \
-  -b "refs/tags/$tag"
+  -b "refs/tags/$tag" \
+  --repo-url="$repo_tool_url" \
+  --repo-rev="$repo_tool_commit"
+
+repo_tool_git=$source_root/.repo/repo
+[[ $(git -C "$repo_tool_git" remote get-url origin) == "$repo_tool_url" ]] || \
+  fail "repo implementation origin mismatch"
+[[ $(git -C "$repo_tool_git" rev-parse HEAD) == "$repo_tool_commit" ]] || \
+  fail "repo implementation commit mismatch"
+[[ $(git -C "$repo_tool_git" rev-parse "$repo_tool_tag^{tag}") == "$repo_tool_tag_object" ]] || \
+  fail "repo implementation tag object mismatch"
+[[ $(git -C "$repo_tool_git" rev-parse "$repo_tool_tag^{}") == "$repo_tool_commit" ]] || \
+  fail "repo implementation tag commit mismatch"
+GNUPGHOME="$HOME/.repoconfig/gnupg" \
+  git -C "$repo_tool_git" verify-tag "$repo_tool_tag"
 
 manifest_git=$source_root/.repo/manifests
 [[ $(git -C "$manifest_git" rev-parse "$tag^{tag}") == "$tag_object" ]] || \
