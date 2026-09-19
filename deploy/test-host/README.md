@@ -313,7 +313,7 @@ released; do not delete its state file as a shortcut.
 
 `diamaneos-rig-maintenance.timer` is deliberately inert without the root-owned
 sentinel `/etc/diamaneos/rig-maintenance-enabled`. Do not create that sentinel
-or enable the timer until the operator has accepted each role's battery policy and
+or enable the timer until the responsible operator has accepted each role's battery policy and
 every active test output root is in `inhibit_roots`. Any unreadable `.partial`
 run, a partial without a valid mapped role/run ID, or a partial not owned and
 protected by the runner blocks switching. Long-running and staged tests must

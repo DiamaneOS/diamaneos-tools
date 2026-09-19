@@ -39,7 +39,9 @@ fastboot --version
 - [Testing and command setup](docs/TESTING.md)
 - [Host-tooling and device-suite development](docs/BUILD.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
-- [Repository map](config/repositories.json)
+- [Repository map](config/repositories.json) — checkout discovery and lifecycle
+  state only, not a release lock. Exact multi-repository build inputs are
+  recorded by the build or release manifest that consumes them.
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
 - [Interface design reference](DESIGN.md)

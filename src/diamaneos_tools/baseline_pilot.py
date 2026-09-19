@@ -1,6 +1,6 @@
 """Target-bound FP6 stock-baseline connected measurement runner.
 
-This command exercises the connected portions of the FP6-022 protocol before
+This command exercises the connected portions of the stock-baseline protocol before
 the declared Android 16 baseline series.  It writes immutable private raw
 evidence, omits the ADB serial from its report, and labels every result as pilot
 data.  Camera captures and the physically disconnected idle trial remain
