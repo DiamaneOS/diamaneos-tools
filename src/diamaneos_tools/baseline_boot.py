@@ -1,4 +1,4 @@
-"""Declared FP6-022 stock restart-time measurement.
+"""Declared stock restart-time measurement.
 
 This runner measures an ordinary software restart from one host-monotonic
 trigger to several separately reported Android milestones.  It deliberately

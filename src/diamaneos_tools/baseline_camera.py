@@ -1,4 +1,4 @@
-"""Private original-media registrar for FP6-022 camera measurements.
+"""Private original-media registrar for stock camera measurements.
 
 The command is deliberately staged because changing the physical lamp and
 reversing the phone are operator actions.  A run is started once, each shutter
@@ -1086,7 +1086,7 @@ def _repo_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="FP6-022 camera measurement registrar")
+    parser = argparse.ArgumentParser(description="stock camera measurement registrar")
     parser.add_argument("--config", default=str(_repo_root() / "config" / "baseline.json"))
     sub = parser.add_subparsers(dest="action", required=True)
     dry_parser = sub.add_parser("dry-run")

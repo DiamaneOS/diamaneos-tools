@@ -1,6 +1,6 @@
 # DiamaneOS UX — Facet, Lumen
 
-**Status: Lumen selected for browser design, 2026-09-13.** The owner chose Lumen
+**Status: Lumen selected for browser design, 2026-09-13.** The project selected Lumen
 from three interactive alternatives and requested its extension across all six
 journeys. [Open the current reference](../design/prototypes/facet-lumen.html).
 Native integration, device qualification, and intended-user acceptance remain

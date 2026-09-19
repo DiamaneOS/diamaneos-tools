@@ -114,7 +114,7 @@ components:
 
 **Creative North Star: "A familiar phone. A different feeling."**
 
-The owner selected Lumen on 13 September 2026. The six-journey extension in
+The project selected Lumen on 13 September 2026. The six-journey extension in
 `design/prototypes/facet-lumen.html` is the current browser design reference.
 The scope is visual and interaction direction, not an adopted native OS build
 or a capability/security qualification. The user remains open to improvements.

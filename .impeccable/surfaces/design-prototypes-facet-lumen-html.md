@@ -7,7 +7,7 @@ related_targets: ["design/prototypes/facet-lumen.css", "design/prototypes/facet-
 
 # Lumen six-journey extension
 
-Mode: Operate. The user chose Lumen: "let's start with lumen" on 13 September 2026.
+Mode: Operate. The project selected Lumen on 13 September 2026.
 This is an extension of that rendered and selected direction, not a new concept tournament.
 
 THESIS: Ordinary Android tasks should feel familiar, clear, beautiful, and responsive.

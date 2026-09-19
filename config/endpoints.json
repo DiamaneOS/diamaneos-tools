@@ -1023,7 +1023,7 @@
         {
           "id": "COMPONENT-BIND",
           "owner_task": "FP6-105",
-          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the owner; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
+          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the responsible maintainer; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
         }
       ],
       "example": {
@@ -1090,7 +1090,7 @@
         {
           "id": "COMPONENT-BIND",
           "owner_task": "FP6-105",
-          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the owner; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
+          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the responsible maintainer; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
         }
       ],
       "example": {

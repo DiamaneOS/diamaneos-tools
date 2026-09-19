@@ -1,7 +1,7 @@
 # Facet comparison verification — 13 September 2026
 
 Historical status at comparison completion: ready for direction review.
-The owner subsequently selected Lumen; see [the extension record](2026-09-13-lumen-journeys.md).
+The project subsequently selected Lumen; see [the extension record](2026-09-13-lumen-journeys.md).
 
 ## Preservation and reproducibility
 

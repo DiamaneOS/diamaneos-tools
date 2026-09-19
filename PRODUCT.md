@@ -33,19 +33,20 @@ All phone data and actions are simulated. Real credentials are not needed.
 
 ## Capabilities and Constraints
 
-Fairphone 6 and a GrapheneOS-derived base are the current engineering context;
-the owner wants room for other devices and bases. Verify native capabilities
-against the implementing task and actual source before making integration claims.
+Fairphone 6 and a GrapheneOS-derived base are the current engineering scope.
+The design may later be adapted to other devices or bases, but native
+capabilities must be verified against the implementing source before making
+integration claims.
 Preserve truthful state, app/profile boundaries, and actual security requirements.
 
 ## Design Mandate
 
-The owner's 2026-09-13 brief explicitly allows completely different visual and
-UX directions when they work better. Existing guidelines, tokens, timings, and
-mockups are revisable. Review the current rendered study, then either implement
-focused improvements or build two or three interactive alternatives for Home,
-the notification shade, and Settings. Recommend a direction and explain tradeoffs
-before extending a redesign across the remaining journeys. Preserve the baseline.
+Alternative visual and UX directions are allowed when they work better.
+Existing guidelines, tokens, timings, and mockups are revisable. Review the
+current rendered study, then either implement focused improvements or build two
+or three interactive alternatives for Home, the notification shade, and
+Settings. Recommend a direction and explain tradeoffs before extending a
+redesign across the remaining journeys. Preserve the baseline.
 
 ## Evidence on Hand
 
@@ -64,8 +65,8 @@ TalkBack and device verification at implementation time.
 
 ## Selected direction — 13 September 2026
 
-The owner chose Lumen ("let's start with lumen") after interacting with the
-comparison. Extend its familiar app grid, visible search, grouped Settings,
+Lumen was selected after review of the interactive comparison. Extend its
+familiar app grid, visible search, grouped Settings,
 porcelain/cobalt roles and reversible navigation across all six journeys. The
 current reference is `design/prototypes/facet-lumen.html`; preserve the original
 baseline and three-direction comparison. This authorizes adoption for design

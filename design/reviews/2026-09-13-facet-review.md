@@ -6,7 +6,7 @@
 
 ## Follow-up correction and selection
 
-The owner subsequently selected Lumen for the six-journey extension.
+The project subsequently selected Lumen for the six-journey extension.
 [Current reference](../prototypes/facet-lumen.html).
 
 The original fingerprint finding below was too strong. On reviewing the

@@ -1,6 +1,6 @@
 # Lumen — six journey reference
 
-Selected by the owner on 13 September 2026 after the Still/Lumen/Contour
+Selected by the project on 13 September 2026 after the Still/Lumen/Contour
 comparison. Open [the interactive reference](prototypes/facet-lumen.html).
 This selects the browser design direction, not a native implementation or
 security qualification. [The previous baseline](prototypes/diamaneos-ui.html)

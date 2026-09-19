@@ -1,6 +1,6 @@
 # Lumen selected and extended — 13 September 2026
 
-The owner chose Lumen after reviewing three interactive alternatives. The
+The project selected Lumen after reviewing three interactive alternatives. The
 [six-journey reference](../prototypes/facet-lumen.html) now extends that direction
 across setup, discovery, app privacy, notification recovery, battery/health,
 and updates, with supporting Settings, Files, and permission screens.

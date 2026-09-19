@@ -37,12 +37,12 @@ Android 15 archive is retained as historical verified input. Archive
 verification and selection are not proof of a successful restore, rollback
 eligibility, AVB/relock safety or bootloader operation.
 
-Recovery copies must be read from two independent storage locations and match
-the recorded byte count and SHA-256 before destructive work. Two directories on
-one physical volume do not meet that requirement. The inventory records a
-verified private primary copy plus an owner-confirmed independent cloud copy;
-both cloud-copy SHA-256 values reproduced the manifest. A path or filename
-never substitutes for content verification.
+Recovery copies must be read from two independent private storage locations and
+match the recorded byte count and SHA-256 before destructive work. Two
+directories on one physical volume do not meet that requirement. Custody,
+provider and account evidence remain in the operator's private record; the
+public inventory records the content identity and policy only. A path or
+filename never substitutes for content verification.
 
 The official factory script wipes user data by default and requires both normal
 and critical bootloader unlock. It also contains a fallback that continues when
@@ -155,7 +155,7 @@ bin/diamaneos rig dry-run --config <PRIVATE_ROOT>/rig.json
 An active or unreadable `.partial` run in any configured private output root
 inhibits maintenance and ordinary power changes. The scheduled maintenance
 unit remains disabled until all deployed test starters have a race-free
-role-lock-to-partial-state handoff and the owner has accepted each battery
+role-lock-to-partial-state handoff and the operator has accepted each battery
 policy. Hub qualification, least-privilege device-node access, service-owned
 ADB and reboot recovery are deployment requirements, not results of unit
 tests. See the [test-host deployment recipe](../deploy/test-host/README.md).

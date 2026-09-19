@@ -1,6 +1,6 @@
 # DiamaneOS interface studies
 
-**Current direction: [Lumen, six journeys](facet-lumen.html), selected by the owner on 13 September 2026.**
+**Current direction: [Lumen, six journeys](facet-lumen.html), selected by the project on 13 September 2026.**
 See [journey annotations](../lumen-journeys.md), [palette](lumen-palette.json),
 [motion](lumen-motion.md), and [verification](../reviews/2026-09-13-lumen-journeys.md).
 The review rail resets a journey; ordinary navigation preserves state.
@@ -14,7 +14,7 @@ the original UI and branding comparisons remain available.
 
 The [13 September review](../reviews/2026-09-13-facet-review.md) explores three
 new interactive directions for Home, the notification shade, and Settings in
-[facet-directions.html](facet-directions.html). The comparison records the alternatives before the owner selected Lumen. The original six-journey study below
+[facet-directions.html](facet-directions.html). The comparison records the alternatives before the project selected Lumen. The original six-journey study below
 is preserved. [baseline-review.html](baseline-review.html) adds the existing
 stress controls without modifying its source.
 

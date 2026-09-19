@@ -52,7 +52,7 @@
           "management": {
             "type": "string",
             "enum": [
-              "owner-vpn-and-provider-console",
+              "operator-vpn-and-provider-console",
               "provider-console",
               "separate-community-path"
             ]

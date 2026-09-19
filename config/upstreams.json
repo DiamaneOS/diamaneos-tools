@@ -17,7 +17,7 @@
       "applicability": "Pinned implementation used behind the Debian repo launcher for source initialization, synchronization and resolved-manifest export.",
       "authoritative_url": "https://gerrit.googlesource.com/git-repo",
       "current_revision": "Signed release v2.65: tag object 2f04a7d4d2bd16170285b9b971227e8151d49f78; peeled commit 35bbf701d04de5c6a71937279bc3d16f6ce36808.",
-      "discovery_method": "Official Gitiles tag plus direct official Git fetch on 2026-09-19; the live builder log exposed that the Debian 2.54 launcher correctly delegates to a separately self-updating implementation.",
+      "discovery_method": "Official Gitiles tag plus direct official Git fetch on 2026-09-19. Debian's repo 2.54 package is a launcher; the separately fetched implementation is therefore pinned and verified as its own build input.",
       "id": "android-repo-tool",
       "public_verifier_ref": "Official repo launcher GPG release verification and exact local tag-object/commit checks",
       "release_channel": "Pinned signed release v2.65",
@@ -44,7 +44,7 @@
       "public_verifier_ref": "Fairphone manual-install article 18896094650513 and config/stock-inputs.json",
       "release_channel": "Fairphone monthly/quarterly (lags ASB by months)",
       "support_evidence_ref": "Fairphone 8-year support claim; per-release patch dates and regional package identities in the current support article",
-      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and EU FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. The owner confirmed both independent cloud-copy SHA-256 values reproduce the manifest. The official Android 16 OTA installed and the bounded post-update health/lock check passed. An identifier-free read-only capture parsed all 117 installed VINTF XML files without error and observed target level 8, vendor API/VNDK 34 and the stock interface set. EU restore, rollback, slot-failure behavior, custom AVB and relock remain NOT_RUN. US stock verification, EU-US delta and US candidate behavior remain NOT_RUN."
+      "verification_method": "VERIFIED INPUT for FP6.QREL.15.178.0 and EU FP6.QREL.16.100.0: each official outer SHA-256 matched on two reads; full ZIP CRC passed; paths were unique/safe; required recovery members were present; all 76 embedded declared hashes matched. The official Android 16 OTA installed and the bounded post-update health/lock check passed. An identifier-free read-only capture parsed all 117 installed VINTF XML files without error and observed target level 8, vendor API/VNDK 34 and the stock interface set. Storage custody and backup locations are operator-private concerns and are not source-input verification. EU restore, rollback, slot-failure behavior, custom AVB and relock remain NOT_RUN. US stock verification, EU-US delta and US candidate behavior remain NOT_RUN."
     },
     {
       "applicability": "Pinned source input for the FP6 kernel/module/device-tree and selected open HAL inventory. Source availability does not prove compliance with the licences of consumed files, binary equivalence or compatibility with the selected GrapheneOS framework.",

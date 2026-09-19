@@ -220,7 +220,7 @@ def validate_services(inv, services):
     for h in hosts.values():
         if h['provider_layer'] not in providers:
             errors.append('host provider reference is missing')
-        if h['role'] in ('release', 'mirror') and h['management'] != 'owner-vpn-and-provider-console':
+        if h['role'] in ('release', 'mirror') and h['management'] != 'operator-vpn-and-provider-console':
             errors.append('release/mirror protected management path is missing')
         if h['role'] == 'community' and (h['management'] != 'separate-community-path' or h['status'] != 'conditional'):
             errors.append('community must remain conditional and isolated')
