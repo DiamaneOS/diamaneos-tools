@@ -23,13 +23,14 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
                 )
                 self.assertEqual(0, result.returncode, result.stderr)
 
-    def test_runner_keeps_physical_output_external_but_exports_relative_path(self):
+    def test_runner_uses_declared_source_local_output_path(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn(
             'relative_out=$(realpath --relative-to="$source_root" "$output_root")',
             script,
         )
         self.assertIn('export OUT_DIR=$relative_out', script)
+        self.assertIn("build-facing output path escapes the source root", script)
         self.assertIn(
             '[[ $(realpath -m "$source_root/$relative_out") == "$output_root" ]]',
             script,

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v3",
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
   "scope": "Pinned online source and build environment for the first FP6 bring-up. This record does not authorize release signing or claim FP6 compatibility.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -76,11 +76,11 @@
   "workspace": {
     "source_subdirectory": "src/grapheneos-2026091000",
     "cache_subdirectory": "cache",
-    "output_subdirectory": "out/grapheneos-2026091000",
+    "output_subdirectory": "src/grapheneos-2026091000/out",
     "roots_must_be_distinct": true,
-    "source_and_output_must_not_be_nested": true,
+    "source_and_output_must_not_be_nested": false,
     "cache_policy": "Download and compiler caches may be reused only as performance inputs. They are excluded from build identity and must not contain source overrides, generated product trees or release intermediates.",
-    "clean_build_policy": "The first accepted build starts with an absent output directory and writes all intermediates below the declared output root. No output from another host is imported."
+    "clean_build_policy": "The first accepted build uses the standard source-root out directory, starts with it empty and writes all intermediates below it. No output from another host is imported."
   },
   "project_inputs": [
     {
