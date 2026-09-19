@@ -1,0 +1,197 @@
+#!/bin/bash
+set -euo pipefail
+
+admin_account=${SUDO_USER:-builder-admin}
+build_account=diamaneos-build
+build_home=/var/lib/diamaneos-build
+minimum_memory_kib=$((90 * 1024 * 1024))
+minimum_workspace_bytes=1000000000000
+memory_test_bytes=80G
+memory_test_seconds=600
+disk_test_mebibytes=4096
+nvme_controller=/dev/nvme0
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+admin_home=$(getent passwd "$admin_account" | cut -d: -f6)
+report="$admin_home/diamaneos-builder-resource-qualification-$timestamp.txt"
+benchmark_file="$build_home/cache/.acceptance-benchmark-$timestamp"
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+cleanup() {
+  rm -f -- "$benchmark_file"
+  chown "$admin_account:$admin_account" "$report" 2>/dev/null || true
+  chmod 0640 "$report" 2>/dev/null || true
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ -n $admin_home && -d $admin_home ]] || fail "management home is unavailable"
+id "$build_account" >/dev/null 2>&1 || fail "build identity is absent"
+[[ -c $nvme_controller ]] || fail "expected NVMe controller is absent"
+: >"$report"
+chmod 0640 "$report"
+trap cleanup EXIT
+trap 'exit 130' INT TERM HUP
+exec > >(tee -a "$report") 2>&1
+
+printf 'BUILDER_RESOURCE_QUALIFICATION_BEGIN=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'schema_version=1\n'
+printf 'whole_system_ac_power=NOT_MEASURED_NO_METER\n'
+printf 'package_power_scope=CPU_PACKAGE_ONLY_NOT_WALL_POWER\n'
+
+source /etc/os-release
+printf 'os=%s\n' "$PRETTY_NAME"
+printf 'kernel=%s\n' "$(uname -r)"
+printf 'architecture=%s\n' "$(uname -m)"
+printf 'default_target=%s\n' "$(systemctl get-default)"
+printf 'node=%s\n' "$(node --version)"
+printf 'npm=%s\n' "$(npm --version)"
+printf 'corepack=%s\n' "$(corepack --version)"
+printf 'turbostat=%s\n' "$(/usr/sbin/turbostat --version 2>&1 | head -n1)"
+
+printf 'cpu_inventory_begin\n'
+lscpu
+printf 'cpu_inventory_end\n'
+cpu_online=$(getconf _NPROCESSORS_ONLN)
+((cpu_online >= 48)) || fail "fewer than 48 logical CPUs are online"
+
+memory_total_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+((memory_total_kib >= minimum_memory_kib)) || fail "installed memory is below the accepted floor"
+printf 'memory_total_kib=%s\n' "$memory_total_kib"
+printf 'memory_inventory_begin\n'
+dmidecode --type 16 --type 17
+printf 'memory_inventory_end\n'
+
+printf 'storage_inventory_begin\n'
+lsblk -o NAME,PATH,MODEL,SERIAL,SIZE,ROTA,TRAN,FSTYPE,MOUNTPOINTS
+df -hT / "$build_home"
+/usr/sbin/nvme list
+printf 'storage_inventory_end\n'
+workspace_available=$(df --output=avail -B1 "$build_home" | tail -n1 | tr -d ' ')
+[[ $workspace_available =~ ^[0-9]+$ ]] || fail "workspace capacity is unreadable"
+((workspace_available >= minimum_workspace_bytes)) || fail "workspace is below one decimal terabyte free"
+printf 'workspace_available_bytes=%s\n' "$workspace_available"
+
+printf 'service_state_begin\n'
+systemctl is-active ssh systemd-timesyncd diamaneos-builder-fan-guard.service
+systemctl is-enabled ssh systemd-timesyncd diamaneos-builder-fan-guard.service
+timedatectl show -p CanNTP -p NTP -p NTPSynchronized
+systemctl --failed --no-pager --plain
+printf 'service_state_end\n'
+[[ $(systemctl get-default) == multi-user.target ]] || fail "builder is not headless by default"
+systemctl is-active --quiet ssh || fail "SSH is inactive"
+systemctl is-active --quiet systemd-timesyncd || fail "time synchronization is inactive"
+systemctl is-active --quiet diamaneos-builder-fan-guard.service || fail "fan guard is inactive"
+[[ $(timedatectl show -p NTPSynchronized --value) == yes ]] || fail "clock is not synchronized"
+[[ $(systemctl --failed --no-legend --plain | wc -l) -eq 0 ]] || fail "failed units are present"
+
+printf 'network_state_begin\n'
+ss -lntup
+nmcli -t -f NAME,TYPE,DEVICE connection show --active
+active_connection=$(nmcli -t -f NAME,DEVICE connection show --active |
+  awk -F: '$2 != "lo" {print $1; exit}')
+[[ -n $active_connection ]] || fail "active Ethernet profile is absent"
+printf 'wake_on_lan=%s\n' \
+  "$(nmcli -g 802-3-ethernet.wake-on-lan connection show "$active_connection")"
+printf 'network_state_end\n'
+
+printf 'build_identity_begin\n'
+getent passwd "$build_account"
+getent group "$build_account"
+getent group sudo
+stat -c '%a %U:%G %n' "$build_home" "$build_home/src" "$build_home/out" "$build_home/cache"
+if find "$build_home" -xdev \
+  \( -type d \( -name .ssh -o -name .gnupg -o -name .pki \) \
+  -o -type f \( -name 'id_*' -o -name authorized_keys -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) \) \
+  -print -quit | grep -q .; then
+  fail "key-like material is present in the planned build home"
+fi
+printf 'planned_build_home_key_scan=PASS\n'
+printf 'build_identity_end\n'
+
+printf 'fan_preflight_idle_begin\n'
+for ((attempt = 0; attempt < 180; attempt++)); do
+  if grep -q '^mode=low$' /run/diamaneos-builder-fan-guard/status 2>/dev/null && \
+     /usr/local/sbin/diamaneos-builder-fan-check >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+grep -q '^mode=low$' /run/diamaneos-builder-fan-guard/status || \
+  fail "fan guard did not reach low mode before idle measurement"
+/usr/local/sbin/diamaneos-builder-fan-check
+printf 'fan_preflight_idle_end\n'
+
+printf 'package_power_idle_begin\n'
+/usr/sbin/turbostat --quiet --Summary \
+  --show Busy%,Bzy_MHz,PkgTmp,PkgWatt --interval 5 --num_iterations 6
+printf 'package_power_idle_end\n'
+
+printf 'package_power_load_begin\n'
+/usr/local/sbin/diamaneos-builder-fan-check
+/usr/sbin/turbostat --quiet --Summary \
+  --show Busy%,Bzy_MHz,PkgTmp,PkgWatt -- \
+  stress-ng --cpu 48 --cpu-method all --timeout 60s --metrics-brief
+printf 'package_power_load_end\n'
+/usr/local/sbin/diamaneos-builder-fan-check
+
+printf 'edac_before_begin\n'
+for counter in /sys/devices/system/edac/mc/mc*/ce_count \
+  /sys/devices/system/edac/mc/mc*/ue_count; do
+  [[ -r $counter ]] && printf '%s=%s\n' "$counter" "$(<"$counter")"
+done
+printf 'edac_before_end\n'
+
+printf 'memory_test_begin\n'
+/usr/local/sbin/diamaneos-builder-fan-check
+grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo
+stress-ng --verify --vm 1 --vm-bytes "$memory_test_bytes" --vm-keep \
+  --vm-method all --timeout "${memory_test_seconds}s" --metrics-brief
+grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo
+printf 'memory_test_end\n'
+
+printf 'edac_after_begin\n'
+for counter in /sys/devices/system/edac/mc/mc*/ce_count \
+  /sys/devices/system/edac/mc/mc*/ue_count; do
+  [[ -r $counter ]] && printf '%s=%s\n' "$counter" "$(<"$counter")"
+done
+dmesg --level=emerg,alert,crit,err,warn --since "15 minutes ago" |
+  grep -Ei 'edac|ecc|mce|hardware error|nvme|i/o error|memory failure' || true
+printf 'edac_after_end\n'
+/usr/local/sbin/diamaneos-builder-fan-check
+
+printf 'nvme_health_before_begin\n'
+/usr/sbin/smartctl -H -A "$nvme_controller"
+/usr/sbin/nvme smart-log "$nvme_controller"
+/usr/sbin/nvme self-test-log "$nvme_controller"
+printf 'nvme_health_before_end\n'
+
+printf 'nvme_short_self_test_begin\n'
+/usr/sbin/nvme device-self-test "$nvme_controller" \
+  --self-test-code=1 --wait --timeout=600000
+/usr/sbin/nvme self-test-log "$nvme_controller"
+printf 'nvme_short_self_test_end\n'
+
+printf 'disk_benchmark_begin\n'
+/usr/local/sbin/diamaneos-builder-fan-check
+runuser -u "$build_account" -- dd if=/dev/zero of="$benchmark_file" \
+  bs=16M count=$((disk_test_mebibytes / 16)) oflag=direct status=progress
+sync
+runuser -u "$build_account" -- dd if="$benchmark_file" of=/dev/null \
+  bs=16M iflag=direct status=progress
+rm -f -- "$benchmark_file"
+printf 'disk_benchmark_end\n'
+
+printf 'nvme_health_after_begin\n'
+/usr/sbin/smartctl -H -A "$nvme_controller"
+/usr/sbin/nvme smart-log "$nvme_controller"
+printf 'nvme_health_after_end\n'
+
+/usr/local/sbin/diamaneos-builder-fan-check
+[[ $(systemctl --failed --no-legend --plain | wc -l) -eq 0 ]] || \
+  fail "failed units appeared during acceptance"
+printf 'BUILDER_RESOURCE_QUALIFICATION_END=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'result=%s\n' "$report"
+printf 'BUILDER_RESOURCE_QUALIFICATION=PASS\n'

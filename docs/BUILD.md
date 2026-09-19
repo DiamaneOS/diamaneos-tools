@@ -20,6 +20,19 @@ The accepted test host runs a detached, root-owned revision from
 checkout. Deploy an exact reviewed commit using the procedure in
 `deploy/test-host/README.md`, then run the same tests as the runner account.
 
+OS compilation uses a separate online build host and unprivileged build
+identity. The builder setup and trust boundary are documented in
+[`deploy/builder/README.md`](../deploy/builder/README.md). Production release
+keys never enter that host. Host acceptance requires an actual clean build in
+addition to hardware, capacity, thermal and remote-management checks.
+
+The builder's resource qualification is intentionally narrower than a clean
+build. Its passing report establishes the observed host resources, bounded
+load behavior, ECC counters, storage health and management configuration. It
+does not establish source compatibility, reproducibility or release
+eligibility. Whole-system AC power and acoustic results also remain unmeasured
+unless their dedicated external meters were actually used.
+
 ## Device-suite interface
 
 Device suites are reviewed JSON data under `tests/device/suites/`. They select
