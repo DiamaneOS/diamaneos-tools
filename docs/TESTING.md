@@ -345,6 +345,12 @@ the same process for repeat 2. Thus the two measurement intervals are
 back-to-back in one owned workflow but are separated by a controlled recharge;
 wall-clock completion is longer than 16 hours.
 
+The worker waits for the explicit `ready_to_reconnect` flag from the same
+boot-relative duration check used by `finish`. The rounded `remaining_seconds`
+countdown is for display and polling only: `0.0` can still mean the finish gate
+is closed. Missing or invalid interval state fails the series rather than
+allowing an early finish. The declared duration and finish tolerance are unchanged.
+
 `baseline idle series status --series-id <shared-series-id>` is read-only and
 reports progress from tester-owned state. Each reset authorization is recorded
 and consumed independently. A tester reboot, rejected preflight, late or
