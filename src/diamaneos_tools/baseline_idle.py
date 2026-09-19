@@ -921,6 +921,12 @@ def observe_disconnect(args) -> Path:
         _release_lock(lock_fd)
 
 
+def _remaining_idle_seconds(report: dict, clock: dict) -> float:
+    elapsed = (clock["host_boottime_seconds"]
+               - report["disconnect"]["host_boottime_seconds"])
+    return max(0.0, _report_duration_seconds(report) - elapsed)
+
+
 def status(args) -> dict:
     run_dir = Path(args.run_dir).resolve()
     report = _load_report(run_dir)
@@ -932,9 +938,8 @@ def status(args) -> dict:
             result["host_rebooted"] = True
             result["ready_to_reconnect"] = False
         else:
-            remaining = max(0.0, disconnect[
-                "finish_not_before_boottime_seconds"] - now[
-                    "host_boottime_seconds"])
+            # Use the same arithmetic as finish, including at float boundaries.
+            remaining = _remaining_idle_seconds(report, now)
             result["host_rebooted"] = False
             result["remaining_seconds"] = round(remaining, 1)
             result["ready_to_reconnect"] = remaining <= 0
@@ -988,9 +993,7 @@ def finish(args) -> tuple[int, Path]:
         disconnect = report["disconnect"]
         if armed["host_boot_id_sha256"] != disconnect["host_boot_id_sha256"]:
             raise IdleError("tester rebooted during the idle interval", 4)
-        elapsed_at_arm = armed["host_boottime_seconds"] - disconnect[
-            "host_boottime_seconds"]
-        if elapsed_at_arm < _report_duration_seconds(report):
+        if _remaining_idle_seconds(report, armed) > 0:
             raise IdleError("idle interval has not reached its declared duration", 3)
         authorized = args.target in test_runner._authorized_devices(args.adb)
         if method == DISCONNECT_METHOD_RIG:
