@@ -105,25 +105,26 @@ The preflight rejects another Yarn version. Its source lockfile hash and npm
 registry integrity are part of the environment record; dependency installation
 still uses the checked-in lockfile and must not rewrite it.
 
-The accepted workspace separates state as follows:
+The accepted workspace separates source-controlled, cache and generated state
+as follows:
 
 - `src/grapheneos-2026091000` contains only the repo checkout;
 - `cache` contains reusable downloads and compiler cache, which may improve
   performance but cannot define a release input;
-- `out/grapheneos-2026091000` contains the clean build intermediates and is
-  never imported from another host.
+- `src/grapheneos-2026091000/out` is Android's standard clean output directory
+  and is never imported from another host.
 
 Use `OUT_DIR` and `CCACHE_DIR` to enforce those boundaries. The first generic
 qualification run starts with an empty output root. Invoke the committed
 `deploy/builder/run-generic-qualification` wrapper through its reviewed service
-rather than exporting an absolute output path by hand. The Siso release in the
-pinned checkout resolves its configuration repository relative to the source
-execution root. The wrapper therefore keeps the physical output tree separate
-and exports its verified relative path:
+rather than exporting an absolute or parent-relative output path by hand.
+Soong rejects paths which escape the source root and the pinned Siso resolves
+its configuration repository relative to that root. The wrapper therefore
+uses Android's standard source-local `out` path:
 
 ```sh
 SOURCE_ROOT="$WORK_ROOT/src/grapheneos-2026091000"
-OUTPUT_ROOT="$WORK_ROOT/out/grapheneos-2026091000"
+OUTPUT_ROOT="$SOURCE_ROOT/out"
 cd "$SOURCE_ROOT"
 export OUT_DIR="$(realpath --relative-to="$SOURCE_ROOT" "$OUTPUT_ROOT")"
 export CCACHE_DIR="$WORK_ROOT/cache/ccache"
@@ -132,9 +133,9 @@ lunch sdk_phone64_x86_64-cur-userdebug
 m
 ```
 
-`OUT_DIR` must resolve exactly to `OUTPUT_ROOT` before the build starts. Do not
-move the output tree into the source checkout or disable this containment check
-as a workaround. The service also binds the exact reviewed tools commit through
+`OUT_DIR` must resolve exactly to the declared source-local `OUTPUT_ROOT` before
+the build starts. Do not replace it with an absolute or `../` path. The service
+also binds the exact reviewed tools commit through
 `DIAMANEOS_EXPECTED_TOOLS_COMMIT`, requires the pinned source-sync unit, invokes
 the configured `DIAMANEOS_THERMAL_CHECK`, and denies network access during
 compilation.

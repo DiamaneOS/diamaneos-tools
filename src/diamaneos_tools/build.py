@@ -181,8 +181,16 @@ def validate_config(config: dict) -> None:
             raise BuildError(f"workspace {field} must be a safe relative path")
     if workspace["roots_must_be_distinct"] is not True:
         raise BuildError("workspace roots must be distinct")
-    if workspace["source_and_output_must_not_be_nested"] is not True:
-        raise BuildError("source and output nesting must be prohibited")
+    nesting_prohibited = workspace["source_and_output_must_not_be_nested"]
+    if not isinstance(nesting_prohibited, bool):
+        raise BuildError("source/output nesting policy must be boolean")
+    source_part = Path(workspace["source_subdirectory"])
+    output_part = Path(workspace["output_subdirectory"])
+    output_nested = _is_within(output_part, source_part)
+    if nesting_prohibited and output_nested:
+        raise BuildError("declared output contradicts the nesting policy")
+    if not nesting_prohibited and not output_nested:
+        raise BuildError("declared output must be nested below the source root")
 
     inputs = config["project_inputs"]
     if not isinstance(inputs, list) or not inputs:
@@ -357,8 +365,20 @@ def verify_workspace(config: dict, source: Path, cache: Path, output: Path,
     roots = [path.resolve() for path in (source, cache, output)]
     if len(set(roots)) != 3:
         raise BuildError("source, cache and output roots must be distinct")
-    if _is_within(roots[0], roots[2]) or _is_within(roots[2], roots[0]):
+    if _is_within(roots[0], roots[2]):
+        raise BuildError("source root must not be nested below output")
+    output_nested = _is_within(roots[2], roots[0])
+    nesting_prohibited = config["workspace"][
+        "source_and_output_must_not_be_nested"]
+    if nesting_prohibited and output_nested:
         raise BuildError("source and output roots must not be nested")
+    if not nesting_prohibited:
+        source_part = Path(config["workspace"]["source_subdirectory"])
+        output_part = Path(config["workspace"]["output_subdirectory"])
+        nested_relative = output_part.relative_to(source_part)
+        if roots[2] != (roots[0] / nested_relative).resolve():
+            raise BuildError(
+                "output root does not match its declared source-local path")
     for path in roots:
         if not path.is_dir() or path.is_symlink():
             raise BuildError(f"workspace root is absent or unsafe: {path}")
