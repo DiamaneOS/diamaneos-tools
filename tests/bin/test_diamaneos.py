@@ -95,6 +95,15 @@ class CliTest(unittest.TestCase):
             [os.path.join(TOOLS, "bin", "diamaneos"), "--help"],
             capture_output=True, text=True, cwd=TOOLS, timeout=30).stdout)
 
+    def test_compatibility_help(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"), "test",
+             "compatibility", "--help"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("--dry-run", out.stdout)
+        self.assertIn("--run-trial", out.stdout)
+
     def test_unknown_command(self):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "nope"],
                              capture_output=True, text=True, timeout=30)

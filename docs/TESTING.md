@@ -6,7 +6,10 @@
 without contacting a device or creating a key. `signing inventory` derives APK,
 APEX and AVB roles from a caller-supplied target-files archive and fails closed
 on missing metadata, duplicate/unsafe ZIP members, unlisted signed-output roles
-or an unlisted presigned package. `signing verify` independently re-hashes a
+or an unlisted presigned package. Qualified profiles additionally enforce the
+reviewed unsigned input hash and exact presence, path, size and digest—or
+reviewed absence—of every presigned archive artifact. `signing verify`
+independently re-hashes a
 retained disposable-key run, verifies its release-record signature with the
 declared public key and requires wrong-key rejection.
 
@@ -645,15 +648,20 @@ custom-OS, compatibility, recovery, destructive-operation, release or signer
 qualification, and raw diagnostics/device identifiers remain outside public
 Git.
 
-## Compatibility target (provisional, design only; no device evidence)
+## Official compatibility harness
 
-Target: GOS branch-17 proposal vs FP6 Android-16 vendor (UNPROVEN pairing);
-launch API 35 (shipped Android 15, verify on device); custom API unresolved
-until sync. High-risk requirements + fixtures in
-`tests/requirements/early-risks.json` (9 risks, all UNRESOLVED-assigned);
-coverage ledger in `tests/requirements/coverage.json` (full CDD enumeration
-completes during release-gate integration and manual compatibility qualification). Suite revisions are bound when the compatibility harness is configured.
-No custom-OS compatibility pass is claimed; no Google-private suites are assumed.
+The selected Android 17/API 37 suite revisions, official source URLs, minimum
+host requirements, fixture ledger, target interlocks and fail-closed Tradefed
+result parser are documented in
+[`COMPATIBILITY.md`](COMPATIBILITY.md) and represented by
+`config/test-suites.json`. A separately versioned stock Android 16 trial can
+prove the harness and collection path only. It is not a DiamaneOS
+compatibility result. No custom-OS compatibility pass or inaccessible
+partner-suite completion is claimed.
+
+The original early-risk ledger remains an input to final case selection.
+Complete CDD coverage and all applicable CTS, CTS Verifier, VTS and modular
+suite results remain release-gate work on the actual FP6 `user` candidate.
 
 ## Endpoint contracts
 
