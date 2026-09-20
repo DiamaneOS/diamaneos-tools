@@ -47,6 +47,38 @@ class SigningVerifyTest(unittest.TestCase):
         self.assertEqual(api.EXPECTED_PROOFS,
                          set(self.config["required_dummy_proofs"]))
 
+    def test_committed_ota_profile_is_bound_to_reviewed_inputs(self):
+        profile = next(
+            entry for entry in self.config["target_profiles"]
+            if entry["id"] == "generic-x86_64-ota-qualification")
+        self.assertEqual("qualified", profile["inventory_status"])
+        self.assertEqual(
+            "40adc07f630f4659389abf046e1daf7ca20c0b6439b008e4e2027ad0de51bebb",
+            profile["qualified_unsigned_target_files_sha256"],
+        )
+        self.assertEqual(
+            "3f93de1eb56f36affc36d8fca726a4a9605d3d277a4e87d88928291fc68a8f6a",
+            profile["qualified_otatools_sha256"],
+        )
+        self.assertEqual(37, len(profile["presigned_allowlist"]))
+        self.assertEqual(13, len(profile["presigned_artifacts"]))
+        self.assertEqual(24, len(profile["presigned_metadata_only"]))
+        self.assertIn("GmsCompatConfig.apk",
+                      profile["presigned_metadata_only"])
+        self.assertNotIn(
+            "GmsCompatConfig.apk",
+            {entry["metadata_name"]
+             for entry in profile["presigned_artifacts"]},
+        )
+        self.assertEqual({
+            "artifact_review_sha256":
+                "1950d003e7b5c9b74a13181de543c3e92f0cd1c5ec9b720c5f908064a26c6764",
+            "source_review_sha256":
+                "0c6bbd45e45ffc56ea65dc8d308391b5a47cb9c2a56194279811619f5b28eb46",
+            "source_inventory_sha256":
+                "cc39184a313d558601f1b29751b1c306e324f18e4892124a71077e2e52a63125",
+        }, profile["qualification_evidence"])
+
     def test_signing_schemas_are_valid(self):
         for name in ("signing-roles.schema.json",
                      "signing-dummy-result.schema.json"):
@@ -357,7 +389,10 @@ class SigningVerifyTest(unittest.TestCase):
             "schema_version": 1,
             "inventory_id": self.config["inventory_id"],
             "source_binding": self.config["source_binding"],
-            "profile_id": "generic-x86_64-qualification",
+            "profile_ids": [
+                "generic-x86_64-qualification",
+                "generic-x86_64-ota-qualification",
+            ],
             "run_id": "dummy-fixture",
             "status": "PASS",
             "dummy_keys_only": True,
