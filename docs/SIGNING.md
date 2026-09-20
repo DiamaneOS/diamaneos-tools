@@ -284,3 +284,43 @@ ceremony.
 Preserve the unsigned input, signed target-files, full/incremental OTAs, public
 identities and verification record needed to reproduce the transformation.
 Never preserve a private key in build logs, result JSON or public evidence.
+
+## Diagnose retained outputs before another signing run
+
+APK certificate pinning accepts both legacy `Signer #1 certificate` and
+scheme-labelled `V3.0 Signer: certificate` output. Verification must still exit
+zero, declare one signer and yield exactly the expected certificate SHA-256.
+Public-key fingerprints, missing output and additional certificates cannot
+satisfy that check. The full qualification now signs and verifies one small APK
+before transforming the large target-files packages, using the same pinned JDK
+and verifier. This catches tool/runtime/output-format failures early.
+
+If a completed failed attempt retained its signed outputs and public keys,
+replay only the independent verification stage as the build identity:
+
+```sh
+export DIAMANEOS_EXPECTED_TOOLS_COMMIT=REVIEWED_40_HEX_COMMIT
+"$TOOLS_ROOT/deploy/builder/recheck-dummy-signing" \
+  --workspace "$WORK_ROOT" \
+  --run "$WORK_ROOT/evidence/dummy-signing/RETAINED_RUN.failed" \
+  --output "$WORK_ROOT/evidence/dummy-signing/NEW_DIAGNOSTIC_DIRECTORY"
+```
+
+Use a clean reviewed checkout and a new output directory on the same
+filesystem. The command takes the common workspace lock, checks retained
+artifact hashes and certificate fingerprints, and hardlinks large signed
+outputs into a fresh diagnostic tree. It copies only named public inputs;
+it does not copy old results, logs or secrets. Treat the hardlinked artifacts
+as immutable. Fresh verifier logs and samples belong to the diagnostic tree.
+The original failure record remains unchanged.
+
+Replay uses the exact qualified otatools archive and pinned JDK and calls the
+same APK/APEX, AVB, OTA and OpenSSH verification function as a full run. It
+creates no keys, signs nothing and does not repeat target-files transformations
+or OTA generation. Hashing, extraction and verification still take time; this
+is not a promise of an instant check. Each diagnostic report includes
+`qualification_accepted: false`, even when verification passes. A new complete
+qualification remains necessary for end-to-end acceptance after a repair.
+If signing itself failed or an output is missing, replay cannot replace that
+missing work. No resumable signing state or persistent disposable secrets are
+introduced.
