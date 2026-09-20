@@ -218,9 +218,11 @@ unit denies network access during compilation and writes only to the declared
 build and log roots.
 
 Install the source-sync and build units from the same exact checkout. Copy
-`builder-service.env.example` to both named environment files, replace its
-placeholders with the reviewed commit and the host's qualified thermal check,
-then keep both files root-owned and mode `0644`.
+`builder-service.env.example` separately to each environment file for a service
+you install, replace its placeholders with the reviewed commit and the host's
+qualified thermal check, then keep every copy root-owned and mode `0644`. The
+known consumers are source sync, generic qualification, signing discovery and
+dummy signing; no service falls back to the Dell reference adapter.
 
 ```sh
 sudo install -o root -g root -m 0644 \

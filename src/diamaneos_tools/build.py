@@ -553,10 +553,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--allowed-signers", type=Path)
     parser.add_argument(
         "--thermal-check", "--fan-check", dest="thermal_check", type=Path,
-        default=Path("/usr/local/sbin/diamaneos-builder-fan-check"),
+        default=None,
         help=("absolute executable which exits zero only when the builder's "
-              "current thermal and cooling state is safe; --fan-check is a "
-              "backwards-compatible alias"),
+              "current thermal and cooling state is safe; required for host "
+              "and full preflight; --fan-check is a backwards-compatible alias"),
     )
     return parser
 
@@ -588,6 +588,9 @@ def main(argv=None) -> int:
         workspace_paths = (args.source_root, args.cache_root, args.output_root)
         if any(value is None for value in workspace_paths):
             raise BuildError("host/full preflight requires source, cache and output paths")
+        if args.thermal_check is None:
+            raise BuildError(
+                "host/full preflight requires an explicit thermal-check path")
         result["host"] = verify_host(config, args.thermal_check)
         result["workspace"] = verify_workspace(
             config, args.source_root, args.cache_root, args.output_root,
