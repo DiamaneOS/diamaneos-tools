@@ -89,21 +89,32 @@ class SigningQualificationPlanTest(unittest.TestCase):
                 changed, signer="sign_target_files_apks", key_dir="keys",
                 source="unsigned.zip", destination="signed.zip")
 
-    def test_reviewed_dlkm_vbmeta_chains_use_custom_image_options(self):
+    def test_reviewed_dlkm_vbmeta_chains_require_prepared_metadata(self):
         changed = self.inventory()
         changed["avb_roles"].extend([
             {"chain": "vbmeta_system_dlkm"},
             {"chain": "vbmeta_vendor_dlkm"},
         ])
+        with self.assertRaises(api.QualificationPlanError):
+            api.signing_command(
+                changed, signer="sign_target_files_apks", key_dir="keys",
+                source="unsigned.zip", destination="signed.zip")
         command = api.signing_command(
             changed, signer="sign_target_files_apks", key_dir="keys",
-            source="unsigned.zip", destination="signed.zip")
+            source="unsigned.zip", destination="signed.zip",
+            prepared_custom_vbmeta_chains=(
+                "vbmeta_system_dlkm", "vbmeta_vendor_dlkm"))
         self.assertNotIn("--avb_vbmeta_system_dlkm_key", command)
         self.assertNotIn("--avb_vbmeta_vendor_dlkm_key", command)
-        self.assertIn("vbmeta_system_dlkm=keys/avb.pem", command)
-        self.assertIn("vbmeta_vendor_dlkm=keys/avb.pem", command)
-        self.assertIn("vbmeta_system_dlkm=SHA256_RSA4096", command)
-        self.assertIn("vbmeta_vendor_dlkm=SHA256_RSA4096", command)
+        self.assertNotIn("--avb_extra_custom_image_key", command)
+        self.assertNotIn("--avb_extra_custom_image_algorithm", command)
+
+        with self.assertRaises(api.QualificationPlanError):
+            api.signing_command(
+                self.inventory(), signer="sign_target_files_apks",
+                key_dir="keys", source="unsigned.zip",
+                destination="signed.zip",
+                prepared_custom_vbmeta_chains=("vbmeta_system_dlkm",))
 
 
 if __name__ == "__main__":

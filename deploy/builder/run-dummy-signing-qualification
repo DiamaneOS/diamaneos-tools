@@ -26,9 +26,10 @@ import zipfile
 EXPECTED_USER = "diamaneos-build"
 SDK_PROFILE_ID = "generic-x86_64-qualification"
 OTA_PROFILE_ID = "generic-x86_64-ota-qualification"
-OTA_CUSTOM_AVB_CHAINS = (
-    "vbmeta_system_dlkm", "vbmeta_vendor_dlkm",
-)
+OTA_CUSTOM_VBMETA_PARTITIONS = {
+    "system_dlkm": "vbmeta_system_dlkm",
+    "vendor_dlkm": "vbmeta_vendor_dlkm",
+}
 KEY_IDS = (
     "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
     "platform", "releasekey", "sdk_sandbox", "shared",
@@ -183,11 +184,16 @@ def unique_regular_artifact(root, basename):
     return candidates[0]
 
 
-def prepare_ota_custom_avb_input(source, destination, work, evidence, log):
-    """Add only the reviewed DLKM vbmeta images to releasetools' custom list."""
+def prepare_ota_custom_vbmeta_input(
+        source, destination, work, evidence, log, key_dir):
+    """Bind the reviewed custom chained-vbmeta fields to the disposable key."""
     source = Path(source)
     destination = Path(destination)
     work = Path(work)
+    key = Path(key_dir) / "avb.pem"
+    if (not key.is_absolute() or key.is_symlink() or not key.is_file()
+            or "\n" in str(key)):
+        raise Failure("disposable AVB key is unavailable for OTA preparation")
     work.mkdir(mode=0o700)
     member = "META/misc_info.txt"
     with zipfile.ZipFile(source) as archive:
@@ -200,25 +206,36 @@ def prepare_ota_custom_avb_input(source, destination, work, evidence, log):
             for item in archive.infolist() if item.filename != member
         ]
         text = archive.read(matches[0]).decode("utf-8")
-    prefix = "avb_custom_images_partition_list="
     lines = text.splitlines()
-    indexes = [index for index, line in enumerate(lines)
-               if line.startswith(prefix)]
-    if len(indexes) > 1:
-        raise Failure("OTA input has duplicate custom AVB image lists")
-    existing = []
-    if indexes:
-        existing = lines[indexes[0]][len(prefix):].split()
-    if set(existing) - set(OTA_CUSTOM_AVB_CHAINS):
-        raise Failure("OTA input contains an unreviewed custom AVB image")
-    reviewed = sorted(
-        set(existing) | set(OTA_CUSTOM_AVB_CHAINS),
-        key=lambda item: item.encode("utf-8"))
-    replacement = prefix + " ".join(reviewed)
-    if indexes:
-        lines[indexes[0]] = replacement
-    else:
-        lines.append(replacement)
+
+    def field(name):
+        prefix = name + "="
+        indexes = [index for index, line in enumerate(lines)
+                   if line.startswith(prefix)]
+        if len(indexes) != 1:
+            raise Failure("OTA input lacks one unambiguous custom vbmeta field")
+        return indexes[0], lines[indexes[0]][len(prefix):]
+
+    _, partition_value = field(
+        "avb_custom_vbmeta_images_partition_list")
+    expected_partitions = set(OTA_CUSTOM_VBMETA_PARTITIONS)
+    observed_partitions = partition_value.split()
+    if (len(observed_partitions) != len(set(observed_partitions))
+            or set(observed_partitions) != expected_partitions):
+        raise Failure("OTA input custom vbmeta partition set is not reviewed")
+
+    changed_fields = []
+    for partition, chain in sorted(OTA_CUSTOM_VBMETA_PARTITIONS.items()):
+        _, included = field(f"avb_vbmeta_{partition}")
+        if included.split() != [partition]:
+            raise Failure("OTA custom vbmeta partition membership is not reviewed")
+        key_index, _ = field(f"avb_{chain}_key_path")
+        algorithm_index, _ = field(f"avb_{chain}_algorithm")
+        lines[key_index] = f"avb_{chain}_key_path={key}"
+        lines[algorithm_index] = f"avb_{chain}_algorithm=SHA256_RSA4096"
+        changed_fields.extend([
+            f"avb_{chain}_key_path", f"avb_{chain}_algorithm",
+        ])
 
     prepared_member = work / member
     prepared_member.parent.mkdir(mode=0o700, parents=True)
@@ -239,20 +256,30 @@ def prepare_ota_custom_avb_input(source, destination, work, evidence, log):
         prepared_text = archive.read(matches[0]).decode("utf-8")
     if prepared_members != source_members:
         raise Failure("OTA preparation changed a non-misc_info archive member")
-    prepared_values = [
-        line[len(prefix):].split() for line in prepared_text.splitlines()
-        if line.startswith(prefix)
-    ]
-    if prepared_values != [reviewed] or digest(source) == digest(destination):
-        raise Failure("bounded OTA custom AVB preparation did not apply")
+    prepared_lines = prepared_text.splitlines()
+    prepared = {}
+    for name in changed_fields:
+        prefix = name + "="
+        values = [line[len(prefix):] for line in prepared_lines
+                  if line.startswith(prefix)]
+        if len(values) != 1:
+            raise Failure("prepared OTA input has ambiguous custom vbmeta fields")
+        prepared[name] = values[0]
+    if (any(prepared[f"avb_{chain}_key_path"] != str(key)
+            or prepared[f"avb_{chain}_algorithm"] != "SHA256_RSA4096"
+            for chain in OTA_CUSTOM_VBMETA_PARTITIONS.values())
+            or digest(source) == digest(destination)):
+        raise Failure("bounded OTA custom vbmeta preparation did not apply")
     atomic_json(evidence, {
         "schema_version": 1,
         "status": "PASS",
-        "operation": "add-reviewed-custom-avb-images",
+        "operation": "bind-reviewed-custom-vbmeta-keys",
         "source_target_files_sha256": digest(source),
         "prepared_target_files_sha256": digest(destination),
-        "existing_custom_avb_images": existing,
-        "prepared_custom_avb_images": reviewed,
+        "custom_vbmeta_partitions": sorted(
+            expected_partitions, key=lambda item: item.encode("utf-8")),
+        "changed_fields": sorted(
+            changed_fields, key=lambda item: item.encode("utf-8")),
         "other_members_changed": False,
     })
 
@@ -535,10 +562,10 @@ def main():
         sdk_signed = artifacts / "sdk-signed-target-files.zip"
         ota_signed = artifacts / "ota-signed-target-files.zip"
         ota_prepared = transient_root / "ota-prepared-target-files.zip"
-        prepare_ota_custom_avb_input(
+        prepare_ota_custom_vbmeta_input(
             ota_unsigned, ota_prepared, transient_root / "preparation",
             partial / "ota-input-preparation.json",
-            logs / "ota-input-preparation.log")
+            logs / "ota-input-preparation.log", key_dir)
         sdk_sign_command = planner.signing_command(
             sdk_unsigned_inventory,
             signer=required_tools["sign_target_files_apks"],
@@ -546,7 +573,9 @@ def main():
         ota_sign_command = planner.signing_command(
             ota_unsigned_inventory,
             signer=required_tools["sign_target_files_apks"],
-            key_dir=key_dir, source=ota_prepared, destination=ota_signed)
+            key_dir=key_dir, source=ota_prepared, destination=ota_signed,
+            prepared_custom_vbmeta_chains=tuple(
+                OTA_CUSTOM_VBMETA_PARTITIONS.values()))
         for command in (sdk_sign_command, ota_sign_command):
             if ("--override_apk_keys" in command
                     or "--override_apex_keys" in command):
@@ -716,6 +745,17 @@ def main():
                 sample = partial / f"samples/avb/{record['chain']}.img"
                 safe_extract_member(archive, member, sample)
                 image_samples.append((f"avb-{record['chain']}", sample))
+
+        with zipfile.ZipFile(ota_signed) as archive:
+            ota_members = set(archive.namelist())
+            for record in ota_signed_inventory["avb_roles"]:
+                member = f"IMAGES/{record['chain']}.img"
+                if member not in ota_members:
+                    raise Failure(
+                        "signed OTA target-files lacks a declared AVB image")
+                sample = partial / f"samples/ota-avb/{record['chain']}.img"
+                safe_extract_member(archive, member, sample)
+                image_samples.append((f"ota-avb-{record['chain']}", sample))
 
         for identifier, sample in image_samples:
             valid, _, _ = run([

@@ -21,7 +21,7 @@ SUPPORTED_AVB_CHAINS = {
     "boot", "init_boot", "recovery", "system", "system_other", "vendor",
     "dtbo", "vbmeta", "vbmeta_system", "vbmeta_vendor",
 }
-SUPPORTED_CUSTOM_AVB_CHAINS = {
+SUPPORTED_CUSTOM_VBMETA_CHAINS = {
     "vbmeta_system_dlkm", "vbmeta_vendor_dlkm",
 }
 PRESIGNED = "PRESIGNED"
@@ -94,8 +94,15 @@ def _chunks(values, size=MAX_NAMES_PER_ARGUMENT):
         yield values[offset:offset + size]
 
 
-def signing_command(inventory, *, signer, key_dir, source, destination):
+def signing_command(inventory, *, signer, key_dir, source, destination,
+                    prepared_custom_vbmeta_chains=()):
     """Return the fixed ``sign_target_files_apks`` argv for the accepted input."""
+    prepared_custom_vbmeta_chains = tuple(prepared_custom_vbmeta_chains)
+    prepared_custom_vbmeta = set(prepared_custom_vbmeta_chains)
+    if (len(prepared_custom_vbmeta) != len(prepared_custom_vbmeta_chains)
+            or not prepared_custom_vbmeta <= SUPPORTED_CUSTOM_VBMETA_CHAINS):
+        raise QualificationPlanError(
+            "prepared custom vbmeta chain set is invalid")
     mapping = explicit_role_map(inventory)
     grouped = defaultdict(list)
     apex_payloads = []
@@ -122,24 +129,23 @@ def signing_command(inventory, *, signer, key_dir, source, destination):
     if not chains:
         raise QualificationPlanError("accepted inventory contains no AVB chain")
     observed = set()
+    observed_custom_vbmeta = set()
     for record in sorted(chains, key=lambda item: item["chain"]):
         chain = record.get("chain")
-        if (chain not in SUPPORTED_AVB_CHAINS | SUPPORTED_CUSTOM_AVB_CHAINS
+        if (chain not in SUPPORTED_AVB_CHAINS | SUPPORTED_CUSTOM_VBMETA_CHAINS
                 or chain in observed):
             raise QualificationPlanError("inventory contains an unsupported AVB chain")
         observed.add(chain)
-        if chain in SUPPORTED_CUSTOM_AVB_CHAINS:
-            command.extend([
-                "--avb_extra_custom_image_key",
-                f"{chain}={key_dir}/avb.pem",
-                "--avb_extra_custom_image_algorithm",
-                f"{chain}=SHA256_RSA4096",
-            ])
+        if chain in SUPPORTED_CUSTOM_VBMETA_CHAINS:
+            observed_custom_vbmeta.add(chain)
         else:
             command.extend([
                 f"--avb_{chain}_key", f"{key_dir}/avb.pem",
                 f"--avb_{chain}_algorithm", "SHA256_RSA4096",
             ])
+    if observed_custom_vbmeta != prepared_custom_vbmeta:
+        raise QualificationPlanError(
+            "custom vbmeta chains are not bound to prepared metadata")
     command.extend([str(source), str(destination)])
     return command
 

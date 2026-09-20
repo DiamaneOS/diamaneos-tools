@@ -181,15 +181,17 @@ tools checkout, source-project revisions, source-file hashes, both unsigned
 target-files hashes and the otatools hash. It enumerates every accepted package
 name into an explicit role mapping and deliberately does not use the global
 APK/APEX key-override options.
-The accepted Cuttlefish AVB inventory includes `vbmeta_system_dlkm` and
-`vbmeta_vendor_dlkm`; the pinned releasetools interface treats these as custom
-AVB images, so the bounded planner emits only the corresponding exact custom-
-image key and algorithm options. Any other undeclared AVB chain still fails
-closed. The generated target-files metadata does not place those two names in
-releasetools' custom-image list, so the runner prepares a transient copy by
-adding exactly those reviewed names to that one field. It verifies that every
-other ZIP member is unchanged, records both hashes and the before/after list,
-and removes the transient input before evidence promotion. The resulting
+The accepted Cuttlefish AVB inventory includes the custom chained-vbmeta images
+`vbmeta_system_dlkm` and `vbmeta_vendor_dlkm`. The pinned releasetools command
+line has no custom chained-vbmeta key override. The runner therefore requires
+the source metadata's exact reviewed `system_dlkm` and `vendor_dlkm` custom-
+vbmeta partition set, then prepares a transient copy by replacing only those
+two existing key-path and algorithm pairs with the disposable AVB key and
+`SHA256_RSA4096`. It does not add them to the distinct custom-data-image list.
+Every other ZIP member must remain unchanged; both archive hashes and the four
+changed field names are recorded, and the transient input is removed before
+evidence promotion. Any missing, duplicate or additional custom-vbmeta field
+fails closed. The resulting
 signed images must still pass independent AVB verification.
 Fresh private material lives under `/dev/shm`, is removed before independent
 verification begins and is never retained in the evidence directory.

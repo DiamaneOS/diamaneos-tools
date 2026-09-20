@@ -32,6 +32,9 @@ class DummySigningDeploymentTest(unittest.TestCase):
             'key_dir / "releasekey", ota_signed, full_ota', script)
         self.assertIn(
             '"-i", ota_signed, ota_signed,', script)
+        self.assertIn(
+            'for record in ota_signed_inventory["avb_roles"]', script)
+        self.assertIn('f"ota-avb-{record[\'chain\']}"', script)
         self.assertIn("signing_command", script)
         self.assertIn("def make_android_key", script)
         self.assertIn("allowed=(0, 1)", script)
@@ -108,39 +111,59 @@ class DummySigningDeploymentTest(unittest.TestCase):
                     malformed, "bad", "bad", "/CN=bad/",
                     destination, logs)
 
-    def test_ota_preparation_adds_only_reviewed_custom_avb_images(self):
+    def test_ota_preparation_binds_only_reviewed_custom_vbmeta_keys(self):
         runner = runpy.run_path(str(RUNNER))
-        prepare = runner["prepare_ota_custom_avb_input"]
+        prepare = runner["prepare_ota_custom_vbmeta_input"]
         failure = runner["Failure"]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            key_dir = root / "keys"
+            key_dir.mkdir()
+            (key_dir / "avb.pem").write_text("disposable test key")
             source = root / "source.zip"
             with zipfile.ZipFile(source, "w") as archive:
-                archive.writestr("META/misc_info.txt", "avb_enable=true\n")
+                archive.writestr(
+                    "META/misc_info.txt",
+                    "avb_enable=true\n"
+                    "avb_custom_vbmeta_images_partition_list="
+                    "system_dlkm vendor_dlkm\n"
+                    "avb_vbmeta_system_dlkm=system_dlkm\n"
+                    "avb_vbmeta_system_dlkm_key_path=old/system.pem\n"
+                    "avb_vbmeta_system_dlkm_algorithm=SHA256_RSA4096\n"
+                    "avb_vbmeta_vendor_dlkm=vendor_dlkm\n"
+                    "avb_vbmeta_vendor_dlkm_key_path=old/vendor.pem\n"
+                    "avb_vbmeta_vendor_dlkm_algorithm=SHA256_RSA4096\n")
                 archive.writestr("SYSTEM/payload", b"unchanged")
             destination = root / "prepared.zip"
             evidence = root / "evidence.json"
             prepare(source, destination, root / "work", evidence,
-                    root / "prepare.log")
+                    root / "prepare.log", key_dir)
             with zipfile.ZipFile(destination) as archive:
                 misc = archive.read("META/misc_info.txt").decode()
                 self.assertEqual(b"unchanged",
                                  archive.read("SYSTEM/payload"))
             self.assertIn(
-                "avb_custom_images_partition_list=vbmeta_system_dlkm "
-                "vbmeta_vendor_dlkm\n", misc)
+                f"avb_vbmeta_system_dlkm_key_path={key_dir}/avb.pem\n",
+                misc)
+            self.assertIn(
+                f"avb_vbmeta_vendor_dlkm_key_path={key_dir}/avb.pem\n",
+                misc)
+            self.assertNotIn("avb_custom_images_partition_list=", misc)
             record = json.loads(evidence.read_text())
             self.assertEqual("PASS", record["status"])
+            self.assertEqual(
+                ["system_dlkm", "vendor_dlkm"],
+                record["custom_vbmeta_partitions"])
             self.assertFalse(record["other_members_changed"])
 
             rejected = root / "rejected.zip"
             with zipfile.ZipFile(rejected, "w") as archive:
                 archive.writestr(
                     "META/misc_info.txt",
-                    "avb_custom_images_partition_list=unreviewed\n")
+                    "avb_custom_vbmeta_images_partition_list=unreviewed\n")
             with self.assertRaises(failure):
                 prepare(rejected, root / "unused.zip", root / "reject-work",
-                        root / "unused.json", root / "reject.log")
+                        root / "unused.json", root / "reject.log", key_dir)
 
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
         unit = SERVICE.read_text(encoding="utf-8")
