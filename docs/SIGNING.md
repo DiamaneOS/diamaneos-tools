@@ -149,6 +149,12 @@ is FP6 compatibility, release, update-semantics or hardware evidence. The FP6
 profile must be regenerated and reviewed from the actual FP6 `user`
 target-files package; a generic package list cannot be copied over as proof.
 
+The SDK target publishes target-files and otatools through the legacy product
+output paths. The Android 17 Cuttlefish product publishes both through Soong
+module intermediates instead. Discovery accepts only one regular artifact
+inside each exact selected module root; it never searches the complete output
+tree or falls back to an older product's package.
+
 ## Disposable-key qualification
 
 A qualification run must use newly generated disposable keys under its own

@@ -46,6 +46,19 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
             script,
         )
 
+    def test_ota_artifact_resolution_is_module_bounded_and_unique(self):
+        script = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("resolve_unique_artifact", script)
+        self.assertIn("${TARGET_PRODUCT}_generated_device", script)
+        self.assertIn(
+            "build/make/tools/otatools_package/otatools-package", script,
+        )
+        self.assertIn(
+            "module root did not contain exactly one artifact", script,
+        )
+        self.assertIn("artifact escaped its module root", script)
+        self.assertNotIn('find "$OUT"', script)
+
     def test_only_exact_presigned_review_can_be_nonpassing_discovery(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn(
