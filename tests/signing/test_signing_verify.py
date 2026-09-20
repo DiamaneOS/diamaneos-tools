@@ -25,6 +25,18 @@ class SigningVerifyTest(unittest.TestCase):
         self.environment = api.load_json(
             TOOLS / "config" / "build-environment.json")
 
+    def unqualified_config(self):
+        config = copy.deepcopy(self.config)
+        profile = next(entry for entry in config["target_profiles"]
+                       if entry["id"] == "generic-x86_64-qualification")
+        profile["qualified_unsigned_target_files_sha256"] = None
+        profile["presigned_allowlist"] = []
+        profile["presigned_metadata_only"] = []
+        profile["presigned_artifacts"] = []
+        profile["qualification_evidence"] = None
+        profile["inventory_status"] = "pending-target-files-qualification"
+        return config
+
     def test_committed_role_contract_is_complete_and_valid(self):
         self.assertEqual([], api.validate_config(self.config, self.environment))
         self.assertEqual(api.EXPECTED_KEYS,
@@ -60,7 +72,8 @@ class SigningVerifyTest(unittest.TestCase):
         self.assertTrue(api.validate_config(changed, self.environment))
 
     @staticmethod
-    def target_files(path, *, presigned=False, signed=True, duplicate=False):
+    def target_files(path, *, presigned=False, signed=True, duplicate=False,
+                     settings_artifact=None):
         cert = "PRESIGNED" if presigned else (
             "keys/platform.x509.pem" if signed else
             "build/make/target/product/security/testkey.x509.pem")
@@ -88,6 +101,9 @@ class SigningVerifyTest(unittest.TestCase):
             archive.writestr("META/apkcerts.txt", apk)
             archive.writestr("META/apexkeys.txt", apex)
             archive.writestr("META/misc_info.txt", misc)
+            if settings_artifact is not None:
+                archive.writestr("SYSTEM/app/Settings/Settings.apk",
+                                 settings_artifact)
             if duplicate:
                 # The duplicate is intentional: this fixture verifies that the
                 # parser rejects ambiguous ZIP member names. Suppress only the
@@ -101,7 +117,8 @@ class SigningVerifyTest(unittest.TestCase):
             path = Path(temp) / "target-files.zip"
             self.target_files(path)
             result = api.inspect_target_files(
-                path, self.config, "generic-x86_64-qualification",
+                path, self.unqualified_config(),
+                "generic-x86_64-qualification",
                 stage="signed")
             self.assertEqual("PASS", result["status"])
             self.assertEqual(1, result["apk_count"])
@@ -115,7 +132,8 @@ class SigningVerifyTest(unittest.TestCase):
             path = Path(temp) / "target-files.zip"
             self.target_files(path, presigned=True)
             result = api.inspect_target_files(
-                path, self.config, "generic-x86_64-qualification",
+                path, self.unqualified_config(),
+                "generic-x86_64-qualification",
                 stage="signed")
             self.assertEqual("FAIL", result["status"])
             self.assertIn("target-files contains an unlisted presigned package",
@@ -124,7 +142,8 @@ class SigningVerifyTest(unittest.TestCase):
 
             self.target_files(path, signed=False)
             result = api.inspect_target_files(
-                path, self.config, "generic-x86_64-qualification",
+                path, self.unqualified_config(),
+                "generic-x86_64-qualification",
                 stage="signed")
             self.assertEqual("FAIL", result["status"])
             self.assertIn("target-files contains an unlisted signing role",
@@ -135,11 +154,80 @@ class SigningVerifyTest(unittest.TestCase):
             path = Path(temp) / "target-files.zip"
             self.target_files(path, signed=False)
             result = api.inspect_target_files(
-                path, self.config, "generic-x86_64-qualification",
+                path, self.unqualified_config(),
+                "generic-x86_64-qualification",
                 stage="unsigned")
             self.assertEqual("PASS", result["status"])
             self.assertEqual("testkey",
                              result["apk_roles"][0]["certificate_role"])
+
+    def test_qualified_presigned_policy_binds_presence_hash_and_input(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "target-files.zip"
+            payload = b"reviewed-presigned-fixture"
+            self.target_files(path, presigned=True,
+                              settings_artifact=payload)
+            config = self.unqualified_config()
+            profile = config["target_profiles"][0]
+            profile["qualified_unsigned_target_files_sha256"] = \
+                api.sha256_file(path)
+            profile["presigned_allowlist"] = ["Settings.apk"]
+            profile["presigned_artifacts"] = [{
+                "metadata_name": "Settings.apk",
+                "artifact_basename": "Settings.apk",
+                "path": "SYSTEM/app/Settings/Settings.apk",
+                "bytes": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }]
+            profile["qualification_evidence"] = {
+                "artifact_review_sha256": "1" * 64,
+                "source_review_sha256": "2" * 64,
+                "source_inventory_sha256": "3" * 64,
+            }
+            profile["inventory_status"] = "qualified"
+            result = api.inspect_target_files(
+                path, config, "generic-x86_64-qualification",
+                stage="unsigned")
+            self.assertEqual("PASS", result["status"])
+
+            profile["presigned_artifacts"][0]["sha256"] = "4" * 64
+            result = api.inspect_target_files(
+                path, config, "generic-x86_64-qualification",
+                stage="unsigned")
+            self.assertIn("target-files presigned artifact hash mismatch",
+                          result["errors"])
+
+    def test_qualified_metadata_only_policy_requires_archive_absence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "target-files.zip"
+            self.target_files(path, presigned=True)
+            config = self.unqualified_config()
+            profile = config["target_profiles"][0]
+            profile["qualified_unsigned_target_files_sha256"] = \
+                api.sha256_file(path)
+            profile["presigned_allowlist"] = ["Settings.apk"]
+            profile["presigned_metadata_only"] = ["Settings.apk"]
+            profile["qualification_evidence"] = {
+                "artifact_review_sha256": "1" * 64,
+                "source_review_sha256": "2" * 64,
+                "source_inventory_sha256": "3" * 64,
+            }
+            profile["inventory_status"] = "qualified"
+            result = api.inspect_target_files(
+                path, config, "generic-x86_64-qualification",
+                stage="unsigned")
+            self.assertEqual("PASS", result["status"])
+
+            self.target_files(path, presigned=True,
+                              settings_artifact=b"unexpected")
+            profile["qualified_unsigned_target_files_sha256"] = \
+                api.sha256_file(path)
+            result = api.inspect_target_files(
+                path, config, "generic-x86_64-qualification",
+                stage="unsigned")
+            self.assertIn(
+                "metadata-only presigned package is present in archive",
+                result["errors"])
 
     def test_misc_info_accepts_identical_and_rejects_conflicting_duplicates(self):
         fields, duplicates = api._misc_info(
@@ -162,14 +250,16 @@ class SigningVerifyTest(unittest.TestCase):
             self.target_files(path, duplicate=True)
             with self.assertRaisesRegex(api.SigningError, "unsafe member"):
                 api.inspect_target_files(
-                    path, self.config, "generic-x86_64-qualification",
+                    path, self.unqualified_config(),
+                    "generic-x86_64-qualification",
                     stage="signed")
             missing = Path(temp) / "missing.zip"
             with zipfile.ZipFile(missing, "w") as archive:
                 archive.writestr("META/apkcerts.txt", "")
             with self.assertRaisesRegex(api.SigningError, "lacks required"):
                 api.inspect_target_files(
-                    missing, self.config, "generic-x86_64-qualification",
+                    missing, self.unqualified_config(),
+                    "generic-x86_64-qualification",
                     stage="signed")
 
     def _make_signed_result(self, root):

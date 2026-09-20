@@ -244,6 +244,39 @@ def validate_config(config, environment):
         if any(any(token in item for token in ("*", "?", "[", "]", "/"))
                for item in allowlist):
             errors.append("presigned allowlist must use exact package names")
+        metadata_only = profile["presigned_metadata_only"]
+        if metadata_only != sorted(
+                metadata_only, key=lambda item: item.encode("utf-8")):
+            errors.append("presigned metadata-only list is not bytewise sorted")
+        artifacts = profile["presigned_artifacts"]
+        artifact_order = [
+            (entry["metadata_name"], entry["path"]) for entry in artifacts
+        ]
+        if artifact_order != sorted(
+                artifact_order,
+                key=lambda item: (item[0].encode("utf-8"),
+                                  item[1].encode("utf-8"))):
+            errors.append("presigned artifact bindings are not bytewise sorted")
+        if len(artifact_order) != len(set(artifact_order)):
+            errors.append("duplicate presigned artifact binding")
+        artifact_names = {entry["metadata_name"] for entry in artifacts}
+        if set(metadata_only) & artifact_names:
+            errors.append("presigned package has conflicting presence policies")
+        if set(allowlist) != set(metadata_only) | artifact_names:
+            errors.append("presigned policy does not partition the allowlist")
+        for entry in artifacts:
+            pure = PurePosixPath(entry["path"])
+            if (pure.is_absolute() or ".." in pure.parts
+                    or pure.name != entry["artifact_basename"]):
+                errors.append("presigned artifact binding path is invalid")
+        qualified_hash = profile["qualified_unsigned_target_files_sha256"]
+        evidence = profile["qualification_evidence"]
+        if profile["inventory_status"] == "qualified":
+            if not qualified_hash or evidence is None or not allowlist:
+                errors.append("qualified signing profile lacks review bindings")
+        elif (qualified_hash is not None or evidence is not None or allowlist
+              or metadata_only or artifacts):
+            errors.append("unqualified signing profile contains review bindings")
 
     proofs = config["required_dummy_proofs"]
     if set(proofs) != EXPECTED_PROOFS or len(proofs) != len(set(proofs)):
@@ -354,6 +387,58 @@ def _misc_info(text):
                          key=lambda field: field.encode("utf-8"))
 
 
+def _zip_member_sha256(archive, name):
+    digest = hashlib.sha256()
+    try:
+        with archive.open(name, "r") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except (KeyError, OSError, RuntimeError, zipfile.BadZipFile):
+        raise SigningError("unable to hash a bound presigned artifact") from None
+    return digest.hexdigest()
+
+
+def _presigned_artifact_errors(archive, profile):
+    """Verify exact archive presence/absence and identity bindings.
+
+    apkcerts/apexkeys names may contain an escaped literal dot, so the policy
+    retains the exact metadata token separately from the literal ZIP basename.
+    """
+    errors = []
+    members_by_basename = {}
+    for info in archive.infolist():
+        basename = PurePosixPath(info.filename).name
+        members_by_basename.setdefault(basename, []).append(info.filename)
+
+    expected_by_basename = {}
+    for entry in profile["presigned_artifacts"]:
+        expected_by_basename.setdefault(
+            entry["artifact_basename"], set()).add(entry["path"])
+        try:
+            info = archive.getinfo(entry["path"])
+        except KeyError:
+            errors.append("target-files lacks a bound presigned artifact")
+            continue
+        if info.file_size != entry["bytes"]:
+            errors.append("target-files presigned artifact size mismatch")
+            continue
+        if _zip_member_sha256(archive, entry["path"]) != entry["sha256"]:
+            errors.append("target-files presigned artifact hash mismatch")
+
+    for basename, expected in expected_by_basename.items():
+        observed = set(members_by_basename.get(basename, []))
+        if observed != expected:
+            errors.append("target-files presigned artifact path set mismatch")
+
+    for metadata_name in profile["presigned_metadata_only"]:
+        if "\\" in metadata_name:
+            errors.append("metadata-only presigned name has an unsupported escape")
+            continue
+        if members_by_basename.get(metadata_name):
+            errors.append("metadata-only presigned package is present in archive")
+    return errors
+
+
 def inspect_target_files(path, config, profile_id, *, stage):
     if stage not in {"unsigned", "signed"}:
         raise SigningError("target-files stage must be unsigned or signed")
@@ -361,6 +446,7 @@ def inspect_target_files(path, config, profile_id, *, stage):
     if profile_id not in profiles:
         raise SigningError("unknown signing target profile")
     profile = profiles[profile_id]
+    target_files_sha256 = sha256_file(path)
     with _zip_metadata(path) as archive:
         apks = _attribute_lines(_read_member(
             archive, "META/apkcerts.txt"), "apkcerts")
@@ -368,6 +454,7 @@ def inspect_target_files(path, config, profile_id, *, stage):
             archive, "META/apexkeys.txt"), "apexkeys")
         misc, misc_duplicates = _misc_info(_read_member(
             archive, "META/misc_info.txt"))
+        artifact_errors = _presigned_artifact_errors(archive, profile)
 
     apk_inventory = []
     apex_inventory = []
@@ -425,12 +512,16 @@ def inspect_target_files(path, config, profile_id, *, stage):
     allowed = set(profile["presigned_allowlist"])
     missing_allowlist = allowed - presigned
     unlisted_presigned = presigned - allowed
-    errors = []
+    errors = list(artifact_errors)
+    qualified_hash = profile["qualified_unsigned_target_files_sha256"]
+    if (stage == "unsigned" and qualified_hash is not None
+            and target_files_sha256 != qualified_hash):
+        errors.append("unsigned target-files hash does not match qualified input")
     if unknown_roles:
         errors.append("target-files contains an unlisted signing role")
     if unlisted_presigned:
         errors.append("target-files contains an unlisted presigned package")
-    if stage == "signed" and missing_allowlist:
+    if profile["inventory_status"] == "qualified" and missing_allowlist:
         errors.append("target-files is missing an allowlisted presigned package")
     if not avb:
         errors.append("target-files contains no AVB role metadata")
@@ -440,7 +531,7 @@ def inspect_target_files(path, config, profile_id, *, stage):
         "inventory_id": config["inventory_id"],
         "profile_id": profile_id,
         "stage": stage,
-        "target_files_sha256": sha256_file(path),
+        "target_files_sha256": target_files_sha256,
         "apk_count": len(apk_inventory),
         "apex_count": len(apex_inventory),
         "avb_chain_count": len(avb),
