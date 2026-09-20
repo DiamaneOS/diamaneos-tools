@@ -85,6 +85,16 @@ class CliTest(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("identity-bound USB test-rig control", out.stdout)
 
+    def test_signing_help(self):
+        out = subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"), "signing", "--help"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("target-files", out.stdout)
+        self.assertIn("dummy-proof", subprocess.run(
+            [os.path.join(TOOLS, "bin", "diamaneos"), "--help"],
+            capture_output=True, text=True, cwd=TOOLS, timeout=30).stdout)
+
     def test_unknown_command(self):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "nope"],
                              capture_output=True, text=True, timeout=30)

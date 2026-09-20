@@ -163,6 +163,22 @@ production signing material on the online builder. The FP6 release-purpose
 preflight remains fail-closed until the generated exact-stock device-input
 manifest and FP6 product target are verified.
 
+## Signing handoff
+
+The online builder stops at unsigned target-files and otatools. Signing roles,
+target-files inventory validation and the disposable qualification path are
+defined in [`SIGNING.md`](SIGNING.md). Never copy a production key or signer
+token to the builder to make a release command convenient. Full and
+incremental OTA generation are signing operations because they sign both the
+payload and package; they run in the reviewed offline signing workflow.
+
+The accepted generic build may be extended to produce a generic target-files
+package for disposable role qualification. That downstream run must preserve
+the existing pinned source identity, use only newly generated dummy keys and
+state explicitly that it proves neither FP6 support nor release eligibility.
+Its package inventory cannot substitute for the future FP6 `user` target-files
+inventory.
+
 ## Device-suite interface
 
 Device suites are reviewed JSON data under `tests/device/suites/`. They select

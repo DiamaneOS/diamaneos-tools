@@ -1,0 +1,251 @@
+#!/bin/bash
+set -euo pipefail
+
+workspace_root=${DIAMANEOS_BUILD_ROOT:-/var/lib/diamaneos-build}
+tools_link=${DIAMANEOS_TOOLS_ROOT:-/opt/diamaneos/tools}
+expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-thermal-check}
+expected_user=diamaneos-build
+started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+run_id=signing-discovery-$(date -u +%Y%m%dT%H%M%SZ)
+evidence_root=$workspace_root/evidence/dummy-signing
+partial=$evidence_root/$run_id.partial
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+write_failure() {
+  exit_code=$?
+  trap - EXIT
+  if [[ -d $partial ]]; then
+    ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    python3 - "$partial/result.json" "$run_id" "$started_at" \
+      "$ended_at" "$exit_code" <<'PY'
+import json
+import os
+import sys
+
+path, run_id, started, ended, exit_code = sys.argv[1:]
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as stream:
+    json.dump({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": "FAIL",
+        "started_at_utc": started,
+        "ended_at_utc": ended,
+        "exit_code": int(exit_code),
+        "dummy_keys_created": False,
+        "signing_operations": 0,
+    }, stream, sort_keys=True, indent=2)
+    stream.write("\n")
+os.replace(temporary, path)
+PY
+    failed=$evidence_root/$run_id.failed
+    mv -- "$partial" "$failed"
+    printf 'SIGNING_DISCOVERY=FAIL\n' >&2
+    printf 'result=%s\n' "$failed/result.json" >&2
+  fi
+  exit "$exit_code"
+}
+trap write_failure EXIT
+
+[[ $(id -un) == "$expected_user" ]] || fail "run as $expected_user"
+[[ $workspace_root == /* && ! -L $workspace_root ]] || \
+  fail 'workspace root must be an absolute non-symlink directory'
+[[ $expected_tools_commit =~ ^[0-9a-f]{40}$ ]] || \
+  fail 'expected reviewed tools commit is missing or invalid'
+[[ -x $tools_link/bin/diamaneos ]] || fail 'reviewed tools deployment is unavailable'
+tools_root=$(readlink -f "$tools_link")
+[[ $tools_root == "/opt/diamaneos/tools-$expected_tools_commit" ]] || \
+  fail 'reviewed tools symlink target mismatch'
+observed_tools_commit=$(git -c safe.directory="$tools_root" \
+  -C "$tools_root" rev-parse HEAD)
+[[ $observed_tools_commit == "$expected_tools_commit" ]] || \
+  fail 'reviewed tools commit mismatch'
+[[ -z $(git -c safe.directory="$tools_root" -C "$tools_root" \
+  status --porcelain=v1 --untracked-files=all) ]] || \
+  fail 'reviewed tools checkout is dirty'
+[[ -z $(find "$tools_root" -xdev -perm /022 -print -quit) ]] || \
+  fail 'reviewed tools checkout is writable by group or other'
+
+mapfile -t declared < <(python3 - "$tools_root/config/build-environment.json" \
+  "$tools_root/config/signing-roles.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    environment = json.load(stream)
+with open(sys.argv[2], encoding="utf-8") as stream:
+    signing = json.load(stream)
+workspace = environment["workspace"]
+profile = next(item for item in signing["target_profiles"]
+               if item["id"] == "generic-x86_64-qualification")
+print(workspace["source_subdirectory"])
+print(workspace["cache_subdirectory"])
+print(workspace["output_subdirectory"])
+print(environment["build"]["generic_qualification_target"])
+print(profile["product"])
+print(profile["build_variant"])
+PY
+)
+[[ ${#declared[@]} -eq 6 ]] || fail 'declared build or signing profile is incomplete'
+source_root=$workspace_root/${declared[0]}
+cache_root=$workspace_root/${declared[1]}
+output_root=$workspace_root/${declared[2]}
+expected_target=${declared[3]}
+expected_product=${declared[4]}
+expected_variant=${declared[5]}
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+
+[[ -d $source_root/.repo && -f $allowed_signers ]] || \
+  fail 'verified source sync is incomplete'
+[[ -d $output_root && ! -L $output_root ]] || \
+  fail 'declared output root is unavailable'
+
+install -d -m 0750 "$evidence_root"
+mkdir -m 0750 "$partial"
+
+export HOME=$workspace_root
+export COREPACK_HOME=$workspace_root/.cache/corepack
+export PATH=$workspace_root/toolbin:/opt/nodejs/v24.21.0/bin:/usr/local/bin:/usr/bin:/bin
+export CCACHE_DIR=$cache_root/ccache
+export TMPDIR=$workspace_root/tmp
+install -d -m 0750 "$CCACHE_DIR" "$TMPDIR"
+unset OFFICIAL_BUILD BUILD_DATETIME BUILD_NUMBER
+
+"$tools_root/bin/diamaneos" build preflight \
+  --purpose generic-qualification \
+  --source-root "$source_root" \
+  --cache-root "$cache_root" \
+  --output-root "$output_root" \
+  --thermal-check "$thermal_check" \
+  --allowed-signers "$allowed_signers" >"$partial/preflight.json"
+"$tools_root/bin/diamaneos" signing roles >"$partial/signing-roles.json"
+
+cd "$source_root"
+relative_out=$(realpath --relative-to="$source_root" "$output_root")
+[[ $relative_out != /* && $relative_out != .. && $relative_out != ../* ]] || \
+  fail 'build-facing output path escapes the source root'
+[[ $(realpath -m "$source_root/$relative_out") == "$output_root" ]] || \
+  fail 'relative output path does not resolve to the declared output root'
+export OUT_DIR=$relative_out
+
+repo manifest -r >"$partial/resolved-manifest.xml"
+source build/envsetup.sh
+lunch "$expected_target"
+[[ ${TARGET_PRODUCT:-} == "$expected_product" ]] || \
+  fail 'selected target product mismatch'
+[[ ${TARGET_BUILD_VARIANT:-} == "$expected_variant" ]] || \
+  fail 'selected target variant mismatch'
+
+printf 'SIGNING_DISCOVERY_BUILD=STARTED\n'
+printf 'run_id=%s\n' "$run_id"
+m target-files-package otatools-package
+
+target_files=$OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target_files.zip
+otatools=$ANDROID_HOST_OUT/obj/ETC/otatools-packagelinux_glibc_x86_64_intermediates/otatools-packagelinux_glibc_x86_64
+[[ -f $target_files && ! -L $target_files ]] || \
+  fail 'target-files package was not produced as a regular file'
+[[ -f $otatools && ! -L $otatools ]] || \
+  fail 'otatools package was not produced as a regular file'
+
+set +e
+"$tools_root/bin/diamaneos" signing inventory \
+  --profile generic-x86_64-qualification \
+  --stage unsigned \
+  --target-files "$target_files" \
+  --output "$partial/unsigned-inventory.json" \
+  >"$partial/unsigned-inventory.stdout.json"
+inventory_exit=$?
+set -e
+[[ $inventory_exit -eq 0 || $inventory_exit -eq 3 ]] || \
+  fail 'target-files inventory command failed unexpectedly'
+
+mapfile -t inventory_state < <(python3 - "$partial/unsigned-inventory.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    result = json.load(stream)
+errors = result["errors"]
+allowed = not errors or errors == [
+    "target-files contains an unlisted presigned package"
+]
+print("yes" if allowed else "no")
+print("PASS" if not errors else "NEEDS_REVIEW")
+print(result["unlisted_presigned_count"])
+for package in result["presigned_packages"]:
+    print(package)
+PY
+)
+[[ ${#inventory_state[@]} -ge 3 && ${inventory_state[0]} == yes ]] || \
+  fail 'target-files inventory failed for a reason other than presigned review'
+status=${inventory_state[1]}
+presigned_count=${inventory_state[2]}
+
+sha256sum "$target_files" >"$partial/unsigned-target-files.sha256"
+sha256sum "$otatools" >"$partial/otatools.sha256"
+sha256sum "$partial/preflight.json" "$partial/signing-roles.json" \
+  "$partial/resolved-manifest.xml" "$partial/unsigned-inventory.json" \
+  >"$partial/evidence.sha256"
+
+ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+python3 - "$partial/result.json" "$run_id" "$started_at" "$ended_at" \
+  "$expected_tools_commit" "$status" "$target_files" "$otatools" \
+  "$presigned_count" <<'PY'
+import hashlib
+import json
+import os
+import sys
+
+(path, run_id, started, ended, tools_commit, status, target_files,
+ otatools, presigned_count) = sys.argv[1:]
+root = os.path.dirname(path)
+
+def digest(path):
+    value = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+with open(os.path.join(root, "unsigned-inventory.json"), encoding="utf-8") as stream:
+    inventory = json.load(stream)
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as stream:
+    json.dump({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": status,
+        "started_at_utc": started,
+        "ended_at_utc": ended,
+        "tools_commit": tools_commit,
+        "profile_id": "generic-x86_64-qualification",
+        "dummy_keys_created": False,
+        "signing_operations": 0,
+        "target_files_path": target_files,
+        "target_files_sha256": digest(target_files),
+        "otatools_path": otatools,
+        "otatools_sha256": digest(otatools),
+        "inventory_sha256": digest(os.path.join(root, "unsigned-inventory.json")),
+        "presigned_package_count": int(presigned_count),
+        "presigned_packages": inventory["presigned_packages"],
+    }, stream, sort_keys=True, indent=2)
+    stream.write("\n")
+os.replace(temporary, path)
+PY
+
+sha256sum "$partial/result.json" >"$partial/result.json.sha256"
+case $status in
+  PASS) final=$evidence_root/$run_id ;;
+  NEEDS_REVIEW) final=$evidence_root/$run_id.needs-review ;;
+  *) fail 'invalid signing discovery status' ;;
+esac
+mv -- "$partial" "$final"
+trap - EXIT
+printf 'SIGNING_DISCOVERY=%s\n' "$status"
+printf 'result=%s\n' "$final/result.json"
+cat "$final/result.json.sha256"
