@@ -249,6 +249,13 @@ same reviewed environment file at
 otatools packages, and records their hashes and parsed inventory beneath
 `evidence/dummy-signing`.
 
+Run the pinned source-sync service successfully during initial provisioning.
+The discovery unit is ordered after that unit but does not start it again:
+source sync deliberately requires an empty output root, while discovery reuses
+the accepted build output. The discovery runner independently verifies the
+signed manifest, exact resolved project map, clean source projects, reviewed
+tools revision and allowed-signers file before it invokes the build.
+
 The expected first result is either `PASS` with no presigned packages or
 `NEEDS_REVIEW` with their exact names. `NEEDS_REVIEW` is not a failure and is
 not approval: each listed package must be reviewed and committed to the exact
