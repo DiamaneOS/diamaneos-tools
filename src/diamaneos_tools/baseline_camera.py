@@ -24,6 +24,8 @@ import time
 from diamaneos_tools import baseline_protocol
 from diamaneos_tools import baseline_pilot
 from diamaneos_tools import rig
+from diamaneos_tools import evidence
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -252,7 +254,7 @@ def _media_snapshot(adb: str, target: str) -> tuple[set[str], str]:
 
 
 def _write_text(path: Path, content: str) -> str:
-    return test_runner._write_evidence(path, content)
+    return evidence.write_evidence(path, content)
 
 
 def _capture_ui(adb: str, target: str, raw_dir: Path,
@@ -566,7 +568,7 @@ def _pull_original(adb: str, target: str, run_dir: Path,
         raise CameraError("camera original checksum changed during transfer", 5)
     os.chmod(temporary, 0o640)
     os.replace(temporary, destination)
-    test_runner._sync_directory(media_dir)
+    evidence.sync_directory(media_dir)
     return {
         "original_filename": name,
         "media_type": destination.suffix.lower().removeprefix("."),
@@ -603,7 +605,7 @@ def _release_lock(fd: int):
 
 def _validate_target(args):
     test_runner.load_device_map(Path(args.device_map), args.device_role, args.target)
-    if args.target not in test_runner._authorized_devices(args.adb):
+    if args.target not in device.authorized_devices(args.adb):
         raise CameraError("selected camera target is not an authorized USB device", 3)
 
 
@@ -611,7 +613,7 @@ def _load_report(run_dir: Path) -> dict:
     if not run_dir.name.endswith(".partial"):
         raise CameraError("camera run must reference its partial directory")
     _owner_controlled_directory(run_dir)
-    value, _ = test_runner._load_unique_json(
+    value, _ = evidence.load_unique_json(
         run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
     operation_labels = {
         "baseline-camera-pilot": PILOT_LABEL,
@@ -633,7 +635,7 @@ def _register_runner_version(report: dict, repo_root: Path) -> str:
         "sha256": tool["runner_sha256"],
     }])
     current = {
-        "revision": test_runner._git_revision(repo_root),
+        "revision": evidence.git_revision(repo_root),
         "sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     }
     if current not in versions:
@@ -674,7 +676,7 @@ def _atomic_report(path: Path, report: dict, target: str):
     serialized = json.dumps(report, sort_keys=True)
     if target in serialized:
         raise CameraError("private target escaped camera report redaction", 5)
-    test_runner._atomic_json(path, report)
+    evidence.atomic_json(path, report)
 
 
 def verify_private_refs(report_path: Path, refs: list[str]):
@@ -736,7 +738,7 @@ def start(args, repo_root: Path) -> Path:
         except rig.RigError as exc:
             raise CameraError(str(exc), exc.exit_code) from exc
         _validate_target(args)
-        identity, refs = test_runner._capture_identity(
+        identity, refs = device.capture_identity(
             args.adb, args.target, partial, 20)
         if identity["build_id"] != args.expected_build:
             raise CameraError("camera target build does not match the expected stock build", 3)
@@ -765,9 +767,9 @@ def start(args, repo_root: Path) -> Path:
             "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
             "run_profile": profile,
             "tool": {
-                "revision": test_runner._git_revision(repo_root),
+                "revision": evidence.git_revision(repo_root),
                 "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                "adb": test_runner._adb_version(args.adb),
+                "adb": device.adb_version(args.adb),
             },
             "target": {
                 "role": args.device_role,
@@ -979,11 +981,11 @@ def finalize(args) -> Path:
         if final.exists():
             raise CameraError("immutable camera final output collision", 3)
         for ref in report["identity_evidence_refs"]:
-            test_runner._verify_evidence_refs(report_path, [ref])
-        test_runner._verify_evidence_refs(
+            evidence.verify_evidence_refs(report_path, [ref])
+        evidence.verify_evidence_refs(
             report_path, report.get("condition_evidence_refs", []))
         for item in captures:
-            test_runner._verify_evidence_refs(
+            evidence.verify_evidence_refs(
                 report_path, item.get("raw_evidence_refs", []))
             if item.get("status") != "PASS":
                 continue
@@ -993,7 +995,7 @@ def finalize(args) -> Path:
                 raise CameraError("camera original failed final checksum verification", 5)
         attempts = report.get("attempts", [])
         for item in attempts:
-            test_runner._verify_evidence_refs(
+            evidence.verify_evidence_refs(
                 report_path, item.get("raw_evidence_refs", []))
         for discovery in report.get("pilot_discoveries", []):
             verify_private_refs(
@@ -1013,7 +1015,7 @@ def finalize(args) -> Path:
             report["status"] = "PASS"
         _atomic_report(report_path, report, args.target)
         os.rename(run_dir, final)
-        test_runner._sync_directory(final.parent)
+        evidence.sync_directory(final.parent)
         return final / "result.json"
     finally:
         _release_lock(lock_fd)
@@ -1053,7 +1055,7 @@ def quarantine(args) -> Path:
         if final.exists():
             raise CameraError("camera quarantine output collision", 3)
         os.rename(run_dir, final)
-        test_runner._sync_directory(final.parent)
+        evidence.sync_directory(final.parent)
         return final / "result.json"
     finally:
         _release_lock(lock_fd)
@@ -1153,7 +1155,7 @@ def main(argv=None) -> int:
         if args.action == "finalize":
             result = finalize(args)
             print(f"result={result}")
-            report, _ = test_runner._load_unique_json(
+            report, _ = evidence.load_unique_json(
                 result, test_runner.MAX_REPORT_BYTES)
             return 0
         print(f"result={quarantine(args)}")

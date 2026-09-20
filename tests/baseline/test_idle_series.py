@@ -62,8 +62,8 @@ class SeriesLaunchTest(unittest.TestCase):
                     mock.patch.object(
                         baseline_idle_series.test_runner, "load_device_map"), \
                     mock.patch.object(
-                        baseline_idle_series.test_runner,
-                        "_authorized_devices",
+                        baseline_idle_series.device,
+                        "authorized_devices",
                         return_value=["private-target"]), \
                     mock.patch.object(
                         baseline_idle_series.subprocess, "Popen",

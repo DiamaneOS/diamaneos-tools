@@ -215,6 +215,10 @@ class BuildEnvironmentTests(unittest.TestCase):
             with mock.patch.object(build, "_run", side_effect=fixture_run):
                 with self.assertRaisesRegex(build.BuildError, "dirty or untracked"):
                     build.verify_manifest_checkout(config, source, allowed)
+                (project / "untracked.txt").unlink()
+                repo_revision_file.write_text("modified implementation\n")
+                with self.assertRaisesRegex(build.BuildError, "repo implementation contains"):
+                    build.verify_manifest_checkout(config, source, allowed)
 
 
 if __name__ == "__main__":

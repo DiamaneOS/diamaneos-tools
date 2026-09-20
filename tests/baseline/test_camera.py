@@ -325,10 +325,10 @@ class CliContractTest(unittest.TestCase):
                         baseline_camera.rig, "acquire_test_start_guard",
                         side_effect=acquire_guard), \
                     mock.patch.object(
-                        baseline_camera.test_runner, "_authorized_devices",
+                        baseline_camera.device, "authorized_devices",
                         side_effect=authorized), \
                     mock.patch.object(
-                        baseline_camera.test_runner, "_capture_identity",
+                        baseline_camera.device, "capture_identity",
                         side_effect=baseline_camera.CameraError("stop")):
                 with self.assertRaisesRegex(baseline_camera.CameraError, "stop"):
                     baseline_camera.start(args, TOOLS)
@@ -341,13 +341,13 @@ class RunnerProvenanceTest(unittest.TestCase):
             "revision": "a" * 40,
             "runner_sha256": "b" * 64,
         }}
-        original_revision = baseline_camera.test_runner._git_revision
+        original_revision = baseline_camera.evidence.git_revision
         original_file = baseline_camera.__file__
-        baseline_camera.test_runner._git_revision = lambda _root: "c" * 40
+        baseline_camera.evidence.git_revision = lambda _root: "c" * 40
         try:
             current = baseline_camera._register_runner_version(report, TOOLS)
         finally:
-            baseline_camera.test_runner._git_revision = original_revision
+            baseline_camera.evidence.git_revision = original_revision
         self.assertEqual(hashlib.sha256(Path(original_file).read_bytes()).hexdigest(),
                          current)
         self.assertEqual(2, len(report["tool"]["runner_versions"]))

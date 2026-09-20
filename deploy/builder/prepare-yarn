@@ -1,0 +1,37 @@
+#!/bin/bash
+set -euo pipefail
+# Use as the build identity, with the pinned Node/Corepack first on PATH.
+tools_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+workspace=${1:?usage: prepare-yarn BUILD-WORKSPACE}
+mapfile -t pins < <(python3 - "$tools_root/config/build-environment.json" <<'PYTHON'
+import base64
+import json
+import sys
+with open(sys.argv[1]) as stream:
+    tools = json.load(stream)["host"]["external_tools"]
+yarn = tools["yarn"]
+algorithm, digest = yarn["npm_integrity"].split("-", 1)
+assert algorithm == "sha512"
+raw = base64.b64decode(digest, validate=True)
+assert len(raw) == 64
+print(tools["node"]["version"])
+print(tools["corepack"]["version"])
+print("yarn@" + yarn["version"] + "+sha512." + raw.hex())
+print(yarn["version"])
+PYTHON
+)
+[[ ${#pins[@]} -eq 4 && $(node --version) == "${pins[0]}" && \
+   $(corepack --version) == "${pins[1]}" ]] || exit 1
+export COREPACK_HOME=$workspace/.cache/corepack
+# Corepack can reuse a cached extraction without hashing it again. Require new
+# state so this acquisition necessarily validates the declared archive digest.
+[[ ! -e $COREPACK_HOME && ! -L $COREPACK_HOME ]] || \
+  { echo 'ERROR: Yarn preparation requires a new Corepack cache' >&2; exit 1; }
+umask 027
+mkdir -p -- "$workspace/toolbin" "$(dirname "$COREPACK_HOME")"
+mkdir -- "$COREPACK_HOME"
+export COREPACK_DEFAULT_TO_LATEST=0
+corepack install --global "${pins[2]}"
+corepack enable --install-directory "$workspace/toolbin" yarn
+[[ $(COREPACK_ENABLE_NETWORK=0 "$workspace/toolbin/yarn" --version) == "${pins[3]}" ]]
+printf 'YARN_PREPARATION=PASS\n'

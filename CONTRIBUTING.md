@@ -120,3 +120,9 @@ preserving the parent acceptance criteria. Source/format-only changes use review
   Translation path cannot touch code, keys, or production branches.
 - Accessibility issue reports welcome with the same format; manual assistive
   checks happen on device, never proven by scanners alone.
+
+Keep shared process, evidence and device mechanisms in their small owning
+modules. Keep domain workflows direct; do not introduce a general workflow
+engine for similar-looking steps. Test the composed acceptance boundary when a
+fix spans provenance, locking or process completion. Passing individual helper
+tests does not establish the caller's end-to-end result.

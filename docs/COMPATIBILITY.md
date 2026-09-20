@@ -181,3 +181,29 @@ Sources: the official Android
 [CTS setup guide](https://source.android.com/docs/compatibility/cts/setup),
 [CTS Verifier guide](https://source.android.com/docs/compatibility/cts/verifier)
 and [VTS systems guide](https://source.android.com/docs/core/tests/vts/systems).
+
+## Authenticated extraction and result completion
+
+After approving an official archive hash, create a new package directory:
+
+```sh
+bin/diamaneos test compatibility --extract-package \
+  --package-id PACKAGE_ID --archive /absolute/path/to/approved.zip \
+  --package-root /absolute/path/to/new-package-directory
+```
+
+The extractor rejects traversal, symlinks, duplicate members, special files and
+size/count overflows. Inspection compares every input's contents, size and
+executable bit with the approved ZIP. Only top-level `results` and `logs` are
+excluded as generated outputs; replacing those roots with symlinks is rejected.
+Use one owner-controlled package tree per concurrent trial and keep its inputs
+unchanged during execution. Retrying does not change package identity merely
+because results/logs now exist.
+
+PASS requires transport success, matching suite version, the selected
+module/test, explicit completed modules and a consistent summary. Standalone
+`--parse-result` therefore also requires `--profile` and a matching `--package-id`.
+Missing or unknown completion remains incomplete. Validate the exact XML format
+against the pinned official package before accepting the first stock trial;
+synthetic fixtures establish failure handling, not acceptance of an official
+suite format or an Android build.
