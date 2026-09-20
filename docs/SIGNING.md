@@ -324,3 +324,17 @@ qualification remains necessary for end-to-end acceptance after a repair.
 If signing itself failed or an output is missing, replay cannot replace that
 missing work. No resumable signing state or persistent disposable secrets are
 introduced.
+
+AVB verification uses the images actually emitted by each signed target-files
+archive. A product declaring `no_boot=true` may retain boot key metadata without
+`IMAGES/boot.img`; that role is recorded as metadata-only and must be exercised
+by an emitted boot image in the other qualification profile. All other missing
+declared images fail verification. `avb-image-coverage.json` records this
+coverage separately from the unchanged signing inventories.
+
+Each product's sibling images are extracted together so AVB hash and hashtree
+descriptors can be checked. Chain descriptors must match the declared rollback
+index location and retained disposable AVB public key; each emitted signed
+image also receives its own valid-key and wrong-key check. Replay therefore
+still requires disk space and image hashing time, but does not repeat signing
+or OTA generation.
