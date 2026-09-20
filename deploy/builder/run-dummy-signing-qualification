@@ -34,6 +34,9 @@ KEY_IDS = (
     "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
     "platform", "releasekey", "sdk_sandbox", "shared",
 )
+EXPECTED_METADATA_ONLY_APK_ROLES = frozenset({
+    "bluetooth", "nfc", "sdk_sandbox",
+})
 REQUIRED_PROOFS = (
     "target-files-transform", "apk-certificate-transform",
     "apex-container-transform", "apex-payload-transform",
@@ -123,6 +126,73 @@ def safe_extract_member(archive, member, destination):
         shutil.copyfileobj(source, target)
 
 
+def target_apk_role_coverage(sources):
+    """Return exact APK-role payload coverage across accepted target archives.
+
+    ``sources`` contains ``(profile_id, archive_path, signed_inventory)``
+    tuples.  Metadata declarations and regular APK payloads are deliberately
+    tracked separately: some generic products declare certificate roles for
+    packages which they do not emit.  A role is artifact-backed only when a
+    declared package basename resolves to a regular ZIP member in the same
+    accepted archive.
+    """
+    counts = {
+        role: {profile_id: 0 for profile_id, _, _ in sources}
+        for role in KEY_IDS
+    }
+    candidates = defaultdict(list)
+    for profile_id, archive_path, inventory in sources:
+        with zipfile.ZipFile(archive_path) as archive:
+            members = defaultdict(list)
+            for info in archive.infolist():
+                if info.is_dir():
+                    continue
+                members[PurePosixPath(info.filename).name].append(info)
+            for record in inventory["apk_roles"]:
+                role = record.get("expected_certificate_role")
+                if role not in KEY_IDS:
+                    continue
+                counts[role][profile_id] += 1
+                for info in members.get(record["name"], []):
+                    candidates[role].append({
+                        "profile_id": profile_id,
+                        "package_name": record["name"],
+                        "member_path": info.filename,
+                        "bytes": info.file_size,
+                    })
+    selected = {}
+    for role, records in candidates.items():
+        selected[role] = min(
+            records,
+            key=lambda item: (
+                item["bytes"], item["profile_id"].encode("utf-8"),
+                item["package_name"].encode("utf-8"),
+                item["member_path"].encode("utf-8"),
+            ),
+        )
+    return counts, selected, candidates
+
+
+def extract_selected_apk_samples(sources, selected, destination):
+    """Extract each selected APK exactly once from its bound source archive."""
+    destination = Path(destination)
+    paths = {}
+    by_profile = defaultdict(list)
+    for role, record in selected.items():
+        by_profile[record["profile_id"]].append((role, record))
+    for profile_id, archive_path, _ in sources:
+        if profile_id not in by_profile:
+            continue
+        with zipfile.ZipFile(archive_path) as archive:
+            for role, record in by_profile[profile_id]:
+                sample = destination / f"{role}.apk"
+                safe_extract_member(archive, record["member_path"], sample)
+                paths[role] = sample
+    if set(paths) != set(selected):
+        raise Failure("selected APK role sample extraction is incomplete")
+    return paths
+
+
 def certificate_fingerprint(path):
     result = subprocess.run(
         ["openssl", "x509", "-in", str(path), "-outform", "DER"],
@@ -137,7 +207,7 @@ def apk_certificate_check(apksigner, artifact, expected, log):
     _, output, _ = run(
         [apksigner, "verify", "--verbose", "--print-certs", artifact], log)
     observed = {item.lower() for item in APK_DIGEST_RE.findall(output)}
-    if expected not in observed:
+    if observed != {expected}:
         raise Failure("APK/APEX certificate does not match its declared role")
     return sorted(observed)
 
@@ -607,6 +677,77 @@ def main():
                 or digest(sdk_signed) == digest(sdk_unsigned)
                 or digest(ota_signed) == digest(ota_unsigned)):
             raise Failure("signed target-files transformation was not accepted")
+
+        apk_sources = (
+            (SDK_PROFILE_ID, sdk_signed, sdk_signed_inventory),
+            (OTA_PROFILE_ID, ota_signed, ota_signed_inventory),
+        )
+        apk_metadata_counts, apk_selected, apk_candidates = (
+            target_apk_role_coverage(apk_sources))
+        if any(sum(apk_metadata_counts[role].values()) == 0
+               for role in KEY_IDS):
+            raise Failure("accepted target metadata omits a required APK role")
+        metadata_only_roles = set(KEY_IDS) - set(apk_selected)
+        if metadata_only_roles != EXPECTED_METADATA_ONLY_APK_ROLES:
+            raise Failure("target APK role payload coverage is not reviewed")
+
+        probe_source_record = min(
+            apk_selected.values(),
+            key=lambda item: (
+                item["bytes"], item["profile_id"].encode("utf-8"),
+                item["package_name"].encode("utf-8"),
+                item["member_path"].encode("utf-8"),
+            ),
+        )
+        probe_source = extract_selected_apk_samples(
+            apk_sources, {"probe-source": probe_source_record},
+            transient_root / "apk-role-probe-source")["probe-source"]
+        role_probe_dir = artifacts / "apk-role-probes"
+        role_probe_dir.mkdir(mode=0o750)
+        role_probe_paths = {}
+        for role in sorted(
+                metadata_only_roles, key=lambda item: item.encode("utf-8")):
+            probe = role_probe_dir / f"{role}.apk"
+            run([
+                required_tools["apksigner"], "sign",
+                "--key", key_dir / f"{role}.pk8",
+                "--cert", key_dir / f"{role}.x509.pem",
+                "--min-sdk-version", "35", "--out", probe, probe_source,
+            ], logs / f"sign-apk-role-probe-{role}.log",
+                env=qualification_env)
+            if probe.is_symlink() or not probe.is_file() or probe.stat().st_size == 0:
+                raise Failure("standalone APK role probe was not created")
+            role_probe_paths[role] = probe
+
+        role_coverage = partial / "apk-role-coverage.json"
+        atomic_json(role_coverage, {
+            "schema_version": 1,
+            "status": "PASS",
+            "scope": (
+                "accepted SDK and OTA target-files union plus explicit "
+                "standalone disposable-key probes for metadata-only roles"),
+            "metadata_only_roles": sorted(
+                metadata_only_roles, key=lambda item: item.encode("utf-8")),
+            "probe_source": probe_source_record,
+            "roles": [
+                {
+                    "role": role,
+                    "metadata_records_by_profile": apk_metadata_counts[role],
+                    "artifact_backed_candidate_count": len(
+                        apk_candidates.get(role, [])),
+                    "qualification_mode": (
+                        "target-files-transformation"
+                        if role in apk_selected
+                        else "standalone-apk-signing-probe"),
+                    "target_files_transformation_observed": role in apk_selected,
+                    "selected_target_artifact": apk_selected.get(role),
+                    "standalone_probe_path": (
+                        role_probe_paths[role].relative_to(partial).as_posix()
+                        if role in role_probe_paths else None),
+                }
+                for role in KEY_IDS
+            ],
+        })
         shutil.rmtree(transient_root)
 
         full_ota = artifacts / "full-ota.zip"
@@ -637,8 +778,8 @@ def main():
         factory_signature = image_archive.with_name(image_archive.name + ".sig")
         release_manifest = partial / "release-manifest.json"
         core_paths = [sdk_signed, ota_signed, full_ota, incremental_ota,
-                      image_archive,
-                      *metadata_files]
+                      image_archive, role_coverage,
+                      *role_probe_paths.values(), *metadata_files]
         atomic_json(release_manifest, {
             "schema_version": 1,
             "run_id": run_id,
@@ -680,39 +821,40 @@ def main():
         checks = []
         wrong_release_fingerprint = certificate_fingerprint(
             public / "wrong-releasekey.x509.pem")
+        target_apk_samples = extract_selected_apk_samples(
+            apk_sources, apk_selected, partial / "samples/apk")
+        for role in KEY_IDS:
+            if role in target_apk_samples:
+                sample = target_apk_samples[role]
+                mode = "target-files-transformation"
+                source_profile = apk_selected[role]["profile_id"]
+                source_package = apk_selected[role]["package_name"]
+            else:
+                sample = role_probe_paths[role]
+                mode = "standalone-apk-signing-probe"
+                source_profile = probe_source_record["profile_id"]
+                source_package = probe_source_record["package_name"]
+            expected = certificate_fingerprint(public / f"{role}.x509.pem")
+            observed = apk_certificate_check(
+                required_tools["apksigner"], sample, expected,
+                logs / f"verify-apk-{role}.log")
+            if wrong_release_fingerprint in observed:
+                raise Failure("APK certificate pin accepted the wrong key")
+            checks.append({
+                "id": f"apk-{role}", "valid_exit_code": 0,
+                "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
+                "artifact": sample.relative_to(partial).as_posix(),
+                "qualification_mode": mode,
+                "source_profile": source_profile,
+                "source_package": source_package,
+                "target_files_transformation_observed": (
+                    mode == "target-files-transformation"),
+            })
+
         with zipfile.ZipFile(sdk_signed) as archive:
             members = defaultdict(list)
             for name in archive.namelist():
                 members[PurePosixPath(name).name].append(name)
-            roles = defaultdict(list)
-            for record in sdk_signed_inventory["apk_roles"]:
-                role = record.get("expected_certificate_role")
-                if role in KEY_IDS:
-                    roles[role].append(record["name"])
-            samples = partial / "samples/apk"
-            for role in KEY_IDS:
-                selected = None
-                for name in sorted(roles[role], key=lambda item: item.encode("utf-8")):
-                    paths = sorted(members.get(name, []))
-                    if paths:
-                        selected = paths[0]
-                        break
-                if selected is None:
-                    raise Failure("signed archive lacks a representative APK role")
-                sample = samples / f"{role}.apk"
-                safe_extract_member(archive, selected, sample)
-                expected = certificate_fingerprint(public / f"{role}.x509.pem")
-                observed = apk_certificate_check(
-                    required_tools["apksigner"], sample, expected,
-                    logs / f"verify-apk-{role}.log")
-                if wrong_release_fingerprint in observed:
-                    raise Failure("APK certificate pin accepted the wrong key")
-                checks.append({
-                    "id": f"apk-{role}", "valid_exit_code": 0,
-                    "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
-                    "artifact": sample.relative_to(partial).as_posix(),
-                })
-
             apex_record = next(
                 item for item in sdk_signed_inventory["apex_roles"]
                 if item.get("expected_container_certificate_role") == "releasekey"
