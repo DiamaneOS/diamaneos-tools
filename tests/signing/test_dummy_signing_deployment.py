@@ -63,6 +63,31 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertNotIn("--override_apk_keys", planner)
         self.assertNotIn("--override_apex_keys", planner)
 
+    def test_qualification_uses_workspace_lock_and_releases_after_failure(self):
+        import fcntl
+        import os
+        import pwd
+        from types import SimpleNamespace
+        from unittest import mock
+        runner = runpy.run_path(str(RUNNER))
+        main = runner["main"]
+        failure = runner["Failure"]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / ".workspace.lock"
+            with path.open("w") as held, \
+                    mock.patch.dict(os.environ, {"DIAMANEOS_BUILD_ROOT": temp}), \
+                    mock.patch.object(pwd, "getpwuid", return_value=SimpleNamespace(pw_name="diamaneos-build")), \
+                    mock.patch.object(os, "geteuid", return_value=1001), \
+                    mock.patch.object(__import__("sys"), "argv", [str(RUNNER)]), \
+                    mock.patch.dict(main.__globals__, {"qualify": mock.Mock(side_effect=failure("fixture"))}):
+                fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                with self.assertRaisesRegex(failure, "another builder operation"):
+                    main()
+                fcntl.flock(held, fcntl.LOCK_UN)
+                with self.assertRaisesRegex(failure, "fixture"):
+                    main()
+                fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
     def test_runner_covers_signing_and_wrong_key_verifiers(self):
         script = RUNNER.read_text(encoding="utf-8")
         for token in (

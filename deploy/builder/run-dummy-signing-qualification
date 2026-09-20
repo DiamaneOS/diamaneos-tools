@@ -10,6 +10,8 @@ executes the independent verification phase.
 from __future__ import annotations
 
 from collections import defaultdict
+import fcntl
+import stat
 import hashlib
 import json
 import os
@@ -17,6 +19,7 @@ from pathlib import Path, PurePosixPath
 import pwd
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -56,15 +59,21 @@ def atomic_json(path, value):
 def run(command, log, *, cwd=None, env=None, input_text=None, allowed=(0,)):
     command = [str(item) for item in command]
     started = time.monotonic()
-    result = subprocess.run(
-        command, cwd=cwd, env=env, input=input_text, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-    )
-    Path(log).write_text(result.stdout, encoding="utf-8")
-    if result.returncode not in allowed:
+    # Import from the same reviewed tools snapshot as this entry point.
+    module_root = str(Path(__file__).resolve().parents[2] / "src")
+    if module_root not in sys.path:
+        sys.path.insert(0, module_root)
+    from diamaneos_tools import process
+    result = process.run(
+        command, 6 * 60 * 60, 256 * 1024 * 1024, cwd=cwd, env=env,
+        input_data=input_text.encode() if input_text is not None else None,
+        log_path=log, capture_bytes=1024 * 1024)
+    if (result["transport"] not in {"ok", "error"}
+            or result.get("returncode") not in allowed):
         raise Failure(
-            f"command failed ({Path(command[0]).name}, exit {result.returncode})")
-    return result.returncode, result.stdout, round(time.monotonic() - started, 3)
+            f"command failed ({Path(command[0]).name}, {result['transport']})")
+    return (result["returncode"], result["stdout"].decode("utf-8", "replace"),
+            round(time.monotonic() - started, 3))
 
 
 def make_android_key(make_key, key_name, record_id, subject, destination, logs):
@@ -352,7 +361,7 @@ def recovery_child(path):
     return 75
 
 
-def main():
+def qualify():
     if len(sys.argv) == 3 and sys.argv[1] == "--recovery-child":
         return recovery_child(sys.argv[2])
     if len(sys.argv) != 1:
@@ -1013,7 +1022,7 @@ def main():
         print(f"result={final / 'result.json'}")
         print((final / "result.json.sha256").read_text().strip())
         return 0
-    except Exception as error:
+    except (Exception, KeyboardInterrupt) as error:
         if private_root.exists():
             shutil.rmtree(private_root)
         if transient_root.exists():
@@ -1032,6 +1041,34 @@ def main():
         print("DUMMY_SIGNING_QUALIFICATION=FAIL", file=sys.stderr)
         print(f"result={failed / 'failure.json'}", file=sys.stderr)
         return 1
+
+
+def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--recovery-child":
+        return qualify()
+    if pwd.getpwuid(os.geteuid()).pw_name != EXPECTED_USER or os.geteuid() == 0:
+        raise Failure(f"run as the unprivileged {EXPECTED_USER} identity")
+    workspace = Path(os.environ.get("DIAMANEOS_BUILD_ROOT", "/var/lib/diamaneos-build"))
+    if not workspace.is_absolute() or workspace.is_symlink() or not workspace.is_dir():
+        raise Failure("workspace must be an absolute non-symlink directory")
+    fd = os.open(workspace / ".workspace.lock",
+                 os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise Failure("workspace lock is not a regular file")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Failure("another builder operation owns this workspace") from None
+        def interrupt(_signum, _frame):
+            raise KeyboardInterrupt
+        previous = signal.signal(signal.SIGTERM, interrupt)
+        try:
+            return qualify()
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+    finally:
+        os.close(fd)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,8 @@ import types
 
 from diamaneos_tools import baseline_idle
 from diamaneos_tools import rig
+from diamaneos_tools import evidence
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -56,7 +58,7 @@ def _atomic_json(path: Path, value: dict) -> None:
     finally:
         os.close(fd)
     os.replace(temporary, path)
-    test_runner._sync_directory(path.parent)
+    evidence.sync_directory(path.parent)
 
 
 def _private_directory(path: Path) -> None:
@@ -310,7 +312,7 @@ def _recover(spec: dict, active_run: Path | None, message: str) -> None:
         controller = rig.controller_for_target(
             spec["rig_config"], spec["device_role"],
             spec["device_map"], spec["target"])
-        if spec["target"] not in test_runner._authorized_devices(spec["adb"]):
+        if spec["target"] not in device.authorized_devices(spec["adb"]):
             controller.set_power(
                 spec["device_role"], "on", "idle-series-recovery",
                 allowed_run_id=(
@@ -431,7 +433,7 @@ def launch(args, repo_root: Path) -> dict:
         raise SeriesError("idle-series device map does not match rig config", 3)
     target = rig.mapped_serial(Path(args.device_map), args.device_role)
     test_runner.load_device_map(Path(args.device_map), args.device_role, target)
-    if target not in test_runner._authorized_devices(args.adb):
+    if target not in device.authorized_devices(args.adb):
         raise SeriesError("mapped idle-series target is not authorized", 3)
     if target in args.conditions:
         raise SeriesError("idle-series conditions must not contain the private target", 3)

@@ -314,10 +314,17 @@ class RigController:
                  executor: Callable[..., subprocess.CompletedProcess[str]] | None = None,
                  sysfs_root: Path = Path("/sys/bus/usb/devices")):
         self.config = validate_config(config)
-        self.executor = executor or subprocess.run
+        self.executor = executor
         self.sysfs_root = sysfs_root
 
     def _run(self, argv: list[str], timeout: int = 20) -> subprocess.CompletedProcess[str]:
+        if self.executor is None:
+            from .process import run, text_result
+            result = text_result(run(argv, timeout, 262_144))
+            if result["transport"] not in {"ok", "error"} or "returncode" not in result:
+                raise RigError("required rig command did not complete", 4)
+            return subprocess.CompletedProcess(argv, result["returncode"],
+                                               result["stdout"], result["stderr"])
         try:
             return self.executor(
                 argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -482,43 +489,47 @@ class RigController:
         return records
 
     def acquire_inhibitor(self, role: str, lease_id: str, reason: str) -> dict:
+        lock_fd = self._lock(role)
+        try:
+            return self._write_inhibitor(role, lease_id, reason)
+        finally:
+            self._unlock(lock_fd)
+
+    def _write_inhibitor(self, role: str, lease_id: str, reason: str) -> dict:
+        """Caller must own the role lock; TestStartGuard is the public transfer API."""
         if (not isinstance(lease_id, str) or not REASON_RE.fullmatch(lease_id)
                 or not isinstance(reason, str) or not REASON_RE.fullmatch(reason)):
             raise RigError("rig inhibitor requires stable lease and reason tokens")
-        lock_fd = self._lock(role)
+        path = self._inhibitor_root(role) / f"{lease_id}.json"
+        value = {
+            "schema_version": SCHEMA_VERSION,
+            "role": role,
+            "lease_id": lease_id,
+            "reason": reason,
+            "created_at_utc": _utc_now(),
+        }
+        flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                 | getattr(os, "O_CLOEXEC", 0)
+                 | getattr(os, "O_NOFOLLOW", 0))
         try:
-            path = self._inhibitor_root(role) / f"{lease_id}.json"
-            value = {
-                "schema_version": SCHEMA_VERSION,
-                "role": role,
-                "lease_id": lease_id,
-                "reason": reason,
-                "created_at_utc": _utc_now(),
-            }
-            flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                     | getattr(os, "O_CLOEXEC", 0)
-                     | getattr(os, "O_NOFOLLOW", 0))
-            try:
-                fd = os.open(path, flags, 0o640)
-            except FileExistsError as exc:
-                raise RigError("rig inhibitor lease already exists", 3) from exc
-            try:
-                payload = (json.dumps(value, sort_keys=True, indent=2)
-                           + "\n").encode("utf-8")
-                remaining = memoryview(payload)
-                while remaining:
-                    written = os.write(fd, remaining)
-                    if written < 1:
-                        raise RigError("rig inhibitor write did not complete", 5)
-                    remaining = remaining[written:]
-                os.fsync(fd)
-                os.fchmod(fd, 0o640)
-            finally:
-                os.close(fd)
-            _sync_directory(path.parent)
-            return {"status": "ACQUIRED", **value}
+            fd = os.open(path, flags, 0o640)
+        except FileExistsError as exc:
+            raise RigError("rig inhibitor lease already exists", 3) from exc
+        try:
+            payload = (json.dumps(value, sort_keys=True, indent=2)
+                       + "\n").encode("utf-8")
+            remaining = memoryview(payload)
+            while remaining:
+                written = os.write(fd, remaining)
+                if written < 1:
+                    raise RigError("rig inhibitor write did not complete", 5)
+                remaining = remaining[written:]
+            os.fsync(fd)
+            os.fchmod(fd, 0o640)
         finally:
-            self._unlock(lock_fd)
+            os.close(fd)
+        _sync_directory(path.parent)
+        return {"status": "ACQUIRED", **value}
 
     def release_inhibitor(self, role: str, lease_id: str) -> dict:
         if not isinstance(lease_id, str) or not REASON_RE.fullmatch(lease_id):
@@ -831,9 +842,15 @@ class TestStartGuard:
     """Short role lock held until a test has created its partial state."""
 
     def __init__(self, controller: RigController | None = None,
-                 lock_fd: int | None = None):
+                 lock_fd: int | None = None, role: str | None = None):
+        self.role = role
         self.controller = controller
         self.lock_fd = lock_fd
+
+    def acquire_inhibitor(self, lease_id: str, reason: str) -> dict:
+        if self.controller is None or self.lock_fd is None or self.role is None:
+            raise RigError("test-start guard does not own a rig role", 3)
+        return self.controller._write_inhibitor(self.role, lease_id, reason)
 
     def release(self) -> None:
         if self.controller is not None and self.lock_fd is not None:
@@ -866,7 +883,7 @@ def acquire_test_start_guard(config_path: str | None, role: str,
         return TestStartGuard()
     controller = controller_for_target(config_path, role, device_map, target)
     lock_fd = controller.acquire_test_start_lock(role)
-    return TestStartGuard(controller, lock_fd)
+    return TestStartGuard(controller, lock_fd, role)
 
 
 def dry_run(config: dict) -> dict:

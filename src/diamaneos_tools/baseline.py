@@ -22,9 +22,10 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
-import time
+if __name__ == "__main__" and not __package__:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from diamaneos_tools.device import is_device_gone as _is_device_gone
 
 SCHEMA_VERSION = 1
 GFXINFO_COMMAND = ("dumpsys", "gfxinfo", "com.android.systemui")
@@ -91,15 +92,6 @@ def redact(text):
 # Only genuine service-error shapes count as unavailable. A bare "unknown"
 # (e.g. an operator value inside valid service state) must never flip a case.
 # Device-gone shapes are connection failures, never missing services.
-# The quoted-target form (adb: device '<serial>' not found) must match even
-# though the serial interrupts the contiguous phrase.
-DEVICE_GONE = [
-    r"device\s+('[^']*'\s+)?not found",
-    r"no devices?\b",
-    r"device\s+offline",
-    r"unauthorized device",
-    r"no permissions",
-]
 
 MISSING_SERVICE = [
     "can't find service", "unknown service", "service not found",
@@ -112,10 +104,6 @@ def _is_unsupported_text(text):
     low = (text or "").lower()
     return any(p in low for p in MISSING_SERVICE)
 
-
-def _is_device_gone(text):
-    low = (text or "").lower()
-    return any(re.search(p, low) for p in DEVICE_GONE)
 
 
 def extract_fields(key, text):
@@ -231,121 +219,14 @@ def resolve_target(devices, target):
 
 
 def run_cmd(argv, timeout=DEFAULT_TIMEOUT):
-    """Bounded subprocess: time AND bytes capped WHILE reading.
-
-    Both pipes are non-blocking, serviced in one deterministic loop with no
-    threads: the first excess byte is detected within milliseconds and the
-    child terminated at once (no buffered read can wait out a slow
-    continuation marker, and no thread timing can reorder the result).
-    Counts are BYTES on the raw stream, so multi-byte UTF-8 cannot slip past
-    a character count; decoding uses errors="replace" so invalid input stays
-    visible instead of vanishing. A killed over-producer counts as overflow,
-    never success. Never raises for tool/setup failures.
-    """
-    try:
-        proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-    except FileNotFoundError:
-        return {"transport": "tool-missing",
-                "reason": "executable not found: "
-                          + os.path.basename(argv[0]),
-                "stdout": "", "stderr": ""}
-    except OSError as exc:
-        return {"transport": "error", "reason": f"os error: {exc}",
-                "stdout": "", "stderr": ""}
-    for stream in (proc.stdout, proc.stderr):
-        os.set_blocking(stream.fileno(), False)
-    out, err = bytearray(), bytearray()
-    over = False
-    eof_out = eof_err = False
-    exited = False
-    deadline = time.monotonic() + timeout
-    result = None
-    while True:
-        for fd, buf, done in ((proc.stdout.fileno(), out, eof_out),
-                              (proc.stderr.fileno(), err, eof_err)):
-            if done:
-                continue
-            try:
-                chunk = os.read(fd, 65536)
-            except BlockingIOError:
-                continue
-            except OSError:
-                chunk = b""
-            if chunk == b"":
-                if fd == proc.stdout.fileno():
-                    eof_out = True
-                else:
-                    eof_err = True
-            else:
-                buf += chunk
-                if len(buf) > MAX_OUTPUT_BYTES:
-                    over = True
-        if over:
-            proc.kill()
-            result = {"transport": "overflow",
-                      "reason": "output exceeded byte bound; child terminated"}
-            break
-        if proc.poll() is not None:
-            exited = True
-        if exited and eof_out and eof_err:
-            break
-        if time.monotonic() >= deadline:
-            # The deadline governs pipe draining too: a direct child that
-            # already exited must not leave us waiting on inherited pipes.
-            proc.kill()
-            result = {"transport": "timeout",
-                      "reason": "timeout", "timeout_s": timeout}
-            break
-        time.sleep(0.005)
-    # One immediate drain pass only: collect what is already available for
-    # partial evidence, but never wait out a live descendant. A bounded wait
-    # here would reintroduce the inherited-pipe hang this deadline prevents.
-    for fd, buf, done in ((proc.stdout.fileno(), out, eof_out),
-                          (proc.stderr.fileno(), err, eof_err)):
-        if done:
-            continue
-        try:
-            chunk = os.read(fd, 65536)
-        except (BlockingIOError, OSError):
-            continue
-        if chunk == b"":
-            if fd == proc.stdout.fileno():
-                eof_out = True
-            else:
-                eof_err = True
-        elif len(buf) <= MAX_OUTPUT_BYTES:
-            buf += chunk
-    for stream in (proc.stdout, proc.stderr):
-        try:
-            stream.close()
-        except ValueError:
-            pass
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        pass
-    # Recheck after the final drain: no scheduling order can downgrade an
-    # overflow (or an over-cap final burst) into success.
-    if len(out) > MAX_OUTPUT_BYTES or len(err) > MAX_OUTPUT_BYTES:
-        over = True
-    text_out = bytes(out[:MAX_OUTPUT_BYTES]).decode("utf-8", errors="replace")
-    text_err = bytes(err[:MAX_OUTPUT_BYTES]).decode("utf-8", errors="replace")
-    if over:
-        return {"transport": "overflow",
-                "reason": "output exceeded byte bound; child terminated",
-                "stdout": text_out, "stderr": text_err, "partial": True}
-    if result is not None:
-        result.update({"stdout": text_out, "stderr": text_err,
-                       "partial": True})
-        return result
-    if proc.returncode != 0:
-        return {"transport": "error",
-                "reason": redact(text_err.strip())[:200]
-                          or f"exit {proc.returncode}",
-                "returncode": proc.returncode,
-                "stdout": text_out, "stderr": text_err}
-    return {"transport": "ok", "stdout": text_out, "stderr": text_err}
+    """Bounded read-only collector transport using shared child ownership."""
+    from diamaneos_tools import process
+    result = process.text_result(process.run(argv, timeout, MAX_OUTPUT_BYTES))
+    if result["transport"] in {"timeout", "overflow", "interrupted"}:
+        result["partial"] = True
+    if result["transport"] == "timeout":
+        result["timeout_s"] = timeout
+    return result
 
 
 def list_devices(adb="adb", timeout=DEFAULT_TIMEOUT):

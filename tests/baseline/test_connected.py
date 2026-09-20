@@ -50,15 +50,15 @@ class ConnectedCliTest(unittest.TestCase):
         }
         original = baseline_pilot._git_revision
         baseline_pilot._git_revision = lambda _root: "a" * 40
-        original_adb = baseline_pilot.test_runner._adb_version
-        baseline_pilot.test_runner._adb_version = lambda _adb: "adb"
+        original_adb = baseline_pilot.device.adb_version
+        baseline_pilot.device.adb_version = lambda _adb: "adb"
         try:
             report = baseline_pilot._report_template(
                 args, protocol, digest, TOOLS, identity, [],
                 baseline_pilot.connected_profile(protocol, True))
         finally:
             baseline_pilot._git_revision = original
-            baseline_pilot.test_runner._adb_version = original_adb
+            baseline_pilot.device.adb_version = original_adb
         self.assertEqual("INCOMPLETE", report["status"])
 
     def test_start_guard_restores_before_device_authorization(self):
@@ -92,10 +92,10 @@ class ConnectedCliTest(unittest.TestCase):
                         baseline_pilot.rig, "acquire_test_start_guard",
                         side_effect=acquire_guard), \
                     mock.patch.object(
-                        baseline_pilot.test_runner, "_authorized_devices",
+                        baseline_pilot.device, "authorized_devices",
                         side_effect=authorized), \
                     mock.patch.object(
-                        baseline_pilot.test_runner, "_capture_identity",
+                        baseline_pilot.device, "capture_identity",
                         side_effect=baseline_pilot.PilotError("stop")):
                 with self.assertRaisesRegex(baseline_pilot.PilotError, "stop"):
                     baseline_pilot.execute_connected(args, TOOLS, True)

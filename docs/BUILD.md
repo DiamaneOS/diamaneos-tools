@@ -106,21 +106,20 @@ exact package/tool pins, memory and free-space floors, separated workspace,
 empty clean-build output and the configured live thermal-safety preflight. A
 host mismatch therefore fails before consuming a large sync.
 
-The source revision uses a Yarn v1 lockfile. Prepare the declared Yarn
-`1.22.22` through the already pinned Corepack installation in a build-owned
-tool directory, then put only that directory ahead of the fixed system path:
+The source revision uses a Yarn v1 lockfile. Prepare Yarn as the build identity
+with the pinned Node/Corepack on PATH, before source sync:
 
 ```sh
-install -d -m 0750 /var/lib/diamaneos-build/toolbin
-corepack enable --install-directory /var/lib/diamaneos-build/toolbin yarn
-corepack install --global yarn@1.22.22
-PATH=/var/lib/diamaneos-build/toolbin:/usr/local/bin:/usr/bin:/bin \
-  yarn --version
+"$TOOLS_ROOT/deploy/builder/prepare-yarn" "$WORK_ROOT"
 ```
 
-The preflight rejects another Yarn version. Its source lockfile hash and npm
-registry integrity are part of the environment record; dependency installation
-still uses the checked-in lockfile and must not rewrite it.
+This derives the version and SHA-512 from the environment's npm integrity,
+requires a new Corepack cache, and passes the hash to Corepack's acquisition
+check. It refuses an existing cache rather than trusting previously extracted
+bytes. Preserve a failed cache as evidence and investigate before retrying with
+a clean workspace. The helper installs shims in `$WORK_ROOT/toolbin`; builds
+use `$WORK_ROOT/.cache/corepack`. The source lockfile remains unchanged.
+See [Corepack's integrity-qualified package-manager references](https://github.com/nodejs/corepack#when-authoring-packages).
 
 The accepted workspace separates source-controlled, cache and generated state
 as follows:

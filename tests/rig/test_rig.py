@@ -342,6 +342,71 @@ class RigTest(unittest.TestCase):
         fd = self.controller._lock("harness")
         self.controller._unlock(fd)
 
+    def test_compatibility_trial_composes_archive_lock_process_and_result(self):
+        from diamaneos_tools import compatibility
+        import hashlib
+        from types import SimpleNamespace
+        import zipfile
+        registry = compatibility._load_json(TOOLS / "config/test-suites.json")
+        profile = next(p for p in registry["trial_profiles"] if p["id"] == "stock16-harness-trial")
+        profile.update(module="M", test="C#t", status="ready-fixture")
+        package = next(p for p in registry["packages"] if p["id"] == profile["package_id"])
+        xml = ('<Result suite_version="' + package["version"] + '"><Module name="M" done="true">'
+               '<TestCase name="C"><Test name="t" result="pass"/></TestCase></Module>'
+               '<Summary pass="1" failed="0" modules_done="1" modules_total="1"/></Result>')
+        for exit_code, expected in ((0, "PASS"), (7, "HARNESS_ERROR")):
+            with self.subTest(exit_code=exit_code):
+                archive = self.root / package["archive_name"]
+                script = ("#!" + sys.executable + "\nfrom pathlib import Path\n"
+                          "p=Path('results/new'); p.mkdir(parents=True)\n"
+                          "(p/'test_result.xml').write_text(" + repr(xml) + ")\n"
+                          "raise SystemExit(" + str(exit_code) + ")\n")
+                with zipfile.ZipFile(archive, "w") as bundle:
+                    info = zipfile.ZipInfo(package["extracted_directory"] + "/" + package["launcher"])
+                    info.external_attr = 0o100755 << 16
+                    bundle.writestr(info, script)
+                package["acquisition_status"] = "verified"
+                package["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+                package_root = self.root / ("package-" + str(exit_code))
+                compatibility.extract_package(registry, package["id"], archive, package_root)
+                output = self.root / ("trial-" + str(exit_code))
+                args = SimpleNamespace(run_id="synthetic-trial", target="synthetic-a",
+                    device_role="harness", device_map=str(self.map), rig_config="/synthetic/rig.json",
+                    output=str(output), package_root=str(package_root), archive=str(archive),
+                    setup_record="/synthetic/setup.json", profile=profile["id"], adb="/synthetic/adb",
+                    rerun_from=None, timeout_seconds=5)
+                identities = {"ro.build.version.release": "16", "ro.build.type": "user",
+                              "ro.product.device": "fixture", "ro.build.fingerprint": "fixture"}
+                with mock.patch.object(rig, "controller_for_target", return_value=self.controller), \
+                        mock.patch.object(compatibility.device, "authorized_devices", return_value=["synthetic-a"]), \
+                        mock.patch.object(compatibility, "inspect_host", return_value={"status": "PASS"}), \
+                        mock.patch.object(compatibility, "_setup_record", return_value={}), \
+                        mock.patch.object(compatibility.test_runner, "run_bounded",
+                            side_effect=lambda argv, _: {"transport": "ok", "stdout": identities[argv[-1]]}):
+                    code, report_path = compatibility.execute_trial(args, registry)
+                report = json.loads(report_path.read_text())
+                self.assertEqual(expected, report["status"])
+                self.assertEqual(exit_code, report["tradefed"]["returncode"])
+                self.assertEqual(0 if expected == "PASS" else 4, code)
+                self.assertEqual([], self.controller.list_inhibitors("harness"))
+
+    def test_guard_transfers_lock_ownership_to_persistent_inhibitor(self):
+        with mock.patch.object(rig, "controller_for_target", return_value=self.controller):
+            guard = rig.acquire_test_start_guard(
+                "/synthetic/rig.json", "harness", str(self.map), "synthetic-a")
+        try:
+            guard.acquire_inhibitor("compat-fixture", "compatibility-trial")
+            with self.assertRaisesRegex(rig.RigError, "already locked"):
+                self.controller._lock("harness")
+        finally:
+            guard.release()
+        with self.assertRaisesRegex(rig.RigError, "does not own"):
+            guard.acquire_inhibitor("late", "compatibility-trial")
+        self.assertEqual("compat-fixture", self.controller.list_inhibitors("harness")[0]["lease_id"])
+        self.assertEqual("INHIBITED", self.controller.maintain("harness")["status"])
+        self.controller.release_inhibitor("harness", "compat-fixture")
+        self.assertEqual([], self.controller.list_inhibitors("harness"))
+
     def test_start_guard_restores_maintenance_held_role(self):
         self.executor.power[1] = False
         self.executor.roles["synthetic-a"]["present"] = False

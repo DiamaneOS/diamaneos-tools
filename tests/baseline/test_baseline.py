@@ -11,11 +11,8 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.dirname(os.path.dirname(HERE))
 
-import importlib.util
-_spec = importlib.util.spec_from_file_location(
-    "baseline", os.path.join(TOOLS, "src", "diamaneos_tools", "baseline.py"))
-baseline = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(baseline)
+sys.path.insert(0, os.path.join(TOOLS, "src"))
+from diamaneos_tools import baseline
 resolve_target = baseline.resolve_target
 run_fixture = baseline.run_fixture
 classify = baseline.classify

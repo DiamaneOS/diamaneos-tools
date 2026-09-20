@@ -25,6 +25,8 @@ import time
 
 from diamaneos_tools import baseline_protocol
 from diamaneos_tools import rig
+from diamaneos_tools import evidence
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -421,7 +423,7 @@ class Collector:
         refs = []
         for stream in ("stdout", "stderr"):
             filename = f"{name}.{stream}.txt"
-            digest = test_runner._write_evidence(
+            digest = evidence.write_evidence(
                 self.raw_dir / filename, result.get(stream, ""))
             refs.append(f"raw/{filename}@sha256:{digest}")
         if required and result.get("transport") != "ok":
@@ -785,7 +787,7 @@ def _run_thermal(collector: Collector, protocol: dict, run_id: str,
 
     for stream in ("stdout", "stderr"):
         filename = f"thermal-workload.{stream}.txt"
-        digest = test_runner._write_evidence(
+        digest = evidence.write_evidence(
             collector.raw_dir / filename, workload.get(stream, ""))
         refs.append(f"raw/{filename}@sha256:{digest}")
     if workload.get("transport") not in {"ok", "error"}:
@@ -920,7 +922,7 @@ def _scrub(value, target: str):
 
 
 def _git_revision(repo_root: Path) -> str:
-    return test_runner._git_revision(repo_root)
+    return evidence.git_revision(repo_root)
 
 
 def _report_template(args, protocol: dict, protocol_hash: str,
@@ -939,7 +941,7 @@ def _report_template(args, protocol: dict, protocol_hash: str,
         "tool": {
             "revision": _git_revision(repo_root),
             "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-            "adb": test_runner._adb_version(args.adb),
+            "adb": device.adb_version(args.adb),
         },
         "target": {
             "role": args.device_role,
@@ -1054,18 +1056,18 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
     report = None
     exit_code = 5
     try:
-        devices = test_runner._authorized_devices(args.adb)
+        devices = device.authorized_devices(args.adb)
         if args.target not in devices:
             raise PilotError(
                 "selected private target is not an authorized USB device", 3)
-        identity, identity_refs = test_runner._capture_identity(
+        identity, identity_refs = device.capture_identity(
             args.adb, args.target, partial, DEFAULT_TIMEOUT_SECONDS)
         report = _report_template(
             args, protocol, protocol_hash, repo_root, identity, identity_refs,
             profile)
         report_path = partial / "result.json"
         report = _scrub(report, args.target)
-        test_runner._atomic_json(report_path, report)
+        evidence.atomic_json(report_path, report)
         collector = Collector(args.adb, args.target, partial)
 
         try:
@@ -1081,7 +1083,7 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
                 args.operator_confirmed_unlocked)
             report["cases"].append(preflight)
             report = _scrub(report, args.target)
-            test_runner._atomic_json(report_path, report)
+            evidence.atomic_json(report_path, report)
             if preflight["status"] != STATUS_PASS:
                 raise CaseFailure(STATUS_FAIL, preflight["reason"])
 
@@ -1117,16 +1119,16 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
         report["finished_at_utc"] = _utc_now()
         report["run_order"] = [case["test_id"] for case in report["cases"]]
         report = _scrub(report, args.target)
-        test_runner._atomic_json(report_path, report)
-        test_runner._verify_evidence_refs(
+        evidence.atomic_json(report_path, report)
+        evidence.verify_evidence_refs(
             report_path, report["identity_evidence_refs"])
         for case in report["cases"]:
-            test_runner._verify_evidence_refs(
+            evidence.verify_evidence_refs(
                 report_path, case.get("raw_evidence_refs", []))
         if args.target in report_path.read_text(encoding="utf-8"):
             raise PilotError("private target escaped report redaction", 5)
         os.rename(partial, final)
-        test_runner._sync_directory(final.parent)
+        evidence.sync_directory(final.parent)
         return exit_code, final / "result.json"
     except Exception:
         if report is not None:
@@ -1134,7 +1136,7 @@ def execute_connected(args, repo_root: Path, declared: bool = False) -> tuple[in
                 report["finished_at_utc"] = _utc_now()
                 report["status"] = STATUS_HARNESS
                 report["errors"].append("unexpected harness failure; inspect private partial evidence")
-                test_runner._atomic_json(partial / "result.json", _scrub(report, args.target))
+                evidence.atomic_json(partial / "result.json", _scrub(report, args.target))
             except Exception:
                 pass
         raise

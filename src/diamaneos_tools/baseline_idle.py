@@ -27,6 +27,8 @@ import time
 from diamaneos_tools import baseline_pilot
 from diamaneos_tools import baseline_protocol
 from diamaneos_tools import rig
+from diamaneos_tools import evidence
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -344,14 +346,14 @@ def _atomic_report(path: Path, report: dict, target: str):
     serialized = json.dumps(report, sort_keys=True)
     if target and target in serialized:
         raise IdleError("private target escaped idle report redaction", 5)
-    test_runner._atomic_json(path, report)
+    evidence.atomic_json(path, report)
 
 
 def _load_report(run_dir: Path, expected_status: str | None = None) -> dict:
     if not run_dir.name.endswith(".partial"):
         raise IdleError("idle run must reference its partial directory")
     _owner_controlled_directory(run_dir)
-    value, _ = test_runner._load_unique_json(
+    value, _ = evidence.load_unique_json(
         run_dir / "result.json", test_runner.MAX_REPORT_BYTES)
     if (not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION
             or value.get("operation") not in {
@@ -364,7 +366,7 @@ def _load_report(run_dir: Path, expected_status: str | None = None) -> dict:
 
 def _write_json_evidence(path: Path, value: dict) -> str:
     text = json.dumps(value, indent=2, sort_keys=True) + "\n"
-    return test_runner._write_evidence(path, text)
+    return evidence.write_evidence(path, text)
 
 
 def _verify_evidence_refs(report_path: Path, refs: list[str]):
@@ -520,7 +522,7 @@ def _write_command_evidence(run_dir: Path, name: str, result: dict) -> list[str]
     refs = []
     for stream in ("stdout", "stderr"):
         filename = f"{name}.{stream}.txt"
-        digest = test_runner._write_evidence(
+        digest = evidence.write_evidence(
             run_dir / "raw" / filename, result.get(stream, ""))
         refs.append(f"raw/{filename}@sha256:{digest}")
     return refs
@@ -596,10 +598,10 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
                 guard.release()
         except rig.RigError as exc:
             raise IdleError(str(exc), exc.exit_code) from exc
-        if args.target not in test_runner._authorized_devices(args.adb):
+        if args.target not in device.authorized_devices(args.adb):
             raise IdleError(
                 "selected idle target is not an authorized USB device", 3)
-        identity, identity_refs = test_runner._capture_identity(
+        identity, identity_refs = device.capture_identity(
             args.adb, args.target, partial, 20)
         observed, condition_refs = _collect_state(
             args.adb, args.target, partial, protocol, "start", True)
@@ -621,9 +623,9 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             "disconnect_method": disconnect_method,
             "protocol": {"id": protocol["protocol_id"], "sha256": protocol_hash},
             "tool": {
-                "revision": test_runner._git_revision(repo_root),
+                "revision": evidence.git_revision(repo_root),
                 "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                "adb": test_runner._adb_version(args.adb),
+                "adb": device.adb_version(args.adb),
             },
             "target": {
                 "role": args.device_role,
@@ -689,7 +691,7 @@ def start(args, repo_root: Path) -> tuple[int, Path]:
             report["finished_at_utc"] = _utc_now()
             _atomic_report(partial / "result.json", report, args.target)
             os.rename(partial, rejected)
-            test_runner._sync_directory(root)
+            evidence.sync_directory(root)
             return 4, rejected / "result.json"
 
         reset_result = _run_required(
@@ -858,7 +860,7 @@ def observe_disconnect(args) -> Path:
         try:
             deadline = time.monotonic() + args.timeout_seconds
             while time.monotonic() < deadline:
-                devices = test_runner._authorized_devices(args.adb)
+                devices = device.authorized_devices(args.adb)
                 if args.target not in devices:
                     if first_absent is None:
                         first_absent = _host_clock_sample()
@@ -995,7 +997,7 @@ def finish(args) -> tuple[int, Path]:
             raise IdleError("tester rebooted during the idle interval", 4)
         if _remaining_idle_seconds(report, armed) > 0:
             raise IdleError("idle interval has not reached its declared duration", 3)
-        authorized = args.target in test_runner._authorized_devices(args.adb)
+        authorized = args.target in device.authorized_devices(args.adb)
         if method == DISCONNECT_METHOD_RIG:
             if authorized:
                 raise IdleError(
@@ -1016,7 +1018,7 @@ def finish(args) -> tuple[int, Path]:
             report["disconnect"]["raw_evidence_refs"].append(
                 f"raw/{filename}@sha256:{digest}")
             observation = wait_for_authorized_reconnect(
-                lambda: args.target in test_runner._authorized_devices(args.adb),
+                lambda: args.target in device.authorized_devices(args.adb),
                 _host_clock_sample,
                 args.reconnect_timeout_seconds,
                 RECONNECT_POLL_INTERVAL_SECONDS,
@@ -1039,7 +1041,7 @@ def finish(args) -> tuple[int, Path]:
             print("READY_TO_RECONNECT: physically reconnect the phone USB-C "
                   "cable now", flush=True)
             observation = wait_for_authorized_reconnect(
-                lambda: args.target in test_runner._authorized_devices(args.adb),
+                lambda: args.target in device.authorized_devices(args.adb),
                 _host_clock_sample,
                 args.reconnect_timeout_seconds,
                 RECONNECT_POLL_INTERVAL_SECONDS,
@@ -1124,7 +1126,7 @@ def finish(args) -> tuple[int, Path]:
         if final.exists():
             raise IdleError("immutable idle final output collision", 3)
         os.rename(run_dir, final)
-        test_runner._sync_directory(root)
+        evidence.sync_directory(root)
         return (4 if exclusions else 0), final / "result.json"
     finally:
         _release_lock(lock_fd)
@@ -1149,7 +1151,7 @@ def quarantine(args) -> Path:
                 "mode": "already-authorized",
                 "completed_at_utc": _utc_now(),
             }
-            if args.target not in test_runner._authorized_devices(args.adb):
+            if args.target not in device.authorized_devices(args.adb):
                 try:
                     controller = rig.controller_for_target(
                         args.rig_config, args.device_role,
@@ -1183,7 +1185,7 @@ def quarantine(args) -> Path:
         if final.exists():
             raise IdleError("immutable idle quarantine output collision", 3)
         os.rename(run_dir, final)
-        test_runner._sync_directory(root)
+        evidence.sync_directory(root)
         return final / "result.json"
     finally:
         _release_lock(lock_fd)

@@ -49,6 +49,38 @@ installed versions. Follow
 [`deploy/builder/README.md`](../deploy/builder/README.md) to create the
 unprivileged `diamaneos-build` identity and install the hash- and
 signature-verified external toolchain.
+Run `stage-node`, the finalizer and `prepare-yarn` in that order; all live in
+the authenticated tools checkout. The Yarn helper uses the recorded npm
+integrity during acquisition and requires an empty Corepack cache.
+
+Bootstrap's distribution update is initial host preparation, not reproduction
+of the exact package set. Before qualification, configure an authenticated,
+reviewed Debian snapshot that supplies the declared versions and dependency
+closure, then derive exact install arguments from the environment:
+
+```sh
+mapfile -t packages < <(python3 - "$TOOLS_ROOT/config/build-environment.json" <<'PYTHON'
+import json
+import sys
+with open(sys.argv[1]) as stream:
+    packages = json.load(stream)["host"]["required_packages"]
+for name, version in sorted(packages.items()):
+    print(name + "=" + version)
+PYTHON
+)
+test "${#packages[@]}" -gt 0
+sudo apt-get --download-only install "${packages[@]}"
+sudo apt-get install "${packages[@]}"
+```
+
+Review the proposed transaction before accepting it. Preserve the selected
+repository's signed Release/InRelease metadata, Packages indexes and complete
+`.deb` dependency closure, plus a SHA-256 inventory and installed `dpkg-query`
+manifest. A list of top-level versions alone is not a retained snapshot.
+Missing versions are a stop condition; never bypass repository authentication
+or substitute versions under the same environment ID. Snapshot publication and
+an independently authenticated maintainer trust record remain maintainer-owned
+prerequisites; these scripts do not create that external evidence.
 
 Every host must provide an absolute, root-controlled, no-argument thermal safety
 check. It exits zero only while the host's current cooling state is safe for a

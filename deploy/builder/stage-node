@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+# Run from an authenticated tools checkout. Destination must be new.
+tools_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+stage=${1:?usage: stage-node NEW-STAGING-DIRECTORY}
+mapfile -t pins < <(python3 - "$tools_root" <<'PYTHON'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+env = json.loads((root / "config/build-environment.json").read_text())
+extra = json.loads((root / "config/tool-acquisition.json").read_text())
+assert extra["environment_id"] == env["environment_id"]
+node = env["host"]["external_tools"]["node"]
+print(node["version"])
+print(node["archive_sha256"])
+for key in ("keyring_url", "keyring_sha256", "signed_manifest_sha256"):
+    print(extra["node"][key])
+PYTHON
+)
+[[ ${#pins[@]} -eq 5 ]] || exit 1
+umask 027
+mkdir -- "$stage"
+archive=node-${pins[0]}-linux-x64.tar.xz
+base=https://nodejs.org/dist/${pins[0]}
+fetch() {
+  curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+    --connect-timeout 30 --max-time 600 --max-filesize 67108864 "$1" -o "$2"
+}
+fetch "${pins[2]}" "$stage/pubring.kbx"
+fetch "$base/SHASUMS256.txt.asc" "$stage/SHASUMS256.txt.asc"
+fetch "$base/$archive" "$stage/$archive"
+printf '%s  %s\n' "${pins[3]}" "$stage/pubring.kbx" \
+  "${pins[4]}" "$stage/SHASUMS256.txt.asc" "${pins[1]}" "$stage/$archive" | sha256sum -c -
+gpgv --keyring "$(realpath "$stage/pubring.kbx")" \
+  --output "$stage/SHASUMS256.txt" "$stage/SHASUMS256.txt.asc"
+(cd "$stage"; grep -F "  $archive" SHASUMS256.txt | sha256sum -c -)
+printf 'NODE_STAGING=PASS\n'

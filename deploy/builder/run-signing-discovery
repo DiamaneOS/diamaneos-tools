@@ -111,6 +111,12 @@ observed_tools_commit=$(git -c safe.directory="$tools_root" \
 [[ -z $(find "$tools_root" -xdev -perm /022 -print -quit) ]] || \
   fail 'reviewed tools checkout is writable by group or other'
 
+# This descriptor stays open through preflight, execution and final evidence.
+[[ -d $workspace_root && ! -L $workspace_root/.workspace.lock ]] || \
+  fail 'workspace lock path is unavailable'
+exec 9>"$workspace_root/.workspace.lock"
+flock -n 9 || fail 'another builder operation owns this workspace'
+
 mapfile -t declared < <(python3 - "$tools_root/config/build-environment.json" \
   "$tools_root/config/signing-roles.json" "$profile_id" <<'PY'
 import json
