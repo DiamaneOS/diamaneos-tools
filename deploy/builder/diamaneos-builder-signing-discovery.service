@@ -1,6 +1,5 @@
 [Unit]
 Description=DiamaneOS pinned target-files signing-role discovery
-Requires=diamaneos-builder-source-sync.service
 After=diamaneos-builder-source-sync.service
 ConditionPathIsSymbolicLink=/opt/diamaneos/tools
 
