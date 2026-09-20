@@ -41,7 +41,8 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
         unit = SERVICE.read_text(encoding="utf-8")
         self.assertIn("User=diamaneos-build", unit)
-        self.assertIn("Requires=diamaneos-builder-source-sync.service", unit)
+        self.assertIn("After=diamaneos-builder-source-sync.service", unit)
+        self.assertNotIn("Requires=diamaneos-builder-source-sync.service", unit)
         self.assertIn("IPAddressDeny=any", unit)
         self.assertIn("NoNewPrivileges=yes", unit)
         self.assertIn("ProtectSystem=full", unit)
