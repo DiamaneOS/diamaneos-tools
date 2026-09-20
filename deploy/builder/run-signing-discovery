@@ -12,18 +12,21 @@ started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 run_id=$run_prefix-$(date -u +%Y%m%dT%H%M%SZ)
 evidence_root=$workspace_root/evidence/dummy-signing
 partial=$evidence_root/$run_id.partial
+failure_reason=
 
 fail() {
+  failure_reason=$*
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
 }
 
 resolve_unique_artifact() {
-  local root=$1
-  local minimum_depth=$2
-  local maximum_depth=$3
-  local basename=$4
-  local label=$5
+  local destination=$1
+  local root=$2
+  local minimum_depth=$3
+  local maximum_depth=$4
+  local basename=$5
+  local label=$6
   local candidate
   local -a candidates
   [[ -d $root && ! -L $root ]] || fail "$label module root is unavailable"
@@ -40,7 +43,7 @@ resolve_unique_artifact() {
   esac
   [[ -f $candidate && ! -L $candidate ]] || \
     fail "$label artifact is not a regular file"
-  printf '%s\n' "$candidate"
+  printf -v "$destination" '%s' "$candidate"
 }
 
 write_failure() {
@@ -49,24 +52,27 @@ write_failure() {
   if [[ -d $partial ]]; then
     ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     python3 - "$partial/result.json" "$run_id" "$started_at" \
-      "$ended_at" "$exit_code" <<'PY'
+      "$ended_at" "$exit_code" "$failure_reason" <<'PY'
 import json
 import os
 import sys
 
-path, run_id, started, ended, exit_code = sys.argv[1:]
+path, run_id, started, ended, exit_code, error = sys.argv[1:]
 temporary = path + ".tmp"
+result = {
+    "schema_version": 1,
+    "run_id": run_id,
+    "status": "FAIL",
+    "started_at_utc": started,
+    "ended_at_utc": ended,
+    "exit_code": int(exit_code),
+    "dummy_keys_created": False,
+    "signing_operations": 0,
+}
+if error:
+    result["error"] = error
 with open(temporary, "w", encoding="utf-8") as stream:
-    json.dump({
-        "schema_version": 1,
-        "run_id": run_id,
-        "status": "FAIL",
-        "started_at_utc": started,
-        "ended_at_utc": ended,
-        "exit_code": int(exit_code),
-        "dummy_keys_created": False,
-        "signing_operations": 0,
-    }, stream, sort_keys=True, indent=2)
+    json.dump(result, stream, sort_keys=True, indent=2)
     stream.write("\n")
 os.replace(temporary, path)
 PY
@@ -193,12 +199,15 @@ case "$profile_id" in
       fail 'otatools package was not produced as a regular file'
     ;;
   generic-x86_64-ota-qualification)
-    target_module=$OUT/soong/.intermediates/build/soong/fsgen/${TARGET_PRODUCT}_generated_device
-    otatools_module=$OUT/soong/.intermediates/build/make/tools/otatools_package/otatools-package
-    target_files=$(resolve_unique_artifact \
-      "$target_module" 2 2 target_files.zip 'target-files')
-    otatools=$(resolve_unique_artifact \
-      "$otatools_module" 3 3 otatools.zip 'otatools')
+    # $OUT is the product output (for this target, out/target/product/emu64x),
+    # while Soong module intermediates are rooted at the declared top-level
+    # output directory. Do not derive these paths from $OUT.
+    target_module=$output_root/soong/.intermediates/build/soong/fsgen/${TARGET_PRODUCT}_generated_device
+    otatools_module=$output_root/soong/.intermediates/build/make/tools/otatools_package/otatools-package
+    resolve_unique_artifact target_files \
+      "$target_module" 2 2 target_files.zip 'target-files'
+    resolve_unique_artifact otatools \
+      "$otatools_module" 3 3 otatools.zip 'otatools'
     ;;
   *) fail 'unsupported artifact-layout profile binding' ;;
 esac

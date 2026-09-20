@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 
 
@@ -49,15 +50,70 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
     def test_ota_artifact_resolution_is_module_bounded_and_unique(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("resolve_unique_artifact", script)
-        self.assertIn("${TARGET_PRODUCT}_generated_device", script)
         self.assertIn(
-            "build/make/tools/otatools_package/otatools-package", script,
+            "$output_root/soong/.intermediates/build/soong/fsgen/"
+            "${TARGET_PRODUCT}_generated_device",
+            script,
+        )
+        self.assertIn(
+            "$output_root/soong/.intermediates/build/make/tools/"
+            "otatools_package/otatools-package",
+            script,
         )
         self.assertIn(
             "module root did not contain exactly one artifact", script,
         )
         self.assertIn("artifact escaped its module root", script)
         self.assertNotIn('find "$OUT"', script)
+        self.assertNotIn(
+            "$OUT/soong/.intermediates", script,
+        )
+
+    def test_ota_artifact_paths_match_the_soong_output_layout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output_root = Path(temporary) / "out"
+            target_module = (
+                output_root / "soong" / ".intermediates" / "build" /
+                "soong" / "fsgen" /
+                "aosp_cf_x86_64_phone_generated_device"
+            )
+            target = (
+                target_module / "android_x86_64_silvermont" /
+                "target_files.zip"
+            )
+            otatools_module = (
+                output_root / "soong" / ".intermediates" / "build" /
+                "make" / "tools" / "otatools_package" /
+                "otatools-package"
+            )
+            otatools = (
+                otatools_module / "linux_glibc_x86_64" / "gen" /
+                "otatools.zip"
+            )
+            target.parent.mkdir(parents=True)
+            otatools.parent.mkdir(parents=True)
+            target.write_bytes(b"target-files fixture")
+            otatools.write_bytes(b"otatools fixture")
+
+            self.assertEqual(
+                [target],
+                list(target_module.glob("*/target_files.zip")),
+            )
+            self.assertEqual(
+                [otatools],
+                list(otatools_module.glob("*/*/otatools.zip")),
+            )
+
+    def test_explicit_failure_reason_is_preserved_in_result(self):
+        script = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("failure_reason=$*", script)
+        self.assertIn('result["error"] = error', script)
+        self.assertIn(
+            "resolve_unique_artifact target_files", script,
+        )
+        self.assertNotIn(
+            "target_files=$(resolve_unique_artifact", script,
+        )
 
     def test_only_exact_presigned_review_can_be_nonpassing_discovery(self):
         script = RUNNER.read_text(encoding="utf-8")
