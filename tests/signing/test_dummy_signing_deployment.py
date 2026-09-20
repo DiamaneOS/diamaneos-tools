@@ -25,6 +25,8 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('"openssl", "x509"', script)
         self.assertIn('"openssl", "pkcs8"', script)
         self.assertIn('partial / "key-generation.json"', script)
+        self.assertIn('"--source-inventory"', script)
+        self.assertIn('record.get("expected_certificate_role")', script)
         self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
         self.assertIn('environment["upstream"]["release_tag"]', script)
         self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)

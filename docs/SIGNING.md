@@ -102,10 +102,31 @@ bin/diamaneos signing inventory \
   --output "$OUTPUT_JSON"
 ```
 
-Use `--stage signed` for the transformed archive. A package appearing in a
-discovery report does not add it to the allowlist. Review why it remains
-presigned, bind its archive identity or reviewed metadata-only absence, and
-update the exact profile before a qualification run may pass.
+The pinned Android signer preserves the source labels in `META/apkcerts.txt`
+and `META/apexkeys.txt`; those labels select inputs and are not a destination-
+key receipt. Therefore `--stage signed` also requires the exact accepted
+unsigned inventory used to create the explicit signing plan:
+
+```sh
+bin/diamaneos signing inventory \
+  --profile generic-x86_64-qualification \
+  --stage signed \
+  --source-inventory "$UNSIGNED_INVENTORY_JSON" \
+  --target-files "$SIGNED_TARGET_FILES" \
+  --output "$SIGNED_INVENTORY_JSON"
+```
+
+The signed inventory requires the package/APEX metadata to remain identical
+to that accepted input, records the expected destination role for every
+package, and independently requires transformed AVB metadata. The dummy
+qualification then verifies representative APK/APEX certificates, APEX/AVB
+payload keys, OTA signatures and wrong-key rejection from the artifacts; it
+never treats the preserved source labels as cryptographic proof.
+
+A package appearing in a discovery report does not add it to the allowlist.
+Review why it remains presigned, bind its archive identity or reviewed
+metadata-only absence, and update the exact profile before a qualification
+run may pass.
 
 On the accepted builder, `deploy/builder/run-signing-discovery` performs that
 checkpoint as the unprivileged build identity with network access denied. It
