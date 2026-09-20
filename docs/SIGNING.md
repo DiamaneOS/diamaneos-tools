@@ -123,6 +123,21 @@ qualification then verifies representative APK/APEX certificates, APEX/AVB
 payload keys, OTA signatures and wrong-key rejection from the artifacts; it
 never treats the preserved source labels as cryptographic proof.
 
+APK role coverage is evaluated over the union of the accepted SDK and
+Cuttlefish signed target-files archives, not by assuming that one product
+emits every package named by its certificate metadata. The exact accepted
+inputs declare `bluetooth`, `nfc` and `sdk_sandbox` records but contain no APK
+payload for those roles. The disposable qualification therefore records those
+three roles as metadata-only and signs a standalone APK probe with each role's
+fresh key. The probe input is the smallest deterministic real APK selected
+from the accepted signed-archive union, rather than a synthetic installable
+package claim. That proves the key, certificate and pinned `apksigner` path
+without claiming a target-files transformation which did not occur. Every other
+Android certificate role must have a real transformed APK in one of the two
+accepted archives. A different missing-role set fails closed and requires a
+new review; the future FP6 product must regenerate its own real artifact
+coverage rather than inheriting these generic limitations.
+
 A package appearing in a discovery report does not add it to the allowlist.
 Review why it remains presigned, bind its archive identity or reviewed
 metadata-only absence, and update the exact profile before a qualification
