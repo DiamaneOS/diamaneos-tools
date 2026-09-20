@@ -24,7 +24,8 @@ import zipfile
 
 
 EXPECTED_USER = "diamaneos-build"
-PROFILE_ID = "generic-x86_64-qualification"
+SDK_PROFILE_ID = "generic-x86_64-qualification"
+OTA_PROFILE_ID = "generic-x86_64-ota-qualification"
 KEY_IDS = (
     "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
     "platform", "releasekey", "sdk_sandbox", "shared",
@@ -158,6 +159,27 @@ def artifact_record(identifier, root, path):
     }
 
 
+def unique_regular_artifact(root, basename):
+    """Resolve one artifact inside a reviewed, bounded module root."""
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        raise Failure("reviewed artifact module root is unavailable")
+    resolved_root = root.resolve(strict=True)
+    candidates = []
+    for path in root.rglob(basename):
+        if path.is_symlink() or not path.is_file():
+            continue
+        resolved = path.resolve(strict=True)
+        try:
+            resolved.relative_to(resolved_root)
+        except ValueError:
+            raise Failure("reviewed artifact escaped its module root") from None
+        candidates.append(resolved)
+    if len(candidates) != 1:
+        raise Failure("reviewed module root lacks exactly one artifact")
+    return candidates[0]
+
+
 def recovery_child(path):
     path = Path(path)
     path.mkdir(mode=0o700)
@@ -205,8 +227,9 @@ def main():
     errors = signing_verify.validate_config(config, environment)
     if errors:
         raise Failure("signing role contract is invalid")
-    profile = next(item for item in config["target_profiles"]
-                   if item["id"] == PROFILE_ID)
+    profiles = {item["id"]: item for item in config["target_profiles"]}
+    sdk_profile = profiles[SDK_PROFILE_ID]
+    ota_profile = profiles[OTA_PROFILE_ID]
 
     source_root = workspace / environment["workspace"]["source_subdirectory"]
     cache_root = workspace / environment["workspace"]["cache_subdirectory"]
@@ -247,18 +270,38 @@ def main():
             if digest(source_root / binding["path"]) != binding["sha256"]:
                 raise Failure("pinned signing source file hash mismatch")
 
-        candidates = sorted(output_root.glob(
+        sdk_candidates = sorted(output_root.glob(
             f"target/product/*/obj/PACKAGING/target_files_intermediates/"
-            f"{profile['product']}-target_files.zip"))
-        if len(candidates) != 1:
-            raise Failure("expected exactly one accepted unsigned target-files package")
-        unsigned = candidates[0]
-        otatools = (output_root / "host/linux-x86/obj/ETC/"
-                    "otatools-packagelinux_glibc_x86_64_intermediates/"
-                    "otatools-packagelinux_glibc_x86_64")
-        if (digest(unsigned) != profile["qualified_unsigned_target_files_sha256"]
-                or digest(otatools) != profile["qualified_otatools_sha256"]):
-            raise Failure("qualified unsigned input or otatools hash mismatch")
+            f"{sdk_profile['product']}-target_files.zip"))
+        if len(sdk_candidates) != 1:
+            raise Failure("expected exactly one accepted SDK target-files package")
+        sdk_unsigned = sdk_candidates[0]
+        sdk_otatools = (output_root / "host/linux-x86/obj/ETC/"
+                        "otatools-packagelinux_glibc_x86_64_intermediates/"
+                        "otatools-packagelinux_glibc_x86_64")
+        ota_target_module = (
+            output_root / "soong/.intermediates/build/soong/fsgen" /
+            f"{ota_profile['product']}_generated_device")
+        ota_otatools_module = (
+            output_root / "soong/.intermediates/build/make/tools/"
+            "otatools_package/otatools-package")
+        ota_unsigned = unique_regular_artifact(
+            ota_target_module, "target_files.zip")
+        ota_otatools = unique_regular_artifact(
+            ota_otatools_module, "otatools.zip")
+        for path, expected, label in (
+                (sdk_unsigned,
+                 sdk_profile["qualified_unsigned_target_files_sha256"],
+                 "SDK target-files"),
+                (sdk_otatools, sdk_profile["qualified_otatools_sha256"],
+                 "SDK otatools"),
+                (ota_unsigned,
+                 ota_profile["qualified_unsigned_target_files_sha256"],
+                 "OTA target-files"),
+                (ota_otatools, ota_profile["qualified_otatools_sha256"],
+                 "OTA otatools")):
+            if path.is_symlink() or not path.is_file() or digest(path) != expected:
+                raise Failure(f"qualified {label} hash mismatch")
         if not thermal_check.is_file():
             raise Failure("builder thermal-safety preflight is unavailable")
 
@@ -287,12 +330,20 @@ def main():
             cwd=source_root, env=base_env)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", PROFILE_ID, "--stage", "unsigned",
-            "--target-files", unsigned, "--output",
-            partial / "unsigned-inventory.json",
-        ], logs / "unsigned-inventory.log", env=base_env)
-        unsigned_inventory = signing_verify.load_json(
-            partial / "unsigned-inventory.json", limit=64 * 1024 * 1024)
+            "--profile", SDK_PROFILE_ID, "--stage", "unsigned",
+            "--target-files", sdk_unsigned, "--output",
+            partial / "sdk-unsigned-inventory.json",
+        ], logs / "sdk-unsigned-inventory.log", env=base_env)
+        sdk_unsigned_inventory = signing_verify.load_json(
+            partial / "sdk-unsigned-inventory.json", limit=64 * 1024 * 1024)
+        run([
+            tools_root / "bin/diamaneos", "signing", "inventory",
+            "--profile", OTA_PROFILE_ID, "--stage", "unsigned",
+            "--target-files", ota_unsigned, "--output",
+            partial / "ota-unsigned-inventory.json",
+        ], logs / "ota-unsigned-inventory.log", env=base_env)
+        ota_unsigned_inventory = signing_verify.load_json(
+            partial / "ota-unsigned-inventory.json", limit=64 * 1024 * 1024)
 
         rehearsal = partial / "restart-recovery-attempt.partial"
         recovery = subprocess.run([sys.executable, __file__,
@@ -379,7 +430,7 @@ def main():
 
         tool_dir = partial / ".otatools"
         tool_dir.mkdir(mode=0o750)
-        run(["unzip", "-q", str(otatools), "-d", str(tool_dir)],
+        run(["unzip", "-q", str(ota_otatools), "-d", str(tool_dir)],
             logs / "unpack-otatools.log")
         tool_bin = tool_dir / "bin"
         required_tools = {
@@ -402,33 +453,56 @@ def main():
 
         artifacts = partial / "artifacts"
         artifacts.mkdir(mode=0o750)
-        signed = artifacts / "signed-target-files.zip"
-        sign_command = planner.signing_command(
-            unsigned_inventory, signer=required_tools["sign_target_files_apks"],
-            key_dir=key_dir, source=unsigned, destination=signed)
-        if "--override_apk_keys" in sign_command or "--override_apex_keys" in sign_command:
-            raise Failure("global key override is prohibited")
-        run(sign_command, logs / "sign-target-files.log", cwd=source_root,
-            env=qualification_env)
+        sdk_signed = artifacts / "sdk-signed-target-files.zip"
+        ota_signed = artifacts / "ota-signed-target-files.zip"
+        sdk_sign_command = planner.signing_command(
+            sdk_unsigned_inventory,
+            signer=required_tools["sign_target_files_apks"],
+            key_dir=key_dir, source=sdk_unsigned, destination=sdk_signed)
+        ota_sign_command = planner.signing_command(
+            ota_unsigned_inventory,
+            signer=required_tools["sign_target_files_apks"],
+            key_dir=key_dir, source=ota_unsigned, destination=ota_signed)
+        for command in (sdk_sign_command, ota_sign_command):
+            if ("--override_apk_keys" in command
+                    or "--override_apex_keys" in command):
+                raise Failure("global key override is prohibited")
+        run(sdk_sign_command, logs / "sign-sdk-target-files.log",
+            cwd=source_root, env=qualification_env)
+        run(ota_sign_command, logs / "sign-ota-target-files.log",
+            cwd=source_root, env=qualification_env)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", PROFILE_ID, "--stage", "signed",
-            "--source-inventory", partial / "unsigned-inventory.json",
-            "--target-files", signed, "--output",
-            partial / "signed-inventory.json",
-        ], logs / "signed-inventory.log", env=base_env)
-        signed_inventory = signing_verify.load_json(
-            partial / "signed-inventory.json", limit=64 * 1024 * 1024)
-        if signed_inventory["status"] != "PASS" or digest(signed) == digest(unsigned):
+            "--profile", SDK_PROFILE_ID, "--stage", "signed",
+            "--source-inventory", partial / "sdk-unsigned-inventory.json",
+            "--target-files", sdk_signed, "--output",
+            partial / "sdk-signed-inventory.json",
+        ], logs / "sdk-signed-inventory.log", env=base_env)
+        sdk_signed_inventory = signing_verify.load_json(
+            partial / "sdk-signed-inventory.json", limit=64 * 1024 * 1024)
+        run([
+            tools_root / "bin/diamaneos", "signing", "inventory",
+            "--profile", OTA_PROFILE_ID, "--stage", "signed",
+            "--source-inventory", partial / "ota-unsigned-inventory.json",
+            "--target-files", ota_signed, "--output",
+            partial / "ota-signed-inventory.json",
+        ], logs / "ota-signed-inventory.log", env=base_env)
+        ota_signed_inventory = signing_verify.load_json(
+            partial / "ota-signed-inventory.json", limit=64 * 1024 * 1024)
+        if (sdk_signed_inventory["status"] != "PASS"
+                or ota_signed_inventory["status"] != "PASS"
+                or digest(sdk_signed) == digest(sdk_unsigned)
+                or digest(ota_signed) == digest(ota_unsigned)):
             raise Failure("signed target-files transformation was not accepted")
 
         full_ota = artifacts / "full-ota.zip"
         incremental_ota = artifacts / "incremental-noop-ota.zip"
         run([required_tools["ota_from_target_files"], "-k",
-             key_dir / "releasekey", signed, full_ota],
+             key_dir / "releasekey", ota_signed, full_ota],
             logs / "full-ota.log", cwd=source_root, env=qualification_env)
         run([required_tools["ota_from_target_files"], "-k",
-             key_dir / "releasekey", "-i", signed, signed, incremental_ota],
+             key_dir / "releasekey", "-i", ota_signed, ota_signed,
+             incremental_ota],
             logs / "incremental-ota.log", cwd=source_root,
             env=qualification_env)
         metadata_before = set(artifacts.iterdir())
@@ -439,7 +513,7 @@ def main():
         if len(metadata_files) != 4:
             raise Failure("update metadata generator did not produce four channels")
         image_archive = artifacts / "generic-images.zip"
-        run([required_tools["img_from_target_files"], signed, image_archive],
+        run([required_tools["img_from_target_files"], sdk_signed, image_archive],
             logs / "image-archive.log", cwd=source_root,
             env=qualification_env)
 
@@ -448,12 +522,13 @@ def main():
             logs / "factory-sign.log")
         factory_signature = image_archive.with_name(image_archive.name + ".sig")
         release_manifest = partial / "release-manifest.json"
-        core_paths = [signed, full_ota, incremental_ota, image_archive,
+        core_paths = [sdk_signed, ota_signed, full_ota, incremental_ota,
+                      image_archive,
                       *metadata_files]
         atomic_json(release_manifest, {
             "schema_version": 1,
             "run_id": run_id,
-            "profile_id": PROFILE_ID,
+            "profile_ids": [SDK_PROFILE_ID, OTA_PROFILE_ID],
             "source_binding": config["source_binding"],
             "incremental_scope": (
                 "same-build no-op delta qualifies the full incremental signing "
@@ -491,12 +566,12 @@ def main():
         checks = []
         wrong_release_fingerprint = certificate_fingerprint(
             public / "wrong-releasekey.x509.pem")
-        with zipfile.ZipFile(signed) as archive:
+        with zipfile.ZipFile(sdk_signed) as archive:
             members = defaultdict(list)
             for name in archive.namelist():
                 members[PurePosixPath(name).name].append(name)
             roles = defaultdict(list)
-            for record in signed_inventory["apk_roles"]:
+            for record in sdk_signed_inventory["apk_roles"]:
                 role = record.get("expected_certificate_role")
                 if role in KEY_IDS:
                     roles[role].append(record["name"])
@@ -525,7 +600,7 @@ def main():
                 })
 
             apex_record = next(
-                item for item in signed_inventory["apex_roles"]
+                item for item in sdk_signed_inventory["apex_roles"]
                 if item.get("expected_container_certificate_role") == "releasekey"
                 and item.get("expected_payload_private_key_role") == "avb"
                 and members.get(item["name"]))
@@ -549,7 +624,7 @@ def main():
                 safe_extract_member(apex_archive, "apex_payload.img", payload_sample)
 
             image_samples = [("apex-payload", payload_sample)]
-            for record in signed_inventory["avb_roles"]:
+            for record in sdk_signed_inventory["avb_roles"]:
                 member = f"IMAGES/{record['chain']}.img"
                 if member not in archive.namelist():
                     raise Failure("signed target-files lacks a declared AVB image")
@@ -638,7 +713,7 @@ def main():
             "schema_version": 1,
             "inventory_id": config["inventory_id"],
             "source_binding": config["source_binding"],
-            "profile_id": PROFILE_ID,
+            "profile_ids": [SDK_PROFILE_ID, OTA_PROFILE_ID],
             "run_id": run_id,
             "status": "PASS",
             "dummy_keys_only": True,

@@ -190,11 +190,12 @@ PKCS#8 outputs and independently parses both with OpenSSL. The observed helper
 status and both parse results are retained in `key-generation.json`; a missing
 or malformed artifact still fails the run.
 
-The generic incremental proof uses the same signed target-files archive as its
-old and new input. This deliberately exercises the complete incremental OTA
-generation, package-signature and payload-signature path as a no-op delta. It
-does not claim changed-build update semantics; that remains part of an actual
-FP6 old/new release-pair qualification.
+The Virtual A/B qualification profile's incremental proof uses the same signed
+Cuttlefish target-files archive as its old and new input. This deliberately
+exercises the complete incremental OTA generation, package-signature and
+payload-signature path as a no-op delta. It does not claim changed-build update
+semantics; that remains part of an actual FP6 old/new release-pair
+qualification.
 
 The generic image archive similarly proves the pinned outer Ed25519 `factory
 images` signature role, not the structure or installability of a future FP6
