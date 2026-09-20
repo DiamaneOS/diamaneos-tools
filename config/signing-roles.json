@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "inventory_id": "android17-grapheneos-2026091000-signing-v1",
+  "scope": "Disposable-key role contract for the pinned Android 17 release path. Production secrets, custody enrollment and trust installation are prohibited by this record.",
+  "source_binding": {
+    "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
+    "release_tag": "2026091000",
+    "manifest_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
+    "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",
+    "projects": {
+      "script": "639cdf6558e7401f8bab1cb8f53546ff4a0c8fef",
+      "build/make": "7f0398241bc8c4ef5255a8063befa5045e5cfab4",
+      "development": "bf1857fd7d886218a1ea456b94eb7eb15d5c1338"
+    },
+    "files": [
+      {
+        "path": "script/common.sh",
+        "sha256": "87c5dbe44da38871223adc9d1b22129c5c45f2bde9ffbaf1540e850192fcdc87"
+      },
+      {
+        "path": "script/generate-release.sh",
+        "sha256": "01f7847ecdc6600bd2e3ffebe45cf79cee4fead1d6b61686c4d3c70e9c548311"
+      },
+      {
+        "path": "script/generate-delta.sh",
+        "sha256": "2e0f80721588ff8f45b298f8242e8af658297c1916ff276b9456c1b4e957ef63"
+      },
+      {
+        "path": "script/generate-metadata",
+        "sha256": "061e28fc4f65300b8c24bba7056d09a7dc9eced4fdaecf0a5c1e09866b833f20"
+      },
+      {
+        "path": "script/generate-keys",
+        "sha256": "f47098e935b3418f267c2f06f41105d01fef57ed74e872a46e888d63cf89f588"
+      },
+      {
+        "path": "script/finalize.sh",
+        "sha256": "9626d9917d2b2fa03f1c6dab3ce3f9cf112f206f976837ccbfdadd778bc61061"
+      },
+      {
+        "path": "development/tools/make_key",
+        "sha256": "88073d52fd10ab7931c64c14be7860c8795350dfcb101460a315408c148d8e6d"
+      }
+    ]
+  },
+  "safety": {
+    "dummy_keys_only": true,
+    "production_key_generation_allowed": false,
+    "production_token_import_allowed": false,
+    "device_trust_enrollment_allowed": false,
+    "generic_sign_by_path_allowed": false,
+    "unlisted_role_policy": "reject",
+    "unlisted_presigned_policy": "reject"
+  },
+  "key_roles": [
+    {
+      "id": "releasekey",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks", "ota_from_target_files"],
+      "verifiers": ["apksigner", "OTA package and payload verification tools"],
+      "consumers": ["default APK role", "APEX container role", "OTA ZIP", "OTA payload"]
+    },
+    {
+      "id": "platform",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["platform APK certificate role"]
+    },
+    {
+      "id": "shared",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["shared APK certificate role"]
+    },
+    {
+      "id": "media",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["media APK certificate role"]
+    },
+    {
+      "id": "networkstack",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["network stack APK certificate role"]
+    },
+    {
+      "id": "bluetooth",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["Bluetooth APK certificate role"]
+    },
+    {
+      "id": "sdk_sandbox",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["SDK sandbox APK certificate role"]
+    },
+    {
+      "id": "gmscompat_lib",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["sandboxed Google Play compatibility library APK role"]
+    },
+    {
+      "id": "nfc",
+      "algorithm": "RSA-4096 with SHA-256",
+      "formats": ["PKCS#8 DER private key", "X.509 PEM certificate"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 certificate fingerprint recorded per signing run",
+      "callers": ["sign_target_files_apks"],
+      "verifiers": ["apksigner"],
+      "consumers": ["NFC APK certificate role"]
+    },
+    {
+      "id": "avb",
+      "algorithm": "SHA256_RSA4096",
+      "formats": ["PKCS#8 PEM private key", "AVB public-key metadata"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 of AVB public-key metadata recorded per signing run",
+      "callers": ["sign_target_files_apks", "avbtool"],
+      "verifiers": ["avbtool"],
+      "consumers": ["top-level vbmeta", "AVB chained partitions", "APEX payloads"]
+    },
+    {
+      "id": "factory",
+      "algorithm": "Ed25519 OpenSSH signature namespace factory images",
+      "formats": ["OpenSSH private key", "OpenSSH public key"],
+      "storage": "offline encrypted software-held key pending hardware integration review",
+      "public_identity": "SHA-256 OpenSSH public-key fingerprint recorded per signing run",
+      "callers": ["ssh-keygen -Y sign"],
+      "verifiers": ["ssh-keygen -Y verify"],
+      "consumers": ["outer factory archive", "append-only release record"]
+    }
+  ],
+  "artifact_roles": [
+    {
+      "id": "android-apk-certificates",
+      "kind": "apk",
+      "key_ids": ["releasekey", "platform", "shared", "media", "networkstack", "bluetooth", "sdk_sandbox", "gmscompat_lib", "nfc"],
+      "inventory_source": "META/apkcerts.txt",
+      "signer": "sign_target_files_apks",
+      "verifier": "apksigner certificate digest"
+    },
+    {
+      "id": "apex-container-certificates",
+      "kind": "apex-container",
+      "key_ids": ["releasekey"],
+      "inventory_source": "META/apexkeys.txt plus pinned release-script overrides",
+      "signer": "sign_target_files_apks",
+      "verifier": "apksigner certificate digest"
+    },
+    {
+      "id": "apex-payload-verified-boot",
+      "kind": "apex-payload",
+      "key_ids": ["avb"],
+      "inventory_source": "META/apexkeys.txt plus pinned release-script overrides",
+      "signer": "sign_target_files_apks",
+      "verifier": "avbtool verify_image"
+    },
+    {
+      "id": "avb-root-and-chains",
+      "kind": "avb",
+      "key_ids": ["avb"],
+      "inventory_source": "META/misc_info.txt AVB key and algorithm fields",
+      "signer": "sign_target_files_apks and avbtool",
+      "verifier": "avbtool verify_image with the declared public key"
+    },
+    {
+      "id": "ota-payload",
+      "kind": "ota-payload",
+      "key_ids": ["releasekey"],
+      "inventory_source": "pinned ota_from_target_files invocation",
+      "signer": "ota_from_target_files payload signer",
+      "verifier": "update payload signature verifier"
+    },
+    {
+      "id": "ota-package",
+      "kind": "ota-package",
+      "key_ids": ["releasekey"],
+      "inventory_source": "pinned ota_from_target_files -k invocation",
+      "signer": "ota_from_target_files package signer",
+      "verifier": "OTA ZIP signature verifier"
+    },
+    {
+      "id": "update-channel-metadata",
+      "kind": "repository-metadata",
+      "key_ids": [],
+      "inventory_source": "script/generate-metadata",
+      "signer": "none; generated from the internally signed OTA metadata",
+      "verifier": "bind channel fields and published hash to the verified OTA artifact"
+    },
+    {
+      "id": "factory-archive",
+      "kind": "factory-package",
+      "key_ids": ["factory"],
+      "inventory_source": "script/generate-release.sh outer archive signing branch",
+      "signer": "ssh-keygen -Y sign -n factory images",
+      "verifier": "ssh-keygen -Y verify -n factory images"
+    },
+    {
+      "id": "release-record",
+      "kind": "repository-record",
+      "key_ids": ["factory"],
+      "inventory_source": "DiamaneOS append-only release record contract",
+      "signer": "ssh-keygen -Y sign with a distinct release-record namespace",
+      "verifier": "ssh-keygen -Y verify with exact identity and namespace"
+    }
+  ],
+  "target_profiles": [
+    {
+      "id": "generic-x86_64-qualification",
+      "product": "sdk_phone64_x86_64",
+      "build_variant": "userdebug",
+      "evidence_scope": "tool and role qualification only; never FP6 compatibility or release evidence",
+      "presigned_allowlist": [],
+      "inventory_status": "pending-target-files-qualification"
+    },
+    {
+      "id": "fp6-release",
+      "product": "FP6",
+      "build_variant": "user",
+      "evidence_scope": "future FP6 candidate; must be regenerated for every accepted target-files package",
+      "presigned_allowlist": [],
+      "inventory_status": "blocked-pending-fp6-product"
+    }
+  ],
+  "required_dummy_proofs": [
+    "target-files-transform",
+    "apk-certificate-transform",
+    "apex-container-transform",
+    "apex-payload-transform",
+    "avb-root-and-chains",
+    "full-ota",
+    "incremental-ota",
+    "factory-archive-signature",
+    "release-record-signature",
+    "valid-key-verification",
+    "wrong-key-rejection",
+    "restart-recovery"
+  ]
+}

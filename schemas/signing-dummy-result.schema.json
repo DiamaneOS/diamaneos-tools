@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_id",
+    "source_binding",
+    "profile_id",
+    "run_id",
+    "status",
+    "dummy_keys_only",
+    "production_material_present",
+    "key_public_fingerprints",
+    "proofs",
+    "artifacts",
+    "release_record_proof"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "inventory_id": {"$ref": "#/definitions/id"},
+    "source_binding": {"type": "object"},
+    "profile_id": {"$ref": "#/definitions/id"},
+    "run_id": {"$ref": "#/definitions/id"},
+    "status": {"enum": ["PASS", "FAIL", "INCOMPLETE"]},
+    "dummy_keys_only": {"type": "boolean"},
+    "production_material_present": {"type": "boolean"},
+    "key_public_fingerprints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key_id", "sha256"],
+        "properties": {
+          "key_id": {"$ref": "#/definitions/id"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "proofs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "evidence_refs"],
+        "properties": {
+          "id": {"$ref": "#/definitions/id"},
+          "status": {"enum": ["PASS", "FAIL", "INCOMPLETE"]},
+          "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/id"}}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path", "sha256", "bytes"],
+        "properties": {
+          "id": {"$ref": "#/definitions/id"},
+          "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "release_record_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_path", "signature_path", "allowed_signers_path", "wrong_allowed_signers_path", "identity", "namespace"],
+      "properties": {
+        "manifest_path": {"$ref": "#/definitions/path"},
+        "signature_path": {"$ref": "#/definitions/path"},
+        "allowed_signers_path": {"$ref": "#/definitions/path"},
+        "wrong_allowed_signers_path": {"$ref": "#/definitions/path"},
+        "identity": {"type": "string", "pattern": "^[A-Za-z0-9._@+-]{1,128}$"},
+        "namespace": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    }
+  },
+  "definitions": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"}
+  }
+}
