@@ -1,7 +1,6 @@
 """Static deployment contract for disposable signing qualification."""
 
 from pathlib import Path
-import subprocess
 import unittest
 
 
@@ -12,11 +11,8 @@ SERVICE = ROOT / "deploy/builder/diamaneos-builder-dummy-signing.service"
 
 class DummySigningDeploymentTest(unittest.TestCase):
     def test_runner_compiles_and_is_no_argument_revision_bound(self):
-        result = subprocess.run(
-            ["python3", "-m", "py_compile", str(RUNNER)],
-            capture_output=True, text=True)
-        self.assertEqual(0, result.returncode, result.stderr)
         script = RUNNER.read_text(encoding="utf-8")
+        compile(script, str(RUNNER), "exec")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("this qualification entry point accepts no arguments", script)
         self.assertIn("qualified_unsigned_target_files_sha256", script)
