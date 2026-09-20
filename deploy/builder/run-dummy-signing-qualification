@@ -26,6 +26,9 @@ import zipfile
 EXPECTED_USER = "diamaneos-build"
 SDK_PROFILE_ID = "generic-x86_64-qualification"
 OTA_PROFILE_ID = "generic-x86_64-ota-qualification"
+OTA_CUSTOM_AVB_CHAINS = (
+    "vbmeta_system_dlkm", "vbmeta_vendor_dlkm",
+)
 KEY_IDS = (
     "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
     "platform", "releasekey", "sdk_sandbox", "shared",
@@ -180,6 +183,80 @@ def unique_regular_artifact(root, basename):
     return candidates[0]
 
 
+def prepare_ota_custom_avb_input(source, destination, work, evidence, log):
+    """Add only the reviewed DLKM vbmeta images to releasetools' custom list."""
+    source = Path(source)
+    destination = Path(destination)
+    work = Path(work)
+    work.mkdir(mode=0o700)
+    member = "META/misc_info.txt"
+    with zipfile.ZipFile(source) as archive:
+        matches = [item for item in archive.infolist()
+                   if item.filename == member]
+        if len(matches) != 1:
+            raise Failure("OTA input lacks one unambiguous misc_info member")
+        source_members = [
+            (item.filename, item.CRC, item.file_size, item.compress_size)
+            for item in archive.infolist() if item.filename != member
+        ]
+        text = archive.read(matches[0]).decode("utf-8")
+    prefix = "avb_custom_images_partition_list="
+    lines = text.splitlines()
+    indexes = [index for index, line in enumerate(lines)
+               if line.startswith(prefix)]
+    if len(indexes) > 1:
+        raise Failure("OTA input has duplicate custom AVB image lists")
+    existing = []
+    if indexes:
+        existing = lines[indexes[0]][len(prefix):].split()
+    if set(existing) - set(OTA_CUSTOM_AVB_CHAINS):
+        raise Failure("OTA input contains an unreviewed custom AVB image")
+    reviewed = sorted(
+        set(existing) | set(OTA_CUSTOM_AVB_CHAINS),
+        key=lambda item: item.encode("utf-8"))
+    replacement = prefix + " ".join(reviewed)
+    if indexes:
+        lines[indexes[0]] = replacement
+    else:
+        lines.append(replacement)
+
+    prepared_member = work / member
+    prepared_member.parent.mkdir(mode=0o700, parents=True)
+    prepared_member.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    shutil.copyfile(source, destination)
+    delete_log = Path(log).with_name(Path(log).stem + "-delete.log")
+    run(["zip", "-q", "-d", destination, member], delete_log, cwd=work)
+    run(["zip", "-q", destination, member], log, cwd=work)
+    with zipfile.ZipFile(destination) as archive:
+        matches = [item for item in archive.infolist()
+                   if item.filename == member]
+        if len(matches) != 1:
+            raise Failure("prepared OTA input has ambiguous misc_info metadata")
+        prepared_members = [
+            (item.filename, item.CRC, item.file_size, item.compress_size)
+            for item in archive.infolist() if item.filename != member
+        ]
+        prepared_text = archive.read(matches[0]).decode("utf-8")
+    if prepared_members != source_members:
+        raise Failure("OTA preparation changed a non-misc_info archive member")
+    prepared_values = [
+        line[len(prefix):].split() for line in prepared_text.splitlines()
+        if line.startswith(prefix)
+    ]
+    if prepared_values != [reviewed] or digest(source) == digest(destination):
+        raise Failure("bounded OTA custom AVB preparation did not apply")
+    atomic_json(evidence, {
+        "schema_version": 1,
+        "status": "PASS",
+        "operation": "add-reviewed-custom-avb-images",
+        "source_target_files_sha256": digest(source),
+        "prepared_target_files_sha256": digest(destination),
+        "existing_custom_avb_images": existing,
+        "prepared_custom_avb_images": reviewed,
+        "other_members_changed": False,
+    })
+
+
 def recovery_child(path):
     path = Path(path)
     path.mkdir(mode=0o700)
@@ -243,6 +320,8 @@ def main():
     evidence_root.mkdir(mode=0o750, parents=True, exist_ok=True)
     partial.mkdir(mode=0o750)
     private_root.mkdir(mode=0o700)
+    transient_root = partial / ".transient"
+    transient_root.mkdir(mode=0o700)
     logs = partial / "logs"
     logs.mkdir(mode=0o750)
 
@@ -455,6 +534,11 @@ def main():
         artifacts.mkdir(mode=0o750)
         sdk_signed = artifacts / "sdk-signed-target-files.zip"
         ota_signed = artifacts / "ota-signed-target-files.zip"
+        ota_prepared = transient_root / "ota-prepared-target-files.zip"
+        prepare_ota_custom_avb_input(
+            ota_unsigned, ota_prepared, transient_root / "preparation",
+            partial / "ota-input-preparation.json",
+            logs / "ota-input-preparation.log")
         sdk_sign_command = planner.signing_command(
             sdk_unsigned_inventory,
             signer=required_tools["sign_target_files_apks"],
@@ -462,7 +546,7 @@ def main():
         ota_sign_command = planner.signing_command(
             ota_unsigned_inventory,
             signer=required_tools["sign_target_files_apks"],
-            key_dir=key_dir, source=ota_unsigned, destination=ota_signed)
+            key_dir=key_dir, source=ota_prepared, destination=ota_signed)
         for command in (sdk_sign_command, ota_sign_command):
             if ("--override_apk_keys" in command
                     or "--override_apex_keys" in command):
@@ -494,6 +578,7 @@ def main():
                 or digest(sdk_signed) == digest(sdk_unsigned)
                 or digest(ota_signed) == digest(ota_unsigned)):
             raise Failure("signed target-files transformation was not accepted")
+        shutil.rmtree(transient_root)
 
         full_ota = artifacts / "full-ota.zip"
         incremental_ota = artifacts / "incremental-noop-ota.zip"
@@ -754,6 +839,8 @@ def main():
     except Exception as error:
         if private_root.exists():
             shutil.rmtree(private_root)
+        if transient_root.exists():
+            shutil.rmtree(transient_root)
         if (partial / ".otatools").exists():
             shutil.rmtree(partial / ".otatools")
         atomic_json(partial / "failure.json", {

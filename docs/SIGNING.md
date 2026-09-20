@@ -185,7 +185,12 @@ The accepted Cuttlefish AVB inventory includes `vbmeta_system_dlkm` and
 `vbmeta_vendor_dlkm`; the pinned releasetools interface treats these as custom
 AVB images, so the bounded planner emits only the corresponding exact custom-
 image key and algorithm options. Any other undeclared AVB chain still fails
-closed.
+closed. The generated target-files metadata does not place those two names in
+releasetools' custom-image list, so the runner prepares a transient copy by
+adding exactly those reviewed names to that one field. It verifies that every
+other ZIP member is unchanged, records both hashes and the before/after list,
+and removes the transient input before evidence promotion. The resulting
+signed images must still pass independent AVB verification.
 Fresh private material lives under `/dev/shm`, is removed before independent
 verification begins and is never retained in the evidence directory.
 The pinned Android `make_key` helper's cleanup trap can return status 1 after
