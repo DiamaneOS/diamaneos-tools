@@ -73,8 +73,10 @@ class SigningVerifyTest(unittest.TestCase):
         self.assertTrue(api.validate_config(changed, self.environment))
 
     @staticmethod
-    def target_files(path, *, presigned=False, signed=True, duplicate=False,
-                     settings_artifact=None):
+    def target_files(path, *, presigned=False, signed=True, avb_signed=None,
+                     duplicate=False, settings_artifact=None):
+        if avb_signed is None:
+            avb_signed = signed
         cert = "PRESIGNED" if presigned else (
             "keys/platform.x509.pem" if signed else
             "build/make/target/product/security/testkey.x509.pem")
@@ -92,8 +94,8 @@ class SigningVerifyTest(unittest.TestCase):
             f'container_certificate="keys/{apex_container}.x509.pem" '
             f'container_private_key="keys/{apex_container}.pk8"\n'
         )
-        avb_key = "avb" if signed else "testkey"
-        avb_algorithm = "SHA256_RSA4096" if signed else "SHA256_RSA2048"
+        avb_key = "avb" if avb_signed else "testkey"
+        avb_algorithm = "SHA256_RSA4096" if avb_signed else "SHA256_RSA2048"
         misc = (
             f"avb_vbmeta_key_path=keys/{avb_key}.pem\n"
             f"avb_vbmeta_algorithm={avb_algorithm}\n"
@@ -113,42 +115,77 @@ class SigningVerifyTest(unittest.TestCase):
                     warnings.simplefilter("ignore", UserWarning)
                     archive.writestr("META/apkcerts.txt", apk)
 
-    def test_signed_target_files_inventory_passes_exact_roles(self):
+    def test_signed_inventory_uses_accepted_source_labels_and_explicit_plan(self):
         with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp) / "target-files.zip"
-            self.target_files(path)
+            source_path = Path(temp) / "unsigned-target-files.zip"
+            self.target_files(source_path, signed=False)
+            source = api.inspect_target_files(
+                source_path, self.unqualified_config(),
+                "generic-x86_64-qualification", stage="unsigned")
+            path = Path(temp) / "signed-target-files.zip"
+            self.target_files(path, signed=False, avb_signed=True)
             result = api.inspect_target_files(
                 path, self.unqualified_config(),
-                "generic-x86_64-qualification",
-                stage="signed")
+                "generic-x86_64-qualification", stage="signed",
+                source_inventory=source)
             self.assertEqual("PASS", result["status"])
             self.assertEqual(1, result["apk_count"])
             self.assertEqual(1, result["apex_count"])
-            self.assertEqual("platform",
+            self.assertEqual("testkey",
                              result["apk_roles"][0]["certificate_role"])
+            self.assertEqual("releasekey",
+                             result["apk_roles"][0]["expected_certificate_role"])
+            self.assertEqual("releasekey", result["apex_roles"][0][
+                "expected_container_certificate_role"])
+            self.assertEqual("avb", result["apex_roles"][0][
+                "expected_payload_private_key_role"])
             self.assertEqual("avb", result["avb_roles"][0]["key_role"])
+            self.assertEqual(source["inventory_sha256"],
+                             result["source_inventory_sha256"])
 
-    def test_unlisted_role_or_presigned_package_fails_inventory(self):
+    def test_signed_inventory_requires_source_and_rejects_metadata_drift(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source_path = Path(temp) / "unsigned-target-files.zip"
+            self.target_files(source_path, signed=False)
+            source = api.inspect_target_files(
+                source_path, self.unqualified_config(),
+                "generic-x86_64-qualification", stage="unsigned")
+            path = Path(temp) / "signed-target-files.zip"
+            self.target_files(path)
+            with self.assertRaisesRegex(
+                    api.SigningError, "requires a source inventory"):
+                api.inspect_target_files(
+                    path, self.unqualified_config(),
+                    "generic-x86_64-qualification", stage="signed")
+            result = api.inspect_target_files(
+                path, self.unqualified_config(),
+                "generic-x86_64-qualification", stage="signed",
+                source_inventory=source)
+            self.assertEqual("FAIL", result["status"])
+            self.assertIn(
+                "signed target-files metadata differs from accepted unsigned input",
+                result["errors"])
+
+            tampered = copy.deepcopy(source)
+            tampered["apk_roles"][0]["certificate_role"] = "platform"
+            with self.assertRaisesRegex(
+                    api.SigningError, "source inventory self-hash mismatch"):
+                api.inspect_target_files(
+                    path, self.unqualified_config(),
+                    "generic-x86_64-qualification", stage="signed",
+                    source_inventory=tampered)
+
+    def test_unlisted_presigned_package_fails_inventory(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "target-files.zip"
             self.target_files(path, presigned=True)
             result = api.inspect_target_files(
                 path, self.unqualified_config(),
-                "generic-x86_64-qualification",
-                stage="signed")
+                "generic-x86_64-qualification", stage="unsigned")
             self.assertEqual("FAIL", result["status"])
             self.assertIn("target-files contains an unlisted presigned package",
                           result["errors"])
             self.assertEqual(["Settings.apk"], result["presigned_packages"])
-
-            self.target_files(path, signed=False)
-            result = api.inspect_target_files(
-                path, self.unqualified_config(),
-                "generic-x86_64-qualification",
-                stage="signed")
-            self.assertEqual("FAIL", result["status"])
-            self.assertIn("target-files contains an unlisted signing role",
-                          result["errors"])
 
     def test_unsigned_input_records_development_roles_without_approving_them(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -253,7 +290,7 @@ class SigningVerifyTest(unittest.TestCase):
                 api.inspect_target_files(
                     path, self.unqualified_config(),
                     "generic-x86_64-qualification",
-                    stage="signed")
+                    stage="unsigned")
             missing = Path(temp) / "missing.zip"
             with zipfile.ZipFile(missing, "w") as archive:
                 archive.writestr("META/apkcerts.txt", "")
@@ -261,7 +298,7 @@ class SigningVerifyTest(unittest.TestCase):
                 api.inspect_target_files(
                     missing, self.unqualified_config(),
                     "generic-x86_64-qualification",
-                    stage="signed")
+                    stage="unsigned")
 
     def _make_signed_result(self, root):
         root = Path(root)
