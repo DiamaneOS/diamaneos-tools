@@ -15,10 +15,13 @@ row identifies its later build explicitly.
 During the original arrival inspection, the stock build remained unchanged
 and the bootloader remained locked. The removable-storage follow-up occurred
 after the separately verified official Android 16 OTA; it does not imply that
-the arrival build remained installed. Performance/battery measurements,
-custom-OS qualification, restoration and unlock/relock acceptance require
-their own evidence. This report also does not establish acceptance of the
-baseline collector CLI described below.
+the arrival build remained installed. Performance/battery measurements and
+custom-OS qualification require their own evidence. Stock restoration and
+unlock/relock were subsequently validated by FP6-025 and are summarized in the
+installer recovery runbook; they are not claims made by the original hardware
+report. The stock-input inventory remains the immutable, hash-bound pre-restore
+selection snapshot used by build environment v4. This report also does not
+establish acceptance of the baseline collector CLI described below.
 
 ## Stock recovery inputs
 
@@ -34,8 +37,11 @@ the current accepted stock checkpoint is the locked, green-verified Android 16
 EU build `FP6.QREL.16.100.0` with the 2026-08-05 security patch. The matching
 Android 16 archive is therefore the current EU restore-selection input; the
 Android 15 archive is retained as historical verified input. Archive
-verification and selection are not proof of a successful restore, rollback
-eligibility, AVB/relock safety or bootloader operation.
+verification and selection alone are not proof of a successful restore,
+rollback eligibility, AVB/relock safety or bootloader operation. FP6-025 later
+supplied that separate evidence for the exact Android 16 EU archive: restore,
+AVB/rollback review, critical relock, normal relock, locked-green boot and final
+cold-boot hardware checks passed.
 
 Recovery copies must be read from two independent private storage locations and
 match the recorded byte count and SHA-256 before destructive work. Two
@@ -56,10 +62,23 @@ EU device the observed offer is `FP6.QREL.16.100.0`, so the US
 device. It remains a planned comparison input for the separately controlled US
 FP6; “excluded here” does not mean excluded from regional qualification.
 
-Raw partition bodies, per-partition device hashes and rollback-index values
-were not available under the accepted locked, non-root capture. They remain
-unknown. Package contents are separately derived inputs and must not be
-misreported as device dumps.
+The validated factory `super.img` has checksummed liblp 10.2 metadata with all
+seven slot-A logical partitions populated and every slot-B counterpart at zero
+bytes/zero extents. The script deliberately selects A; do not select, boot or
+fabricate B as a repair. Post-relock bootloader rollback locations 0–4 matched
+the authenticated target values `0,1,1785888000,1785888000,1785888000`, with
+locations 5–31 zero. Raw partition bodies and per-partition device hashes were
+not collected from the phone. Package-derived topology remains identified as a
+derived input rather than being misreported as a device dump.
+
+The default factory-script boot exposed a reproducible relock trap: first boot
+while unlocked set `get_unlock_ability` to `0` and left the Android OEM control
+greyed as already unlocked. No lock was attempted at zero. The accepted path
+used a same-directory copy with only the script's declared
+`REBOOT_TO_BOOTLOADER` toggle enabled, repeated the verified wipe/flash, required
+ability `1` before critical lock and again before normal lock, then proved the
+final ability `0`, both lock domains closed and green Verified Boot. See the
+[installer recovery runbook](../../installer/docs/recovery-preflight.md).
 
 ## Regional FP6 qualification
 
