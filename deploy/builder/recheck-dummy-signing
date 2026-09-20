@@ -1,0 +1,180 @@
+#!/usr/bin/python3
+"""Diagnostic replay of retained dummy artifacts; never signs or qualifies a run."""
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path, PurePosixPath
+import pwd
+import runpy
+import shutil
+import sys
+
+TOOLS = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(TOOLS / "src"))
+from diamaneos_tools import signing_verify as verify
+from diamaneos_tools import process
+from diamaneos_tools.evidence import atomic_json
+
+
+def retained_file(root, relative):
+    path = PurePosixPath(relative)
+    if path.is_absolute() or ".." in path.parts or not path.parts:
+        raise ValueError("unsafe retained input path")
+    candidate = root
+    for part in path.parts:
+        candidate = candidate / part
+        if candidate.is_symlink():
+            raise ValueError("retained inputs must not contain symlinks")
+    if not candidate.is_file():
+        raise ValueError("retained input is missing")
+    return candidate
+
+
+def prepare_inputs(source, destination, config):
+    """Copy metadata; hardlink large immutable outputs into a new diagnostic tree."""
+    manifest = verify.load_json(retained_file(source, "release-manifest.json"))
+    if manifest["source_binding"] != config["source_binding"]:
+        raise ValueError("retained run uses different source bindings")
+    if manifest["profile_ids"] != [config["dummy_qualification"]["sdk_profile_id"], config["dummy_qualification"]["ota_profile_id"]]:
+        raise ValueError("retained run profile set differs")
+    paths = {item["path"] for item in manifest["artifacts"]}
+    if len(paths) != len(manifest["artifacts"]):
+        raise ValueError("retained manifest has duplicate artifacts")
+    for item in manifest["artifacts"]:
+        path = retained_file(source, item["path"])
+        if path.stat().st_size != item["bytes"] or verify.sha256_file(path) != item["sha256"]:
+            raise ValueError("retained signed manifest artifact hash mismatch")
+    paths.update({"release-manifest.json", "release-manifest.json.sig",
+                  "artifacts/generic-images.zip.sig", "sdk-signed-inventory.json",
+                  "ota-signed-inventory.json", "factory-allowed-signers",
+                  "factory-wrong-allowed-signers", "release-allowed-signers",
+                  "release-wrong-allowed-signers"})
+    roles = next(item for item in config["artifact_roles"]
+                 if item["id"] == "android-apk-certificates")["key_ids"]
+    public = [f"{role}.x509.pem" for role in roles] + [
+        "wrong-releasekey.x509.pem", "avb.pub.pem", "wrong-avb.pub.pem",
+        "avb_pkmd.bin", "factory.pub", "wrong-factory.pub"]
+    paths.update("public-keys/" + name for name in public)
+    fingerprints = {record["key_id"]: record["sha256"] for record in manifest["key_public_fingerprints"]}
+    runner = runpy.run_path(str(TOOLS / "deploy/builder/run-dummy-signing-qualification"))
+    for role in roles:
+        if runner["certificate_fingerprint"](retained_file(source, f"public-keys/{role}.x509.pem")) != fingerprints[role]:
+            raise ValueError("retained public certificate differs from signed manifest")
+    if verify.sha256_file(retained_file(source, "public-keys/factory.pub")) != fingerprints["factory"]:
+        raise ValueError("retained factory public key differs from signed manifest")
+    # Do not import old logs, samples, checkpoint results or any private key files.
+    records = []
+    for relative in sorted(paths):
+        path = retained_file(source, relative)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+        if relative.startswith("artifacts/"):
+            os.link(path, target)  # Same filesystem required; no large copy fallback.
+        else:
+            shutil.copyfile(path, target)
+            target.chmod(0o640)
+        records.append({"path": relative, "sha256": verify.sha256_file(path),
+                        "bytes": path.stat().st_size})
+    return records
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--workspace", type=Path, default=Path("/var/lib/diamaneos-build"))
+    args = parser.parse_args()
+    if os.geteuid() == 0 or pwd.getpwuid(os.geteuid()).pw_name != "diamaneos-build":
+        raise ValueError("run as the unprivileged diamaneos-build identity")
+    source = args.run.resolve(strict=True)
+    workspace = args.workspace.resolve(strict=True)
+    source.relative_to(workspace / "evidence/dummy-signing")
+    if args.run.is_symlink() or not source.name.startswith("dummy-signing-"):
+        raise ValueError("not a retained dummy-signing run")
+    if source.name.endswith(".partial"):
+        raise ValueError("cannot recheck an active partial run")
+    if not (source / "failure.json").is_file() and not (source / "result.json").is_file():
+        raise ValueError("retained run has no terminal record")
+    output = args.output.resolve(strict=False)
+    output.relative_to(workspace / "evidence/dummy-signing")
+    if output.exists() or output.is_symlink():
+        raise ValueError("diagnostic output must be new")
+    revision = process.run(["git", "-c", f"safe.directory={TOOLS}", "-C", str(TOOLS), "rev-parse", "HEAD"], 10)
+    dirty = process.run(["git", "-c", f"safe.directory={TOOLS}", "-C", str(TOOLS), "status", "--porcelain=v1", "--untracked-files=all"], 10)
+    expected_revision = os.environ.get("DIAMANEOS_EXPECTED_TOOLS_COMMIT", "")
+    if (revision["transport"] != "ok" or dirty["transport"] != "ok" or dirty["stdout"]
+            or revision["stdout"].decode().strip() != expected_revision):
+        raise ValueError("diagnostic tools checkout is not the reviewed clean revision")
+    config = verify.load_json(TOOLS / "config/signing-roles.json")
+    environment = verify.load_json(TOOLS / "config/build-environment.json")
+    if verify.validate_config(config, environment):
+        raise ValueError("signing configuration is invalid")
+    runner = runpy.run_path(str(TOOLS / "deploy/builder/run-dummy-signing-qualification"))
+    fd = os.open(workspace / ".workspace.lock", os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        output.mkdir(mode=0o750)
+        (output / "logs").mkdir(mode=0o750)
+        report = {"schema_version": 1, "operation": "dummy-verification-diagnostic",
+                  "qualification_accepted": False, "source_run": source.name,
+                  "status": "FAIL"}
+        try:
+            report["inputs"] = prepare_inputs(source, output, config)
+            retained_hashes = {item["path"]: item["sha256"] for item in report["inputs"]}
+            for kind in ("sdk", "ota"):
+                inventory = verify.load_json(output / f"{kind}-signed-inventory.json", limit=64 * 1024 * 1024)
+                if (inventory.get("status") != "PASS" or inventory.get("stage") != "signed"
+                        or inventory.get("target_files_sha256") != retained_hashes[f"artifacts/{kind}-signed-target-files.zip"]):
+                    raise ValueError("retained inventory does not bind the signed artifact")
+            profiles = {p["id"]: p for p in config["target_profiles"]}
+            profile = profiles[config["dummy_qualification"]["ota_profile_id"]]
+            source_root = workspace / environment["workspace"]["source_subdirectory"]
+            build_output = workspace / environment["workspace"]["output_subdirectory"]
+            otatools = runner["unique_regular_artifact"](
+                build_output / "soong/.intermediates/build/make/tools/otatools_package/otatools-package",
+                "otatools.zip")
+            if verify.sha256_file(otatools) != profile["qualified_otatools_sha256"]:
+                raise ValueError("otatools archive is not the qualified input")
+            tool_dir = output / ".otatools"
+            tool_dir.mkdir(mode=0o750)
+            runner["run"](["unzip", "-q", otatools, "-d", tool_dir], output / "logs/unpack.log")
+            tool_bin = tool_dir / "bin"
+            required = {name: tool_bin / name for name in
+                        ("apksigner", "avbtool", "check_ota_package_signature")}
+            jdk = source_root / "prebuilts/jdk/jdk21"
+            observed = process.run(["git", "-C", str(jdk), "rev-parse", "HEAD"], 10)
+            expected = config["source_binding"]["projects"].get("prebuilts/jdk/jdk21")
+            if observed["transport"] != "ok" or observed["stdout"].decode().strip() != expected:
+                raise ValueError("pinned JDK revision mismatch")
+            for binding in config["source_binding"]["files"]:
+                if verify.sha256_file(source_root / binding["path"]) != binding["sha256"]:
+                    raise ValueError("pinned signing source file hash mismatch")
+            env = dict(os.environ)
+            env["PATH"] = (f"{tool_bin}:{jdk}/linux-x86/bin:"
+                           f"{source_root}/prebuilts/build-tools/linux-x86/bin:"
+                           f"{source_root}/prebuilts/build-tools/path/linux-x86:/usr/bin:/bin")
+            env["TMPDIR"] = str(workspace / "tmp")
+            report["verifier_tools_commit"] = expected_revision
+            report["otatools_sha256"] = profile["qualified_otatools_sha256"]
+            report["java_sha256"] = verify.sha256_file(jdk / "linux-x86/bin/java")
+            runner["verify_signed_outputs"](output, config, required, env)
+            report["status"] = "PASS"
+        except Exception as error:
+            report["error"] = str(error)
+        finally:
+            shutil.rmtree(output / ".otatools", ignore_errors=True)
+            atomic_json(output / "diagnostic.json", report)
+        print(json.dumps({"status": report["status"], "qualification_accepted": False,
+                          "report": str(output / "diagnostic.json")}))
+        return 0 if report["status"] == "PASS" else 1
+    finally:
+        os.close(fd)
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (ValueError, OSError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        raise SystemExit(1)

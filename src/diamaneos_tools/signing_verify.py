@@ -150,6 +150,31 @@ def canonical_sha256(value):
     return hashlib.sha256(raw).hexdigest()
 
 
+def apk_certificate_digests(output: str, expected: str) -> list[str]:
+    """Pin apksigner's verified signer certificate, across legacy/scheme labels.
+
+    Call only after apksigner exits zero. Public-key digests and source-stamp
+    certificates are not substitutes for the APK signer certificate.
+    """
+    if not HEX64_RE.fullmatch(expected):
+        raise SigningError("APK certificate pin is invalid")
+    lines = output.splitlines()
+    counts = [line for line in lines if line.startswith("Number of signers:")]
+    if counts != ["Number of signers: 1"]:
+        raise SigningError("APK verifier did not establish exactly one signer")
+    pattern = re.compile(
+        r"^(?:Signer #[1-9][0-9]*|V[1-3](?:\.[0-9]+)? Signer):? "
+        r"certificate SHA-256 digest: ([0-9a-fA-F]{64})$")
+    certificates = [line for line in lines if "certificate SHA-256 digest:" in line]
+    matches = [pattern.fullmatch(line) for line in certificates]
+    if not matches or any(match is None for match in matches):
+        raise SigningError("APK verifier certificate output is missing or unsupported")
+    observed = {match.group(1).lower() for match in matches}
+    if observed != {expected}:
+        raise SigningError("APK/APEX certificate does not match its declared role")
+    return sorted(observed)
+
+
 def _schema_errors(value, schema_name):
     if Draft7Validator is None:
         return ["missing jsonschema; install requirements-dev.txt in a virtual environment"]
