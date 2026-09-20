@@ -1,9 +1,11 @@
 """Static deployment contract for disposable signing qualification."""
 
+import json
 from pathlib import Path
 import runpy
 import tempfile
 import unittest
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +27,7 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn("def unique_regular_artifact", script)
         self.assertIn('"sdk-signed-target-files.zip"', script)
         self.assertIn('"ota-signed-target-files.zip"', script)
-        self.assertIn("source=ota_unsigned, destination=ota_signed", script)
+        self.assertIn("source=ota_prepared, destination=ota_signed", script)
         self.assertIn(
             'key_dir / "releasekey", ota_signed, full_ota', script)
         self.assertIn(
@@ -105,6 +107,40 @@ class DummySigningDeploymentTest(unittest.TestCase):
                 make_android_key(
                     malformed, "bad", "bad", "/CN=bad/",
                     destination, logs)
+
+    def test_ota_preparation_adds_only_reviewed_custom_avb_images(self):
+        runner = runpy.run_path(str(RUNNER))
+        prepare = runner["prepare_ota_custom_avb_input"]
+        failure = runner["Failure"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("META/misc_info.txt", "avb_enable=true\n")
+                archive.writestr("SYSTEM/payload", b"unchanged")
+            destination = root / "prepared.zip"
+            evidence = root / "evidence.json"
+            prepare(source, destination, root / "work", evidence,
+                    root / "prepare.log")
+            with zipfile.ZipFile(destination) as archive:
+                misc = archive.read("META/misc_info.txt").decode()
+                self.assertEqual(b"unchanged",
+                                 archive.read("SYSTEM/payload"))
+            self.assertIn(
+                "avb_custom_images_partition_list=vbmeta_system_dlkm "
+                "vbmeta_vendor_dlkm\n", misc)
+            record = json.loads(evidence.read_text())
+            self.assertEqual("PASS", record["status"])
+            self.assertFalse(record["other_members_changed"])
+
+            rejected = root / "rejected.zip"
+            with zipfile.ZipFile(rejected, "w") as archive:
+                archive.writestr(
+                    "META/misc_info.txt",
+                    "avb_custom_images_partition_list=unreviewed\n")
+            with self.assertRaises(failure):
+                prepare(rejected, root / "unused.zip", root / "reject-work",
+                        root / "unused.json", root / "reject.log")
 
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
         unit = SERVICE.read_text(encoding="utf-8")
