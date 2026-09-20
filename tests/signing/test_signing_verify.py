@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 
 
@@ -88,7 +89,12 @@ class SigningVerifyTest(unittest.TestCase):
             archive.writestr("META/apexkeys.txt", apex)
             archive.writestr("META/misc_info.txt", misc)
             if duplicate:
-                archive.writestr("META/apkcerts.txt", apk)
+                # The duplicate is intentional: this fixture verifies that the
+                # parser rejects ambiguous ZIP member names. Suppress only the
+                # warning emitted while constructing that invalid fixture.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    archive.writestr("META/apkcerts.txt", apk)
 
     def test_signed_target_files_inventory_passes_exact_roles(self):
         with tempfile.TemporaryDirectory() as temp:
