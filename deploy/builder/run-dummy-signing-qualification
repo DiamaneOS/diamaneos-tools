@@ -187,9 +187,10 @@ def certificate_fingerprint(path):
     return hashlib.sha256(result.stdout).hexdigest()
 
 
-def apk_certificate_check(apksigner, artifact, expected, log):
+def apk_certificate_check(apksigner, artifact, expected, log, *, env):
     _, output, _ = run(
-        [apksigner, "verify", "--verbose", "--print-certs", artifact], log)
+        [apksigner, "verify", "--verbose", "--print-certs", artifact], log,
+        env=env)
     observed = {item.lower() for item in APK_DIGEST_RE.findall(output)}
     if observed != {expected}:
         raise Failure("APK/APEX certificate does not match its declared role")
@@ -831,7 +832,7 @@ def main():
             expected = certificate_fingerprint(public / f"{role}.x509.pem")
             observed = apk_certificate_check(
                 required_tools["apksigner"], sample, expected,
-                logs / f"verify-apk-{role}.log")
+                logs / f"verify-apk-{role}.log", env=qualification_env)
             if wrong_release_fingerprint in observed:
                 raise Failure("APK certificate pin accepted the wrong key")
             checks.append({
@@ -861,7 +862,7 @@ def main():
                 public / "releasekey.x509.pem")
             observed = apk_certificate_check(
                 required_tools["apksigner"], apex_sample, release_fingerprint,
-                logs / "verify-apex-container.log")
+                logs / "verify-apex-container.log", env=qualification_env)
             if wrong_release_fingerprint in observed:
                 raise Failure("APEX container certificate pin accepted the wrong key")
             checks.append({
