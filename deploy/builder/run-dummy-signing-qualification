@@ -413,6 +413,7 @@ def main():
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
             "--profile", PROFILE_ID, "--stage", "signed",
+            "--source-inventory", partial / "unsigned-inventory.json",
             "--target-files", signed, "--output",
             partial / "signed-inventory.json",
         ], logs / "signed-inventory.log", env=base_env)
@@ -496,8 +497,9 @@ def main():
                 members[PurePosixPath(name).name].append(name)
             roles = defaultdict(list)
             for record in signed_inventory["apk_roles"]:
-                if record["certificate_role"] in KEY_IDS:
-                    roles[record["certificate_role"]].append(record["name"])
+                role = record.get("expected_certificate_role")
+                if role in KEY_IDS:
+                    roles[role].append(record["name"])
             samples = partial / "samples/apk"
             for role in KEY_IDS:
                 selected = None
@@ -524,7 +526,8 @@ def main():
 
             apex_record = next(
                 item for item in signed_inventory["apex_roles"]
-                if item["container_certificate_role"] == "releasekey"
+                if item.get("expected_container_certificate_role") == "releasekey"
+                and item.get("expected_payload_private_key_role") == "avb"
                 and members.get(item["name"]))
             apex_path = sorted(members[apex_record["name"]])[0]
             apex_sample = partial / "samples/apex/container.apex"

@@ -449,13 +449,80 @@ def _presigned_artifact_errors(archive, profile):
     return errors
 
 
-def inspect_target_files(path, config, profile_id, *, stage):
+def _signed_source_plan(source_inventory, profile, config, profile_id):
+    """Validate and plan against the accepted unsigned inventory.
+
+    The pinned Android signer deliberately copies ``META/apkcerts.txt`` and
+    ``META/apexkeys.txt`` from the input archive. Those files describe the
+    source labels used to select keys; they do not become a record of the
+    destination keys. A signed archive therefore needs its exact accepted
+    unsigned inventory as the metadata reference, while independent artifact
+    verification proves the destination certificates and AVB keys.
+    """
+    if not isinstance(source_inventory, dict):
+        raise SigningError("signed target-files requires a source inventory")
+    from diamaneos_tools import signing_qualification
+    try:
+        observed_hash = source_inventory["inventory_sha256"]
+        canonical = dict(source_inventory)
+        canonical.pop("inventory_sha256")
+        if (not HEX64_RE.fullmatch(observed_hash)
+                or canonical_sha256(canonical) != observed_hash):
+            raise SigningError("source inventory self-hash mismatch")
+        if (source_inventory["status"] != "PASS"
+                or source_inventory["stage"] != "unsigned"
+                or source_inventory["inventory_id"] != config["inventory_id"]
+                or source_inventory["profile_id"] != profile_id):
+            raise SigningError("source inventory is not an accepted unsigned input")
+        qualified_hash = profile["qualified_unsigned_target_files_sha256"]
+        if (qualified_hash is not None
+                and source_inventory["target_files_sha256"] != qualified_hash):
+            raise SigningError("source inventory does not bind the qualified input")
+        plan = signing_qualification.explicit_role_map(source_inventory)
+    except SigningError:
+        raise
+    except (KeyError, TypeError, signing_qualification.QualificationPlanError):
+        raise SigningError("source inventory cannot produce a signing plan") from None
+    return plan
+
+
+def _role_index(records, fields, label):
+    try:
+        indexed = {
+            record["name"]: tuple(record[field] for field in fields)
+            for record in records
+        }
+    except (KeyError, TypeError):
+        raise SigningError(f"{label} inventory is malformed") from None
+    if len(indexed) != len(records):
+        raise SigningError(f"{label} inventory contains duplicate packages")
+    return indexed
+
+
+def inspect_target_files(path, config, profile_id, *, stage,
+                         source_inventory=None):
     if stage not in {"unsigned", "signed"}:
         raise SigningError("target-files stage must be unsigned or signed")
     profiles = {entry["id"]: entry for entry in config["target_profiles"]}
     if profile_id not in profiles:
         raise SigningError("unknown signing target profile")
     profile = profiles[profile_id]
+    if stage == "unsigned" and source_inventory is not None:
+        raise SigningError("source inventory is valid only for signed target-files")
+    plan = None
+    source_apks = None
+    source_apex = None
+    if stage == "signed":
+        plan = _signed_source_plan(
+            source_inventory, profile, config, profile_id)
+        source_apks = _role_index(
+            source_inventory.get("apk_roles"),
+            ("certificate_role",), "source APK")
+        source_apex = _role_index(
+            source_inventory.get("apex_roles"),
+            ("container_certificate_role", "payload_public_key",
+             "payload_private_key_role"),
+            "source APEX")
     target_files_sha256 = sha256_file(path)
     with _zip_metadata(path) as archive:
         apks = _attribute_lines(_read_member(
@@ -472,18 +539,19 @@ def inspect_target_files(path, config, profile_id, *, stage):
     unknown_roles = set()
     for record in apks:
         certificate = _basename_role(record.get("certificate", ""))
-        private_key = _basename_role(record.get("private_key", ""))
         if certificate in {"PRESIGNED", "EXTERNAL"}:
             presigned.add(record["name"])
-        elif stage == "signed" and certificate not in ANDROID_CERT_KEYS:
-            unknown_roles.add(certificate or "missing-apk-certificate")
-        if stage == "signed" and private_key not in {
-                certificate, "", "PRESIGNED", "EXTERNAL"}:
-            unknown_roles.add(private_key)
-        apk_inventory.append({
+        record_out = {
             "name": record["name"],
             "certificate_role": certificate,
-        })
+        }
+        if stage == "signed":
+            planned = plan.get(record["name"])
+            if planned is None or planned["kind"] != "apk":
+                record_out["expected_certificate_role"] = "missing"
+            else:
+                record_out["expected_certificate_role"] = planned["container"]
+        apk_inventory.append(record_out)
 
     for record in apex:
         container = _basename_role(record.get("container_certificate", ""))
@@ -491,16 +559,23 @@ def inspect_target_files(path, config, profile_id, *, stage):
         payload_private = _basename_role(record.get("private_key", ""))
         if container in {"PRESIGNED", "EXTERNAL"}:
             presigned.add(record["name"])
-        elif stage == "signed" and container != "releasekey":
-            unknown_roles.add(container or "missing-apex-container-certificate")
-        if stage == "signed" and payload_private != "avb":
-            unknown_roles.add(payload_private or "missing-apex-payload-key")
-        apex_inventory.append({
+        record_out = {
             "name": record["name"],
             "container_certificate_role": container,
             "payload_public_key": payload_public,
             "payload_private_key_role": payload_private,
-        })
+        }
+        if stage == "signed":
+            planned = plan.get(record["name"])
+            if planned is None or planned["kind"] != "apex":
+                record_out["expected_container_certificate_role"] = "missing"
+                record_out["expected_payload_private_key_role"] = "missing"
+            else:
+                record_out["expected_container_certificate_role"] = \
+                    planned["container"]
+                record_out["expected_payload_private_key_role"] = \
+                    planned["payload"]
+        apex_inventory.append(record_out)
 
     avb = []
     for key in sorted(misc):
@@ -523,6 +598,19 @@ def inspect_target_files(path, config, profile_id, *, stage):
     missing_allowlist = allowed - presigned
     unlisted_presigned = presigned - allowed
     errors = list(artifact_errors)
+    if stage == "signed":
+        observed_apks = _role_index(
+            apk_inventory, ("certificate_role",), "signed APK")
+        observed_apex = _role_index(
+            apex_inventory,
+            ("container_certificate_role", "payload_public_key",
+             "payload_private_key_role"),
+            "signed APEX")
+        if observed_apks != source_apks or observed_apex != source_apex:
+            errors.append(
+                "signed target-files metadata differs from accepted unsigned input")
+        if set(plan) != set(observed_apks) | set(observed_apex):
+            errors.append("signed target-files package set differs from signing plan")
     qualified_hash = profile["qualified_unsigned_target_files_sha256"]
     if (stage == "unsigned" and qualified_hash is not None
             and target_files_sha256 != qualified_hash):
@@ -555,6 +643,12 @@ def inspect_target_files(path, config, profile_id, *, stage):
         "status": "PASS" if not errors else "FAIL",
         "errors": errors,
     }
+    if stage == "signed":
+        inventory.update({
+            "metadata_role_model": "accepted-unsigned-labels-plus-explicit-plan",
+            "source_inventory_sha256": source_inventory["inventory_sha256"],
+            "planned_role_count": len(plan),
+        })
     inventory["inventory_sha256"] = canonical_sha256(inventory)
     return inventory
 
@@ -689,6 +783,9 @@ def _parser():
     inventory.add_argument("--profile", required=True)
     inventory.add_argument("--stage", choices=("unsigned", "signed"), required=True)
     inventory.add_argument("--target-files", required=True)
+    inventory.add_argument(
+        "--source-inventory",
+        help="accepted unsigned inventory required for the signed stage")
     inventory.add_argument("--output")
 
     verify = subparsers.add_parser(
@@ -722,8 +819,13 @@ def main(argv=None):
             }, indent=2, sort_keys=True))
             return 0
         if args.action == "inventory":
+            source_inventory = None
+            if args.source_inventory:
+                source_inventory = load_json(
+                    args.source_inventory, limit=64 * 1024 * 1024)
             result = inspect_target_files(
-                args.target_files, config, args.profile, stage=args.stage)
+                args.target_files, config, args.profile, stage=args.stage,
+                source_inventory=source_inventory)
             if args.output:
                 _write_json(args.output, result)
             print(json.dumps(result, indent=2, sort_keys=True))
