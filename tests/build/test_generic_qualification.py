@@ -43,6 +43,7 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("DIAMANEOS_THERMAL_CHECK", script)
+        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
         self.assertIn('--thermal-check "$thermal_check"', script)
         self.assertIn("--require-empty-output", script)
         self.assertIn("production_signing_material_used", script)
@@ -73,6 +74,7 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         script = SYNC.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("DIAMANEOS_THERMAL_CHECK", script)
+        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
         self.assertIn('--thermal-check "$thermal_check"', script)
         self.assertIn('workspace["output_subdirectory"]', script)
         self.assertNotIn(

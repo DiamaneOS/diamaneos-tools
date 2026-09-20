@@ -21,6 +21,7 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
     def test_runner_is_revision_bound_and_does_not_create_keys(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
+        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
         self.assertIn('"$tools_root/bin/diamaneos" signing roles', script)
         self.assertIn("m target-files-package otatools-package", script)
         self.assertIn("--stage unsigned", script)

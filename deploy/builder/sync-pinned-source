@@ -13,7 +13,7 @@ repo_tool_url=https://gerrit.googlesource.com/git-repo
 repo_tool_tag=v2.65
 repo_tool_tag_object=2f04a7d4d2bd16170285b9b971227e8151d49f78
 repo_tool_commit=35bbf701d04de5c6a71937279bc3d16f6ce36808
-thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-thermal-check}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-fan-check}
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2

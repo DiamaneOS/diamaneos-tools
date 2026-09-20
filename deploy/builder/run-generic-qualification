@@ -4,7 +4,7 @@ set -euo pipefail
 workspace_root=${DIAMANEOS_BUILD_ROOT:-/var/lib/diamaneos-build}
 tools_link=${DIAMANEOS_TOOLS_ROOT:-/opt/diamaneos/tools}
 expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
-thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-thermal-check}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-fan-check}
 expected_user=diamaneos-build
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 run_id=generic-qualification-$(date -u +%Y%m%dT%H%M%SZ)

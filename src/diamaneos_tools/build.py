@@ -553,7 +553,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--allowed-signers", type=Path)
     parser.add_argument(
         "--thermal-check", "--fan-check", dest="thermal_check", type=Path,
-        default=Path("/usr/local/sbin/diamaneos-builder-thermal-check"),
+        default=Path("/usr/local/sbin/diamaneos-builder-fan-check"),
         help=("absolute executable which exits zero only when the builder's "
               "current thermal and cooling state is safe; --fan-check is a "
               "backwards-compatible alias"),
