@@ -140,6 +140,12 @@ otatools hash. It enumerates every accepted package name into an explicit role
 mapping and deliberately does not use the global APK/APEX key-override options.
 Fresh private material lives under `/dev/shm`, is removed before independent
 verification begins and is never retained in the evidence directory.
+The pinned Android `make_key` helper's cleanup trap can return status 1 after
+creating a key successfully. The runner accepts only status 0 or 1 from that
+exact source-bound helper, then requires nonempty, nonsymlink certificate and
+PKCS#8 outputs and independently parses both with OpenSSL. The observed helper
+status and both parse results are retained in `key-generation.json`; a missing
+or malformed artifact still fails the run.
 
 The generic incremental proof uses the same signed target-files archive as its
 old and new input. This deliberately exercises the complete incremental OTA
