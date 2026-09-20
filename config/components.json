@@ -3,16 +3,16 @@
     {
       "component": "GrapheneOS base tree",
       "decision_owner": "designated project maintainer",
-      "distribution_form": "source pin + downstream delta (source research / manifest integration)",
-      "evidence": "platform_manifest 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 contains COPPERHEAD-NOTICE, GLOBAL-PREUPLOAD.cfg, config.yml and default.xml. Its notice is preserved under manifest/third_party/grapheneos-platform-manifest/; manifest/UPSTREAM-LICENSING.md records the exact scope and evidence gap.",
+      "distribution_form": "authenticated upstream release tag plus a separate minimal DiamaneOS local-manifest overlay",
+      "evidence": "Selected environment fp6-android17-grapheneos-2026091000-debian13-v4 verifies signed platform_manifest tag 2026091000, tag object 6c939d124f3ea8dd545c1e4045f26359f501d80e, peeled commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a and resolved 1,057-project map SHA-256 31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803. The DiamaneOS manifest repository carries no copied upstream manifest and currently adds no projects.",
       "id": "grapheneos-base",
-      "licence": "Mixed, per-project and per-file. The pinned platform_manifest snapshot has no explicit licence file or default.xml licence header; exact identification of that imported manifest remains unresolved. The DiamaneOS Apache-2.0 default applies only to original project contributions.",
-      "modifications": "Minimal diamaneos.xml delta only",
-      "notices_obligation": "Preserve the imported manifest notice and upstream attribution; resolve its exact licence from applicable upstream evidence. Independently inventory licences/notices of the source files actually fetched and consumed.",
+      "licence": "Mixed, per-project and per-file in the independently fetched source checkout. The DiamaneOS overlay repository is Apache-2.0 and does not copy or relicense the upstream platform manifest.",
+      "modifications": "No upstream manifest modification. Future DiamaneOS repositories or forks are added only through the separate diamaneos.xml local-manifest overlay at exact commits.",
+      "notices_obligation": "Inventory and preserve the licences, copyright notices and attribution of every fetched source file actually consumed. Record each future DiamaneOS fork's upstream revision, downstream changes and applicable obligations when it is added to the overlay.",
       "owner_task": "FP6-007",
-      "revision": "branch-17 @ 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287 (observed 2026-09-10; frozen manifest in WORK_ROOT/manifest)",
+      "revision": "signed platform_manifest tag 2026091000, tag object 6c939d124f3ea8dd545c1e4045f26359f501d80e, peeled commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
       "source_url": "https://github.com/GrapheneOS/platform_manifest",
-      "status": "needs-review"
+      "status": "pinned"
     },
     {
       "component": "OpenEUICC LPA (candidate)",

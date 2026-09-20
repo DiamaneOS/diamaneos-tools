@@ -163,6 +163,21 @@ production signing material on the online builder. The FP6 release-purpose
 preflight remains fail-closed until the generated exact-stock device-input
 manifest and FP6 product target are verified.
 
+## Downstream manifest overlay
+
+The accepted environment initializes the authenticated GrapheneOS release tag
+directly and contains no DiamaneOS overlay projects. The separate
+`platform_manifest` repository is a minimal local-manifest overlay; it does not
+copy the upstream `default.xml` or repeat upstream project revisions.
+
+When the first real DiamaneOS repository or fork is ready, create a new build
+environment that binds the reviewed overlay commit and file digest, installs
+that overlay under `.repo/local_manifests` before `repo sync`, and records the
+new resolved project-map digest. Re-run the affected source and build
+qualification. Do not modify this accepted environment in place, add planned
+empty repositories or use the overlay to freeze revisions already supplied by
+the signed GrapheneOS release.
+
 ## Signing handoff
 
 The online builder stops at unsigned target-files and otatools. Signing roles,
