@@ -1,0 +1,162 @@
+#!/usr/bin/python3
+"""Run one reviewed private compatibility job without a shell command surface."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import subprocess
+import sys
+
+
+TOOLS = Path("/opt/diamaneos/tools")
+PRIVATE = Path("/var/lib/diamaneos-build")
+COMPATIBILITY = PRIVATE / "compatibility"
+JOBS = COMPATIBILITY / "jobs"
+PACKAGES = COMPATIBILITY / "packages"
+RUNS = COMPATIBILITY / "runs"
+CONFIG = TOOLS / "config/test-suites.json"
+DEVICE_MAP = COMPATIBILITY / "devices/builder.json"
+RIG_CONFIG = Path("/etc/diamaneos/builder-compatibility-rig.json")
+ADB = Path("/usr/local/bin/adb")
+ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
+HEX40_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+def fail(message: str) -> None:
+    raise SystemExit("ERROR: " + message)
+
+
+def unique(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            fail("private compatibility job contains a duplicate key")
+        value[key] = item
+    return value
+
+
+def load(path: Path, limit: int = 2 * 1024 * 1024):
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        fail("required compatibility input is unavailable")
+    if len(raw) > limit:
+        fail("compatibility input exceeds its byte limit")
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+    except (UnicodeError, ValueError, RecursionError):
+        fail("compatibility input is not valid unique-key JSON")
+
+
+def owner_controlled(path: Path) -> None:
+    try:
+        metadata = path.lstat()
+    except OSError:
+        fail("private compatibility input is unavailable")
+    if (path.is_symlink() or not path.is_file()
+            or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o027):
+        fail("private compatibility input is not owner-controlled")
+
+
+def checked_retry(value) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        fail("retry_result must be a relative path")
+    relative = PurePosixPath(value)
+    if (relative.is_absolute() or ".." in relative.parts
+            or len(relative.parts) != 2 or relative.name != "result.json"):
+        fail("retry_result must name one prior run result")
+    result = (RUNS / Path(*relative.parts)).resolve(strict=True)
+    try:
+        result.relative_to(RUNS.resolve(strict=True))
+    except ValueError:
+        fail("retry result escapes the compatibility run root")
+    owner_controlled(result)
+    return str(result)
+
+
+def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if len(argv) != 1 or not ID_RE.fullmatch(argv[0]):
+        fail("expected one valid immutable job id")
+    job_id = argv[0]
+    if os.geteuid() == 0 or os.environ.get("USER") != "diamaneos-build":
+        fail("compatibility job must run as the dedicated builder identity")
+
+    expected = os.environ.get("DIAMANEOS_EXPECTED_TOOLS_COMMIT", "")
+    if not HEX40_RE.fullmatch(expected):
+        fail("reviewed tools commit is not configured")
+    observed = subprocess.run(
+        ["/usr/bin/git", "-c", f"safe.directory={TOOLS}", "-C", str(TOOLS),
+         "rev-parse", "HEAD"], capture_output=True, text=True, timeout=20)
+    if observed.returncode or observed.stdout.strip() != expected:
+        fail("reviewed tools commit mismatch")
+    dirty = subprocess.run(
+        ["/usr/bin/git", "-c", f"safe.directory={TOOLS}", "-C", str(TOOLS),
+         "status", "--porcelain=v1", "--untracked-files=all"],
+        capture_output=True, text=True, timeout=20)
+    if dirty.returncode or dirty.stdout:
+        fail("reviewed tools checkout is dirty")
+
+    job_path = JOBS / f"{job_id}.json"
+    setup_path = JOBS / f"{job_id}.setup.json"
+    owner_controlled(job_path)
+    owner_controlled(setup_path)
+    job = load(job_path)
+    expected_keys = {"schema_version", "run_id", "profile_id",
+                     "timeout_seconds", "retry_result"}
+    if (not isinstance(job, dict) or set(job) != expected_keys
+            or job.get("schema_version") != 1
+            or job.get("run_id") != job_id
+            or not isinstance(job.get("profile_id"), str)
+            or not ID_RE.fullmatch(job["profile_id"])
+            or not isinstance(job.get("timeout_seconds"), int)
+            or not 60 <= job["timeout_seconds"] <= 172800):
+        fail("private compatibility job has an invalid shape")
+
+    config = load(CONFIG)
+    profiles = [item for item in config.get("trial_profiles", [])
+                if item.get("id") == job["profile_id"]]
+    if len(profiles) != 1 or not profiles[0].get("package_id"):
+        fail("private compatibility job selects an unavailable profile")
+    packages = [item for item in config.get("packages", [])
+                if item.get("id") == profiles[0]["package_id"]]
+    if len(packages) != 1 or not packages[0].get("archive_name"):
+        fail("private compatibility job selects an unavailable package")
+    package = packages[0]
+    archive = PACKAGES / package["id"] / package["archive_name"]
+    package_root = PACKAGES / package["id"] / "extracted"
+
+    mapping = load(DEVICE_MAP)
+    targets = [item.get("adb_serial") for item in mapping.get("devices", [])
+               if isinstance(item, dict) and item.get("role") == "harness"]
+    if len(targets) != 1 or not isinstance(targets[0], str) or not targets[0]:
+        fail("private harness role is not mapped exactly once")
+    retry = checked_retry(job["retry_result"])
+    command = [
+        "/usr/bin/python3", str(TOOLS / "bin/diamaneos"),
+        "test", "compatibility", "--run-trial",
+        "--profile", job["profile_id"], "--run-id", job_id,
+        "--target", targets[0], "--device-role", "harness",
+        "--device-map", str(DEVICE_MAP), "--rig-config", str(RIG_CONFIG),
+        "--archive", str(archive), "--package-root", str(package_root),
+        "--setup-record", str(setup_path), "--output", str(RUNS),
+        "--adb", str(ADB), "--timeout-seconds", str(job["timeout_seconds"]),
+    ]
+    if retry is not None:
+        command.extend(["--rerun-from", retry])
+    environment = {
+        "HOME": str(PRIVATE), "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",
+        "PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1",
+        "USER": "diamaneos-build", "LOGNAME": "diamaneos-build",
+    }
+    os.execve(command[0], command, environment)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "registry_id": "android17-compatibility-20260920-v1",
+  "target": {
+    "android_release": "17",
+    "api_level": 37,
+    "architecture": "arm64-v8a",
+    "required_build_type": "user",
+    "suite_release": "17_r2",
+    "candidate_environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
+    "candidate_status": "pending-fp6-user-build"
+  },
+  "minimum_host": {
+    "architecture": "x86_64",
+    "memory_gib": 32,
+    "free_disk_gib": 256,
+    "glibc_minimum": "2.17",
+    "locale": "English",
+    "dependencies": [
+      "FFmpeg 5.1.3 or newer",
+      "current Android platform-tools adb",
+      "current Android build-tools aapt2"
+    ]
+  },
+  "device_preparation": [
+    "Use a user build matching the exact suite release and architecture.",
+    "Remove screen credentials and enable USB debugging and Stay awake.",
+    "Use 12-hour time, automatic date/time and automatic time zone.",
+    "Enable location, IPv4/IPv6 isolated-client Wi-Fi and Allow Mock Modem where required.",
+    "Install the exact architecture/version APEX shim and CTS media required by selected modules.",
+    "Insert an empty supported microSD and an activated SIM in each applicable slot; CTS may erase removable media.",
+    "Record every manual setting and fixture in the private setup record; production code must not detect CTS."
+  ],
+  "teardown": [
+    "Export and hash the complete result tree before cleanup.",
+    "Remove CTS-only packages, media and settings or wipe the disposable harness candidate.",
+    "Restore the rig role and scheduled battery policy only after the persistent inhibitor is released.",
+    "Keep identifiers, SIM/account data and raw logs in private evidence storage."
+  ],
+  "official_sources": [
+    {
+      "id": "cts-downloads",
+      "url": "https://source.android.com/docs/compatibility/cts/downloads",
+      "checked_at": "2026-09-20",
+      "purpose": "Android 17 R2 CTS and CTS Verifier package selection"
+    },
+    {
+      "id": "cts-setup",
+      "url": "https://source.android.com/docs/compatibility/cts/setup",
+      "checked_at": "2026-09-20",
+      "purpose": "host, DUT, APEX shim and media preparation"
+    },
+    {
+      "id": "cts-verifier",
+      "url": "https://source.android.com/docs/compatibility/cts/verifier",
+      "checked_at": "2026-09-20",
+      "purpose": "manual execution and supported report export"
+    },
+    {
+      "id": "vts-systems",
+      "url": "https://source.android.com/docs/core/tests/vts/systems",
+      "checked_at": "2026-09-20",
+      "purpose": "source-built VTS package and plan names"
+    },
+    {
+      "id": "vts-debug-ramdisk",
+      "url": "https://source.android.com/docs/core/tests/vts/vts-on-gsi",
+      "checked_at": "2026-09-20",
+      "purpose": "debug companion and evidence limitation"
+    }
+  ],
+  "packages": [
+    {
+      "id": "cts-17-r2-arm",
+      "kind": "cts",
+      "delivery": "official-download",
+      "version": "17_r2",
+      "url": "https://dl.google.com/dl/android/cts/android-cts-17_r2-linux_x86-arm.zip",
+      "archive_name": "android-cts-17_r2-linux_x86-arm.zip",
+      "archive_sha256": null,
+      "acquisition_status": "pending-verified-download",
+      "extracted_directory": "android-cts",
+      "launcher": "tools/cts-tradefed",
+      "plan": "cts"
+    },
+    {
+      "id": "cts-verifier-17-r2-arm",
+      "kind": "cts-verifier",
+      "delivery": "official-download",
+      "version": "17_r2",
+      "url": "https://dl.google.com/dl/android/cts/android-cts-verifier-17_r2-linux_x86-arm.zip",
+      "archive_name": "android-cts-verifier-17_r2-linux_x86-arm.zip",
+      "archive_sha256": null,
+      "acquisition_status": "pending-verified-download",
+      "extracted_directory": "android-cts-verifier",
+      "launcher": null,
+      "plan": "manual-export"
+    },
+    {
+      "id": "vts-17-source",
+      "kind": "vts",
+      "delivery": "pinned-source-build",
+      "version": "fp6-android17-grapheneos-2026091000-debian13-v4",
+      "url": "https://android.googlesource.com/platform/test/vts/",
+      "archive_name": null,
+      "archive_sha256": null,
+      "acquisition_status": "pending-source-build",
+      "extracted_directory": "android-vts",
+      "launcher": "tools/vts-tradefed",
+      "plan": "vts"
+    },
+    {
+      "id": "cts-16-r6-arm",
+      "kind": "cts",
+      "delivery": "official-download",
+      "version": "16_r6",
+      "url": "https://dl.google.com/dl/android/cts/android-cts-16_r6-linux_x86-arm.zip",
+      "archive_name": "android-cts-16_r6-linux_x86-arm.zip",
+      "archive_sha256": null,
+      "acquisition_status": "pending-verified-download",
+      "extracted_directory": "android-cts",
+      "launcher": "tools/cts-tradefed",
+      "plan": "cts"
+    },
+    {
+      "id": "cts-verifier-16-r6-arm",
+      "kind": "cts-verifier",
+      "delivery": "official-download",
+      "version": "16_r6",
+      "url": "https://dl.google.com/dl/android/cts/android-cts-verifier-16_r6-linux_x86-arm.zip",
+      "archive_name": "android-cts-verifier-16_r6-linux_x86-arm.zip",
+      "archive_sha256": null,
+      "acquisition_status": "pending-verified-download",
+      "extracted_directory": "android-cts-verifier",
+      "launcher": null,
+      "plan": "manual-export"
+    }
+  ],
+  "trial_profiles": [
+    {
+      "id": "android17-final-user",
+      "android_release": "17",
+      "build_type": "user",
+      "package_id": "cts-17-r2-arm",
+      "module": null,
+      "test": null,
+      "required_fixture_ids": [
+        "camera-light-scene",
+        "display-touch-audio",
+        "telephony-peer-provider-variance",
+        "microsd-usb-hub",
+        "biometric-human-presence",
+        "ble-beacons-three",
+        "gnss-signal",
+        "ipv4-ipv6-isolated-wifi",
+        "dual-wifi-and-rtt",
+        "cts-verifier-peer",
+        "distance-fixtures",
+        "router-offline-control",
+        "cts-media-1.5"
+      ],
+      "status": "blocked-pending-candidate-and-package"
+    },
+    {
+      "id": "stock16-harness-trial",
+      "android_release": "16",
+      "build_type": "user",
+      "package_id": "cts-16-r6-arm",
+      "module": null,
+      "test": null,
+      "required_fixture_ids": [],
+      "status": "pending-separately-versioned-package"
+    }
+  ],
+  "fixtures": [
+    {"id": "camera-light-scene", "status": "available", "handling": "manual fixed scene and controlled USB light"},
+    {"id": "display-touch-audio", "status": "available", "handling": "manual operator observation"},
+    {"id": "telephony-peer-provider-variance", "status": "available", "handling": "dedicated peer handset and test subscriptions"},
+    {"id": "microsd-usb-hub", "status": "available", "handling": "dedicated removable media and qualified powered USB rig"},
+    {"id": "biometric-human-presence", "status": "manual", "handling": "operator-attended enrollment and observation only"},
+    {"id": "ble-beacons-three", "status": "missing", "handling": "CTS requires at least three BLE beacons within five metres when Bluetooth LE is supported"},
+    {"id": "gnss-signal", "status": "unverified", "handling": "verify a usable GNSS signal and required SUPL reachability at the execution site"},
+    {"id": "ipv4-ipv6-isolated-wifi", "status": "unverified", "handling": "qualify IPv4, IPv6, DNS, multicast and isolated-client behavior"},
+    {"id": "dual-wifi-and-rtt", "status": "unverified", "handling": "required conditionally for reported STA concurrency or Wi-Fi RTT support"},
+    {"id": "cts-verifier-peer", "status": "unverified", "handling": "qualify a second Android device for Bluetooth, Wi-Fi Direct, Wi-Fi Aware and NFC HCE; UWB only if reported"},
+    {"id": "distance-fixtures", "status": "missing", "handling": "stage holders and measured distances for applicable proximity calibration"},
+    {"id": "router-offline-control", "status": "unverified", "handling": "qualify a router whose internet path can be disconnected without powering it off"},
+    {"id": "cts-media-1.5", "status": "missing", "handling": "stage exact official media package before media cases"},
+    {"id": "nfc-protocol-fixtures", "status": "unverified", "handling": "inventory exact CTS Verifier cases before purchase or assignment"},
+    {"id": "usb-audio-loopback", "status": "unverified", "handling": "inventory exact CTS Verifier cases before purchase or assignment"},
+    {"id": "secure-element-cardlet", "status": "conditional", "handling": "required only if DUT reports the official multi-secure-element condition"}
+  ],
+  "applicability": [
+    {"id": "cts", "decision": "required-final-user", "reason": "Run matching CTS on the final shipping user build; generic or stock trials prove only the harness."},
+    {"id": "cts-verifier", "decision": "required-final-user-manual", "reason": "Export the supported report after all applicable manual cases; missing fixtures remain blockers."},
+    {"id": "vts", "decision": "required-diagnostic-companion", "reason": "Build from the candidate source and map tests to VINTF; root/debug evidence is never labelled locked-user evidence."},
+    {"id": "cts-on-gsi", "decision": "diagnostic-not-final-acceptance", "reason": "A GSI result checks vendor interfaces and remains distinct from the shipped DiamaneOS system result."},
+    {"id": "mts", "decision": "candidate-inventory-dependent", "reason": "Run matching modular suites for modules actually shipped by the candidate; package inventory must precede selection."},
+    {"id": "sts-autorepro", "decision": "pre-release-when-officially-available", "reason": "Use available matching security regression artifacts without claiming inaccessible partner suites were completed."}
+  ]
+}

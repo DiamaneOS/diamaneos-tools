@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_id", "target", "minimum_host", "device_preparation", "teardown", "official_sources", "packages", "trial_profiles", "fixtures", "applicability"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "registry_id": {"$ref": "#/definitions/id"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["android_release", "api_level", "architecture", "required_build_type", "suite_release", "candidate_environment_id", "candidate_status"],
+      "properties": {
+        "android_release": {"const": "17"},
+        "api_level": {"const": 37},
+        "architecture": {"const": "arm64-v8a"},
+        "required_build_type": {"const": "user"},
+        "suite_release": {"const": "17_r2"},
+        "candidate_environment_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "candidate_status": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "minimum_host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture", "memory_gib", "free_disk_gib", "glibc_minimum", "locale", "dependencies"],
+      "properties": {
+        "architecture": {"const": "x86_64"},
+        "memory_gib": {"type": "integer", "minimum": 32},
+        "free_disk_gib": {"type": "integer", "minimum": 256},
+        "glibc_minimum": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "locale": {"const": "English"},
+        "dependencies": {"type": "array", "minItems": 3, "items": {"$ref": "#/definitions/text"}}
+      }
+    },
+    "device_preparation": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/text"}},
+    "teardown": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/text"}},
+    "official_sources": {"type": "array", "minItems": 5, "items": {"$ref": "#/definitions/source"}},
+    "packages": {"type": "array", "minItems": 3, "items": {"$ref": "#/definitions/package"}},
+    "trial_profiles": {"type": "array", "minItems": 2, "items": {"$ref": "#/definitions/trial"}},
+    "fixtures": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/fixture"}},
+    "applicability": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/applicability"}}
+  },
+  "definitions": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "url", "checked_at", "purpose"],
+      "properties": {"id": {"$ref": "#/definitions/id"}, "url": {"type": "string", "pattern": "^https://"}, "checked_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}, "purpose": {"$ref": "#/definitions/text"}}
+    },
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "delivery", "version", "url", "archive_name", "archive_sha256", "acquisition_status", "extracted_directory", "launcher", "plan"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"}, "kind": {"enum": ["cts", "cts-verifier", "vts"]}, "delivery": {"enum": ["official-download", "pinned-source-build"]}, "version": {"$ref": "#/definitions/text"}, "url": {"type": "string", "pattern": "^https://"},
+        "archive_name": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9._-]+$"}, "archive_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}, "acquisition_status": {"enum": ["pending-verified-download", "pending-source-build", "verified"]},
+        "extracted_directory": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}, "launcher": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9._/-]+$"}, "plan": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}
+      }
+    },
+    "trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "android_release", "build_type", "package_id", "module", "test", "required_fixture_ids", "status"],
+      "properties": {"id": {"$ref": "#/definitions/id"}, "android_release": {"type": "string", "pattern": "^[0-9]+$"}, "build_type": {"enum": ["user", "userdebug"]}, "package_id": {"type": ["string", "null"]}, "module": {"type": ["string", "null"]}, "test": {"type": ["string", "null"]}, "required_fixture_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/id"}}, "status": {"$ref": "#/definitions/text"}}
+    },
+    "fixture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "handling"],
+      "properties": {"id": {"$ref": "#/definitions/id"}, "status": {"enum": ["available", "manual", "missing", "unverified", "conditional"]}, "handling": {"$ref": "#/definitions/text"}}
+    },
+    "applicability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "decision", "reason"],
+      "properties": {"id": {"$ref": "#/definitions/id"}, "decision": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "reason": {"$ref": "#/definitions/text"}}
+    }
+  }
+}
