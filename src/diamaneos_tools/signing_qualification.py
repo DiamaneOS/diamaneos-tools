@@ -21,6 +21,9 @@ SUPPORTED_AVB_CHAINS = {
     "boot", "init_boot", "recovery", "system", "system_other", "vendor",
     "dtbo", "vbmeta", "vbmeta_system", "vbmeta_vendor",
 }
+SUPPORTED_CUSTOM_AVB_CHAINS = {
+    "vbmeta_system_dlkm", "vbmeta_vendor_dlkm",
+}
 PRESIGNED = "PRESIGNED"
 MAX_NAMES_PER_ARGUMENT = 256
 
@@ -121,13 +124,22 @@ def signing_command(inventory, *, signer, key_dir, source, destination):
     observed = set()
     for record in sorted(chains, key=lambda item: item["chain"]):
         chain = record.get("chain")
-        if chain not in SUPPORTED_AVB_CHAINS or chain in observed:
+        if (chain not in SUPPORTED_AVB_CHAINS | SUPPORTED_CUSTOM_AVB_CHAINS
+                or chain in observed):
             raise QualificationPlanError("inventory contains an unsupported AVB chain")
         observed.add(chain)
-        command.extend([
-            f"--avb_{chain}_key", f"{key_dir}/avb.pem",
-            f"--avb_{chain}_algorithm", "SHA256_RSA4096",
-        ])
+        if chain in SUPPORTED_CUSTOM_AVB_CHAINS:
+            command.extend([
+                "--avb_extra_custom_image_key",
+                f"{chain}={key_dir}/avb.pem",
+                "--avb_extra_custom_image_algorithm",
+                f"{chain}=SHA256_RSA4096",
+            ])
+        else:
+            command.extend([
+                f"--avb_{chain}_key", f"{key_dir}/avb.pem",
+                f"--avb_{chain}_algorithm", "SHA256_RSA4096",
+            ])
     command.extend([str(source), str(destination)])
     return command
 
