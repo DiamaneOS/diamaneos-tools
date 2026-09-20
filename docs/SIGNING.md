@@ -137,6 +137,10 @@ Android certificate role must have a real transformed APK in one of the two
 accepted archives. A different missing-role set fails closed and requires a
 new review; the future FP6 product must regenerate its own real artifact
 coverage rather than inheriting these generic limitations.
+The runner derives its Android certificate roles, profile pair and reviewed
+metadata-only exception set from `config/signing-roles.json`; it does not
+maintain a second permissive role list. An upstream role absent from that
+signed contract remains an inventory error rather than being auto-enrolled.
 
 A package appearing in a discovery report does not add it to the allowlist.
 Review why it remains presigned, bind its archive identity or reviewed
