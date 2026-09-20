@@ -5,9 +5,11 @@ workspace_root=${DIAMANEOS_BUILD_ROOT:-/var/lib/diamaneos-build}
 tools_link=${DIAMANEOS_TOOLS_ROOT:-/opt/diamaneos/tools}
 expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
 thermal_check=${DIAMANEOS_THERMAL_CHECK:-}
+profile_id=${DIAMANEOS_SIGNING_PROFILE_ID:-generic-x86_64-qualification}
+run_prefix=${DIAMANEOS_DISCOVERY_RUN_PREFIX:-signing-discovery}
 expected_user=diamaneos-build
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-run_id=signing-discovery-$(date -u +%Y%m%dT%H%M%SZ)
+run_id=$run_prefix-$(date -u +%Y%m%dT%H%M%SZ)
 evidence_root=$workspace_root/evidence/dummy-signing
 partial=$evidence_root/$run_id.partial
 
@@ -59,6 +61,11 @@ trap write_failure EXIT
   fail 'expected reviewed tools commit is missing or invalid'
 [[ $thermal_check == /* ]] || \
   fail 'DIAMANEOS_THERMAL_CHECK must name an explicit absolute path'
+case "$profile_id:$run_prefix" in
+  generic-x86_64-qualification:signing-discovery | \
+  generic-x86_64-ota-qualification:ota-signing-discovery) ;;
+  *) fail 'unsupported signing-discovery profile binding' ;;
+esac
 [[ -x $tools_link/bin/diamaneos ]] || fail 'reviewed tools deployment is unavailable'
 tools_root=$(readlink -f "$tools_link")
 [[ $tools_root == "/opt/diamaneos/tools-$expected_tools_commit" ]] || \
@@ -74,7 +81,7 @@ observed_tools_commit=$(git -c safe.directory="$tools_root" \
   fail 'reviewed tools checkout is writable by group or other'
 
 mapfile -t declared < <(python3 - "$tools_root/config/build-environment.json" \
-  "$tools_root/config/signing-roles.json" <<'PY'
+  "$tools_root/config/signing-roles.json" "$profile_id" <<'PY'
 import json
 import sys
 
@@ -84,11 +91,11 @@ with open(sys.argv[2], encoding="utf-8") as stream:
     signing = json.load(stream)
 workspace = environment["workspace"]
 profile = next(item for item in signing["target_profiles"]
-               if item["id"] == "generic-x86_64-qualification")
+               if item["id"] == sys.argv[3])
 print(workspace["source_subdirectory"])
 print(workspace["cache_subdirectory"])
 print(workspace["output_subdirectory"])
-print(environment["build"]["generic_qualification_target"])
+print(profile["build_target"])
 print(profile["product"])
 print(profile["build_variant"])
 print(environment["upstream"]["release_tag"])
@@ -160,7 +167,7 @@ otatools=$ANDROID_HOST_OUT/obj/ETC/otatools-packagelinux_glibc_x86_64_intermedia
 
 set +e
 "$tools_root/bin/diamaneos" signing inventory \
-  --profile generic-x86_64-qualification \
+  --profile "$profile_id" \
   --stage unsigned \
   --target-files "$target_files" \
   --output "$partial/unsigned-inventory.json" \
@@ -200,14 +207,14 @@ sha256sum "$otatools" >"$partial/otatools.sha256"
 ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 - "$partial/result.json" "$run_id" "$started_at" "$ended_at" \
   "$expected_tools_commit" "$status" "$target_files" "$otatools" \
-  "$presigned_count" <<'PY'
+  "$presigned_count" "$profile_id" <<'PY'
 import hashlib
 import json
 import os
 import sys
 
 (path, run_id, started, ended, tools_commit, status, target_files,
- otatools, presigned_count) = sys.argv[1:]
+ otatools, presigned_count, profile_id) = sys.argv[1:]
 root = os.path.dirname(path)
 
 def digest(path):
@@ -228,7 +235,7 @@ with open(temporary, "w", encoding="utf-8") as stream:
         "started_at_utc": started,
         "ended_at_utc": ended,
         "tools_commit": tools_commit,
-        "profile_id": "generic-x86_64-qualification",
+        "profile_id": profile_id,
         "dummy_keys_created": False,
         "signing_operations": 0,
         "target_files_path": target_files,

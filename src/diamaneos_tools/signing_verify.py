@@ -242,8 +242,20 @@ def validate_config(config, environment):
     profile_ids = [entry["id"] for entry in profiles]
     if len(profile_ids) != len(set(profile_ids)):
         errors.append("duplicate signing target profile")
-    if set(profile_ids) != {"generic-x86_64-qualification", "fp6-release"}:
+    if set(profile_ids) != {
+            "generic-x86_64-qualification",
+            "generic-x86_64-ota-qualification",
+            "fp6-release",
+    }:
         errors.append("signing target-profile set is incomplete")
+    profiles_by_id = {entry["id"]: entry for entry in profiles}
+    generic = profiles_by_id.get("generic-x86_64-qualification", {})
+    if generic.get("build_target") != environment["build"][
+            "generic_qualification_target"]:
+        errors.append("generic signing target does not match build environment")
+    ota = profiles_by_id.get("generic-x86_64-ota-qualification", {})
+    if ota.get("build_target") != "aosp_cf_x86_64_phone-cur-userdebug":
+        errors.append("generic OTA signing target is not the reviewed product")
     for profile in profiles:
         allowlist = profile["presigned_allowlist"]
         if allowlist != sorted(allowlist, key=lambda item: item.encode("utf-8")):

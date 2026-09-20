@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "deploy" / "builder" / "run-signing-discovery"
 SERVICE = (ROOT / "deploy" / "builder" /
            "diamaneos-builder-signing-discovery.service")
+OTA_SERVICE = (ROOT / "deploy" / "builder" /
+               "diamaneos-builder-ota-signing-discovery.service")
 
 
 class SigningDiscoveryDeploymentTest(unittest.TestCase):
@@ -35,6 +37,15 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
         self.assertNotIn("make_key", script)
         self.assertNotIn("sign_target_files_apks", script)
 
+    def test_runner_has_exact_default_and_ota_profile_bindings(self):
+        script = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("DIAMANEOS_SIGNING_PROFILE_ID", script)
+        self.assertIn("unsupported signing-discovery profile binding", script)
+        self.assertIn(
+            "generic-x86_64-ota-qualification:ota-signing-discovery",
+            script,
+        )
+
     def test_only_exact_presigned_review_can_be_nonpassing_discovery(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn(
@@ -45,17 +56,27 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
         self.assertIn("NEEDS_REVIEW", script)
 
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
-        unit = SERVICE.read_text(encoding="utf-8")
-        self.assertIn("User=diamaneos-build", unit)
-        self.assertIn("After=diamaneos-builder-source-sync.service", unit)
-        self.assertNotIn("Requires=diamaneos-builder-source-sync.service", unit)
-        self.assertIn("IPAddressDeny=any", unit)
-        self.assertIn("NoNewPrivileges=yes", unit)
-        self.assertIn("ProtectSystem=full", unit)
-        self.assertIn("TimeoutStartSec=infinity", unit)
-        self.assertNotIn("WantedBy=", unit)
-        self.assertNotIn("sudo", unit)
-        self.assertNotIn("/opt/nodejs/v24.21.0/bin", unit)
+        for path in (SERVICE, OTA_SERVICE):
+            unit = path.read_text(encoding="utf-8")
+            self.assertIn("User=diamaneos-build", unit)
+            self.assertIn("After=diamaneos-builder-source-sync.service", unit)
+            self.assertNotIn("Requires=diamaneos-builder-source-sync.service", unit)
+            self.assertIn("IPAddressDeny=any", unit)
+            self.assertIn("NoNewPrivileges=yes", unit)
+            self.assertIn("ProtectSystem=full", unit)
+            self.assertIn("TimeoutStartSec=infinity", unit)
+            self.assertNotIn("WantedBy=", unit)
+            self.assertNotIn("sudo", unit)
+            self.assertNotIn("/opt/nodejs/v24.21.0/bin", unit)
+
+    def test_ota_service_selects_the_fixed_virtual_ab_profile(self):
+        unit = OTA_SERVICE.read_text(encoding="utf-8")
+        self.assertIn(
+            "Environment=DIAMANEOS_SIGNING_PROFILE_ID="
+            "generic-x86_64-ota-qualification", unit)
+        self.assertIn(
+            "Environment=DIAMANEOS_DISCOVERY_RUN_PREFIX="
+            "ota-signing-discovery", unit)
 
 
 if __name__ == "__main__":

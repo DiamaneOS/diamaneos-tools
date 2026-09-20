@@ -67,6 +67,24 @@ class SigningVerifyTest(unittest.TestCase):
         self.assertIn("artifact role refers to an unknown key role",
                       api.validate_config(changed, self.environment))
 
+    def test_generic_build_target_drift_fails_closed(self):
+        changed = copy.deepcopy(self.config)
+        profile = next(entry for entry in changed["target_profiles"]
+                       if entry["id"] == "generic-x86_64-qualification")
+        profile["build_target"] = "different-cur-userdebug"
+        self.assertIn(
+            "generic signing target does not match build environment",
+            api.validate_config(changed, self.environment),
+        )
+        changed = copy.deepcopy(self.config)
+        profile = next(entry for entry in changed["target_profiles"]
+                       if entry["id"] == "generic-x86_64-ota-qualification")
+        profile["build_target"] = "different-cur-userdebug"
+        self.assertIn(
+            "generic OTA signing target is not the reviewed product",
+            api.validate_config(changed, self.environment),
+        )
+
     def test_safety_boundary_cannot_authorize_production_operations(self):
         changed = copy.deepcopy(self.config)
         changed["safety"]["production_key_generation_allowed"] = True
