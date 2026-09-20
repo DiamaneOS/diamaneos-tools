@@ -30,6 +30,7 @@ class SigningVerifyTest(unittest.TestCase):
         profile = next(entry for entry in config["target_profiles"]
                        if entry["id"] == "generic-x86_64-qualification")
         profile["qualified_unsigned_target_files_sha256"] = None
+        profile["qualified_otatools_sha256"] = None
         profile["presigned_allowlist"] = []
         profile["presigned_metadata_only"] = []
         profile["presigned_artifacts"] = []
@@ -316,6 +317,14 @@ class SigningVerifyTest(unittest.TestCase):
             ],
             "artifacts": artifacts,
             "release_record_proof": {
+                "manifest_path": manifest.name,
+                "signature_path": "release-manifest.json.sig",
+                "allowed_signers_path": allowed.name,
+                "wrong_allowed_signers_path": wrong.name,
+                "identity": "dummy-release",
+                "namespace": "diamaneos-dummy-release-record",
+            },
+            "factory_archive_proof": {
                 "manifest_path": manifest.name,
                 "signature_path": "release-manifest.json.sig",
                 "allowed_signers_path": allowed.name,
