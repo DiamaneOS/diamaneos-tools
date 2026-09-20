@@ -32,6 +32,12 @@ observed_tools_commit=$(git -c safe.directory="$tools_root" \
 [[ $workspace_root == /* ]] || fail "workspace root must be absolute"
 [[ ! -L $workspace_root ]] || fail "workspace root must not be a symlink"
 
+# This descriptor stays open through preflight, execution and final evidence.
+[[ -d $workspace_root && ! -L $workspace_root/.workspace.lock ]] || \
+  fail 'workspace lock path is unavailable'
+exec 9>"$workspace_root/.workspace.lock"
+flock -n 9 || fail 'another builder operation owns this workspace'
+
 # The portable check binds this script invocation to the exact reviewed config
 # and inventories every non-runtime input before any network or source change.
 "$tools_root/bin/diamaneos" build preflight --inputs-only
@@ -53,6 +59,7 @@ print(upstream["tag_object"])
 print(upstream["peeled_commit"])
 print(upstream["allowed_signers_url"])
 print(upstream["allowed_signers_sha256"])
+print(upstream["manifest_url"])
 repo_tool = upstream["repo_tool"]
 print(repo_tool["url"])
 print(repo_tool["release_tag"])
@@ -60,7 +67,7 @@ print(repo_tool["tag_object"])
 print(repo_tool["peeled_commit"])
 PY
 )
-[[ ${#declared_workspace[@]} -eq 12 ]] || \
+[[ ${#declared_workspace[@]} -eq 13 ]] || \
   fail "declared workspace, release or repo-tool pins are incomplete"
 source_root=$workspace_root/${declared_workspace[0]}
 cache_root=$workspace_root/${declared_workspace[1]}
@@ -70,19 +77,30 @@ tag_object=${declared_workspace[4]}
 peeled_commit=${declared_workspace[5]}
 allowed_signers_url=${declared_workspace[6]}
 allowed_signers_sha256=${declared_workspace[7]}
-repo_tool_url=${declared_workspace[8]}
-repo_tool_tag=${declared_workspace[9]}
-repo_tool_tag_object=${declared_workspace[10]}
-repo_tool_commit=${declared_workspace[11]}
+manifest_url=${declared_workspace[8]}
+repo_tool_url=${declared_workspace[9]}
+repo_tool_tag=${declared_workspace[10]}
+repo_tool_tag_object=${declared_workspace[11]}
+repo_tool_commit=${declared_workspace[12]}
 allowed_signers=$cache_root/trust/grapheneos-allowed-signers-$tag
 [[ ! -L $source_root && ! -L $cache_root && ! -L $output_root ]] || \
   fail "workspace roots must not be symlinks"
 
-install -d -m 0750 "$source_root" "$cache_root/trust" "$output_root"
+install -d -m 0750 "$source_root"
 if [[ ! -d $source_root/.repo ]]; then
-  [[ -z $(find "$source_root" -mindepth 1 -maxdepth 1 -print -quit) ]] || \
-    fail "new source root is not empty"
+  # A previous preflight may have created the declared empty source-local out.
+  if [[ $(dirname "$output_root") == "$source_root" && -d $output_root ]]; then
+    [[ -z $(find "$output_root" -mindepth 1 -print -quit) ]] || \
+      fail "new source output is not empty"
+    [[ -z $(find "$source_root" -mindepth 1 -maxdepth 1 ! -path "$output_root" -print -quit) ]] || \
+      fail "new source root contains undeclared content"
+  else
+    [[ -z $(find "$source_root" -mindepth 1 -maxdepth 1 -print -quit) ]] || \
+      fail "new source root is not empty"
+  fi
 fi
+
+install -d -m 0750 "$cache_root/trust" "$output_root"
 
 PATH="$workspace_root/toolbin:/usr/local/bin:/usr/bin:/bin" \
   "$tools_root/bin/diamaneos" build preflight \
@@ -109,12 +127,19 @@ mv -f -- "$temporary_signers" "$allowed_signers"
 temporary_signers=
 
 cd "$source_root"
-repo init -u https://github.com/GrapheneOS/platform_manifest.git \
+# An existing repo launcher delegates into this checkout during init itself.
+if [[ -d .repo/repo ]]; then
+  [[ -z $(git -C .repo/repo status --porcelain=v1 --untracked-files=all) ]] || \
+    fail "repo implementation checkout is dirty before init"
+fi
+repo init -u "$manifest_url" \
   -b "refs/tags/$tag" \
   --repo-url="$repo_tool_url" \
   --repo-rev="$repo_tool_commit"
 
 repo_tool_git=$source_root/.repo/repo
+[[ -z $(git -C "$repo_tool_git" status --porcelain=v1 --untracked-files=all) ]] || \
+  fail "repo implementation checkout is dirty"
 [[ $(git -C "$repo_tool_git" remote get-url origin) == "$repo_tool_url" ]] || \
   fail "repo implementation origin mismatch"
 [[ $(git -C "$repo_tool_git" rev-parse HEAD) == "$repo_tool_commit" ]] || \

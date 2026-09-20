@@ -123,21 +123,26 @@ older system Node.js, so the bootstrap deliberately installs neither Node.js
 nor Yarn. Bind and verify the exact Node.js 24 distribution before vendor
 generation instead of treating an older executable as satisfied evidence.
 
-`finalize-debian13` is currently bound to the official Node.js v24.21.0 Linux
-x64 archive, its clear-signed checksum manifest and the Node.js release
-keyring. All three staging-file hashes are embedded in the script. The script
-first verifies those transport hashes, authenticates the manifest with
-`gpgv`, and then checks the archive against the authenticated manifest. It
-installs under `/opt/nodejs/v24.21.0` and exposes root-owned links from
-`/usr/local/bin`.
+The finalizer reads Node version/archive pins from `config/build-environment.json`
+and the supplementary authenticated acquisition metadata from
+`config/tool-acquisition.json`. Keep it inside the authenticated tools checkout;
+do not copy it alone. The latter record supplies the exact signed manifest
+hash and a commit-pinned [official Node release keyring](https://github.com/nodejs/release-keys).
+It augments acquisition without changing the accepted environment bytes.
 
-Stage `pubring.kbx`, `SHASUMS256.txt.asc`, and
-`node-v24.21.0-linux-x64.tar.xz` in
-`/tmp/diamaneos-node-v24.21.0`, then run:
+Choose a new staging directory, then download and verify as an ordinary user:
 
 ```sh
-sudo ./finalize-debian13 builder-admin /tmp/diamaneos-node-v24.21.0
+NODE_STAGE=/absolute/path/to/new-node-stage
+"$TOOLS_ROOT/deploy/builder/stage-node" "$NODE_STAGE"
+sudo "$TOOLS_ROOT/deploy/builder/finalize-debian13" builder-admin "$NODE_STAGE"
 ```
+
+Staging verifies all three hashes, verifies the signed checksum manifest with
+`gpgv`, and checks the archive against the authenticated plaintext. The root
+finalizer repeats verification before installation under `/opt/nodejs/`.
+Prepare integrity-pinned Yarn next, as the build identity, following
+[`docs/BUILD.md`](../../docs/BUILD.md). Both steps precede source-sync preflight.
 
 Do not globally activate whatever Yarn release Corepack happens to resolve.
 The Android source revision must bind its Yarn release before vendor

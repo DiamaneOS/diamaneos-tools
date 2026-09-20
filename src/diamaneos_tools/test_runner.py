@@ -19,12 +19,27 @@ from pathlib import Path
 import re
 import signal
 import stat
-import subprocess
 import sys
 import time
 
 from diamaneos_tools import baseline
 from diamaneos_tools import rig
+
+from .errors import RunnerError, CommandInterrupted
+from .process import run_bounded, terminate_group as _terminate_group
+from .device import IDENTITY_PROPERTIES
+from .evidence import sha256_bytes as sha256_bytes
+from .evidence import read_bounded as _read_bounded
+from .evidence import load_unique_json as _load_unique_json
+from .evidence import atomic_json as _atomic_json
+from .evidence import sync_directory as _sync_directory
+from .evidence import write_evidence as _write_evidence
+from .evidence import verify_evidence_refs as _verify_evidence_refs
+from .evidence import git_revision as _git_revision
+from .device import evidence_label as _evidence_label
+from .device import adb_version as _adb_version
+from .device import authorized_devices as _authorized_devices
+from .device import capture_identity as _capture_identity
 
 
 SCHEMA_VERSION = 1
@@ -63,67 +78,9 @@ READ_ONLY_ADB_ALLOWLIST = {
     ("getenforce",),
 }
 
-IDENTITY_PROPERTIES = {
-    "model": "ro.product.model",
-    "device": "ro.product.device",
-    "build_id": "ro.build.id",
-    "incremental": "ro.build.version.incremental",
-    "build_type": "ro.build.type",
-    "security_patch": "ro.build.version.security_patch",
-    "firmware": "gsm.version.baseband",
-}
-
-
-class RunnerError(Exception):
-    """Controlled runner error carrying the stable CLI exit category."""
-
-    def __init__(self, message: str, exit_code: int):
-        super().__init__(message)
-        self.exit_code = exit_code
-
-
-class CommandInterrupted(Exception):
-    """A bounded child was interrupted; partial streams remain available."""
-
-    def __init__(self, result: dict):
-        super().__init__("command interrupted")
-        self.result = result
-
 
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def _read_bounded(path: Path, cap: int) -> bytes:
-    try:
-        with path.open("rb") as stream:
-            data = stream.read(cap + 1)
-    except OSError as exc:
-        raise RunnerError("input is unreadable", 2) from exc
-    if len(data) > cap:
-        raise RunnerError("input exceeds its byte limit", 2)
-    return data
-
-
-def _load_unique_json(path: Path, cap: int) -> tuple[object, bytes]:
-    data = _read_bounded(path, cap)
-
-    def unique(pairs):
-        result = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError("duplicate JSON key")
-            result[key] = value
-        return result
-
-    try:
-        return json.loads(data.decode("utf-8"), object_pairs_hook=unique), data
-    except (UnicodeDecodeError, ValueError) as exc:
-        raise RunnerError("input is not valid unique-key UTF-8 JSON", 2) from exc
 
 
 def _expect_keys(value: dict, required: set[str], allowed: set[str], label: str):
@@ -290,165 +247,6 @@ def load_device_map(path: Path, role: str, target: str) -> dict:
     return matches[0]
 
 
-def _terminate_group(proc: subprocess.Popen):
-    if proc.poll() is not None:
-        return
-    try:
-        os.killpg(proc.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    try:
-        proc.wait(timeout=0.25)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    try:
-        proc.wait(timeout=1)
-    except subprocess.TimeoutExpired:
-        pass
-
-
-def run_bounded(argv: list[str], timeout_seconds: int,
-                max_output_bytes: int = MAX_OUTPUT_BYTES) -> dict:
-    """Run an argv array with time/output bounds and descendant cleanup."""
-    started = time.monotonic()
-    try:
-        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                start_new_session=True)
-    except FileNotFoundError:
-        return {"transport": "tool-missing", "stdout": "", "stderr": "",
-                "reason": "required executable is unavailable", "duration_ms": 0}
-    except OSError:
-        return {"transport": "error", "stdout": "", "stderr": "",
-                "reason": "failed to start command", "duration_ms": 0}
-
-    for stream in (proc.stdout, proc.stderr):
-        os.set_blocking(stream.fileno(), False)
-    stdout = bytearray()
-    stderr = bytearray()
-    deadline = started + timeout_seconds
-    transport = None
-    interrupted = False
-    try:
-        while True:
-            for stream, buffer in ((proc.stdout, stdout), (proc.stderr, stderr)):
-                try:
-                    chunk = os.read(stream.fileno(), 65_536)
-                except BlockingIOError:
-                    chunk = None
-                except OSError:
-                    chunk = b""
-                if chunk:
-                    buffer.extend(chunk)
-                    if len(buffer) > max_output_bytes:
-                        transport = "overflow"
-                        break
-            if transport:
-                _terminate_group(proc)
-                break
-            if proc.poll() is not None:
-                # Drain data already buffered in the two pipes once more.
-                for stream, buffer in ((proc.stdout, stdout), (proc.stderr, stderr)):
-                    while len(buffer) <= max_output_bytes:
-                        try:
-                            remaining = max_output_bytes + 1 - len(buffer)
-                            chunk = os.read(stream.fileno(), min(65_536, remaining))
-                        except (BlockingIOError, OSError):
-                            break
-                        if not chunk:
-                            break
-                        buffer.extend(chunk)
-                if (len(stdout) > max_output_bytes
-                        or len(stderr) > max_output_bytes):
-                    transport = "overflow"
-                else:
-                    transport = "ok" if proc.returncode == 0 else "error"
-                break
-            if time.monotonic() >= deadline:
-                transport = "timeout"
-                _terminate_group(proc)
-                break
-            time.sleep(0.005)
-    except KeyboardInterrupt:
-        interrupted = True
-        transport = "interrupted"
-        _terminate_group(proc)
-    finally:
-        for stream in (proc.stdout, proc.stderr):
-            try:
-                stream.close()
-            except OSError:
-                pass
-
-    out = bytes(stdout[:max_output_bytes]).decode("utf-8", "replace")
-    err = bytes(stderr[:max_output_bytes]).decode("utf-8", "replace")
-    result = {
-        "transport": transport,
-        "stdout": out,
-        "stderr": err,
-        "duration_ms": max(0, round((time.monotonic() - started) * 1000)),
-    }
-    if proc.returncode is not None:
-        result["returncode"] = proc.returncode
-    if transport == "timeout":
-        result["reason"] = "command exceeded its timeout"
-    elif transport == "overflow":
-        result["reason"] = "command exceeded its output limit"
-    elif transport == "error":
-        result["reason"] = "command returned a non-zero status"
-    elif transport == "interrupted":
-        result["reason"] = "run interrupted while command was active"
-    if interrupted:
-        raise CommandInterrupted(result)
-    return result
-
-
-def _atomic_json(path: Path, value: dict):
-    data = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    temp = path.with_name(path.name + f".tmp-{os.getpid()}")
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temp, path)
-        _sync_directory(path.parent)
-    finally:
-        try:
-            temp.unlink()
-        except FileNotFoundError:
-            pass
-
-
-def _sync_directory(path: Path):
-    """Best-effort directory durability where the selected filesystem allows it."""
-    try:
-        fd = os.open(path, os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        pass
-    finally:
-        os.close(fd)
-
-
-def _write_evidence(path: Path, content: str) -> str:
-    data = content.encode("utf-8", "replace")
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
-    with os.fdopen(fd, "wb") as stream:
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
-    return sha256_bytes(data)
-
-
 def _safe_observation(case: dict, result: dict) -> str:
     transport = result["transport"]
     if transport == "ok":
@@ -480,66 +278,6 @@ def _oracle_passed(expected: dict, stdout: str) -> bool:
     if oracle == "contains":
         return expected["value"] in stdout
     return False
-
-
-def _evidence_label(build_type: str) -> str:
-    if build_type == "user":
-        return "USER_BUILD_EVIDENCE"
-    if build_type == "userdebug":
-        return "USERDEBUG_DIAGNOSTIC_EVIDENCE"
-    return "NON_USER_DIAGNOSTIC_EVIDENCE"
-
-
-def _git_revision(repo_root: Path, executor=run_bounded) -> str:
-    result = executor(["git", "-C", str(repo_root), "rev-parse", "HEAD"], 10)
-    if result.get("transport") != "ok":
-        return "unknown"
-    value = result.get("stdout", "").strip()
-    return value if re.fullmatch(r"[0-9a-f]{40,64}", value) else "unknown"
-
-
-def _adb_version(adb: str, executor=run_bounded) -> str:
-    result = executor([adb, "version"], 10)
-    if result.get("transport") != "ok":
-        return "unknown"
-    lines = result.get("stdout", "").splitlines()
-    return " | ".join(lines[:3])[:500] or "unknown"
-
-
-def _authorized_devices(adb: str, executor=run_bounded) -> list[str]:
-    result = executor([adb, "devices"], DEFAULT_TIMEOUT_SECONDS)
-    if result.get("transport") != "ok":
-        raise RunnerError("unable to enumerate authorized USB devices", 3)
-    devices = []
-    for line in result.get("stdout", "").splitlines()[1:]:
-        fields = line.split()
-        if len(fields) >= 2 and fields[1] == "device":
-            devices.append(fields[0])
-    return devices
-
-
-def _capture_identity(adb: str, target: str, run_dir: Path,
-                      timeout: int, executor=run_bounded) -> tuple[dict, list[str]]:
-    identity = {}
-    refs = []
-    identity_dir = run_dir / "raw" / "identity"
-    identity_dir.mkdir(parents=True, mode=0o750)
-    for field, prop in IDENTITY_PROPERTIES.items():
-        result = executor([adb, "-s", target, "shell", "getprop", prop], timeout)
-        if result.get("transport") != "ok":
-            combined = result.get("stdout", "") + "\n" + result.get("stderr", "")
-            if baseline._is_device_gone(combined):
-                raise RunnerError("device became unavailable during identity capture", 3)
-            raise RunnerError("device/build identity capture failed", 5)
-        value = result.get("stdout", "").strip()
-        if not value and field != "firmware":
-            raise RunnerError("required device/build identity is empty", 5)
-        identity[field] = value or "not-reported"
-        filename = f"{field}.stdout.txt"
-        digest = _write_evidence(identity_dir / filename, result.get("stdout", ""))
-        refs.append(f"raw/identity/{filename}@sha256:{digest}")
-    identity["evidence_label"] = _evidence_label(identity["build_type"])
-    return identity, refs
 
 
 def _case_base(case: dict, identity: dict, evidence_kind: str) -> dict:
@@ -732,26 +470,6 @@ def _candidate_record(path_value: str | None) -> dict:
         "manifest_sha256": sha256_bytes(data),
         "reason": None,
     }
-
-
-def _verify_evidence_refs(report_path: Path, refs: list) -> None:
-    root = report_path.parent.resolve()
-    for ref in refs:
-        if not isinstance(ref, str) or "@sha256:" not in ref:
-            raise RunnerError("retry report has an invalid evidence reference", 2)
-        relative, digest = ref.rsplit("@sha256:", 1)
-        relpath = Path(relative)
-        if (relpath.is_absolute() or ".." in relpath.parts
-                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
-            raise RunnerError("retry report has an invalid evidence reference", 2)
-        evidence_path = (root / relpath).resolve()
-        try:
-            evidence_path.relative_to(root)
-        except ValueError as exc:
-            raise RunnerError("retry evidence escapes its run directory", 2) from exc
-        data = _read_bounded(evidence_path, MAX_CASE_OUTPUT_BYTES)
-        if sha256_bytes(data) != digest:
-            raise RunnerError("retry evidence hash mismatch", 2)
 
 
 def _load_retry(path_value: str | None, suite: dict, suite_sha256: str,

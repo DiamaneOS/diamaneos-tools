@@ -7,7 +7,7 @@ This map describes component responsibilities and permitted dependencies. The pr
 | Component (repository ID) | Responsible role | Inputs | Owned state | Authority boundary |
 | --- | --- | --- | --- | --- |
 | tools | Host-tooling maintainer | Pinned manifests, reviewed suites and immutable inputs | Private target maps, per-target locks and bounded run evidence | No signing or release-promotion credentials; destructive recipes remain in the installer/runbook |
-| manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Preserve imported project definitions |
+| manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Authenticate upstream; bind downstream composition when present |
 | device/product | Device-integration maintainer | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
 | vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
 | kernel/modules/dt | Kernel maintainer | ACK branch and Fairphone sources | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
@@ -49,7 +49,7 @@ A pinned manifest and endpoint contract feed a reproducible build. The build pro
 
 ## Source-layout decisions
 
-The manifest delta uses generated revision-only overrides for the selected fork commits and preserves imported project definitions. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.
+The accepted build authenticates the upstream release and resolved project map directly. The local-manifest repository currently contains no projects and is not consumed by environment v4. When the first downstream project or fork is added, bind the overlay commit and digest in a new environment and validate the composed map in the consuming build workflow. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.
 
 The FP6 port consumes two separate upstream trees: QSSI for the common system
 side and the Fairphone target tree for device, kernel, module and vendor-side
@@ -109,3 +109,25 @@ compatibility boundary, not a reason to pin the framework indefinitely. Every
 newer GrapheneOS assembly must pass `assemble_vintf`/`checkvintf`, boot and the
 applicable VTS interface checks. Disabling VINTF enforcement or adding a broad
 shim is a port failure, not a recovery path.
+
+## Shared host mechanisms
+
+`process` owns bounded subprocess streams, deadlines and same-group descendant
+cleanup, including when the leader has exited. Small commands return bounded
+buffers; signing commands stream to exclusive logs with a retained diagnostic
+tail. Limits are explicit at the call site. A child that deliberately creates a
+new session escapes a POSIX process group; deployed services additionally own
+a systemd cgroup. These tools are not a sandbox for hostile host executables.
+
+`evidence` owns bounded JSON input, atomic report writes and referenced-file
+hashes. `device` owns ADB enumeration and identity capture. Domain workflows
+keep their own state and acceptance rules; they do not call another workflow's
+private IO/device helpers. `rig` owns physical-role locks and persistent leases.
+A start guard can create an inhibitor under its existing lock before release.
+
+Source sync, generic build, signing discovery and dummy qualification share
+`$WORK_ROOT/.workspace.lock` for the entire operation, including evidence
+finalization. A competing operation fails immediately. This is independent of
+physical-device locks. Do not delete a lock file to clear a busy operation.
+Compatibility packages have separate generated results/logs; every other file
+and executable bit must match the approved ZIP before execution.

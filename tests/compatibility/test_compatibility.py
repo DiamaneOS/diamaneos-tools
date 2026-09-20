@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -93,8 +94,8 @@ class CompatibilityTest(unittest.TestCase):
             self._result(root, '<Result suite_version="17_r2"><Module '
                          'name="M" done="true"><TestCase name="C">'
                          '<Test name="t" result="pass"/></TestCase>'
-                         '</Module></Result>')
-            result = api.parse_tradefed_result(root, "17_r2")
+                         '</Module><Summary pass="1" failed="0" modules_done="1" modules_total="1"/></Result>')
+            result = api.parse_tradefed_result(root, "17_r2", expected_module="M", expected_test="C#t")
             self.assertEqual("PASS", result["status"])
             self.assertEqual(1, result["test_count"])
 
@@ -132,7 +133,10 @@ class CompatibilityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             archive = temp / "android-cts-17_r2-linux_x86-arm.zip"
-            archive.write_bytes(b"official-package-fixture")
+            with zipfile.ZipFile(archive, "w") as out:
+                info = zipfile.ZipInfo("android-cts/tools/cts-tradefed")
+                info.external_attr = 0o100755 << 16
+                out.writestr(info, "#!/bin/sh\nexit 0\n")
             package_root = temp / "packages"
             launcher = package_root / "android-cts" / "tools" / "cts-tradefed"
             launcher.parent.mkdir(parents=True)
@@ -155,6 +159,77 @@ class CompatibilityTest(unittest.TestCase):
             with self.assertRaisesRegex(api.CompatibilityError, "hash mismatch"):
                 api.inspect_package(changed, package["id"], archive,
                                     package_root)
+
+    def test_authenticated_extraction_rejects_changed_missing_extra_or_mode_inputs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp)
+            package = self.config["packages"][0]
+            archive = temp / package["archive_name"]
+            with zipfile.ZipFile(archive, "w") as bundle:
+                info = zipfile.ZipInfo(package["extracted_directory"] + "/" + package["launcher"])
+                info.external_attr = 0o100755 << 16
+                bundle.writestr(info, "#!/bin/sh\nexit 0\n")
+            package["acquisition_status"] = "verified"
+            package["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+            destination = temp / "extracted"
+            proof = api.extract_package(self.config, package["id"], archive, destination)
+            root = destination / package["extracted_directory"]
+            launcher = root / package["launcher"]
+            original = launcher.read_bytes()
+            (root / "results").mkdir()
+            (root / "results" / "generated").write_text("not an input")
+            self.assertEqual(proof, api.inspect_package(self.config, package["id"], archive, destination))
+            for mutation in ("content", "missing", "extra", "mode"):
+                with self.subTest(mutation=mutation):
+                    launcher.write_bytes(original)
+                    launcher.chmod(0o750)
+                    if mutation == "content": launcher.write_text("changed")
+                    if mutation == "missing": launcher.unlink()
+                    if mutation == "extra": (root / "extra").write_text("extra")
+                    if mutation == "mode": launcher.chmod(0o640)
+                    with self.assertRaises(api.CompatibilityError):
+                        api.inspect_package(self.config, package["id"], archive, destination)
+                    (root / "extra").unlink(missing_ok=True)
+            with self.assertRaisesRegex(api.CompatibilityError, "already exists"):
+                api.extract_package(self.config, package["id"], archive, destination)
+
+    def test_archive_traversal_and_symlink_members_rejected_before_publication(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp)
+            package = self.config["packages"][0]
+            for name, mode in (("../escape", 0o100644),
+                               (package["extracted_directory"] + "/link", 0o120777)):
+                archive = temp / package["archive_name"]
+                with zipfile.ZipFile(archive, "w") as bundle:
+                    info = zipfile.ZipInfo(name)
+                    info.external_attr = mode << 16
+                    bundle.writestr(info, "bad")
+                package["acquisition_status"] = "verified"
+                package["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+                with self.assertRaises(api.CompatibilityError):
+                    api.extract_package(self.config, package["id"], archive, temp / "new")
+                self.assertFalse((temp / "new").exists())
+
+    def test_pass_requires_requested_coverage_done_and_consistent_summary(self):
+        valid = ('<Result suite_version="17_r2"><Module name="M" done="true">'
+                 '<TestCase name="C"><Test name="t" result="pass"/></TestCase></Module>'
+                 '<Summary pass="1" failed="0" modules_done="1" modules_total="1"/></Result>')
+        cases = (valid.replace('name="M"', 'name="Other"'),
+                 valid.replace('name="t"', 'name="other"'),
+                 valid.replace(' done="true"', ''),
+                 valid.replace('modules_total="1"', 'modules_total="2"'),
+                 valid.replace('<Summary pass="1" failed="0" modules_done="1" modules_total="1"/>', ''))
+        with tempfile.TemporaryDirectory() as temp:
+            for index, xml in enumerate(cases):
+                path = Path(temp) / str(index)
+                self._result(path, xml)
+                self.assertEqual("INCOMPLETE", api.parse_tradefed_result(
+                    path, "17_r2", "M", "C#t")["status"])
+
+    def test_nonzero_process_is_never_success_transport(self):
+        result = api._bounded_process([sys.executable, "-c", "raise SystemExit(7)"], 5, TOOLS)
+        self.assertEqual("error", result["transport"])
+        self.assertEqual(7, result["returncode"])
 
     def test_package_tree_rejects_symlinks(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -208,11 +283,10 @@ class CompatibilityTest(unittest.TestCase):
         previous = api.MAX_STREAM_BYTES
         api.MAX_STREAM_BYTES = 128
         try:
-            result, failed = api._bounded_process(
+            result = api._bounded_process(
                 [sys.executable, "-c", "print('x' * 1000)"], 10, TOOLS)
         finally:
             api.MAX_STREAM_BYTES = previous
-        self.assertTrue(failed)
         self.assertEqual("overflow", result["transport"])
         self.assertEqual(128, len(result["stdout"]))
 

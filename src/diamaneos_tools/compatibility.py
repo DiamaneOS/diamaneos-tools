@@ -15,11 +15,11 @@ import re
 import shutil
 import signal
 import stat
-import subprocess
 import sys
 import tempfile
-import time
 import xml.etree.ElementTree as ET
+import zipfile
+from . import process, evidence
 
 try:
     from jsonschema import Draft7Validator
@@ -27,6 +27,7 @@ except ImportError:
     Draft7Validator = None
 
 from diamaneos_tools import rig
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -199,7 +200,7 @@ def _setup_record(path: Path, config: dict, profile: dict,
     }
 
 
-def _safe_tree(root: Path) -> tuple[list[dict], str]:
+def _safe_tree(root: Path, *, excluded_roots=()) -> tuple[list[dict], str]:
     try:
         resolved = root.resolve(strict=True)
         metadata = root.lstat()
@@ -216,7 +217,11 @@ def _safe_tree(root: Path) -> tuple[list[dict], str]:
             path = Path(base) / name
             if path.is_symlink():
                 raise CompatibilityError("compatibility package contains a symbolic link")
+        if Path(base) == resolved:
+            directories[:] = [name for name in directories if name not in excluded_roots]
         for name in files:
+            if Path(base) == resolved and name in excluded_roots:
+                raise CompatibilityError("reserved output location is not a directory")
             path = Path(base) / name
             item = path.lstat()
             if path.is_symlink():
@@ -231,56 +236,151 @@ def _safe_tree(root: Path) -> tuple[list[dict], str]:
                     or ".." in PurePosixPath(relative).parts):
                 raise CompatibilityError("compatibility package contains an unsafe path")
             records.append({"path": relative, "bytes": item.st_size,
-                            "sha256": _sha256(path)})
+                            "sha256": _sha256(path),
+                            "executable": bool(item.st_mode & 0o111)})
     if not records:
         raise CompatibilityError("compatibility package is empty")
     encoded = json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
     return records, hashlib.sha256(encoded).hexdigest()
 
 
-def inspect_package(config: dict, package_id: str, archive: Path,
-                    package_root: Path) -> dict:
+# Only Tradefed's top-level generated output directories are outside input identity.
+PACKAGE_OUTPUTS = {"results", "logs"}
+
+
+def _verified_archive(config, package_id, archive):
     package = _package(config, package_id)
     if package["delivery"] != "official-download":
         raise CompatibilityError("selected package must be verified as a source build")
     if package["acquisition_status"] != "verified" or not package["archive_sha256"]:
         raise CompatibilityError("selected official package hash is not yet approved", 3)
     try:
-        archive_meta = archive.lstat()
+        metadata = archive.lstat()
     except OSError:
         raise CompatibilityError("compatibility archive is unavailable") from None
-    if (not stat.S_ISREG(archive_meta.st_mode) or archive.is_symlink()
+    if (not stat.S_ISREG(metadata.st_mode) or archive.is_symlink()
             or archive.name != package["archive_name"]):
         raise CompatibilityError("compatibility archive identity is invalid")
-    archive_hash = _sha256(archive)
-    if archive_hash != package["archive_sha256"]:
+    if _sha256(archive) != package["archive_sha256"]:
         raise CompatibilityError("compatibility archive hash mismatch", 3)
+    return package
+
+
+def _archive_inputs(archive, package, destination=None):
+    """Validate ZIP shape before extraction; hash every consumed member."""
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            seen = set()
+            files = []
+            total = 0
+            if len(bundle.infolist()) > MAX_TREE_FILES:
+                raise CompatibilityError("compatibility archive exceeds inventory limits")
+            for member in bundle.infolist():
+                name = member.filename
+                path = PurePosixPath(name)
+                mode = member.external_attr >> 16
+                kind = stat.S_IFMT(mode)
+                if (path.is_absolute() or ".." in path.parts or "\\" in name
+                        or path.as_posix() != name.rstrip("/") or not path.parts
+                        or path.parts[0] != package["extracted_directory"]
+                        or path.as_posix() in seen or member.flag_bits & 1
+                        or kind not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                    raise CompatibilityError("compatibility archive has an unsafe member")
+                seen.add(path.as_posix())
+                if member.is_dir():
+                    if kind == stat.S_IFREG:
+                        raise CompatibilityError("compatibility archive member type mismatch")
+                    continue
+                if len(path.parts) < 2 or kind == stat.S_IFDIR:
+                    raise CompatibilityError("compatibility archive member type mismatch")
+                relative = PurePosixPath(*path.parts[1:])
+                if relative.parts[0] in PACKAGE_OUTPUTS:
+                    raise CompatibilityError("archive contains reserved generated outputs")
+                total += member.file_size
+                if total > MAX_TREE_BYTES:
+                    raise CompatibilityError("compatibility archive exceeds byte limit")
+                files.append((member, relative, bool(mode & 0o111)))
+            file_names = {relative.as_posix() for _, relative, _ in files}
+            if any(parent.as_posix() in file_names for _, path, _ in files
+                   for parent in path.parents if parent != PurePosixPath(".")):
+                raise CompatibilityError("compatibility archive has a file/directory collision")
+            records = []
+            for member, relative, executable in files:
+                digest = hashlib.sha256()
+                length = 0
+                output = None
+                if destination is not None:
+                    target = destination / package["extracted_directory"] / relative
+                    target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+                    output = target.open("xb")
+                try:
+                    with bundle.open(member) as stream:
+                        while chunk := stream.read(1024 * 1024):
+                            length += len(chunk)
+                            if length > member.file_size:
+                                raise CompatibilityError("archive member exceeds declared size")
+                            digest.update(chunk)
+                            if output:
+                                output.write(chunk)
+                    if length != member.file_size:
+                        raise CompatibilityError("archive member is truncated")
+                finally:
+                    if output:
+                        output.close()
+                if destination is not None:
+                    target.chmod(0o750 if executable else 0o640)
+                records.append({"path": relative.as_posix(), "bytes": length,
+                                "sha256": digest.hexdigest(), "executable": executable})
+    except (OSError, zipfile.BadZipFile, RuntimeError, NotImplementedError):
+        raise CompatibilityError("compatibility archive cannot be read safely") from None
+    if not records:
+        raise CompatibilityError("compatibility archive has no input files")
+    return sorted(records, key=lambda item: item["path"].encode())
+
+
+def inspect_package(config: dict, package_id: str, archive: Path,
+                    package_root: Path) -> dict:
+    package = _verified_archive(config, package_id, archive)
+    expected = _archive_inputs(archive, package)
     expected_root = package_root / package["extracted_directory"]
-    records, tree_hash = _safe_tree(expected_root)
+    records, _ = _safe_tree(expected_root, excluded_roots=PACKAGE_OUTPUTS)
+    records.sort(key=lambda item: item["path"].encode())
+    if records != expected:
+        raise CompatibilityError("extracted package does not match authenticated archive", 3)
     launcher = package["launcher"]
-    if launcher is not None:
-        launcher_path = expected_root / launcher
-        try:
-            mode = launcher_path.stat().st_mode
-        except OSError:
-            raise CompatibilityError("compatibility launcher is unavailable") from None
-        if not stat.S_ISREG(mode) or not mode & stat.S_IXUSR:
-            raise CompatibilityError("compatibility launcher is not executable")
+    if launcher is not None and not any(
+            item["path"] == launcher and item["executable"] for item in records):
+        raise CompatibilityError("compatibility launcher is not executable")
+    tree_hash = hashlib.sha256(json.dumps(
+        records, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return {
-        "schema_version": 1,
-        "status": "PASS",
-        "package_id": package_id,
-        "version": package["version"],
-        "archive_name": archive.name,
-        "archive_sha256": archive_hash,
-        "extracted_root": package["extracted_directory"],
-        "tree_sha256": tree_hash,
-        "file_count": len(records),
-        "tree_bytes": sum(item["bytes"] for item in records),
+        "schema_version": 1, "status": "PASS", "package_id": package_id,
+        "version": package["version"], "archive_name": archive.name,
+        "archive_sha256": package["archive_sha256"],
+        "extracted_root": package["extracted_directory"], "tree_sha256": tree_hash,
+        "file_count": len(records), "tree_bytes": sum(item["bytes"] for item in records),
     }
 
 
-def parse_tradefed_result(result_root: Path, expected_version: str) -> dict:
+def extract_package(config, package_id, archive, package_root):
+    """Publish a new extraction atomically, never mutate an existing input tree."""
+    package = _verified_archive(config, package_id, archive)
+    package_root.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+    if package_root.exists() or package_root.is_symlink():
+        raise CompatibilityError("extracted package destination already exists", 3)
+    with tempfile.TemporaryDirectory(prefix=".extract-", dir=package_root.parent) as temp:
+        staging = Path(temp) / "tree"
+        staging.mkdir(mode=0o750)
+        _archive_inputs(archive, package, staging)
+        proof = inspect_package(config, package_id, archive, staging)
+        if package_root.exists() or package_root.is_symlink():
+            raise CompatibilityError("extracted package destination collision", 3)
+        staging.rename(package_root)
+    return proof
+
+
+def parse_tradefed_result(result_root: Path, expected_version: str,
+                          expected_module=None, expected_test=None) -> dict:
     try:
         root = result_root.resolve(strict=True)
     except OSError:
@@ -314,6 +414,8 @@ def parse_tradefed_result(result_root: Path, expected_version: str) -> dict:
     if version != expected_version:
         return {"status": "HARNESS_ERROR", "reason": "Tradefed suite version mismatch",
                 "observed_version": version}
+    if document.tag != "Result":
+        return {"status": "HARNESS_ERROR", "reason": "unexpected Tradefed result structure"}
     tests = list(document.iter("Test"))
     modules = list(document.iter("Module"))
     if not tests:
@@ -321,7 +423,7 @@ def parse_tradefed_result(result_root: Path, expected_version: str) -> dict:
                 "suite_version": version}
     normalized = [item.attrib.get("result", "").lower() for item in tests]
     counts = {name: normalized.count(name) for name in sorted(set(normalized))}
-    incomplete_modules = sum(item.attrib.get("done", "true").lower() != "true"
+    incomplete_modules = sum(item.attrib.get("done", "").lower() != "true"
                              for item in modules)
     if any(not value for value in normalized) or incomplete_modules:
         status = "INCOMPLETE"
@@ -332,6 +434,29 @@ def parse_tradefed_result(result_root: Path, expected_version: str) -> dict:
     else:
         status = "PASS"
         reason = "all recorded official tests passed"
+    if status == "PASS":
+        summary = document.find("Summary")
+        try:
+            complete_summary = (summary is not None
+                and int(summary.get("pass", "-1")) == len(tests)
+                and int(summary.get("failed", "-1")) == 0
+                and int(summary.get("modules_done", "-1")) == len(modules)
+                and int(summary.get("modules_total", "-1")) == len(modules))
+        except ValueError:
+            complete_summary = False
+        observed = []
+        for module in modules:
+            for case in module.findall("TestCase"):
+                for test in case.findall("Test"):
+                    observed.append((module.get("abi", ""), module.get("name"),
+                                     case.get("name", "") + "#" + test.get("name", "")))
+        coverage = (expected_module is not None and expected_test is not None
+                    and len(observed) == len(tests) and len(set(observed)) == len(observed)
+                    and all(module == expected_module and test == expected_test
+                            for _, module, test in observed))
+        if not complete_summary or not coverage:
+            status = "INCOMPLETE"
+            reason = "requested coverage or explicit completion is not established"
     _, tree_hash = _safe_tree(root)
     return {
         "status": status,
@@ -346,21 +471,7 @@ def parse_tradefed_result(result_root: Path, expected_version: str) -> dict:
     }
 
 
-def _atomic_json(path: Path, value: dict):
-    payload = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
-    temporary = path.with_name(path.name + f".tmp-{os.getpid()}")
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
+_atomic_json = evidence.atomic_json
 
 
 def _copy_result(source: Path, destination: Path):
@@ -369,56 +480,8 @@ def _copy_result(source: Path, destination: Path):
     _safe_tree(destination)
 
 
-def _bounded_process(argv: list[str], timeout_seconds: int,
-                     cwd: Path) -> tuple[dict, bool]:
-    started = time.monotonic()
-    reason = None
-    with tempfile.TemporaryFile() as stdout_file, \
-            tempfile.TemporaryFile() as stderr_file:
-        try:
-            process = subprocess.Popen(
-                argv, cwd=cwd, stdout=stdout_file, stderr=stderr_file,
-                start_new_session=True)
-        except OSError:
-            return {"transport": "error", "returncode": None,
-                    "stdout": b"", "stderr": b""}, False
-        deadline = started + timeout_seconds
-        try:
-            while process.poll() is None:
-                if time.monotonic() >= deadline:
-                    reason = "timeout"
-                    break
-                if (os.fstat(stdout_file.fileno()).st_size > MAX_STREAM_BYTES
-                        or os.fstat(stderr_file.fileno()).st_size
-                        > MAX_STREAM_BYTES):
-                    reason = "overflow"
-                    break
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            reason = "interrupted"
-        if reason is None and (
-                os.fstat(stdout_file.fileno()).st_size > MAX_STREAM_BYTES
-                or os.fstat(stderr_file.fileno()).st_size > MAX_STREAM_BYTES):
-            reason = "overflow"
-        if reason is not None and process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
-        stdout_file.seek(0)
-        stderr_file.seek(0)
-        stdout = stdout_file.read(MAX_STREAM_BYTES)
-        stderr = stderr_file.read(MAX_STREAM_BYTES)
-    result = {
-        "transport": reason or ("ok" if process.returncode == 0 else "error"),
-        "returncode": process.returncode,
-        "stdout": stdout,
-        "stderr": stderr,
-        "duration_ms": round((time.monotonic() - started) * 1000),
-    }
-    return result, reason is not None
+def _bounded_process(argv: list[str], timeout_seconds: int, cwd: Path) -> dict:
+    return process.run(argv, timeout_seconds, MAX_STREAM_BYTES, cwd=cwd)
 
 
 def _version_tuple(value: str) -> tuple[int, ...]:
@@ -469,8 +532,8 @@ def inspect_host(config: dict, host_root: Path) -> dict:
         executable = shutil.which(command)
         if executable is None:
             return ""
-        result, failed = _bounded_process([executable, argument], 20, host_root)
-        if failed or result["returncode"] != 0:
+        result = _bounded_process([executable, argument], 20, host_root)
+        if result["transport"] != "ok":
             return ""
         combined = (result["stdout"] + result["stderr"]).decode(
             "utf-8", errors="replace").splitlines()
@@ -485,9 +548,9 @@ def inspect_host(config: dict, host_root: Path) -> dict:
     locale_executable = shutil.which("locale")
     available_locales = []
     if locale_executable is not None:
-        locale_result, locale_failed = _bounded_process(
+        locale_result = _bounded_process(
             [locale_executable, "-a"], 20, host_root)
-        if not locale_failed and locale_result["returncode"] == 0:
+        if locale_result["transport"] == "ok":
             available_locales = locale_result["stdout"].decode(
                 "utf-8", errors="replace").splitlines()
     observation = {
@@ -543,7 +606,7 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         Path(args.device_map), args.device_role, args.target)
     if not map_entry["disposable"]:
         raise CompatibilityError("compatibility trial requires the disposable harness role", 3)
-    devices = test_runner._authorized_devices(args.adb)
+    devices = device.authorized_devices(args.adb)
     _require_single_attached_target(devices, args.target)
 
     output = Path(args.output).resolve()
@@ -576,10 +639,8 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         try:
             partial.mkdir(mode=0o750)
             (partial / "raw").mkdir(mode=0o750)
-            controller = rig.controller_for_target(
-                args.rig_config, args.device_role, args.device_map, args.target)
-            controller.acquire_inhibitor(args.device_role, lease_id,
-                                         "compatibility-trial")
+            controller = guard.controller
+            guard.acquire_inhibitor(lease_id, "compatibility-trial")
             lease_active = True
         finally:
             guard.release()
@@ -621,14 +682,14 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         try:
             for item in previous_handlers:
                 signal.signal(item, interrupt)
-            process, transport_failed = _bounded_process(
+            process_result = _bounded_process(
                 command, args.timeout_seconds, suite_root)
         finally:
             for item, handler in previous_handlers.items():
                 signal.signal(item, handler)
         for name in ("stdout", "stderr"):
             path = partial / "raw" / f"tradefed.{name}.txt"
-            path.write_bytes(process[name])
+            path.write_bytes(process_result[name])
             os.chmod(path, 0o640)
         after = {item.name for item in results_root.iterdir()} if results_root.is_dir() else set()
         new_results = sorted(after - before)
@@ -636,11 +697,12 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
             source_result = results_root / new_results[0]
             _copy_result(source_result, partial / "raw" / "tradefed-result")
             parsed = parse_tradefed_result(
-                partial / "raw" / "tradefed-result", package["version"])
+                partial / "raw" / "tradefed-result", package["version"],
+                profile["module"], profile["test"])
         else:
             parsed = {"status": "INCOMPLETE",
                       "reason": "Tradefed did not create exactly one new result directory"}
-        if transport_failed and parsed["status"] == "PASS":
+        if process_result["transport"] != "ok" and parsed["status"] == "PASS":
             parsed = {**parsed, "status": "HARNESS_ERROR",
                       "reason": "Tradefed transport failed despite a parseable report"}
 
@@ -664,9 +726,9 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
             "retry_parent": parent,
             "started_at_utc": started_at_utc,
             "ended_at_utc": _utc_now(),
-            "tradefed": {"transport": process["transport"],
-                         "returncode": process["returncode"],
-                         "duration_ms": process["duration_ms"]},
+            "tradefed": {"transport": process_result["transport"],
+                         "returncode": process_result.get("returncode"),
+                         "duration_ms": process_result["duration_ms"]},
             "parsed_result": parsed,
         }
         _atomic_json(partial / "result.json", report)
@@ -754,6 +816,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--profile")
     parser.add_argument("--inspect-package", action="store_true")
+    parser.add_argument("--extract-package", action="store_true")
     parser.add_argument("--check-host", action="store_true")
     parser.add_argument("--host-root", default="/var/lib/diamaneos-test")
     parser.add_argument("--parse-result")
@@ -783,7 +846,7 @@ def main(argv=None) -> int:
             for error in errors:
                 print("ERROR: " + error, file=sys.stderr)
             return 2
-        selected = sum((args.dry_run, args.inspect_package, args.check_host,
+        selected = sum((args.dry_run, args.inspect_package, args.extract_package, args.check_host,
                         args.parse_result is not None, args.run_trial))
         if selected != 1:
             raise CompatibilityError("select exactly one compatibility operation")
@@ -791,10 +854,11 @@ def main(argv=None) -> int:
             print(json.dumps(_dry_run(config, args.profile), indent=2,
                              sort_keys=True))
             return 0
-        if args.inspect_package:
+        if args.inspect_package or args.extract_package:
             if not all((args.package_id, args.package_root, args.archive)):
                 raise CompatibilityError("package inspection requires id, archive and root")
-            print(json.dumps(inspect_package(
+            operation = extract_package if args.extract_package else inspect_package
+            print(json.dumps(operation(
                 config, args.package_id, Path(args.archive),
                 Path(args.package_root)), indent=2, sort_keys=True))
             return 0
@@ -806,7 +870,13 @@ def main(argv=None) -> int:
             if not args.package_id:
                 raise CompatibilityError("result parsing requires a package id")
             package = _package(config, args.package_id)
-            result = parse_tradefed_result(Path(args.parse_result), package["version"])
+            if not args.profile:
+                raise CompatibilityError("result parsing requires an expected trial profile")
+            profile = _profile(config, args.profile)
+            if profile["package_id"] != args.package_id:
+                raise CompatibilityError("result profile does not match the selected package")
+            result = parse_tradefed_result(Path(args.parse_result), package["version"],
+                                           profile["module"], profile["test"])
             print(json.dumps(result, indent=2, sort_keys=True))
             return 0 if result["status"] == "PASS" else 4
         if not (60 <= args.timeout_seconds <= 172800):

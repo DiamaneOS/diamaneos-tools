@@ -336,10 +336,10 @@ class RigIdleIntegrationTest(unittest.TestCase):
                         baseline_idle.rig, "acquire_test_start_guard",
                         side_effect=acquire_guard), \
                     mock.patch.object(
-                        baseline_idle.test_runner, "_authorized_devices",
+                        baseline_idle.device, "authorized_devices",
                         side_effect=authorized), \
                     mock.patch.object(
-                        baseline_idle.test_runner, "_capture_identity",
+                        baseline_idle.device, "capture_identity",
                         side_effect=baseline_idle.IdleError("stop")):
                 with self.assertRaisesRegex(baseline_idle.IdleError, "stop"):
                     baseline_idle.start(args, TOOLS)
@@ -385,7 +385,7 @@ class RigIdleIntegrationTest(unittest.TestCase):
                     mock.patch.object(
                         baseline_idle, "_run_required", side_effect=command), \
                     mock.patch.object(
-                        baseline_idle.test_runner, "_authorized_devices",
+                        baseline_idle.device, "authorized_devices",
                         return_value=[]), \
                     mock.patch.object(
                         baseline_idle, "_host_clock_sample", return_value=clock), \
@@ -476,7 +476,7 @@ class RigIdleIntegrationTest(unittest.TestCase):
             with mock.patch.object(
                     baseline_idle.test_runner, "load_device_map"), \
                     mock.patch.object(
-                        baseline_idle.test_runner, "_authorized_devices",
+                        baseline_idle.device, "authorized_devices",
                         return_value=[]), \
                     mock.patch.object(
                         baseline_idle.rig, "controller_for_target",

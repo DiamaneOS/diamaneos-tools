@@ -21,6 +21,8 @@ import time
 from diamaneos_tools import baseline_pilot
 from diamaneos_tools import baseline_protocol
 from diamaneos_tools import rig
+from diamaneos_tools import evidence
+from diamaneos_tools import device
 from diamaneos_tools import test_runner
 
 
@@ -56,7 +58,7 @@ def _owner_controlled_directory(path: Path):
 
 
 def _evidence(raw_dir: Path, name: str, content: str) -> str:
-    digest = test_runner._write_evidence(raw_dir / name, content)
+    digest = evidence.write_evidence(raw_dir / name, content)
     return f"raw/{name}@sha256:{digest}"
 
 
@@ -96,7 +98,7 @@ def _prepare_output(args) -> tuple[Path, Path, int]:
         guard = rig.acquire_test_start_guard(
             args.rig_config, args.device_role, args.device_map, args.target)
         try:
-            devices = test_runner._authorized_devices(args.adb)
+            devices = device.authorized_devices(args.adb)
             if args.target not in devices:
                 raise BootError(
                     "selected private target is not an authorized USB device", 3)
@@ -351,9 +353,9 @@ def _report(args, protocol: dict, protocol_hash: str, repo_root: Path,
             "procedure": "boot-time.restart",
         },
         "tool": {
-            "revision": test_runner._git_revision(repo_root),
+            "revision": evidence.git_revision(repo_root),
             "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-            "adb": test_runner._adb_version(args.adb),
+            "adb": device.adb_version(args.adb),
         },
         "target": {
             "role": args.device_role,
@@ -420,7 +422,7 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
     partial, final, lock_fd = _prepare_output(args)
     report = None
     try:
-        identity, identity_refs = test_runner._capture_identity(
+        identity, identity_refs = device.capture_identity(
             args.adb, args.target, partial, 20)
         battery, battery_refs, problems = _battery_preflight(
             args.adb, args.target, partial / "raw", protocol)
@@ -447,7 +449,7 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
                     args.adb, args.target, params, partial / "raw", repetition)
                 report["case"]["samples"].append(sample)
                 report = _scrub(report, args.target)
-                test_runner._atomic_json(result_path, report)
+                evidence.atomic_json(result_path, report)
                 if sample["status"] != "PASS":
                     report["status"] = "FAIL"
                     report["case"]["status"] = "FAIL"
@@ -463,11 +465,11 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
 
         report = _scrub(report, args.target)
         report["finished_at_utc"] = _utc_now()
-        test_runner._atomic_json(result_path, report)
+        evidence.atomic_json(result_path, report)
         refs = report["identity_evidence_refs"] + report["preflight_evidence_refs"]
         for sample in report["case"]["samples"]:
             refs.extend(sample.get("raw_evidence_refs", []))
-        test_runner._verify_evidence_refs(result_path, refs)
+        evidence.verify_evidence_refs(result_path, refs)
         if args.target in result_path.read_text(encoding="utf-8"):
             raise BootError("private target escaped report redaction", 5)
         if report["status"] == "PASS":
@@ -479,7 +481,7 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
             destination = final.with_name(final.name + suffix)
             exit_code = 4 if report["status"] == "FAIL" else 3
         os.rename(partial, destination)
-        test_runner._sync_directory(destination.parent)
+        evidence.sync_directory(destination.parent)
         return exit_code, destination / "result.json"
     except Exception:
         if report is not None and partial.exists():
@@ -489,11 +491,11 @@ def execute_restart(args, repo_root: Path) -> tuple[int, Path]:
                 report["errors"].append(
                     "unexpected harness failure; inspect private raw evidence")
                 result_path = partial / "result.json"
-                test_runner._atomic_json(result_path, _scrub(report, args.target))
+                evidence.atomic_json(result_path, _scrub(report, args.target))
                 destination = final.with_name(final.name + ".harness-error")
                 if not destination.exists():
                     os.rename(partial, destination)
-                    test_runner._sync_directory(destination.parent)
+                    evidence.sync_directory(destination.parent)
             except Exception:
                 pass
         raise

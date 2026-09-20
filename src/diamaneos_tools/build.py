@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from . import process
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,7 +56,8 @@ def _unique_object(pairs):
 
 def load_config(path: Path) -> tuple[dict, bytes]:
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_CONFIG_BYTES + 1)
     except OSError:
         raise BuildError("unable to read build-environment configuration") from None
     if len(raw) > MAX_CONFIG_BYTES:
@@ -255,16 +257,11 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
 
 
 def _run(command, cwd=None, env=None, timeout=120) -> subprocess.CompletedProcess:
-    try:
-        result = subprocess.run(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
-                                capture_output=True, timeout=timeout)
-    except (OSError, subprocess.TimeoutExpired):
-        raise BuildError(f"command failed to execute: {command[0]}") from None
-    if len(result.stdout) > MAX_COMMAND_OUTPUT_BYTES or len(result.stderr) > MAX_COMMAND_OUTPUT_BYTES:
-        raise BuildError(f"command output exceeded its limit: {command[0]}")
-    if result.returncode != 0:
+    result = process.run(command, timeout, MAX_COMMAND_OUTPUT_BYTES, cwd=cwd, env=env)
+    if result["transport"] != "ok":
         raise BuildError(f"command failed closed: {command[0]}")
-    return result
+    return subprocess.CompletedProcess(command, result["returncode"],
+                                       result["stdout"], result["stderr"])
 
 
 def _read_os_release(path=Path("/etc/os-release")) -> dict:
@@ -465,6 +462,10 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
     ])
     if repo_peeled.stdout.decode().strip() != repo_pin["peeled_commit"]:
         raise BuildError("repo implementation tag commit does not match the pin")
+    repo_status = _run(["git", "-C", str(repo_tool), "status", "--porcelain=v1",
+                        "--untracked-files=all"]).stdout
+    if repo_status:
+        raise BuildError("repo implementation contains dirty or untracked content")
     repo_verify_env = os.environ.copy()
     repo_verify_env["GNUPGHOME"] = str(Path.home() / ".repoconfig" / "gnupg")
     _run(["git", "-C", str(repo_tool), "verify-tag", repo_tag],
@@ -574,7 +575,8 @@ def main(argv=None) -> int:
             "status": status,
             "purpose": args.purpose,
             "identity": identity,
-            "release_signing_material_present": False,
+            "release_signing_material_present": None,
+            "release_signing_material_policy": "prohibited-not-inspected",
         }
         if args.inputs_only:
             result["required_runtime_inputs"] = {
