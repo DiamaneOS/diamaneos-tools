@@ -10,7 +10,10 @@
     "projects": {
       "script": "639cdf6558e7401f8bab1cb8f53546ff4a0c8fef",
       "build/make": "7f0398241bc8c4ef5255a8063befa5045e5cfab4",
-      "development": "bf1857fd7d886218a1ea456b94eb7eb15d5c1338"
+      "development": "bf1857fd7d886218a1ea456b94eb7eb15d5c1338",
+      "external/avb": "ba2dec4b035b0a3b61c5f8f8a74d86bcd450b1ee",
+      "system/update_engine": "79f478a4f89e701e85fa15dec340bf445342abbd",
+      "tools/apksig": "ba4d984e1a360d427307d669d2f789212130e9e8"
     },
     "files": [
       {
@@ -40,6 +43,22 @@
       {
         "path": "development/tools/make_key",
         "sha256": "88073d52fd10ab7931c64c14be7860c8795350dfcb101460a315408c148d8e6d"
+      },
+      {
+        "path": "external/avb/avbtool.py",
+        "sha256": "1aa6f2b462aa67aa3fdf488bee83ab517de8ad9d8228c7b45c35267ab2cf6781"
+      },
+      {
+        "path": "build/make/tools/releasetools/check_ota_package_signature.py",
+        "sha256": "c86406df363216c3abdc0f7ccd23d7938959eb639560c9cfdd7b29312f694f24"
+      },
+      {
+        "path": "system/update_engine/scripts/brillo_update_payload",
+        "sha256": "38498c8ee6d862a9482726568860c940792dbdc3319e2f7e2da24a4d38319e86"
+      },
+      {
+        "path": "tools/apksig/src/apksigner/java/com/android/apksigner/ApkSignerTool.java",
+        "sha256": "8604499845681d82c69e25ed516127c8bb03ce2a7525e1cb5b1293bdf5aea7c7"
       }
     ]
   },
@@ -245,6 +264,7 @@
       "build_variant": "userdebug",
       "evidence_scope": "tool and role qualification only; never FP6 compatibility or release evidence",
       "qualified_unsigned_target_files_sha256": "484874d65148ae883b1d37982ecaa5769304f68513f5793835cedca77a10a0fd",
+      "qualified_otatools_sha256": "3f93de1eb56f36affc36d8fca726a4a9605d3d277a4e87d88928291fc68a8f6a",
       "presigned_allowlist": [
         "AndroidXComposeStartupApp.apk",
         "AppCompatConfig.apk",
@@ -422,6 +442,7 @@
       "build_variant": "user",
       "evidence_scope": "future FP6 candidate; must be regenerated for every accepted target-files package",
       "qualified_unsigned_target_files_sha256": null,
+      "qualified_otatools_sha256": null,
       "presigned_allowlist": [],
       "presigned_metadata_only": [],
       "presigned_artifacts": [],

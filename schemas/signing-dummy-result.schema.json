@@ -14,6 +14,7 @@
     "key_public_fingerprints",
     "proofs",
     "artifacts",
+    "factory_archive_proof",
     "release_record_proof"
   ],
   "properties": {
@@ -66,6 +67,16 @@
       }
     },
     "release_record_proof": {
+      "$ref": "#/definitions/sshProof"
+    },
+    "factory_archive_proof": {
+      "$ref": "#/definitions/sshProof"
+    }
+  },
+  "definitions": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"},
+    "sshProof": {
       "type": "object",
       "additionalProperties": false,
       "required": ["manifest_path", "signature_path", "allowed_signers_path", "wrong_allowed_signers_path", "identity", "namespace"],
@@ -78,9 +89,5 @@
         "namespace": {"type": "string", "minLength": 1, "maxLength": 128}
       }
     }
-  },
-  "definitions": {
-    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
-    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"}
   }
 }

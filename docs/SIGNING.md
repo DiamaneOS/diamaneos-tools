@@ -42,7 +42,11 @@ The selected `2026091000` manifest resolves these signing authorities:
 
 - `script` commit `639cdf6558e7401f8bab1cb8f53546ff4a0c8fef`;
 - `build/make` commit `7f0398241bc8c4ef5255a8063befa5045e5cfab4`;
-- `development` commit `bf1857fd7d886218a1ea456b94eb7eb15d5c1338`.
+- `development` commit `bf1857fd7d886218a1ea456b94eb7eb15d5c1338`;
+- `external/avb` commit `ba2dec4b035b0a3b61c5f8f8a74d86bcd450b1ee`;
+- `system/update_engine` commit
+  `79f478a4f89e701e85fa15dec340bf445342abbd`; and
+- `tools/apksig` commit `ba4d984e1a360d427307d669d2f789212130e9e8`.
 
 The pinned Android `make_key` helper creates RSA-4096 keys and SHA-256 X.509
 certificates. The GrapheneOS script defines nine Android certificate roles:
@@ -127,6 +131,26 @@ private run directory and must retain:
 6. a wrong-key rejection for each verifier class; and
 7. interruption/restart recovery showing that an incomplete run cannot be
    promoted.
+
+`deploy/builder/run-dummy-signing-qualification` is the no-argument builder
+entry point for the accepted generic profile. It accepts no operator-selected
+artifact or key path. The runner requires the exact reviewed tools checkout,
+source-project revisions, source-file hashes, unsigned target-files hash and
+otatools hash. It enumerates every accepted package name into an explicit role
+mapping and deliberately does not use the global APK/APEX key-override options.
+Fresh private material lives under `/dev/shm`, is removed before independent
+verification begins and is never retained in the evidence directory.
+
+The generic incremental proof uses the same signed target-files archive as its
+old and new input. This deliberately exercises the complete incremental OTA
+generation, package-signature and payload-signature path as a no-op delta. It
+does not claim changed-build update semantics; that remains part of an actual
+FP6 old/new release-pair qualification.
+
+The generic image archive similarly proves the pinned outer Ed25519 `factory
+images` signature role, not the structure or installability of a future FP6
+factory package. The FP6 packaging path must be requalified against the real
+product output.
 
 The retained release manifest hashes every qualification artifact and is
 signed in the `diamaneos-dummy-release-record` namespace. Independent
