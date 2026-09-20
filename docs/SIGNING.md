@@ -153,7 +153,9 @@ The SDK target publishes target-files and otatools through the legacy product
 output paths. The Android 17 Cuttlefish product publishes both through Soong
 module intermediates instead. Discovery accepts only one regular artifact
 inside each exact selected module root; it never searches the complete output
-tree or falls back to an older product's package.
+tree or falls back to an older product's package. Soong module paths are
+resolved from the declared top-level output root, not Android's `$OUT`
+variable, which names the selected product output directory after `lunch`.
 
 ## Disposable-key qualification
 
