@@ -46,7 +46,7 @@ apt-get -y full-upgrade
 apt-get install -y --no-install-recommends \
   openssh-server sudo network-manager ca-certificates curl git git-lfs gnupg repo \
   diffutils fontconfig fonts-dejavu-core hostname openssl \
-  rsync unzip zip gperf libc6-dev-i386 lib32gcc-s1 python3 \
+  rsync unzip zip gperf libc6-dev-i386 lib32gcc-s1 python3 python3-jsonschema \
   ccache ethtool jq lm-sensors nvme-cli pciutils smartmontools \
   stress-ng systemd-timesyncd usbutils linux-cpupower
 
@@ -112,6 +112,7 @@ fi
 apt-mark manual \
   openssh-server sudo network-manager systemd-sysv linux-image-amd64 \
   ca-certificates curl git git-lfs gnupg repo rsync unzip zip python3 \
+  python3-jsonschema \
   systemd-timesyncd smartmontools nvme-cli stress-ng lm-sensors \
   ethtool pciutils usbutils linux-cpupower
 systemctl set-default multi-user.target
@@ -138,6 +139,7 @@ apt-get -s autoremove --purge "${desktop_packages[@]}" >"$simulation"
 for package in \
   openssh-server sudo network-manager systemd-sysv linux-image-amd64 \
   ca-certificates curl git git-lfs gnupg repo rsync unzip zip python3 \
+  python3-jsonschema \
   systemd-timesyncd smartmontools nvme-cli stress-ng lm-sensors \
   ethtool pciutils usbutils linux-cpupower
 do

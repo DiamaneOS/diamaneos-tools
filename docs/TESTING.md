@@ -1,5 +1,22 @@
 # DiamaneOS Testing
 
+## Signing-role verification
+
+`bin/diamaneos signing roles` validates the complete pinned signing contract
+without contacting a device or creating a key. `signing inventory` derives APK,
+APEX and AVB roles from a caller-supplied target-files archive and fails closed
+on missing metadata, duplicate/unsafe ZIP members, unlisted signed-output roles
+or an unlisted presigned package. `signing verify` independently re-hashes a
+retained disposable-key run, verifies its release-record signature with the
+declared public key and requires wrong-key rejection.
+
+Unit fixtures cover malformed archives, development-key versus signed-output
+separation, presigned-package refusal, source/role drift, incomplete proofs,
+path escape and artifact tampering. They do not claim that Android artifacts
+were signed. The builder/offline qualification described in
+[`SIGNING.md`](SIGNING.md) supplies the real APK/APEX/AVB/full-OTA/delta-OTA
+tool evidence.
+
 ## Stock hardware observations
 
 The [stock hardware report](../reports-public/stock-capabilities.json) records

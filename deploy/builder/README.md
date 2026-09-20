@@ -238,6 +238,23 @@ Neither unit is intended to start a build automatically at boot. Source sync
 has network access; the build unit requires its successful result and denies
 network access during compilation.
 
+## Disposable signing-role discovery
+
+FP6-035 uses the accepted generic build only to discover the concrete signing
+inventory before its disposable-key proof. Install `python3-jsonschema`, the
+`diamaneos-builder-signing-discovery.service` unit and a third copy of the
+same reviewed environment file at
+`/etc/diamaneos/builder-signing-discovery.env`. The service runs as
+`diamaneos-build`, denies IP access, rebuilds only the target-files and
+otatools packages, and records their hashes and parsed inventory beneath
+`evidence/dummy-signing`.
+
+The expected first result is either `PASS` with no presigned packages or
+`NEEDS_REVIEW` with their exact names. `NEEDS_REVIEW` is not a failure and is
+not approval: each listed package must be reviewed and committed to the exact
+profile before any signing qualification. The discovery job creates no key,
+performs no signature, does not use a token and is never enabled at boot.
+
 The build unit's systemd sandbox is deliberately composed with Android's
 pinned nsjail rather than layered blindly on top of it. It keeps the strongest
 verified read-only system mode compatible with nsjail's nested root remount,

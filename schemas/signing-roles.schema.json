@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_id",
+    "scope",
+    "source_binding",
+    "safety",
+    "key_roles",
+    "artifact_roles",
+    "target_profiles",
+    "required_dummy_proofs"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "inventory_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,95}$"},
+    "scope": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment_id", "release_tag", "manifest_commit", "project_map_sha256", "projects", "files"],
+      "properties": {
+        "environment_id": {"type": "string", "minLength": 1, "maxLength": 160},
+        "release_tag": {"type": "string", "pattern": "^[0-9]{10}$"},
+        "manifest_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "project_map_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "projects": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "required": ["script", "build/make", "development"],
+          "minProperties": 3
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dummy_keys_only", "production_key_generation_allowed", "production_token_import_allowed", "device_trust_enrollment_allowed", "generic_sign_by_path_allowed", "unlisted_role_policy", "unlisted_presigned_policy"],
+      "properties": {
+        "dummy_keys_only": {"const": true},
+        "production_key_generation_allowed": {"const": false},
+        "production_token_import_allowed": {"const": false},
+        "device_trust_enrollment_allowed": {"const": false},
+        "generic_sign_by_path_allowed": {"const": false},
+        "unlisted_role_policy": {"const": "reject"},
+        "unlisted_presigned_policy": {"const": "reject"}
+      }
+    },
+    "key_roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/keyRole"}
+    },
+    "artifact_roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/artifactRole"}
+    },
+    "target_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/targetProfile"}
+    },
+    "required_dummy_proofs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,95}$"}
+    }
+  },
+  "definitions": {
+    "boundedText": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "identifier": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
+    "textList": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/definitions/boundedText"}},
+    "keyRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "algorithm", "formats", "storage", "public_identity", "callers", "verifiers", "consumers"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "algorithm": {"$ref": "#/definitions/boundedText"},
+        "formats": {"$ref": "#/definitions/textList"},
+        "storage": {"$ref": "#/definitions/boundedText"},
+        "public_identity": {"$ref": "#/definitions/boundedText"},
+        "callers": {"$ref": "#/definitions/textList"},
+        "verifiers": {"$ref": "#/definitions/textList"},
+        "consumers": {"$ref": "#/definitions/textList"}
+      }
+    },
+    "artifactRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "key_ids", "inventory_source", "signer", "verifier"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "kind": {"$ref": "#/definitions/identifier"},
+        "key_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/identifier"}},
+        "inventory_source": {"$ref": "#/definitions/boundedText"},
+        "signer": {"$ref": "#/definitions/boundedText"},
+        "verifier": {"$ref": "#/definitions/boundedText"}
+      }
+    },
+    "targetProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "product", "build_variant", "evidence_scope", "presigned_allowlist", "inventory_status"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "product": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,96}$"},
+        "build_variant": {"enum": ["user", "userdebug", "eng"]},
+        "evidence_scope": {"$ref": "#/definitions/boundedText"},
+        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
+        "inventory_status": {"enum": ["pending-target-files-qualification", "qualified", "blocked-pending-fp6-product"]}
+      }
+    }
+  }
+}
