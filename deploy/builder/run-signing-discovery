@@ -18,6 +18,31 @@ fail() {
   exit 1
 }
 
+resolve_unique_artifact() {
+  local root=$1
+  local minimum_depth=$2
+  local maximum_depth=$3
+  local basename=$4
+  local label=$5
+  local candidate
+  local -a candidates
+  [[ -d $root && ! -L $root ]] || fail "$label module root is unavailable"
+  mapfile -d '' candidates < <(
+    find "$root" -xdev -mindepth "$minimum_depth" \
+      -maxdepth "$maximum_depth" -type f -name "$basename" -print0
+  )
+  [[ ${#candidates[@]} -eq 1 ]] || \
+    fail "$label module root did not contain exactly one artifact"
+  candidate=$(realpath -e -- "${candidates[0]}")
+  case "$candidate" in
+    "$root"/*) ;;
+    *) fail "$label artifact escaped its module root" ;;
+  esac
+  [[ -f $candidate && ! -L $candidate ]] || \
+    fail "$label artifact is not a regular file"
+  printf '%s\n' "$candidate"
+}
+
 write_failure() {
   exit_code=$?
   trap - EXIT
@@ -158,12 +183,25 @@ printf 'SIGNING_DISCOVERY_BUILD=STARTED\n'
 printf 'run_id=%s\n' "$run_id"
 m target-files-package otatools-package
 
-target_files=$OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target_files.zip
-otatools=$ANDROID_HOST_OUT/obj/ETC/otatools-packagelinux_glibc_x86_64_intermediates/otatools-packagelinux_glibc_x86_64
-[[ -f $target_files && ! -L $target_files ]] || \
-  fail 'target-files package was not produced as a regular file'
-[[ -f $otatools && ! -L $otatools ]] || \
-  fail 'otatools package was not produced as a regular file'
+case "$profile_id" in
+  generic-x86_64-qualification)
+    target_files=$OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target-files.zip
+    otatools=$ANDROID_HOST_OUT/obj/ETC/otatools-packagelinux_glibc_x86_64_intermediates/otatools-packagelinux_glibc_x86_64
+    [[ -f $target_files && ! -L $target_files ]] || \
+      fail 'target-files package was not produced as a regular file'
+    [[ -f $otatools && ! -L $otatools ]] || \
+      fail 'otatools package was not produced as a regular file'
+    ;;
+  generic-x86_64-ota-qualification)
+    target_module=$OUT/soong/.intermediates/build/soong/fsgen/${TARGET_PRODUCT}_generated_device
+    otatools_module=$OUT/soong/.intermediates/build/make/tools/otatools_package/otatools-package
+    target_files=$(resolve_unique_artifact \
+      "$target_module" 2 2 target_files.zip 'target-files')
+    otatools=$(resolve_unique_artifact \
+      "$otatools_module" 3 3 otatools.zip 'otatools')
+    ;;
+  *) fail 'unsupported artifact-layout profile binding' ;;
+esac
 
 set +e
 "$tools_root/bin/diamaneos" signing inventory \
