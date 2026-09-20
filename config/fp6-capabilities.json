@@ -6,7 +6,7 @@
   "classification_values": ["inherited-candidate", "adaptation-required", "unsupported", "unverified"],
   "claim_boundary": "Inherited-candidate means generic source appears in the selected GrapheneOS framework, not that a DiamaneOS FP6 build has passed. Hardware and Pixel-specific behavior requires the named build/device experiment.",
   "compatibility": {
-    "selected_framework": "GrapheneOS branch 17 at observed revision 75ae9fb65fa78389ea4a4d5f21aa1ba4be88e287",
+    "selected_framework": "GrapheneOS signed release tag 2026091000 at manifest commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a; resolved project-map SHA-256 31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",
     "selected_vendor": "Fairphone Android 16 FP6.QREL.16.100.0",
     "reference_device_target_level": 8,
     "reference_device_manifest": "LineageOS android_device_fairphone_FP6@4512f510190c931c2ca6a11fac1ba10bae2275b5/vintf/manifest.xml",
