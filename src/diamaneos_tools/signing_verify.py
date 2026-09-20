@@ -453,6 +453,47 @@ def _misc_info(text):
                          key=lambda field: field.encode("utf-8"))
 
 
+def avb_verification_plan(archive, inventory):
+    """Bind signed roles to emitted images and explicit chain expectations.
+
+    A no-boot product may retain boot signing metadata without emitting boot.
+    Callers must cover that metadata-only role with another product's image.
+    All sibling images are retained for avbtool's hash/hashtree descriptors.
+    """
+    if inventory.get("status") != "PASS" or inventory.get("stage") != "signed":
+        raise SigningError("AVB verification requires a PASS signed inventory")
+    if len(archive.namelist()) != len(set(archive.namelist())):
+        raise SigningError("duplicate target-files member")
+    misc, _ = _misc_info(_read_member(archive, "META/misc_info.txt"))
+    members = sorted(name for name in archive.namelist()
+                     if re.fullmatch(r"IMAGES/[a-zA-Z0-9_.-]+\.img", name))
+    images, metadata_only, expected_chains = [], [], []
+    seen = set()
+    for record in inventory["avb_roles"]:
+        chain = record["chain"]
+        if not ID_RE.fullmatch(chain) or chain in seen or record["key_role"] != "avb":
+            raise SigningError("invalid or duplicate AVB verification role")
+        seen.add(chain)
+        present = f"IMAGES/{chain}.img" in members
+        if chain == "boot" and misc.get("no_boot") == "true":
+            if present:
+                raise SigningError("no_boot contradicts emitted boot image")
+            metadata_only.append(chain)
+            continue
+        if not present:
+            raise SigningError(f"signed target-files lacks declared AVB image: {chain}")
+        images.append(chain)
+        location = misc.get(f"avb_{chain}_rollback_index_location")
+        if chain != "vbmeta" and location is not None:
+            if not re.fullmatch(r"[0-9]+", location) or not 0 < int(location) < 32:
+                raise SigningError("invalid AVB chain rollback index location")
+            expected_chains.append({"chain": chain, "rollback_index_location": int(location)})
+    if not images:
+        raise SigningError("no emitted AVB images")
+    return {"images": images, "metadata_only": metadata_only,
+            "members": members, "expected_chains": expected_chains}
+
+
 def _zip_member_sha256(archive, name):
     digest = hashlib.sha256()
     try:

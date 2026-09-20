@@ -361,6 +361,40 @@ def recovery_child(path):
 
 
 
+def prepare_avb_samples(partial, sources, sdk_profile_id):
+    """Extract complete per-product image context and bind chain expectations."""
+    from diamaneos_tools import signing_verify
+    public = partial / "public-keys"
+    image_samples = []
+    avb_coverage = []
+    for profile, target, inventory in sources:
+        with zipfile.ZipFile(target) as archive:
+            plan = signing_verify.avb_verification_plan(archive, inventory)
+            directory = partial / "samples/avb" / profile
+            # Descriptors resolve hash-protected siblings relative to the image.
+            for member in plan["members"]:
+                safe_extract_member(archive, member, directory / PurePosixPath(member).name)
+            chain_args = []
+            for chain in plan["expected_chains"]:
+                chain_args.extend([
+                    "--expected_chain_partition",
+                    f"{chain['chain']}:{chain['rollback_index_location']}:"
+                    f"{public / 'avb_pkmd.bin'}",
+                ])
+            prefix = "avb" if profile == sdk_profile_id else "ota-avb"
+            for chain in plan["images"]:
+                image_samples.append((f"{prefix}-{chain}", directory / f"{chain}.img", chain_args))
+            avb_coverage.append({"profile_id": profile, **plan})
+    emitted = {chain for plan in avb_coverage for chain in plan["images"]}
+    if any(chain not in emitted for plan in avb_coverage for chain in plan["metadata_only"]):
+        raise Failure("metadata-only AVB role lacks an emitted image in another profile")
+    atomic_json(partial / "avb-image-coverage.json", {
+        "schema_version": 1, "profiles": avb_coverage,
+    })
+
+    return image_samples
+
+
 def verify_signed_outputs(partial, config, required_tools, qualification_env):
     """Verify retained public artifacts; never create keys or sign anything.
 
@@ -465,34 +499,17 @@ def verify_signed_outputs(partial, config, required_tools, qualification_env):
             payload_sample = partial / "samples/apex/apex_payload.img"
             safe_extract_member(apex_archive, "apex_payload.img", payload_sample)
 
-        image_samples = [("apex-payload", payload_sample)]
-        for record in sdk_signed_inventory["avb_roles"]:
-            member = f"IMAGES/{record['chain']}.img"
-            if member not in archive.namelist():
-                raise Failure("signed target-files lacks a declared AVB image")
-            sample = partial / f"samples/avb/{record['chain']}.img"
-            safe_extract_member(archive, member, sample)
-            image_samples.append((f"avb-{record['chain']}", sample))
+    image_samples = [("apex-payload", payload_sample, [])]
+    image_samples.extend(prepare_avb_samples(partial, apk_sources, sdk_profile_id))
 
-    with zipfile.ZipFile(ota_signed) as archive:
-        ota_members = set(archive.namelist())
-        for record in ota_signed_inventory["avb_roles"]:
-            member = f"IMAGES/{record['chain']}.img"
-            if member not in ota_members:
-                raise Failure(
-                    "signed OTA target-files lacks a declared AVB image")
-            sample = partial / f"samples/ota-avb/{record['chain']}.img"
-            safe_extract_member(archive, member, sample)
-            image_samples.append((f"ota-avb-{record['chain']}", sample))
-
-    for identifier, sample in image_samples:
+    for identifier, sample, chain_args in image_samples:
         valid, _, _ = run([
             required_tools["avbtool"], "verify_image", "--image", sample,
-            "--key", public / "avb.pub.pem",
+            "--key", public / "avb.pub.pem", *chain_args,
         ], logs / f"verify-{identifier}.log", env=qualification_env)
         wrong, _, _ = run([
             required_tools["avbtool"], "verify_image", "--image", sample,
-            "--key", public / "wrong-avb.pub.pem",
+            "--key", public / "wrong-avb.pub.pem", *chain_args,
         ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
             allowed=tuple(range(1, 256)))
         checks.append({
