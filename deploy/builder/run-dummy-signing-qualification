@@ -75,6 +75,38 @@ def run(command, log, *, cwd=None, env=None, input_text=None, allowed=(0,)):
     return result.returncode, result.stdout, round(time.monotonic() - started, 3)
 
 
+def make_android_key(make_key, key_name, record_id, subject, destination, logs):
+    """Run the pinned Android key helper and validate both produced artifacts.
+
+    The pinned helper's EXIT cleanup trap returns 1 even after successful key
+    creation.  Accept that bounded source behavior only when OpenSSL can parse
+    the exact certificate and unencrypted PKCS#8 output created by this call.
+    """
+    exit_code, _, elapsed = run(
+        [make_key, key_name, subject], logs / f"keygen-{record_id}.log",
+        cwd=destination, input_text="\n", allowed=(0, 1))
+    certificate = destination / f"{key_name}.x509.pem"
+    private_key = destination / f"{key_name}.pk8"
+    for artifact in (certificate, private_key):
+        if (artifact.is_symlink() or not artifact.is_file()
+                or artifact.stat().st_size == 0):
+            raise Failure("Android key helper did not create bounded key artifacts")
+    run([
+        "openssl", "x509", "-in", certificate, "-noout", "-checkend", "0",
+    ], logs / f"keygen-{record_id}-certificate-verify.log")
+    run([
+        "openssl", "pkcs8", "-inform", "DER", "-in", private_key,
+        "-nocrypt", "-out", "/dev/null",
+    ], logs / f"keygen-{record_id}-private-verify.log")
+    return {
+        "key_id": record_id,
+        "make_key_exit_code": exit_code,
+        "elapsed_seconds": elapsed,
+        "certificate_parse": "PASS",
+        "private_key_parse": "PASS",
+    }
+
+
 def safe_extract_member(archive, member, destination):
     pure = PurePosixPath(member)
     if pure.is_absolute() or ".." in pure.parts:
@@ -280,14 +312,24 @@ def main():
         key_dir.mkdir(mode=0o700)
         wrong_dir.mkdir(mode=0o700)
         make_key = source_root / "development/tools/make_key"
+        key_generation = []
         for key_id in KEY_IDS:
-            run([make_key, key_id,
-                 f"/CN=DiamaneOS disposable qualification/O={key_id}/"],
-                logs / f"keygen-{key_id}.log", cwd=key_dir, input_text="\n")
-        run([make_key, "releasekey",
-             "/CN=DiamaneOS disposable wrong key/O=releasekey/"],
-            logs / "keygen-wrong-releasekey.log", cwd=wrong_dir,
-            input_text="\n")
+            key_generation.append(make_android_key(
+                make_key, key_id, key_id,
+                f"/CN=DiamaneOS disposable qualification/O={key_id}/",
+                key_dir, logs))
+        key_generation.append(make_android_key(
+            make_key, "releasekey", "wrong-releasekey",
+            "/CN=DiamaneOS disposable wrong key/O=releasekey/",
+            wrong_dir, logs))
+        atomic_json(partial / "key-generation.json", {
+            "schema_version": 1,
+            "status": "PASS",
+            "source_behavior": (
+                "the pinned make_key EXIT cleanup trap may return 1; every "
+                "certificate and private key is independently parsed"),
+            "keys": key_generation,
+        })
 
         avbtool_source = source_root / "external/avb/avbtool.py"
         run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt",
