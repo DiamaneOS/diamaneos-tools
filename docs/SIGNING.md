@@ -70,9 +70,14 @@ The concrete inventory is derived from these archive members:
 The verifier rejects duplicate ZIP names, path traversal, missing or oversized
 metadata, duplicate package records, unknown signed-output roles and any
 presigned package not named exactly by the selected target profile. Globs are
-not accepted in the presigned allowlist. An unsigned input may contain public
-development keys; that observation is not approval of those keys in the signed
-output.
+not accepted in the presigned allowlist. A qualified profile also binds the
+exact unsigned target-files hash. For a presigned package which is present in
+the archive, it binds the literal member path, basename, byte count and
+SHA-256; for build/test metadata which has no archive member, it requires that
+basename to remain absent. The exact metadata token is retained separately
+from the literal archive basename because Android metadata can escape a dot.
+An unsigned input may contain public development keys; that observation is not
+approval of those keys in the signed output.
 
 Validate the static contract without creating output or contacting a device:
 
@@ -93,8 +98,8 @@ bin/diamaneos signing inventory \
 
 Use `--stage signed` for the transformed archive. A package appearing in a
 discovery report does not add it to the allowlist. Review why it remains
-presigned, bind its public identity and update the exact profile before a
-qualification run may pass.
+presigned, bind its archive identity or reviewed metadata-only absence, and
+update the exact profile before a qualification run may pass.
 
 On the accepted builder, `deploy/builder/run-signing-discovery` performs that
 checkpoint as the unprivileged build identity with network access denied. It

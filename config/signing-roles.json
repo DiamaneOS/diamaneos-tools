@@ -244,15 +244,188 @@
       "product": "sdk_phone64_x86_64",
       "build_variant": "userdebug",
       "evidence_scope": "tool and role qualification only; never FP6 compatibility or release evidence",
-      "presigned_allowlist": [],
-      "inventory_status": "pending-target-files-qualification"
+      "qualified_unsigned_target_files_sha256": "484874d65148ae883b1d37982ecaa5769304f68513f5793835cedca77a10a0fd",
+      "presigned_allowlist": [
+        "AndroidXComposeStartupApp.apk",
+        "AppCompatConfig.apk",
+        "AppStore.apk",
+        "Auditor.apk",
+        "Camera.apk",
+        "CtsCorruptApkTests_Compressed_Q.apk",
+        "CtsCorruptApkTests_Compressed_R.apk",
+        "CtsCorruptApkTests_Unaligned_Q.apk",
+        "CtsCorruptApkTests_Unaligned_R.apk",
+        "CtsCorruptApkTests_b71360999.apk",
+        "CtsCorruptApkTests_b71361168.apk",
+        "CtsCorruptApkTests_b79488511.apk",
+        "CtsDuplicatePermissionDeclareApp_DifferentProtectionLevel.apk",
+        "CtsDuplicatePermissionDeclareApp_SameProtectionLevel.apk",
+        "CtsMalformedDuplicatePermission_DifferentPermissionGroup.apk",
+        "CtsShimPrebuilt.apk",
+        "CtsShimPrivPrebuilt.apk",
+        "CtsShimPrivUpgradePrebuilt.apk",
+        "CtsShimPrivUpgradeWrongSHAPrebuilt.apk",
+        "CtsShimTargetPSdkPrebuilt.apk",
+        "GmsCompatConfig.apk",
+        "InfoApp.apk",
+        "Messaging.apk",
+        "PdfViewerGOS.apk",
+        "ResApkBadXml.apk",
+        "SpeechServices.apk",
+        "TrichromeChrome.apk",
+        "TrichromeLibrary.apk",
+        "TrichromeWebView\\.apk",
+        "VanadiumConfig.apk",
+        "androidx.test.orchestrator.apk",
+        "androidx.test.services.test-services.apk",
+        "com.android.apex.cts.shim.apex",
+        "signed-CtsOmapiTestCases.apk",
+        "signed-CtsSecureElementAccessControlTestCases1.apk",
+        "signed-CtsSecureElementAccessControlTestCases2.apk",
+        "signed-CtsSecureElementAccessControlTestCases3.apk"
+      ],
+      "presigned_metadata_only": [
+        "AndroidXComposeStartupApp.apk",
+        "CtsCorruptApkTests_Compressed_Q.apk",
+        "CtsCorruptApkTests_Compressed_R.apk",
+        "CtsCorruptApkTests_Unaligned_Q.apk",
+        "CtsCorruptApkTests_Unaligned_R.apk",
+        "CtsCorruptApkTests_b71360999.apk",
+        "CtsCorruptApkTests_b71361168.apk",
+        "CtsCorruptApkTests_b79488511.apk",
+        "CtsDuplicatePermissionDeclareApp_DifferentProtectionLevel.apk",
+        "CtsDuplicatePermissionDeclareApp_SameProtectionLevel.apk",
+        "CtsMalformedDuplicatePermission_DifferentPermissionGroup.apk",
+        "CtsShimPrebuilt.apk",
+        "CtsShimPrivPrebuilt.apk",
+        "CtsShimPrivUpgradePrebuilt.apk",
+        "CtsShimPrivUpgradeWrongSHAPrebuilt.apk",
+        "CtsShimTargetPSdkPrebuilt.apk",
+        "ResApkBadXml.apk",
+        "androidx.test.orchestrator.apk",
+        "androidx.test.services.test-services.apk",
+        "signed-CtsOmapiTestCases.apk",
+        "signed-CtsSecureElementAccessControlTestCases1.apk",
+        "signed-CtsSecureElementAccessControlTestCases2.apk",
+        "signed-CtsSecureElementAccessControlTestCases3.apk"
+      ],
+      "presigned_artifacts": [
+        {
+          "metadata_name": "AppCompatConfig.apk",
+          "artifact_basename": "AppCompatConfig.apk",
+          "path": "SYSTEM/app/AppCompatConfig/AppCompatConfig.apk",
+          "bytes": 20500,
+          "sha256": "992839e93d11e1c0e8446a34f8e36528933094420fedc259e45e6b4d1c580b53"
+        },
+        {
+          "metadata_name": "AppStore.apk",
+          "artifact_basename": "AppStore.apk",
+          "path": "PRODUCT/priv-app/AppStore/AppStore.apk",
+          "bytes": 2740009,
+          "sha256": "0247e7ad3f244cf7d79a00b1bc5780cbf195da6484ad6545b4940223ddb24e52"
+        },
+        {
+          "metadata_name": "Auditor.apk",
+          "artifact_basename": "Auditor.apk",
+          "path": "PRODUCT/app/Auditor/Auditor.apk",
+          "bytes": 3141714,
+          "sha256": "f54d47ae7f57871906020d5dc1c32ef44913ca18cf79a6771d812a9c9e012bca"
+        },
+        {
+          "metadata_name": "Camera.apk",
+          "artifact_basename": "Camera.apk",
+          "path": "PRODUCT/app/Camera/Camera.apk",
+          "bytes": 3931896,
+          "sha256": "6e1d05a7b96b308f3a9dff3103db55cfee2cbea38b3249b5879fe35cfcf179ff"
+        },
+        {
+          "metadata_name": "GmsCompatConfig.apk",
+          "artifact_basename": "GmsCompatConfig.apk",
+          "path": "SYSTEM/app/GmsCompatConfig/GmsCompatConfig.apk",
+          "bytes": 24411,
+          "sha256": "73f49c22873bb6c7717ea36535d70fd838dfef2d41af50125105972b529ea3ef"
+        },
+        {
+          "metadata_name": "InfoApp.apk",
+          "artifact_basename": "InfoApp.apk",
+          "path": "PRODUCT/app/InfoApp/InfoApp.apk",
+          "bytes": 2522678,
+          "sha256": "484d417760f891159bbfdd5a3a02fa21b1b258cd146e96de0949145433a5c5de"
+        },
+        {
+          "metadata_name": "Messaging.apk",
+          "artifact_basename": "Messaging.apk",
+          "path": "PRODUCT/app/Messaging/Messaging.apk",
+          "bytes": 10766991,
+          "sha256": "a125e0344ddaf1325d7784d0ead4f568520db552e3dae814e8d867f42deb08c7"
+        },
+        {
+          "metadata_name": "PdfViewerGOS.apk",
+          "artifact_basename": "PdfViewerGOS.apk",
+          "path": "PRODUCT/app/PdfViewerGOS/PdfViewerGOS.apk",
+          "bytes": 4829050,
+          "sha256": "8baf331478b72e5f2f69407ffbaec1d0d6aa128b941735d3d7d2c091e4e6b675"
+        },
+        {
+          "metadata_name": "SpeechServices.apk",
+          "artifact_basename": "SpeechServices.apk",
+          "path": "PRODUCT/app/SpeechServices/SpeechServices.apk",
+          "bytes": 81303274,
+          "sha256": "9235db7951aa6d049e515579804ea2a244e141e6596cd14584ff1e8eaa7cd9e6"
+        },
+        {
+          "metadata_name": "TrichromeChrome.apk",
+          "artifact_basename": "TrichromeChrome.apk",
+          "path": "PRODUCT/app/TrichromeChrome/TrichromeChrome.apk",
+          "bytes": 86127185,
+          "sha256": "efca5d89cd4ee8f05ca1a02b5c3a487f0255fb93c3a736e2f95789beab74d0db"
+        },
+        {
+          "metadata_name": "TrichromeLibrary.apk",
+          "artifact_basename": "TrichromeLibrary.apk",
+          "path": "PRODUCT/app/TrichromeLibrary/TrichromeLibrary.apk",
+          "bytes": 277925807,
+          "sha256": "d7ee4b899aace9fc8b03fb93b7c314557d99d7c38b72c486ce2e00a5ecc94e8e"
+        },
+        {
+          "metadata_name": "TrichromeWebView\\.apk",
+          "artifact_basename": "TrichromeWebView.apk",
+          "path": "PRODUCT/app/TrichromeWebView/TrichromeWebView.apk",
+          "bytes": 5204178,
+          "sha256": "2ecce1d38ae727ced3ed67e56d0f8704062fa1cdef58184ce7ca492ec4b45814"
+        },
+        {
+          "metadata_name": "VanadiumConfig.apk",
+          "artifact_basename": "VanadiumConfig.apk",
+          "path": "PRODUCT/app/VanadiumConfig/VanadiumConfig.apk",
+          "bytes": 11524255,
+          "sha256": "db77b9e60f7fd497f237330679de0d13c57783240eeee47f028687e84e3a9799"
+        },
+        {
+          "metadata_name": "com.android.apex.cts.shim.apex",
+          "artifact_basename": "com.android.apex.cts.shim.apex",
+          "path": "SYSTEM/apex/com.android.apex.cts.shim.apex",
+          "bytes": 360448,
+          "sha256": "0c920b331bcd20d87b8d948ed325a47fec0534720efa4df856c0805707ab70d1"
+        }
+      ],
+      "qualification_evidence": {
+        "artifact_review_sha256": "03edb9f5e7fac947caf7be7a1d0f5b47cd4d64c2f4500657a3f0d521f3d63f56",
+        "source_review_sha256": "0c6bbd45e45ffc56ea65dc8d308391b5a47cb9c2a56194279811619f5b28eb46",
+        "source_inventory_sha256": "a03030c455b291af4de43998b0c896cc34cb0fd79e07b75bbf6e230a91843fab"
+      },
+      "inventory_status": "qualified"
     },
     {
       "id": "fp6-release",
       "product": "FP6",
       "build_variant": "user",
       "evidence_scope": "future FP6 candidate; must be regenerated for every accepted target-files package",
+      "qualified_unsigned_target_files_sha256": null,
       "presigned_allowlist": [],
+      "presigned_metadata_only": [],
+      "presigned_artifacts": [],
+      "qualification_evidence": null,
       "inventory_status": "blocked-pending-fp6-product"
     }
   ],

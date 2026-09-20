@@ -188,9 +188,8 @@ presigned_count=${inventory_state[2]}
 
 sha256sum "$target_files" >"$partial/unsigned-target-files.sha256"
 sha256sum "$otatools" >"$partial/otatools.sha256"
-sha256sum "$partial/preflight.json" "$partial/signing-roles.json" \
-  "$partial/resolved-manifest.xml" "$partial/unsigned-inventory.json" \
-  >"$partial/evidence.sha256"
+(cd "$partial" && sha256sum preflight.json signing-roles.json \
+  resolved-manifest.xml unsigned-inventory.json >evidence.sha256)
 
 ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 - "$partial/result.json" "$run_id" "$started_at" "$ended_at" \
@@ -238,7 +237,7 @@ with open(temporary, "w", encoding="utf-8") as stream:
 os.replace(temporary, path)
 PY
 
-sha256sum "$partial/result.json" >"$partial/result.json.sha256"
+(cd "$partial" && sha256sum result.json >result.json.sha256)
 case $status in
   PASS) final=$evidence_root/$run_id ;;
   NEEDS_REVIEW) final=$evidence_root/$run_id.needs-review ;;

@@ -118,13 +118,51 @@
     "targetProfile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "product", "build_variant", "evidence_scope", "presigned_allowlist", "inventory_status"],
+      "required": ["id", "product", "build_variant", "evidence_scope", "qualified_unsigned_target_files_sha256", "presigned_allowlist", "presigned_metadata_only", "presigned_artifacts", "qualification_evidence", "inventory_status"],
       "properties": {
         "id": {"$ref": "#/definitions/identifier"},
         "product": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,96}$"},
         "build_variant": {"enum": ["user", "userdebug", "eng"]},
         "evidence_scope": {"$ref": "#/definitions/boundedText"},
-        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
+        "qualified_unsigned_target_files_sha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          ]
+        },
+        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"}},
+        "presigned_metadata_only": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"}},
+        "presigned_artifacts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metadata_name", "artifact_basename", "path", "bytes", "sha256"],
+            "properties": {
+              "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"},
+              "artifact_basename": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"},
+              "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]{1,1000}$"},
+              "bytes": {"type": "integer", "minimum": 1, "maximum": 68719476736},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        },
+        "qualification_evidence": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["artifact_review_sha256", "source_review_sha256", "source_inventory_sha256"],
+              "properties": {
+                "artifact_review_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "source_review_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "source_inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          ]
+        },
         "inventory_status": {"enum": ["pending-target-files-qualification", "qualified", "blocked-pending-fp6-product"]}
       }
     }
