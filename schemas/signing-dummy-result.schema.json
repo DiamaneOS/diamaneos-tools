@@ -6,7 +6,7 @@
     "schema_version",
     "inventory_id",
     "source_binding",
-    "profile_id",
+    "profile_ids",
     "run_id",
     "status",
     "dummy_keys_only",
@@ -21,7 +21,13 @@
     "schema_version": {"const": 1},
     "inventory_id": {"$ref": "#/definitions/id"},
     "source_binding": {"type": "object"},
-    "profile_id": {"$ref": "#/definitions/id"},
+    "profile_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/id"}
+    },
     "run_id": {"$ref": "#/definitions/id"},
     "status": {"enum": ["PASS", "FAIL", "INCOMPLETE"]},
     "dummy_keys_only": {"type": "boolean"},

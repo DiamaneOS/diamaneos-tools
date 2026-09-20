@@ -722,6 +722,11 @@ def verify_dummy_result(result_path, artifact_root, config):
         errors.append("dummy result uses a different signing inventory")
     if result["source_binding"] != config["source_binding"]:
         errors.append("dummy result uses a different source binding")
+    if (set(result["profile_ids"]) != {
+            "generic-x86_64-qualification",
+            "generic-x86_64-ota-qualification",
+            } or len(result["profile_ids"]) != 2):
+        errors.append("dummy result profile set is incomplete")
     if (not result["dummy_keys_only"]
             or result["production_material_present"]):
         errors.append("dummy result crosses the production-material boundary")

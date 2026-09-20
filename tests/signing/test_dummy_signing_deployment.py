@@ -19,6 +19,17 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn("this qualification entry point accepts no arguments", script)
         self.assertIn("qualified_unsigned_target_files_sha256", script)
         self.assertIn("qualified_otatools_sha256", script)
+        self.assertIn('SDK_PROFILE_ID = "generic-x86_64-qualification"', script)
+        self.assertIn(
+            'OTA_PROFILE_ID = "generic-x86_64-ota-qualification"', script)
+        self.assertIn("def unique_regular_artifact", script)
+        self.assertIn('"sdk-signed-target-files.zip"', script)
+        self.assertIn('"ota-signed-target-files.zip"', script)
+        self.assertIn("source=ota_unsigned, destination=ota_signed", script)
+        self.assertIn(
+            'key_dir / "releasekey", ota_signed, full_ota', script)
+        self.assertIn(
+            '"-i", ota_signed, ota_signed,', script)
         self.assertIn("signing_command", script)
         self.assertIn("def make_android_key", script)
         self.assertIn("allowed=(0, 1)", script)
