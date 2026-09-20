@@ -4,7 +4,7 @@ set -euo pipefail
 workspace_root=${DIAMANEOS_BUILD_ROOT:-/var/lib/diamaneos-build}
 tools_link=${DIAMANEOS_TOOLS_ROOT:-/opt/diamaneos/tools}
 expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
-thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-fan-check}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-}
 expected_user=diamaneos-build
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 run_id=generic-qualification-$(date -u +%Y%m%dT%H%M%SZ)
@@ -55,6 +55,8 @@ trap write_failure EXIT
   fail 'workspace root must be an absolute non-symlink directory'
 [[ $expected_tools_commit =~ ^[0-9a-f]{40}$ ]] || \
   fail 'expected reviewed tools commit is missing or invalid'
+[[ $thermal_check == /* ]] || \
+  fail 'DIAMANEOS_THERMAL_CHECK must name an explicit absolute path'
 [[ -x $tools_link/bin/diamaneos ]] || fail 'reviewed tools deployment is unavailable'
 tools_root=$(readlink -f "$tools_link")
 [[ $tools_root == "/opt/diamaneos/tools-$expected_tools_commit" ]] || \
@@ -80,14 +82,18 @@ print(workspace["source_subdirectory"])
 print(workspace["cache_subdirectory"])
 print(workspace["output_subdirectory"])
 print(config["build"]["generic_qualification_target"])
+print(config["upstream"]["release_tag"])
+print(config["host"]["external_tools"]["node"]["version"])
 PY
 )
-[[ ${#declared[@]} -eq 4 ]] || fail 'declared build paths or target are incomplete'
+[[ ${#declared[@]} -eq 6 ]] || fail 'declared build paths, target or tools are incomplete'
 source_root=$workspace_root/${declared[0]}
 cache_root=$workspace_root/${declared[1]}
 output_root=$workspace_root/${declared[2]}
 expected_target=${declared[3]}
-allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+release_tag=${declared[4]}
+node_version=${declared[5]}
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-$release_tag
 
 [[ -d $source_root/.repo && -f $allowed_signers ]] || \
   fail 'verified source sync is incomplete'
@@ -101,7 +107,7 @@ mkdir -m 0750 "$partial"
 
 export HOME=$workspace_root
 export COREPACK_HOME=$workspace_root/.cache/corepack
-export PATH=$workspace_root/toolbin:/opt/nodejs/v24.21.0/bin:/usr/local/bin:/usr/bin:/bin
+export PATH=$workspace_root/toolbin:/opt/nodejs/$node_version/bin:/usr/local/bin:/usr/bin:/bin
 export CCACHE_DIR=$cache_root/ccache
 export TMPDIR=$workspace_root/tmp
 install -d -m 0750 "$CCACHE_DIR" "$TMPDIR"

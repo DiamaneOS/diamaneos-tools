@@ -33,12 +33,9 @@ class BuildEnvironmentTests(unittest.TestCase):
             identity["project_map_sha256"],
         )
 
-    def test_default_thermal_gate_matches_qualified_builder_helper(self):
+    def test_thermal_gate_has_no_machine_specific_default(self):
         arguments = build._parser().parse_args([])
-        self.assertEqual(
-            Path("/usr/local/sbin/diamaneos-builder-fan-check"),
-            arguments.thermal_check,
-        )
+        self.assertIsNone(arguments.thermal_check)
 
     def test_changed_manifest_pin_changes_build_identity(self):
         changed = copy.deepcopy(self.config)

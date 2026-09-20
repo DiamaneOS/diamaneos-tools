@@ -21,7 +21,12 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
     def test_runner_is_revision_bound_and_does_not_create_keys(self):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
-        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertIn("must name an explicit absolute path", script)
+        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertIn('environment["upstream"]["release_tag"]', script)
+        self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
+        self.assertNotIn("grapheneos-allowed-signers-2026091000", script)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", script)
         self.assertIn('"$tools_root/bin/diamaneos" signing roles', script)
         self.assertIn("m target-files-package otatools-package", script)
         self.assertIn("--stage unsigned", script)
@@ -50,6 +55,7 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
         self.assertIn("TimeoutStartSec=infinity", unit)
         self.assertNotIn("WantedBy=", unit)
         self.assertNotIn("sudo", unit)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", unit)
 
 
 if __name__ == "__main__":

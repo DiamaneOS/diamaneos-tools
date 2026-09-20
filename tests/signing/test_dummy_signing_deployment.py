@@ -26,6 +26,12 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('"openssl", "pkcs8"', script)
         self.assertIn('partial / "key-generation.json"', script)
         self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
+        self.assertIn('environment["upstream"]["release_tag"]', script)
+        self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
+        self.assertIn("explicit thermal-safety preflight path is missing", script)
+        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertNotIn("grapheneos-allowed-signers-2026091000", script)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", script)
         planner = (ROOT / "src/diamaneos_tools/signing_qualification.py").read_text(
             encoding="utf-8")
         self.assertNotIn("--override_apk_keys", planner)
@@ -97,6 +103,7 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn("TimeoutStartSec=infinity", unit)
         self.assertNotIn("WantedBy=", unit)
         self.assertNotIn("sudo", unit)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", unit)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ fastboot --version
 
 ## Documentation
 
+- [Reproduce the current generic build](docs/REPRODUCIBILITY.md)
 - [Testing and command setup](docs/TESTING.md)
 - [Host-tooling and device-suite development](docs/BUILD.md)
 - [FP6 component decisions and artifact closure](docs/COMPONENTS.md)
