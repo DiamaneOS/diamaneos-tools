@@ -31,8 +31,6 @@ OTA_CUSTOM_VBMETA_PARTITIONS = {
     "system_dlkm": "vbmeta_system_dlkm",
     "vendor_dlkm": "vbmeta_vendor_dlkm",
 }
-APK_DIGEST_RE = re.compile(
-    r"Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})")
 
 
 class Failure(RuntimeError):
@@ -200,10 +198,11 @@ def apk_certificate_check(apksigner, artifact, expected, log, *, env):
     _, output, _ = run(
         [apksigner, "verify", "--verbose", "--print-certs", artifact], log,
         env=env)
-    observed = {item.lower() for item in APK_DIGEST_RE.findall(output)}
-    if observed != {expected}:
-        raise Failure("APK/APEX certificate does not match its declared role")
-    return sorted(observed)
+    from diamaneos_tools.signing_verify import apk_certificate_digests, SigningError
+    try:
+        return apk_certificate_digests(output, expected)
+    except SigningError as error:
+        raise Failure(str(error)) from error
 
 
 def ssh_verify(manifest, signature, allowed, identity, namespace, log):
@@ -359,6 +358,197 @@ def recovery_child(path):
     (path / "disposable-private-material").write_bytes(os.urandom(64))
     os.chmod(path / "disposable-private-material", 0o600)
     return 75
+
+
+
+def verify_signed_outputs(partial, config, required_tools, qualification_env):
+    """Verify retained public artifacts; never create keys or sign anything.
+
+    The qualification calls this only after deleting disposable secrets. A
+    diagnostic caller must supply a fresh evidence directory and authenticated
+    retained inputs, and must not promote its report to qualification PASS.
+    """
+    from diamaneos_tools import signing_verify
+    partial = Path(partial)
+    logs = partial / "logs"
+    public = partial / "public-keys"
+    artifacts = partial / "artifacts"
+    qualification = config["dummy_qualification"]
+    sdk_profile_id = qualification["sdk_profile_id"]
+    ota_profile_id = qualification["ota_profile_id"]
+    key_ids = tuple(next(entry for entry in config["artifact_roles"]
+                        if entry["id"] == "android-apk-certificates")["key_ids"])
+    sdk_signed = artifacts / "sdk-signed-target-files.zip"
+    ota_signed = artifacts / "ota-signed-target-files.zip"
+    sdk_signed_inventory = signing_verify.load_json(
+        partial / "sdk-signed-inventory.json", limit=64 * 1024 * 1024)
+    ota_signed_inventory = signing_verify.load_json(
+        partial / "ota-signed-inventory.json", limit=64 * 1024 * 1024)
+    apk_sources = ((sdk_profile_id, sdk_signed, sdk_signed_inventory),
+                   (ota_profile_id, ota_signed, ota_signed_inventory))
+    _, apk_selected, _ = target_apk_role_coverage(apk_sources, key_ids)
+    metadata_only = set(key_ids) - set(apk_selected)
+    if metadata_only != set(qualification["metadata_only_apk_key_ids"]):
+        raise Failure("retained APK role coverage is not reviewed")
+    coverage = signing_verify.load_json(partial / "apk-role-coverage.json")
+    probe_source_record = coverage["probe_source"]
+    role_probe_paths = {role: artifacts / "apk-role-probes" / f"{role}.apk"
+                        for role in metadata_only}
+    full_ota = artifacts / "full-ota.zip"
+    incremental_ota = artifacts / "incremental-noop-ota.zip"
+    image_archive = artifacts / "generic-images.zip"
+    factory_signature = image_archive.with_name(image_archive.name + ".sig")
+    release_manifest = partial / "release-manifest.json"
+    release_signature = partial / "release-manifest.json.sig"
+    factory_allowed = partial / "factory-allowed-signers"
+    factory_wrong = partial / "factory-wrong-allowed-signers"
+    release_allowed = partial / "release-allowed-signers"
+    release_wrong = partial / "release-wrong-allowed-signers"
+    checks = []
+    wrong_release_fingerprint = certificate_fingerprint(
+        public / "wrong-releasekey.x509.pem")
+    target_apk_samples = extract_selected_apk_samples(
+        apk_sources, apk_selected, partial / "samples/apk")
+    for role in key_ids:
+        if role in target_apk_samples:
+            sample = target_apk_samples[role]
+            mode = "target-files-transformation"
+            source_profile = apk_selected[role]["profile_id"]
+            source_package = apk_selected[role]["package_name"]
+        else:
+            sample = role_probe_paths[role]
+            mode = "standalone-apk-signing-probe"
+            source_profile = probe_source_record["profile_id"]
+            source_package = probe_source_record["package_name"]
+        expected = certificate_fingerprint(public / f"{role}.x509.pem")
+        observed = apk_certificate_check(
+            required_tools["apksigner"], sample, expected,
+            logs / f"verify-apk-{role}.log", env=qualification_env)
+        if wrong_release_fingerprint in observed:
+            raise Failure("APK certificate pin accepted the wrong key")
+        checks.append({
+            "id": f"apk-{role}", "valid_exit_code": 0,
+            "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
+            "artifact": sample.relative_to(partial).as_posix(),
+            "qualification_mode": mode,
+            "source_profile": source_profile,
+            "source_package": source_package,
+            "target_files_transformation_observed": (
+                mode == "target-files-transformation"),
+        })
+
+    with zipfile.ZipFile(sdk_signed) as archive:
+        members = defaultdict(list)
+        for name in archive.namelist():
+            members[PurePosixPath(name).name].append(name)
+        apex_record = next(
+            item for item in sdk_signed_inventory["apex_roles"]
+            if item.get("expected_container_certificate_role") == "releasekey"
+            and item.get("expected_payload_private_key_role") == "avb"
+            and members.get(item["name"]))
+        apex_path = sorted(members[apex_record["name"]])[0]
+        apex_sample = partial / "samples/apex/container.apex"
+        safe_extract_member(archive, apex_path, apex_sample)
+        release_fingerprint = certificate_fingerprint(
+            public / "releasekey.x509.pem")
+        observed = apk_certificate_check(
+            required_tools["apksigner"], apex_sample, release_fingerprint,
+            logs / "verify-apex-container.log", env=qualification_env)
+        if wrong_release_fingerprint in observed:
+            raise Failure("APEX container certificate pin accepted the wrong key")
+        checks.append({
+            "id": "apex-container", "valid_exit_code": 0,
+            "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
+            "artifact": apex_sample.relative_to(partial).as_posix(),
+        })
+        with zipfile.ZipFile(apex_sample) as apex_archive:
+            payload_sample = partial / "samples/apex/apex_payload.img"
+            safe_extract_member(apex_archive, "apex_payload.img", payload_sample)
+
+        image_samples = [("apex-payload", payload_sample)]
+        for record in sdk_signed_inventory["avb_roles"]:
+            member = f"IMAGES/{record['chain']}.img"
+            if member not in archive.namelist():
+                raise Failure("signed target-files lacks a declared AVB image")
+            sample = partial / f"samples/avb/{record['chain']}.img"
+            safe_extract_member(archive, member, sample)
+            image_samples.append((f"avb-{record['chain']}", sample))
+
+    with zipfile.ZipFile(ota_signed) as archive:
+        ota_members = set(archive.namelist())
+        for record in ota_signed_inventory["avb_roles"]:
+            member = f"IMAGES/{record['chain']}.img"
+            if member not in ota_members:
+                raise Failure(
+                    "signed OTA target-files lacks a declared AVB image")
+            sample = partial / f"samples/ota-avb/{record['chain']}.img"
+            safe_extract_member(archive, member, sample)
+            image_samples.append((f"ota-avb-{record['chain']}", sample))
+
+    for identifier, sample in image_samples:
+        valid, _, _ = run([
+            required_tools["avbtool"], "verify_image", "--image", sample,
+            "--key", public / "avb.pub.pem",
+        ], logs / f"verify-{identifier}.log", env=qualification_env)
+        wrong, _, _ = run([
+            required_tools["avbtool"], "verify_image", "--image", sample,
+            "--key", public / "wrong-avb.pub.pem",
+        ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
+            allowed=tuple(range(1, 256)))
+        checks.append({
+            "id": identifier, "valid_exit_code": valid,
+            "wrong_exit_code": wrong, "tool": "avbtool verify_image",
+            "artifact": sample.relative_to(partial).as_posix(),
+        })
+
+    for identifier, ota in (("full-ota", full_ota),
+                            ("incremental-ota", incremental_ota)):
+        valid, _, _ = run([
+            required_tools["check_ota_package_signature"],
+            public / "releasekey.x509.pem", ota,
+        ], logs / f"verify-{identifier}.log", env=qualification_env)
+        wrong, _, _ = run([
+            required_tools["check_ota_package_signature"],
+            public / "wrong-releasekey.x509.pem", ota,
+        ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
+            allowed=tuple(range(1, 256)))
+        checks.append({
+            "id": identifier, "valid_exit_code": valid,
+            "wrong_exit_code": wrong,
+            "tool": "check_ota_package_signature",
+            "artifact": ota.relative_to(partial).as_posix(),
+        })
+
+    factory_valid = ssh_verify(
+        image_archive, factory_signature, factory_allowed,
+        "dummy-factory", "factory images", logs / "verify-factory.log")
+    factory_bad = ssh_verify(
+        image_archive, factory_signature, factory_wrong,
+        "dummy-factory", "factory images", logs / "verify-factory-wrong.log")
+    release_valid = ssh_verify(
+        release_manifest, release_signature, release_allowed,
+        "dummy-release", "diamaneos-dummy-release-record",
+        logs / "verify-release-record.log")
+    release_bad = ssh_verify(
+        release_manifest, release_signature, release_wrong,
+        "dummy-release", "diamaneos-dummy-release-record",
+        logs / "verify-release-record-wrong.log")
+    if factory_valid or not factory_bad or release_valid or not release_bad:
+        raise Failure("OpenSSH signature valid/wrong-key boundary failed")
+    checks.extend([
+        {"id": "factory-archive", "valid_exit_code": factory_valid,
+         "wrong_exit_code": factory_bad, "tool": "ssh-keygen -Y verify",
+         "artifact": image_archive.relative_to(partial).as_posix()},
+        {"id": "release-record", "valid_exit_code": release_valid,
+         "wrong_exit_code": release_bad, "tool": "ssh-keygen -Y verify",
+         "artifact": release_manifest.relative_to(partial).as_posix()},
+    ])
+    verification = partial / "cryptographic-verification.json"
+    atomic_json(verification, {
+        "schema_version": 1, "status": "PASS", "checks": checks,
+        "private_key_directory_present_during_verification": False,
+    })
+    return verification
 
 
 def qualify():
@@ -631,6 +821,27 @@ def qualify():
             f"{base_env['PATH']}")
         qualification_env["TMPDIR"] = str(workspace / "tmp")
 
+        # Exercise the exact APK tool/JDK/output contract before either large
+        # target-files transformation. This is an early diagnostic only; final
+        # independent verification still runs after private-key deletion.
+        _, smoke_candidates, _ = target_apk_role_coverage(
+            ((sdk_profile_id, sdk_unsigned, sdk_unsigned_inventory),), key_ids)
+        if not smoke_candidates:
+            raise Failure("no APK is available for verifier preflight")
+        smoke_record = min(smoke_candidates.values(), key=lambda item: item["bytes"])
+        smoke_input = extract_selected_apk_samples(
+            ((sdk_profile_id, sdk_unsigned, sdk_unsigned_inventory),),
+            {"input": smoke_record}, transient_root / "verifier-preflight")["input"]
+        smoke_signed = transient_root / "verifier-preflight/signed.apk"
+        run([required_tools["apksigner"], "sign", "--key", key_dir / "releasekey.pk8",
+             "--cert", key_dir / "releasekey.x509.pem", "--min-sdk-version", "35",
+             "--out", smoke_signed, smoke_input],
+            logs / "verifier-preflight-sign.log", env=qualification_env)
+        apk_certificate_check(
+            required_tools["apksigner"], smoke_signed,
+            certificate_fingerprint(public / "releasekey.x509.pem"),
+            logs / "verifier-preflight-check.log", env=qualification_env)
+
         artifacts = partial / "artifacts"
         artifacts.mkdir(mode=0o750)
         sdk_signed = artifacts / "sdk-signed-target-files.zip"
@@ -822,150 +1033,7 @@ def qualify():
         if private_root.exists():
             raise Failure("disposable private key directory survived signing")
 
-        checks = []
-        wrong_release_fingerprint = certificate_fingerprint(
-            public / "wrong-releasekey.x509.pem")
-        target_apk_samples = extract_selected_apk_samples(
-            apk_sources, apk_selected, partial / "samples/apk")
-        for role in key_ids:
-            if role in target_apk_samples:
-                sample = target_apk_samples[role]
-                mode = "target-files-transformation"
-                source_profile = apk_selected[role]["profile_id"]
-                source_package = apk_selected[role]["package_name"]
-            else:
-                sample = role_probe_paths[role]
-                mode = "standalone-apk-signing-probe"
-                source_profile = probe_source_record["profile_id"]
-                source_package = probe_source_record["package_name"]
-            expected = certificate_fingerprint(public / f"{role}.x509.pem")
-            observed = apk_certificate_check(
-                required_tools["apksigner"], sample, expected,
-                logs / f"verify-apk-{role}.log", env=qualification_env)
-            if wrong_release_fingerprint in observed:
-                raise Failure("APK certificate pin accepted the wrong key")
-            checks.append({
-                "id": f"apk-{role}", "valid_exit_code": 0,
-                "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
-                "artifact": sample.relative_to(partial).as_posix(),
-                "qualification_mode": mode,
-                "source_profile": source_profile,
-                "source_package": source_package,
-                "target_files_transformation_observed": (
-                    mode == "target-files-transformation"),
-            })
-
-        with zipfile.ZipFile(sdk_signed) as archive:
-            members = defaultdict(list)
-            for name in archive.namelist():
-                members[PurePosixPath(name).name].append(name)
-            apex_record = next(
-                item for item in sdk_signed_inventory["apex_roles"]
-                if item.get("expected_container_certificate_role") == "releasekey"
-                and item.get("expected_payload_private_key_role") == "avb"
-                and members.get(item["name"]))
-            apex_path = sorted(members[apex_record["name"]])[0]
-            apex_sample = partial / "samples/apex/container.apex"
-            safe_extract_member(archive, apex_path, apex_sample)
-            release_fingerprint = certificate_fingerprint(
-                public / "releasekey.x509.pem")
-            observed = apk_certificate_check(
-                required_tools["apksigner"], apex_sample, release_fingerprint,
-                logs / "verify-apex-container.log", env=qualification_env)
-            if wrong_release_fingerprint in observed:
-                raise Failure("APEX container certificate pin accepted the wrong key")
-            checks.append({
-                "id": "apex-container", "valid_exit_code": 0,
-                "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
-                "artifact": apex_sample.relative_to(partial).as_posix(),
-            })
-            with zipfile.ZipFile(apex_sample) as apex_archive:
-                payload_sample = partial / "samples/apex/apex_payload.img"
-                safe_extract_member(apex_archive, "apex_payload.img", payload_sample)
-
-            image_samples = [("apex-payload", payload_sample)]
-            for record in sdk_signed_inventory["avb_roles"]:
-                member = f"IMAGES/{record['chain']}.img"
-                if member not in archive.namelist():
-                    raise Failure("signed target-files lacks a declared AVB image")
-                sample = partial / f"samples/avb/{record['chain']}.img"
-                safe_extract_member(archive, member, sample)
-                image_samples.append((f"avb-{record['chain']}", sample))
-
-        with zipfile.ZipFile(ota_signed) as archive:
-            ota_members = set(archive.namelist())
-            for record in ota_signed_inventory["avb_roles"]:
-                member = f"IMAGES/{record['chain']}.img"
-                if member not in ota_members:
-                    raise Failure(
-                        "signed OTA target-files lacks a declared AVB image")
-                sample = partial / f"samples/ota-avb/{record['chain']}.img"
-                safe_extract_member(archive, member, sample)
-                image_samples.append((f"ota-avb-{record['chain']}", sample))
-
-        for identifier, sample in image_samples:
-            valid, _, _ = run([
-                required_tools["avbtool"], "verify_image", "--image", sample,
-                "--key", public / "avb.pub.pem",
-            ], logs / f"verify-{identifier}.log", env=qualification_env)
-            wrong, _, _ = run([
-                required_tools["avbtool"], "verify_image", "--image", sample,
-                "--key", public / "wrong-avb.pub.pem",
-            ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
-                allowed=tuple(range(1, 256)))
-            checks.append({
-                "id": identifier, "valid_exit_code": valid,
-                "wrong_exit_code": wrong, "tool": "avbtool verify_image",
-                "artifact": sample.relative_to(partial).as_posix(),
-            })
-
-        for identifier, ota in (("full-ota", full_ota),
-                                ("incremental-ota", incremental_ota)):
-            valid, _, _ = run([
-                required_tools["check_ota_package_signature"],
-                public / "releasekey.x509.pem", ota,
-            ], logs / f"verify-{identifier}.log", env=qualification_env)
-            wrong, _, _ = run([
-                required_tools["check_ota_package_signature"],
-                public / "wrong-releasekey.x509.pem", ota,
-            ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
-                allowed=tuple(range(1, 256)))
-            checks.append({
-                "id": identifier, "valid_exit_code": valid,
-                "wrong_exit_code": wrong,
-                "tool": "check_ota_package_signature",
-                "artifact": ota.relative_to(partial).as_posix(),
-            })
-
-        factory_valid = ssh_verify(
-            image_archive, factory_signature, factory_allowed,
-            "dummy-factory", "factory images", logs / "verify-factory.log")
-        factory_bad = ssh_verify(
-            image_archive, factory_signature, factory_wrong,
-            "dummy-factory", "factory images", logs / "verify-factory-wrong.log")
-        release_valid = ssh_verify(
-            release_manifest, release_signature, release_allowed,
-            "dummy-release", "diamaneos-dummy-release-record",
-            logs / "verify-release-record.log")
-        release_bad = ssh_verify(
-            release_manifest, release_signature, release_wrong,
-            "dummy-release", "diamaneos-dummy-release-record",
-            logs / "verify-release-record-wrong.log")
-        if factory_valid or not factory_bad or release_valid or not release_bad:
-            raise Failure("OpenSSH signature valid/wrong-key boundary failed")
-        checks.extend([
-            {"id": "factory-archive", "valid_exit_code": factory_valid,
-             "wrong_exit_code": factory_bad, "tool": "ssh-keygen -Y verify",
-             "artifact": image_archive.relative_to(partial).as_posix()},
-            {"id": "release-record", "valid_exit_code": release_valid,
-             "wrong_exit_code": release_bad, "tool": "ssh-keygen -Y verify",
-             "artifact": release_manifest.relative_to(partial).as_posix()},
-        ])
-        verification = partial / "cryptographic-verification.json"
-        atomic_json(verification, {
-            "schema_version": 1, "status": "PASS", "checks": checks,
-            "private_key_directory_present_during_verification": False,
-        })
+        verify_signed_outputs(partial, config, required_tools, qualification_env)
 
         shutil.rmtree(tool_dir)
         retained = []
