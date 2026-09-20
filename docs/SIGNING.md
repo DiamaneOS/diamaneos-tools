@@ -75,9 +75,9 @@ exact unsigned target-files hash. For a presigned package which is present in
 the archive, it binds the literal member path, basename, byte count and
 SHA-256; for build/test metadata which has no archive member, it requires that
 basename to remain absent. The exact metadata token is retained separately
-from the literal archive basename because Android metadata can escape a dot.
-An unsigned input may contain public development keys; that observation is not
-approval of those keys in the signed output.
+from the literal archive basename; the verifier does not infer an archive path
+from metadata. An unsigned input may contain public development keys; that
+observation is not approval of those keys in the signed output.
 
 Validate the static contract without creating output or contacting a device:
 

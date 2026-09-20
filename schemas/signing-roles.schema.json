@@ -130,8 +130,8 @@
             {"type": "string", "pattern": "^[0-9a-f]{64}$"}
           ]
         },
-        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"}},
-        "presigned_metadata_only": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"}},
+        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
+        "presigned_metadata_only": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
         "presigned_artifacts": {
           "type": "array",
           "uniqueItems": true,
@@ -140,7 +140,7 @@
             "additionalProperties": false,
             "required": ["metadata_name", "artifact_basename", "path", "bytes", "sha256"],
             "properties": {
-              "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+\\\\-]{1,256}$"},
+              "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"},
               "artifact_basename": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"},
               "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]{1,1000}$"},
               "bytes": {"type": "integer", "minimum": 1, "maximum": 68719476736},
