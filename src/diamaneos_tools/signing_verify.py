@@ -191,7 +191,7 @@ def validate_config(config, environment):
     project_values = binding["projects"]
     if set(project_values) != {
             "script", "build/make", "development", "external/avb",
-            "system/update_engine", "tools/apksig"}:
+            "prebuilts/jdk/jdk21", "system/update_engine", "tools/apksig"}:
         errors.append("signing source project set is incomplete")
     if any(not isinstance(value, str) or not HEX40_RE.fullmatch(value)
            for value in project_values.values()):
@@ -207,6 +207,7 @@ def validate_config(config, environment):
         "development/tools/make_key",
         "external/avb/avbtool.py",
         "build/make/tools/releasetools/check_ota_package_signature.py",
+        "prebuilts/jdk/jdk21/linux-x86/bin/java",
         "system/update_engine/scripts/brillo_update_payload",
         "tools/apksig/src/apksigner/java/com/android/apksigner/ApkSignerTool.java",
     }

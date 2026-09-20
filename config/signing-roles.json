@@ -12,6 +12,7 @@
       "build/make": "7f0398241bc8c4ef5255a8063befa5045e5cfab4",
       "development": "bf1857fd7d886218a1ea456b94eb7eb15d5c1338",
       "external/avb": "ba2dec4b035b0a3b61c5f8f8a74d86bcd450b1ee",
+      "prebuilts/jdk/jdk21": "ef5bcc92586b839ae3dbacc154127092fa4002ec",
       "system/update_engine": "79f478a4f89e701e85fa15dec340bf445342abbd",
       "tools/apksig": "ba4d984e1a360d427307d669d2f789212130e9e8"
     },
@@ -51,6 +52,10 @@
       {
         "path": "build/make/tools/releasetools/check_ota_package_signature.py",
         "sha256": "c86406df363216c3abdc0f7ccd23d7938959eb639560c9cfdd7b29312f694f24"
+      },
+      {
+        "path": "prebuilts/jdk/jdk21/linux-x86/bin/java",
+        "sha256": "cfa21aeadd00925925c9e1287f5c08f3e04ee7f26a9e23d9dbfb16149153d842"
       },
       {
         "path": "system/update_engine/scripts/brillo_update_payload",

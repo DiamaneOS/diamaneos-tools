@@ -387,8 +387,10 @@ def main():
         if any(not path.is_file() for path in required_tools.values()):
             raise Failure("reviewed otatools package lacks a required verifier")
         qualification_env = base_env.copy()
+        jdk_bin = source_root / "prebuilts/jdk/jdk21/linux-x86/bin"
         qualification_env["PATH"] = (
-            f"{tool_bin}:{source_root}/prebuilts/build-tools/linux-x86/bin:"
+            f"{tool_bin}:{jdk_bin}:"
+            f"{source_root}/prebuilts/build-tools/linux-x86/bin:"
             f"{source_root}/prebuilts/build-tools/path/linux-x86:"
             f"{base_env['PATH']}")
         qualification_env["TMPDIR"] = str(workspace / "tmp")
