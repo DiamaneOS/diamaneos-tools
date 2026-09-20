@@ -21,9 +21,9 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn("this qualification entry point accepts no arguments", script)
         self.assertIn("qualified_unsigned_target_files_sha256", script)
         self.assertIn("qualified_otatools_sha256", script)
-        self.assertIn('SDK_PROFILE_ID = "generic-x86_64-qualification"', script)
-        self.assertIn(
-            'OTA_PROFILE_ID = "generic-x86_64-ota-qualification"', script)
+        self.assertIn('qualification = config["dummy_qualification"]', script)
+        self.assertIn('sdk_profile_id = qualification["sdk_profile_id"]', script)
+        self.assertIn('ota_profile_id = qualification["ota_profile_id"]', script)
         self.assertIn("def unique_regular_artifact", script)
         self.assertIn('"sdk-signed-target-files.zip"', script)
         self.assertIn('"ota-signed-target-files.zip"', script)
@@ -44,7 +44,7 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('"--source-inventory"', script)
         self.assertIn('record.get("expected_certificate_role")', script)
         self.assertIn("target_apk_role_coverage", script)
-        self.assertIn("EXPECTED_METADATA_ONLY_APK_ROLES", script)
+        self.assertIn('qualification["metadata_only_apk_key_ids"]', script)
         self.assertIn('"standalone-apk-signing-probe"', script)
         self.assertIn('required_tools["apksigner"], "sign"', script)
         self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
@@ -197,7 +197,9 @@ class DummySigningDeploymentTest(unittest.TestCase):
                      "expected_certificate_role": "nfc"},
                 ]}),
             )
-            counts, selected, candidates = coverage(sources)
+            key_ids = ("bluetooth", "gmscompat_lib", "nfc", "releasekey",
+                       "shared")
+            counts, selected, candidates = coverage(sources, key_ids)
             self.assertEqual(1, counts["bluetooth"]["sdk"])
             self.assertEqual(1, counts["nfc"]["ota"])
             self.assertNotIn("bluetooth", selected)

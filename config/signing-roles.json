@@ -76,6 +76,11 @@
     "unlisted_role_policy": "reject",
     "unlisted_presigned_policy": "reject"
   },
+  "dummy_qualification": {
+    "sdk_profile_id": "generic-x86_64-qualification",
+    "ota_profile_id": "generic-x86_64-ota-qualification",
+    "metadata_only_apk_key_ids": ["bluetooth", "nfc", "sdk_sandbox"]
+  },
   "key_roles": [
     {
       "id": "releasekey",

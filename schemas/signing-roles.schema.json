@@ -8,6 +8,7 @@
     "scope",
     "source_binding",
     "safety",
+    "dummy_qualification",
     "key_roles",
     "artifact_roles",
     "target_profiles",
@@ -59,6 +60,20 @@
         "generic_sign_by_path_allowed": {"const": false},
         "unlisted_role_policy": {"const": "reject"},
         "unlisted_presigned_policy": {"const": "reject"}
+      }
+    },
+    "dummy_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sdk_profile_id", "ota_profile_id", "metadata_only_apk_key_ids"],
+      "properties": {
+        "sdk_profile_id": {"$ref": "#/definitions/identifier"},
+        "ota_profile_id": {"$ref": "#/definitions/identifier"},
+        "metadata_only_apk_key_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/identifier"}
+        }
       }
     },
     "key_roles": {
