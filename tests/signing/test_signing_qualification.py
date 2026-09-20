@@ -89,6 +89,22 @@ class SigningQualificationPlanTest(unittest.TestCase):
                 changed, signer="sign_target_files_apks", key_dir="keys",
                 source="unsigned.zip", destination="signed.zip")
 
+    def test_reviewed_dlkm_vbmeta_chains_use_custom_image_options(self):
+        changed = self.inventory()
+        changed["avb_roles"].extend([
+            {"chain": "vbmeta_system_dlkm"},
+            {"chain": "vbmeta_vendor_dlkm"},
+        ])
+        command = api.signing_command(
+            changed, signer="sign_target_files_apks", key_dir="keys",
+            source="unsigned.zip", destination="signed.zip")
+        self.assertNotIn("--avb_vbmeta_system_dlkm_key", command)
+        self.assertNotIn("--avb_vbmeta_vendor_dlkm_key", command)
+        self.assertIn("vbmeta_system_dlkm=keys/avb.pem", command)
+        self.assertIn("vbmeta_vendor_dlkm=keys/avb.pem", command)
+        self.assertIn("vbmeta_system_dlkm=SHA256_RSA4096", command)
+        self.assertIn("vbmeta_vendor_dlkm=SHA256_RSA4096", command)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -181,6 +181,11 @@ tools checkout, source-project revisions, source-file hashes, both unsigned
 target-files hashes and the otatools hash. It enumerates every accepted package
 name into an explicit role mapping and deliberately does not use the global
 APK/APEX key-override options.
+The accepted Cuttlefish AVB inventory includes `vbmeta_system_dlkm` and
+`vbmeta_vendor_dlkm`; the pinned releasetools interface treats these as custom
+AVB images, so the bounded planner emits only the corresponding exact custom-
+image key and algorithm options. Any other undeclared AVB chain still fails
+closed.
 Fresh private material lives under `/dev/shm`, is removed before independent
 verification begins and is never retained in the evidence directory.
 The pinned Android `make_key` helper's cleanup trap can return status 1 after
