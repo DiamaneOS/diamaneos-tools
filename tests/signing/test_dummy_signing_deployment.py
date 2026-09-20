@@ -47,6 +47,10 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('qualification["metadata_only_apk_key_ids"]', script)
         self.assertIn('"standalone-apk-signing-probe"', script)
         self.assertIn('required_tools["apksigner"], "sign"', script)
+        self.assertIn(
+            'logs / f"verify-apk-{role}.log", env=qualification_env', script)
+        self.assertIn(
+            'logs / "verify-apex-container.log", env=qualification_env', script)
         self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
         self.assertIn('environment["upstream"]["release_tag"]', script)
         self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
