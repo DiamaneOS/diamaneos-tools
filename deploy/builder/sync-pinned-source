@@ -5,15 +5,7 @@ tools_root=${1:-}
 workspace_root=${2:-/var/lib/diamaneos-build}
 expected_tools_commit=${DIAMANEOS_EXPECTED_TOOLS_COMMIT:-}
 expected_user=diamaneos-build
-tag=2026091000
-tag_object=6c939d124f3ea8dd545c1e4045f26359f501d80e
-peeled_commit=ac9f2fdf0badebea2f6ac6c3e93b125aba02116a
-allowed_signers_sha256=344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0
-repo_tool_url=https://gerrit.googlesource.com/git-repo
-repo_tool_tag=v2.65
-repo_tool_tag_object=2f04a7d4d2bd16170285b9b971227e8151d49f78
-repo_tool_commit=35bbf701d04de5c6a71937279bc3d16f6ce36808
-thermal_check=${DIAMANEOS_THERMAL_CHECK:-/usr/local/sbin/diamaneos-builder-fan-check}
+thermal_check=${DIAMANEOS_THERMAL_CHECK:-}
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -25,6 +17,8 @@ fail() {
 [[ $(id -un) == "$expected_user" ]] || fail "run as $expected_user"
 [[ $expected_tools_commit =~ ^[0-9a-f]{40}$ ]] || \
   fail "DIAMANEOS_EXPECTED_TOOLS_COMMIT is missing or invalid"
+[[ $thermal_check == /* ]] || \
+  fail "DIAMANEOS_THERMAL_CHECK must name an explicit absolute path"
 tools_root=$(readlink -f "$tools_root")
 observed_tools_commit=$(git -c safe.directory="$tools_root" \
   -C "$tools_root" rev-parse HEAD)
@@ -48,18 +42,39 @@ import json
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as stream:
-    workspace = json.load(stream)["workspace"]
+    config = json.load(stream)
+workspace = config["workspace"]
 print(workspace["source_subdirectory"])
 print(workspace["cache_subdirectory"])
 print(workspace["output_subdirectory"])
+upstream = config["upstream"]
+print(upstream["release_tag"])
+print(upstream["tag_object"])
+print(upstream["peeled_commit"])
+print(upstream["allowed_signers_url"])
+print(upstream["allowed_signers_sha256"])
+repo_tool = upstream["repo_tool"]
+print(repo_tool["url"])
+print(repo_tool["release_tag"])
+print(repo_tool["tag_object"])
+print(repo_tool["peeled_commit"])
 PY
 )
-[[ ${#declared_workspace[@]} -eq 3 ]] || \
-  fail "declared workspace paths are incomplete"
+[[ ${#declared_workspace[@]} -eq 12 ]] || \
+  fail "declared workspace, release or repo-tool pins are incomplete"
 source_root=$workspace_root/${declared_workspace[0]}
 cache_root=$workspace_root/${declared_workspace[1]}
 output_root=$workspace_root/${declared_workspace[2]}
-allowed_signers=$cache_root/trust/grapheneos-allowed-signers-2026091000
+tag=${declared_workspace[3]}
+tag_object=${declared_workspace[4]}
+peeled_commit=${declared_workspace[5]}
+allowed_signers_url=${declared_workspace[6]}
+allowed_signers_sha256=${declared_workspace[7]}
+repo_tool_url=${declared_workspace[8]}
+repo_tool_tag=${declared_workspace[9]}
+repo_tool_tag_object=${declared_workspace[10]}
+repo_tool_commit=${declared_workspace[11]}
+allowed_signers=$cache_root/trust/grapheneos-allowed-signers-$tag
 [[ ! -L $source_root && ! -L $cache_root && ! -L $output_root ]] || \
   fail "workspace roots must not be symlinks"
 
@@ -87,7 +102,7 @@ cleanup() {
 }
 trap cleanup EXIT
 curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
-  https://grapheneos.org/allowed_signers -o "$temporary_signers"
+  "$allowed_signers_url" -o "$temporary_signers"
 printf '%s  %s\n' "$allowed_signers_sha256" "$temporary_signers" | sha256sum -c -
 chmod 0640 "$temporary_signers"
 mv -f -- "$temporary_signers" "$allowed_signers"

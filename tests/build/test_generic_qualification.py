@@ -43,8 +43,13 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("DIAMANEOS_THERMAL_CHECK", script)
-        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertIn("must name an explicit absolute path", script)
+        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
         self.assertIn('--thermal-check "$thermal_check"', script)
+        self.assertIn('config["upstream"]["release_tag"]', script)
+        self.assertIn('config["host"]["external_tools"]["node"]["version"]', script)
+        self.assertNotIn("grapheneos-allowed-signers-2026091000", script)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", script)
         self.assertIn("--require-empty-output", script)
         self.assertIn("production_signing_material_used", script)
         self.assertLess(script.index("--require-empty-output"),
@@ -74,9 +79,14 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         script = SYNC.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("DIAMANEOS_THERMAL_CHECK", script)
-        self.assertIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertIn("must name an explicit absolute path", script)
+        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
         self.assertIn('--thermal-check "$thermal_check"', script)
         self.assertIn('workspace["output_subdirectory"]', script)
+        self.assertIn('upstream["release_tag"]', script)
+        self.assertIn('repo_tool["peeled_commit"]', script)
+        self.assertNotIn("tag=2026091000", script)
+        self.assertNotIn("https://grapheneos.org/allowed_signers -o", script)
         self.assertNotIn(
             'output_root=$workspace_root/out/grapheneos-2026091000', script,
         )
@@ -86,6 +96,7 @@ class GenericQualificationDeploymentTests(unittest.TestCase):
         self.assertIn("RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6", unit)
         self.assertNotIn("IPAddressDeny=any", unit)
         self.assertNotIn("WantedBy=", unit)
+        self.assertNotIn("/opt/nodejs/v24.21.0/bin", unit)
 
 
 if __name__ == "__main__":

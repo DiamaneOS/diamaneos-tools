@@ -10,7 +10,7 @@ Group=diamaneos-build
 WorkingDirectory=/var/lib/diamaneos-build
 Environment=HOME=/var/lib/diamaneos-build
 Environment=COREPACK_HOME=/var/lib/diamaneos-build/.cache/corepack
-Environment=PATH=/var/lib/diamaneos-build/toolbin:/opt/nodejs/v24.21.0/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/var/lib/diamaneos-build/toolbin:/usr/local/bin:/usr/bin:/bin
 Environment=DIAMANEOS_TOOLS_ROOT=/opt/diamaneos/tools
 EnvironmentFile=/etc/diamaneos/builder-signing-discovery.env
 UMask=0027

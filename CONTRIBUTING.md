@@ -18,6 +18,28 @@ Task IDs may accompany descriptive commit messages and remain in existing machin
 
 Review the entire staged diff, filenames and commit message for public suitability. Removing text from the current checkout does not remove it from Git history. History rewriting requires explicit authorization, a private recovery copy, reference migration and verification; never publish backup refs or old objects as part of cleanup. Preserve third-party source attribution and genuine unresolved safety requirements.
 
+## Portability, snapshots and proportionality
+
+Public host-specific code is acceptable only when it is clearly labelled as an
+optional reference adapter behind a documented portable interface. Generic
+build, test and release entry points must not silently assume a maintainer's
+machine model, fan names, device paths, network layout or local directory
+structure. Keep qualification results for a particular machine private unless
+sanitized example data has a clear public use.
+
+A qualified environment identifier is immutable. Exact upstream tags, commits,
+tool versions and file digests are reproducibility data, not values to refresh
+in place. Advancing an input creates a new environment identifier and repeats
+the affected qualification. Prefer one validated machine-readable authority
+for each pin and derive scripts, paths and documentation from it; tests should
+reject duplicated authorities that drift.
+
+Use the smallest permanent mechanism that satisfies a named requirement or
+threat. It needs a clear owner, failure mode, verification and reusable
+boundary. Keep one-off diagnosis, deployment glue and raw evidence in the
+private runbook rather than turning them into public framework code. Security
+boundaries and reproducibility checks are not optional simplification targets.
+
 ## Upstream licences
 
 Every open-source component that is forked, copied, modified, linked, packaged

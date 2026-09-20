@@ -184,9 +184,12 @@ def main():
     tools_link = Path(os.environ.get(
         "DIAMANEOS_TOOLS_ROOT", "/opt/diamaneos/tools"))
     expected_commit = os.environ.get("DIAMANEOS_EXPECTED_TOOLS_COMMIT", "")
-    thermal_check = Path(os.environ.get(
-        "DIAMANEOS_THERMAL_CHECK",
-        "/usr/local/sbin/diamaneos-builder-fan-check"))
+    thermal_check_value = os.environ.get("DIAMANEOS_THERMAL_CHECK", "")
+    if not thermal_check_value:
+        raise Failure("explicit thermal-safety preflight path is missing")
+    thermal_check = Path(thermal_check_value)
+    if not thermal_check.is_absolute():
+        raise Failure("thermal-safety preflight path must be absolute")
     if not re.fullmatch(r"[0-9a-f]{40}", expected_commit):
         raise Failure("expected reviewed tools commit is missing or invalid")
     tools_root = tools_link.resolve(strict=True)
@@ -259,13 +262,15 @@ def main():
         if not thermal_check.is_file():
             raise Failure("builder thermal-safety preflight is unavailable")
 
+        release_tag = environment["upstream"]["release_tag"]
+        node_version = environment["host"]["external_tools"]["node"]["version"]
         allowed_signers = (
-            cache_root / "trust/grapheneos-allowed-signers-2026091000")
+            cache_root / "trust" / f"grapheneos-allowed-signers-{release_tag}")
         base_env = os.environ.copy()
         base_env.update({
             "HOME": str(workspace),
             "COREPACK_HOME": str(workspace / ".cache/corepack"),
-            "PATH": (f"{workspace}/toolbin:/opt/nodejs/v24.21.0/bin:"
+            "PATH": (f"{workspace}/toolbin:/opt/nodejs/{node_version}/bin:"
                      "/usr/local/bin:/usr/bin:/bin"),
             "TMPDIR": str(workspace / "tmp"),
         })
