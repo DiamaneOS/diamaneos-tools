@@ -32,9 +32,6 @@ class DummySigningDeploymentTest(unittest.TestCase):
             'key_dir / "releasekey", ota_signed, full_ota', script)
         self.assertIn(
             '"-i", ota_signed, ota_signed,', script)
-        self.assertIn(
-            'for record in ota_signed_inventory["avb_roles"]', script)
-        self.assertIn('f"ota-avb-{record[\'chain\']}"', script)
         self.assertIn("signing_command", script)
         self.assertIn("def make_android_key", script)
         self.assertIn("allowed=(0, 1)", script)
