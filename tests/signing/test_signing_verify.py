@@ -243,7 +243,7 @@ class SigningVerifyTest(unittest.TestCase):
         path = TOOLS / "config" / "signing-roles.json"
         before = path.read_bytes()
         result = subprocess.run(
-            [str(TOOLS / ".venv" / "bin" / "python"),
+            [sys.executable,
              str(TOOLS / "bin" / "diamaneos"), "signing", "roles"],
             cwd=TOOLS, capture_output=True, text=True, timeout=20,
             env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
