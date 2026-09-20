@@ -118,10 +118,11 @@
     "targetProfile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "product", "build_variant", "evidence_scope", "qualified_unsigned_target_files_sha256", "qualified_otatools_sha256", "presigned_allowlist", "presigned_metadata_only", "presigned_artifacts", "qualification_evidence", "inventory_status"],
+      "required": ["id", "product", "build_target", "build_variant", "evidence_scope", "qualified_unsigned_target_files_sha256", "qualified_otatools_sha256", "presigned_allowlist", "presigned_metadata_only", "presigned_artifacts", "qualification_evidence", "inventory_status"],
       "properties": {
         "id": {"$ref": "#/definitions/identifier"},
         "product": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,96}$"},
+        "build_target": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,160}$"},
         "build_variant": {"enum": ["user", "userdebug", "eng"]},
         "evidence_scope": {"$ref": "#/definitions/boundedText"},
         "qualified_unsigned_target_files_sha256": {

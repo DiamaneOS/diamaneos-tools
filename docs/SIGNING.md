@@ -131,14 +131,23 @@ run may pass.
 On the accepted builder, `deploy/builder/run-signing-discovery` performs that
 checkpoint as the unprivileged build identity with network access denied. It
 builds only `target-files-package` and `otatools-package`, creates no key and
-performs no signing operation. The immutable result is `NEEDS_REVIEW` when the
-only discrepancy is an exact unlisted `PRESIGNED` package; every other
-inventory error fails the job. Presigned entries are never auto-approved.
+performs no signing operation. The default service selects the generic SDK
+profile. The separate `diamaneos-builder-ota-signing-discovery.service` uses
+the same bounded runner with a fixed Cuttlefish Virtual A/B profile; arbitrary
+profile or target selection is rejected. The immutable result is
+`NEEDS_REVIEW` when the only discrepancy is an exact unlisted `PRESIGNED`
+package; every other inventory error fails the job. Presigned entries are
+never auto-approved.
 
-The generic x86_64 profile qualifies tools and role transformations only. Its
-result is not FP6 compatibility, release or hardware evidence. The FP6 profile
-must be regenerated and reviewed from the actual FP6 `user` target-files
-package; a generic package list cannot be copied over as proof.
+The generic SDK x86_64 profile qualifies APK, APEX and AVB role
+transformations. That product has neither an A/B partition inventory nor a
+recovery image, so it is not an OTA-generation input. The distinct Cuttlefish
+x86_64 phone profile is a real Virtual A/B target and qualifies the full and
+incremental OTA tool path. Keeping these inputs separate prevents a synthetic
+or relabelled SDK archive from being presented as OTA evidence. Neither result
+is FP6 compatibility, release, update-semantics or hardware evidence. The FP6
+profile must be regenerated and reviewed from the actual FP6 `user`
+target-files package; a generic package list cannot be copied over as proof.
 
 ## Disposable-key qualification
 
@@ -156,11 +165,14 @@ private run directory and must retain:
    promoted.
 
 `deploy/builder/run-dummy-signing-qualification` is the no-argument builder
-entry point for the accepted generic profile. It accepts no operator-selected
-artifact or key path. The runner requires the exact reviewed tools checkout,
-source-project revisions, source-file hashes, unsigned target-files hash and
-otatools hash. It enumerates every accepted package name into an explicit role
-mapping and deliberately does not use the global APK/APEX key-override options.
+entry point. It accepts no operator-selected artifact or key path. Before that
+entry point may pass, APK/APEX/AVB proofs must bind the accepted SDK
+target-files while full and incremental OTA proofs bind the separately
+accepted Virtual A/B target-files. The runner must require the exact reviewed
+tools checkout, source-project revisions, source-file hashes, both unsigned
+target-files hashes and the otatools hash. It enumerates every accepted package
+name into an explicit role mapping and deliberately does not use the global
+APK/APEX key-override options.
 Fresh private material lives under `/dev/shm`, is removed before independent
 verification begins and is never retained in the evidence directory.
 The pinned Android `make_key` helper's cleanup trap can return status 1 after

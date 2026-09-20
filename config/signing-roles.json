@@ -266,6 +266,7 @@
     {
       "id": "generic-x86_64-qualification",
       "product": "sdk_phone64_x86_64",
+      "build_target": "sdk_phone64_x86_64-cur-userdebug",
       "build_variant": "userdebug",
       "evidence_scope": "tool and role qualification only; never FP6 compatibility or release evidence",
       "qualified_unsigned_target_files_sha256": "484874d65148ae883b1d37982ecaa5769304f68513f5793835cedca77a10a0fd",
@@ -442,8 +443,23 @@
       "inventory_status": "qualified"
     },
     {
+      "id": "generic-x86_64-ota-qualification",
+      "product": "aosp_cf_x86_64_phone",
+      "build_target": "aosp_cf_x86_64_phone-cur-userdebug",
+      "build_variant": "userdebug",
+      "evidence_scope": "Virtual A/B full and incremental OTA tool qualification only; never FP6 compatibility, update semantics or release evidence",
+      "qualified_unsigned_target_files_sha256": null,
+      "qualified_otatools_sha256": null,
+      "presigned_allowlist": [],
+      "presigned_metadata_only": [],
+      "presigned_artifacts": [],
+      "qualification_evidence": null,
+      "inventory_status": "pending-target-files-qualification"
+    },
+    {
       "id": "fp6-release",
       "product": "FP6",
+      "build_target": "pending-device-integration",
       "build_variant": "user",
       "evidence_scope": "future FP6 candidate; must be regenerated for every accepted target-files package",
       "qualified_unsigned_target_files_sha256": null,
