@@ -335,6 +335,7 @@ def _basename_role(value):
 
 def _misc_info(text):
     value = {}
+    identical_duplicates = set()
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -343,9 +344,14 @@ def _misc_info(text):
             raise SigningError("misc_info contains a malformed field")
         key, item = line.split("=", 1)
         if key in value:
-            raise SigningError("misc_info contains a duplicate field")
+            if value[key] != item:
+                raise SigningError(
+                    "misc_info contains a conflicting duplicate field")
+            identical_duplicates.add(key)
+            continue
         value[key] = item
-    return value
+    return value, sorted(identical_duplicates,
+                         key=lambda field: field.encode("utf-8"))
 
 
 def inspect_target_files(path, config, profile_id, *, stage):
@@ -360,7 +366,8 @@ def inspect_target_files(path, config, profile_id, *, stage):
             archive, "META/apkcerts.txt"), "apkcerts")
         apex = _attribute_lines(_read_member(
             archive, "META/apexkeys.txt"), "apexkeys")
-        misc = _misc_info(_read_member(archive, "META/misc_info.txt"))
+        misc, misc_duplicates = _misc_info(_read_member(
+            archive, "META/misc_info.txt"))
 
     apk_inventory = []
     apex_inventory = []
@@ -440,6 +447,7 @@ def inspect_target_files(path, config, profile_id, *, stage):
         "apk_roles": apk_inventory,
         "apex_roles": apex_inventory,
         "avb_roles": avb,
+        "identical_misc_info_duplicate_fields": misc_duplicates,
         "presigned_packages": sorted(presigned, key=lambda item: item.encode("utf-8")),
         "unlisted_presigned_count": len(unlisted_presigned),
         "unknown_role_count": len(unknown_roles),

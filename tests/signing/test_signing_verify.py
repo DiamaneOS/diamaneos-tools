@@ -135,6 +135,21 @@ class SigningVerifyTest(unittest.TestCase):
             self.assertEqual("testkey",
                              result["apk_roles"][0]["certificate_role"])
 
+    def test_misc_info_accepts_identical_and_rejects_conflicting_duplicates(self):
+        fields, duplicates = api._misc_info(
+            "build_non_sparse_super_partition=true\n"
+            "avb_vbmeta_algorithm=SHA256_RSA4096\n"
+            "build_non_sparse_super_partition=true\n"
+        )
+        self.assertEqual("true", fields["build_non_sparse_super_partition"])
+        self.assertEqual(["build_non_sparse_super_partition"], duplicates)
+        with self.assertRaisesRegex(api.SigningError,
+                                    "conflicting duplicate field"):
+            api._misc_info(
+                "build_non_sparse_super_partition=true\n"
+                "build_non_sparse_super_partition=false\n"
+            )
+
     def test_unsafe_duplicate_or_missing_zip_metadata_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "duplicate.zip"
