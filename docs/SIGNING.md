@@ -44,6 +44,8 @@ The selected `2026091000` manifest resolves these signing authorities:
 - `build/make` commit `7f0398241bc8c4ef5255a8063befa5045e5cfab4`;
 - `development` commit `bf1857fd7d886218a1ea456b94eb7eb15d5c1338`;
 - `external/avb` commit `ba2dec4b035b0a3b61c5f8f8a74d86bcd450b1ee`;
+- `prebuilts/jdk/jdk21` commit
+  `ef5bcc92586b839ae3dbacc154127092fa4002ec`;
 - `system/update_engine` commit
   `79f478a4f89e701e85fa15dec340bf445342abbd`; and
 - `tools/apksig` commit `ba4d984e1a360d427307d669d2f789212130e9e8`.

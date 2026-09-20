@@ -25,6 +25,7 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('"openssl", "x509"', script)
         self.assertIn('"openssl", "pkcs8"', script)
         self.assertIn('partial / "key-generation.json"', script)
+        self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
         planner = (ROOT / "src/diamaneos_tools/signing_qualification.py").read_text(
             encoding="utf-8")
         self.assertNotIn("--override_apk_keys", planner)
