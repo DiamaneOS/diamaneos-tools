@@ -1,0 +1,31 @@
+[Unit]
+Description=DiamaneOS builder reviewed compatibility trial %i
+Documentation=file:/opt/diamaneos/tools/docs/COMPATIBILITY.md
+After=diamaneos-builder-adb.service
+Requires=diamaneos-builder-adb.service
+ConditionPathExists=/var/lib/diamaneos-build/compatibility/jobs/%i.json
+ConditionPathExists=/var/lib/diamaneos-build/compatibility/jobs/%i.setup.json
+
+[Service]
+Type=oneshot
+User=diamaneos-build
+Group=diamaneos-build
+Environment=HOME=/var/lib/diamaneos-build
+Environment=USER=diamaneos-build
+Environment=LOGNAME=diamaneos-build
+EnvironmentFile=/etc/diamaneos/builder-compatibility.env
+UMask=0027
+ExecStart=/opt/diamaneos/tools/deploy/builder/run-compatibility-job %i
+TimeoutStartSec=infinity
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/diamaneos-build/compatibility
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

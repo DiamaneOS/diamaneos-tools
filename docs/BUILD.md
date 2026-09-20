@@ -181,6 +181,12 @@ inventory.
 
 ## Device-suite interface
 
+Official Android compatibility suites use the separate version-bound adapter
+documented in [`COMPATIBILITY.md`](COMPATIBILITY.md). It shares the private
+role map and rig interlocks but does not treat a staged smoke suite, stock
+harness trial, debug VTS companion or CTS-on-GSI run as final compatibility
+evidence.
+
 Device suites are reviewed JSON data under `tests/device/suites/`. They select
 only adapters implemented in `src/diamaneos_tools/test_runner.py`; suite text is
 never evaluated as a shell command. The initial `smoke` suite can invoke only

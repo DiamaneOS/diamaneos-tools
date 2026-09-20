@@ -5,6 +5,30 @@ untrusted OS compilation. It is not a release signer: never place production
 private keys, signing tokens, recovery material or offline-signer credentials
 on it.
 
+## Compatibility-suite host role
+
+The accepted builder may also run official CTS, CTS Verifier and VTS work
+because it satisfies the recorded x86-64, memory and free-storage minimums.
+This is a non-secret testing role; it does not make the builder a signer and
+does not permit release keys on the host. See
+[`docs/COMPATIBILITY.md`](../../docs/COMPATIBILITY.md) for the version-bound
+package, target and result contract.
+
+Install `diamaneos-builder-adb.service` and the non-recurring
+`diamaneos-builder-compatibility@.service` only after the exact public tools
+commit and official suite archives are reviewed. The builder identity must be
+in `plugdev`, and current platform-tools, `aapt2`, FFmpeg and an English locale
+must pass the live host gate. Compatibility state belongs under
+`/var/lib/diamaneos-build/compatibility`; private serials, setup attestations
+and raw reports never enter public Git.
+
+The powered rig normally remains on the test host. Before a compatibility
+session, disable test-host maintenance through its fixed operator control,
+move the rig physically, and create a builder-specific device map and rig
+configuration from live topology. Never reuse a tester USB path by assumption.
+After the final report and teardown are exported, stop builder ADB, move the
+rig back, verify both tester roles and explicitly restore battery maintenance.
+
 ## Portable contract and reference environment
 
 - x86_64 Debian 13 installed in UEFI mode
@@ -258,11 +282,13 @@ the accepted build output. The discovery runner independently verifies the
 signed manifest, exact resolved project map, clean source projects, reviewed
 tools revision and allowed-signers file before it invokes the build.
 
-The expected first result is either `PASS` with no presigned packages or
-`NEEDS_REVIEW` with their exact names. `NEEDS_REVIEW` is not a failure and is
-not approval: each listed package must be reviewed and committed to the exact
-profile before any signing qualification. The discovery job creates no key,
-performs no signature, does not use a token and is never enabled at boot.
+An unreviewed input produces `NEEDS_REVIEW` with the exact presigned metadata
+names. `NEEDS_REVIEW` is not a failure and is not approval: each listed package
+must be classified as an exact archive artifact or metadata-only entry and
+committed to the exact profile. A reviewed rerun must produce `PASS`, including
+the unsigned target-files hash and all presence/absence and artifact-identity
+bindings. The discovery job creates no key, performs no signature, does not use
+a token and is never enabled at boot.
 
 The build unit's systemd sandbox is deliberately composed with Android's
 pinned nsjail rather than layered blindly on top of it. It keeps the strongest
