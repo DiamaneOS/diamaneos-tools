@@ -29,8 +29,8 @@
         "projects": {
           "type": "object",
           "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-          "required": ["script", "build/make", "development", "external/avb", "system/update_engine", "tools/apksig"],
-          "minProperties": 6
+          "required": ["script", "build/make", "development", "external/avb", "prebuilts/jdk/jdk21", "system/update_engine", "tools/apksig"],
+          "minProperties": 7
         },
         "files": {
           "type": "array",
