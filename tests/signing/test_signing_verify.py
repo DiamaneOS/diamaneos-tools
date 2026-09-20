@@ -46,6 +46,11 @@ class SigningVerifyTest(unittest.TestCase):
                          {entry["id"] for entry in self.config["artifact_roles"]})
         self.assertEqual(api.EXPECTED_PROOFS,
                          set(self.config["required_dummy_proofs"]))
+        self.assertEqual(
+            ["bluetooth", "nfc", "sdk_sandbox"],
+            self.config["dummy_qualification"][
+                "metadata_only_apk_key_ids"],
+        )
 
     def test_committed_ota_profile_is_bound_to_reviewed_inputs(self):
         profile = next(
@@ -98,6 +103,19 @@ class SigningVerifyTest(unittest.TestCase):
         changed["artifact_roles"][0]["key_ids"] = ["unlisted"]
         self.assertIn("artifact role refers to an unknown key role",
                       api.validate_config(changed, self.environment))
+        changed = copy.deepcopy(self.config)
+        changed["dummy_qualification"][
+            "metadata_only_apk_key_ids"] = ["avb"]
+        self.assertIn(
+            "metadata-only APK policy refers to a non-APK key role",
+            api.validate_config(changed, self.environment),
+        )
+        changed = copy.deepcopy(self.config)
+        changed["dummy_qualification"]["sdk_profile_id"] = "fp6-release"
+        self.assertIn(
+            "dummy qualification profile roles are not reviewed",
+            api.validate_config(changed, self.environment),
+        )
 
     def test_generic_build_target_drift_fails_closed(self):
         changed = copy.deepcopy(self.config)

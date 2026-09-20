@@ -237,6 +237,17 @@ def validate_config(config, environment):
     for entry in artifact_roles:
         if not set(entry["key_ids"]) <= set(key_ids):
             errors.append("artifact role refers to an unknown key role")
+    apk_artifact_role = next(
+        (entry for entry in artifact_roles
+         if entry["id"] == "android-apk-certificates"), {})
+    apk_key_ids = set(apk_artifact_role.get("key_ids", []))
+    qualification = config["dummy_qualification"]
+    metadata_only_apk_keys = qualification["metadata_only_apk_key_ids"]
+    if metadata_only_apk_keys != sorted(
+            metadata_only_apk_keys, key=lambda item: item.encode("utf-8")):
+        errors.append("metadata-only APK key-role list is not bytewise sorted")
+    if not set(metadata_only_apk_keys) <= apk_key_ids:
+        errors.append("metadata-only APK policy refers to a non-APK key role")
 
     profiles = config["target_profiles"]
     profile_ids = [entry["id"] for entry in profiles]
@@ -249,6 +260,14 @@ def validate_config(config, environment):
     }:
         errors.append("signing target-profile set is incomplete")
     profiles_by_id = {entry["id"]: entry for entry in profiles}
+    if (qualification["sdk_profile_id"] not in profiles_by_id
+            or qualification["ota_profile_id"] not in profiles_by_id
+            or qualification["sdk_profile_id"] == qualification["ota_profile_id"]):
+        errors.append("dummy qualification profile binding is invalid")
+    if (qualification["sdk_profile_id"] != "generic-x86_64-qualification"
+            or qualification["ota_profile_id"] !=
+            "generic-x86_64-ota-qualification"):
+        errors.append("dummy qualification profile roles are not reviewed")
     generic = profiles_by_id.get("generic-x86_64-qualification", {})
     if generic.get("build_target") != environment["build"][
             "generic_qualification_target"]:

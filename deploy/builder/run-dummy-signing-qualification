@@ -24,26 +24,10 @@ import zipfile
 
 
 EXPECTED_USER = "diamaneos-build"
-SDK_PROFILE_ID = "generic-x86_64-qualification"
-OTA_PROFILE_ID = "generic-x86_64-ota-qualification"
 OTA_CUSTOM_VBMETA_PARTITIONS = {
     "system_dlkm": "vbmeta_system_dlkm",
     "vendor_dlkm": "vbmeta_vendor_dlkm",
 }
-KEY_IDS = (
-    "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
-    "platform", "releasekey", "sdk_sandbox", "shared",
-)
-EXPECTED_METADATA_ONLY_APK_ROLES = frozenset({
-    "bluetooth", "nfc", "sdk_sandbox",
-})
-REQUIRED_PROOFS = (
-    "target-files-transform", "apk-certificate-transform",
-    "apex-container-transform", "apex-payload-transform",
-    "avb-root-and-chains", "full-ota", "incremental-ota",
-    "factory-archive-signature", "release-record-signature",
-    "valid-key-verification", "wrong-key-rejection", "restart-recovery",
-)
 APK_DIGEST_RE = re.compile(
     r"Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})")
 
@@ -126,7 +110,7 @@ def safe_extract_member(archive, member, destination):
         shutil.copyfileobj(source, target)
 
 
-def target_apk_role_coverage(sources):
+def target_apk_role_coverage(sources, key_ids):
     """Return exact APK-role payload coverage across accepted target archives.
 
     ``sources`` contains ``(profile_id, archive_path, signed_inventory)``
@@ -138,7 +122,7 @@ def target_apk_role_coverage(sources):
     """
     counts = {
         role: {profile_id: 0 for profile_id, _, _ in sources}
-        for role in KEY_IDS
+        for role in key_ids
     }
     candidates = defaultdict(list)
     for profile_id, archive_path, inventory in sources:
@@ -150,7 +134,7 @@ def target_apk_role_coverage(sources):
                 members[PurePosixPath(info.filename).name].append(info)
             for record in inventory["apk_roles"]:
                 role = record.get("expected_certificate_role")
-                if role not in KEY_IDS:
+                if role not in key_ids:
                     continue
                 counts[role][profile_id] += 1
                 for info in members.get(record["name"], []):
@@ -401,9 +385,19 @@ def main():
     errors = signing_verify.validate_config(config, environment)
     if errors:
         raise Failure("signing role contract is invalid")
+    qualification = config["dummy_qualification"]
+    sdk_profile_id = qualification["sdk_profile_id"]
+    ota_profile_id = qualification["ota_profile_id"]
+    apk_artifact_role = next(
+        entry for entry in config["artifact_roles"]
+        if entry["id"] == "android-apk-certificates")
+    key_ids = tuple(apk_artifact_role["key_ids"])
+    expected_metadata_only_roles = frozenset(
+        qualification["metadata_only_apk_key_ids"])
+    required_proofs = tuple(config["required_dummy_proofs"])
     profiles = {item["id"]: item for item in config["target_profiles"]}
-    sdk_profile = profiles[SDK_PROFILE_ID]
-    ota_profile = profiles[OTA_PROFILE_ID]
+    sdk_profile = profiles[sdk_profile_id]
+    ota_profile = profiles[ota_profile_id]
 
     source_root = workspace / environment["workspace"]["source_subdirectory"]
     cache_root = workspace / environment["workspace"]["cache_subdirectory"]
@@ -506,7 +500,7 @@ def main():
             cwd=source_root, env=base_env)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", SDK_PROFILE_ID, "--stage", "unsigned",
+            "--profile", sdk_profile_id, "--stage", "unsigned",
             "--target-files", sdk_unsigned, "--output",
             partial / "sdk-unsigned-inventory.json",
         ], logs / "sdk-unsigned-inventory.log", env=base_env)
@@ -514,7 +508,7 @@ def main():
             partial / "sdk-unsigned-inventory.json", limit=64 * 1024 * 1024)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", OTA_PROFILE_ID, "--stage", "unsigned",
+            "--profile", ota_profile_id, "--stage", "unsigned",
             "--target-files", ota_unsigned, "--output",
             partial / "ota-unsigned-inventory.json",
         ], logs / "ota-unsigned-inventory.log", env=base_env)
@@ -545,7 +539,7 @@ def main():
         wrong_dir.mkdir(mode=0o700)
         make_key = source_root / "development/tools/make_key"
         key_generation = []
-        for key_id in KEY_IDS:
+        for key_id in key_ids:
             key_generation.append(make_android_key(
                 make_key, key_id, key_id,
                 f"/CN=DiamaneOS disposable qualification/O={key_id}/",
@@ -586,7 +580,7 @@ def main():
         public = partial / "public-keys"
         public.mkdir(mode=0o750)
         fingerprints = []
-        for key_id in KEY_IDS:
+        for key_id in key_ids:
             source = key_dir / f"{key_id}.x509.pem"
             shutil.copy2(source, public / source.name)
             fingerprints.append({
@@ -656,7 +650,7 @@ def main():
             cwd=source_root, env=qualification_env)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", SDK_PROFILE_ID, "--stage", "signed",
+            "--profile", sdk_profile_id, "--stage", "signed",
             "--source-inventory", partial / "sdk-unsigned-inventory.json",
             "--target-files", sdk_signed, "--output",
             partial / "sdk-signed-inventory.json",
@@ -665,7 +659,7 @@ def main():
             partial / "sdk-signed-inventory.json", limit=64 * 1024 * 1024)
         run([
             tools_root / "bin/diamaneos", "signing", "inventory",
-            "--profile", OTA_PROFILE_ID, "--stage", "signed",
+            "--profile", ota_profile_id, "--stage", "signed",
             "--source-inventory", partial / "ota-unsigned-inventory.json",
             "--target-files", ota_signed, "--output",
             partial / "ota-signed-inventory.json",
@@ -679,16 +673,16 @@ def main():
             raise Failure("signed target-files transformation was not accepted")
 
         apk_sources = (
-            (SDK_PROFILE_ID, sdk_signed, sdk_signed_inventory),
-            (OTA_PROFILE_ID, ota_signed, ota_signed_inventory),
+            (sdk_profile_id, sdk_signed, sdk_signed_inventory),
+            (ota_profile_id, ota_signed, ota_signed_inventory),
         )
         apk_metadata_counts, apk_selected, apk_candidates = (
-            target_apk_role_coverage(apk_sources))
+            target_apk_role_coverage(apk_sources, key_ids))
         if any(sum(apk_metadata_counts[role].values()) == 0
-               for role in KEY_IDS):
+               for role in key_ids):
             raise Failure("accepted target metadata omits a required APK role")
-        metadata_only_roles = set(KEY_IDS) - set(apk_selected)
-        if metadata_only_roles != EXPECTED_METADATA_ONLY_APK_ROLES:
+        metadata_only_roles = set(key_ids) - set(apk_selected)
+        if metadata_only_roles != expected_metadata_only_roles:
             raise Failure("target APK role payload coverage is not reviewed")
 
         probe_source_record = min(
@@ -745,7 +739,7 @@ def main():
                         role_probe_paths[role].relative_to(partial).as_posix()
                         if role in role_probe_paths else None),
                 }
-                for role in KEY_IDS
+                for role in key_ids
             ],
         })
         shutil.rmtree(transient_root)
@@ -783,7 +777,7 @@ def main():
         atomic_json(release_manifest, {
             "schema_version": 1,
             "run_id": run_id,
-            "profile_ids": [SDK_PROFILE_ID, OTA_PROFILE_ID],
+            "profile_ids": [sdk_profile_id, ota_profile_id],
             "source_binding": config["source_binding"],
             "incremental_scope": (
                 "same-build no-op delta qualifies the full incremental signing "
@@ -823,7 +817,7 @@ def main():
             public / "wrong-releasekey.x509.pem")
         target_apk_samples = extract_selected_apk_samples(
             apk_sources, apk_selected, partial / "samples/apk")
-        for role in KEY_IDS:
+        for role in key_ids:
             if role in target_apk_samples:
                 sample = target_apk_samples[role]
                 mode = "target-files-transformation"
@@ -974,13 +968,13 @@ def main():
         evidence_all = [entry["id"] for entry in retained]
         proofs = [{
             "id": proof, "status": "PASS", "evidence_refs": evidence_all,
-        } for proof in REQUIRED_PROOFS]
+        } for proof in required_proofs]
         result_path = partial / "result.json"
         result = {
             "schema_version": 1,
             "inventory_id": config["inventory_id"],
             "source_binding": config["source_binding"],
-            "profile_ids": [SDK_PROFILE_ID, OTA_PROFILE_ID],
+            "profile_ids": [sdk_profile_id, ota_profile_id],
             "run_id": run_id,
             "status": "PASS",
             "dummy_keys_only": True,
