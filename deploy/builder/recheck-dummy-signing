@@ -114,6 +114,8 @@ def main():
     fd = os.open(workspace / ".workspace.lock", os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # runuser may inherit an administrator-only current directory.
+        os.chdir(workspace)
         output.mkdir(mode=0o750)
         (output / "logs").mkdir(mode=0o750)
         report = {"schema_version": 1, "operation": "dummy-verification-diagnostic",
@@ -151,6 +153,7 @@ def main():
                 if verify.sha256_file(source_root / binding["path"]) != binding["sha256"]:
                     raise ValueError("pinned signing source file hash mismatch")
             env = dict(os.environ)
+            env["HOME"] = str(workspace)
             env["PATH"] = (f"{tool_bin}:{jdk}/linux-x86/bin:"
                            f"{source_root}/prebuilts/build-tools/linux-x86/bin:"
                            f"{source_root}/prebuilts/build-tools/path/linux-x86:/usr/bin:/bin")
