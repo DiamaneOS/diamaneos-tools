@@ -1,0 +1,651 @@
+#!/usr/bin/python3
+"""Run the exact-hash disposable signing qualification on the builder.
+
+The entry point has no operator-selected artifact paths or key roles.  It uses
+the reviewed generic profile, generates fresh disposable keys in tmpfs, signs
+the accepted target-files package, removes all private material, and only then
+executes the independent verification phase.
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+import time
+import zipfile
+
+
+EXPECTED_USER = "diamaneos-build"
+PROFILE_ID = "generic-x86_64-qualification"
+KEY_IDS = (
+    "bluetooth", "gmscompat_lib", "media", "networkstack", "nfc",
+    "platform", "releasekey", "sdk_sandbox", "shared",
+)
+REQUIRED_PROOFS = (
+    "target-files-transform", "apk-certificate-transform",
+    "apex-container-transform", "apex-payload-transform",
+    "avb-root-and-chains", "full-ota", "incremental-ota",
+    "factory-archive-signature", "release-record-signature",
+    "valid-key-verification", "wrong-key-rejection", "restart-recovery",
+)
+APK_DIGEST_RE = re.compile(
+    r"Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})")
+
+
+class Failure(RuntimeError):
+    pass
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+
+def atomic_json(path, value):
+    path = Path(path)
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(value, stream, sort_keys=True, indent=2)
+        stream.write("\n")
+    os.replace(temporary, path)
+
+
+def run(command, log, *, cwd=None, env=None, input_text=None, allowed=(0,)):
+    command = [str(item) for item in command]
+    started = time.monotonic()
+    result = subprocess.run(
+        command, cwd=cwd, env=env, input=input_text, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    Path(log).write_text(result.stdout, encoding="utf-8")
+    if result.returncode not in allowed:
+        raise Failure(
+            f"command failed ({Path(command[0]).name}, exit {result.returncode})")
+    return result.returncode, result.stdout, round(time.monotonic() - started, 3)
+
+
+def safe_extract_member(archive, member, destination):
+    pure = PurePosixPath(member)
+    if pure.is_absolute() or ".." in pure.parts:
+        raise Failure("unsafe archive member selected")
+    info = archive.getinfo(member)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with archive.open(info) as source, destination.open("wb") as target:
+        shutil.copyfileobj(source, target)
+
+
+def certificate_fingerprint(path):
+    result = subprocess.run(
+        ["openssl", "x509", "-in", str(path), "-outform", "DER"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    if result.returncode:
+        raise Failure("unable to derive certificate fingerprint")
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
+def apk_certificate_check(apksigner, artifact, expected, log):
+    _, output, _ = run(
+        [apksigner, "verify", "--verbose", "--print-certs", artifact], log)
+    observed = {item.lower() for item in APK_DIGEST_RE.findall(output)}
+    if expected not in observed:
+        raise Failure("APK/APEX certificate does not match its declared role")
+    return sorted(observed)
+
+
+def ssh_verify(manifest, signature, allowed, identity, namespace, log):
+    with Path(manifest).open("rb") as stream:
+        result = subprocess.run([
+            "ssh-keygen", "-Y", "verify", "-f", str(allowed),
+            "-I", identity, "-n", namespace, "-s", str(signature),
+        ], stdin=stream, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    Path(log).write_bytes(result.stdout)
+    return result.returncode
+
+
+def artifact_record(identifier, root, path):
+    path = Path(path)
+    relative = path.relative_to(root).as_posix()
+    return {
+        "id": identifier,
+        "path": relative,
+        "sha256": digest(path),
+        "bytes": path.stat().st_size,
+    }
+
+
+def recovery_child(path):
+    path = Path(path)
+    path.mkdir(mode=0o700)
+    atomic_json(path / "checkpoint.json", {
+        "schema_version": 1,
+        "status": "INCOMPLETE",
+        "promotion_allowed": False,
+    })
+    (path / "disposable-private-material").write_bytes(os.urandom(64))
+    os.chmod(path / "disposable-private-material", 0o600)
+    return 75
+
+
+def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--recovery-child":
+        return recovery_child(sys.argv[2])
+    if len(sys.argv) != 1:
+        raise Failure("this qualification entry point accepts no arguments")
+    if pwd.getpwuid(os.geteuid()).pw_name != EXPECTED_USER or os.geteuid() == 0:
+        raise Failure(f"run as the unprivileged {EXPECTED_USER} identity")
+
+    workspace = Path(os.environ.get(
+        "DIAMANEOS_BUILD_ROOT", "/var/lib/diamaneos-build"))
+    tools_link = Path(os.environ.get(
+        "DIAMANEOS_TOOLS_ROOT", "/opt/diamaneos/tools"))
+    expected_commit = os.environ.get("DIAMANEOS_EXPECTED_TOOLS_COMMIT", "")
+    thermal_check = Path(os.environ.get(
+        "DIAMANEOS_THERMAL_CHECK",
+        "/usr/local/sbin/diamaneos-builder-fan-check"))
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_commit):
+        raise Failure("expected reviewed tools commit is missing or invalid")
+    tools_root = tools_link.resolve(strict=True)
+    if tools_root != Path(f"/opt/diamaneos/tools-{expected_commit}"):
+        raise Failure("reviewed tools symlink target mismatch")
+    sys.path.insert(0, str(tools_root / "src"))
+    from diamaneos_tools import signing_qualification as planner
+    from diamaneos_tools import signing_verify
+
+    config = signing_verify.load_json(tools_root / "config/signing-roles.json")
+    environment = signing_verify.load_json(
+        tools_root / "config/build-environment.json")
+    errors = signing_verify.validate_config(config, environment)
+    if errors:
+        raise Failure("signing role contract is invalid")
+    profile = next(item for item in config["target_profiles"]
+                   if item["id"] == PROFILE_ID)
+
+    source_root = workspace / environment["workspace"]["source_subdirectory"]
+    cache_root = workspace / environment["workspace"]["cache_subdirectory"]
+    output_root = workspace / environment["workspace"]["output_subdirectory"]
+    evidence_root = workspace / "evidence" / "dummy-signing"
+    run_id = "dummy-signing-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    partial = evidence_root / f"{run_id}.partial"
+    private_root = Path("/dev/shm") / f"diamaneos-{run_id}"
+    final = evidence_root / run_id
+    started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    evidence_root.mkdir(mode=0o750, parents=True, exist_ok=True)
+    partial.mkdir(mode=0o750)
+    private_root.mkdir(mode=0o700)
+    logs = partial / "logs"
+    logs.mkdir(mode=0o750)
+
+    try:
+        observed_commit = subprocess.check_output([
+            "git", "-c", f"safe.directory={tools_root}", "-C", str(tools_root),
+            "rev-parse", "HEAD",
+        ], text=True).strip()
+        if observed_commit != expected_commit:
+            raise Failure("reviewed tools commit mismatch")
+        dirty = subprocess.check_output([
+            "git", "-c", f"safe.directory={tools_root}", "-C", str(tools_root),
+            "status", "--porcelain=v1", "--untracked-files=all",
+        ], text=True)
+        if dirty:
+            raise Failure("reviewed tools checkout is dirty")
+
+        for project, revision in config["source_binding"]["projects"].items():
+            observed = subprocess.check_output([
+                "git", "-C", str(source_root / project), "rev-parse", "HEAD",
+            ], text=True).strip()
+            if observed != revision:
+                raise Failure("pinned signing source project revision mismatch")
+        for binding in config["source_binding"]["files"]:
+            if digest(source_root / binding["path"]) != binding["sha256"]:
+                raise Failure("pinned signing source file hash mismatch")
+
+        candidates = sorted(output_root.glob(
+            f"target/product/*/obj/PACKAGING/target_files_intermediates/"
+            f"{profile['product']}-target_files.zip"))
+        if len(candidates) != 1:
+            raise Failure("expected exactly one accepted unsigned target-files package")
+        unsigned = candidates[0]
+        otatools = (output_root / "host/linux-x86/obj/ETC/"
+                    "otatools-packagelinux_glibc_x86_64_intermediates/"
+                    "otatools-packagelinux_glibc_x86_64")
+        if (digest(unsigned) != profile["qualified_unsigned_target_files_sha256"]
+                or digest(otatools) != profile["qualified_otatools_sha256"]):
+            raise Failure("qualified unsigned input or otatools hash mismatch")
+        if not thermal_check.is_file():
+            raise Failure("builder thermal-safety preflight is unavailable")
+
+        allowed_signers = (
+            cache_root / "trust/grapheneos-allowed-signers-2026091000")
+        base_env = os.environ.copy()
+        base_env.update({
+            "HOME": str(workspace),
+            "COREPACK_HOME": str(workspace / ".cache/corepack"),
+            "PATH": (f"{workspace}/toolbin:/opt/nodejs/v24.21.0/bin:"
+                     "/usr/local/bin:/usr/bin:/bin"),
+            "TMPDIR": str(workspace / "tmp"),
+        })
+        run([
+            tools_root / "bin/diamaneos", "build", "preflight",
+            "--purpose", "generic-qualification",
+            "--source-root", source_root, "--cache-root", cache_root,
+            "--output-root", output_root, "--thermal-check", thermal_check,
+            "--allowed-signers", allowed_signers,
+        ], partial / "preflight.json", env=base_env)
+        run([tools_root / "bin/diamaneos", "signing", "roles"],
+            partial / "signing-roles.json", env=base_env)
+        run(["repo", "manifest", "-r"], partial / "resolved-manifest.xml",
+            cwd=source_root, env=base_env)
+        run([
+            tools_root / "bin/diamaneos", "signing", "inventory",
+            "--profile", PROFILE_ID, "--stage", "unsigned",
+            "--target-files", unsigned, "--output",
+            partial / "unsigned-inventory.json",
+        ], logs / "unsigned-inventory.log", env=base_env)
+        unsigned_inventory = signing_verify.load_json(
+            partial / "unsigned-inventory.json", limit=64 * 1024 * 1024)
+
+        rehearsal = partial / "restart-recovery-attempt.partial"
+        recovery = subprocess.run([sys.executable, __file__,
+                                   "--recovery-child", str(rehearsal)])
+        if recovery.returncode != 75 or (rehearsal / "result.json").exists():
+            raise Failure("interruption rehearsal was incorrectly promotable")
+        checkpoint = json.loads((rehearsal / "checkpoint.json").read_text())
+        if checkpoint.get("promotion_allowed") is not False:
+            raise Failure("interruption checkpoint permits promotion")
+        shutil.rmtree(rehearsal)
+        atomic_json(partial / "restart-recovery.json", {
+            "schema_version": 1,
+            "status": "PASS",
+            "interrupted_exit_code": 75,
+            "incomplete_result_promoted": False,
+            "private_material_retained": False,
+            "replacement_attempt": run_id,
+        })
+
+        key_dir = private_root / "keys"
+        wrong_dir = private_root / "wrong"
+        key_dir.mkdir(mode=0o700)
+        wrong_dir.mkdir(mode=0o700)
+        make_key = source_root / "development/tools/make_key"
+        for key_id in KEY_IDS:
+            run([make_key, key_id,
+                 f"/CN=DiamaneOS disposable qualification/O={key_id}/"],
+                logs / f"keygen-{key_id}.log", cwd=key_dir, input_text="\n")
+        run([make_key, "releasekey",
+             "/CN=DiamaneOS disposable wrong key/O=releasekey/"],
+            logs / "keygen-wrong-releasekey.log", cwd=wrong_dir,
+            input_text="\n")
+
+        avbtool_source = source_root / "external/avb/avbtool.py"
+        run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt",
+             "rsa_keygen_bits:4096", "-out", key_dir / "avb.pem"],
+            logs / "keygen-avb.log")
+        run(["openssl", "pkey", "-in", key_dir / "avb.pem", "-pubout",
+             "-out", key_dir / "avb.pub.pem"], logs / "avb-public.log")
+        run([avbtool_source, "extract_public_key", "--key", key_dir / "avb.pem",
+             "--output", key_dir / "avb_pkmd.bin"],
+            logs / "avb-pkmd.log")
+        run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt",
+             "rsa_keygen_bits:4096", "-out", wrong_dir / "avb.pem"],
+            logs / "keygen-wrong-avb.log")
+        run(["openssl", "pkey", "-in", wrong_dir / "avb.pem", "-pubout",
+             "-out", wrong_dir / "avb.pub.pem"],
+            logs / "wrong-avb-public.log")
+        run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f",
+             key_dir / "factory"], logs / "keygen-factory.log")
+        run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f",
+             wrong_dir / "factory"], logs / "keygen-wrong-factory.log")
+
+        public = partial / "public-keys"
+        public.mkdir(mode=0o750)
+        fingerprints = []
+        for key_id in KEY_IDS:
+            source = key_dir / f"{key_id}.x509.pem"
+            shutil.copy2(source, public / source.name)
+            fingerprints.append({
+                "key_id": key_id,
+                "sha256": certificate_fingerprint(source),
+            })
+        for name in ("avb.pub.pem", "avb_pkmd.bin", "factory.pub"):
+            shutil.copy2(key_dir / name, public / name)
+        shutil.copy2(wrong_dir / "releasekey.x509.pem",
+                     public / "wrong-releasekey.x509.pem")
+        shutil.copy2(wrong_dir / "avb.pub.pem", public / "wrong-avb.pub.pem")
+        shutil.copy2(wrong_dir / "factory.pub", public / "wrong-factory.pub")
+        fingerprints.extend([
+            {"key_id": "avb", "sha256": digest(public / "avb_pkmd.bin")},
+            {"key_id": "factory", "sha256": digest(public / "factory.pub")},
+        ])
+
+        tool_dir = partial / ".otatools"
+        tool_dir.mkdir(mode=0o750)
+        run(["unzip", "-q", str(otatools), "-d", str(tool_dir)],
+            logs / "unpack-otatools.log")
+        tool_bin = tool_dir / "bin"
+        required_tools = {
+            name: tool_bin / name for name in (
+                "sign_target_files_apks", "ota_from_target_files",
+                "img_from_target_files", "apksigner", "avbtool",
+                "check_ota_package_signature",
+            )
+        }
+        if any(not path.is_file() for path in required_tools.values()):
+            raise Failure("reviewed otatools package lacks a required verifier")
+        qualification_env = base_env.copy()
+        qualification_env["PATH"] = (
+            f"{tool_bin}:{source_root}/prebuilts/build-tools/linux-x86/bin:"
+            f"{source_root}/prebuilts/build-tools/path/linux-x86:"
+            f"{base_env['PATH']}")
+        qualification_env["TMPDIR"] = str(workspace / "tmp")
+
+        artifacts = partial / "artifacts"
+        artifacts.mkdir(mode=0o750)
+        signed = artifacts / "signed-target-files.zip"
+        sign_command = planner.signing_command(
+            unsigned_inventory, signer=required_tools["sign_target_files_apks"],
+            key_dir=key_dir, source=unsigned, destination=signed)
+        if "--override_apk_keys" in sign_command or "--override_apex_keys" in sign_command:
+            raise Failure("global key override is prohibited")
+        run(sign_command, logs / "sign-target-files.log", cwd=source_root,
+            env=qualification_env)
+        run([
+            tools_root / "bin/diamaneos", "signing", "inventory",
+            "--profile", PROFILE_ID, "--stage", "signed",
+            "--target-files", signed, "--output",
+            partial / "signed-inventory.json",
+        ], logs / "signed-inventory.log", env=base_env)
+        signed_inventory = signing_verify.load_json(
+            partial / "signed-inventory.json", limit=64 * 1024 * 1024)
+        if signed_inventory["status"] != "PASS" or digest(signed) == digest(unsigned):
+            raise Failure("signed target-files transformation was not accepted")
+
+        full_ota = artifacts / "full-ota.zip"
+        incremental_ota = artifacts / "incremental-noop-ota.zip"
+        run([required_tools["ota_from_target_files"], "-k",
+             key_dir / "releasekey", signed, full_ota],
+            logs / "full-ota.log", cwd=source_root, env=qualification_env)
+        run([required_tools["ota_from_target_files"], "-k",
+             key_dir / "releasekey", "-i", signed, signed, incremental_ota],
+            logs / "incremental-ota.log", cwd=source_root,
+            env=qualification_env)
+        metadata_before = set(artifacts.iterdir())
+        run([source_root / "script/generate-metadata", full_ota],
+            logs / "generate-metadata.log", cwd=source_root,
+            env=qualification_env)
+        metadata_files = sorted(set(artifacts.iterdir()) - metadata_before)
+        if len(metadata_files) != 4:
+            raise Failure("update metadata generator did not produce four channels")
+        image_archive = artifacts / "generic-images.zip"
+        run([required_tools["img_from_target_files"], signed, image_archive],
+            logs / "image-archive.log", cwd=source_root,
+            env=qualification_env)
+
+        run(["ssh-keygen", "-Y", "sign", "-n", "factory images", "-f",
+             key_dir / "factory", image_archive],
+            logs / "factory-sign.log")
+        factory_signature = image_archive.with_name(image_archive.name + ".sig")
+        release_manifest = partial / "release-manifest.json"
+        core_paths = [signed, full_ota, incremental_ota, image_archive,
+                      *metadata_files]
+        atomic_json(release_manifest, {
+            "schema_version": 1,
+            "run_id": run_id,
+            "profile_id": PROFILE_ID,
+            "source_binding": config["source_binding"],
+            "incremental_scope": (
+                "same-build no-op delta qualifies the full incremental signing "
+                "and verification route, not changed-build update semantics"),
+            "artifacts": [
+                {"path": path.relative_to(partial).as_posix(),
+                 "sha256": digest(path), "bytes": path.stat().st_size}
+                for path in core_paths
+            ],
+            "key_public_fingerprints": sorted(
+                fingerprints, key=lambda item: item["key_id"]),
+        })
+        run(["ssh-keygen", "-Y", "sign", "-n",
+             "diamaneos-dummy-release-record", "-f", key_dir / "factory",
+             release_manifest], logs / "release-record-sign.log")
+        release_signature = release_manifest.with_name(
+            release_manifest.name + ".sig")
+
+        factory_allowed = partial / "factory-allowed-signers"
+        factory_wrong = partial / "factory-wrong-allowed-signers"
+        release_allowed = partial / "release-allowed-signers"
+        release_wrong = partial / "release-wrong-allowed-signers"
+        public_key = (public / "factory.pub").read_text(encoding="utf-8").strip()
+        wrong_key = (public / "wrong-factory.pub").read_text(
+            encoding="utf-8").strip()
+        factory_allowed.write_text(f"dummy-factory {public_key}\n", encoding="utf-8")
+        factory_wrong.write_text(f"dummy-factory {wrong_key}\n", encoding="utf-8")
+        release_allowed.write_text(f"dummy-release {public_key}\n", encoding="utf-8")
+        release_wrong.write_text(f"dummy-release {wrong_key}\n", encoding="utf-8")
+
+        shutil.rmtree(private_root)
+        if private_root.exists():
+            raise Failure("disposable private key directory survived signing")
+
+        checks = []
+        wrong_release_fingerprint = certificate_fingerprint(
+            public / "wrong-releasekey.x509.pem")
+        with zipfile.ZipFile(signed) as archive:
+            members = defaultdict(list)
+            for name in archive.namelist():
+                members[PurePosixPath(name).name].append(name)
+            roles = defaultdict(list)
+            for record in signed_inventory["apk_roles"]:
+                if record["certificate_role"] in KEY_IDS:
+                    roles[record["certificate_role"]].append(record["name"])
+            samples = partial / "samples/apk"
+            for role in KEY_IDS:
+                selected = None
+                for name in sorted(roles[role], key=lambda item: item.encode("utf-8")):
+                    paths = sorted(members.get(name, []))
+                    if paths:
+                        selected = paths[0]
+                        break
+                if selected is None:
+                    raise Failure("signed archive lacks a representative APK role")
+                sample = samples / f"{role}.apk"
+                safe_extract_member(archive, selected, sample)
+                expected = certificate_fingerprint(public / f"{role}.x509.pem")
+                observed = apk_certificate_check(
+                    required_tools["apksigner"], sample, expected,
+                    logs / f"verify-apk-{role}.log")
+                if wrong_release_fingerprint in observed:
+                    raise Failure("APK certificate pin accepted the wrong key")
+                checks.append({
+                    "id": f"apk-{role}", "valid_exit_code": 0,
+                    "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
+                    "artifact": sample.relative_to(partial).as_posix(),
+                })
+
+            apex_record = next(
+                item for item in signed_inventory["apex_roles"]
+                if item["container_certificate_role"] == "releasekey"
+                and members.get(item["name"]))
+            apex_path = sorted(members[apex_record["name"]])[0]
+            apex_sample = partial / "samples/apex/container.apex"
+            safe_extract_member(archive, apex_path, apex_sample)
+            release_fingerprint = certificate_fingerprint(
+                public / "releasekey.x509.pem")
+            observed = apk_certificate_check(
+                required_tools["apksigner"], apex_sample, release_fingerprint,
+                logs / "verify-apex-container.log")
+            if wrong_release_fingerprint in observed:
+                raise Failure("APEX container certificate pin accepted the wrong key")
+            checks.append({
+                "id": "apex-container", "valid_exit_code": 0,
+                "wrong_exit_code": 1, "tool": "apksigner+certificate-pin",
+                "artifact": apex_sample.relative_to(partial).as_posix(),
+            })
+            with zipfile.ZipFile(apex_sample) as apex_archive:
+                payload_sample = partial / "samples/apex/apex_payload.img"
+                safe_extract_member(apex_archive, "apex_payload.img", payload_sample)
+
+            image_samples = [("apex-payload", payload_sample)]
+            for record in signed_inventory["avb_roles"]:
+                member = f"IMAGES/{record['chain']}.img"
+                if member not in archive.namelist():
+                    raise Failure("signed target-files lacks a declared AVB image")
+                sample = partial / f"samples/avb/{record['chain']}.img"
+                safe_extract_member(archive, member, sample)
+                image_samples.append((f"avb-{record['chain']}", sample))
+
+        for identifier, sample in image_samples:
+            valid, _, _ = run([
+                required_tools["avbtool"], "verify_image", "--image", sample,
+                "--key", public / "avb.pub.pem",
+            ], logs / f"verify-{identifier}.log", env=qualification_env)
+            wrong, _, _ = run([
+                required_tools["avbtool"], "verify_image", "--image", sample,
+                "--key", public / "wrong-avb.pub.pem",
+            ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
+                allowed=tuple(range(1, 256)))
+            checks.append({
+                "id": identifier, "valid_exit_code": valid,
+                "wrong_exit_code": wrong, "tool": "avbtool verify_image",
+                "artifact": sample.relative_to(partial).as_posix(),
+            })
+
+        for identifier, ota in (("full-ota", full_ota),
+                                ("incremental-ota", incremental_ota)):
+            valid, _, _ = run([
+                required_tools["check_ota_package_signature"],
+                public / "releasekey.x509.pem", ota,
+            ], logs / f"verify-{identifier}.log", env=qualification_env)
+            wrong, _, _ = run([
+                required_tools["check_ota_package_signature"],
+                public / "wrong-releasekey.x509.pem", ota,
+            ], logs / f"verify-{identifier}-wrong.log", env=qualification_env,
+                allowed=tuple(range(1, 256)))
+            checks.append({
+                "id": identifier, "valid_exit_code": valid,
+                "wrong_exit_code": wrong,
+                "tool": "check_ota_package_signature",
+                "artifact": ota.relative_to(partial).as_posix(),
+            })
+
+        factory_valid = ssh_verify(
+            image_archive, factory_signature, factory_allowed,
+            "dummy-factory", "factory images", logs / "verify-factory.log")
+        factory_bad = ssh_verify(
+            image_archive, factory_signature, factory_wrong,
+            "dummy-factory", "factory images", logs / "verify-factory-wrong.log")
+        release_valid = ssh_verify(
+            release_manifest, release_signature, release_allowed,
+            "dummy-release", "diamaneos-dummy-release-record",
+            logs / "verify-release-record.log")
+        release_bad = ssh_verify(
+            release_manifest, release_signature, release_wrong,
+            "dummy-release", "diamaneos-dummy-release-record",
+            logs / "verify-release-record-wrong.log")
+        if factory_valid or not factory_bad or release_valid or not release_bad:
+            raise Failure("OpenSSH signature valid/wrong-key boundary failed")
+        checks.extend([
+            {"id": "factory-archive", "valid_exit_code": factory_valid,
+             "wrong_exit_code": factory_bad, "tool": "ssh-keygen -Y verify",
+             "artifact": image_archive.relative_to(partial).as_posix()},
+            {"id": "release-record", "valid_exit_code": release_valid,
+             "wrong_exit_code": release_bad, "tool": "ssh-keygen -Y verify",
+             "artifact": release_manifest.relative_to(partial).as_posix()},
+        ])
+        verification = partial / "cryptographic-verification.json"
+        atomic_json(verification, {
+            "schema_version": 1, "status": "PASS", "checks": checks,
+            "private_key_directory_present_during_verification": False,
+        })
+
+        shutil.rmtree(tool_dir)
+        retained = []
+        for path in sorted(partial.rglob("*")):
+            if path.is_file() and path.name not in {"result.json", "result.json.sha256"}:
+                identifier = "a-" + hashlib.sha256(
+                    path.relative_to(partial).as_posix().encode()).hexdigest()[:20]
+                retained.append(artifact_record(identifier, partial, path))
+        id_by_path = {entry["path"]: entry["id"] for entry in retained}
+        evidence_all = [entry["id"] for entry in retained]
+        proofs = [{
+            "id": proof, "status": "PASS", "evidence_refs": evidence_all,
+        } for proof in REQUIRED_PROOFS]
+        result_path = partial / "result.json"
+        result = {
+            "schema_version": 1,
+            "inventory_id": config["inventory_id"],
+            "source_binding": config["source_binding"],
+            "profile_id": PROFILE_ID,
+            "run_id": run_id,
+            "status": "PASS",
+            "dummy_keys_only": True,
+            "production_material_present": False,
+            "key_public_fingerprints": sorted(
+                fingerprints, key=lambda item: item["key_id"]),
+            "proofs": proofs,
+            "artifacts": retained,
+            "factory_archive_proof": {
+                "manifest_path": image_archive.relative_to(partial).as_posix(),
+                "signature_path": factory_signature.relative_to(partial).as_posix(),
+                "allowed_signers_path": factory_allowed.relative_to(partial).as_posix(),
+                "wrong_allowed_signers_path": factory_wrong.relative_to(partial).as_posix(),
+                "identity": "dummy-factory", "namespace": "factory images",
+            },
+            "release_record_proof": {
+                "manifest_path": release_manifest.relative_to(partial).as_posix(),
+                "signature_path": release_signature.relative_to(partial).as_posix(),
+                "allowed_signers_path": release_allowed.relative_to(partial).as_posix(),
+                "wrong_allowed_signers_path": release_wrong.relative_to(partial).as_posix(),
+                "identity": "dummy-release",
+                "namespace": "diamaneos-dummy-release-record",
+            },
+        }
+        atomic_json(result_path, result)
+        verify_errors = signing_verify.verify_dummy_result(
+            result_path, partial, config)
+        if verify_errors:
+            raise Failure("retained dummy signing result did not verify")
+        (partial / "result.json.sha256").write_text(
+            f"{digest(result_path)}  result.json\n", encoding="utf-8")
+        os.rename(partial, final)
+        print("DUMMY_SIGNING_QUALIFICATION=PASS")
+        print(f"run_id={run_id}")
+        print(f"result={final / 'result.json'}")
+        print((final / "result.json.sha256").read_text().strip())
+        return 0
+    except Exception as error:
+        if private_root.exists():
+            shutil.rmtree(private_root)
+        if (partial / ".otatools").exists():
+            shutil.rmtree(partial / ".otatools")
+        atomic_json(partial / "failure.json", {
+            "schema_version": 1, "run_id": run_id, "status": "FAIL",
+            "started_at_utc": started,
+            "ended_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "error": str(error), "private_material_retained": False,
+        })
+        failed = evidence_root / f"{run_id}.failed"
+        os.rename(partial, failed)
+        print(f"ERROR: {error}", file=sys.stderr)
+        print("DUMMY_SIGNING_QUALIFICATION=FAIL", file=sys.stderr)
+        print(f"result={failed / 'failure.json'}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Failure as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        sys.exit(1)

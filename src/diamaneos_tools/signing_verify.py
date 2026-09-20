@@ -189,7 +189,9 @@ def validate_config(config, environment):
         errors.append("signing source binding does not match build environment")
 
     project_values = binding["projects"]
-    if set(project_values) != {"script", "build/make", "development"}:
+    if set(project_values) != {
+            "script", "build/make", "development", "external/avb",
+            "system/update_engine", "tools/apksig"}:
         errors.append("signing source project set is incomplete")
     if any(not isinstance(value, str) or not HEX40_RE.fullmatch(value)
            for value in project_values.values()):
@@ -203,6 +205,10 @@ def validate_config(config, environment):
         "script/generate-delta.sh", "script/generate-metadata",
         "script/generate-keys", "script/finalize.sh",
         "development/tools/make_key",
+        "external/avb/avbtool.py",
+        "build/make/tools/releasetools/check_ota_package_signature.py",
+        "system/update_engine/scripts/brillo_update_payload",
+        "tools/apksig/src/apksigner/java/com/android/apksigner/ApkSignerTool.java",
     }
     if set(paths) != required_paths:
         errors.append("signing source-file binding set is incomplete")
@@ -270,11 +276,14 @@ def validate_config(config, environment):
                     or pure.name != entry["artifact_basename"]):
                 errors.append("presigned artifact binding path is invalid")
         qualified_hash = profile["qualified_unsigned_target_files_sha256"]
+        qualified_otatools = profile["qualified_otatools_sha256"]
         evidence = profile["qualification_evidence"]
         if profile["inventory_status"] == "qualified":
-            if not qualified_hash or evidence is None or not allowlist:
+            if (not qualified_hash or not qualified_otatools
+                    or evidence is None or not allowlist):
                 errors.append("qualified signing profile lacks review bindings")
-        elif (qualified_hash is not None or evidence is not None or allowlist
+        elif (qualified_hash is not None or qualified_otatools is not None
+              or evidence is not None or allowlist
               or metadata_only or artifacts):
             errors.append("unqualified signing profile contains review bindings")
 
@@ -581,6 +590,22 @@ def _ssh_verify(manifest, signature, allowed_signers, identity, namespace):
         raise SigningError("unable to run the release-record verifier") from None
 
 
+def _verify_ssh_proof(root, record, label, errors):
+    try:
+        manifest = _safe_artifact(root, record["manifest_path"])
+        signature = _safe_artifact(root, record["signature_path"])
+        allowed = _safe_artifact(root, record["allowed_signers_path"])
+        wrong = _safe_artifact(root, record["wrong_allowed_signers_path"])
+        if _ssh_verify(manifest, signature, allowed, record["identity"],
+                       record["namespace"]) != 0:
+            errors.append(f"dummy {label} failed declared-key verification")
+        if _ssh_verify(manifest, signature, wrong, record["identity"],
+                       record["namespace"]) == 0:
+            errors.append(f"dummy {label} accepted the wrong key")
+    except SigningError as error:
+        errors.append(str(error))
+
+
 def verify_dummy_result(result_path, artifact_root, config):
     result = load_json(result_path, limit=MAX_RESULT_BYTES)
     errors = _schema_errors(result, "signing-dummy-result.schema.json")
@@ -600,6 +625,9 @@ def verify_dummy_result(result_path, artifact_root, config):
         errors.append("dummy result contains duplicate proofs")
     if any(entry["status"] != "PASS" for entry in result["proofs"]):
         errors.append("dummy result contains an unsuccessful proof")
+    key_ids = [entry["key_id"] for entry in result["key_public_fingerprints"]]
+    if set(key_ids) != EXPECTED_KEYS or len(key_ids) != len(set(key_ids)):
+        errors.append("dummy result key fingerprint set is incomplete")
 
     root = Path(artifact_root)
     artifact_ids = set()
@@ -623,20 +651,10 @@ def verify_dummy_result(result_path, artifact_root, config):
         if not set(proof["evidence_refs"]) <= artifact_ids:
             errors.append("dummy proof refers to an unknown artifact")
 
-    record = result["release_record_proof"]
-    try:
-        manifest = _safe_artifact(root, record["manifest_path"])
-        signature = _safe_artifact(root, record["signature_path"])
-        allowed = _safe_artifact(root, record["allowed_signers_path"])
-        wrong = _safe_artifact(root, record["wrong_allowed_signers_path"])
-        if _ssh_verify(manifest, signature, allowed, record["identity"],
-                       record["namespace"]) != 0:
-            errors.append("dummy release record failed declared-key verification")
-        if _ssh_verify(manifest, signature, wrong, record["identity"],
-                       record["namespace"]) == 0:
-            errors.append("dummy release record accepted the wrong key")
-    except SigningError as error:
-        errors.append(str(error))
+    _verify_ssh_proof(root, result["factory_archive_proof"],
+                      "factory archive", errors)
+    _verify_ssh_proof(root, result["release_record_proof"],
+                      "release record", errors)
 
     if result["status"] != "PASS":
         errors.append("dummy result is not PASS")
