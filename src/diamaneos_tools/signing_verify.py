@@ -401,8 +401,8 @@ def _zip_member_sha256(archive, name):
 def _presigned_artifact_errors(archive, profile):
     """Verify exact archive presence/absence and identity bindings.
 
-    apkcerts/apexkeys names may contain an escaped literal dot, so the policy
-    retains the exact metadata token separately from the literal ZIP basename.
+    The parsed metadata name is retained separately from the literal ZIP
+    basename so the policy does not infer an archive path from metadata.
     """
     errors = []
     members_by_basename = {}

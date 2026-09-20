@@ -274,7 +274,7 @@
         "SpeechServices.apk",
         "TrichromeChrome.apk",
         "TrichromeLibrary.apk",
-        "TrichromeWebView\\.apk",
+        "TrichromeWebView.apk",
         "VanadiumConfig.apk",
         "androidx.test.orchestrator.apk",
         "androidx.test.services.test-services.apk",
@@ -388,7 +388,7 @@
           "sha256": "d7ee4b899aace9fc8b03fb93b7c314557d99d7c38b72c486ce2e00a5ecc94e8e"
         },
         {
-          "metadata_name": "TrichromeWebView\\.apk",
+          "metadata_name": "TrichromeWebView.apk",
           "artifact_basename": "TrichromeWebView.apk",
           "path": "PRODUCT/app/TrichromeWebView/TrichromeWebView.apk",
           "bytes": 5204178,
