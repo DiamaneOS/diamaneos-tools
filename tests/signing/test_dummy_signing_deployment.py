@@ -43,6 +43,10 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('partial / "key-generation.json"', script)
         self.assertIn('"--source-inventory"', script)
         self.assertIn('record.get("expected_certificate_role")', script)
+        self.assertIn("target_apk_role_coverage", script)
+        self.assertIn("EXPECTED_METADATA_ONLY_APK_ROLES", script)
+        self.assertIn('"standalone-apk-signing-probe"', script)
+        self.assertIn('required_tools["apksigner"], "sign"', script)
         self.assertIn('prebuilts/jdk/jdk21/linux-x86/bin', script)
         self.assertIn('environment["upstream"]["release_tag"]', script)
         self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
@@ -164,6 +168,43 @@ class DummySigningDeploymentTest(unittest.TestCase):
             with self.assertRaises(failure):
                 prepare(rejected, root / "unused.zip", root / "reject-work",
                         root / "unused.json", root / "reject.log", key_dir)
+
+    def test_apk_role_coverage_separates_metadata_from_payloads(self):
+        runner = runpy.run_path(str(RUNNER))
+        coverage = runner["target_apk_role_coverage"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sdk = root / "sdk.zip"
+            ota = root / "ota.zip"
+            with zipfile.ZipFile(sdk, "w") as archive:
+                archive.writestr("SYSTEM/app/Release/Release.apk", b"release")
+                archive.writestr("SYSTEM/app/Gms/Gms.apk", b"gms")
+            with zipfile.ZipFile(ota, "w") as archive:
+                archive.writestr("SYSTEM/app/Shared/Shared.apk", b"shared")
+            sources = (
+                ("sdk", sdk, {"apk_roles": [
+                    {"name": "Release.apk",
+                     "expected_certificate_role": "releasekey"},
+                    {"name": "Gms.apk",
+                     "expected_certificate_role": "gmscompat_lib"},
+                    {"name": "Bluetooth.apk",
+                     "expected_certificate_role": "bluetooth"},
+                ]}),
+                ("ota", ota, {"apk_roles": [
+                    {"name": "Shared.apk",
+                     "expected_certificate_role": "shared"},
+                    {"name": "Nfc.apk",
+                     "expected_certificate_role": "nfc"},
+                ]}),
+            )
+            counts, selected, candidates = coverage(sources)
+            self.assertEqual(1, counts["bluetooth"]["sdk"])
+            self.assertEqual(1, counts["nfc"]["ota"])
+            self.assertNotIn("bluetooth", selected)
+            self.assertNotIn("nfc", selected)
+            self.assertEqual("Gms.apk", selected["gmscompat_lib"]["package_name"])
+            self.assertEqual("ota", selected["shared"]["profile_id"])
+            self.assertEqual(1, len(candidates["releasekey"]))
 
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
         unit = SERVICE.read_text(encoding="utf-8")
