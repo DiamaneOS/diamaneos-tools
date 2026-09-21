@@ -266,6 +266,50 @@ The official ARM CTS17 R2 and Verifier17 R2 archives are hash-pinned in registry
 revision `android17-compatibility-20260921-v2`. CTS expands to 35,137,411,158
 bytes before notice materialization, so authenticated extraction uses a bounded
 64 GiB ceiling. Verifier's bundled host runner places its JDK notices under
-`android-cts-v-host/jdk/legal`; only that tree and the main `jdk/legal` tree
-permit regular-file notice materialization. Links cannot escape their own tree.
+`android-cts-v-host/jdk/legal`; those notice trees and `CameraITS/tests` permit bounded regular-file
+materialization. Links cannot escape their own tree.
 Package availability is not evidence of a final Android17 candidate or test pass.
+
+## Manual report collection
+
+The Android 16 R6 Verifier APK exports its launcher as
+`com.android.cts.verifier/.CtsVerifierActivity`; `TestListActivity` is internal.
+Use the exported alias or the app drawer. Follow the matching official setup
+and individual test instructions, record the actual outcome, then save the report.
+
+Discover the actual ZIP under `/sdcard/verifierReports`; do not assume a
+`ctsVerifierReport-` prefix. The observed R6 format begins with a timestamp and
+includes suite/build labels. Record the selected file and its hash privately.
+Preserve the ZIP and verify its `test_result.xml` suite/version and recorded
+outcomes before cleanup. A one-test export demonstrates collection only;
+unexecuted manual cases remain unqualified. Capture settings before preparation,
+restore their original values (including absent settings), and remove only the
+known rehearsal package after retaining evidence. Source discovery is separate
+from device cleanup and must not prevent exporting already collected reports.
+
+## Source-bound VTS preparation
+
+At `platform/test/vts` revision
+`886725543e4078f87fc87aabb90b1871c7536b03`, the observed build definition
+`tools/vts-core-tradefed/Android.bp` declares the `vts` suite package and
+`vts-tradefed` launcher, with suite version `17_r1`. Configurations include
+`res/config/vts.xml` and `res/config/vts-kernel.xml` below the same directory.
+The CTS R2 download label must not be substituted for this VTS source version.
+`test/vts-testcase` contains multiple Repo projects; resolve their individual
+revisions rather than treating the parent as a Git checkout.
+
+These source bindings do not establish a built VTS archive or runnable inventory.
+Build the suite in the candidate's pinned source/environment, retain its archive
+hash and generated module inventory, and match vendor/VINTF/build configuration
+before enabling execution. The registry remains `pending-source-build` until
+that evidence exists. For root-dependent cases, preserve a separately labelled
+diagnostic companion; it cannot establish locked-user properties. See the
+[VTS setup requirements](https://source.android.com/docs/core/tests/vts/setup11).
+
+[CTS-on-GSI](https://source.android.com/docs/core/tests/vts/gsi) checks the vendor
+implementation with a generic system and remains a separate diagnostic gate.
+Select MTS from the candidate's shipped modular components and the
+[official MTS source](https://android.googlesource.com/platform/test/mts/).
+Use available matching [Security AutoRepro](https://source.android.com/docs/security/test/autorepro)
+cases for bulletin regressions; retain inaccessible suite gaps explicitly. None
+of these substitute for the final user-build CTS/manual evidence.
