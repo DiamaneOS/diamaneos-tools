@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add authenticated, repeatable stock-image staging with bounded image selection,
+  atomic publication and preservation of prior generations on extraction failure.
+
 - Add a declared FP6 software-restart baseline with three monotonic-clock
   samples per repetition, separately retained Android boot milestones and an
   explicit manual-source-media boundary for physical cold power-on timing.
