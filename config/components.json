@@ -4,7 +4,7 @@
       "component": "GrapheneOS base tree",
       "decision_owner": "designated project maintainer",
       "distribution_form": "authenticated upstream release tag plus a separate minimal DiamaneOS local-manifest overlay",
-      "evidence": "Selected environment fp6-android17-grapheneos-2026091000-debian13-v4 verifies signed platform_manifest tag 2026091000, tag object 6c939d124f3ea8dd545c1e4045f26359f501d80e, peeled commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a and resolved 1,057-project map SHA-256 31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803. The DiamaneOS manifest repository carries no copied upstream manifest and currently adds no projects.",
+      "evidence": "Selected environment fp6-android17-grapheneos-2026091000-debian13-v4 verifies signed platform_manifest tag 2026091000, tag object 6c939d124f3ea8dd545c1e4045f26359f501d80e, peeled commit ac9f2fdf0badebea2f6ac6c3e93b125aba02116a and resolved 1,057-project map SHA-256 31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803. The DiamaneOS manifest repository carries no copied upstream manifest. Its initial FP6 overlay adds device_fairphone_FP6 and vendor_diamaneos; these additions are not part of the accepted upstream-only environment v4.",
       "id": "grapheneos-base",
       "licence": "Mixed, per-project and per-file in the independently fetched source checkout. The DiamaneOS overlay repository is Apache-2.0 and does not copy or relicense the upstream platform manifest.",
       "modifications": "No upstream manifest modification. Future DiamaneOS repositories or forks are added only through the separate diamaneos.xml local-manifest overlay at exact commits.",
