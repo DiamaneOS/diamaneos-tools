@@ -2,6 +2,8 @@
 Description=DiamaneOS builder USB-only ADB server for compatibility trials
 Documentation=file:/opt/diamaneos/tools/docs/COMPATIBILITY.md
 After=local-fs.target systemd-udevd.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -11,7 +13,6 @@ Environment=HOME=/var/lib/diamaneos-build
 Environment=ADB_MDNS=0
 UMask=0027
 ExecStart=/usr/local/bin/adb -L tcp:localhost:5037 nodaemon server
-ExecStop=/usr/local/bin/adb kill-server
 Restart=on-failure
 RestartSec=2s
 NoNewPrivileges=yes

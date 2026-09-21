@@ -252,3 +252,10 @@ The builder adapter confines Tradefed's HOME and Java `user.home` to its owned
 `compatibility/home` directory within the service's writable workspace. A timeout
 may prevent upstream teardown: retain evidence and restore captured device
 settings before retrying or returning the device to ordinary use.
+
+The dedicated ADB service stops only its own foreground process; it must not
+issue a global `adb kill-server` that could stop another listener. Restarts are
+limited to three starts per minute. Before starting a trial, verify that the
+service owns the listening server. An ADB client can otherwise auto-start an
+unmanaged server after the service exits. Recover that conflict only after all
+trials stop and the conflicting process's executable and owner are verified.
