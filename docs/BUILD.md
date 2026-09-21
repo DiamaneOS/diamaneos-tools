@@ -281,3 +281,7 @@ command exists. A timer becomes appropriate only after its exact suite,
 candidate trigger, maximum runtime, private paths and owner failure route have
 been exercised on the accepted host. Destructive stages always retain their
 operator gate.
+
+VTS source discovery is not package qualification. The pinned VTS build target
+and launcher are documented in [compatibility preparation](COMPATIBILITY.md#source-bound-vts-preparation);
+retain a built archive hash and generated inventory before approving execution.
