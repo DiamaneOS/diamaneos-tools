@@ -11,6 +11,7 @@ import locale
 import os
 from pathlib import Path, PurePosixPath
 import platform
+import posixpath
 import re
 import shutil
 import signal
@@ -284,7 +285,7 @@ def _archive_inputs(archive, package, destination=None):
                         or path.as_posix() != name.rstrip("/") or not path.parts
                         or path.parts[0] != package["extracted_directory"]
                         or path.as_posix() in seen or member.flag_bits & 1
-                        or kind not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                        or kind not in (0, stat.S_IFREG, stat.S_IFDIR, stat.S_IFLNK)):
                     raise CompatibilityError("compatibility archive has an unsafe member")
                 seen.add(path.as_posix())
                 if member.is_dir():
@@ -304,8 +305,36 @@ def _archive_inputs(archive, package, destination=None):
             if any(parent.as_posix() in file_names for _, path, _ in files
                    for parent in path.parents if parent != PurePosixPath(".")):
                 raise CompatibilityError("compatibility archive has a file/directory collision")
-            records = []
+            # Official bundled JDKs share license text through relative links.
+            # Materialize only these notices; never create filesystem symlinks.
+            resolved_files = []
+            expanded = 0
             for member, relative, executable in files:
+                if stat.S_ISLNK(member.external_attr >> 16):
+                    if relative.parts[:2] != ("jdk", "legal") or member.file_size > 4096:
+                        raise CompatibilityError("archive symlink is not a bounded JDK notice")
+                    try:
+                        link = bundle.read(member).decode("utf-8")
+                    except UnicodeError:
+                        raise CompatibilityError("invalid JDK notice link") from None
+                    target = posixpath.normpath(posixpath.join(str(relative.parent), link))
+                    if (not link or link.startswith("/") or "\\" in link
+                            or not target.startswith("jdk/legal/")):
+                        raise CompatibilityError("JDK notice link escapes its notice tree")
+                    try:
+                        member = bundle.getinfo(package["extracted_directory"] + "/" + target)
+                    except KeyError:
+                        raise CompatibilityError("JDK notice link target is missing") from None
+                    if (member.is_dir() or stat.S_IFMT(member.external_attr >> 16)
+                            not in (0, stat.S_IFREG)):
+                        raise CompatibilityError("JDK notice link target is not a regular file")
+                    executable = bool((member.external_attr >> 16) & 0o111)
+                expanded += member.file_size
+                if expanded > MAX_TREE_BYTES:
+                    raise CompatibilityError("materialized archive exceeds byte limit")
+                resolved_files.append((member, relative, executable))
+            records = []
+            for member, relative, executable in resolved_files:
                 digest = hashlib.sha256()
                 length = 0
                 output = None
@@ -481,7 +510,11 @@ def _copy_result(source: Path, destination: Path):
 
 
 def _bounded_process(argv: list[str], timeout_seconds: int, cwd: Path) -> dict:
-    return process.run(argv, timeout_seconds, MAX_STREAM_BYTES, cwd=cwd)
+    environment = os.environ.copy()
+    environment["USE_ATS"] = "false"
+    environment["ENABLE_XTS_DYNAMIC_DOWNLOADER"] = "false"
+    return process.run(argv, timeout_seconds, MAX_STREAM_BYTES, cwd=cwd,
+                       env=environment)
 
 
 def _version_tuple(value: str) -> tuple[int, ...]:
