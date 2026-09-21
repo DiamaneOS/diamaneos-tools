@@ -285,6 +285,20 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 vendor_files.verify_tree(final, records)
             else:
                 tree.rename(final)
+        inventories = output / 'inventories'
+        if inventories.is_symlink():
+            raise VendorError('inventory directory cannot be a symlink')
+        inventories.mkdir(exist_ok=True, mode=0o750)
+        inventory = inventories / (identity + '.json')
+        inventory_bytes = encoded(records)
+        if inventory.exists() or inventory.is_symlink():
+            if inventory.is_symlink() or not inventory.is_file() or inventory.read_bytes() != inventory_bytes:
+                raise VendorError('existing product inventory differs')
+        else:
+            with tempfile.TemporaryDirectory(prefix='.inventory-', dir=inventories) as temporary:
+                staged = Path(temporary) / 'inventory.json'
+                staged.write_bytes(inventory_bytes)
+                staged.rename(inventory)
         target = 'generations/' + identity
         current = output / 'current'
         if not current.is_symlink() or os.readlink(current) != target:
@@ -293,7 +307,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 link.symlink_to(target)
                 os.replace(link, current)
     return dict(operation='fp6-native-product-generation', status='PASS',
-                generation_sha256=identity, scope='private-bringup', native_or_device_accepted=False)
+                generation_sha256=identity, inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(), scope='private-bringup', native_or_device_accepted=False)
 
 
 def main(argv=None):

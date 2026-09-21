@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "source": "Pinned generic Android otatools build; tools are acquired through the documented generic build workflow.",
+  "otatools_archive_sha256": "3f93de1eb56f36affc36d8fca726a4a9605d3d277a4e87d88928291fc68a8f6a",
+  "tools": {
+    "simg2img": "c18174a93fae172df655d4f73072580ca1800498ff74dae6a8dca6c7d797df91",
+    "lpunpack": "51f0cb01d5751a021bd8e2f3b9d3a68dbd9c626e263fb8567da37b0db9ebb71b",
+    "debugfs_static": "979ab11b3ad8bd6d36b97701d82e6b55314266db14d8e5bf764e39c383948a3a"
+  },
+  "libraries": {
+    "libbase.so": "e7eaaee446266580b5b403e377a81f53f738f1a88c4854129c370a292d4fa0aa",
+    "liblog.so": "936872310a280e215e254c0b327731ebfd0d4000c8b98e92258ab4278e74a912",
+    "liblp.so": "eb4d7b4b335d6a60a1e1e16a06d2878690feb70b48ff621e1a6503f3b1acff97",
+    "libsparse-host.so": "af13849b06fe6634350c258eab9c2a026d330803b79b77e1aca926b6ceafc333",
+    "libc++.so": "acca15da090d439bbd4f6d7bbfb43bd53652639ad20487ea87304c8d00edb306",
+    "libcrypto-host.so": "cba5720788e0a464648b73dd62079ddcf4107021f5ed65d0e3baade3034cf6a3",
+    "libcrypto_utils.so": "99089f13a0987708f9adf84b21ac7e614e3f8b4851b08ca7a03b58f434db6314",
+    "libext4_utils.so": "4cb7ea92b0f2c209e2a7f7dd0d39b5400ef264f1fbc0be506ef1a4ca8163cb24",
+    "libz-host.so": "1240c7319a148dcb58a5c5dac9550bc9dd10c3fe71772d5c0853059ed7e816f2"
+  }
+}
