@@ -1,5 +1,7 @@
 """Real child-process lifecycle and bounded streaming regressions."""
 import os
+import signal
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -31,6 +33,29 @@ class ProcessTest(unittest.TestCase):
             self.assertEqual("timeout", result["transport"])
             time.sleep(.95)
             self.assertFalse(marker.exists())
+
+    def test_cli_sigterm_unwinds_owned_worker_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ready, escaped = root / 'ready', root / 'escaped'
+            child = "import pathlib,time; pathlib.Path(" + repr(str(ready)) + ").touch(); time.sleep(1); pathlib.Path(" + repr(str(escaped)) + ").touch()"
+            script = ("from diamaneos_tools import process; import sys\n"
+                      "with process.interrupt_on_termination():\n"
+                      " r=process.run([sys.executable,'-c'," + repr(child) + "],10)\n"
+                      " print(r['transport'],flush=True)\n")
+            env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2] / 'src'))
+            parent = subprocess.Popen([sys.executable,'-c',script],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            try:
+                deadline = time.monotonic() + 5
+                while not ready.exists() and time.monotonic() < deadline: time.sleep(.01)
+                self.assertTrue(ready.exists())
+                parent.send_signal(signal.SIGTERM)
+                stdout, stderr = parent.communicate(timeout=5)
+                self.assertEqual(b'interrupted',stdout.strip(),stderr)
+                time.sleep(1.05)
+                self.assertFalse(escaped.exists())
+            finally:
+                if parent.poll() is None: parent.kill(); parent.wait()
 
     def test_large_log_is_streamed_with_a_small_tail_and_hard_total_cap(self):
         with tempfile.TemporaryDirectory() as temp:
