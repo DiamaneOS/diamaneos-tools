@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "e1e6a70b1c63157eecef62fd37ebd049cf8d794dc2d7c6b62693d23936d951f9",
+  "model_sha256": "efe1c541395ae20f6fa00eed8f245cbf3eb2a3af59063562caaf379f984c9ee9",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -2806,6 +2806,66 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "path": "vendor/firmware/gen80300_sqe.fw",
+      "sha256": "046f5aea37fd8ec09af247edb07b9266bfecdbf6220ed5b2b56ed988fc6f5d5f",
+      "bytes": 85844,
+      "input": "vendor/firmware/gen80300_sqe.fw",
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:vendor-peripheral-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Gen8.3 GPU firmware requested by the pinned FP6 KGSL driver; required for the selected accelerated display stack.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "path": "vendor/firmware/gen80300_gmu.bin",
+      "sha256": "6adcbf43b162fb4bdc00154824f44c5f96d82a223cfbe7012d5904098f5bf2fc",
+      "bytes": 88708,
+      "input": "vendor/firmware/gen80300_gmu.bin",
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:vendor-peripheral-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Gen8.3 GPU firmware requested by the pinned FP6 KGSL driver; required for the selected accelerated display stack.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "path": "vendor/firmware/gen80300_zap.mbn",
+      "sha256": "5ba0d93d3716a182405fba755f7ef1090b2107a40ab78c60b7c5da17491ad646",
+      "bytes": 12088,
+      "input": "vendor/firmware/gen80300_zap.mbn",
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:vendor-peripheral-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Gen8.3 GPU firmware requested by the pinned FP6 KGSL driver; required for the selected accelerated display stack.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
         "capabilities_hex": ""
       }
     }

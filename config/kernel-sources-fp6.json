@@ -1,0 +1,725 @@
+{
+  "schema_version": 1,
+  "source_url": "https://gerrit-public.fairphone.software/",
+  "scope": "Pinned development kernel source workspace; downstream changes are bound separately in config/patches.json.",
+  "projects": [
+    {
+      "project": "abl/tianocore/edk2",
+      "path": "kernel_platform/bootable/bootloader/edk2",
+      "revision": "eff625234b8c58aa0294c5a8ebb006f08a9338aa",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/build/bazel_common_rules",
+      "path": "kernel_platform/build/bazel_common_rules",
+      "revision": "9ac051a42545593e4a6bda7f11511acb8476f4e2",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel/build",
+      "path": "kernel_platform/build/kernel",
+      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/tools/bazel",
+          "src": "kleaf/bazel.sh"
+        },
+        {
+          "dest": "kernel_platform/build/build.sh",
+          "src": "build.sh"
+        },
+        {
+          "dest": "kernel_platform/build/build_abi.sh",
+          "src": "build_abi.sh"
+        },
+        {
+          "dest": "kernel_platform/build/build_test.sh",
+          "src": "build_test.sh"
+        },
+        {
+          "dest": "kernel_platform/build/build_utils.sh",
+          "src": "build_utils.sh"
+        },
+        {
+          "dest": "kernel_platform/build/all-variants.sh",
+          "src": "all-variants.sh"
+        },
+        {
+          "dest": "kernel_platform/build/brunch",
+          "src": "brunch"
+        },
+        {
+          "dest": "kernel_platform/build/build_abl.sh",
+          "src": "build_abl.sh"
+        },
+        {
+          "dest": "kernel_platform/build/build_module.sh",
+          "src": "build_module.sh"
+        },
+        {
+          "dest": "kernel_platform/build/android/export_headers.py",
+          "src": "android/export_headers.py"
+        },
+        {
+          "dest": "kernel_platform/build/android/merge_dtbs.py",
+          "src": "android/merge_dtbs.py"
+        },
+        {
+          "dest": "kernel_platform/build/android/merge_dtbs.sh",
+          "src": "android/merge_dtbs.sh"
+        },
+        {
+          "dest": "kernel_platform/build/android/prepare_vendor.sh",
+          "src": "android/prepare_vendor.sh"
+        },
+        {
+          "dest": "kernel_platform/build/BUILD.bazel",
+          "src": "BUILD.bazel"
+        },
+        {
+          "dest": "kernel_platform/build/build-tools/path",
+          "src": "build-tools/path"
+        },
+        {
+          "dest": "kernel_platform/build/config.sh",
+          "src": "config.sh"
+        },
+        {
+          "dest": "kernel_platform/build/envsetup.sh",
+          "src": "envsetup.sh"
+        },
+        {
+          "dest": "kernel_platform/build/_setup_env.sh",
+          "src": "_setup_env.sh"
+        },
+        {
+          "dest": "kernel_platform/build/multi-switcher.sh",
+          "src": "multi-switcher.sh"
+        },
+        {
+          "dest": "kernel_platform/build/kleaf",
+          "src": "kleaf"
+        },
+        {
+          "dest": "kernel_platform/build/abi",
+          "src": "abi"
+        },
+        {
+          "dest": "kernel_platform/build/static_analysis",
+          "src": "static_analysis"
+        },
+        {
+          "dest": "kernel_platform/build/_wrapper_common.sh",
+          "src": "_wrapper_common.sh"
+        }
+      ]
+    },
+    {
+      "project": "kernel/common",
+      "path": "kernel_platform/common",
+      "revision": "221d6fa50ed25ad745e769d04163c25a4890281f",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/.source_date_epoch_dir",
+          "src": "."
+        }
+      ]
+    },
+    {
+      "project": "kernel_platform/external/bazel-skylib",
+      "path": "kernel_platform/external/bazel-skylib",
+      "revision": "7fdbc462f5001b7e82f026aa90bd43c494e2a8d8",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/external/dtc",
+      "path": "kernel_platform/external/dtc",
+      "revision": "2bc3f4250c591a4519a899f0f62600834a4da693",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/external/python/absl-py",
+      "path": "kernel_platform/external/python/absl-py",
+      "revision": "e46584edbb247bf79c74c4f105b6fff18234cee8",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/external/stardoc",
+      "path": "kernel_platform/external/stardoc",
+      "revision": "0d74fed6f8d0844f696771e71bc0b071cae99021",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel/qcom",
+      "path": "kernel_platform/msm-kernel",
+      "revision": "80da648332ffb13f3415224058d286e47429eca7",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/WORKSPACE",
+          "src": "bazel.WORKSPACE"
+        },
+        {
+          "dest": "kernel_platform/build_with_bazel.py",
+          "src": "build_with_bazel.py"
+        }
+      ]
+    },
+    {
+      "project": "platform/kernel_platform/qcom/proprietary/devicetree",
+      "path": "kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "revision": "e54c8cb7d2d1d99026eff5d0d1c858db4739c478",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/prebuilts/asuite",
+      "path": "kernel_platform/prebuilts/asuite",
+      "revision": "933fe29a05b097caed99d630727cfc301f770798",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/prebuilts/bazel/linux-x86_64",
+      "path": "kernel_platform/prebuilts/bazel/linux-x86_64",
+      "revision": "eee09422f02e60f28192bcb5a8ce8660baba6706",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/prebuilts/build-tools",
+      "path": "kernel_platform/prebuilts/build-tools",
+      "revision": "3f7cae3e5f7b0cbbb50ececa504e959b5e1a0b1e",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/build/prebuilts/build-tools",
+          "src": "."
+        }
+      ]
+    },
+    {
+      "project": "kernel_platform/prebuilts/clang-tools",
+      "path": "kernel_platform/prebuilts/clang-tools",
+      "revision": "0613fc5443d035335a9541994607bacae03750f2",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/build/prebuilts/clang-tools",
+          "src": "."
+        }
+      ]
+    },
+    {
+      "project": "kernelplatform/prebuilts-master/clang/host/linux-x86",
+      "path": "kernel_platform/prebuilts/clang/host/linux-x86",
+      "revision": "28b975ada54f8610ed531a6b57253aed10e7c87d",
+      "linkfiles": []
+    },
+    {
+      "project": "kernelplatform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+      "path": "kernel_platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+      "revision": "dd099b5d68822602228e2af66693e61e7b54e0a9",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/build/build-tools/sysroot",
+          "src": "sysroot"
+        }
+      ]
+    },
+    {
+      "project": "kernel_platform/prebuilts/jdk/jdk11",
+      "path": "kernel_platform/prebuilts/jdk/jdk11",
+      "revision": "ced68c9308cbc1b6ec3e602dba8d0d56df8b6d73",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel/prebuilts/build-tools",
+      "path": "kernel_platform/prebuilts/kernel-build-tools",
+      "revision": "d153b7ab4a4956198957e258d4f370e875c53059",
+      "linkfiles": [
+        {
+          "dest": "kernel_platform/build/prebuilts/kernel-build-tools",
+          "src": "."
+        }
+      ]
+    },
+    {
+      "project": "kernel_platform/toolchain/prebuilts/ndk/r23",
+      "path": "kernel_platform/prebuilts/ndk-r23",
+      "revision": "269a5dc9e862f78dc2030d9262f73cb2642b8127",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/tools/tradefederation/prebuilts",
+      "path": "kernel_platform/prebuilts/tradefed",
+      "revision": "47fc8dbfffc41429e87a5e76188b7707d63792f4",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/system/tools/mkbootimg",
+      "path": "kernel_platform/tools/mkbootimg",
+      "revision": "b17f184a20744a7e0a421f901bdf20a23be22b07",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/nxp/opensource/driver",
+      "path": "vendor/nxp/opensource/driver",
+      "revision": "cbd4b1fd28f4681ea74fe038d96f464da4a28e45",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/nfc-kernel-dlkm-vendor-product.mk",
+          "src": "nfc_kernel_dlkm_vendor_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/nfc-kernel-dlkm-vendor-board.mk",
+          "src": "nfc_kernel_dlkm_vendor_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/audio-kernel-ar",
+      "path": "vendor/qcom/opensource/audio-kernel",
+      "revision": "5bfffea5cc2dbb996e773cdc2b5daf1a30602ac1",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/audio_kernel_vendor_board.mk",
+          "src": "audio_kernel_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/audio_kernel_product_board.mk",
+          "src": "audio_kernel_product_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom-opensource/bt-kernel",
+      "path": "vendor/qcom/opensource/bt-kernel",
+      "revision": "00d8248a3643bf6939ff886a6ba6a59d05b43554",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/bt_kernel_vendor_board.mk",
+          "src": "bt_kernel_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/bt_kernel_product_board.mk",
+          "src": "bt_kernel_product_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/camera-kernel",
+      "path": "vendor/qcom/opensource/camera-kernel",
+      "revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/camera-kernel_board.mk",
+          "src": "board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/camera-kernel_product.mk",
+          "src": "product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/dataipa",
+      "path": "vendor/qcom/opensource/dataipa",
+      "revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/dataipa_dlkm_vendor_board.mk",
+          "src": "dataipa_dlkm_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/dataipa_dlkm_vendor_product.mk",
+          "src": "dataipa_dlkm_vendor_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/dataipa_binary_vendor_product.mk",
+          "src": "dataipa_binary_vendor_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/datarmnet",
+      "path": "vendor/qcom/opensource/datarmnet",
+      "revision": "1f9d44114ba7129c0c7e0a0b01462ef9c0acd963",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/datarmnet_dlkm_vendor_board.mk",
+          "src": "datarmnet_dlkm_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/datarmnet_dlkm_vendor_product.mk",
+          "src": "datarmnet_dlkm_vendor_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/datarmnet-ext",
+      "path": "vendor/qcom/opensource/datarmnet-ext",
+      "revision": "a00d9d886cc0e47a652578b607383ccf0e02d5bc",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/datarmnet_ext_dlkm_vendor_board.mk",
+          "src": "datarmnet_ext_dlkm_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/datarmnet_ext_dlkm_vendor_product.mk",
+          "src": "datarmnet_ext_dlkm_vendor_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/display-drivers",
+      "path": "vendor/qcom/opensource/display-drivers",
+      "revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/display_driver_product.mk",
+          "src": "display_driver_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/display_driver_board.mk",
+          "src": "display_driver_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/dsp-kernel",
+      "path": "vendor/qcom/opensource/dsp-kernel",
+      "revision": "92510955132be5961ba4f51f42a49bc77ccbca8f",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/dsp_kernel_board.mk",
+          "src": "dsp_kernel_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/dsp_kernel_product.mk",
+          "src": "dsp_kernel_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/eva-kernel",
+      "path": "vendor/qcom/opensource/eva-kernel",
+      "revision": "ae10fb1739f4c4c841cb05d01b19dc1dc07cc30b",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/eva_kernel_product.mk",
+          "src": "eva_kernel_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/eva_kernel_board.mk",
+          "src": "eva_kernel_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/graphics-kernel",
+      "path": "vendor/qcom/opensource/graphics-kernel",
+      "revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/opensource/mm-drivers",
+      "path": "vendor/qcom/opensource/mm-drivers",
+      "revision": "a7b138e9ad13cfdca39fb86f599fa16c0ced2282",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/mm_driver_product.mk",
+          "src": "mm_driver_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/mm_driver_board.mk",
+          "src": "mm_driver_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/mm-sys-kernel",
+      "path": "vendor/qcom/opensource/mm-sys-kernel",
+      "revision": "a76f665f9e09fb220d23c71fefa370bb85c68836",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/ubwcp_kernel_vendor_board.mk",
+          "src": "ubwcp_kernel_vendor_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/ubwcp_kernel_product_board.mk",
+          "src": "ubwcp_kernel_product_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/mmrm-driver",
+      "path": "vendor/qcom/opensource/mmrm-driver",
+      "revision": "caebb7aea11c2bb9c04ef53c1e3c4c486df5b35e",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/mmrm_kernel_board.mk",
+          "src": "mmrm_kernel_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/mmrm_kernel_product.mk",
+          "src": "mmrm_kernel_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/securemsm-kernel",
+      "path": "vendor/qcom/opensource/securemsm-kernel",
+      "revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/securemsm_kernel_product_board.mk",
+          "src": "securemsm_kernel_product_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/securemsm_kernel_vendor_board.mk",
+          "src": "securemsm_kernel_vendor_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom/opensource/spu-kernel",
+      "path": "vendor/qcom/opensource/spu-kernel",
+      "revision": "8209e34e04c393339b8ca49f8f9b9feae3f0908d",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/spu_driver_board.mk",
+          "src": "spu_driver_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/spu_driver_product.mk",
+          "src": "spu_driver_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/synx-kernel",
+      "path": "vendor/qcom/opensource/synx-kernel",
+      "revision": "86615db72c6f2852ab5650f7283a7a244754bb75",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/synx_kernel_product.mk",
+          "src": "synx_kernel_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/synx_kernel_board.mk",
+          "src": "synx_kernel_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/touch-drivers",
+      "path": "vendor/qcom/opensource/touch-drivers",
+      "revision": "37908c61a4589f25fca8a078873124e97faadb6d",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/touch_driver_board.mk",
+          "src": "touch_driver_board.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/touch_driver_product.mk",
+          "src": "touch_driver_product.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/opensource/video-driver",
+      "path": "vendor/qcom/opensource/video-driver",
+      "revision": "9f32033e6d3c574a22af778e8841c62034020d93",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/video_kernel_product.mk",
+          "src": "video_kernel_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/video_kernel_board.mk",
+          "src": "video_kernel_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/qcom-opensource/wlan/fw-api",
+      "path": "vendor/qcom/opensource/wlan/fw-api",
+      "revision": "11b7398a61abee5996626222558139f3817fa63c",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom-opensource/wlan/platform",
+      "path": "vendor/qcom/opensource/wlan/platform",
+      "revision": "9c69b3184709b293f04acc66662076d1ea6d78bd",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn",
+      "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
+      "revision": "2109d77b6964f27434ec9ea5c284e6bae5c887a9",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom-opensource/wlan/qcacld-3.0",
+      "path": "vendor/qcom/opensource/wlan/qcacld-3.0",
+      "revision": "fd08604385a181351af0302bb52b3eff22d92ea0",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/audio-devicetree",
+      "path": "vendor/qcom/proprietary/audio-devicetree",
+      "revision": "2d52d12f549c9048d3381e869a23ffce1932ffb8",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/bt-devicetree",
+      "path": "vendor/qcom/proprietary/bt-devicetree",
+      "revision": "0058fc983ee62ae98f0a2001db481af124a0504f",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/camera-devicetree",
+      "path": "vendor/qcom/proprietary/camera-devicetree",
+      "revision": "41489bebf06c9ffc211a2071c937d086e7568032",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/data-devicetree",
+      "path": "vendor/qcom/proprietary/data-devicetree",
+      "revision": "5bc4c7d1fad5e828e3e497d2e47eeba72a403820",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/display-devicetree",
+      "path": "vendor/qcom/proprietary/display-devicetree",
+      "revision": "56394aacd960d7e6d71ef88b9b073f7ea3754be6",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/dsp-devicetree",
+      "path": "vendor/qcom/proprietary/dsp-devicetree",
+      "revision": "1db24dbe32d6cf1a7a7b0d3b40ff8603b57d7d7f",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/eSE-devicetree",
+      "path": "vendor/qcom/proprietary/eSE-devicetree",
+      "revision": "97a97695fa13047048b7ee31190375d7faecfe61",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/eva-devicetree",
+      "path": "vendor/qcom/proprietary/eva-devicetree",
+      "revision": "caf290576c7464d2d2d1d7cf799908df6fc8c936",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/graphics-devicetree",
+      "path": "vendor/qcom/proprietary/graphics-devicetree",
+      "revision": "8e48ed292e5ecf81385eaed08da461c5e9b76b44",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/mm-devicetree",
+      "path": "vendor/qcom/proprietary/mm-devicetree",
+      "revision": "50fd8de5ee2209dcca9e8da52ecd1da28d68f3be",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/mm-sys-devicetree",
+      "path": "vendor/qcom/proprietary/mm-sys-devicetree",
+      "revision": "8e62c3a3a618568405746ceaf3936ba659e5baa6",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/mmrm-devicetree",
+      "path": "vendor/qcom/proprietary/mmrm-devicetree",
+      "revision": "65a45468614a8f7f3fb779c30ba7369c89c5ae13",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/nfc-devicetree",
+      "path": "vendor/qcom/proprietary/nfc-devicetree",
+      "revision": "1b3efd987aa8986aff24158aac1a36182ae35c63",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/synx-devicetree",
+      "path": "vendor/qcom/proprietary/synx-devicetree",
+      "revision": "d92eb461b1e27edea9e35b0fce91cf8872d88ea0",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/video-devicetree",
+      "path": "vendor/qcom/proprietary/video-devicetree",
+      "revision": "3bc60301c49ef68f70784cb57ddae1df689ec851",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/qcom/proprietary/wlan-devicetree",
+      "path": "vendor/qcom/proprietary/wlan-devicetree",
+      "revision": "3ac75d0b258162ca0f6f6df2dfddd79e7392adc0",
+      "linkfiles": []
+    },
+    {
+      "project": "vendor/samsung/nfc",
+      "path": "vendor/samsung_slsi/nfc",
+      "revision": "94a2731a51ccb5c60cc5f715ee95daa5f71ad5fd",
+      "linkfiles": []
+    },
+    {
+      "project": "platform/vendor/st/opensource/driver",
+      "path": "vendor/st/opensource/driver",
+      "revision": "9564cbb00af95b2c05b62977c7c787d92f2b6a67",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/nfc-kernel-dlkm-vendor-product-stm.mk",
+          "src": "nfc_kernel_dlkm_vendor_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/nfc-kernel-dlkm-vendor-board-stm.mk",
+          "src": "nfc_kernel_dlkm_vendor_board.mk"
+        }
+      ]
+    },
+    {
+      "project": "platform/vendor/st/opensource/eSE-driver",
+      "path": "vendor/st/opensource/eSE-driver",
+      "revision": "11285a0aef9d24749e8e0a6eae1f7f833a7bb56d",
+      "linkfiles": [
+        {
+          "dest": "vendor/qcom/defs/product-defs/vendor/ese_kernel_product.mk",
+          "src": "ese_kernel_product.mk"
+        },
+        {
+          "dest": "vendor/qcom/defs/board-defs/vendor/ese_kernel_board.mk",
+          "src": "ese_kernel_board.mk"
+        }
+      ]
+    }
+  ],
+  "workspace_adaptations": {
+    "schema_version": 1,
+    "excluded_linkfiles": [
+      {
+        "project": "kernel/build",
+        "revision": "f19534bc201764082056c886279fb69aeb423641",
+        "src": "build.sh",
+        "dest": "kernel_platform/build/build.sh",
+        "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."
+      },
+      {
+        "project": "kernel/build",
+        "revision": "f19534bc201764082056c886279fb69aeb423641",
+        "src": "build_abi.sh",
+        "dest": "kernel_platform/build/build_abi.sh",
+        "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."
+      }
+    ],
+    "generated_links": [
+      {
+        "dest": "kernel_platform/build/msm_kernel_extensions.bzl",
+        "source": "kernel_platform/msm-kernel/msm_kernel_extensions.bzl"
+      },
+      {
+        "dest": "kernel_platform/build/abl_extensions.bzl",
+        "source": "kernel_platform/bootable/bootloader/edk2/abl_extensions.bzl"
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v5",
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v6",
   "scope": "Candidate metadata revision with updated FP6 source and patch inventories. The upstream generic source map is unchanged; qualification of v4 remains bound to its original tools commit, not transferred to this identity.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -96,14 +96,24 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "1f1eb7753c1e4be2217a62e3559bda04287c72e4de5986bbbaa3c2c0cfa8a6fb"
+      "sha256": "04eeec55a18c9a019b0baffc18c1424898c8418e16483218464fd94d0774108a"
+    },
+    {
+      "id": "fp6-selected-native-files",
+      "repository_path": "config/fp6-minimal/vendor-files.json",
+      "sha256": "92beacf8ffcd8cd837a2047c701a3f4a1a559e654e7d331c957f710818745faa"
+    },
+    {
+      "id": "fp6-native-dependencies",
+      "repository_path": "config/fp6-minimal/vendor-elf.json",
+      "sha256": "87cfe7ebca476b70f659bdd25f4017dce6be4c394e7d1a2c2523addbfec99a16"
     }
   ],
   "device_inputs": {
     "selected_stock_build": "FP6.QREL.16.100.0",
     "selected_stock_factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
     "generated_input_manifest_required": true,
-    "generated_input_manifest_status": "pending-fp6-generator",
+    "generated_input_manifest_status": "native-product-generator-available; exact generated provenance required",
     "device_unique_material_allowed": false
   },
   "build": {

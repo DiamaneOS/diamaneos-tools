@@ -7175,5 +7175,49 @@
       "resolved": "vendor/lib64/egl/libEGL_adreno.so",
       "sha256": "da945696ec74dcdacc929d7b410cda655ba8c661e2aa0e03ec71c45c4c15ddf1"
     }
+  ],
+  "roots": [
+    "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
+    "vendor/bin/hw/android.hardware.security.keymint-service-qti",
+    "vendor/bin/hw/vendor.qti.hardware.display.allocator-service",
+    "vendor/bin/hw/vendor.qti.hardware.display.color-service",
+    "vendor/bin/hw/vendor.qti.hardware.display.composer-service",
+    "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
+    "vendor/bin/hw/vendor.qti.hardware.perf2-hal-service",
+    "vendor/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
+    "vendor/bin/qseecomd",
+    "vendor/bin/thermal-engine-v2",
+    "vendor/lib64/egl/eglSubDriverAndroid.so",
+    "vendor/lib64/egl/libEGL_adreno.so",
+    "vendor/lib64/egl/libGLESv1_CM_adreno.so",
+    "vendor/lib64/egl/libGLESv2_adreno.so",
+    "vendor/lib64/hw/android.hardware.graphics.mapper@4.0-impl-qti-display.so",
+    "vendor/lib64/hw/vulkan.adreno.so",
+    "vendor/lib64/libqti-perfd-client.so",
+    "vendor/lib64/libqti-perfd.so",
+    "vendor/lib64/libskewknob.so"
+  ],
+  "firmware_inputs": [
+    {
+      "path": "vendor/firmware/gen80300_sqe.fw",
+      "sha256": "046f5aea37fd8ec09af247edb07b9266bfecdbf6220ed5b2b56ed988fc6f5d5f",
+      "bytes": 85844,
+      "consumer": "qcom,adreno-gpu-gen8-3-0",
+      "source": "vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h:adreno_gpu_core_gen8_3_0"
+    },
+    {
+      "path": "vendor/firmware/gen80300_gmu.bin",
+      "sha256": "6adcbf43b162fb4bdc00154824f44c5f96d82a223cfbe7012d5904098f5bf2fc",
+      "bytes": 88708,
+      "consumer": "qcom,adreno-gpu-gen8-3-0",
+      "source": "vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h:adreno_gpu_core_gen8_3_0"
+    },
+    {
+      "path": "vendor/firmware/gen80300_zap.mbn",
+      "sha256": "5ba0d93d3716a182405fba755f7ef1090b2107a40ab78c60b7c5da17491ad646",
+      "bytes": 12088,
+      "consumer": "qcom,adreno-gpu-gen8-3-0",
+      "source": "vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h:adreno_gpu_core_gen8_3_0"
+    }
   ]
 }
