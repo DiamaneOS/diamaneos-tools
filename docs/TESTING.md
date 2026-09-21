@@ -693,3 +693,8 @@ Wire-shape examples check 204/body/time-unit conventions; they do not simulate
 native cryptography or prove device compatibility. Valid schema data still has
 owned implementation gates and cannot be called an active deployment. See
 [ENDPOINTS.md](ENDPOINTS.md) for their interpretation and maintenance rules.
+
+Compatibility harness trials are scoped separately from release qualification.
+Retain automated trial/parent identity and manual XML exports; a selected test
+PASS does not imply full-suite coverage. See [manual collection and VTS source
+binding](COMPATIBILITY.md#manual-report-collection) for export and cleanup.
