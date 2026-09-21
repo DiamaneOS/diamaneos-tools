@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "registry_id": "android17-compatibility-20260921-v3",
+  "registry_id": "android17-compatibility-20260921-v4",
   "target": {
     "android_release": "17",
     "api_level": 37,
     "architecture": "arm64-v8a",
     "required_build_type": "user",
     "suite_release": "17_r2",
-    "candidate_environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
+    "candidate_environment_id": "fp6-android17-grapheneos-2026091000-debian13-v5",
     "candidate_status": "pending-fp6-user-build"
   },
   "minimum_host": {

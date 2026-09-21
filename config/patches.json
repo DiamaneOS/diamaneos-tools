@@ -2,5 +2,88 @@
   "schema_version": 1,
   "base_environment_id": "fp6-android17-grapheneos-2026091000-debian13-v1",
   "base_project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",
-  "patches": []
+  "patches": [
+    {
+      "id": "boot-control",
+      "repository": "https://github.com/DiamaneOS/hardware_qcom_bootctrl",
+      "workspace": "android",
+      "path": "hardware/qcom/bootctrl",
+      "base_revision": "7733efc0cce1149ce909e41cdf43164ab7bed8bf",
+      "derived_revision": "6248198cd1e32f94b75486500fdbf9c5503fd568",
+      "canonical_diff_sha256": "605e56a67605934c3b2b22ef421d71829ca8cb65d41fb8618da3a456c55cf29d",
+      "changed_files": [
+        "1.1/libboot_control_qti/Android.bp",
+        "Android.bp",
+        "Android.mk.legacy",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/BSD-3-Clause-Clear.txt",
+        "README.md"
+      ],
+      "purpose": "Expose the HIDL dependency used by the public header; deactivate the unused legacy Make updater target.",
+      "validation": "Normal/recovery compilation and CFI checks pass; actual A/B product graph passes. Runtime slot changes remain untested."
+    },
+    {
+      "id": "recovery-gpt-ufs",
+      "repository": "https://github.com/DiamaneOS/vendor_qcom_opensource_recovery-ext",
+      "workspace": "android",
+      "path": "vendor/qcom/opensource/recovery-ext",
+      "base_revision": "dfa77ea20218c0337793a02bfb9071f1a6dd020d",
+      "derived_revision": "b20ae81466897579813763689d6f9b52b96d49aa",
+      "canonical_diff_sha256": "41405b6a7d5b44524898f67b28323e55625ac94f3a00e337a4e00552fb493ac8",
+      "changed_files": [
+        "Android.bp",
+        "README.md",
+        "oem-recovery/Android.bp",
+        "oem-recovery/Android.mk"
+      ],
+      "purpose": "Build GPT and UFS BSG helpers independently of legacy updater and ION code.",
+      "validation": "Normal/recovery compilation and CFI checks pass; UFS layouts checked against matched kernel headers. Runtime UFS switching remains untested."
+    },
+    {
+      "id": "power-build",
+      "repository": "https://github.com/DiamaneOS/vendor_qcom_opensource_power",
+      "workspace": "android",
+      "path": "vendor/qcom/opensource/power",
+      "base_revision": "2aa3974fc92a0d130e989a203b9a231398834071",
+      "derived_revision": "e4cd2b7d6551aaf72bf56650ebd8366022d0deb9",
+      "canonical_diff_sha256": "88d5deb87c1a5c39be4516448ebbd10e6fe9b24111e1ee5d68c286d4b09f0a30",
+      "changed_files": [
+        "Android.bp",
+        "Android.mk.legacy",
+        "LICENSES/BSD-3-Clause-Clear.txt",
+        "LICENSES/consumed-source-notices.txt",
+        "README.md"
+      ],
+      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices.",
+      "validation": "Native compilation and actual product graph pass. Runtime performance backend and device behavior remain unqualified."
+    },
+    {
+      "id": "kernel-devfreq-export",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_qcom",
+      "workspace": "kernel",
+      "path": "kernel_platform/msm-kernel",
+      "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
+      "derived_revision": "6b267f07e8cba7a2f130079fb097e28bc44a79a3",
+      "canonical_diff_sha256": "ed6ee41660596f928df9e02612dd64f8dfb008afdba3a14e1c06d127f56fd326",
+      "changed_files": [
+        "BUILD.bazel"
+      ],
+      "purpose": "Expose the matched devfreq header as a narrow Bazel dependency.",
+      "validation": "Core, explicit GKI and external module builds pass, with native KMI/ABI checks. Installed image and runtime qualification remain separate."
+    },
+    {
+      "id": "graphics-devfreq-import",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_graphics",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/graphics-kernel",
+      "base_revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95",
+      "derived_revision": "9cb84a927a0c491c960be32c77e6b2676556d985",
+      "canonical_diff_sha256": "ce8985cee5943c4ee46bbade3ceda8a6616ae6835242b6f07ff511c4f33902f0",
+      "changed_files": [
+        "build/kgsl_defs.bzl"
+      ],
+      "purpose": "Declare the GPU dependency on the exported matched devfreq header.",
+      "validation": "External module compilation passes without changing header contents, KMI or sandbox checks. Runtime qualification remains separate."
+    }
+  ]
 }

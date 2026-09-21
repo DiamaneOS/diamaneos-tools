@@ -192,7 +192,7 @@
       "fp6_source_inventory": {
         "path": "config/fp6-sources.json",
         "schema_version": 1,
-        "sha256": "3d4be2997eba6e9e1056ae09cd8ae7d375a8d84e118fb18b18c8f872e3cf1ca2"
+        "sha256": "2f9363122e6bf587f18bf5979463db1ee603b0ce830231135d85d48bb30aecd0"
       },
       "selected_stock": {
         "build": "FP6.QREL.16.100.0",
@@ -206,7 +206,7 @@
         "qssi_manifest_sha256": "71f136ff6082c026a9381a321a0b975bbe05e24ba773be6cbc5527801ae67eae"
       },
       "platform_environment": {
-        "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v4",
+        "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v5",
         "release_tag": "2026091000",
         "manifest_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
         "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803"
@@ -311,11 +311,30 @@
       "function": "Build and qualify published boot-control, power, thermal, lights, vibrator, USB and other source-available service layers without confusing an open wrapper with a closed implementation.",
       "owner_task": "FP6-202",
       "decision_owner": "FP6 HAL and privileged-service maintainer",
-      "region_scope": ["EU", "US-pending"],
-      "inventory_refs": ["userspace_hal_families:boot-control", "userspace_hal_families:power-thermal-lights-vibrator-usb"],
-      "blocker_refs": ["FP6-SRC-002"],
-      "dependencies": ["device-platform-kernel", "firmware-trusted-boot"],
-      "interfaces": ["frozen AIDL/HIDL and VINTF declarations", "SELinux domains and service permissions", "init/property activation", "failure, restart and low-power behavior"],
+      "region_scope": [
+        "EU",
+        "US-pending"
+      ],
+      "inventory_refs": [
+        "userspace_hal_families:boot-control",
+        "userspace_hal_families:power-thermal-lights-vibrator-usb",
+        "userspace_hal_families:power-thermal-backends"
+      ],
+      "blocker_refs": [
+        "FP6-SRC-002"
+      ],
+      "dependencies": [
+        "device-platform-kernel",
+        "firmware-trusted-boot",
+        "graphics-display-media",
+        "oss-vendor-libraries"
+      ],
+      "interfaces": [
+        "frozen AIDL/HIDL and VINTF declarations",
+        "SELinux domains and service permissions",
+        "init/property activation",
+        "failure, restart and low-power behavior"
+      ],
       "source_candidates": [
         {
           "id": "fairphone-qualcomm-published-hal-source",
@@ -327,17 +346,27 @@
           "rationale": "Matching source candidates are recorded, but their complete runtime dependencies and FP6 behavior remain unqualified."
         }
       ],
-      "decision_state": "candidate",
+      "decision_state": "private-bringup",
       "public_disposition": null,
       "private_bringup": {
-        "eligible": false,
-        "verified_necessary_for": [],
-        "required_prebuilt_refs": [],
-        "rationale": "These selected families have source candidates and must be built and tested rather than accepted as undeclared prebuilts."
+        "eligible": true,
+        "verified_necessary_for": [
+          "supply the runtime performance backend explicitly loaded by the published power HAL",
+          "retain stock thermal control during initial hardware bring-up"
+        ],
+        "required_prebuilt_refs": [
+          "userspace_hal_families:power-thermal-backends"
+        ],
+        "rationale": "Only the stock performance/thermal backend family is eligible. Published boot, power, thermal, light, vibrator, USB and health wrappers remain source-built. Exact selected files and runtime configurations must pass generation, dependency and policy review; this is not device qualification."
       },
       "qualification_evidence": [],
-      "next_experiment": "Build each selected service from its pinned source, reconcile VINTF/init/SELinux/client dependencies and run interface plus failure/restart tests on the device.",
-      "update_triggers": ["interface or VINTF version changes", "service source revision changes", "client or permission graph changes", "device failure testing changes the assessment"]
+      "next_experiment": "Compile the selected published services and validate the exact performance/thermal backend closure, init identities, SELinux privileges, VINTF and runtime failure/thermal behavior.",
+      "update_triggers": [
+        "interface or VINTF version changes",
+        "service source revision changes",
+        "client or permission graph changes",
+        "device failure testing changes the assessment"
+      ]
     },
     {
       "id": "camera-stack",
