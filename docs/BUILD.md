@@ -285,3 +285,28 @@ operator gate.
 VTS source discovery is not package qualification. The pinned VTS build target
 and launcher are documented in [compatibility preparation](COMPATIBILITY.md#source-bound-vts-preparation);
 retain a built archive hash and generated inventory before approving execution.
+
+## Stage stock images for vendor discovery
+
+Use the pinned Fairphone device/platform sources as the primary hardware input.
+Reference-ROM trees are optional investigation aids and are not inherited by
+default. The stock image staging step authenticates the selected factory ZIP
+and individual image hashes from `config/fp6-stock-image-recipe.json`:
+
+```sh
+bin/diamaneos vendor stage --archive /absolute/path/to/factory.zip \
+  --output /absolute/path/to/private-image-workspace
+```
+
+The workspace contains immutable-by-contract `generations/<recipe-digest>`
+directories and an atomically selected `current` symlink. Identical inputs reuse
+and reverify the generation without changing that pointer. Missing/wrong images,
+unsafe archive members and edited generated contents fail; a failed extraction
+does not replace the previous published generation. Concurrent publishers use
+one workspace lock. Store the workspace outside source repositories.
+
+This stage permits only system-container, boot/ramdisk, DTBO and AVB images;
+userdata, persist, device-unique provisioning and modem state images are excluded.
+It executes no factory script or phone command. Image staging is not a generated
+vendor product: filesystem extraction, per-file classification/dependency closure,
+notices and actual product-graph verification must follow before accepting one.
