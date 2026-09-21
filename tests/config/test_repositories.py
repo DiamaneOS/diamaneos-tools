@@ -35,16 +35,18 @@ class RepositoryMapTests(unittest.TestCase):
                 self.assertTrue(row["checkout_path"].startswith("WORK_ROOT/"))
                 parsed = urlparse(row["remote_url"])
                 self.assertEqual("https", parsed.scheme)
-                self.assertEqual("codeberg.org", parsed.hostname)
+                self.assertEqual("github.com", parsed.hostname)
+                self.assertEqual(self.mapping["github_owner"], parsed.path.split("/")[1])
                 self.assertIn(row["publication"], {"public-source", "generated"})
 
     def test_existing_public_repositories_are_marked_active(self):
         states = {row["id"]: row["state"] for row in self.rows}
         self.assertEqual(
-            {"tools": "active", "manifest": "active",
-             "infra": "active", "installer": "active"},
+            {key: "active" for key in ("tools", "manifest", "infra", "installer",
+                                        "device", "product", "kernel", "kernel-graphics")},
             {key: states[key] for key in
-             ("tools", "manifest", "infra", "installer")},
+             ("tools", "manifest", "infra", "installer",
+              "device", "product", "kernel", "kernel-graphics")},
         )
 
 

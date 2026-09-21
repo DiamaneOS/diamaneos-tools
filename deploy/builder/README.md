@@ -98,7 +98,7 @@ service environment files bind the exact reviewed commit; changing the moving
 ```sh
 TOOLS_COMMIT=REPLACE_WITH_REVIEWED_40_HEX_COMMIT
 sudo git clone --no-checkout \
-  https://codeberg.org/DiamaneOS/diamaneos-tools.git \
+  https://github.com/DiamaneOS/diamaneos-tools.git \
   "/opt/diamaneos/tools-$TOOLS_COMMIT"
 sudo git -C "/opt/diamaneos/tools-$TOOLS_COMMIT" checkout --detach "$TOOLS_COMMIT"
 sudo git -C "/opt/diamaneos/tools-$TOOLS_COMMIT" fsck --full

@@ -55,33 +55,34 @@
     },
     {
       "layer": "git-primary",
-      "candidate": "Codeberg",
-      "jurisdiction": "DE",
-      "status": "existing",
+      "candidate": "GitHub, authoritative source and contribution host",
+      "jurisdiction": "US",
+      "status": "selected-candidate",
       "verify_at": "FP6-101",
-      "reviewed_on": "2026-09-11",
+      "reviewed_on": "2026-09-21",
       "evidence_urls": [
-        "https://codeberg.org/"
+        "https://github.com/DiamaneOS",
+        "https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits"
       ]
     },
     {
       "layer": "git-backup",
-      "candidate": "Self-hosted Forgejo, isolated process on primary; no publishing authority",
-      "jurisdiction": "DE",
+      "candidate": "Independent Git bundles with branch/tag verification and tested restoration; no publishing authority",
+      "jurisdiction": "independent",
       "status": "planned",
       "verify_at": "FP6-101",
-      "reviewed_on": "2026-09-11",
+      "reviewed_on": "2026-09-21",
       "evidence_urls": [
-        "https://forgejo.org/docs/latest/admin/"
+        "https://git-scm.com/docs/git-bundle"
       ]
     },
     {
       "layer": "git-mirror",
-      "candidate": "GitHub, read-only publication mirror",
+      "candidate": "No public Git mirror; GitHub is authoritative",
       "jurisdiction": "US",
-      "status": "planned",
+      "status": "not-selected",
       "verify_at": "FP6-101",
-      "reviewed_on": "2026-09-11",
+      "reviewed_on": "2026-09-21",
       "evidence_urls": [
         "https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository"
       ]
