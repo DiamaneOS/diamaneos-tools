@@ -345,6 +345,23 @@ first API level is 35, while the board/vendor API and VNDK are 34. A newer
 framework version does not advance those hardware compatibility declarations.
 Do not copy a platform security-patch value onto unchanged vendor or boot input.
 
+Resolve vendor dependencies by ABI and linker namespace, not filename alone.
+Stock contains AArch64 executables alongside DSP firmware ELF files and dormant
+init declarations whose executables are absent. A declaration alone does not
+justify installing a service or its surrounding factory configuration.
+
+The pinned platform includes `com.android.vndk.v34` from
+`packages/modules/vndk` and the matching `prebuilts/vndk/v34` snapshot. The four
+stock VNDK 34 LLNDK/core/private/same-process library lists match this snapshot.
+Stock camera, graphics, sound-trigger and audio dependencies include libraries
+inside that APEX; a scan limited to partition `lib64` directories is incomplete.
+The tethering APEX similarly supplies
+`libcom.android.tethering.connectivity_native.so`. Bind the selected APEX and
+its exported interfaces in the product graph, preserve required notices, and
+verify the candidate linker namespaces and ABI. Matching export lists do not
+prove binary equivalence or runtime compatibility. Do not import the stock
+Google tethering package to satisfy a filename match.
+
 The Fairphone kernel wrapper prepares kernel, module, UAPI and DT artifacts as
 a set. Its `consolidate` variant includes test/torture modules and is not a
 production configuration by default. The wrapper skips the ABI target, so its

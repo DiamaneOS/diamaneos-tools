@@ -698,3 +698,25 @@ Compatibility harness trials are scoped separately from release qualification.
 Retain automated trial/parent identity and manual XML exports; a selected test
 PASS does not imply full-suite coverage. See [manual collection and VTS source
 binding](COMPATIBILITY.md#manual-report-collection) for export and cleanup.
+
+### Source-built suite packages
+
+A source-built suite uses the same archive and extracted-tree verification as
+an official download, but retains `delivery: pinned-source-build` in every
+package proof. A verified registry entry must bind its build environment,
+resolved project-map hash, recipe hash and reviewed evidence archive hash.
+Record each source change with its project, base and derived commits and patch
+hash. These fields record the maintainer's reviewed build provenance; they do
+not independently attest to a build or turn a modified suite into an unchanged
+official distribution. Candidate device results remain separate.
+
+For the pinned Android 17 VTS packaging module, `m vts` produces both
+`android-vts.zip` and `android-vts-tests_list.zip`. Select the named suite archive
+and reconcile its configuration inventory with the generated test list;
+requiring exactly one ZIP in the output directory rejects this valid layout.
+
+Suite configuration parsing permits bounded literal internal entities used by
+VTS LTP/kselftest configurations. External resources, parameter entities,
+nested entity references and excessive expansion fail before an extracted
+package is published. This allowance applies to authenticated suite inputs;
+result XML retains its separate stricter parser.
