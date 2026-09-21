@@ -105,9 +105,12 @@ The script downloads the current official signer list, verifies its pinned
 hash, initializes only `refs/tags/2026091000`, fixes the internal `repo`
 implementation to the signed v2.65 tag commit, verifies the `repo` tag through
 the launcher's GPG keyring, verifies the GrapheneOS tag with OpenSSH, runs
-`repo sync -j8` without a fallback, and then invokes the full preflight. Any
-fetch, signature, revision, clean-tree or package mismatch terminates the
-operation. The initial recipe also requires an empty output root. Preserve the
+`repo sync --no-manifest-update --optimized-fetch -j8` without a fallback,
+and then invokes the full preflight. The authenticated manifest stays fixed;
+exact commits already available locally are reused without another fetch.
+Moving development branches still require resolution to their declared build
+commits. Any fetch, signature, revision, clean-tree or package mismatch
+terminates the operation. The initial recipe also requires an empty output root. Preserve the
 complete stdout/stderr and its SHA-256 as private build evidence.
 
 Before downloading source, the same script runs `--host-only` to enforce the
