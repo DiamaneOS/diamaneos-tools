@@ -245,3 +245,10 @@ The official report writer creates a `results/latest` symlink and may create
 ZIP exports alongside session directories. Collection counts real session
 directories only and permits `latest` solely when it resolves to a directory
 directly within the same results root. Escaping or dangling aliases fail.
+
+The console launcher also invokes legacy `aapt` for APK inspection; expose both
+`aapt` and `aapt2` from the pinned Android build-tools. The host gate checks both.
+The builder adapter confines Tradefed's HOME and Java `user.home` to its owned
+`compatibility/home` directory within the service's writable workspace. A timeout
+may prevent upstream teardown: retain evidence and restore captured device
+settings before retrying or returning the device to ordinary use.

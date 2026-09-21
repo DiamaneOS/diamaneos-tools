@@ -19,7 +19,7 @@
     "dependencies": [
       "FFmpeg 5.1.3 or newer",
       "current Android platform-tools adb",
-      "current Android build-tools aapt2"
+      "current Android build-tools aapt and aapt2"
     ]
   },
   "device_preparation": [
