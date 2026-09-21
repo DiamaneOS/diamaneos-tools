@@ -216,9 +216,107 @@ class BuildEnvironmentTests(unittest.TestCase):
                 with self.assertRaisesRegex(build.BuildError, "dirty or untracked"):
                     build.verify_manifest_checkout(config, source, allowed)
                 (project / "untracked.txt").unlink()
+                self.assertTrue(build.verify_manifest_checkout(
+                    config, source, allowed)["source_layout_verified"])
+                rogue = source / "vendor/google/security/adb/vendor_key.mk"
+                rogue.parent.mkdir(parents=True)
+                rogue.write_text("undeclared optional include\n")
+                with self.assertRaisesRegex(build.BuildError, "undeclared input"):
+                    build.verify_manifest_checkout(config, source, allowed)
+                import shutil
+                shutil.rmtree(source / "vendor")
+                (manifests / "unrelated.txt").write_text("clean but different revision\n")
+                git(manifests, "add", "unrelated.txt")
+                git(manifests, "commit", "-q", "-m", "other manifest revision")
+                with self.assertRaisesRegex(build.BuildError, "HEAD does not match"):
+                    build.verify_manifest_checkout(config, source, allowed)
+                git(manifests, "checkout", "--detach", "-q", peeled)
                 repo_revision_file.write_text("modified implementation\n")
                 with self.assertRaisesRegex(build.BuildError, "repo implementation contains"):
                     build.verify_manifest_checkout(config, source, allowed)
+
+
+class SourceLayoutTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.source = Path(self.temp.name) / "source"
+        self.project = self.source / "build/make"
+        self.project.mkdir(parents=True)
+        (self.project / "entry.mk").write_text("trusted source\n")
+        (self.source / "Makefile").write_text("trusted source\n")
+        (self.source / "build/entry.mk").symlink_to("make/entry.mk")
+        (self.source / ".repo").mkdir()
+        self.config = {"workspace": {"source_subdirectory": "src/source",
+                                     "output_subdirectory": "src/source/out/vts"}}
+        self.xml = (b'<manifest><project name="make" path="build/make">'
+                    b'<copyfile src="entry.mk" dest="Makefile"/>'
+                    b'<linkfile src="entry.mk" dest="build/entry.mk"/>'
+                    b'</project></manifest>')
+        self.rows = [("build/make", "make", "fixture", "a" * 40)]
+
+    def check(self, resolved=None):
+        build.verify_source_layout(self.config, self.source, self.rows,
+                                   self.xml, resolved or self.xml)
+
+    def test_declared_exports_and_sibling_output_are_accepted(self):
+        (self.source / "out/generic").mkdir(parents=True)
+        (self.source / "out/generic/generated.mk").write_text("build output\n")
+        self.check()
+
+    def test_extra_file_between_projects_is_rejected(self):
+        (self.source / "build/extra.mk").write_text("not in a project\n")
+        with self.assertRaisesRegex(build.BuildError, "undeclared input"):
+            self.check()
+
+    def test_changed_export_without_changed_project_map_is_rejected(self):
+        modified = self.xml.replace(b'dest="Makefile"', b'dest="other.mk"')
+        with self.assertRaisesRegex(build.BuildError, "exports differ"):
+            self.check(modified)
+
+    def test_modified_copyfile_is_rejected(self):
+        (self.source / "Makefile").write_text("changed\n")
+        with self.assertRaisesRegex(build.BuildError, "copyfile content mismatch"):
+            self.check()
+
+    def test_redirected_linkfile_is_rejected(self):
+        link = self.source / "build/entry.mk"
+        link.unlink()
+        link.symlink_to("../Makefile")
+        with self.assertRaisesRegex(build.BuildError, "linkfile target mismatch"):
+            self.check()
+
+    def test_missing_export_is_rejected(self):
+        (self.source / "Makefile").unlink()
+        with self.assertRaisesRegex(build.BuildError, "destination is missing"):
+            self.check()
+
+    def test_redirected_project_or_container_is_rejected(self):
+        import shutil
+        shutil.rmtree(self.project)
+        self.project.symlink_to(self.source, target_is_directory=True)
+        with self.assertRaisesRegex(build.BuildError, "redirected directory"):
+            self.check()
+
+    def test_undeclared_local_manifest_is_rejected(self):
+        local = self.source / ".repo/local_manifests"
+        local.mkdir()
+        (local / "extra.xml").write_text("<manifest/>\n")
+        with self.assertRaisesRegex(build.BuildError, "local manifests"):
+            self.check()
+
+    def test_unsafe_manifest_paths_are_rejected(self):
+        for value in (b"../escape", b"/absolute", b"a//b", b"a/./b"):
+            self.xml = self.xml.replace(b'dest="Makefile"', b'dest="' + value + b'"')
+            with self.subTest(value=value), self.assertRaisesRegex(build.BuildError, "unsafe path"):
+                self.check()
+            self.setUp_xml()
+
+    def setUp_xml(self):
+        self.xml = (b'<manifest><project name="make" path="build/make">'
+                    b'<copyfile src="entry.mk" dest="Makefile"/>'
+                    b'<linkfile src="entry.mk" dest="build/entry.mk"/>'
+                    b'</project></manifest>')
 
 
 if __name__ == "__main__":

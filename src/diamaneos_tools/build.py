@@ -434,6 +434,118 @@ def parse_project_map(xml_bytes: bytes) -> tuple[list[tuple[str, str, str, str]]
     return rows, sha256_bytes(encoded)
 
 
+def _manifest_exports(xml_bytes: bytes) -> list[tuple[str, str, str, str]]:
+    """Bind repo-created files as well as project commits for the flat manifest."""
+    if len(xml_bytes) > MAX_MANIFEST_BYTES:
+        raise BuildError("manifest exceeds its byte limit")
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        raise BuildError("manifest is not valid XML") from None
+    if any(root.find(tag) is not None for tag in
+           ("include", "extend-project", "remove-project")):
+        raise BuildError("manifest composition needs an explicit export binding")
+    exports, destinations = [], set()
+    for project in root.findall("project"):
+        project_path = project.get("path", project.get("name"))
+        for entry in project:
+            if entry.tag not in ("copyfile", "linkfile"):
+                continue
+            origin, destination = entry.get("src"), entry.get("dest")
+            for value in (project_path, destination):
+                if not _source_relative_path(value):
+                    raise BuildError("manifest export has an unsafe path")
+            if not (origin == "." and entry.tag == "linkfile") and not _source_relative_path(origin):
+                raise BuildError("manifest export has an unsafe source")
+            if destination in destinations:
+                raise BuildError("manifest export destination is duplicated")
+            destinations.add(destination)
+            exports.append((entry.tag, project_path, origin, destination))
+    return sorted(exports)
+
+
+def _source_relative_path(value) -> bool:
+    return (isinstance(value, str) and len(value) <= 4096
+            and re.fullmatch(r"[A-Za-z0-9._+@/-]+", value) is not None
+            and all(part not in ("", ".", "..") for part in value.split("/")))
+
+
+def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
+                         resolved_xml: bytes) -> None:
+    """Reject undeclared inputs outside projects without traversing build output.
+
+    Git status covers each project's files. This covers the gaps between those
+    projects and authenticates the manifest's copy/link files, which the project
+    commit map alone does not describe.
+    """
+    source = source.resolve(strict=True)
+    exports = _manifest_exports(signed_xml)
+    if exports != _manifest_exports(resolved_xml):
+        raise BuildError("resolved manifest exports differ from the signed manifest")
+    local_manifests = source / ".repo/local_manifests"
+    if local_manifests.is_symlink() or (local_manifests.exists() and
+            (not local_manifests.is_dir() or any(local_manifests.iterdir()))):
+        raise BuildError("local manifests are not declared by this environment")
+
+    projects = {row[0] for row in rows}
+    if any(not _source_relative_path(path) for path in projects):
+        raise BuildError("source project path is unsafe")
+    # All output generations in the declared top-level output container are
+    # build artifacts. In particular a VTS subdirectory does not turn sibling
+    # generic-build output into source input.
+    excluded = {".repo"}
+    workspace = config["workspace"]
+    declared_source = Path(workspace["source_subdirectory"])
+    declared_output = Path(workspace["output_subdirectory"])
+    if _is_within(declared_output, declared_source):
+        relative_output = declared_output.relative_to(declared_source)
+        if not relative_output.parts:
+            raise BuildError("source and output roots must be distinct")
+        excluded.add(relative_output.parts[0])
+    exported = {entry[3] for entry in exports}
+    if any(Path(path).parts[0] in excluded for path in projects | exported):
+        raise BuildError("declared source overlaps metadata or build output")
+    containers = {parent.as_posix() for path in projects | exported
+                  for parent in Path(path).parents if parent != Path(".")}
+
+    for project in projects:
+        current = source / project
+        while current != source:
+            if current.is_symlink() or not current.is_dir():
+                raise BuildError("source project has a missing or redirected directory")
+            current = current.parent
+    pending = [source]
+    while pending:
+        directory = pending.pop()
+        for entry in directory.iterdir():
+            relative = entry.relative_to(source).as_posix()
+            if relative in excluded or relative in projects:
+                if entry.is_symlink() or not entry.is_dir():
+                    raise BuildError("source directory is redirected or not a directory")
+            elif relative in exported:
+                continue  # Contents and exact targets checked below.
+            elif relative in containers and entry.is_dir() and not entry.is_symlink():
+                pending.append(entry)
+            else:
+                raise BuildError("source tree contains an undeclared input outside its projects")
+
+    for kind, project, origin, destination in exports:
+        expected = source / project / origin
+        target = source / destination
+        if not expected.exists() or not target.exists():
+            raise BuildError("manifest export source or destination is missing")
+        if not _is_within(expected.resolve(strict=True), source):
+            raise BuildError("manifest export source escapes the checkout")
+        if not _is_within(target.resolve(strict=True), source):
+            raise BuildError("manifest export destination escapes the checkout")
+        if kind == "linkfile":
+            if not target.is_symlink() or target.resolve(strict=True) != expected.resolve(strict=True):
+                raise BuildError("manifest linkfile target mismatch")
+        elif (target.is_symlink() or not target.is_file() or not expected.is_file()
+              or sha256_file(target) != sha256_file(expected)):
+            raise BuildError("manifest copyfile content mismatch")
+
+
 def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) -> dict:
     upstream = config["upstream"]
     if sha256_file(allowed_signers) != upstream["allowed_signers_sha256"]:
@@ -480,6 +592,9 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
     peeled = _run(["git", "-C", str(manifests), "rev-parse", f"{tag}^{{}}"])
     if peeled.stdout.decode().strip() != upstream["peeled_commit"]:
         raise BuildError("manifest tag commit does not match the pin")
+    manifest_head = _run(["git", "-C", str(manifests), "rev-parse", "HEAD"])
+    if manifest_head.stdout.decode().strip() != upstream["peeled_commit"]:
+        raise BuildError("manifest checkout HEAD does not match the signed release")
     signature = _run(["git", "-C", str(manifests), "-c",
                       f"gpg.ssh.allowedSignersFile={allowed_signers}",
                       "verify-tag", tag])
@@ -497,6 +612,7 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
         raise BuildError("resolved manifest project count mismatch")
     if project_map_sha256 != upstream["project_map_sha256"]:
         raise BuildError("resolved manifest project map mismatch")
+    verify_source_layout(config, source, rows, default_xml.stdout, resolved)
 
     dirty = []
     for path, _name, _remote, revision in rows:
@@ -532,6 +648,7 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
         "resolved_project_count": len(rows),
         "resolved_project_map_sha256": project_map_sha256,
         "source_clean": True,
+        "source_layout_verified": True,
     }
 
 
@@ -619,6 +736,9 @@ def main(argv=None) -> int:
         return 0
     except BuildError as error:
         print(f"ERROR: {error}", file=sys.stderr)
+        return 2
+    except (OSError, RuntimeError):
+        print("ERROR: unable to inspect build inputs safely", file=sys.stderr)
         return 2
 
 
