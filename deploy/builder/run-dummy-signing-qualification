@@ -1113,7 +1113,11 @@ def qualify():
         verify_errors = signing_verify.verify_dummy_result(
             result_path, partial, config)
         if verify_errors:
-            raise Failure("retained dummy signing result did not verify")
+            atomic_json(partial / "result-validation-errors.json", {
+                "schema_version": 1, "errors": verify_errors,
+            })
+            raise Failure("retained dummy signing result did not verify: "
+                          + "; ".join(verify_errors))
         (partial / "result.json.sha256").write_text(
             f"{digest(result_path)}  result.json\n", encoding="utf-8")
         os.rename(partial, final)
