@@ -169,3 +169,15 @@ class SelectedFilesTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(vendor.VendorError): self.generate()
             self.assertFalse(self.output.exists())
             self.recipe[field] = original
+
+    def test_file_directory_collision_cannot_hide_behind_sort_order(self):
+        first = self.recipe['files'][0]
+        first['path'] = 'vendor/lib'
+        second = copy.deepcopy(first)
+        second.update(path='vendor/lib-extra', input='vendor/second')
+        third = copy.deepcopy(first)
+        third.update(path='vendor/lib/child', input='vendor/third')
+        self.recipe['files'] += [second, third]
+        with self.assertRaisesRegex(vendor.VendorError, 'conflicting'):
+            self.generate()
+        self.assertFalse(self.output.exists())
