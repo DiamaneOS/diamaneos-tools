@@ -503,6 +503,27 @@ def parse_tradefed_result(result_root: Path, expected_version: str,
 _atomic_json = evidence.atomic_json
 
 
+def _result_directories(root: Path) -> set[str]:
+    """Ignore CTS's bounded latest alias and ZIP exports, not real sessions."""
+    if root.is_symlink():
+        raise CompatibilityError("Tradefed results root is a symbolic link")
+    if not root.exists():
+        return set()
+    sessions = set()
+    for item in root.iterdir():
+        if item.is_symlink():
+            try:
+                target = item.resolve(strict=True)
+            except (OSError, RuntimeError):
+                raise CompatibilityError("Tradefed result alias is invalid") from None
+            if (item.name != "latest" or target.parent != root.resolve()
+                    or not target.is_dir()):
+                raise CompatibilityError("Tradefed result alias escapes its sessions")
+        elif item.is_dir():
+            sessions.add(item.name)
+    return sessions
+
+
 def _copy_result(source: Path, destination: Path):
     _safe_tree(source)
     shutil.copytree(source, destination, symlinks=False)
@@ -699,7 +720,7 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         parent = _result_parent(args.rerun_from, args.profile, package_proof)
         suite_root = Path(args.package_root) / package["extracted_directory"]
         results_root = suite_root / "results"
-        before = {item.name for item in results_root.iterdir()} if results_root.is_dir() else set()
+        before = _result_directories(results_root)
         launcher = suite_root / package["launcher"]
         command = [str(launcher), "run", "commandAndExit", package["plan"],
                    "-s", args.target, "-m", profile["module"],
@@ -726,7 +747,7 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
             path = partial / "raw" / f"tradefed.{name}.txt"
             path.write_bytes(process_result[name])
             os.chmod(path, 0o640)
-        after = {item.name for item in results_root.iterdir()} if results_root.is_dir() else set()
+        after = _result_directories(results_root)
         new_results = sorted(after - before)
         if len(new_results) == 1:
             source_result = results_root / new_results[0]

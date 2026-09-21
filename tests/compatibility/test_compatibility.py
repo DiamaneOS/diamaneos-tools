@@ -335,6 +335,21 @@ class CompatibilityTest(unittest.TestCase):
             "import os; print(os.environ['USE_ATS'], os.environ['ENABLE_XTS_DYNAMIC_DOWNLOADER'])"], 5, TOOLS)
         self.assertEqual(b"false false\n", result["stdout"])
 
+    def test_official_latest_alias_and_zip_do_not_duplicate_a_session(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "results"
+            self.assertEqual(set(), api._result_directories(root))
+            root.mkdir()
+            before = api._result_directories(root)
+            (root / "session").mkdir()
+            (root / "latest").symlink_to("session", target_is_directory=True)
+            (root / "session.zip").write_bytes(b"archive")
+            self.assertEqual({"session"}, api._result_directories(root) - before)
+            (root / "latest").unlink()
+            (root / "latest").symlink_to(Path(temp), target_is_directory=True)
+            with self.assertRaises(api.CompatibilityError):
+                api._result_directories(root)
+
     def test_only_the_selected_harness_may_be_attached(self):
         api._require_single_attached_target(["selected"], "selected")
         for observed in ([], ["daily-phone"],
