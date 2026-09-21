@@ -116,8 +116,8 @@
       "version": "16_r6",
       "url": "https://dl.google.com/dl/android/cts/android-cts-16_r6-linux_x86-arm.zip",
       "archive_name": "android-cts-16_r6-linux_x86-arm.zip",
-      "archive_sha256": null,
-      "acquisition_status": "pending-verified-download",
+      "archive_sha256": "44deb3366de5771762c7d16f211d0d8679caab5d2ef55e09048dce91c16db6fb",
+      "acquisition_status": "verified",
       "extracted_directory": "android-cts",
       "launcher": "tools/cts-tradefed",
       "plan": "cts"
@@ -129,8 +129,8 @@
       "version": "16_r6",
       "url": "https://dl.google.com/dl/android/cts/android-cts-verifier-16_r6-linux_x86-arm.zip",
       "archive_name": "android-cts-verifier-16_r6-linux_x86-arm.zip",
-      "archive_sha256": null,
-      "acquisition_status": "pending-verified-download",
+      "archive_sha256": "0ab2f98734427cf392dc6fc574ba30003737d981b42db3ae2525b975543e3bb5",
+      "acquisition_status": "verified",
       "extracted_directory": "android-cts-verifier",
       "launcher": null,
       "plan": "manual-export"

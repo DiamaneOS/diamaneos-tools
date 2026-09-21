@@ -57,7 +57,7 @@ bin/diamaneos test compatibility --inspect-package \
 ```
 
 The adapter rejects an uncommitted hash, renamed root, missing launcher,
-symlink, special file, unsafe path or oversized inventory. Package discovery
+unsafe symlink, special file, unsafe path or oversized inventory. Package discovery
 does not contact a device.
 
 ## Device preparation and fixtures
@@ -192,8 +192,11 @@ bin/diamaneos test compatibility --extract-package \
   --package-root /absolute/path/to/new-package-directory
 ```
 
-The extractor rejects traversal, symlinks, duplicate members, special files and
-size/count overflows. Inspection compares every input's contents, size and
+The extractor rejects traversal, duplicate members, special files and
+size/count overflows. The official bundled JDK uses relative licence-notice
+links; only links beneath `jdk/legal` to regular files in that same archive
+subtree are materialized as copies of the referenced text. Escaping, dangling,
+chained and other symlinks fail. The extracted tree contains no symlinks. Inspection compares every input's contents, size and
 executable bit with the approved ZIP. Only top-level `results` and `logs` are
 excluded as generated outputs; replacing those roots with symlinks is rejected.
 Use one owner-controlled package tree per concurrent trial and keep its inputs
@@ -207,3 +210,21 @@ Missing or unknown completion remains incomplete. Validate the exact XML format
 against the pinned official package before accepting the first stock trial;
 synthetic fixtures establish failure handling, not acceptance of an official
 suite format or an Android build.
+
+## Observed Android 16 R6 package behavior
+
+The pinned ARM archive reports CTS `16_r6`, build `15835701`, target `arm64`,
+and includes its own Linux JDK. Its launcher defaults to ATS but also explicitly
+supports the Tradefed console. The adapter fixes `USE_ATS=false` and disables
+the dynamic downloader so its invocation and result parser use that inspected
+console contract. `adb` and `aapt2` are host prerequisites; system Java is not
+required while the bundled JDK is present. Package hashes are in the registry.
+
+The stock timing-test candidate is `CtsOsTestCases` with
+`android.os.cts.SystemClockTest#testUptimeMillis`. Package inspection found the
+class and method in the installed-test APK; the profile remains gated until
+host discovery, exact test inventory and device setup are recorded. The module
+installs its test APK and cleans it up; the CTS plan also changes package
+verification settings temporarily. These settings must be captured and restored
+on the disposable harness. This trial does not require media, SIM or manual
+hardware fixtures and does not count as a full CTS qualification.
