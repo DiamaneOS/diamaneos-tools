@@ -181,7 +181,10 @@ if [[ -n $overlay_root ]]; then
 fi
 
 # No fallback branch, partial success path or stale checkout is accepted.
-repo sync -j8
+# The manifest above is already authenticated. Exact commit inputs present in
+# the local object store need no repeated remote fetch; final preflight still
+# verifies every checked-out revision and the complete source map.
+repo sync --no-manifest-update --optimized-fetch -j8
 
 if [[ -n $overlay_root ]]; then
   PYTHONPATH="$tools_root/src" PYTHONDONTWRITEBYTECODE=1 python3 -m diamaneos_tools.build_composition checkout \
