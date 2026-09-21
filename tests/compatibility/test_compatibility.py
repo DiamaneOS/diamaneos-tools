@@ -304,6 +304,37 @@ class CompatibilityTest(unittest.TestCase):
             with self.assertRaisesRegex(api.CompatibilityError, "incompatible"):
                 api._result_parent(str(path), "trial", package)
 
+    def test_jdk_notice_links_materialize_but_unsafe_links_fail(self):
+        package = {"extracted_directory": "android-cts"}
+        for target, valid in (("../java.base/LICENSE", True),
+                              ("../../../../outside", False),
+                              ("/etc/passwd", False),
+                              ("../java.base/missing", False),
+                              ("LICENSE", False)):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                archive = root / "suite.zip"
+                with zipfile.ZipFile(archive, "w") as out:
+                    out.writestr("android-cts/jdk/legal/java.base/LICENSE", b"license text")
+                    link = zipfile.ZipInfo("android-cts/jdk/legal/java.compiler/LICENSE")
+                    link.external_attr = 0o120777 << 16
+                    out.writestr(link, target)
+                if not valid:
+                    with self.assertRaises(api.CompatibilityError):
+                        api._archive_inputs(archive, package, root / "out")
+                    continue
+                records = api._archive_inputs(archive, package, root / "out")
+                notice = root / "out/android-cts/jdk/legal/java.compiler/LICENSE"
+                self.assertFalse(notice.is_symlink())
+                self.assertEqual(b"license text", notice.read_bytes())
+                tree, _ = api._safe_tree(root / "out/android-cts")
+                self.assertEqual(records, tree)
+
+    def test_tradefed_mode_is_fixed_for_direct_execution(self):
+        result = api._bounded_process([sys.executable, "-c",
+            "import os; print(os.environ['USE_ATS'], os.environ['ENABLE_XTS_DYNAMIC_DOWNLOADER'])"], 5, TOOLS)
+        self.assertEqual(b"false false\n", result["stdout"])
+
     def test_only_the_selected_harness_may_be_attached(self):
         api._require_single_attached_target(["selected"], "selected")
         for observed in ([], ["daily-phone"],
