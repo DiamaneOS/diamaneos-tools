@@ -109,7 +109,7 @@ def main(argv=None) -> int:
     job = load(job_path)
     expected_keys = {"schema_version", "run_id", "profile_id",
                      "timeout_seconds", "retry_result"}
-    if (not isinstance(job, dict) or set(job) != expected_keys
+    if (not isinstance(job, dict) or set(job) not in (expected_keys, expected_keys | {"connection_mode"})
             or job.get("schema_version") != 1
             or job.get("run_id") != job_id
             or not isinstance(job.get("profile_id"), str)
@@ -117,6 +117,10 @@ def main(argv=None) -> int:
             or not isinstance(job.get("timeout_seconds"), int)
             or not 60 <= job["timeout_seconds"] <= 172800):
         fail("private compatibility job has an invalid shape")
+
+    connection = job.get("connection_mode", "rig")
+    if connection not in ("rig", "direct-usb"):
+        fail("invalid compatibility connection mode")
 
     config = load(CONFIG)
     profiles = [item for item in config.get("trial_profiles", [])
@@ -142,11 +146,15 @@ def main(argv=None) -> int:
         "test", "compatibility", "--run-trial",
         "--profile", job["profile_id"], "--run-id", job_id,
         "--target", targets[0], "--device-role", "harness",
-        "--device-map", str(DEVICE_MAP), "--rig-config", str(RIG_CONFIG),
+        "--device-map", str(DEVICE_MAP),
         "--archive", str(archive), "--package-root", str(package_root),
         "--setup-record", str(setup_path), "--output", str(RUNS),
         "--adb", str(ADB), "--timeout-seconds", str(job["timeout_seconds"]),
     ]
+    if connection == "direct-usb":
+        command.append("--direct-usb")
+    else:
+        command.extend(["--rig-config", str(RIG_CONFIG)])
     if retry is not None:
         command.extend(["--rerun-from", retry])
     environment = {
