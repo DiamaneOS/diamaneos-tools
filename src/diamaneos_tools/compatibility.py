@@ -21,6 +21,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 from . import process, evidence
+from .suite_xml import parse_config, SuiteXmlError
 
 try:
     from jsonschema import Draft7Validator
@@ -251,10 +252,12 @@ PACKAGE_OUTPUTS = {"results", "logs"}
 
 def _verified_archive(config, package_id, archive):
     package = _package(config, package_id)
-    if package["delivery"] != "official-download":
-        raise CompatibilityError("selected package must be verified as a source build")
+    if package["delivery"] == "pinned-source-build":
+        # A hash alone must not promote an unrecorded local build to a suite.
+        if _validate_registry(config) or not package.get("source_build"):
+            raise CompatibilityError("source-built package lacks validated provenance", 3)
     if package["acquisition_status"] != "verified" or not package["archive_sha256"]:
-        raise CompatibilityError("selected official package hash is not yet approved", 3)
+        raise CompatibilityError("selected compatibility package hash is not yet approved", 3)
     try:
         metadata = archive.lstat()
     except OSError:
@@ -384,14 +387,29 @@ def inspect_package(config: dict, package_id: str, archive: Path,
     if launcher is not None and not any(
             item["path"] == launcher and item["executable"] for item in records):
         raise CompatibilityError("compatibility launcher is not executable")
+    config_count = 0
+    if package["kind"] != "cts-verifier":
+        with zipfile.ZipFile(archive) as bundle:
+            for member in bundle.infolist():
+                if member.filename.endswith(".config"):
+                    if member.file_size > 16 * 1024**2:
+                        raise CompatibilityError("suite configuration exceeds byte limit")
+                    try:
+                        parse_config(bundle.read(member))
+                    except SuiteXmlError as error:
+                        raise CompatibilityError(str(error)) from None
+                    config_count += 1
     tree_hash = hashlib.sha256(json.dumps(
         records, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return {
         "schema_version": 1, "status": "PASS", "package_id": package_id,
         "version": package["version"], "archive_name": archive.name,
+        "delivery": package["delivery"],
+        "source_build": package.get("source_build"),
         "archive_sha256": package["archive_sha256"],
         "extracted_root": package["extracted_directory"], "tree_sha256": tree_hash,
         "file_count": len(records), "tree_bytes": sum(item["bytes"] for item in records),
+        "config_count": config_count,
     }
 
 

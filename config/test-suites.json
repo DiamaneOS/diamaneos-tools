@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "registry_id": "android17-compatibility-20260921-v2",
+  "registry_id": "android17-compatibility-20260921-v3",
   "target": {
     "android_release": "17",
     "api_level": 37,
@@ -100,14 +100,28 @@
       "id": "vts-17-source",
       "kind": "vts",
       "delivery": "pinned-source-build",
-      "version": "fp6-android17-grapheneos-2026091000-debian13-v4",
+      "version": "17_r1",
       "url": "https://android.googlesource.com/platform/test/vts/",
-      "archive_name": null,
-      "archive_sha256": null,
-      "acquisition_status": "pending-source-build",
+      "archive_name": "android-vts.zip",
+      "archive_sha256": "62676bea6a9c26ad1a4db6467971c480979940fd2957d3ba32eb52c5a3a51407",
+      "acquisition_status": "verified",
       "extracted_directory": "android-vts",
       "launcher": "tools/vts-tradefed",
-      "plan": "vts"
+      "plan": "vts",
+      "source_build": {
+        "environment_id": "android17-vts-arm64-2026091000-debian13-v3-execveat",
+        "project_map_sha256": "d4721af78c2adb15d934afdf2aa3309fd21788ba785d5e8064a25fcfc4d1f70d",
+        "recipe_sha256": "5f17e7a3f12e322db3a073de8ae3dbaf09cec48fc8dce378927a5f0b5d721c90",
+        "evidence_sha256": "26e1f14ddcd98845dda8874abdacaad0e8e8831c27704ca48ff20514dc2268d4",
+        "source_changes": [
+          {
+            "project": "external/ltp",
+            "base_revision": "3fe7435d5b984b46d1d1528cc9850a48d888d8c8",
+            "derived_revision": "69a4a31500a61f23d7f43d56c3fd290cc47ad41e",
+            "patch_sha256": "251237d1bef7cac670d59ae6ecf1bba6afecdc9c01248cff49a22cdec297915e"
+          }
+        ]
+      }
     },
     {
       "id": "cts-16-r6-arm",

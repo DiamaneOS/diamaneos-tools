@@ -49,10 +49,73 @@
       "required": ["id", "url", "checked_at", "purpose"],
       "properties": {"id": {"$ref": "#/definitions/id"}, "url": {"type": "string", "pattern": "^https://"}, "checked_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}, "purpose": {"$ref": "#/definitions/text"}}
     },
+    "source_build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_id",
+        "project_map_sha256",
+        "recipe_sha256",
+        "evidence_sha256",
+        "source_changes"
+      ],
+      "properties": {
+        "environment_id": {
+          "$ref": "#/definitions/id"
+        },
+        "project_map_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "recipe_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_changes": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "project",
+              "base_revision",
+              "derived_revision",
+              "patch_sha256"
+            ],
+            "properties": {
+              "project": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._/-]+$",
+                "maxLength": 256
+              },
+              "base_revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "derived_revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "patch_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
     "package": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "kind", "delivery", "version", "url", "archive_name", "archive_sha256", "acquisition_status", "extracted_directory", "launcher", "plan"],
+      "allOf": [{"if": {"properties": {"delivery": {"const": "pinned-source-build"}, "acquisition_status": {"const": "verified"}}}, "then": {"required": ["source_build"], "properties": {"archive_name": {"type": "string"}, "archive_sha256": {"type": "string"}}}}, {"if": {"properties": {"delivery": {"const": "official-download"}}}, "then": {"not": {"required": ["source_build"]}}}],
       "properties": {
+        "source_build": {"$ref": "#/definitions/source_build"},
         "id": {"$ref": "#/definitions/id"}, "kind": {"enum": ["cts", "cts-verifier", "vts"]}, "delivery": {"enum": ["official-download", "pinned-source-build"]}, "version": {"$ref": "#/definitions/text"}, "url": {"type": "string", "pattern": "^https://"},
         "archive_name": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9._-]+$"}, "archive_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}, "acquisition_status": {"enum": ["pending-verified-download", "pending-source-build", "verified"]},
         "extracted_directory": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}, "launcher": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9._/-]+$"}, "plan": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}

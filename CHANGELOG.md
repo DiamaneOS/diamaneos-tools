@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Verify source-built compatibility packages with explicit build provenance and
+  retain their delivery type in package proofs. Parse bounded literal internal
+  entities used by VTS while rejecting external and nested entities. Pin the
+  derived ARM64 VTS package and its build/patch evidence.
+
 - Reject undeclared source inputs between manifest projects, altered manifest
   exports and a manifest checkout at a different commit during build preflight.
 - Document the Fairphone QSSI, API-level and kernel ABI boundaries for product
