@@ -166,10 +166,10 @@
       "android_release": "16",
       "build_type": "user",
       "package_id": "cts-16-r6-arm",
-      "module": null,
-      "test": null,
+      "module": "CtsOsTestCases",
+      "test": "android.os.cts.SystemClockTest#testUptimeMillis",
       "required_fixture_ids": [],
-      "status": "pending-separately-versioned-package"
+      "status": "ready-labelled-stock-harness-trial"
     }
   ],
   "fixtures": [
