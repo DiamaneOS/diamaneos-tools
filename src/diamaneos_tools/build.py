@@ -90,6 +90,19 @@ def validate_config(config: dict) -> None:
         "schema_version", "environment_id", "scope", "upstream", "host",
         "workspace", "project_inputs", "device_inputs", "build",
     }
+    if "composition" in config:
+        expected_root.add("composition")
+        composition = config["composition"]
+        _require_keys(composition, {"overlay_sha256", "overlay_revision",
+                                   "project_count", "project_map_sha256"}, "composition")
+        for key in ("overlay_sha256", "project_map_sha256"):
+            if not isinstance(composition[key], str) or not SHA256_RE.fullmatch(composition[key]):
+                raise BuildError("invalid composition digest")
+        if not isinstance(composition["overlay_revision"], str) or not SHA1_RE.fullmatch(
+                composition["overlay_revision"]):
+            raise BuildError("invalid overlay revision")
+        if type(composition["project_count"]) is not int or composition["project_count"] < 1:
+            raise BuildError("invalid composed project count")
     _require_keys(config, expected_root, "configuration")
     if config["schema_version"] != 1:
         raise BuildError("unsupported build-environment schema version")
@@ -251,6 +264,10 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
         "selected_stock_factory_sha256": config["device_inputs"][
             "selected_stock_factory_sha256"],
     }
+    if "composition" in config:
+        identity["composed_project_map_sha256"] = config["composition"]["project_map_sha256"]
+        identity["source_overlay_sha256"] = config["composition"]["overlay_sha256"]
+        identity["source_overlay_revision"] = config["composition"]["overlay_revision"]
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     identity["declared_build_identity_sha256"] = sha256_bytes(encoded)
     return identity
@@ -470,6 +487,67 @@ def _source_relative_path(value) -> bool:
             and all(part not in ("", ".", "..") for part in value.split("/")))
 
 
+def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> bytes:
+    """Authenticate one additive overlay; upstream replacements need separate review."""
+    directory = source / ".repo/local_manifests"
+    if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
+        raise BuildError("local manifest directory is invalid")
+    entries = sorted(directory.iterdir()) if directory.exists() else []
+    composition = config.get("composition")
+    if composition is None:
+        if entries:
+            raise BuildError("local manifests are not declared by this environment")
+        return signed_xml
+    path = directory / "diamaneos.xml"
+    if entries != [path] or path.is_symlink() or not path.is_file():
+        raise BuildError("expected exactly the declared diamaneos.xml overlay")
+    with path.open("rb") as stream:
+        overlay = stream.read(MAX_MANIFEST_BYTES + 1)
+    if len(overlay) > MAX_MANIFEST_BYTES or sha256_bytes(overlay) != composition["overlay_sha256"]:
+        raise BuildError("declared overlay content mismatch")
+    if b"<!DOCTYPE" in overlay.upper() or b"<!ENTITY" in overlay.upper():
+        raise BuildError("overlay declarations are not supported")
+    try:
+        base, addition = ET.fromstring(signed_xml), ET.fromstring(overlay)
+    except ET.ParseError:
+        raise BuildError("source composition is not valid XML") from None
+    if addition.tag != "manifest" or addition.attrib:
+        raise BuildError("invalid overlay root")
+    remotes = {entry.get("name") for entry in base.findall("remote")}
+    paths = {entry.get("path", entry.get("name")) for entry in base.findall("project")}
+    names = {entry.get("name") for entry in base.findall("project")}
+    for entry in addition:
+        if entry.tag == "remote":
+            if (set(entry.attrib) != {"name", "fetch"} or len(entry)
+                    or not SAFE_ID_RE.fullmatch(entry.get("name", ""))
+                    or not entry.get("fetch", "").startswith("https://")
+                    or entry.get("name") in remotes):
+                raise BuildError("invalid or redefined overlay remote")
+            remotes.add(entry.get("name"))
+        elif entry.tag == "project":
+            if set(entry.attrib) != {"name", "path", "remote", "revision"} or len(entry):
+                raise BuildError("overlay projects must be explicit and contain no exports")
+            name, project_path = entry.get("name"), entry.get("path")
+            if (not _source_relative_path(name) or not _source_relative_path(project_path)
+                    or not SHA1_RE.fullmatch(entry.get("revision", ""))
+                    or entry.get("remote") not in remotes or name in names
+                    or any(project_path == old or project_path.startswith(old + "/")
+                           or old.startswith(project_path + "/") for old in paths)):
+                raise BuildError("invalid, overlapping or replaced overlay project")
+            if project_path.split("/")[0] in (".repo", "out"):
+                raise BuildError("overlay project overlaps metadata or output")
+            paths.add(project_path)
+            names.add(name)
+        else:
+            raise BuildError("only additive remote and project entries are supported")
+        base.append(entry)
+    composed = ET.tostring(base, encoding="utf-8")
+    rows, digest = parse_project_map(composed)
+    if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
+        raise BuildError("composed manifest does not match its declared project map")
+    return composed
+
+
 def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
                          resolved_xml: bytes) -> None:
     """Reject undeclared inputs outside projects without traversing build output.
@@ -479,13 +557,10 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
     commit map alone does not describe.
     """
     source = source.resolve(strict=True)
+    signed_xml = compose_source_manifest(config, source, signed_xml)
     exports = _manifest_exports(signed_xml)
     if exports != _manifest_exports(resolved_xml):
         raise BuildError("resolved manifest exports differ from the signed manifest")
-    local_manifests = source / ".repo/local_manifests"
-    if local_manifests.is_symlink() or (local_manifests.exists() and
-            (not local_manifests.is_dir() or any(local_manifests.iterdir()))):
-        raise BuildError("local manifests are not declared by this environment")
 
     projects = {row[0] for row in rows}
     if any(not _source_relative_path(path) for path in projects):
@@ -608,10 +683,21 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
 
     resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
     rows, project_map_sha256 = parse_project_map(resolved)
-    if len(rows) != upstream["project_count"]:
+    declared = config.get("composition", upstream)
+    # Independently bind the signed base before authenticating its additions.
+    base_rows, base_digest = parse_project_map(default_xml.stdout)
+    if len(base_rows) != upstream["project_count"] or base_digest != upstream["project_map_sha256"]:
+        raise BuildError("signed upstream project map mismatch")
+    composed = compose_source_manifest(config, source, default_xml.stdout)
+    if len(rows) != declared["project_count"]:
         raise BuildError("resolved manifest project count mismatch")
-    if project_map_sha256 != upstream["project_map_sha256"]:
+    if project_map_sha256 != declared["project_map_sha256"]:
         raise BuildError("resolved manifest project map mismatch")
+    # Remote URLs affect where repo obtains source, even when commit pins match.
+    remote_attributes = lambda data: sorted(tuple(sorted(e.attrib.items()))
+                                           for e in ET.fromstring(data).findall("remote"))
+    if remote_attributes(composed) != remote_attributes(resolved):
+        raise BuildError("resolved manifest remotes differ from declared sources")
     verify_source_layout(config, source, rows, default_xml.stdout, resolved)
 
     dirty = []

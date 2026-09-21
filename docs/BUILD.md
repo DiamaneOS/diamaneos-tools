@@ -407,3 +407,25 @@ successful exit alone cannot establish KMI acceptance: retain an explicit ABI
 check and reconcile the configured module outputs and both boot/recovery load
 lists. Source-built output still needs symbol, signature, configuration,
 firmware and hardware validation.
+
+## Pinned downstream source composition
+
+An environment may declare an optional `composition` object with the exact
+`overlay_revision`, `overlay_sha256`, `project_count` and `project_map_sha256`.
+The revision records the reviewed manifest repository commit; the content
+hash authenticates the installed `.repo/local_manifests/diamaneos.xml` bytes.
+The map/count describe the entire composed checkout. The `upstream` record
+continues to bind the independently authenticated GrapheneOS release.
+
+Only additive HTTPS remotes and explicitly pinned projects are supported.
+Upstream replacements, nested/overlapping projects, manifest includes,
+copy/link exports in the overlay, extra local manifests and symlinks are
+rejected. Full preflight checks the composed project revisions, clean trees,
+remote definitions and original upstream exports. Environments without this
+object still reject local manifests.
+
+A new composition requires a new environment identity and source qualification.
+The existing source-sync adapter only prepares the upstream-only environment;
+installing an overlay does not qualify it or authorize using old build evidence.
+Generated hardware inputs must also receive their own declared provenance;
+source composition alone does not accept a device build.
