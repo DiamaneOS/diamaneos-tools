@@ -191,6 +191,26 @@
       "slug": "kernel_fairphone_graphics",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/graphics-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/hardware/qcom/bootctrl",
+      "id": "boot-control",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_qcom_bootctrl.git",
+      "revision": null,
+      "slug": "hardware_qcom_bootctrl",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/bootctrl"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/recovery-ext",
+      "id": "recovery-support",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_recovery-ext.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_recovery-ext",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/recovery-ext"
     }
   ],
   "schema_version": 1
