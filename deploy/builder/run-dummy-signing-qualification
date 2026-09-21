@@ -184,6 +184,25 @@ def extract_selected_apk_samples(sources, selected, destination):
     return paths
 
 
+def verifier_preflight_input(sources, key_ids, destination):
+    """Select an emitted APK using the unsigned signing planner's role map."""
+    from diamaneos_tools.signing_qualification import explicit_role_map
+    planned_sources = []
+    for profile, archive, inventory in sources:
+        mapping = explicit_role_map(inventory)
+        planned_sources.append((profile, archive, {"apk_roles": [
+            {"name": name, "expected_certificate_role": record["container"]}
+            for name, record in mapping.items() if record["kind"] == "apk"
+        ]}))
+    _, candidates, _ = target_apk_role_coverage(planned_sources, key_ids)
+    if not candidates:
+        raise Failure("no APK is available for verifier preflight")
+    record = min(candidates.values(), key=lambda item: (
+        item["bytes"], item["profile_id"], item["member_path"]))
+    return extract_selected_apk_samples(
+        planned_sources, {"input": record}, destination)["input"]
+
+
 def certificate_fingerprint(path):
     result = subprocess.run(
         ["openssl", "x509", "-in", str(path), "-outform", "DER"],
@@ -841,14 +860,10 @@ def qualify():
         # Exercise the exact APK tool/JDK/output contract before either large
         # target-files transformation. This is an early diagnostic only; final
         # independent verification still runs after private-key deletion.
-        _, smoke_candidates, _ = target_apk_role_coverage(
-            ((sdk_profile_id, sdk_unsigned, sdk_unsigned_inventory),), key_ids)
-        if not smoke_candidates:
-            raise Failure("no APK is available for verifier preflight")
-        smoke_record = min(smoke_candidates.values(), key=lambda item: item["bytes"])
-        smoke_input = extract_selected_apk_samples(
-            ((sdk_profile_id, sdk_unsigned, sdk_unsigned_inventory),),
-            {"input": smoke_record}, transient_root / "verifier-preflight")["input"]
+        smoke_input = verifier_preflight_input(
+            ((sdk_profile_id, sdk_unsigned, sdk_unsigned_inventory),
+             (ota_profile_id, ota_unsigned, ota_unsigned_inventory)),
+            key_ids, transient_root / "verifier-preflight")
         smoke_signed = transient_root / "verifier-preflight/signed.apk"
         run([required_tools["apksigner"], "sign", "--key", key_dir / "releasekey.pk8",
              "--cert", key_dir / "releasekey.x509.pem", "--min-sdk-version", "35",
