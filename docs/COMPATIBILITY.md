@@ -104,8 +104,8 @@ recomputes the live fingerprint hash and refuses stale or incomplete setup.
 Every execution supplies an exact private role and ADB serial. The selected
 serial must be authorized, the role must be marked disposable, and it must be
 the only authorized device attached to that host. Tradefed is always invoked
-with `-s`; enumeration order is never a target selector. A rig role lock and
-persistent inhibitor cover the run.
+with `-s`; enumeration order is never a target selector. A role lock covers the run; configured rig mode also holds a persistent
+maintenance inhibitor. Direct USB mode performs no hub control.
 
 Only the exact module and test committed in an approved trial profile may run.
 The adapter captures bounded stdout/stderr and exactly one newly created
@@ -226,7 +226,7 @@ The pinned ARM archive reports CTS `16_r6`, build `15835701`, target `arm64`,
 and includes its own Linux JDK. Its launcher defaults to ATS but also explicitly
 supports the Tradefed console. The adapter fixes `USE_ATS=false` and disables
 the dynamic downloader so its invocation and result parser use that inspected
-console contract. `adb` and `aapt2` are host prerequisites; system Java is not
+console contract. `adb`, `aapt` and `aapt2` are host prerequisites; system Java is not
 required while the bundled JDK is present. Package hashes are in the registry.
 
 The stock timing-test candidate is `CtsOsTestCases` with
@@ -259,3 +259,13 @@ limited to three starts per minute. Before starting a trial, verify that the
 service owns the listening server. An ADB client can otherwise auto-start an
 unmanaged server after the service exits. Recover that conflict only after all
 trials stop and the conflicting process's executable and owner are verified.
+
+## Android 17 package preparation
+
+The official ARM CTS17 R2 and Verifier17 R2 archives are hash-pinned in registry
+revision `android17-compatibility-20260921-v2`. CTS expands to 35,137,411,158
+bytes before notice materialization, so authenticated extraction uses a bounded
+64 GiB ceiling. Verifier's bundled host runner places its JDK notices under
+`android-cts-v-host/jdk/legal`; only that tree and the main `jdk/legal` tree
+permit regular-file notice materialization. Links cannot escape their own tree.
+Package availability is not evidence of a final Android17 candidate or test pass.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "registry_id": "android17-compatibility-20260920-v1",
+  "registry_id": "android17-compatibility-20260921-v2",
   "target": {
     "android_release": "17",
     "api_level": 37,
@@ -77,8 +77,8 @@
       "version": "17_r2",
       "url": "https://dl.google.com/dl/android/cts/android-cts-17_r2-linux_x86-arm.zip",
       "archive_name": "android-cts-17_r2-linux_x86-arm.zip",
-      "archive_sha256": null,
-      "acquisition_status": "pending-verified-download",
+      "archive_sha256": "2d7195cbcee830f7c15d306c36ccdfe4d568f5d819c8a62aa25f1390a1092fe0",
+      "acquisition_status": "verified",
       "extracted_directory": "android-cts",
       "launcher": "tools/cts-tradefed",
       "plan": "cts"
@@ -90,8 +90,8 @@
       "version": "17_r2",
       "url": "https://dl.google.com/dl/android/cts/android-cts-verifier-17_r2-linux_x86-arm.zip",
       "archive_name": "android-cts-verifier-17_r2-linux_x86-arm.zip",
-      "archive_sha256": null,
-      "acquisition_status": "pending-verified-download",
+      "archive_sha256": "83bd5a023f175b46ce1077da918a2eecb5ec5d7bad70f1410f12be88a8167dad",
+      "acquisition_status": "verified",
       "extracted_directory": "android-cts-verifier",
       "launcher": null,
       "plan": "manual-export"
@@ -173,29 +173,117 @@
     }
   ],
   "fixtures": [
-    {"id": "camera-light-scene", "status": "available", "handling": "manual fixed scene and controlled USB light"},
-    {"id": "display-touch-audio", "status": "available", "handling": "manual operator observation"},
-    {"id": "telephony-peer-provider-variance", "status": "available", "handling": "dedicated peer handset and test subscriptions"},
-    {"id": "microsd-usb-hub", "status": "available", "handling": "dedicated removable media and qualified powered USB rig"},
-    {"id": "biometric-human-presence", "status": "manual", "handling": "operator-attended enrollment and observation only"},
-    {"id": "ble-beacons-three", "status": "missing", "handling": "CTS requires at least three BLE beacons within five metres when Bluetooth LE is supported"},
-    {"id": "gnss-signal", "status": "unverified", "handling": "verify a usable GNSS signal and required SUPL reachability at the execution site"},
-    {"id": "ipv4-ipv6-isolated-wifi", "status": "unverified", "handling": "qualify IPv4, IPv6, DNS, multicast and isolated-client behavior"},
-    {"id": "dual-wifi-and-rtt", "status": "unverified", "handling": "required conditionally for reported STA concurrency or Wi-Fi RTT support"},
-    {"id": "cts-verifier-peer", "status": "unverified", "handling": "qualify a second Android device for Bluetooth, Wi-Fi Direct, Wi-Fi Aware and NFC HCE; UWB only if reported"},
-    {"id": "distance-fixtures", "status": "missing", "handling": "stage holders and measured distances for applicable proximity calibration"},
-    {"id": "router-offline-control", "status": "unverified", "handling": "qualify a router whose internet path can be disconnected without powering it off"},
-    {"id": "cts-media-1.5", "status": "missing", "handling": "stage exact official media package before media cases"},
-    {"id": "nfc-protocol-fixtures", "status": "unverified", "handling": "inventory exact CTS Verifier cases before purchase or assignment"},
-    {"id": "usb-audio-loopback", "status": "unverified", "handling": "inventory exact CTS Verifier cases before purchase or assignment"},
-    {"id": "secure-element-cardlet", "status": "conditional", "handling": "required only if DUT reports the official multi-secure-element condition"}
+    {
+      "id": "camera-light-scene",
+      "status": "available",
+      "handling": "manual fixed scene and controlled USB light"
+    },
+    {
+      "id": "display-touch-audio",
+      "status": "available",
+      "handling": "manual operator observation"
+    },
+    {
+      "id": "telephony-peer-provider-variance",
+      "status": "available",
+      "handling": "dedicated peer handset and test subscriptions"
+    },
+    {
+      "id": "microsd-usb-hub",
+      "status": "available",
+      "handling": "dedicated removable media and qualified powered USB rig"
+    },
+    {
+      "id": "biometric-human-presence",
+      "status": "manual",
+      "handling": "operator-attended enrollment and observation only"
+    },
+    {
+      "id": "ble-beacons-three",
+      "status": "missing",
+      "handling": "CTS requires at least three BLE beacons within five metres when Bluetooth LE is supported"
+    },
+    {
+      "id": "gnss-signal",
+      "status": "unverified",
+      "handling": "verify a usable GNSS signal and required SUPL reachability at the execution site"
+    },
+    {
+      "id": "ipv4-ipv6-isolated-wifi",
+      "status": "unverified",
+      "handling": "qualify IPv4, IPv6, DNS, multicast and isolated-client behavior"
+    },
+    {
+      "id": "dual-wifi-and-rtt",
+      "status": "unverified",
+      "handling": "required conditionally for reported STA concurrency or Wi-Fi RTT support"
+    },
+    {
+      "id": "cts-verifier-peer",
+      "status": "unverified",
+      "handling": "qualify a second Android device for Bluetooth, Wi-Fi Direct, Wi-Fi Aware and NFC HCE; UWB only if reported"
+    },
+    {
+      "id": "distance-fixtures",
+      "status": "missing",
+      "handling": "stage holders and measured distances for applicable proximity calibration"
+    },
+    {
+      "id": "router-offline-control",
+      "status": "unverified",
+      "handling": "qualify a router whose internet path can be disconnected without powering it off"
+    },
+    {
+      "id": "cts-media-1.5",
+      "status": "missing",
+      "handling": "stage exact official media package before media cases"
+    },
+    {
+      "id": "nfc-protocol-fixtures",
+      "status": "unverified",
+      "handling": "inventory exact CTS Verifier cases before purchase or assignment"
+    },
+    {
+      "id": "usb-audio-loopback",
+      "status": "unverified",
+      "handling": "inventory exact CTS Verifier cases before purchase or assignment"
+    },
+    {
+      "id": "secure-element-cardlet",
+      "status": "conditional",
+      "handling": "required only if DUT reports the official multi-secure-element condition"
+    }
   ],
   "applicability": [
-    {"id": "cts", "decision": "required-final-user", "reason": "Run matching CTS on the final shipping user build; generic or stock trials prove only the harness."},
-    {"id": "cts-verifier", "decision": "required-final-user-manual", "reason": "Export the supported report after all applicable manual cases; missing fixtures remain blockers."},
-    {"id": "vts", "decision": "required-diagnostic-companion", "reason": "Build from the candidate source and map tests to VINTF; root/debug evidence is never labelled locked-user evidence."},
-    {"id": "cts-on-gsi", "decision": "diagnostic-not-final-acceptance", "reason": "A GSI result checks vendor interfaces and remains distinct from the shipped DiamaneOS system result."},
-    {"id": "mts", "decision": "candidate-inventory-dependent", "reason": "Run matching modular suites for modules actually shipped by the candidate; package inventory must precede selection."},
-    {"id": "sts-autorepro", "decision": "pre-release-when-officially-available", "reason": "Use available matching security regression artifacts without claiming inaccessible partner suites were completed."}
+    {
+      "id": "cts",
+      "decision": "required-final-user",
+      "reason": "Run matching CTS on the final shipping user build; generic or stock trials prove only the harness."
+    },
+    {
+      "id": "cts-verifier",
+      "decision": "required-final-user-manual",
+      "reason": "Export the supported report after all applicable manual cases; missing fixtures remain blockers."
+    },
+    {
+      "id": "vts",
+      "decision": "required-diagnostic-companion",
+      "reason": "Build from the candidate source and map tests to VINTF; root/debug evidence is never labelled locked-user evidence."
+    },
+    {
+      "id": "cts-on-gsi",
+      "decision": "diagnostic-not-final-acceptance",
+      "reason": "A GSI result checks vendor interfaces and remains distinct from the shipped DiamaneOS system result."
+    },
+    {
+      "id": "mts",
+      "decision": "candidate-inventory-dependent",
+      "reason": "Run matching modular suites for modules actually shipped by the candidate; package inventory must precede selection."
+    },
+    {
+      "id": "sts-autorepro",
+      "decision": "pre-release-when-officially-available",
+      "reason": "Use available matching security regression artifacts without claiming inaccessible partner suites were completed."
+    }
   ]
 }
