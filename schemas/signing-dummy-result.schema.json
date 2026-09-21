@@ -28,7 +28,12 @@
       "uniqueItems": true,
       "items": {"$ref": "#/definitions/id"}
     },
-    "run_id": {"$ref": "#/definitions/id"},
+    "run_id": {
+      "anyOf": [
+        {"$ref": "#/definitions/id"},
+        {"type": "string", "pattern": "^dummy-signing-[0-9]{8}T[0-9]{6}Z$"}
+      ]
+    },
     "status": {"enum": ["PASS", "FAIL", "INCOMPLETE"]},
     "dummy_keys_only": {"type": "boolean"},
     "production_material_present": {"type": "boolean"},
