@@ -222,8 +222,11 @@ required while the bundled JDK is present. Package hashes are in the registry.
 
 The stock timing-test candidate is `CtsOsTestCases` with
 `android.os.cts.SystemClockTest#testUptimeMillis`. Package inspection found the
-class and method in the installed-test APK; the profile remains gated until
-host discovery, exact test inventory and device setup are recorded. The module
+class/method binding in the APK DEX table and the module in the official
+Tradefed inventory. Extraction and the host gate pass. The profile is approved
+for this labelled trial; a matching private candidate/setup record is still
+required. The trial fixes the registry ABI and disables parameterized module
+variants, so it does not implicitly create work-profile or secondary-user runs. The module
 installs its test APK and cleans it up; the CTS plan also changes package
 verification settings temporarily. These settings must be captured and restored
 on the disposable harness. This trial does not require media, SIM or manual

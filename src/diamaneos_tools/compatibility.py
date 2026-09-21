@@ -703,7 +703,9 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         launcher = suite_root / package["launcher"]
         command = [str(launcher), "run", "commandAndExit", package["plan"],
                    "-s", args.target, "-m", profile["module"],
-                   "-t", profile["test"]]
+                   "-t", profile["test"],
+                   "--abi", config["target"]["architecture"],
+                   "--enable-parameterized-modules", "false"]
         previous_handlers = {
             item: signal.getsignal(item)
             for item in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
