@@ -157,8 +157,12 @@ def main(argv=None) -> int:
         command.extend(["--rig-config", str(RIG_CONFIG)])
     if retry is not None:
         command.extend(["--rerun-from", retry])
+    home = COMPATIBILITY / "home"
+    home.mkdir(mode=0o750, exist_ok=True)
+    if home.is_symlink() or home.stat().st_uid != os.geteuid() or home.stat().st_mode & 0o027:
+        fail("compatibility runtime home is not owner-controlled")
     environment = {
-        "HOME": str(PRIVATE), "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",
+        "HOME": str(home), "JAVA_TOOL_OPTIONS": f"-Duser.home={home}", "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",
         "PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1",
         "USER": "diamaneos-build", "LOGNAME": "diamaneos-build",
     }

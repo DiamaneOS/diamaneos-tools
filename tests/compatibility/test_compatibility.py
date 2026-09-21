@@ -266,6 +266,7 @@ class CompatibilityTest(unittest.TestCase):
             "ffmpeg_version": "ffmpeg version 5.1.3",
             "adb_version": "Android Debug Bridge version 1.0.41",
             "aapt2_version": "Android Asset Packaging Tool (aapt) 2.20",
+            "aapt_version": "Android Asset Packaging Tool, v0.2",
         }
         result = api._evaluate_host(self.config, observation)
         self.assertEqual("PASS", result["status"])
