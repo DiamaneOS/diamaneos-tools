@@ -307,9 +307,9 @@ class CompatibilityTest(unittest.TestCase):
             with self.assertRaisesRegex(api.CompatibilityError, "incompatible"):
                 api._result_parent(str(path), "trial", package)
 
-    def test_jdk_notice_links_materialize_but_unsafe_links_fail(self):
+    def test_supported_links_materialize_but_unsafe_links_fail(self):
         package = {"extracted_directory": "android-cts"}
-        for prefix in ("", "android-cts-v-host/"):
+        for prefix in ("jdk/legal", "android-cts-v-host/jdk/legal", "CameraITS/tests"):
             for target, valid in (("../java.base/LICENSE", True),
                                   ("../../../../outside", False),
                                   ("/etc/passwd", False),
@@ -319,8 +319,8 @@ class CompatibilityTest(unittest.TestCase):
                     root = Path(temp)
                     archive = root / "suite.zip"
                     with zipfile.ZipFile(archive, "w") as out:
-                        out.writestr(f"android-cts/{prefix}jdk/legal/java.base/LICENSE", b"license text")
-                        link = zipfile.ZipInfo(f"android-cts/{prefix}jdk/legal/java.compiler/LICENSE")
+                        out.writestr(f"android-cts/{prefix}/java.base/LICENSE", b"license text")
+                        link = zipfile.ZipInfo(f"android-cts/{prefix}/java.compiler/LICENSE")
                         link.external_attr = 0o120777 << 16
                         out.writestr(link, target)
                     if not valid:
@@ -328,7 +328,7 @@ class CompatibilityTest(unittest.TestCase):
                             api._archive_inputs(archive, package, root / "out")
                         continue
                     records = api._archive_inputs(archive, package, root / "out")
-                    notice = root / f"out/android-cts/{prefix}jdk/legal/java.compiler/LICENSE"
+                    notice = root / f"out/android-cts/{prefix}/java.compiler/LICENSE"
                     self.assertFalse(notice.is_symlink())
                     self.assertEqual(b"license text", notice.read_bytes())
                     tree, _ = api._safe_tree(root / "out/android-cts")
