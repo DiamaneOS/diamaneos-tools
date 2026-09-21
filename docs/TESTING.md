@@ -720,3 +720,11 @@ VTS LTP/kselftest configurations. External resources, parameter entities,
 nested entity references and excessive expansion fail before an extracted
 package is published. This allowance applies to authenticated suite inputs;
 result XML retains its separate stricter parser.
+
+Selected regular-file generation is covered by `tests/vendor/test_vendor_files.py`.
+These composed tests use the real component validator and filesystem publication:
+repeat generation, retained image metadata, altered input/output, missing notices,
+wrong stock identity, absent dependency, unknown owner, traversal, special files,
+concurrent publication, interrupted copying and private/public policy separation.
+They establish the generator boundary with synthetic bytes, not an FP6 product
+closure or hardware compatibility result.

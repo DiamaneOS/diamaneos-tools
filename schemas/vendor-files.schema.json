@@ -1,0 +1,185 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stock_build",
+    "region",
+    "archive_sha256",
+    "model_sha256",
+    "files",
+    "notices"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "stock_build": {
+      "type": "string"
+    },
+    "region": {
+      "enum": [
+        "EU",
+        "US"
+      ]
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "model_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "files": {
+      "type": "array",
+      "maxItems": 65535,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input",
+          "path",
+          "sha256",
+          "bytes",
+          "component_id",
+          "inventory_ref",
+          "dependencies",
+          "notices",
+          "purpose",
+          "metadata"
+        ],
+        "properties": {
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483648
+          },
+          "component_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "inventory_ref": {
+            "type": "string",
+            "pattern": "^[a-z_]+:[a-z0-9][a-z0-9.-]*$"
+          },
+          "dependencies": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+            },
+            "uniqueItems": true
+          },
+          "notices": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "uid",
+              "gid",
+              "mode",
+              "selinux",
+              "capabilities_hex"
+            ],
+            "properties": {
+              "uid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "gid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "mode": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "selinux": {
+                "type": "string",
+                "pattern": "^u:object_r:[a-zA-Z0-9_]+:s0$"
+              },
+              "capabilities_hex": {
+                "type": "string",
+                "maxLength": 48,
+                "pattern": "^([a-f0-9]{2})*$"
+              }
+            }
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "notices": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input",
+          "sha256",
+          "bytes"
+        ],
+        "properties": {
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16777216
+          }
+        }
+      },
+      "minItems": 1
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SelectedStockFiles",
+  "description": "Exact selected regular files and original image metadata. Input roots are extracted read-only partitions; symlink traversal and writable device state are prohibited."
+}
