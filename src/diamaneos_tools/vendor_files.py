@@ -89,8 +89,7 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
         used_notices.update(item['notices'])
         for dependency in item['dependencies']:
             safe_path(dependency)
-    ordered = sorted(paths)
-    if any(right.startswith(left + '/') for left, right in zip(ordered, ordered[1:])):
+    if any(parent.as_posix() in paths for name in paths for parent in Path(name).parents):
         raise VendorError('conflicting selected file destinations')
     if used_notices != notice_hashes:
         raise VendorError('missing or unused selected-file notice')
