@@ -433,7 +433,21 @@ remote definitions and original upstream exports. Environments without this
 object still reject local manifests.
 
 A new composition requires a new environment identity and source qualification.
-The existing source-sync adapter only prepares the upstream-only environment;
-installing an overlay does not qualify it or authorize using old build evidence.
+The source-sync adapter accepts a reviewed configuration and overlay repository:
+
+```sh
+deploy/builder/sync-pinned-source "$TOOLS_ROOT" "$WORK_ROOT" \
+  config/build-environment-fp6.json "$OVERLAY_ROOT"
+```
+
+Its ordinary tools-commit and thermal-check environment bindings still apply.
+The overlay checkout must be clean at the declared commit. After synchronization,
+moving projects are detached at the environment's exact resolutions, refusing
+local changes; the original branch-tracking overlay remains installed. Full
+preflight checks the resulting clean composed map. This prepares source only;
+it does not qualify the product graph or authorize using old build evidence.
+`DIAMANEOS_SOURCE_REFERENCE` may name a retained repo workspace for Git object
+reuse. Keep that object store available while referenced checkouts depend on it;
+an object reference is neither an independent backup nor build evidence.
 Generated hardware inputs must also receive their own declared provenance;
 source composition alone does not accept a device build.
