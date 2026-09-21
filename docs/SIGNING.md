@@ -320,7 +320,12 @@ creates no keys, signs nothing and does not repeat target-files transformations
 or OTA generation. Hashing, extraction and verification still take time; this
 is not a promise of an instant check. Each diagnostic report includes
 `qualification_accepted: false`, even when verification passes. A new complete
-qualification remains necessary for end-to-end acceptance after a repair.
+qualification remains necessary when signing, cleanup or any required proof
+was incomplete. If a complete run failed only because its final result schema
+rejected the runner’s own metadata, a separate reviewed acceptance record may
+bind the unchanged result hash, execution revision, corrected validator revision
+and all required proof checks. Preserve the original failure record; a passing
+diagnostic alone never creates that acceptance record.
 If signing itself failed or an output is missing, replay cannot replace that
 missing work. No resumable signing state or persistent disposable secrets are
 introduced.
