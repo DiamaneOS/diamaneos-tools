@@ -146,12 +146,15 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        result = extract(args.super_image.resolve(), args.image_tools.resolve(), args.output.absolute(),
+        with process.interrupt_on_termination():
+            result = extract(args.super_image.resolve(), args.image_tools.resolve(), args.output.absolute(),
                          load_json(ROOT / 'config/fp6-stock-image-recipe.json'),
                          load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
                          load_json(ROOT / 'config/fp6-image-tools.json'))
         print(json.dumps(result, indent=2))
         return 0
+    except KeyboardInterrupt:
+        print('ERROR: selected stock extraction interrupted'); return 130
     except (VendorError, OSError, ValueError, KeyError, StopIteration) as exc:
         print('ERROR: selected stock extraction failed: ' + str(exc))
         return 2
