@@ -60,6 +60,13 @@ it is not production acceptance or permission to make hardware domains
 permissive. A successful policy compilation proves neither least privilege nor
 runtime functionality.
 
+Reduce attack surface by omitting unnecessary components. Prefer maintained
+source implementations over opaque prebuilts when their interfaces, security
+properties and device behavior can be verified. Preserve required functionality
+and identify a maintenance owner; source availability alone is not sufficient.
+Keep necessary temporary prebuilts pinned and record their consumers and
+replacement conditions in the component inventory.
+
 ## Upstream licences
 
 Every open-source component that is forked, copied, modified, linked, packaged
