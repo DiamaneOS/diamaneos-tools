@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reconstruct selected vendor files directly from pinned stock images; prepare,
+  build and package the complete source kernel/module/DT set through public
+  commands. Install generated inputs with inventory verification, preserve
+  failed runs and reject edited sources or incompatible modules.
+
 - Bind the native FP6 candidate to source-owned policy, explicit GPU firmware
   dependencies and a reduced optional performance-library selection. Document
   the pinned kernel rebuild and verified development image boundaries.

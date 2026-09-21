@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "excluded_linkfiles": [
+    {
+      "project": "kernel/build",
+      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "src": "build.sh",
+      "dest": "kernel_platform/build/build.sh",
+      "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."
+    },
+    {
+      "project": "kernel/build",
+      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "src": "build_abi.sh",
+      "dest": "kernel_platform/build/build_abi.sh",
+      "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."
+    }
+  ],
+  "generated_links": [
+    {
+      "dest": "kernel_platform/build/msm_kernel_extensions.bzl",
+      "source": "kernel_platform/msm-kernel/msm_kernel_extensions.bzl"
+    },
+    {
+      "dest": "kernel_platform/build/abl_extensions.bzl",
+      "source": "kernel_platform/bootable/bootloader/edk2/abl_extensions.bzl"
+    },
+    {
+      "dest": "kernel_platform/vendor",
+      "source": "vendor"
+    }
+  ]
+}

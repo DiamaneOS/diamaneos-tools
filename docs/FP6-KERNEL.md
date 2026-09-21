@@ -1,5 +1,9 @@
 # FP6 kernel build and capability contract
 
+Use the public `kernel prepare`, `kernel build` and `build inputs` workflow in
+[FP6 preparation](FP6-PREPARATION.md) to reconstruct and install the entire set.
+The native entrypoints and compatibility boundaries below explain that workflow.
+
 The initial development kernel uses Fairphone's pinned Android 14 / Linux 6.1
 GKI/vendor source set with the Android 17 product. The source set is separate
 from the platform checkout. `config/fp6-sources.json` identifies the upstream

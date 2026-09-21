@@ -326,6 +326,12 @@ VTS source discovery is not package qualification. The pinned VTS build target
 and launcher are documented in [compatibility preparation](COMPATIBILITY.md#source-bound-vts-preparation);
 retain a built archive hash and generated inventory before approving execution.
 
+## Reconstruct FP6 build inputs
+
+For the complete factory-image extraction, kernel/module/DT build and generated
+input installation commands, see [FP6 preparation](FP6-PREPARATION.md). The
+individual staging and generation interfaces below remain useful for inspection.
+
 ## Stage stock images for vendor discovery
 
 Use the pinned Fairphone device/platform sources as the primary hardware input.
@@ -565,3 +571,21 @@ does not replace modem, DSP, bootloader or trusted firmware partitions.
 
 See [FP6 kernel build and capability contract](FP6-KERNEL.md) for the native
 build commands, interface checks and development/production distinction.
+
+### Patch base and downstream environment identities
+
+In `config/patches.json`, `base_environment_id` identifies the upstream source
+baseline (source-base semantics). It is not the
+identity of the current host or composed product environment.
+`base_project_map_sha256` binds that baseline's project map. Each patch binds
+its workspace, project path, exact base and derived revisions, canonical diff
+and changed-file set. Advancing a host, overlay or product input creates a new
+build environment identity without silently rewriting an accepted environment.
+
+A moving development branch in the manifest is resolved to exact commits in the
+consuming build environment. Source composition authenticates the overlay bytes,
+overlay revision and resolved project map, rejects undeclared overlays and
+verifies actual checkout contents. A previous native integration probe is not a
+clean build of a later environment. Independent publication/authentication of
+the trust anchor, an authenticated host-package dependency snapshot and an
+independent second-builder comparison remain separate release requirements.
