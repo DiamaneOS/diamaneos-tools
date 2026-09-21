@@ -181,3 +181,59 @@ class SelectedFilesTests(unittest.TestCase):
         with self.assertRaisesRegex(vendor.VendorError, 'conflicting'):
             self.generate()
         self.assertFalse(self.output.exists())
+
+
+class SelectedSymlinkTests(unittest.TestCase):
+    setUp = SelectedFilesTests.setUp
+    generate = SelectedFilesTests.generate
+    def add_link(self):
+        item = copy.deepcopy(self.recipe['files'][0])
+        item.pop('bytes'); item.pop('dependencies')
+        item.update(input='vendor/lib64/camera.fixture.so', path='vendor/lib64/camera.fixture.so',
+                    target='hw/camera.fixture.so', sha256=sha(b'hw/camera.fixture.so'))
+        self.recipe['symlinks'] = [item]
+        (self.inputs / item['input']).symlink_to(item['target'])
+        return item
+
+    def test_alias_is_authenticated_metadata_not_host_symlink(self):
+        item = self.add_link()
+        first = self.generate()
+        self.assertEqual(first['symlink_count'], 1)
+        self.assertEqual(first, self.generate())
+        current = self.output / 'current'
+        self.assertFalse((current/'files'/item['path']).exists())
+        links = json.loads((current/'symlinks.json').read_bytes())
+        self.assertEqual(links['symlinks'], [item])
+        closure = json.loads((current/'component-closure.json').read_bytes())
+        alias = next(a for a in closure['artifacts'] if a['path']==item['path'])
+        self.assertEqual(alias['dependencies'], [self.path])
+        (self.inputs/item['input']).unlink()
+        (self.inputs/item['input']).symlink_to('/outside/private-fixture')
+        with self.assertRaises(vendor.VendorError): self.generate()
+        self.assertEqual(first['recipe_sha256'], current.resolve().name)
+
+    def test_external_cyclic_missing_or_changed_alias_fails(self):
+        item = self.add_link()
+        self.generate()
+        previous = os.readlink(self.output/'current')
+        for target in ('../../../outside', '/data/vendor/private-state',
+                       '/odm/lib64/camera.fixture.so', '/vendor/lib64/missing.so',
+                       '/vendor/lib64/camera.fixture.so'):
+            item.update(target=target, sha256=sha(target.encode()))
+            with self.subTest(target=target), self.assertRaises(vendor.VendorError):
+                self.generate()
+            self.assertEqual(previous, os.readlink(self.output/'current'))
+
+    def test_alias_ancestor_not_traversed(self):
+        self.add_link()
+        directory = self.inputs/'vendor/lib64'
+        directory.rename(self.inputs/'elsewhere')
+        directory.symlink_to(self.inputs/'elsewhere')
+        with self.assertRaises(OSError): self.generate()
+        self.assertFalse((self.output/'current').exists())
+
+    def test_alias_cannot_authenticate_different_input_target(self):
+        self.add_link()
+        self.recipe['files'][0]['input'] = 'vendor/lib64/other.so'
+        with self.assertRaisesRegex(vendor.VendorError, 'input and output'):
+            self.generate()

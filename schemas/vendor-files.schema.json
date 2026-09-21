@@ -177,9 +177,112 @@
         }
       },
       "minItems": 1
+    },
+    "symlinks": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input",
+          "path",
+          "sha256",
+          "component_id",
+          "inventory_ref",
+          "notices",
+          "purpose",
+          "metadata",
+          "target"
+        ],
+        "properties": {
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "component_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "inventory_ref": {
+            "type": "string",
+            "pattern": "^[a-z_]+:[a-z0-9][a-z0-9.-]*$"
+          },
+          "notices": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "uid",
+              "gid",
+              "mode",
+              "selinux",
+              "capabilities_hex"
+            ],
+            "properties": {
+              "uid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "gid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "mode": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "selinux": {
+                "type": "string",
+                "pattern": "^u:object_r:[a-zA-Z0-9_]+:s0$"
+              },
+              "capabilities_hex": {
+                "type": "string",
+                "maxLength": 48,
+                "pattern": "^([a-f0-9]{2})*$"
+              }
+            }
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^/?[A-Za-z0-9._+@/-]+$"
+          }
+        }
+      }
     }
   },
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SelectedStockFiles",
-  "description": "Exact selected regular files and original image metadata. Input roots are extracted read-only partitions; symlink traversal and writable device state are prohibited."
+  "description": "Exact selected regular files, authenticated symlink declarations and original image metadata. Symlinks are retained as metadata, never followed or materialized on the host."
 }

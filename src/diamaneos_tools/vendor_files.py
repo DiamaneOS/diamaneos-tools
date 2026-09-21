@@ -46,6 +46,35 @@ def regular_input(root, name):
         os.close(directory)
 
 
+def link_destination(item):
+    target = item['target']
+    if target.startswith('/'):
+        destination = safe_path(target[1:])
+    else:
+        destination = str(Path(item['path']).parent / safe_path(target))
+    if destination.split('/')[0] != item['path'].split('/')[0]:
+        raise VendorError('selected symlink crosses partition boundary')
+    if hashlib.sha256(target.encode()).hexdigest() != item['sha256']:
+        raise VendorError('selected symlink target digest mismatch')
+    return destination
+
+
+def verify_symlink(root, item):
+    """Authenticate link text without traversing the link or its ancestors."""
+    parts = safe_path(item['input']).split('/')
+    directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                            dir_fd=directory)
+            os.close(directory)
+            directory = child
+        if os.readlink(parts[-1], dir_fd=directory) != item['target']:
+            raise VendorError('selected symlink target changed')
+    finally:
+        os.close(directory)
+
+
 def copy_verified(root, item, destination):
     with regular_input(root, item['input']) as source:
         if os.fstat(source.fileno()).st_size != item['bytes']:
@@ -79,7 +108,9 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
     if len(notice_hashes) != len(recipe['notices']):
         raise VendorError('repeated notice digest')
     used_notices = set()
-    for item in recipe['files']:
+    selected = recipe['files'] + recipe.get('symlinks', [])
+    regular_inputs = {item['path']: item['input'] for item in recipe['files']}
+    for item in selected:
         for key in ('input', 'path'):
             safe_path(item[key])
         if item['path'] in paths or item['input'] in inputs:
@@ -87,8 +118,14 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
         paths.add(item['path'])
         inputs.add(item['input'])
         used_notices.update(item['notices'])
-        for dependency in item['dependencies']:
+        for dependency in item.get('dependencies', []):
             safe_path(dependency)
+        if 'target' in item:
+            destination = link_destination(item)
+            if destination not in regular_inputs:
+                raise VendorError('selected symlink must name a selected regular file')
+            if link_destination(dict(item, path=item['input'])) != regular_inputs[destination]:
+                raise VendorError('selected symlink input and output targets differ')
     if any(parent.as_posix() in paths for name in paths for parent in Path(name).parents):
         raise VendorError('conflicting selected file destinations')
     if used_notices != notice_hashes:
@@ -97,14 +134,15 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
         safe_path(notice['input'])
     if sum(i['bytes'] for i in recipe['files'] + recipe['notices']) > MAX_TOTAL_BYTES:
         raise VendorError('selected files exceed total size bound')
-    fields = ('path', 'sha256', 'component_id', 'inventory_ref', 'dependencies')
+    fields = ('path', 'sha256', 'component_id', 'inventory_ref')
     closure = {'schema_version': 1, 'model_sha256': model_sha256,
                'stock_build': recipe['stock_build'], 'region': recipe['region'],
-               'artifacts': [dict({k: i[k] for k in fields}, source_or_prebuilt='prebuilt')
-                             for i in sorted(recipe['files'], key=lambda i: i['path'])],
+               'artifacts': [dict({k: i[k] for k in fields}, source_or_prebuilt='prebuilt',
+                                  dependencies=[link_destination(i)] if 'target' in i else i['dependencies'])
+                             for i in sorted(selected, key=lambda i: i['path'])],
                'component_results': []}
     for component in model['fp6_components']:
-        owned = sorted(i['path'] for i in recipe['files'] if i['component_id'] == component['id'])
+        owned = sorted(i['path'] for i in selected if i['component_id'] == component['id'])
         closure['component_results'].append({'component_id': component['id'],
                                             'presence': 'present' if owned else 'absent',
                                             'artifact_paths': owned})
@@ -144,10 +182,14 @@ def generate(recipe, inputs, output, *, model, sources, environment,
     closure = selection(recipe, model, sources, environment, model_sha256, source_sha256, public)
     recipe = dict(recipe, files=sorted(recipe['files'], key=lambda i: i['path']),
                   notices=sorted(recipe['notices'], key=lambda i: i['sha256']))
+    if 'symlinks' in recipe:
+        recipe['symlinks'] = sorted(recipe['symlinks'], key=lambda i: i['path'])
     identity = hashlib.sha256(encoded(recipe)).hexdigest()
     manifest = {'operation': 'selected-stock-files', 'recipe_sha256': identity,
                 'recipe': recipe, 'product_graph_validated': False}
     metadata = {'manifest.json': encoded(manifest), 'component-closure.json': encoded(closure)}
+    if recipe.get('symlinks'):
+        metadata['symlinks.json'] = encoded({'schema_version': 1, 'symlinks': recipe['symlinks']})
     records = {name: {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
                for name, data in metadata.items()}
     for item in recipe['files']:
@@ -172,6 +214,8 @@ def generate(recipe, inputs, output, *, model, sources, environment,
         with tempfile.TemporaryDirectory(prefix='.generate-', dir=generations) as temporary:
             tree = Path(temporary) / 'tree'
             tree.mkdir(mode=0o750)
+            for item in recipe.get('symlinks', []):
+                verify_symlink(inputs, item)
             for item in recipe['files']:
                 copy_verified(inputs, item, tree / 'files' / item['path'])
             for item in recipe['notices']:
@@ -193,5 +237,6 @@ def generate(recipe, inputs, output, *, model, sources, environment,
                 os.replace(link, current)
     return {'operation': 'selected-stock-files', 'status': 'PASS',
             'recipe_sha256': identity, 'file_count': len(recipe['files']),
-            'notice_count': len(recipe['notices']), 'product_graph_validated': False,
+            'notice_count': len(recipe['notices']), 'symlink_count': len(recipe.get('symlinks', [])),
+            'product_graph_validated': False,
             'scope': 'public-component-policy' if public else 'private-bringup'}
