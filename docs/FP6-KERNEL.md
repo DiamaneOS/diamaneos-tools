@@ -59,6 +59,9 @@ No check here proves actual module insertion, firmware execution or device boot.
 
 The development baseline is Linux 6.1.129, while the selected stock reports
 6.1.138. This gap remains a maintenance and device-compatibility obligation.
+Effective device-tree boot arguments also require production review: the pinned
+source includes `kpti=0` and debugging/tuning options. Configuration-file checks
+do not validate the resulting command line.
 Production configuration validation deliberately rejects four inherited settings:
 SELinux development support, unrestricted debugfs, debugfs mount availability
 and unrestricted dmesg. Enforcing USER policy does not make those kernel settings
