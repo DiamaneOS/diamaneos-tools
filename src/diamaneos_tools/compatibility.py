@@ -311,26 +311,27 @@ def _archive_inputs(archive, package, destination=None):
             expanded = 0
             for member, relative, executable in files:
                 if stat.S_ISLNK(member.external_attr >> 16):
-                    notice_root = next((prefix for prefix in (
-                        "jdk/legal/", "android-cts-v-host/jdk/legal/")
+                    link_root = next((prefix for prefix in (
+                        "jdk/legal/", "android-cts-v-host/jdk/legal/",
+                        "CameraITS/tests/")
                         if relative.as_posix().startswith(prefix)), None)
-                    if notice_root is None or member.file_size > 4096:
-                        raise CompatibilityError("archive symlink is not a bounded JDK notice")
+                    if link_root is None or member.file_size > 4096:
+                        raise CompatibilityError("archive symlink is outside supported bounded subtrees")
                     try:
                         link = bundle.read(member).decode("utf-8")
                     except UnicodeError:
-                        raise CompatibilityError("invalid JDK notice link") from None
+                        raise CompatibilityError("invalid archive link") from None
                     target = posixpath.normpath(posixpath.join(str(relative.parent), link))
                     if (not link or link.startswith("/") or "\\" in link
-                            or not target.startswith(notice_root)):
-                        raise CompatibilityError("JDK notice link escapes its notice tree")
+                            or not target.startswith(link_root)):
+                        raise CompatibilityError("archive link escapes its approved subtree")
                     try:
                         member = bundle.getinfo(package["extracted_directory"] + "/" + target)
                     except KeyError:
-                        raise CompatibilityError("JDK notice link target is missing") from None
+                        raise CompatibilityError("archive link target is missing") from None
                     if (member.is_dir() or stat.S_IFMT(member.external_attr >> 16)
                             not in (0, stat.S_IFREG)):
-                        raise CompatibilityError("JDK notice link target is not a regular file")
+                        raise CompatibilityError("archive link target is not a regular file")
                     executable = bool((member.external_attr >> 16) & 0o111)
                 expanded += member.file_size
                 if expanded > MAX_TREE_BYTES:

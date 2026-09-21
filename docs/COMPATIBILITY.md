@@ -202,9 +202,9 @@ bin/diamaneos test compatibility --extract-package \
 ```
 
 The extractor rejects traversal, duplicate members, special files and
-size/count overflows. The official bundled JDK uses relative licence-notice
-links; only links beneath `jdk/legal` to regular files in that same archive
-subtree are materialized as copies of the referenced text. Escaping, dangling,
+size/count overflows. Official archives use relative links in `jdk/legal`,
+`android-cts-v-host/jdk/legal` and `CameraITS/tests`. Only links to regular
+files within the same approved subtree are materialized as copies. Escaping, dangling,
 chained and other symlinks fail. The extracted tree contains no symlinks. Inspection compares every input's contents, size and
 executable bit with the approved ZIP. Only top-level `results` and `logs` are
 excluded as generated outputs; replacing those roots with symlinks is rejected.
