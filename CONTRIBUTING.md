@@ -40,6 +40,26 @@ boundary. Keep one-off diagnosis, deployment glue and raw evidence in the
 private runbook rather than turning them into public framework code. Security
 boundaries and reproducibility checks are not optional simplification targets.
 
+## Device security policy
+
+Keep SELinux enforcing and native neverallow checks enabled. Each device-specific
+permission must identify the selected implementation, the operation it performs,
+the labelled resource or IPC endpoint, and the domain that needs access. Prefer
+that service domain to a HAL-wide attribute that can also contain passthrough
+clients. Review effective compiled permissions, including inherited grants.
+
+Do not import stock policy wholesale, apply denial-to-allow output blindly, add
+unused services to satisfy policy references, or weaken checks to make a build
+pass. Removing a permission does not establish that a feature still works:
+verify the affected startup, IPC and hardware behavior. Keep untested behavior
+explicit until native and device checks provide the required evidence.
+
+Check production `user` policy separately and require zero permissive domains.
+Record any inherited development-only exception in `userdebug` qualification;
+it is not production acceptance or permission to make hardware domains
+permissive. A successful policy compilation proves neither least privilege nor
+runtime functionality.
+
 ## Upstream licences
 
 Every open-source component that is forked, copied, modified, linked, packaged
