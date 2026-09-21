@@ -231,3 +231,8 @@ installs its test APK and cleans it up; the CTS plan also changes package
 verification settings temporarily. These settings must be captured and restored
 on the disposable harness. This trial does not require media, SIM or manual
 hardware fixtures and does not count as a full CTS qualification.
+
+The official report writer creates a `results/latest` symlink and may create
+ZIP exports alongside session directories. Collection counts real session
+directories only and permits `latest` solely when it resolves to a directory
+directly within the same results root. Escaping or dangling aliases fail.
