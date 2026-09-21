@@ -146,7 +146,8 @@ The private job and setup files are owned by `diamaneos-build`, mode `0640`, at
   "run_id": "<same-as-systemd-instance>",
   "profile_id": "<approved-profile>",
   "timeout_seconds": 7200,
-  "retry_result": null
+  "retry_result": null,
+  "connection_mode": "direct-usb"
 }
 ```
 
@@ -159,7 +160,15 @@ option. Raw results remain beneath
 `/var/lib/diamaneos-build/compatibility/runs`.
 
 The builder owns the USB-only ADB server while a compatibility trial is in
-scope. Move the qualified rig and disposable FP6 to this host only after the
+scope. An explicit `direct-usb` job (CLI `--direct-usb`) uses the private
+identity map, single-target checks, candidate/setup binding and role lock without
+querying or controlling hub power. A USB topology node alone does not establish
+a qualified controllable rig. Use this mode for a directly attached disposable
+phone, with no separate controller managing its power. Records identify the
+connection mode.
+
+A `rig` job (the default for existing jobs) retains the qualified rig guard and
+persistent maintenance inhibitor. Move the qualified rig and disposable FP6 to this host only after the
 test-host battery controller is cleanly disabled. The builder uses a separate
 private device map and rig configuration; copying a host-specific USB path or
 serial from the tester is not permitted. Stop the builder ADB service and move

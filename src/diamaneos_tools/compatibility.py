@@ -645,10 +645,13 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
     started_at_utc = _utc_now()
     if not args.run_id or not ID_RE.fullmatch(args.run_id):
         raise CompatibilityError("trial requires a valid immutable run id")
-    if not all((args.target, args.device_role, args.device_map, args.rig_config,
+    if not all((args.target, args.device_role, args.device_map,
                 args.output, args.package_root, args.archive,
                 args.setup_record)):
         raise CompatibilityError("trial is missing a required target, package or output")
+    direct_usb = getattr(args, "direct_usb", False)
+    if bool(args.rig_config) == bool(direct_usb):
+        raise CompatibilityError("select exactly one connection: rig configuration or direct USB", 3)
     profile = _profile(config, args.profile)
     if (profile["package_id"] is None or profile["module"] is None
             or profile["test"] is None or not profile["status"].startswith("ready")):
@@ -688,16 +691,22 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise CompatibilityError("physical target is already locked", 3) from None
-        guard = rig.acquire_test_start_guard(
-            args.rig_config, args.device_role, args.device_map, args.target)
-        try:
+        if direct_usb:
+            # Direct attachment has no authorized hub power controller.
+            _require_single_attached_target(device.authorized_devices(args.adb), args.target)
             partial.mkdir(mode=0o750)
             (partial / "raw").mkdir(mode=0o750)
-            controller = guard.controller
-            guard.acquire_inhibitor(lease_id, "compatibility-trial")
-            lease_active = True
-        finally:
-            guard.release()
+        else:
+            guard = rig.acquire_test_start_guard(
+                args.rig_config, args.device_role, args.device_map, args.target)
+            try:
+                partial.mkdir(mode=0o750)
+                (partial / "raw").mkdir(mode=0o750)
+                controller = guard.controller
+                guard.acquire_inhibitor(lease_id, "compatibility-trial")
+                lease_active = True
+            finally:
+                guard.release()
 
         identity = {}
         for name, prop in (("release", "ro.build.version.release"),
@@ -767,6 +776,7 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
             "operation": "compatibility-trial",
             "run_id": args.run_id,
             "status": parsed["status"],
+            "connection_mode": "direct-usb" if direct_usb else "rig",
             "profile_id": args.profile,
             "registry_id": config["registry_id"],
             "package": package_proof,
@@ -789,8 +799,9 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
         }
         _atomic_json(partial / "result.json", report)
         try:
-            controller.release_inhibitor(args.device_role, lease_id)
-            lease_active = False
+            if lease_active:
+                controller.release_inhibitor(args.device_role, lease_id)
+                lease_active = False
         except rig.RigError:
             report["status"] = "HARNESS_ERROR"
             report["parsed_result"] = {
@@ -821,6 +832,7 @@ def execute_trial(args, config: dict) -> tuple[int, Path]:
                 "operation": "compatibility-trial",
                 "run_id": args.run_id,
                 "status": "HARNESS_ERROR",
+                "connection_mode": "direct-usb" if direct_usb else "rig",
                 "profile_id": args.profile,
                 "registry_id": config["registry_id"],
                 "package": package_proof,
@@ -885,7 +897,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target")
     parser.add_argument("--device-role")
     parser.add_argument("--device-map")
-    parser.add_argument("--rig-config")
+    connection = parser.add_mutually_exclusive_group()
+    connection.add_argument("--rig-config")
+    connection.add_argument("--direct-usb", action="store_true",
+                            help="identity-bound direct attachment without hub power control")
     parser.add_argument("--output")
     parser.add_argument("--rerun-from")
     parser.add_argument("--adb", default="adb")
