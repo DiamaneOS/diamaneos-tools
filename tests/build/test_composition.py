@@ -95,3 +95,50 @@ class CompositionTests(unittest.TestCase):
     def test_composition_schema_rejects_unknown_fields(self):
         changed=copy.deepcopy(self.config);changed['composition']['allow_dirty']=True
         with self.assertRaises(build.BuildError):build.validate_config(changed)
+
+    def branch_overlay(self):
+        overlay = self.overlay.replace(b'fetch="https://example.invalid/device/"',
+            b'fetch="https://example.invalid/device/" revision="android17"')
+        overlay = overlay.replace(b' revision="' + b'b'*40 + b'"', b'')
+        self.path.write_bytes(overlay)
+        self.config['composition']['overlay_sha256'] = hashlib.sha256(overlay).hexdigest()
+        self.config['composition']['resolved_revisions'] = {'device/example/phone': 'b'*40}
+        return overlay
+
+    def test_remote_branch_inheritance_is_resolved_from_environment(self):
+        self.branch_overlay()
+        build.validate_config(self.config)
+        composed = build.compose_source_manifest(self.config, self.source, self.base)
+        self.assertEqual(build.parse_project_map(self.combined), build.parse_project_map(composed))
+
+    def test_branch_requires_exact_resolution(self):
+        self.branch_overlay()
+        del self.config['composition']['resolved_revisions']
+        with self.assertRaisesRegex(build.BuildError, 'lacks an exact'):
+            build.compose_source_manifest(self.config, self.source, self.base)
+
+    def test_advanced_branch_commit_requires_new_map(self):
+        self.branch_overlay()
+        self.config['composition']['resolved_revisions']['device/example/phone'] = 'e'*40
+        with self.assertRaisesRegex(build.BuildError, 'project map'):
+            build.compose_source_manifest(self.config, self.source, self.base)
+
+    def test_unused_resolution_is_rejected(self):
+        self.branch_overlay()
+        self.config['composition']['resolved_revisions']['device/unexpected'] = 'e'*40
+        with self.assertRaisesRegex(build.BuildError, 'unused resolved'):
+            build.compose_source_manifest(self.config, self.source, self.base)
+
+    def test_resolution_cannot_itself_be_a_branch(self):
+        self.branch_overlay()
+        self.config['composition']['resolved_revisions']['device/example/phone'] = 'android17'
+        with self.assertRaisesRegex(build.BuildError, 'immutable digest'):
+            build.validate_config(self.config)
+
+    def test_explicit_project_branch_overrides_remote_default(self):
+        overlay = self.branch_overlay().replace(b'remote="downstream"',
+            b'remote="downstream" revision="integration"')
+        self.path.write_bytes(overlay)
+        self.config['composition']['overlay_sha256'] = hashlib.sha256(overlay).hexdigest()
+        composed = build.compose_source_manifest(self.config, self.source, self.base)
+        self.assertEqual(build.parse_project_map(self.combined), build.parse_project_map(composed))

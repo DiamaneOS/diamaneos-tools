@@ -417,7 +417,15 @@ hash authenticates the installed `.repo/local_manifests/diamaneos.xml` bytes.
 The map/count describe the entire composed checkout. The `upstream` record
 continues to bind the independently authenticated GrapheneOS release.
 
-Only additive HTTPS remotes and explicitly pinned projects are supported.
+Only additive HTTPS remotes and explicitly resolved projects are supported.
+Development overlays may put an Android branch on the owned remote and let
+projects inherit it. An immutable environment then records `resolved_revisions`,
+a map from each moving project's checkout path to its exact 40-character commit.
+Obtain those commits from the reviewed `repo manifest -r` output; changing a
+resolution requires a new environment identity and composed project-map digest.
+Preflight performs no network resolution and rejects missing, unused or moving
+resolution values. Exact upstream revisions need no redundant map entries.
+Release manifests pin project revisions; development manifests track branches.
 Upstream replacements, nested/overlapping projects, manifest includes,
 copy/link exports in the overlay, extra local manifests and symlinks are
 rejected. Full preflight checks the composed project revisions, clean trees,

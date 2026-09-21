@@ -93,8 +93,18 @@ def validate_config(config: dict) -> None:
     if "composition" in config:
         expected_root.add("composition")
         composition = config["composition"]
-        _require_keys(composition, {"overlay_sha256", "overlay_revision",
-                                   "project_count", "project_map_sha256"}, "composition")
+        composition_keys = {"overlay_sha256", "overlay_revision",
+                            "project_count", "project_map_sha256"}
+        if "resolved_revisions" in composition:
+            composition_keys.add("resolved_revisions")
+            revisions = composition["resolved_revisions"]
+            if not isinstance(revisions, dict) or not revisions:
+                raise BuildError("invalid resolved overlay revisions")
+            for path, revision in revisions.items():
+                if not _source_relative_path(path):
+                    raise BuildError("invalid resolved overlay project path")
+                _require_sha(revision, "resolved overlay revision", SHA1_RE)
+        _require_keys(composition, composition_keys, "composition")
         for key in ("overlay_sha256", "project_map_sha256"):
             if not isinstance(composition[key], str) or not SHA256_RE.fullmatch(composition[key]):
                 raise BuildError("invalid composition digest")
@@ -516,18 +526,32 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
     remotes = {entry.get("name") for entry in base.findall("remote")}
     paths = {entry.get("path", entry.get("name")) for entry in base.findall("project")}
     names = {entry.get("name") for entry in base.findall("project")}
+    revisions = composition.get("resolved_revisions", {})
+    used_revisions, remote_revisions = set(), {}
     for entry in addition:
         if entry.tag == "remote":
-            if (set(entry.attrib) != {"name", "fetch"} or len(entry)
+            if (set(entry.attrib) not in ({"name", "fetch"}, {"name", "fetch", "revision"}) or len(entry)
                     or not SAFE_ID_RE.fullmatch(entry.get("name", ""))
                     or not entry.get("fetch", "").startswith("https://")
                     or entry.get("name") in remotes):
                 raise BuildError("invalid or redefined overlay remote")
+            if "revision" in entry.attrib:
+                if not _source_relative_path(entry.get("revision")):
+                    raise BuildError("invalid remote revision")
+                remote_revisions[entry.get("name")] = entry.get("revision")
             remotes.add(entry.get("name"))
         elif entry.tag == "project":
-            if set(entry.attrib) != {"name", "path", "remote", "revision"} or len(entry):
+            if set(entry.attrib) not in ({"name", "path", "remote", "revision"},
+                                         {"name", "path", "remote"}) or len(entry):
                 raise BuildError("overlay projects must be explicit and contain no exports")
             name, project_path = entry.get("name"), entry.get("path")
+            revision = entry.get("revision", remote_revisions.get(entry.get("remote"), ""))
+            if not SHA1_RE.fullmatch(revision):
+                if not _source_relative_path(revision) or project_path not in revisions:
+                    raise BuildError("moving overlay revision lacks an exact environment resolution")
+                revision = revisions[project_path]
+                used_revisions.add(project_path)
+            entry.set("revision", revision)
             if (not _source_relative_path(name) or not _source_relative_path(project_path)
                     or not SHA1_RE.fullmatch(entry.get("revision", ""))
                     or entry.get("remote") not in remotes or name in names
@@ -541,6 +565,8 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
         else:
             raise BuildError("only additive remote and project entries are supported")
         base.append(entry)
+    if used_revisions != set(revisions):
+        raise BuildError("unused resolved overlay revisions")
     composed = ET.tostring(base, encoding="utf-8")
     rows, digest = parse_project_map(composed)
     if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
