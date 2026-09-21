@@ -39,7 +39,7 @@ SCHEMA = ROOT / "schemas" / "test-suites.schema.json"
 MAX_CONFIG_BYTES = 2 * 1024 * 1024
 MAX_RESULT_XML_BYTES = 64 * 1024 * 1024
 MAX_TREE_FILES = 100_000
-MAX_TREE_BYTES = 32 * 1024 * 1024 * 1024
+MAX_TREE_BYTES = 64 * 1024 * 1024 * 1024
 MAX_STREAM_BYTES = 16 * 1024 * 1024
 MAX_REPORT_BYTES = 4 * 1024 * 1024
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
@@ -311,7 +311,10 @@ def _archive_inputs(archive, package, destination=None):
             expanded = 0
             for member, relative, executable in files:
                 if stat.S_ISLNK(member.external_attr >> 16):
-                    if relative.parts[:2] != ("jdk", "legal") or member.file_size > 4096:
+                    notice_root = next((prefix for prefix in (
+                        "jdk/legal/", "android-cts-v-host/jdk/legal/")
+                        if relative.as_posix().startswith(prefix)), None)
+                    if notice_root is None or member.file_size > 4096:
                         raise CompatibilityError("archive symlink is not a bounded JDK notice")
                     try:
                         link = bundle.read(member).decode("utf-8")
@@ -319,7 +322,7 @@ def _archive_inputs(archive, package, destination=None):
                         raise CompatibilityError("invalid JDK notice link") from None
                     target = posixpath.normpath(posixpath.join(str(relative.parent), link))
                     if (not link or link.startswith("/") or "\\" in link
-                            or not target.startswith("jdk/legal/")):
+                            or not target.startswith(notice_root)):
                         raise CompatibilityError("JDK notice link escapes its notice tree")
                     try:
                         member = bundle.getinfo(package["extracted_directory"] + "/" + target)

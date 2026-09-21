@@ -142,6 +142,8 @@ class CompatibilityTest(unittest.TestCase):
             launcher.parent.mkdir(parents=True)
             launcher.write_text("#!/bin/sh\nexit 0\n")
             launcher.chmod(0o755)
+            self.config["packages"][0]["acquisition_status"] = "pending-verified-download"
+            self.config["packages"][0]["archive_sha256"] = None
             with self.assertRaisesRegex(api.CompatibilityError, "not yet approved"):
                 api.inspect_package(self.config, "cts-17-r2-arm", archive,
                                     package_root)
@@ -307,29 +309,30 @@ class CompatibilityTest(unittest.TestCase):
 
     def test_jdk_notice_links_materialize_but_unsafe_links_fail(self):
         package = {"extracted_directory": "android-cts"}
-        for target, valid in (("../java.base/LICENSE", True),
-                              ("../../../../outside", False),
-                              ("/etc/passwd", False),
-                              ("../java.base/missing", False),
-                              ("LICENSE", False)):
-            with self.subTest(target=target), tempfile.TemporaryDirectory() as temp:
-                root = Path(temp)
-                archive = root / "suite.zip"
-                with zipfile.ZipFile(archive, "w") as out:
-                    out.writestr("android-cts/jdk/legal/java.base/LICENSE", b"license text")
-                    link = zipfile.ZipInfo("android-cts/jdk/legal/java.compiler/LICENSE")
-                    link.external_attr = 0o120777 << 16
-                    out.writestr(link, target)
-                if not valid:
-                    with self.assertRaises(api.CompatibilityError):
-                        api._archive_inputs(archive, package, root / "out")
-                    continue
-                records = api._archive_inputs(archive, package, root / "out")
-                notice = root / "out/android-cts/jdk/legal/java.compiler/LICENSE"
-                self.assertFalse(notice.is_symlink())
-                self.assertEqual(b"license text", notice.read_bytes())
-                tree, _ = api._safe_tree(root / "out/android-cts")
-                self.assertEqual(records, tree)
+        for prefix in ("", "android-cts-v-host/"):
+            for target, valid in (("../java.base/LICENSE", True),
+                                  ("../../../../outside", False),
+                                  ("/etc/passwd", False),
+                                  ("../java.base/missing", False),
+                                  ("LICENSE", False)):
+                with self.subTest(target=target), tempfile.TemporaryDirectory() as temp:
+                    root = Path(temp)
+                    archive = root / "suite.zip"
+                    with zipfile.ZipFile(archive, "w") as out:
+                        out.writestr(f"android-cts/{prefix}jdk/legal/java.base/LICENSE", b"license text")
+                        link = zipfile.ZipInfo(f"android-cts/{prefix}jdk/legal/java.compiler/LICENSE")
+                        link.external_attr = 0o120777 << 16
+                        out.writestr(link, target)
+                    if not valid:
+                        with self.assertRaises(api.CompatibilityError):
+                            api._archive_inputs(archive, package, root / "out")
+                        continue
+                    records = api._archive_inputs(archive, package, root / "out")
+                    notice = root / f"out/android-cts/{prefix}jdk/legal/java.compiler/LICENSE"
+                    self.assertFalse(notice.is_symlink())
+                    self.assertEqual(b"license text", notice.read_bytes())
+                    tree, _ = api._safe_tree(root / "out/android-cts")
+                    self.assertEqual(records, tree)
 
     def test_tradefed_mode_is_fixed_for_direct_execution(self):
         result = api._bounded_process([sys.executable, "-c",
