@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "fp6-android14-6-1-development-baseline-v1",
+  "baseline": {
+    "CONFIG_CFI_CLANG": "y",
+    "CONFIG_CFI_PERMISSIVE": "n",
+    "CONFIG_SHADOW_CALL_STACK": "y",
+    "CONFIG_HARDENED_USERCOPY": "y",
+    "CONFIG_FORTIFY_SOURCE": "y",
+    "CONFIG_INIT_STACK_ALL_ZERO": "y",
+    "CONFIG_INIT_ON_ALLOC_DEFAULT_ON": "y",
+    "CONFIG_RANDOMIZE_BASE": "y",
+    "CONFIG_MODULE_FORCE_LOAD": "n",
+    "CONFIG_MODVERSIONS": "y",
+    "CONFIG_MODULE_SIG": "y",
+    "CONFIG_MODULE_SIG_PROTECT": "y",
+    "CONFIG_SECURITY_SELINUX": "y",
+    "CONFIG_DEVMEM": "n"
+  },
+  "production": {
+    "CONFIG_SECURITY_SELINUX_DEVELOP": "n",
+    "CONFIG_SECURITY_DMESG_RESTRICT": "y",
+    "CONFIG_DEBUG_FS_ALLOW_ALL": "n",
+    "CONFIG_DEBUG_FS_DISALLOW_MOUNT": "y"
+  }
+}

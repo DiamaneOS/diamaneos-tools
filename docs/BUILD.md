@@ -454,3 +454,24 @@ reuse. Keep that object store available while referenced checkouts depend on it;
 an object reference is neither an independent backup nor build evidence.
 Generated hardware inputs must also receive their own declared provenance;
 source composition alone does not accept a device build.
+
+### Kernel configuration checks
+
+Check the generated kernel `.config` against an explicit policy before packaging:
+
+```sh
+bin/diamaneos build kernel-config --config "$KERNEL_CONFIG" \
+  --policy config/kernel-policy-fp6.json --profile development
+```
+
+`KERNEL_CONFIG` names the effective configuration produced by the kernel build.
+The FP6 policy requires a minimum hardening baseline for both profiles. The
+`production` profile additionally rejects the declared permissive/debug settings;
+the development profile reports those differences without accepting them for
+production. Missing required symbols and duplicate assignments fail closed.
+The report binds the configuration and policy by hash.
+
+This is a compile-time regression check, not complete production hardening or
+kernel acceptance. Module signatures, selected providers, KMI/UAPI, firmware,
+device trees and runtime behavior need their own evidence. GKI module protection
+is distinct from requiring every vendor module to use the GKI signing key.
