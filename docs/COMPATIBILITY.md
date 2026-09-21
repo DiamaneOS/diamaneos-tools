@@ -298,11 +298,18 @@ The CTS R2 download label must not be substituted for this VTS source version.
 `test/vts-testcase` contains multiple Repo projects; resolve their individual
 revisions rather than treating the parent as a Git checkout.
 
-These source bindings do not establish a built VTS archive or runnable inventory.
-Build the suite in the candidate's pinned source/environment, retain its archive
-hash and generated module inventory, and match vendor/VINTF/build configuration
-before enabling execution. The registry remains `pending-source-build` until
-that evidence exists. For root-dependent cases, preserve a separately labelled
+The registry now pins the derived ARM64 VTS package built from this source:
+4,715 archive files and 389 configurations, reconciled with the generated test
+list. Build provenance records the one-line LTP `HAVE_EXECVEAT` correction:
+the pinned Bionic already declares and exports that function, so LTP must not
+redeclare its static fallback. No test assertion or configuration was removed.
+The incremental package build passed source checks before and after compilation;
+it is neither a clean-build qualification nor an unchanged official binary
+suite. Archive, source-map, recipe, evidence and patch hashes are in the package
+registry. Its acquisition status describes package preparation only.
+
+Match vendor/VINTF/build configuration before enabling candidate execution.
+For root-dependent cases, preserve a separately labelled
 diagnostic companion; it cannot establish locked-user properties. See the
 [VTS setup requirements](https://source.android.com/docs/core/tests/vts/setup11).
 

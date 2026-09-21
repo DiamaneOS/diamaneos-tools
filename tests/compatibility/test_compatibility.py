@@ -162,6 +162,72 @@ class CompatibilityTest(unittest.TestCase):
                 api.inspect_package(changed, package["id"], archive,
                                     package_root)
 
+    def test_source_built_package_requires_provenance_and_retains_it_in_proof(self):
+        package = next(p for p in self.config["packages"] if p["kind"] == "vts")
+        package.pop("source_build", None)
+        package.update(acquisition_status="verified", version="17_r1",
+                       archive_name="android-vts.zip")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / package["archive_name"]
+            with zipfile.ZipFile(archive, "w") as bundle:
+                entry = zipfile.ZipInfo("android-vts/tools/vts-tradefed")
+                entry.external_attr = 0o100755 << 16
+                bundle.writestr(entry, "#!/bin/sh\nexit 0\n")
+            package["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(api.CompatibilityError, "provenance"):
+                api.extract_package(self.config, package["id"], archive, root / "output")
+            self.assertFalse((root / "output").exists())
+            package["source_build"] = {
+                "environment_id": "synthetic-suite-v1", "project_map_sha256": "1" * 64,
+                "recipe_sha256": "2" * 64, "evidence_sha256": "3" * 64,
+                "source_changes": [{"project": "external/example",
+                                    "base_revision": "4" * 40,
+                                    "derived_revision": "5" * 40,
+                                    "patch_sha256": "6" * 64}],
+            }
+            self.assertEqual([], api._validate_registry(self.config))
+            proof = api.extract_package(self.config, package["id"], archive, root / "output")
+            self.assertEqual("pinned-source-build", proof["delivery"])
+            self.assertEqual(package["source_build"], proof["source_build"])
+            archive.write_bytes(b"changed")
+            with self.assertRaisesRegex(api.CompatibilityError, "hash mismatch"):
+                api.inspect_package(self.config, package["id"], archive, root / "output")
+
+    def test_suite_entity_validation_precedes_extraction_publication(self):
+        package = self.config["packages"][0]
+        for declaration, succeeds in [('"/data/local/tmp/synthetic"', True),
+                                      ('SYSTEM "file:///etc/passwd"', False)]:
+            with self.subTest(declaration=declaration), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                archive = root / package["archive_name"]
+                with zipfile.ZipFile(archive, "w") as bundle:
+                    launcher = zipfile.ZipInfo(package["extracted_directory"] + "/" + package["launcher"])
+                    launcher.external_attr = 0o100755 << 16
+                    bundle.writestr(launcher, "#!/bin/sh\nexit 0\n")
+                    bundle.writestr(package["extracted_directory"] + "/testcases/test.config",
+                                    '<!DOCTYPE configuration [<!ENTITY dir ' + declaration +
+                                    '>]><configuration><option name="path" value="&dir;"/>' +
+                                    '<test class="example.Runner"/></configuration>')
+                package["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+                destination = root / "output"
+                if succeeds:
+                    proof = api.extract_package(self.config, package["id"], archive, destination)
+                    self.assertEqual(1, proof["config_count"])
+                else:
+                    with self.assertRaises(api.CompatibilityError):
+                        api.extract_package(self.config, package["id"], archive, destination)
+                    self.assertFalse(destination.exists())
+
+    def test_source_build_provenance_cannot_be_attached_to_official_download(self):
+        package = self.config["packages"][0]
+        package["source_build"] = {"environment_id": "synthetic-suite-v1",
+                                  "project_map_sha256": "1" * 64,
+                                  "recipe_sha256": "2" * 64,
+                                  "evidence_sha256": "3" * 64,
+                                  "source_changes": []}
+        self.assertTrue(api._validate_registry(self.config))
+
     def test_authenticated_extraction_rejects_changed_missing_extra_or_mode_inputs(self):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
@@ -252,7 +318,12 @@ class CompatibilityTest(unittest.TestCase):
                              "PYTHONDONTWRITEBYTECODE": "1"})
         self.assertEqual(0, result.returncode, result.stderr)
         plan = json.loads(result.stdout)
-        self.assertEqual("BLOCKED", plan["status"])
+        self.assertEqual("VALID", plan["status"])
+        self.assertEqual([], plan["pending_package_ids"])
+        self.config["packages"][0]["acquisition_status"] = "pending-verified-download"
+        pending = api._dry_run(self.config, None)
+        self.assertEqual("BLOCKED", pending["status"])
+        self.assertEqual([self.config["packages"][0]["id"]], pending["pending_package_ids"])
         self.assertEqual(0, plan["device_commands_executed"])
         self.assertEqual(before,
                          (TOOLS / "config" / "test-suites.json").read_bytes())
