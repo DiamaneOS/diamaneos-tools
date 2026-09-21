@@ -49,7 +49,7 @@ A pinned manifest and endpoint contract feed a reproducible build. The build pro
 
 ## Source-layout decisions
 
-The accepted build authenticates the upstream release and resolved project map directly. The local-manifest repository currently contains no projects and is not consumed by environment v4. When the first downstream project or fork is added, bind the overlay commit and digest in a new environment and validate the composed map in the consuming build workflow. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.
+The accepted build authenticates the upstream release and resolved project map directly. The local-manifest repository now pins the initial FP6 device and shared product projects; environment v4 remains upstream-only. A consuming environment must bind the overlay commit, digest and composed map. Build preflight supports explicitly declared additive composition while preserving upstream signature and source-layout checks. Add repositories or services only when actual integration needs them. Remove unused reference dependencies with a recorded rationale; regenerate derived content from its reviewed inputs.
 
 The FP6 port consumes two separate upstream trees: QSSI for the common system
 side and the Fairphone target tree for device, kernel, module and vendor-side

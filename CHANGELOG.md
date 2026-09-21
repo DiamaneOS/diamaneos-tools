@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Authenticate an explicitly pinned additive source overlay while preserving
+  upstream release verification and rejecting undeclared source inputs.
+
 - Add selected stock-file generation with exact hashes, component-policy and
   dependency validation, retained image metadata and notices, and atomic
   publication. Reject unsafe paths and preserve prior output after failure.

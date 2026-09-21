@@ -201,11 +201,12 @@ class BuildEnvironmentTests(unittest.TestCase):
             })
             (project / "untracked.txt").write_text("dirty\n", encoding="utf-8")
 
+            resolved_manifest = manifest
             original_run = build._run
 
             def fixture_run(command, cwd=None, env=None, timeout=120):
                 if command[:3] == ["repo", "manifest", "-r"]:
-                    return subprocess.CompletedProcess(command, 0, manifest, b"")
+                    return subprocess.CompletedProcess(command, 0, resolved_manifest, b"")
                 if "verify-tag" in command:
                     text = ("Good signature for fixture@example.invalid "
                             "with key SHA256:fixture\n").encode()
@@ -218,6 +219,40 @@ class BuildEnvironmentTests(unittest.TestCase):
                 (project / "untracked.txt").unlink()
                 self.assertTrue(build.verify_manifest_checkout(
                     config, source, allowed)["source_layout_verified"])
+                # Exercise the full caller with a pinned additive checkout.
+                import shutil
+                extra = source / "device/example"
+                extra.parent.mkdir()
+                subprocess.run(["git", "clone", "-q", str(project), str(extra)], check=True)
+                overlay = ("<manifest><project name='extra' path='device/example' "
+                           f"remote='fixture' revision='{revision}'/></manifest>").encode()
+                local = source / ".repo/local_manifests"
+                local.mkdir()
+                (local / "diamaneos.xml").write_bytes(overlay)
+                resolved_manifest = manifest.replace(b"</manifest>",
+                    overlay.removeprefix(b"<manifest>"))
+                composed_rows, composed_hash = build.parse_project_map(resolved_manifest)
+                config["composition"] = {
+                    "overlay_revision": "c" * 40,
+                    "overlay_sha256": hashlib.sha256(overlay).hexdigest(),
+                    "project_count": len(composed_rows),
+                    "project_map_sha256": composed_hash,
+                }
+                self.assertEqual(2, build.verify_manifest_checkout(
+                    config, source, allowed)["resolved_project_count"])
+                good_resolved = resolved_manifest
+                resolved_manifest = resolved_manifest.replace(
+                    b"https://example.invalid/", b"https://other.invalid/")
+                with self.assertRaisesRegex(build.BuildError, "remotes differ"):
+                    build.verify_manifest_checkout(config, source, allowed)
+                resolved_manifest = good_resolved
+                (extra / "untracked.txt").write_text("untrusted")
+                with self.assertRaisesRegex(build.BuildError, "dirty or untracked"):
+                    build.verify_manifest_checkout(config, source, allowed)
+                shutil.rmtree(extra.parent)
+                shutil.rmtree(local)
+                del config["composition"]
+                resolved_manifest = manifest
                 rogue = source / "vendor/google/security/adb/vendor_key.mk"
                 rogue.parent.mkdir(parents=True)
                 rogue.write_text("undeclared optional include\n")
