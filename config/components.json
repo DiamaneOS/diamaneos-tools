@@ -123,7 +123,7 @@
       "notices_obligation": "Distribute LICENSE and applicable NOTICE/attribution; preserve separate imported licence texts and notices. Source contributions retain their actual copyright ownership.",
       "owner_task": "FP6-002",
       "revision": "Repository revision containing the applicable LICENSE, attribution records and source files",
-      "source_url": "https://codeberg.org/DiamaneOS/diamaneos-tools",
+      "source_url": "https://github.com/DiamaneOS/diamaneos-tools",
       "status": "repository-default-documented"
     },
     {

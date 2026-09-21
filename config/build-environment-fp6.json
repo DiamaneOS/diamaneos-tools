@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v2",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v3",
   "scope": "Candidate FP6 source composition; product graph, generated hardware inputs and native build are not yet qualified.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -74,9 +74,9 @@
     }
   },
   "workspace": {
-    "source_subdirectory": "src/diamaneos-fp6-android17-v2",
+    "source_subdirectory": "src/diamaneos-fp6-android17-v3",
     "cache_subdirectory": "cache",
-    "output_subdirectory": "src/diamaneos-fp6-android17-v2/out",
+    "output_subdirectory": "src/diamaneos-fp6-android17-v3/out",
     "roots_must_be_distinct": true,
     "source_and_output_must_not_be_nested": false,
     "cache_policy": "Download and compiler caches may be reused only as performance inputs. They are excluded from build identity and must not contain source overrides, generated product trees or release intermediates.",
@@ -114,8 +114,8 @@
     "production_signing_material_allowed": false
   },
   "composition": {
-    "overlay_revision": "765e3f87c3fd1f0baddee1f998fcb08a7bbfc36c",
-    "overlay_sha256": "6b5171202a00f75f11b2d4a49ceb4c2cff9848632322d299e9acce25734f7bde",
+    "overlay_revision": "deb950843a4601d4db939d011b9a4e98b735117c",
+    "overlay_sha256": "43416448064696c2a8b422a8c1fb3b8d9757bf9245e12f494e71630116c4a834",
     "project_count": 1061,
     "project_map_sha256": "a4cad0ac543ff6af204646e3f64e219eacbf3fca159d2a45dc4831121bfc242b"
   }

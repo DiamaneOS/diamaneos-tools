@@ -1,6 +1,6 @@
 # Contributing to diamaneos-tools
 
-Local-first. Remote is `https://codeberg.org/DiamaneOS/<slug>.git`.
+GitHub is the authoritative source, issue and pull-request host. Remote is `https://github.com/DiamaneOS/<slug>.git`.
 Do not create empty repos to match the map; do not set public until the
 rights/identity gate for that repo passes. Full plan stays out of git.
 
@@ -126,3 +126,10 @@ modules. Keep domain workflows direct; do not introduce a general workflow
 engine for similar-looking steps. Test the composed acceptance boundary when a
 fix spans provenance, locking or process completion. Passing individual helper
 tests does not establish the caller's end-to-end result.
+
+Use `main` for tools and standalone services, `android17` for the current
+manifest/device/shared product line, and `android14-6.1` for the current
+Fairphone kernel forks. Preserve upstream history and signed commits. Keep
+independent Git backups; ROM images and build evidence belong outside source
+Git. Repository discovery is in `config/repositories.json`; exact build pins
+remain in the manifest and environment records.

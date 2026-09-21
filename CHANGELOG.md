@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Use GitHub as the authoritative source host and bind the updated FP6 overlay
+  in a new candidate environment; retain independent Git backups.
+
 - Authenticate an explicitly pinned additive source overlay while preserving
   upstream release verification and rejecting undeclared source inputs.
 
