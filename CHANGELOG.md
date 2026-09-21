@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add selected stock-file generation with exact hashes, component-policy and
+  dependency validation, retained image metadata and notices, and atomic
+  publication. Reject unsafe paths and preserve prior output after failure.
+
 - Verify source-built compatibility packages with explicit build provenance and
   retain their delivery type in package proofs. Parse bounded literal internal
   entities used by VTS while rejecting external and nested entities. Pin the
