@@ -55,6 +55,25 @@ def blueprint(kind, properties):
                                   for k, v in properties.items()) + '}\n\n'
 
 
+def reachable(selection):
+    """Keep explicit static/dynamic roots and their transitive ELF providers."""
+    paths = {r['path'] for r in selection['files']}
+    roots = selection['roots']
+    if not roots or len(roots) != len(set(roots)) or not set(roots) <= paths:
+        raise VendorError('invalid native runtime roots')
+    kept, pending = set(), list(roots)
+    while pending:
+        path = pending.pop()
+        if path in kept:
+            continue
+        kept.add(path)
+        pending.extend(e['provider'] for e in selection['edges']
+                       if e['consumer'] == path and e['kind'] == 'selected-stock')
+    if not kept <= paths:
+        raise VendorError('runtime dependency has no selected provider')
+    return kept
+
+
 def render(recipe, selection, notice_kind):
     """Bind every ELF and dependency to the selected recipe before rendering."""
     if not re.fullmatch(r'[A-Za-z0-9_]+', notice_kind):
@@ -103,12 +122,26 @@ def render(recipe, selection, notice_kind):
                     if e['consumer'] == path and e['kind'] == 'selected-stock'}
         if declared != observed:
             raise VendorError('incomplete selected ELF dependency edges')
+    firmware = selection.get('firmware_inputs', [])
+    firmware_paths = {r['path'] for r in firmware}
+    if len(firmware_paths) != len(firmware):
+        raise VendorError('duplicate firmware input')
+    for item in firmware:
+        path = item['path']
+        if (not path.startswith('vendor/firmware/') or path not in rows
+                or rows[path]['component_id'] != 'firmware-trusted-boot'
+                or any(rows[path][k] != item[k] for k in ('sha256', 'bytes'))
+                or not item.get('consumer') or not item.get('source')):
+            raise VendorError('missing or inconsistent firmware dependency')
     text = '// Generated from the selected stock recipe; do not edit.\n'
     text += blueprint('package', {'default_applicable_licenses': ['fp6_selected_stock_notices']})
     text += blueprint('license', {'name': 'fp6_selected_stock_notices',
                                  'license_kinds': [notice_kind], 'license_text': ['NOTICE.xml']})
-    names, consumed = [], set()
+    kept = reachable(selection)
+    names, consumed = [], set(elfs) - kept
     for path in sorted(elfs):
+        if path not in kept:
+            continue
         stem = Path(path).name.removesuffix('.so')
         if stem in SOURCE_INTERFACES:
             consumed.add(path)
@@ -149,7 +182,10 @@ def render(recipe, selection, notice_kind):
     make = '# Generated from the authenticated selection.\nPRODUCT_PACKAGES += ' + ' '.join(names)
     make += '\nPRODUCT_EXTRA_VNDK_VERSIONS += 34\nPRODUCT_VENDOR_PROPERTIES += ro.vndk.version=34 ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
-        if not path.startswith('vendor/etc/') or path.startswith(('vendor/etc/init/', 'vendor/etc/vintf/')):
+        if path.startswith('vendor/etc/lm/'):
+            # No learning plugin is installed or enabled in this composition.
+            continue
+        if (path not in firmware_paths and not path.startswith('vendor/etc/')) or path.startswith(('vendor/etc/init/', 'vendor/etc/vintf/')):
             raise VendorError('unclassified Android installation input')
         make += 'PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/' + path.removeprefix('vendor/') + '\n'
     return {'Android.bp': text.encode(), 'device-vendor.mk': make.encode(),
@@ -186,6 +222,12 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                   'elf_selection_sha256': hashlib.sha256(encoded(selection)).hexdigest(),
                   'renderer_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'notice_kind': notice_kind, 'native_or_device_accepted': False}
+    kept = reachable(selection)
+    provenance['uninstalled_optional_libraries'] = sorted(
+        r['path'] for r in selection['files'] if r['path'] not in kept)
+    provenance['source_interface_replacements'] = sorted(
+        r['path'] for r in selection['files']
+        if r['path'] in kept and Path(r['path']).name.removesuffix('.so') in SOURCE_INTERFACES)
     identity = hashlib.sha256(encoded(provenance)).hexdigest()
     output = Path(output)
     if output.is_symlink():

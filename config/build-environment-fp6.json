@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v5",
-  "scope": "Candidate native service composition; complete runtime input generation, SELinux, installed images and device behavior remain unqualified.",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v6",
+  "scope": "Pinned development product with source-owned policy and authenticated native input generation; installed images and runtime require their recorded verification.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -74,9 +74,9 @@
     }
   },
   "workspace": {
-    "source_subdirectory": "src/diamaneos-fp6-android17-v5",
+    "source_subdirectory": "src/diamaneos-fp6-android17-v6",
     "cache_subdirectory": "cache",
-    "output_subdirectory": "src/diamaneos-fp6-android17-v5/out",
+    "output_subdirectory": "src/diamaneos-fp6-android17-v6/out",
     "roots_must_be_distinct": true,
     "source_and_output_must_not_be_nested": false,
     "cache_policy": "Download and compiler caches may be reused only as performance inputs. They are excluded from build identity and must not contain source overrides, generated product trees or release intermediates.",
@@ -96,14 +96,24 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "1f1eb7753c1e4be2217a62e3559bda04287c72e4de5986bbbaa3c2c0cfa8a6fb"
+      "sha256": "04eeec55a18c9a019b0baffc18c1424898c8418e16483218464fd94d0774108a"
+    },
+    {
+      "id": "fp6-selected-native-files",
+      "repository_path": "config/fp6-minimal/vendor-files.json",
+      "sha256": "92beacf8ffcd8cd837a2047c701a3f4a1a559e654e7d331c957f710818745faa"
+    },
+    {
+      "id": "fp6-native-dependencies",
+      "repository_path": "config/fp6-minimal/vendor-elf.json",
+      "sha256": "87cfe7ebca476b70f659bdd25f4017dce6be4c394e7d1a2c2523addbfec99a16"
     }
   ],
   "device_inputs": {
     "selected_stock_build": "FP6.QREL.16.100.0",
     "selected_stock_factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
     "generated_input_manifest_required": true,
-    "generated_input_manifest_status": "pending-fp6-generator",
+    "generated_input_manifest_status": "native-product-generator-available; exact generated provenance required",
     "device_unique_material_allowed": false
   },
   "build": {
@@ -114,12 +124,12 @@
     "production_signing_material_allowed": false
   },
   "composition": {
-    "overlay_revision": "9a9752380444e1ecaa6d990c98ddd7d5d74011fd",
+    "overlay_revision": "5c170030bf41d6b65aed6670f1f330381281d8f1",
     "overlay_sha256": "5c6a5e5161e3c7ea6f1dcac28ca3909d17e735e0a55e96d17479375d298b6a08",
     "project_count": 1067,
-    "project_map_sha256": "5773669ef4f604ec0a929b62e3d531837d9ad025709cc17a7369403eb1567cf2",
+    "project_map_sha256": "2681f1a7ad3528e2a51173f81439d1dfa33f1f2e10a967d7b06ac8090215a481",
     "resolved_revisions": {
-      "device/fairphone/FP6": "c82b542933970150b15808670acaedf1f95579da",
+      "device/fairphone/FP6": "e4525bd5c59a03290600e8cae035ef9fb6a65aa2",
       "vendor/diamaneos": "25902929a0cd4de5a30159c8a853b09c82662b81",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "b20ae81466897579813763689d6f9b52b96d49aa",

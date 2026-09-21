@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bind the native FP6 candidate to source-owned policy, explicit GPU firmware
+  dependencies and a reduced optional performance-library selection. Document
+  the pinned kernel rebuild and verified development image boundaries.
+
 - Generate the selected FP6 native Android modules, service activation and
   configuration from authenticated stock inputs with atomic publication and
   explicit derived configuration provenance.
