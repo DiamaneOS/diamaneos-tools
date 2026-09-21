@@ -563,6 +563,7 @@ def _evaluate_host(config: dict, observation: dict) -> dict:
         "ffmpeg": (_version_tuple(observation["ffmpeg_version"]) >= (5, 1, 3)),
         "adb": bool(observation["adb_version"]),
         "aapt2": bool(observation["aapt2_version"]),
+        "aapt": bool(observation.get("aapt_version")),
     }
     return {
         "schema_version": 1,
@@ -617,6 +618,7 @@ def inspect_host(config: dict, host_root: Path) -> dict:
         "ffmpeg_version": version("ffmpeg", "-version"),
         "adb_version": version("adb", "version"),
         "aapt2_version": version("aapt2", "version"),
+        "aapt_version": version("aapt", "version"),
     }
     return _evaluate_host(config, observation)
 
