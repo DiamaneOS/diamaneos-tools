@@ -475,3 +475,13 @@ This is a compile-time regression check, not complete production hardening or
 kernel acceptance. Module signatures, selected providers, KMI/UAPI, firmware,
 device trees and runtime behavior need their own evidence. GKI module protection
 is distinct from requiring every vendor module to use the GKI signing key.
+
+
+Selected-file recipes may also declare `symlinks`. The generator authenticates
+link text through directory descriptors without following any link. Each alias
+must name a selected regular file in the same partition, and its source and
+output targets must correspond. Cycles, chains, traversal, cross-partition links
+and links to writable device state are rejected. Alias records and their target
+text hashes enter the component closure and `symlinks.json`; no input symlink is
+created or followed in the host output tree. The Android packaging step must
+consume these declarations to create the image aliases.
