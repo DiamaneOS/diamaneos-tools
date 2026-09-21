@@ -69,6 +69,21 @@ class SelectedFilesTests(unittest.TestCase):
             self.generate()
         self.assertEqual(before, current.lstat().st_mtime_ns)
 
+    def test_native_selinux_identifiers_preserved_and_malformed_contexts_rejected(self):
+        for kind in ('vendor_fixture-exec', 'vendor_fixture.exec'):
+            self.recipe['files'][0]['metadata']['selinux'] = f'u:object_r:{kind}:s0'
+            self.generate()
+            manifest = json.loads((self.output/'current/manifest.json').read_bytes())
+            self.assertEqual(manifest['recipe']['files'][0]['metadata']['selinux'],
+                             f'u:object_r:{kind}:s0')
+        previous = os.readlink(self.output/'current')
+        for kind in ('_fixture', '9fixture', 'fixture.', 'fixture..exec',
+                     'fixture/exec', 'fixture exec', 'fixture:s0:c1'):
+            self.recipe['files'][0]['metadata']['selinux'] = f'u:object_r:{kind}:s0'
+            with self.subTest(kind=kind), self.assertRaises(vendor.VendorError):
+                self.generate()
+            self.assertEqual(previous, os.readlink(self.output/'current'))
+
     def test_bad_selection_preserves_previous_tree(self):
         self.generate()
         previous = os.readlink(self.output / 'current')
@@ -194,6 +209,14 @@ class SelectedSymlinkTests(unittest.TestCase):
         self.recipe['symlinks'] = [item]
         (self.inputs / item['input']).symlink_to(item['target'])
         return item
+
+    def test_alias_preserves_hyphenated_selinux_type(self):
+        item = self.add_link()
+        item['metadata']['selinux'] = 'u:object_r:vendor_fixture-exec:s0'
+        self.generate()
+        manifest = json.loads((self.output/'current/symlinks.json').read_bytes())
+        self.assertEqual(manifest['symlinks'][0]['metadata']['selinux'],
+                         'u:object_r:vendor_fixture-exec:s0')
 
     def test_alias_is_authenticated_metadata_not_host_symlink(self):
         item = self.add_link()

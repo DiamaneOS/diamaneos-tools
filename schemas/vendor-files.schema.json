@@ -134,7 +134,7 @@
               },
               "selinux": {
                 "type": "string",
-                "pattern": "^u:object_r:[a-zA-Z0-9_]+:s0$"
+                "pattern": "^u:object_r:[A-Za-z][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9_-]+)*:s0$"
               },
               "capabilities_hex": {
                 "type": "string",
@@ -263,7 +263,7 @@
               },
               "selinux": {
                 "type": "string",
-                "pattern": "^u:object_r:[a-zA-Z0-9_]+:s0$"
+                "pattern": "^u:object_r:[A-Za-z][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9_-]+)*:s0$"
               },
               "capabilities_hex": {
                 "type": "string",
