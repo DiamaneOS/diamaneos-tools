@@ -66,11 +66,12 @@ native policy and device behavior checked separately.
 
 ## Pinned Android environment
 
-The current metadata record is v5: it adds the reviewed native-service source
-and patch inventories while retaining the same GrapheneOS release. The composed
-FP6 candidate also advances to product-v5 with exact branch resolutions. These
-new identities are candidates. The accepted generic v4 result below stays bound
-to its original tools snapshot; it is not relabelled as a v5 qualification.
+The current metadata record is v6: it binds the source-owned device policy,
+selected native services, reduced optional performance inputs and explicit GPU
+firmware dependencies while retaining the same GrapheneOS release. The composed
+FP6 candidate advances to product-v6 with exact branch resolutions. These are
+candidate identities. The accepted generic v4 result below stays bound to its
+original tools snapshot; it is not relabelled as a v6 qualification.
 
 `config/build-environment.json` is the build-input authority for FP6-033. It
 binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,
@@ -537,6 +538,12 @@ enables native ELF checks and generates init/VINTF packaging with the provider.
 It records a narrowly pinned transformation of the performance configuration
 that disables optional learning/memory/prekill gates while preserving core
 power hints. Original and derived hashes remain distinct. This generation is
+also explicit about the runtime roots: the disabled learning/memory plugins,
+their meters library and their otherwise unused protobuf dependency are not
+installed. Source-interface replacements and uninstalled optional libraries
+are listed in generated provenance; retained authenticated inputs are not an
+installed-artifact inventory. Learning configuration files are not installed.
+This generation is
 for private development: its success does not establish public component
 acceptance, runtime compatibility or permission to flash.
 
@@ -544,5 +551,17 @@ Device policy and hardware setup are source-owned by `device/fairphone/FP6`.
 Matched kernel outputs remain a separate generated input at
 `device/fairphone/FP6-kernel`; source composition must pin that artifact set as
 well as the repositories. Native module and enforcing USER policy checks pass
-for the combined candidate. Installed boot/recovery images and actual device
-behavior require their separate checks; do not infer them from compilation.
+for the combined candidate. Native boot, vendor_boot, DTBO and both DLKM images have been built and their
+kernel, DT and module payloads checked against the selected inputs. Module bytes
+and load-list order survive packaging, including the 60 signed GKI modules.
+These are development-key image checks. A complete ROM/recovery build,
+bootloader trust and device behavior require separate verification.
+
+The Gen8.3 GPU firmware dependencies are explicit in the native selection and
+are authenticated against the stock recipe. Missing or changed firmware fails
+generation without replacing the prior valid tree. Firmware stored in retained
+device partitions remains a separate, exact-stock requirement; this generator
+does not replace modem, DSP, bootloader or trusted firmware partitions.
+
+See [FP6 kernel build and capability contract](FP6-KERNEL.md) for the native
+build commands, interface checks and development/production distinction.
