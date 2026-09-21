@@ -43,7 +43,34 @@ accepted public dispositions, and rejects unmapped build outputs. It is a
 prerequisite record for later device-input generation, not evidence that a
 device build exists or works.
 
+## FP6 native integration
+
+The FP6 product resolves against the selected Android 17 framework with source
+boot control, power, thermal, lights, vibrator, USB and health services. Native
+compilation of these services and the selected display/credential ELF inputs has
+passed. These are integration checks, not an accepted ROM or runtime result.
+The kernel uses 4 KiB pages; the product explicitly selects that page size while
+keeping prebuilt alignment and ELF checks enabled.
+
+`config/patches.json` records the exact upstream and derived commits, changed
+files and canonical full-index diff hashes for the GPT/UFS, boot-control, power
+and kernel build adaptations. Kernel entries apply in their separately pinned
+workspace. This ledger does not advance an existing environment identity.
+
+The source power HAL dynamically loads the stock performance client. Its
+performance/thermal backend is a separate explicit input family in the component
+model; allowing that family for private bring-up does not allow replacing the
+published HAL wrappers with prebuilts. The generated selection must include its
+exact runtime dependencies, configurations, init identities and notices, with
+native policy and device behavior checked separately.
+
 ## Pinned Android environment
+
+The current metadata record is v5: it adds the reviewed native-service source
+and patch inventories while retaining the same GrapheneOS release. The composed
+FP6 candidate also advances to product-v5 with exact branch resolutions. These
+new identities are candidates. The accepted generic v4 result below stays bound
+to its original tools snapshot; it is not relabelled as a v5 qualification.
 
 `config/build-environment.json` is the build-input authority for FP6-033. It
 binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,

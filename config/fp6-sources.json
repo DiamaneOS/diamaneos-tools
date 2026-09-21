@@ -913,9 +913,13 @@
         {
           "path": "vendor/qcom/opensource/usb",
           "revision": "7e65693c12f98c3aca9721287dc2c648ea83e65a"
+        },
+        {
+          "path": "vendor/qcom/opensource/healthd-ext",
+          "revision": "d8f830f18bbdcf12c3f7d656d77a16beeaed946a"
         }
       ],
-      "abi_uapi": "stable Android HAL interfaces plus FP6 sysfs, thermal and USB-controller nodes",
+      "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power wrapper requires the separate stock performance backend",
       "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
       "licence_profile": "published-source-review-required",
       "rebuilt_from_source": true
@@ -970,6 +974,18 @@
       "source_revisions": [],
       "abi_uapi": "Android DRM/Crypto HAL and trusted execution environment",
       "load_path": "vendor Widevine APEX/libraries; exact paths bind in FP6-040",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "power-thermal-backends",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "source_revisions": [],
+      "reference_vintf": [
+        "vendor.qti.hardware.perf2.IPerf/default"
+      ],
+      "abi_uapi": "Source power utils.c dlopens libqti-perfd-client.so; its AIDL performance backend controls matched kernel/sysfs resources. The thermal engine complements the reporting HAL with device thermal control.",
+      "load_path": "Explicit selected stock runtime libraries, perf2 service, thermal-engine-v2 and their authenticated configuration/dependencies; no blanket auxiliary-package inclusion.",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     }
