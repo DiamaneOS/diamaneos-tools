@@ -234,6 +234,32 @@ class DummySigningDeploymentTest(unittest.TestCase):
             self.assertEqual("ota", selected["shared"]["profile_id"])
             self.assertEqual(1, len(candidates["releasekey"]))
 
+    def test_preflight_uses_unsigned_roles_and_extracts_emitted_apk(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "src"))
+        select = runpy.run_path(str(RUNNER))["verifier_preflight_input"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target.zip"
+            with zipfile.ZipFile(target, "w") as archive:
+                archive.writestr("SYSTEM/app/Actual/Actual.apk", b"actual")
+                archive.writestr("SYSTEM/app/Presigned/Presigned.apk", b"p")
+            inventory = {"status": "PASS", "stage": "unsigned", "apk_roles": [
+                {"name": "Actual.apk", "certificate_role": "testkey"},
+                {"name": "Absent.apk", "certificate_role": "platform"},
+                {"name": "Presigned.apk", "certificate_role": "PRESIGNED"},
+            ]}
+            source = ("generic", target, inventory)
+            result = select([source], ("releasekey", "platform"), root / "sample")
+            self.assertEqual(b"actual", result.read_bytes())
+            self.assertNotIn("expected_certificate_role", inventory["apk_roles"][0])
+            inventory["apk_roles"] = inventory["apk_roles"][1:]
+            with self.assertRaisesRegex(RuntimeError, "no APK is available"):
+                select([source], ("releasekey", "platform"), root / "absent")
+            inventory["stage"] = "signed"
+            with self.assertRaisesRegex(ValueError, "unsigned inventory is not accepted"):
+                select([source], ("releasekey",), root / "signed")
+
     def test_service_is_unprivileged_offline_and_nonpersistent(self):
         unit = SERVICE.read_text(encoding="utf-8")
         self.assertIn("User=diamaneos-build", unit)
