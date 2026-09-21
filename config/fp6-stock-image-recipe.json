@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "stock_build": "FP6.QREL.16.100.0",
+  "region": "EU",
+  "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+  "archive_bytes": 3755004133,
+  "images": [
+    {
+      "partition": "boot",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/boot.img",
+      "sha256": "6d3428d5d41c37cf51ba9fa45dc16c1c5e7b354d0cbaa63e594d545a0cd576b7",
+      "bytes": 100663296
+    },
+    {
+      "partition": "dtbo",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/dtbo.img",
+      "sha256": "4f5dd779cc6941533581662e81e674a58208d95d4c1979c3b3ed77ac446f8664",
+      "bytes": 31457280
+    },
+    {
+      "partition": "init_boot",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/init_boot.img",
+      "sha256": "23dc3112c72c86c3d1643f9eea6c9f4999b824c27dc97fd4337c13db5a267208",
+      "bytes": 8388608
+    },
+    {
+      "partition": "super",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/super.img",
+      "sha256": "5f939dddd04b9249fe1d562ea004496a53204bc965760d5cfe4eb582952ea386",
+      "bytes": 7031324752
+    },
+    {
+      "partition": "vbmeta",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vbmeta.img",
+      "sha256": "ef7f0322dcf2c4797a0b6655cd672abec10da960a1f7865e72c3d84a3e85b42e",
+      "bytes": 12288
+    },
+    {
+      "partition": "vbmeta_system",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vbmeta_system.img",
+      "sha256": "ec0dd7a4d61e72336e6cbb2be19218e4447e31c54939d7521e66c3ea60ebaa5f",
+      "bytes": 4096
+    },
+    {
+      "partition": "vendor_boot",
+      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vendor_boot.img",
+      "sha256": "b99c41440285b1ac5cb36c75f6ce381585519a0f6606b4bc5bf594d205f029d1",
+      "bytes": 100663296
+    }
+  ]
+}
