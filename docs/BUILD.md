@@ -512,3 +512,37 @@ and links to writable device state are rejected. Alias records and their target
 text hashes enter the component closure and `symlinks.json`; no input symlink is
 created or followed in the host output tree. The Android packaging step must
 consume these declarations to create the image aliases.
+
+### Native FP6 product integration
+
+`config/fp6-minimal/vendor-files.json` declares the selected stock files and
+`vendor-elf.json` binds their reviewed dependencies. Generate the Android
+integration using the same extracted partition roots:
+
+```sh
+bin/diamaneos vendor product --inputs "$STOCK_FILES" \
+  --output "$VENDOR_GENERATIONS" --notice-kind "$NOTICE_KIND"
+```
+
+`STOCK_FILES` contains the extracted `vendor/` files. `NOTICE_KIND` is the
+reviewed Android build-system notice classification for those inputs. The
+command checks component policy, hashes, dependency edges and activation files,
+then publishes a content-addressed tree through `current`. Copy that complete
+generation to the otherwise absent `vendor/fairphone/FP6` workspace path under
+the build workspace lock. Keep its provenance and recipe with the build record.
+Never hand-edit a generated file or substitute a tree from another stock build.
+
+The renderer retains native source-built interface libraries where declared,
+enables native ELF checks and generates init/VINTF packaging with the provider.
+It records a narrowly pinned transformation of the performance configuration
+that disables optional learning/memory/prekill gates while preserving core
+power hints. Original and derived hashes remain distinct. This generation is
+for private development: its success does not establish public component
+acceptance, runtime compatibility or permission to flash.
+
+Device policy and hardware setup are source-owned by `device/fairphone/FP6`.
+Matched kernel outputs remain a separate generated input at
+`device/fairphone/FP6-kernel`; source composition must pin that artifact set as
+well as the repositories. Native module and enforcing USER policy checks pass
+for the combined candidate. Installed boot/recovery images and actual device
+behavior require their separate checks; do not infer them from compilation.

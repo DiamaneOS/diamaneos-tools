@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Generate the selected FP6 native Android modules, service activation and
+  configuration from authenticated stock inputs with atomic publication and
+  explicit derived configuration provenance.
+
 - Use GitHub as the authoritative source host and bind the updated FP6 overlay
   in a new candidate environment; retain independent Git backups.
 
