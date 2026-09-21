@@ -91,6 +91,21 @@ def review(modules, symbols, selected, *, protection=None, signed=()):
             'declared_firmware': {n: firmware[n] for n in sorted(firmware) if firmware[n]}}
 
 
+
+def read_symbol_tables(outputs):
+    """Read declared core and target-prefixed external Module.symvers outputs."""
+    symbols = []
+    for p in sorted(set(outputs)):
+        if not p.name.endswith(('Module.symvers', 'vmlinux.symvers')):
+            continue
+        for line in p.read_text().splitlines():
+            fields = line.split()
+            if not 4 <= len(fields) <= 5:
+                raise ValueError('invalid symbol table row')
+            symbols.append(dict(crc=int(fields[0],16), symbol=fields[1], owner=fields[2],
+                                export=fields[3], namespace=fields[4] if len(fields)==5 else '', table=str(p)))
+    return symbols
+
 def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require):
     """Bind selected module CRCs/namespaces and signatures to the built GKI ELF."""
     import re
@@ -103,14 +118,7 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require)
         r = process.run(list(map(str, args)), 120, max_output_bytes=64*1024*1024, cwd=work)
         require(r['transport'] == 'ok', 'kernel verification command failed')
         return r['stdout']
-    symbols = []
-    for p in sorted(set(outputs)):
-        if p.name not in ('Module.symvers', 'vmlinux.symvers'): continue
-        for line in p.read_text().splitlines():
-            fields = line.split()
-            require(4 <= len(fields) <= 5, 'invalid symbol table row')
-            symbols.append(dict(crc=int(fields[0],16), symbol=fields[1], owner=fields[2],
-                                export=fields[3], namespace=fields[4] if len(fields)==5 else '', table=str(p)))
+    symbols = read_symbol_tables(outputs)
     nm = call(['nm', '-S', '--defined-only', vmlinux], cwd=work)
     sections = call(['readelf', '-SW', vmlinux], cwd=work)
     header = call(['readelf', '-h', vmlinux], cwd=work)

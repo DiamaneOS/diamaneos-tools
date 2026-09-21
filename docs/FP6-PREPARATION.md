@@ -104,7 +104,9 @@ Logs and terminal results are in `fp6-kernel/runs/<run>/`. `current` advances to
 that run's `candidate` only after all steps pass. Failed runs remain available.
 A retry creates a new run and reuses Bazel's completed work; there is no automatic
 retry loop. `--jobs` bounds the requested build parallelism. `--timeout` is a
-per-command limit, not a limit on the entire multi-step workflow. The workspace
+per-command limit, not a limit on the entire multi-step workflow. Bazel runs in
+batch mode so its JVM and workers remain in the owned command group; termination
+unwinds that group instead of leaving a detached build server. The workspace
 lock rejects a simultaneous preparation/build in the same workspace.
 
 This is source reconstruction and development packaging, not a claim of

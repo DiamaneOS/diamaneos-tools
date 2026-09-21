@@ -1,5 +1,6 @@
 """Selected module compatibility boundary fixtures."""
 import copy
+import tempfile
 import sys
 from pathlib import Path
 import unittest
@@ -13,6 +14,14 @@ class SelectedKernelTests(unittest.TestCase):
         self.symbols = [dict(symbol='dsp', crc=7, owner='path/audio-dsp', namespace='DSP', export='EXPORT_SYMBOL_GPL', table='vendor/Module.symvers'), dict(symbol='base', crc=9, owner='vmlinux', namespace='', export='EXPORT_SYMBOL', table='out/common/kernel_aarch64/vmlinux.symvers')]
     def run_review(self):
         return module.review(self.modules, self.symbols, {'wlan', 'audio_dsp'})
+    def test_prefixed_external_symbol_table_is_consumed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            table = Path(temp) / 'fps_gki_audio_Module.symvers'
+            table.write_text('0x00000007 dsp audio-dsp EXPORT_SYMBOL_GPL DSP\n')
+            parsed = module.read_symbol_tables([table])
+            self.assertEqual('dsp', parsed[0]['symbol'])
+            self.assertEqual(7, parsed[0]['crc'])
+            self.assertEqual('DSP', parsed[0]['namespace'])
     def test_complete_set_orders_provider_first(self):
         result = self.run_review()
         self.assertEqual('PASS', result['status'])

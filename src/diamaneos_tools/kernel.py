@@ -175,7 +175,7 @@ def prepare(root, reference=None):
 
 
 def output_files(work, paths):
-    execution = Path(call([work / 'tools/bazel', 'info', 'execution_root'], cwd=work).strip()).resolve()
+    execution = Path(call([work / 'tools/bazel', '--batch', 'info', 'execution_root'], cwd=work).strip()).resolve()
     require(execution.is_relative_to(work / 'out'), 'execution root outside workspace output')
     files = []
     for name in sorted(set(paths.splitlines())):
@@ -281,14 +281,14 @@ def build(root, jobs, timeout):
             result['commands'].append({'name': name, 'log_sha256': sha(log), 'status': 'PASS'})
             save(); return out
         def bazel(name, args):
-            return command(name, [work / 'tools/bazel', *args])
+            return command(name, [work / 'tools/bazel', '--batch', *args])
         flags = ['--jobs=' + str(jobs), KMI]
         save()
         try:
             bazel('core-build', ['build', *flags, *CORE, *IMPLICIT])
             bazel('common-abi', ['run', *flags, '//common:kernel_aarch64_abi_dist', '--', '--dist_dir', str(run / 'abi')])
             # Capture only top-level configured outputs; other transitions can be unbuilt.
-            paths = call([work / 'tools/bazel', 'cquery', KMI, '--output=files',
+            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
             execution, core = output_files(work, paths)
@@ -297,12 +297,12 @@ def build(root, jobs, timeout):
                              (execution / 'bazel-out').glob('*/bin/common/kernel_aarch64_abi_diff/abi_stgdiff'))
             require(exit_files and all(p.is_file() and p.read_text().strip() == '0' for p in exit_files), 'common ABI comparison failed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
-            targets = sorted(set(call([work / 'tools/bazel', 'query', '--output=label', query], cwd=work, env=env).splitlines()))
+            targets = sorted(set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines()))
             require(targets and all(re.fullmatch(r'//vendor/[A-Za-z0-9_./-]+:fps_gki[A-Za-z0-9_.-]*', t) for t in targets), 'invalid external target set')
             require(any('/audio-kernel:' in t for t in targets) and any('/wlan/qcacld-3.0:' in t for t in targets), 'missing audio/WLAN target')
             (run / 'module-targets.txt').write_text('\n'.join(targets) + '\n')
             bazel('external-modules', ['build', *flags, *targets])
-            paths = call([work / 'tools/bazel', 'cquery', KMI, '--output=files',
+            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
                           'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
             (run / 'module-paths.txt').write_text(paths)
             _, external = output_files(work, paths)
@@ -382,7 +382,7 @@ def build(root, jobs, timeout):
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:
                 link = Path(temp) / 'current'; link.symlink_to(os.path.relpath(candidate, root))
                 os.replace(link, root / 'current')
-        except Exception as exc:
+        except (Exception, KeyboardInterrupt) as exc:
             result.update(status='FAIL', error=str(exc)); save(); raise
         return result
 
@@ -398,7 +398,10 @@ def main(argv=None):
     try:
         require(1 <= args.jobs <= 64 and 60 <= args.timeout <= 21600, 'invalid build resource limits')
         require(args.operation == 'prepare' or args.reference is None, 'reference is a preparation option')
-        result = prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else build(args.workspace.absolute(), args.jobs, args.timeout)
+        with process.interrupt_on_termination():
+            result = prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else build(args.workspace.absolute(), args.jobs, args.timeout)
         print(json.dumps(result, indent=2)); return 0
+    except KeyboardInterrupt:
+        print('ERROR: kernel preparation interrupted', file=sys.stderr); return 130
     except (KernelError, VendorError, OSError, ValueError, KeyError) as exc:
         print('ERROR: kernel preparation failed: ' + str(exc), file=sys.stderr); return 2

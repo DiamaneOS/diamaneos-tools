@@ -1,6 +1,7 @@
 """POSIX child ownership with bounded streams and process-group cleanup."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import signal
@@ -152,3 +153,15 @@ def run_bounded(argv, timeout_seconds, max_output_bytes=262_144):
     if result["transport"] == "interrupted":
         raise CommandInterrupted(result)
     return result
+
+
+@contextmanager
+def interrupt_on_termination():
+    """Let CLI termination unwind owned child groups and release workspace locks."""
+    def interrupt(signum, frame):
+        raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, interrupt)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)
