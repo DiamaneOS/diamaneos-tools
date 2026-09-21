@@ -72,6 +72,15 @@ not prove that the unfinished FP6 target builds, boots or meets the device
 requirements, and another host or changed environment still needs its own
 qualification.
 
+Full preflight also verifies the gaps between Git projects: undeclared files or
+symlinked source directories cannot supply optional Make includes. Manifest
+`copyfile` contents and `linkfile` targets must match the signed release, and
+the manifest checkout itself must be at that release commit. The declared
+output container and `.repo` metadata are outside this source-layout traversal;
+individual project content is still checked separately with Git. The current
+flat-manifest environment does not permit local-manifest overlays. A future
+composed environment must bind its exports as well as its project commits.
+
 The portable cold-environment check requires no source tree or private cache:
 
 ```sh
@@ -310,3 +319,36 @@ userdata, persist, device-unique provisioning and modem state images are exclude
 It executes no factory script or phone command. Image staging is not a generated
 vendor product: filesystem extraction, per-file classification/dependency closure,
 notices and actual product-graph verification must follow before accepting one.
+
+## FP6 product adaptation boundaries
+
+Use the pinned Fairphone `fps`, common and Qualcomm platform configurations to
+identify hardware inputs. Their stock product is the target side of a QSSI
+split: `volcano.mk` disables system/product generation and skips OTA packaging.
+Those settings cannot serve as a complete GrapheneOS-derived product unchanged.
+The stock common file also adds manufacturing and diagnostic services; assess
+their init triggers, permissions, HAL declarations and hardware dependencies
+before including or removing them.
+
+The selected GrapheneOS `build/make` provides the generic phone inheritance:
+`core_64_bit_only.mk`, `generic_system.mk`, `handheld_system_ext.mk`,
+`telephony_system_ext.mk`, `aosp_product.mk`, `handheld_vendor.mk` and
+`telephony_vendor.mk` under `target/product/`. This is the source binding for
+product assembly, not a claim that an FP6 product graph has passed. Do not
+inherit the Pixel device-common file: it adds Pixel kernel paths, Trusty,
+pVM firmware and device-specific init/overlays. Keep the GrapheneOS
+`OFFICIAL_BUILD` flag unset; in this release it adds the upstream OS updater.
+A DiamaneOS release identity must not reuse that flag as an update-policy switch.
+
+Preserve distinct API identities from the selected stock input: the device's
+first API level is 35, while the board/vendor API and VNDK are 34. A newer
+framework version does not advance those hardware compatibility declarations.
+Do not copy a platform security-patch value onto unchanged vendor or boot input.
+
+The Fairphone kernel wrapper prepares kernel, module, UAPI and DT artifacts as
+a set. Its `consolidate` variant includes test/torture modules and is not a
+production configuration by default. The wrapper skips the ABI target, so its
+successful exit alone cannot establish KMI acceptance: retain an explicit ABI
+check and reconcile the configured module outputs and both boot/recovery load
+lists. Source-built output still needs symbol, signature, configuration,
+firmware and hardware validation.
