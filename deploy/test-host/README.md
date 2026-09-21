@@ -330,11 +330,11 @@ do not depend on an operator noticing the current charge-hold state.
 ## Immutable tools deployment
 
 Use the public HTTPS remote and an exact reviewed commit. The host receives no
-Codeberg credentials:
+GitHub credentials:
 
 ```sh
 sudo git clone --no-checkout \
-  https://codeberg.org/DiamaneOS/diamaneos-tools.git \
+  https://github.com/DiamaneOS/diamaneos-tools.git \
   /opt/diamaneos/tools
 sudo git -C /opt/diamaneos/tools checkout --detach <reviewed-commit>
 sudo git -C /opt/diamaneos/tools remote set-url --push origin \
