@@ -411,7 +411,7 @@ class SigningVerifyTest(unittest.TestCase):
                 "generic-x86_64-qualification",
                 "generic-x86_64-ota-qualification",
             ],
-            "run_id": "dummy-fixture",
+            "run_id": "dummy-signing-20260102T030405Z",
             "status": "PASS",
             "dummy_keys_only": True,
             "production_material_present": False,
