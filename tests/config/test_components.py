@@ -70,6 +70,25 @@ class ComponentModelTest(unittest.TestCase):
     def test_committed_model_is_valid(self):
         self.assertEqual([], self.validate())
 
+    def test_runtime_backend_allowance_does_not_admit_prebuilt_source_hals(self):
+        closure = self.closure()
+        artifact = closure["artifacts"][0]
+        artifact["component_id"] = "public-hal-services"
+        for row in closure["component_results"]:
+            present = row["component_id"] == "public-hal-services"
+            row["presence"] = "present" if present else "absent"
+            row["artifact_paths"] = [artifact["path"]] if present else []
+        artifact["inventory_ref"] = "userspace_hal_families:power-thermal-backends"
+        self.assertEqual([], api.validate_closure(
+            self.model, closure, model_sha256=self.model_sha256))
+        self.assertTrue(api.validate_closure(
+            self.model, closure, model_sha256=self.model_sha256, public=True))
+        for family in ("boot-control", "power-thermal-lights-vibrator-usb"):
+            artifact["inventory_ref"] = "userspace_hal_families:" + family
+            self.assertIn("private prebuilt is not declared necessary",
+                          api.validate_closure(self.model, closure,
+                                               model_sha256=self.model_sha256))
+
     def test_schemas_are_valid(self):
         for name in ("component-model.schema.json",
                      "component-closure.schema.json"):
