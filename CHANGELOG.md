@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reject undeclared source inputs between manifest projects, altered manifest
+  exports and a manifest checkout at a different commit during build preflight.
+- Document the Fairphone QSSI, API-level and kernel ABI boundaries for product
+  integration without inheriting Pixel device defaults.
+
 - Add authenticated, repeatable stock-image staging with bounded image selection,
   atomic publication and preservation of prior generations on extraction failure.
 
