@@ -37,6 +37,15 @@ class KernelConfigTests(unittest.TestCase):
         data = data.replace(b'CONFIG_CFI_CLANG=y', b'# CONFIG_CFI_CLANG is not set')
         self.assertEqual(kernel_config.check(data, self.policy, 'development')['status'], 'FAIL')
 
+    def test_development_requires_48_bit_address_space(self):
+        data = self.config(False)
+        data = data.replace(b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y')
+        data = data.replace(b'CONFIG_ARM64_VA_BITS=48', b'CONFIG_ARM64_VA_BITS=39')
+        result = kernel_config.check(data, self.policy, 'development')
+        self.assertEqual(result['status'], 'FAIL')
+        self.assertEqual([r['symbol'] for r in result['failures']],
+                         ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48'])
+
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')
         result = kernel_config.check(data, self.policy, 'production')
