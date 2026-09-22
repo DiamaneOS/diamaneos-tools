@@ -63,13 +63,14 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "221d6fa50ed25ad745e769d04163c25a4890281f",
-      "derived_revision": "b61cac3b11ad0883d886a1c716dccc61987b1fab",
-      "canonical_diff_sha256": "a9e7ccf8258aa5b6f36c02e1a356824c26b12639e373572640e4279ed6802f2c",
+      "derived_revision": "13ab154b39979ffe216bf1635fd588499351e6e2",
+      "canonical_diff_sha256": "db77b68fd5ac47443794b8670cefd2a02361bf1d71f54579d835f846d8c9666a",
       "changed_files": [
+        "android/abi_gki_aarch64.stg",
         "arch/arm64/configs/gki_defconfig"
       ],
-      "purpose": "Select a 48-bit virtual address space in the GKI defconfig. The hardened userspace allocator's up-front region reservations exceed the 39-bit (512 GiB) user address space, so every process aborts at its first allocation.",
-      "validation": "Requires a new kernel build with native KMI/ABI checks and device qualification of the hypervisor, vendor modules and userspace on 48-bit VA."
+      "purpose": "Select a 48-bit virtual address space in the GKI defconfig and record the resulting ABI. The hardened userspace allocator's up-front region reservations exceed the 39-bit (512 GiB) user address space, so every process aborts at its first allocation. The extra page-table level changes pud_t and the CRCs of 4731 dependent symbols, with no symbol additions or removals.",
+      "validation": "The kernel and all modules are built together from source and compared against this ABI. Prebuilt modules built for the frozen android14-6.1 KMI do not load. Device qualification of the hypervisor, vendor modules and userspace on 48-bit VA remains."
     },
     {
       "id": "kernel-devfreq-export",
