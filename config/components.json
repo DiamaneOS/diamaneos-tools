@@ -206,7 +206,7 @@
         "qssi_manifest_sha256": "71f136ff6082c026a9381a321a0b975bbe05e24ba773be6cbc5527801ae67eae"
       },
       "platform_environment": {
-        "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v6",
+        "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v7",
         "release_tag": "2026091000",
         "manifest_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
         "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803"
