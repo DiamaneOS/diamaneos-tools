@@ -52,10 +52,12 @@ passed. These are integration checks, not an accepted ROM or runtime result.
 The kernel uses 4 KiB pages; the product explicitly selects that page size while
 keeping prebuilt alignment and ELF checks enabled.
 
-`config/patches.json` records the exact upstream and derived commits, changed
-files and canonical full-index diff hashes for the GPT/UFS, boot-control, power
-and kernel build adaptations. Kernel entries apply in their separately pinned
-workspace. This ledger does not advance an existing environment identity.
+The FP6 product environment selects `config/patches-fp6.json` for its Android
+GPT/UFS, boot-control and power adaptations. It records exact upstream/derived
+commits, changed files and canonical full-index diff hashes. The accepted generic
+environment and kernel preparation retain `config/patches.json`; advancing an
+Android HAL must not invalidate an unchanged kernel preparation or relabel
+generic qualification. The environment's `project_inputs` identifies its ledger.
 
 The source power HAL dynamically loads the stock performance client. Its
 performance/thermal backend is a separate explicit input family in the component
@@ -577,13 +579,21 @@ build commands, interface checks and development/production distinction.
 
 ### Patch base and downstream environment identities
 
-In `config/patches.json`, `base_environment_id` identifies the upstream source
+In a patch inventory, `base_environment_id` identifies the upstream source
 baseline (source-base semantics). It is not the
 identity of the current host or composed product environment.
 `base_project_map_sha256` binds that baseline's project map. Each patch binds
 its workspace, project path, exact base and derived revisions, canonical diff
 and changed-file set. Advancing a host, overlay or product input creates a new
 build environment identity without silently rewriting an accepted environment.
+
+Freeze these values when selecting a candidate for a recorded build or test.
+Ordinary working edits and documentation changes do not each require another
+environment ID. When selected build inputs change, update their revisions and
+derive the affected file/project-map hashes together, then validate the complete
+snapshot. Keep the previous snapshot accessible through its tools commit. The
+configuration schema version changes only when its structure or meaning changes;
+it is separate from a candidate environment ID and any public OS release version.
 
 A moving development branch in the manifest is resolved to exact commits in the
 consuming build environment. Source composition authenticates the overlay bytes,
