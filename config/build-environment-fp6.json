@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v13",
-  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers and the FP6 boot/recovery AVB chains; native and device acceptance are separate.",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v14",
+  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains and source-built pvmfw in the system chain; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -127,9 +127,9 @@
     "overlay_revision": "5c170030bf41d6b65aed6670f1f330381281d8f1",
     "overlay_sha256": "5c6a5e5161e3c7ea6f1dcac28ca3909d17e735e0a55e96d17479375d298b6a08",
     "project_count": 1067,
-    "project_map_sha256": "8c7e34b610b2ccc1d4aa5abdfb122f557f50758a2ec367f6358058381d8a2f47",
+    "project_map_sha256": "37e48287f3c75eb5deb0e450492759c44c8e11a589b908377d1bea8aa884b969",
     "resolved_revisions": {
-      "device/fairphone/FP6": "b6c40268589d74b510e434f40bf444ab01cbcc8b",
+      "device/fairphone/FP6": "3524f2027b75e288fdc9ddc78f8635a4d19f48be",
       "vendor/diamaneos": "25902929a0cd4de5a30159c8a853b09c82662b81",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",

@@ -71,9 +71,10 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v13: it selects the generic first-stage ramdisk, GKI
-v4 headers and the published boot/recovery AVB chains, retaining checked GPT
-I/O, the recovery runtime and complete VINTF matrices.
+FP6 candidate is product-v14: it selects the generic first-stage ramdisk, GKI
+v4 headers and the published boot/recovery AVB chains, and builds the protected
+VM firmware (`pvmfw`) from source into the system AVB chain, retaining checked
+GPT I/O, the recovery runtime and complete VINTF matrices.
 UFS access remains scoped to the boot-control service. It reuses the configured
 source workspace with exact source revisions and a project map. These are
 candidate identities. The accepted generic v4 result below stays bound to its
@@ -586,6 +587,12 @@ sized, signed image can contain an empty ramdisk. Check GKI header OS-version
 fields are zero and versions remain in AVB properties. Verify all four FP6
 chains: recovery at location 1, vbmeta_system at 2, boot at 3 and init_boot at 4,
 with verification flags zero. Inspect recovery runtime dependencies separately.
+
+The FP6 bootloader requests the `pvmfw` partition whenever it exists and does
+not load a slot whose verified AVB data omits it, even when unlocked. Export
+`pvmfw.img` from the same target-files archive, check that `vbmeta_system`
+contains its hash descriptor with the exported image size and digest, and
+flash it to the same slot as the other boot-chain images.
 
 The Gen8.3 GPU firmware dependencies are explicit in the native selection and
 are authenticated against the stock recipe. Missing or changed firmware fails
