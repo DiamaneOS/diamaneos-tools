@@ -71,10 +71,11 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v9: it packages standalone recovery as a full image,
-selects its complete runtime, adds device initialization and scopes
-UFS access to the boot-control service. It reuses the configured source workspace
-with a new exact device revision and project map. These are
+FP6 candidate is product-v13: it selects the generic first-stage ramdisk, GKI
+v4 headers and the published boot/recovery AVB chains, retaining checked GPT
+I/O, the recovery runtime and complete VINTF matrices.
+UFS access remains scoped to the boot-control service. It reuses the configured
+source workspace with exact source revisions and a project map. These are
 candidate identities. The accepted generic v4 result below stays bound to its
 original tools snapshot; it is not relabelled as a v6 qualification.
 
@@ -567,6 +568,24 @@ kernel, DT and module payloads checked against the selected inputs. Module bytes
 and load-list order survive packaging, including the 60 signed GKI modules.
 These are development-key image checks. A complete ROM/recovery build,
 bootloader trust and device behavior require separate verification.
+
+For a candidate export, select one target-files archive as the image authority.
+Run the built `check_target_files_vintf` and `validate_target_files` against it
+from the source root, so source-relative development key paths resolve. Extract
+the partition images from that archive's `IMAGES/` directory and create the
+complete super image with the built `build_super_image` using the same archive.
+The standalone images in the product output directory can differ because
+releasetools repacks images and derives AVB salts separately. Do not mix the two
+sets. Verify the exported AVB chain, physical capacities and every unpacked
+super payload against the selected archive, and retain their hashes with the
+source/input identity. A successful build alone does not establish this binding.
+
+Unpack the actual `init_boot` ramdisk and check its executable ARM64 first-stage
+`init`, static linkage, snapuserd and ramdisk build properties. A correctly
+sized, signed image can contain an empty ramdisk. Check GKI header OS-version
+fields are zero and versions remain in AVB properties. Verify all four FP6
+chains: recovery at location 1, vbmeta_system at 2, boot at 3 and init_boot at 4,
+with verification flags zero. Inspect recovery runtime dependencies separately.
 
 The Gen8.3 GPU firmware dependencies are explicit in the native selection and
 are authenticated against the stock recipe. Missing or changed firmware fails
