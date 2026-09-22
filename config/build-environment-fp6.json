@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v9",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v10",
   "scope": "Pinned development product with full standalone recovery image packaging, complete recovery runtime and service-owned UFS policy; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -127,9 +127,9 @@
     "overlay_revision": "5c170030bf41d6b65aed6670f1f330381281d8f1",
     "overlay_sha256": "5c6a5e5161e3c7ea6f1dcac28ca3909d17e735e0a55e96d17479375d298b6a08",
     "project_count": 1067,
-    "project_map_sha256": "0469a8bba2fbac8e780087a4560b9d744584e5076aff3b177110330161cd8de5",
+    "project_map_sha256": "38fb9bb9f924e264bc8b09b80510fa4bc843d15da98330e2a194d25c42906740",
     "resolved_revisions": {
-      "device/fairphone/FP6": "8546c8da564b59074e2d0a0676eeed31f086f5d1",
+      "device/fairphone/FP6": "86b1472f0c9d5f5912759a92c42bf95ea58f0dbb",
       "vendor/diamaneos": "25902929a0cd4de5a30159c8a853b09c82662b81",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "b20ae81466897579813763689d6f9b52b96d49aa",
