@@ -71,10 +71,11 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v15: it selects the generic first-stage ramdisk, GKI
+FP6 candidate is product-v16: it selects the generic first-stage ramdisk, GKI
 v4 headers and the published boot/recovery AVB chains, builds the protected VM
-firmware (`pvmfw`) from source into the system AVB chain and installs the vendor
-module blocklist in the first-stage ramdisk as well as `vendor_dlkm`, retaining checked
+firmware (`pvmfw`) from source into the system AVB chain, installs the vendor
+module blocklist in the first-stage ramdisk as well as `vendor_dlkm`, and builds
+the kernel with a 48-bit virtual address space, retaining checked
 GPT I/O, the recovery runtime and complete VINTF matrices.
 UFS access remains scoped to the boot-control service. It reuses the configured
 source workspace with exact source revisions and a project map. These are
@@ -601,6 +602,15 @@ from the vendor ramdisk and skips modules named in that ramdisk's
 `llcc_perfmon`, that the stock image excludes only through this blocklist.
 Check that the unpacked vendor ramdisk contains the same blocklist as
 `vendor_dlkm`.
+
+The platform's hardened memory allocator reserves an isolated address region per
+allocation size class when a process starts. That reservation does not fit in
+the 512 GiB user address space of a 39-bit (`CONFIG_ARM64_VA_BITS=39`) kernel,
+and every process, including first-stage `init`, aborts at its first
+allocation. Both the common GKI defconfig and the vendor GKI defconfig select
+`CONFIG_ARM64_VA_BITS_48`, and the kernel policy check rejects a 39-bit
+configuration. The kernel and all modules must be rebuilt together after
+changing it.
 
 The Gen8.3 GPU firmware dependencies are explicit in the native selection and
 are authenticated against the stock recipe. Missing or changed firmware fails
