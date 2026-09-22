@@ -71,7 +71,7 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v16: it selects the generic first-stage ramdisk, GKI
+FP6 candidate is product-v17: it selects the generic first-stage ramdisk, GKI
 v4 headers and the published boot/recovery AVB chains, builds the protected VM
 firmware (`pvmfw`) from source into the system AVB chain, installs the vendor
 module blocklist in the first-stage ramdisk as well as `vendor_dlkm`, and builds
