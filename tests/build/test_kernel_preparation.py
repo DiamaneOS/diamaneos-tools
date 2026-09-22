@@ -42,6 +42,15 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertEqual(self.changes[0]['derived_revision'],kernel.git(self.workspace/'kernel_platform/common','rev-parse','HEAD'))
         self.assertTrue((self.workspace/'kernel_platform/common-link').is_symlink())
         self.assertEqual(result,self.prepare())
+    def test_large_downstream_patch_is_verified(self):
+        # A recorded ABI definition makes a patch diff larger than the default capture bound.
+        base=self.changes[0]['base_revision']
+        (self.repo/'abi.stg').write_text('symbol line\n'*60000);self.git('add','abi.stg')
+        self.git('commit','-qm','record abi','--no-gpg-sign');revision=self.git('rev-parse','HEAD')
+        diff=subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision])
+        self.assertGreater(len(diff),262144)
+        self.changes[0].update(derived_revision=revision,canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['abi.stg','file'])
+        self.assertEqual('PASS',self.prepare()['status'])
     def test_standalone_fetch_without_reference(self):
         self.changes[0]['repository'] = str(self.repo)
         with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):
