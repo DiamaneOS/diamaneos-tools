@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Bind explicit FP6 recovery setup and narrower UFS policy in a new product
+  environment. Reject missing kernel verification tools before compilation.
+
 - Reconstruct selected vendor files directly from pinned stock images; prepare,
   build and package the complete source kernel/module/DT set through public
   commands. Install generated inputs with inventory verification, preserve

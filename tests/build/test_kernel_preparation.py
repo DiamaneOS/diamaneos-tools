@@ -11,6 +11,12 @@ from diamaneos_tools import kernel
 
 
 class KernelPreparationTests(unittest.TestCase):
+    def test_missing_verification_tools_reject_before_workspace_changes(self):
+        with patch.dict('os.environ', {'PATH': ''}):
+            with self.assertRaisesRegex(kernel.KernelError, 'missing from PATH: modinfo, modprobe'):
+                kernel.build(self.workspace, 1, 60)
+        self.assertFalse(self.workspace.exists())
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.reference=self.root/'reference';self.repo=self.reference/'kernel_platform/common'

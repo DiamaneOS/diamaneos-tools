@@ -250,6 +250,9 @@ def render_package(candidate, selected, merged, image, recipe, strip, work):
 
 
 def build(root, jobs, timeout):
+    missing = [name for name in ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl')
+               if shutil.which(name) is None]
+    require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
     plan, changes, adaptation = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
     with locked(root):
