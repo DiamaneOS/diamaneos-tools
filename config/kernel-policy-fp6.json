@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-development-baseline-v1",
+  "id": "fp6-android14-6-1-development-baseline-v2",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -15,7 +15,9 @@
     "CONFIG_MODULE_SIG": "y",
     "CONFIG_MODULE_SIG_PROTECT": "y",
     "CONFIG_SECURITY_SELINUX": "y",
-    "CONFIG_DEVMEM": "n"
+    "CONFIG_DEVMEM": "n",
+    "CONFIG_ARM64_VA_BITS_48": "y",
+    "CONFIG_ARM64_VA_BITS": "48"
   },
   "production": {
     "CONFIG_SECURITY_SELINUX_DEVELOP": "n",

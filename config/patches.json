@@ -58,18 +58,33 @@
       "validation": "Native compilation and actual product graph pass. Runtime performance backend and device behavior remain unqualified."
     },
     {
+      "id": "kernel-common-va48",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_common",
+      "workspace": "kernel",
+      "path": "kernel_platform/common",
+      "base_revision": "221d6fa50ed25ad745e769d04163c25a4890281f",
+      "derived_revision": "b61cac3b11ad0883d886a1c716dccc61987b1fab",
+      "canonical_diff_sha256": "a9e7ccf8258aa5b6f36c02e1a356824c26b12639e373572640e4279ed6802f2c",
+      "changed_files": [
+        "arch/arm64/configs/gki_defconfig"
+      ],
+      "purpose": "Select a 48-bit virtual address space in the GKI defconfig. The hardened userspace allocator's up-front region reservations exceed the 39-bit (512 GiB) user address space, so every process aborts at its first allocation.",
+      "validation": "Requires a new kernel build with native KMI/ABI checks and device qualification of the hypervisor, vendor modules and userspace on 48-bit VA."
+    },
+    {
       "id": "kernel-devfreq-export",
       "repository": "https://github.com/DiamaneOS/kernel_fairphone_qcom",
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
-      "derived_revision": "6b267f07e8cba7a2f130079fb097e28bc44a79a3",
-      "canonical_diff_sha256": "ed6ee41660596f928df9e02612dd64f8dfb008afdba3a14e1c06d127f56fd326",
+      "derived_revision": "61e9f54d8202e52ac5b2b71ed121efac5e2e807d",
+      "canonical_diff_sha256": "2502c79c33e41e212f323e7b51c82a9675332fbdde3c96ae65b195568c0815e6",
       "changed_files": [
-        "BUILD.bazel"
+        "BUILD.bazel",
+        "arch/arm64/configs/gki_defconfig"
       ],
-      "purpose": "Expose the matched devfreq header as a narrow Bazel dependency.",
-      "validation": "Core, explicit GKI and external module builds pass, with native KMI/ABI checks. Installed image and runtime qualification remain separate."
+      "purpose": "Expose the matched devfreq header as a narrow Bazel dependency, and select a 48-bit virtual address space in the vendor GKI defconfig to match the common kernel.",
+      "validation": "Core, explicit GKI and external module builds pass, with native KMI/ABI checks. The 48-bit address-space change requires a new kernel build and device qualification."
     },
     {
       "id": "graphics-devfreq-import",
