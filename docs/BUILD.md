@@ -71,7 +71,7 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v17: it selects the generic first-stage ramdisk, GKI
+FP6 candidate is product-v18: it selects the generic first-stage ramdisk, GKI
 v4 headers and the published boot/recovery AVB chains, builds the protected VM
 firmware (`pvmfw`) from source into the system AVB chain, installs the vendor
 module blocklist in the first-stage ramdisk as well as `vendor_dlkm`, and builds
@@ -611,6 +611,12 @@ allocation. Both the common GKI defconfig and the vendor GKI defconfig select
 `CONFIG_ARM64_VA_BITS_48`, and the kernel policy check rejects a 39-bit
 configuration. The kernel and all modules must be rebuilt together after
 changing it.
+
+The FP6 bootloader appends its own bootconfig keys, including
+`androidboot.fstab_suffix`, `androidboot.slot_suffix` and the verified-boot
+state. The kernel rejects the entire bootconfig if any key is assigned twice,
+leaving userspace without a slot suffix. Do not set bootloader-supplied keys
+in `BOARD_BOOTCONFIG`; check the booted `/proc/bootconfig` when changing it.
 
 The Gen8.3 GPU firmware dependencies are explicit in the native selection and
 are authenticated against the stock recipe. Missing or changed firmware fails
