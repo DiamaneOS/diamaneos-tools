@@ -8,7 +8,8 @@ ROM, production hardening or release acceptance.
 
 Use a Linux x86-64 host qualified for the pinned [Android build](BUILD.md).
 Install Python 3 with the repository's declared dependencies, Git, Make, Bash,
-Perl, OpenSSL, binutils and kmod (`modinfo`, `modprobe`). The kernel workspace
+Perl, OpenSSL, binutils and kmod (`modinfo`, `modprobe`). Ensure these commands
+are on PATH; some distributions install kmod entrypoints under `/usr/sbin`. The kernel workspace
 provides its pinned compiler, Bazel, DTC and DT image tools. Keep its source and
 outputs on a filesystem supporting case-sensitive names and symbolic links.
 Budget at least 100 GiB of free space for fresh kernel preparation and image
