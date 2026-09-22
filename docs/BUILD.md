@@ -69,8 +69,8 @@ native policy and device behavior checked separately.
 The current metadata record is v6: it binds the source-owned device policy,
 selected native services, reduced optional performance inputs and explicit GPU
 firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v8: it selects the complete recovery runtime, adds device
-initialization and scopes
+FP6 candidate is product-v9: it packages standalone recovery as a full image,
+selects its complete runtime, adds device initialization and scopes
 UFS access to the boot-control service. It reuses the configured source workspace
 with a new exact device revision and project map. These are
 candidate identities. The accepted generic v4 result below stays bound to its
