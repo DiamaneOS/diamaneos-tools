@@ -70,3 +70,33 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertRaisesRegex(kernel.KernelError,'symlink',self.prepare)
 
 if __name__=='__main__':unittest.main()
+
+
+class KernelPackagingBlocklistTests(unittest.TestCase):
+    def test_first_stage_ramdisk_uses_the_vendor_blocklist(self):
+        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+        blocklists = recipe['blocklists']
+        self.assertEqual(blocklists['vendor_boot/modules.blocklist'],
+                         blocklists['vendor_dlkm/modules.blocklist'])
+        self.assertIn('blocklist llcc_perfmon\n', blocklists['vendor_boot/modules.blocklist'])
+        recovery = recipe['load_lists']['vendor_boot/modules.load.recovery']
+        self.assertIn('llcc_perfmon.ko', recovery)
+
+    def test_rendered_board_config_installs_ramdisk_blocklist(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp)
+            merged = temp / 'merged'; merged.mkdir()
+            (merged / 'dtbo.img').write_bytes(b'dtbo')
+            image = temp / 'Image'; image.write_bytes(b'kernel')
+            recipe = {'partitions': {'vendor_boot': [], 'vendor_dlkm': [], 'system_dlkm': []},
+                      'load_lists': {},
+                      'blocklists': {'vendor_boot/modules.blocklist': 'blocklist a\n',
+                                     'vendor_dlkm/modules.blocklist': 'blocklist a\n'}}
+            candidate = temp / 'candidate'
+            kernel.render_package(candidate, {}, merged, image, recipe, temp / 'strip', temp)
+            board = (candidate / 'BoardConfigKernel.mk').read_text()
+            self.assertIn('BOARD_VENDOR_RAMDISK_KERNEL_MODULES_BLOCKLIST_FILE := '
+                          '$(FP6_KERNEL_PATH)/vendor_boot-modules.blocklist\n', board)
+            self.assertIn('BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := '
+                          '$(FP6_KERNEL_PATH)/vendor_dlkm-modules.blocklist\n', board)
+            self.assertEqual((candidate / 'vendor_boot-modules.blocklist').read_text(), 'blocklist a\n')
