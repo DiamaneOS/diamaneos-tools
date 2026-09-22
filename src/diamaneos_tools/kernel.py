@@ -19,6 +19,8 @@ from .vendor_extract import sha, relative
 from .vendor import ROOT, load_json, VendorError, encoded
 
 KMI = '--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom'
+# Downstream patch diffs can carry a recorded ABI definition; keep the capture bounded.
+MAX_PATCH_DIFF_BYTES = 64 * 1024 * 1024
 CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki',
         '//msm-kernel:fps_gki_abi', '//common:kernel_aarch64_abi']
 IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
@@ -106,7 +108,8 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
             git(dest, 'checkout', '--detach', revision)
         require(git(dest, 'rev-parse', 'HEAD') == revision, 'source revision mismatch: ' + row['path'])
         if patch:
-            diff = process.run(['git', '-C', str(dest), 'diff', '--full-index', row['revision'], revision], 120, cwd=root)
+            diff = process.run(['git', '-C', str(dest), 'diff', '--full-index', row['revision'], revision], 120,
+                               MAX_PATCH_DIFF_BYTES, cwd=root)
             require(diff['transport'] == 'ok' and hashlib.sha256(diff['stdout']).hexdigest() == patch['canonical_diff_sha256'],
                     'downstream patch bytes differ')
             require(git(dest, 'diff', '--name-only', row['revision'], revision).splitlines() == patch['changed_files'],
