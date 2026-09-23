@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v24",
-  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies an Android 17 vendor without a VNDK version and the passthrough graphics mapper VINTF declaration with its device compatibility matrix entry hwservicemanager for the stock HIDL graphics HALs and vndservicemanager for the stock display composer; native and device acceptance are separate.",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v25",
+  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies an Android 17 vendor without a VNDK version and the passthrough graphics mapper VINTF declaration with its device compatibility matrix entry hwservicemanager for the stock HIDL graphics HALs vndservicemanager for the stock display composer and its runtime-loaded IPC libraries; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -101,12 +101,12 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "4dee80a8e045735d1effd86e9934c79e376c9e12fc378b49c5283d662ae39da7"
+      "sha256": "94a0f1ff62df5dfcc3b16e1f3884837926ed60a1300368ca369b445a02fac67f"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "e50b4af6e322d03aba524535d6036907d9253cb49c6d5ce83cf4ea3cbbf29cc4"
+      "sha256": "fc09794f93abad6723538f00f6f1e32acb0c0e82d7eed587cbbcf803fc6cd500"
     }
   ],
   "device_inputs": {

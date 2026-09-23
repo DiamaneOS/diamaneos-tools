@@ -261,6 +261,11 @@
       "bytes": 764552
     },
     {
+      "path": "vendor/lib64/libmemutils.so",
+      "sha256": "04d91ad68bf6eabf7aafd626fb25d48232b91624e19c863cd4b015a0ca47d5e2",
+      "bytes": 43992
+    },
+    {
       "path": "vendor/lib64/libmeters.so",
       "sha256": "0832494a2e6c3689bce92581c9871e5e444a42be05e91a99333e40e2f39810cb",
       "bytes": 36864
@@ -324,6 +329,16 @@
       "path": "vendor/lib64/libqmi_encdec.so",
       "sha256": "090b42bc0d69f81a7894fec96c87b183122c66b858892c47c6290ce41e06c236",
       "bytes": 23928
+    },
+    {
+      "path": "vendor/lib64/libqrtr.so",
+      "sha256": "93d10dbc0dc43da7ad609a684be8ef0d48da37dd4f84274cb956103f0ba7022b",
+      "bytes": 28272
+    },
+    {
+      "path": "vendor/lib64/libqrtrclient.so",
+      "sha256": "00a9b0ac112121fe7f8bec3b6ed6b8dea0b5ec889172c9b460775a352ef428e6",
+      "bytes": 56616
     },
     {
       "path": "vendor/lib64/libqservice.so",
@@ -1143,6 +1158,18 @@
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.composer-service",
+      "needed": "libmemutils.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libmemutils.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.composer-service",
+      "needed": "libqrtrclient.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqrtrclient.so"
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.hardware.display.composer-service",
@@ -4793,6 +4820,58 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libion.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libmemutils.so",
+      "needed": "libvmmem.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmmem.so"
+    },
+    {
       "consumer": "vendor/lib64/libmeters.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -5550,6 +5629,112 @@
     },
     {
       "consumer": "vendor/lib64/libqmi_encdec.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtr.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtr.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtr.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtr.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libqrtr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqrtr.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqrtrclient.so",
       "needed": "libutils.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
