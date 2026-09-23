@@ -3966,6 +3966,26 @@
         "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/etc/snapdragon_color_libs_config.xml",
+      "path": "vendor/etc/snapdragon_color_libs_config.xml",
+      "sha256": "53f5511a298518b78fccf413938c47519ffa29af0d1f94eb27cee81919971f69",
+      "bytes": 1711,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Plugin order the Snapdragon color manager reads at start; without it StcManager::Init dereferences null and the composer crashes.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [
