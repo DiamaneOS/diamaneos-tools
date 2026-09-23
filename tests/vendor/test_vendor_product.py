@@ -103,6 +103,19 @@ class NativeProductTests(unittest.TestCase):
             block = block[:block.index('}\n')]
             self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', block[block.index('required:'):].split('\n')[0])
 
+    def test_remote_processor_support_daemons_installed_with_activation(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp = rendered['Android.bp'].decode()
+        for stem in ['pd-mapper', 'pm-service', 'pm-proxy', 'rmt_storage', 'tftp_server']:
+            self.assertIn('fp6_stock_vendor_bin_' + stem, modules)
+        for stem, rc in [('rmt_storage', 'vendor.qti.rmt_storage.rc'), ('tftp_server', 'vendor.qti.tftp.rc')]:
+            block = bp[bp.index('name: "fp6_stock_vendor_bin_' + stem + '"'):]
+            self.assertIn('init_rc: ["files/vendor/etc/init/' + rc + '"]', block[:block.index('}\n')])
+        owners = {r['path']: r['component_id'] for r in self.recipe['files']}
+        for stem in ['libqrtr', 'libqmi_cci', 'libqmi_csi', 'libperipheral_client']:
+            self.assertEqual('firmware-trusted-boot', owners['vendor/lib64/' + stem + '.so'])
+
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()

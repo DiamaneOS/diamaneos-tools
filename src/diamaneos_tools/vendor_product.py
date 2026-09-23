@@ -39,6 +39,13 @@ ACTIVATION={
  'qseecomd':('qseecomd.rc',None),
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
  'vendor.qti.hardware.perf2-hal-service':('vendor.qti.hardware.perf2-hal-service.rc','vendor.qti.hardware.perf2.xml'),
+ 'rmt_storage':('vendor.qti.rmt_storage.rc',None),
+ 'tftp_server':('vendor.qti.tftp.rc',None),
+ # Stock starts these from its board-wide init.target.rc and init.qti.kernel.rc,
+ # which are not selected; the FP6 device init.qcom.rc defines their services.
+ 'pd-mapper':(None,None),
+ 'pm-service':(None,None),
+ 'pm-proxy':(None,None),
 }
 
 
