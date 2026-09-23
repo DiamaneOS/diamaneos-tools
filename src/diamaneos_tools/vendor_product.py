@@ -66,7 +66,9 @@ SOURCE_MODULE_DEPENDENCIES = {
     'android.hardware.biometrics.fingerprint-V3-ndk',
 }
 ACTIVATION={
- 'android.hardware.biometrics.fingerprint-service':('fingerprint-default.rc','fingerprint-default.xml'),
+ # Installed under FP6-specific names: AOSP's reference fingerprint service uses
+ # fingerprint-default.rc/.xml, and Soong emits install rules for every module.
+ 'android.hardware.biometrics.fingerprint-service':('android.hardware.biometrics.fingerprint-service.fp6.rc','android.hardware.biometrics.fingerprint-service.fp6.xml'),
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
  'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
@@ -86,11 +88,6 @@ ACTIVATION={
 
 
 def module(path):
-    # The pinned AOSP tree builds a generic fingerprint.default stub into the
-    # same vendor path. Soong's preferred prebuilt replaces that source module
-    # without disabling the upstream source or accepting duplicate outputs.
-    if path == 'vendor/lib64/hw/fingerprint.default.so':
-        return 'fingerprint.default'
     return 'fp6_stock_' + path.replace('/', '_').removesuffix('.so')
 
 
@@ -300,8 +297,6 @@ def render(recipe, selection, notice_kind):
         props = {'name': name, 'vendor': True, 'compile_multilib': '64',
                  'srcs': ['files/' + path], 'stem': stem, 'strip': {'none': True},
                  'shared_libs': sorted(set(dependencies[path])), 'system_shared_libs': []}
-        if path == 'vendor/lib64/hw/fingerprint.default.so':
-            props['prefer'] = True
         if required[path]:
             props['required'] = sorted(set(required[path]))
         if relative != '.':
