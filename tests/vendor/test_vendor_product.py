@@ -95,6 +95,14 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libmemutils', 'libqrtrclient']:
             self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', composer[composer.index('required:'):].split('\n')[0])
 
+    def test_adreno_compiler_backends_installed_as_required(self):
+        bp = self.render()['Android.bp'].decode()
+        for loader, stem in [('fp6_stock_vendor_lib64_libllvm-glnext', 'libllvm-qgl'),
+                             ('fp6_stock_vendor_lib64_egl_libGLESv2_adreno', 'libCB')]:
+            block = bp[bp.index('name: "' + loader + '"'):]
+            block = block[:block.index('}\n')]
+            self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', block[block.index('required:'):].split('\n')[0])
+
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
