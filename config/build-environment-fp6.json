@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v20",
-  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount and the qseecomd listener libraries declared as runtime dependencies; native and device acceptance are separate.",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v21",
+  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies and an Android 17 vendor without a VNDK version; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",

@@ -434,9 +434,17 @@ Stock contains AArch64 executables alongside DSP firmware ELF files and dormant
 init declarations whose executables are absent. A declaration alone does not
 justify installing a service or its surrounding factory configuration.
 
-The pinned platform includes `com.android.vndk.v34` from
-`packages/modules/vndk` and the matching `prebuilts/vndk/v34` snapshot. The four
-stock VNDK 34 LLNDK/core/private/same-process library lists match this snapshot.
+Stock is a consistent VNDK 34 vendor. The DiamaneOS vendor is built from the
+pinned Android 17 source and has no VNDK version: stock blobs link the current
+vendor variants of their VNDK core and same-process libraries, which are
+installed in the vendor partition, and reach LLNDK through the platform's
+`/system/etc/llndk.libraries.txt`. Do not set `ro.vndk.version` or add a VNDK
+APEX for them. With `ro.vndk.version=34` the linker takes LLNDK from the VNDK
+34 APEX, so current vendor libraries such as `libbinder` cannot reach newer
+LLNDK dependencies (`libapexsupport.so`), and the display HALs fail to link.
+The stock VNDK 34 LLNDK/core/private/same-process lists remain the review gate
+for which platform libraries a selected blob may use. A symbol a blob expects
+but the current library lacks surfaces as a named link failure on the device.
 Stock camera, graphics, sound-trigger and audio dependencies include libraries
 inside that APEX; a scan limited to partition `lib64` directories is incomplete.
 The tethering APEX similarly supplies
