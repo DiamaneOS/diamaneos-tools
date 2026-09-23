@@ -3,7 +3,7 @@
   "inventory_id": "android17-grapheneos-2026091000-signing-v2",
   "scope": "Disposable-key role contract for the pinned Android 17 release path. Production secrets, custody enrollment and trust installation are prohibited by this record.",
   "source_binding": {
-    "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v11",
+    "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v12",
     "release_tag": "2026091000",
     "manifest_commit": "ac9f2fdf0badebea2f6ac6c3e93b125aba02116a",
     "project_map_sha256": "31549d5386d6fa11ee62e6af65c7dbe87ed78338bc7e093215d51bf004b9e803",

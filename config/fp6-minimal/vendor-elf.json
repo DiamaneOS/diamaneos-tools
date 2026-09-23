@@ -141,6 +141,11 @@
       "bytes": 3652088
     },
     {
+      "path": "vendor/lib64/libCB.so",
+      "sha256": "2fb7c8660132c7e381523d38fc37b47415cac297356a08103da644b9a495aa46",
+      "bytes": 9940536
+    },
+    {
       "path": "vendor/lib64/libGPreqcancel.so",
       "sha256": "2076547b53d049f4fe7a04bccf76bdd282911652b7263dfc90148f6225eb78b8",
       "bytes": 27768
@@ -254,6 +259,11 @@
       "path": "vendor/lib64/libllvm-glnext.so",
       "sha256": "92e4793f85781209bc712ac8c2c66798985997caf98be0d79f6c4bf98fcf65ce",
       "bytes": 2501128
+    },
+    {
+      "path": "vendor/lib64/libllvm-qgl.so",
+      "sha256": "88d3099ab4815f143b73f1fc9a079d88228f20f613efad7166c02c6cd02d7511",
+      "bytes": 23864248
     },
     {
       "path": "vendor/lib64/libmemperfd.so",
@@ -2537,6 +2547,12 @@
     },
     {
       "consumer": "vendor/lib64/egl/libGLESv2_adreno.so",
+      "needed": "libCB.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libCB.so"
+    },
+    {
+      "consumer": "vendor/lib64/egl/libGLESv2_adreno.so",
       "needed": "libadreno_utils.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libadreno_utils.so"
@@ -3133,6 +3149,152 @@
     },
     {
       "consumer": "vendor/lib64/hw/vulkan.adreno.so",
+      "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "android.hardware.graphics.mapper@3.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "android.hardware.graphics.mapper@4.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libadreno_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libadreno_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libgralloc.qti.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libgralloc.qti.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libgralloctypes.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libgsl.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libgsl.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libnativewindow.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "libvndksupport.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "vendor.qti.hardware.display.mapper@3.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.mapper@3.0.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "vendor.qti.hardware.display.mapper@4.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
+      "needed": "vendor.qti.hardware.display.mapperextensions@1.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.0.so"
+    },
+    {
+      "consumer": "vendor/lib64/libCB.so",
       "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
@@ -4715,6 +4877,12 @@
     },
     {
       "consumer": "vendor/lib64/libllvm-glnext.so",
+      "needed": "libllvm-qgl.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libllvm-qgl.so"
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-glnext.so",
       "needed": "liblog.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -4723,6 +4891,52 @@
     },
     {
       "consumer": "vendor/lib64/libllvm-glnext.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
+      "needed": "libgsl.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libgsl.so"
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libllvm-qgl.so",
       "needed": "libm.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
