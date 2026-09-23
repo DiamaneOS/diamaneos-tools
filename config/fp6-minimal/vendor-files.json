@@ -3798,15 +3798,15 @@
       },
       "runtime_dependencies": [
         {
-          "path": "vendor/lib64/hw/fingerprint.default.so",
-          "soname": "fingerprint.default.so",
-          "reason": "The wrapper loads the FP6 fingerprint module by hardware-module filename."
+          "path": "vendor/lib64/hw/fingerprint.fp6.so",
+          "soname": "fingerprint.fp6.so",
+          "reason": "The wrapper loads the FP6 fingerprint module through hw_get_module; ro.hardware.fingerprint=fp6 selects this file."
         }
       ]
     },
     {
       "input": "vendor/etc/init/fingerprint-default.rc",
-      "path": "vendor/etc/init/fingerprint-default.rc",
+      "path": "vendor/etc/init/android.hardware.biometrics.fingerprint-service.fp6.rc",
       "sha256": "a6d925cc3e1d35345e158a6be23562b9e175b4100f01677b9a650053ea8a75f3",
       "bytes": 203,
       "component_id": "credentials-security",
@@ -3815,7 +3815,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "purpose": "FP6 stock fingerprint HAL, installed under an FP6-specific name so it cannot collide with AOSP reference fingerprint modules",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -3846,7 +3846,7 @@
     },
     {
       "input": "vendor/etc/vintf/manifest/fingerprint-default.xml",
-      "path": "vendor/etc/vintf/manifest/fingerprint-default.xml",
+      "path": "vendor/etc/vintf/manifest/android.hardware.biometrics.fingerprint-service.fp6.xml",
       "sha256": "5c2095d2545e646f03e6e3813381f05ce97c02d832fd7951fb23b78f3c7a5162",
       "bytes": 222,
       "component_id": "credentials-security",
@@ -3855,7 +3855,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "purpose": "FP6 stock fingerprint HAL, installed under an FP6-specific name so it cannot collide with AOSP reference fingerprint modules",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -3866,7 +3866,7 @@
     },
     {
       "input": "vendor/lib64/hw/fingerprint.default.so",
-      "path": "vendor/lib64/hw/fingerprint.default.so",
+      "path": "vendor/lib64/hw/fingerprint.fp6.so",
       "sha256": "ae08b39c8c78b40a769795684afc7d342c19acf8c1b443fdc56be47b5ca8bedd",
       "bytes": 1087480,
       "component_id": "credentials-security",
@@ -3877,7 +3877,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "purpose": "FP6 stock fingerprint HAL, installed under an FP6-specific name so it cannot collide with AOSP reference fingerprint modules",
       "metadata": {
         "uid": 0,
         "gid": 0,
