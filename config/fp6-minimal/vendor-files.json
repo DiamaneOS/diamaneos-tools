@@ -3885,6 +3885,26 @@
         "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini",
+      "path": "vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini",
+      "sha256": "08b2b77f0f3e10ebf4a8b3ef5394d3900e485077260d069d238d4b8733c84c9e",
+      "bytes": 1984,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:wifi",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock QCA6750 host driver configuration; the kernel driver reads it through /vendor/firmware/wlan/qca_cld/qca6750 (device symlink)",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [
