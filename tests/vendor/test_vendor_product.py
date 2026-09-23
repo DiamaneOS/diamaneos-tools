@@ -97,6 +97,17 @@ class NativeProductTests(unittest.TestCase):
         allocator = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.allocator-service"'):]
         self.assertIn('"libbinder"', allocator[:allocator.index('}\n')])
 
+    def test_mapper_library_carries_its_vintf_declaration(self):
+        bp = self.render()['Android.bp'].decode()
+        mapper = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_android.hardware.graphics.mapper@4.0-impl-qti-display"'):]
+        mapper = mapper[:mapper.index('}\n')]
+        self.assertIn('vintf_fragments: ["files/vendor/etc/vintf/manifest/android.hardware.graphics.mapper-impl-qti-display.xml"]', mapper)
+
+    def test_missing_library_vintf_declaration_rejected(self):
+        self.recipe['files'] = [r for r in self.recipe['files']
+                                if not r['path'].endswith('mapper-impl-qti-display.xml')]
+        with self.assertRaises(VendorError): self.render()
+
     def test_undeclared_runtime_edge_rejected(self):
         row = next(r for r in self.recipe['files'] if r['path'] == 'vendor/bin/qseecomd')
         row['runtime_dependencies'] = row['runtime_dependencies'][1:]

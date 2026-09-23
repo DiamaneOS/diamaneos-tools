@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "a9d7a9e9256d8f9e69585df38f2f7959c2affc748bcf465d80603c4c012a68d2",
+  "model_sha256": "9a9ae6a26faa040bd4a3195ce0db728505d38e3dc36a2dff8f6e0105a42c8b29",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -3151,6 +3151,26 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/vintf/manifest/android.hardware.graphics.mapper-impl-qti-display.xml",
+      "path": "vendor/etc/vintf/manifest/android.hardware.graphics.mapper-impl-qti-display.xml",
+      "sha256": "d136319b57589cf93e848219bb0ed677fe5b9efc5e706c6879fb13c9b7019fb8",
+      "bytes": 2164,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "VINTF declaration of the passthrough graphics mapper 4.0 and QTI mapper; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
     }
