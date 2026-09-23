@@ -618,6 +618,13 @@ state. The kernel rejects the entire bootconfig if any key is assigned twice,
 leaving userspace without a slot suffix. Do not set bootloader-supplied keys
 in `BOARD_BOOTCONFIG`; check the booted `/proc/bootconfig` when changing it.
 
+Every `first_stage_mount` fstab entry must have its mount point in a verified
+image: first-stage init cannot create directories on the read-only partitions,
+and a failed entry without `nofail` or `formattable` aborts normal boot while
+recovery, which skips first-stage mount, still starts. The stock `/odm/persist`
+mount exists only to import device-generated product properties from persist;
+DiamaneOS does not ship that import and does not mount persist there.
+
 The Gen8.3 GPU firmware dependencies are explicit in the native selection and
 are authenticated against the stock recipe. Missing or changed firmware fails
 generation without replacing the prior valid tree. Firmware stored in retained
