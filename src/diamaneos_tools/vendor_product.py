@@ -69,6 +69,72 @@ LIBRARY_VINTF = {
 }
 RUNTIME_EDGE = 'selected-stock-runtime'
 
+# Blobs built against an Android 14 VNDK library whose Android 17 ABI differs.
+# The dependency is renamed to a source-built copy with the old ABI (device
+# compat module); input and output bytes are pinned.
+NEEDED_REWRITES = {
+ 'vendor/lib64/libsnapdragoncolor-manager.so': {
+  'needed': 'libtinyxml2.so', 'replacement': 'libtxml2v34.so', 'module': 'libtxml2v34',
+  'source_sha256': 'e66febb064b81332eaf79525f1dd7a3e531dd28ac46e430495e484c71611c52e',
+  'sha256': 'd75f85d85ac41a1f79617cc374dc144626f6b7d34e8285be8f484bc433e4e03a'},
+}
+
+
+def rewrite_needed(data, needed, replacement):
+    """Rename one DT_NEEDED string in place; refuse if any other reference shares its bytes."""
+    import struct
+    if len(needed) != len(replacement) or data[:5] != b'\x7fELF\x02' or data[5] != 1:
+        raise VendorError('unsupported dependency rewrite')
+    shoff, = struct.unpack_from('<Q', data, 0x28)
+    shentsize, shnum, _ = struct.unpack_from('<HHH', data, 0x3a)
+    sections = [struct.unpack_from('<IIQQQQIIQQ', data, shoff + i * shentsize) for i in range(shnum)]
+    by_type = {}
+    for s in sections:
+        by_type.setdefault(s[1], []).append(s)
+    dynamic, dynsym = by_type.get(6, []), by_type.get(11, [])
+    if len(dynamic) != 1 or len(dynsym) != 1:
+        raise VendorError('unsupported dependency rewrite')
+    strtab = sections[dynamic[0][6]]
+    if strtab is not sections[dynsym[0][6]]:
+        raise VendorError('unsupported dependency rewrite')
+    base, size = strtab[4], strtab[5]
+    references, targets = [], []
+    for offset in range(dynamic[0][4], dynamic[0][4] + dynamic[0][5], 16):
+        tag, value = struct.unpack_from('<qQ', data, offset)
+        if tag in (1, 14, 15, 29):  # NEEDED, SONAME, RPATH, RUNPATH
+            references.append(value)
+            if tag == 1 and data[base + value:base + value + len(needed) + 1] == needed.encode() + b'\0':
+                targets.append(value)
+    for offset in range(dynsym[0][4], dynsym[0][4] + dynsym[0][5], 24):
+        references.append(struct.unpack_from('<I', data, offset)[0])
+    for kind in (0x6ffffffe, 0x6ffffffd):  # verneed, verdef
+        for s in by_type.get(kind, []):
+            position = s[4]
+            for _ in range(s[7]):
+                if kind == 0x6ffffffe:
+                    _, count, name, first, following = struct.unpack_from('<HHIII', data, position)
+                    references.append(name)
+                    item = position + first
+                    for _ in range(count):
+                        _, _, _, name, step = struct.unpack_from('<IHHII', data, item)
+                        references.append(name)
+                        item += step
+                else:
+                    _, _, _, count, _, first, following = struct.unpack_from('<HHHHIII', data, position)
+                    item = position + first
+                    for _ in range(count):
+                        name, step = struct.unpack_from('<II', data, item)
+                        references.append(name)
+                        item += step
+                position += following
+    if len(targets) != 1:
+        raise VendorError('dependency to rewrite is not present exactly once')
+    start = targets[0]
+    end = start + len(needed)
+    if end >= size or any(start < r <= end for r in references) or references.count(start) != 1:
+        raise VendorError('dependency string is shared with another reference')
+    return data[:base + start] + replacement.encode() + data[base + end:]
+
 
 def reachable(selection):
     """Keep explicit static/dynamic roots and their transitive ELF and dlopen providers."""
@@ -140,6 +206,9 @@ def render(recipe, selection, notice_kind):
             # built against. The vendor is an Android 17 vendor without a VNDK
             # version, so the dependency is the current vendor variant.
             dep = edge['needed'].removesuffix('.so')
+            rewrite = NEEDED_REWRITES.get(edge['consumer'])
+            if rewrite and rewrite['needed'] == edge['needed']:
+                dep = rewrite['module']
         else:
             raise VendorError('unresolved ELF dependency')
         dependencies[edge['consumer']].append(dep)
@@ -307,6 +376,18 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 'source_sha256': hashlib.sha256(original).hexdigest(),
                 'sha256': hashlib.sha256(derived).hexdigest(),
                 'reason': 'Disable optional learning, memory plugin and prekill startup gates'}]
+            for path, rewrite in sorted(NEEDED_REWRITES.items()):
+                blob = tree / 'files' / path
+                original = blob.read_bytes()
+                if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
+                    raise VendorError('dependency rewrite input differs from reviewed blob')
+                derived = rewrite_needed(original, rewrite['needed'], rewrite['replacement'])
+                if hashlib.sha256(derived).hexdigest() != rewrite['sha256']:
+                    raise VendorError('dependency rewrite differs from reviewed result')
+                blob.write_bytes(derived)
+                provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
+                    'sha256': rewrite['sha256'],
+                    'reason': 'Use the Android 14 tinyxml2 ABI (' + rewrite['module'] + ') instead of ' + rewrite['needed']})
             rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe),
                              'component-closure.json': encoded(closure)})
             for name, content in rendered.items():
