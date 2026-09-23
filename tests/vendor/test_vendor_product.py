@@ -116,6 +116,19 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libqrtr', 'libqmi_cci', 'libqmi_csi', 'libperipheral_client']:
             self.assertEqual('firmware-trusted-boot', owners['vendor/lib64/' + stem + '.so'])
 
+    def test_display_color_manager_installed_as_required(self):
+        bp = self.render()['Android.bp'].decode()
+        for loader, stems in [('fp6_stock_vendor_lib64_libsdmcore', ['libsdm-color', 'libsnapdragoncolor-manager']),
+                              ('fp6_stock_vendor_lib64_libsnapdragoncolor-manager', ['libcolor-default', 'libsnapdragoncolor-qdcm']),
+                              ('fp6_stock_vendor_lib64_libsnapdragoncolor-qdcm', ['libqdcm-algo', 'libqdcm-json-mode-parser'])]:
+            block = bp[bp.index('name: "' + loader + '"'):]
+            block = block[:block.index('}\n')]
+            for stem in stems:
+                self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', block[block.index('required:'):].split('\n')[0])
+        self.assertNotIn('fp6_stock_vendor_lib64_libsdmextension', bp)
+        make = self.render()['device-vendor.mk'].decode()
+        self.assertIn('vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json', make)
+
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
