@@ -261,6 +261,56 @@
       "slug": "vendor_qcom_opensource_libvmmem",
       "state": "active",
       "upstream_url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/thermal-hal",
+      "id": "thermal-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_thermal-hal.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_thermal-hal",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/thermal"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/lights",
+      "id": "lights-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_lights.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_lights",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/lights"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/vibrator",
+      "id": "vibrator-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_vibrator.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_vibrator",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/vibrator"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/usb",
+      "id": "usb-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_usb.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_usb",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/usb"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/healthd-ext",
+      "id": "healthd-ext",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_healthd-ext.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_healthd-ext",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/healthd-ext"
     }
   ],
   "schema_version": 1
