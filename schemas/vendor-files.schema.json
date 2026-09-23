@@ -91,6 +91,36 @@
             },
             "uniqueItems": true
           },
+          "runtime_dependencies": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "soname",
+                "reason"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024,
+                  "pattern": "^(vendor|odm|product|system_ext|system)/[A-Za-z0-9._+@/-]+$"
+                },
+                "soname": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_.@+-]+\\.so$"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          },
           "notices": {
             "type": "array",
             "maxItems": 128,

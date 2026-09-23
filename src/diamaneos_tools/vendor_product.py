@@ -55,8 +55,11 @@ def blueprint(kind, properties):
                                   for k, v in properties.items()) + '}\n\n'
 
 
+RUNTIME_EDGE = 'selected-stock-runtime'
+
+
 def reachable(selection):
-    """Keep explicit static/dynamic roots and their transitive ELF providers."""
+    """Keep explicit static/dynamic roots and their transitive ELF and dlopen providers."""
     paths = {r['path'] for r in selection['files']}
     roots = selection['roots']
     if not roots or len(roots) != len(set(roots)) or not set(roots) <= paths:
@@ -68,7 +71,7 @@ def reachable(selection):
             continue
         kept.add(path)
         pending.extend(e['provider'] for e in selection['edges']
-                       if e['consumer'] == path and e['kind'] == 'selected-stock')
+                       if e['consumer'] == path and e['kind'] in ('selected-stock', RUNTIME_EDGE))
     if not kept <= paths:
         raise VendorError('runtime dependency has no selected provider')
     return kept
@@ -88,6 +91,8 @@ def render(recipe, selection, notice_kind):
         if not path.startswith(('vendor/lib64/', 'vendor/bin/')):
             raise VendorError('unsupported native install partition')
     dependencies = {path: [] for path in elfs}
+    # dlopen providers are installed with their consumer but never linked.
+    required = {path: [] for path in elfs}
     edge_keys = set()
     for edge in selection['edges']:
         if edge['consumer'] not in elfs:
@@ -102,6 +107,15 @@ def render(recipe, selection, notice_kind):
                 raise VendorError('undeclared ELF dependency')
             stem = Path(provider).name.removesuffix('.so')
             dep = stem if stem in SOURCE_INTERFACES else module(provider)
+        elif edge['kind'] == RUNTIME_EDGE:
+            provider = edge['provider']
+            declared = {r['path']: r['soname'] for r in rows[edge['consumer']].get('runtime_dependencies', [])}
+            if (provider not in elfs or declared.get(provider) != edge['needed']
+                    or Path(provider).name != edge['needed']):
+                raise VendorError('undeclared runtime dependency')
+            stem = Path(provider).name.removesuffix('.so')
+            required[edge['consumer']].append(stem if stem in SOURCE_INTERFACES else module(provider))
+            continue
         elif edge['kind'] == 'platform-or-vndk34':
             if not re.fullmatch(r'[A-Za-z0-9_.@+-]+\.so', edge['needed']):
                 raise VendorError('invalid platform dependency')
@@ -122,6 +136,11 @@ def render(recipe, selection, notice_kind):
                     if e['consumer'] == path and e['kind'] == 'selected-stock'}
         if declared != observed:
             raise VendorError('incomplete selected ELF dependency edges')
+        declared_runtime = {r['path'] for r in rows[path].get('runtime_dependencies', [])}
+        observed_runtime = {e['provider'] for e in selection['edges']
+                            if e['consumer'] == path and e['kind'] == RUNTIME_EDGE}
+        if declared_runtime != observed_runtime:
+            raise VendorError('incomplete selected runtime dependency edges')
     firmware = selection.get('firmware_inputs', [])
     firmware_paths = {r['path'] for r in firmware}
     if len(firmware_paths) != len(firmware):
@@ -155,6 +174,8 @@ def render(recipe, selection, notice_kind):
         props = {'name': name, 'vendor': True, 'compile_multilib': '64',
                  'srcs': ['files/' + path], 'stem': stem, 'strip': {'none': True},
                  'shared_libs': sorted(set(dependencies[path])), 'system_shared_libs': []}
+        if required[path]:
+            props['required'] = sorted(set(required[path]))
         if relative != '.':
             props['relative_install_path'] = relative
         if not library:

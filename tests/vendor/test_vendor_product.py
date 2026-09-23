@@ -72,6 +72,37 @@ class NativeProductTests(unittest.TestCase):
         edge['export_lists'] = ['/etc/unreviewed.txt']
         with self.assertRaises(VendorError): self.render()
 
+    def test_qseecomd_listeners_installed_as_required_not_linked(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp = rendered['Android.bp'].decode()
+        qseecomd = bp[bp.index('name: "fp6_stock_vendor_bin_qseecomd"'):]
+        qseecomd = qseecomd[:qseecomd.index('}\n')]
+        for stem in ['librpmb', 'libssd', 'libgpt', 'libdrmtime', 'libGPreqcancel',
+                     'libops', 'libqisl', 'libspl']:
+            name = 'fp6_stock_vendor_lib64_' + stem
+            self.assertIn(name, modules)
+            required = qseecomd[qseecomd.index('required:'):]
+            self.assertIn('"' + name + '"', required[:required.index('\n')])
+            self.assertNotIn('"' + name + '"', qseecomd[qseecomd.index('shared_libs:'):].split('\n')[0])
+        for stem in ['libGPreqcancel_svc', 'libtime_genoff', 'vendor.qti.hardware.display.config-V7-ndk']:
+            self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
+
+    def test_undeclared_runtime_edge_rejected(self):
+        row = next(r for r in self.recipe['files'] if r['path'] == 'vendor/bin/qseecomd')
+        row['runtime_dependencies'] = row['runtime_dependencies'][1:]
+        with self.assertRaises(VendorError): self.render()
+
+    def test_missing_runtime_edge_rejected(self):
+        edge = next(e for e in self.selection['edges'] if e['kind'] == 'selected-stock-runtime')
+        self.selection['edges'].remove(edge)
+        with self.assertRaises(VendorError): self.render()
+
+    def test_runtime_edge_soname_must_match_provider(self):
+        edge = next(e for e in self.selection['edges'] if e['kind'] == 'selected-stock-runtime')
+        edge['needed'] = 'libother.so'
+        with self.assertRaises(VendorError): self.render()
+
     def test_configuration_transform_rejects_unreviewed_bytes(self):
         with self.assertRaises(VendorError): vendor_product.performance_config(b'<PerfConfigsStore/>')
 

@@ -141,6 +141,16 @@
       "bytes": 3652088
     },
     {
+      "path": "vendor/lib64/libGPreqcancel.so",
+      "sha256": "2076547b53d049f4fe7a04bccf76bdd282911652b7263dfc90148f6225eb78b8",
+      "bytes": 27768
+    },
+    {
+      "path": "vendor/lib64/libGPreqcancel_svc.so",
+      "sha256": "34db75b64f513ca0c34428c0abee6d583c1c68111cfeeee0c120055d04c0817f",
+      "bytes": 32048
+    },
+    {
       "path": "vendor/lib64/libQSEEComAPI.so",
       "sha256": "e60d77891ff4c0949f2d539a10ed83b6185c680c2ab162e69ecb8b2f98ad2fe7",
       "bytes": 70568
@@ -176,9 +186,19 @@
       "bytes": 53000
     },
     {
+      "path": "vendor/lib64/libdrmtime.so",
+      "sha256": "cbacdc2024f48a296be91c70e38fa207017a64767fe44d32626315838f94a424",
+      "bytes": 14904
+    },
+    {
       "path": "vendor/lib64/libdrmutils.so",
       "sha256": "d90216215e1443e86493a768a99491f0fd03fd5ea0c8da4957b0a57e2fbc6031",
       "bytes": 19920
+    },
+    {
+      "path": "vendor/lib64/libgpt.so",
+      "sha256": "b9bfd88684a14e6cd21c801a1db5c98b4f4e05f86ad3e375034b4ff5449d84d4",
+      "bytes": 40424
     },
     {
       "path": "vendor/lib64/libgpu_tonemapper.so",
@@ -251,6 +271,11 @@
       "bytes": 54352
     },
     {
+      "path": "vendor/lib64/libops.so",
+      "sha256": "99910663d0055782338d3426dad2424518fe4b06a6136d49295c634bda0201b3",
+      "bytes": 36584
+    },
+    {
       "path": "vendor/lib64/libperfconfig.so",
       "sha256": "40729c8019f0f47d2fe30c3cb8a51b8a1807e21151708bfee4f57b4319a0dd6c",
       "bytes": 87176
@@ -279,6 +304,11 @@
       "path": "vendor/lib64/libqcbor.so",
       "sha256": "fdd11081d6a6d028c9da4e0db20ada2fcd2b1cc4a660aa289e0eba6b5de04f71",
       "bytes": 28096
+    },
+    {
+      "path": "vendor/lib64/libqisl.so",
+      "sha256": "52eed4da8f8b5c47f23b42d49b6d031d084dec22dc1858762bbe7a22f66f1122",
+      "bytes": 40584
     },
     {
       "path": "vendor/lib64/libqmi_cci.so",
@@ -321,6 +351,11 @@
       "bytes": 304464
     },
     {
+      "path": "vendor/lib64/librpmb.so",
+      "sha256": "45c219f0ee1c45f6ef7420e8bf82d5b158789fb9578e3b9e03cd7fc90669f1ea",
+      "bytes": 50256
+    },
+    {
       "path": "vendor/lib64/libsdedrm.so",
       "sha256": "a8b0d28bbec958986b6365991222dc33b91e23b18a4a2b20f67c636b54037639",
       "bytes": 490968
@@ -351,9 +386,24 @@
       "bytes": 49096
     },
     {
+      "path": "vendor/lib64/libspl.so",
+      "sha256": "929b1c1c4c2e0914c479e1a901299e5f73fda62f483ad529c1849074f4ec4875",
+      "bytes": 15120
+    },
+    {
+      "path": "vendor/lib64/libssd.so",
+      "sha256": "667b6ec360b6a14538a231379966726ea6b1e4c2a209d808aa4a0d509679b253",
+      "bytes": 15192
+    },
+    {
       "path": "vendor/lib64/libthermalclient.so",
       "sha256": "9d50ae4370873f6da19294ab9477b4e570ae8a9f4e530d544c633edb4cb7c931",
       "bytes": 41928
+    },
+    {
+      "path": "vendor/lib64/libtime_genoff.so",
+      "sha256": "93a863da3ed2cbb99028f22d75cba5eba4f840ce8832e4c764219cf418a48654",
+      "bytes": 23680
     },
     {
       "path": "vendor/lib64/libvmmem.so",
@@ -384,6 +434,11 @@
       "path": "vendor/lib64/vendor.qti.hardware.display.config-V5-ndk.so",
       "sha256": "8a689475b4df93aaadd853a44bd414157424d06d9bbc01f949bb54f80204c86a",
       "bytes": 152720
+    },
+    {
+      "path": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "sha256": "d55b5f5430df5a9a5f4e3a3a8c79af173ac2001a50f810342cd4ad55e69a537b",
+      "bytes": 157008
     },
     {
       "path": "vendor/lib64/vendor.qti.hardware.display.demura-V1-ndk.so",
@@ -1439,6 +1494,12 @@
     },
     {
       "consumer": "vendor/bin/qseecomd",
+      "needed": "libGPreqcancel.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libGPreqcancel.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
       "needed": "libQSEEComAPI.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libQSEEComAPI.so"
@@ -1491,6 +1552,18 @@
     },
     {
       "consumer": "vendor/bin/qseecomd",
+      "needed": "libdrmtime.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libdrmtime.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "libgpt.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libgpt.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
       "needed": "liblog.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -1510,6 +1583,36 @@
       "needed": "libminkdescriptor.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libminkdescriptor.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "libops.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libops.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "libqisl.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqisl.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "librpmb.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/librpmb.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "libspl.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libspl.so"
+    },
+    {
+      "consumer": "vendor/bin/qseecomd",
+      "needed": "libssd.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libssd.so"
     },
     {
       "consumer": "vendor/bin/qseecomd",
@@ -3008,6 +3111,136 @@
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
     },
     {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libGPreqcancel_svc.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libGPreqcancel_svc.so"
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libdiag.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdiag.so"
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libGPreqcancel_svc.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libQSEEComAPI.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -3404,6 +3637,80 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libdiag.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdiag.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libtime_genoff.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtime_genoff.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdrmtime.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libdrmutils.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -3465,6 +3772,60 @@
     },
     {
       "consumer": "vendor/lib64/libdrmutils.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libgpt.so",
       "needed": "libutils.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -4540,6 +4901,88 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libdrm.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdrm.so"
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libops.so",
+      "needed": "vendor.qti.hardware.display.config-V7-ndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so"
+    },
+    {
       "consumer": "vendor/lib64/libperfconfig.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -4899,6 +5342,60 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqisl.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
       ]
     },
     {
@@ -5566,6 +6063,60 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/librpmb.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libsdedrm.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -6004,6 +6555,128 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libspl.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libdiag.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdiag.so"
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libssd.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libthermalclient.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -6045,6 +6718,54 @@
     },
     {
       "consumer": "vendor/lib64/libthermalclient.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtime_genoff.so",
       "needed": "libm.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -6339,6 +7060,54 @@
     },
     {
       "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V5-ndk.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "needed": "android.hardware.common-V2-ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
       "needed": "libm.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
