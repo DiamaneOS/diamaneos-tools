@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "8a2e85c26250bb154c22f42712ded5f7b4f3a735d3af6b11ede65ffba4341d3b",
+  "model_sha256": "dd0295a7a1a0b4c45d6239e21901d65a0590258538ddd02fe80cda757bb1bf9c",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -1422,7 +1422,14 @@
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libCB.so",
+          "soname": "libCB.so",
+          "reason": "The Adreno GLES driver loads this compute backend with dlopen (named in the driver); shipped with the compiler fix"
+        }
+      ]
     },
     {
       "input": "vendor/lib64/hw/android.hardware.graphics.mapper@4.0-impl-qti-display.so",
@@ -1935,7 +1942,14 @@
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libllvm-qgl.so",
+          "soname": "libllvm-qgl.so",
+          "reason": "The Adreno shader compiler front end loads this core compiler with dlopen; without it the first shader compile aborts (\"Failed to load core compiler\") and surfaceflinger crashes"
+        }
+      ]
     },
     {
       "input": "vendor/lib64/libmemperfd.so",
@@ -3250,6 +3264,56 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libCB.so",
+      "path": "vendor/lib64/libCB.so",
+      "sha256": "2fb7c8660132c7e381523d38fc37b47415cac297356a08103da644b9a495aa46",
+      "bytes": 9940536,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libadreno_utils.so",
+        "vendor/lib64/libgralloc.qti.so",
+        "vendor/lib64/libgsl.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapper@3.0.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.0.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Adreno GPU library loaded with dlopen at runtime; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libllvm-qgl.so",
+      "path": "vendor/lib64/libllvm-qgl.so",
+      "sha256": "88d3099ab4815f143b73f1fc9a079d88228f20f613efad7166c02c6cd02d7511",
+      "bytes": 23864248,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libgsl.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Adreno GPU library loaded with dlopen at runtime; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
         "capabilities_hex": ""
       }
     }
