@@ -171,13 +171,19 @@ class NativeProductTests(unittest.TestCase):
         bp = rendered['Android.bp'].decode()
         service = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.biometrics.fingerprint-service"'):]
         service = service[:service.index('}\n')]
-        self.assertIn('"fingerprint.default"', service)
-        driver = bp[bp.index('name: "fingerprint.default"'):]
+        # FP6-specific install names: no collision with AOSP's reference
+        # fingerprint service or libhardware stub, and no module shadowing.
+        self.assertIn('"fp6_stock_vendor_lib64_hw_fingerprint.fp6"', service)
+        driver = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_fingerprint.fp6"'):]
         driver = driver[:driver.index('}\n')]
-        self.assertIn('prefer: true', driver)
-        self.assertIn('files/vendor/lib64/hw/fingerprint.default.so', driver)
-        self.assertIn('fingerprint-default.rc', service)
-        self.assertIn('fingerprint-default.xml', service)
+        self.assertNotIn('prefer', driver)
+        self.assertIn('files/vendor/lib64/hw/fingerprint.fp6.so', driver)
+        self.assertIn('android.hardware.biometrics.fingerprint-service.fp6.rc', service)
+        self.assertIn('android.hardware.biometrics.fingerprint-service.fp6.xml', service)
+        self.assertNotIn('name: "fingerprint.default"', bp)
+        self.assertNotIn('fingerprint-default.rc', bp)
+        stock = {r['path']: r['input'] for r in self.recipe['files']}
+        self.assertEqual(stock['vendor/lib64/hw/fingerprint.fp6.so'], 'vendor/lib64/hw/fingerprint.default.so')
         for stem in ['android.hardware.biometrics.common-V3-ndk',
                      'android.hardware.biometrics.fingerprint-V3-ndk']:
             self.assertIn('"' + stem + '"', service)
