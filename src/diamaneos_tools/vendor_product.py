@@ -124,9 +124,10 @@ def render(recipe, selection, notice_kind):
                     '/etc/vndksp.libraries.34.txt', '/etc/vndkprivate.libraries.34.txt'}
                     for p in edge['export_lists']):
                 raise VendorError('unreviewed platform export namespace')
+            # The export lists record the stock VNDK 34 interface a blob was
+            # built against. The vendor is an Android 17 vendor without a VNDK
+            # version, so the dependency is the current vendor variant.
             dep = edge['needed'].removesuffix('.so')
-            if not any('llndk.' in p for p in edge['export_lists']):
-                dep += '.vndk.34.arm64'
         else:
             raise VendorError('unresolved ELF dependency')
         dependencies[edge['consumer']].append(dep)
@@ -201,7 +202,7 @@ def render(recipe, selection, notice_kind):
                           installed_location=link['path'].removeprefix('vendor/'),
                           symlink_target=link['target'], required=[module(destination)]))
     make = '# Generated from the authenticated selection.\nPRODUCT_PACKAGES += ' + ' '.join(names)
-    make += '\nPRODUCT_EXTRA_VNDK_VERSIONS += 34\nPRODUCT_VENDOR_PROPERTIES += ro.vndk.version=34 ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
+    make += '\nPRODUCT_VENDOR_PROPERTIES += ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
         if path.startswith('vendor/etc/lm/'):
             # No learning plugin is installed or enabled in this composition.

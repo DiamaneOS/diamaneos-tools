@@ -88,6 +88,15 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libGPreqcancel_svc', 'libtime_genoff', 'vendor.qti.hardware.display.config-V7-ndk']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
 
+    def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
+        rendered = self.render()
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        self.assertNotIn('.vndk.', bp)
+        self.assertNotIn('ro.vndk.version', make)
+        self.assertNotIn('PRODUCT_EXTRA_VNDK_VERSIONS', make)
+        allocator = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.allocator-service"'):]
+        self.assertIn('"libbinder"', allocator[:allocator.index('}\n')])
+
     def test_undeclared_runtime_edge_rejected(self):
         row = next(r for r in self.recipe['files'] if r['path'] == 'vendor/bin/qseecomd')
         row['runtime_dependencies'] = row['runtime_dependencies'][1:]
