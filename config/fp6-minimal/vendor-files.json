@@ -2410,7 +2410,19 @@
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libsdm-color.so",
+          "soname": "libsdm-color.so",
+          "reason": "SDM core loads the color manager interface with dlopen; without it the composer fails SurfaceFlinger's color transform and no frame is presented"
+        },
+        {
+          "path": "vendor/lib64/libsnapdragoncolor-manager.so",
+          "soname": "libsnapdragoncolor-manager.so",
+          "reason": "SDM core loads the Snapdragon color manager with dlopen; without it the composer fails SurfaceFlinger's color transform and no frame is presented"
+        }
+      ]
     },
     {
       "input": "vendor/lib64/libsdmdal.so",
@@ -3576,6 +3588,377 @@
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
       "purpose": "Remote-processor support library or activation file for the selected DSP bring-up daemons.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsdm-color.so",
+      "path": "vendor/lib64/libsdm-color.so",
+      "sha256": "fa998a63e3f36dfb998d17bd55e845da62cf7aa0425861668a17f1d481b294a9",
+      "bytes": 466936,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdmutils.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "path": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "sha256": "e66febb064b81332eaf79525f1dd7a3e531dd28ac46e430495e484c71611c52e",
+      "bytes": 205672,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdigital-dimming.so",
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libdrm.so",
+        "vendor/lib64/libsdm-color.so",
+        "vendor/lib64/libsdmutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libcolor-default.so",
+          "soname": "libcolor-default.so",
+          "reason": "Default color plugin the Snapdragon color manager loads with dlopen"
+        },
+        {
+          "path": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+          "soname": "libsnapdragoncolor-qdcm.so",
+          "reason": "QDCM calibration plugin the Snapdragon color manager loads with dlopen (applies the panel calibration file)"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libcolor-default.so",
+      "path": "vendor/lib64/libcolor-default.so",
+      "sha256": "1512a7e8f5556495025448dd588ff4706f2a5ae1b0a063227316aa808113c496",
+      "bytes": 52176,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdm-color.so",
+        "vendor/lib64/libsdmutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "path": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "sha256": "aef37575bdc7f72e8a044d524aa5a893b58314bec2eef5bb1e9f0003974185c8",
+      "bytes": 106400,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdm-color.so",
+        "vendor/lib64/libsdmutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libqdcm-algo.so",
+          "soname": "libqdcm-algo.so",
+          "reason": "QDCM algorithm library the QDCM plugin loads with dlopen"
+        },
+        {
+          "path": "vendor/lib64/libqdcm-json-mode-parser.so",
+          "soname": "libqdcm-json-mode-parser.so",
+          "reason": "Parser the QDCM plugin loads with dlopen to read the JSON panel calibration"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libqdcm-algo.so",
+      "path": "vendor/lib64/libqdcm-algo.so",
+      "sha256": "8b57b4cb7c211455092ce4dbb7892555baf1c23aef24765f4dfe820824383274",
+      "bytes": 593032,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdm-color.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "path": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "sha256": "c84d66a44a046a4e141c949f47255af312c05656b40ea7aacab0eaaba5f88b68",
+      "bytes": 553632,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdm-color.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtinyxml2_1.so",
+      "path": "vendor/lib64/libtinyxml2_1.so",
+      "sha256": "26eb6bb8f3532a357a4864d85c9e250d2f709f03d509f9f9c34c870f5f36d725",
+      "bytes": 115720,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libdigital-dimming.so",
+      "path": "vendor/lib64/libdigital-dimming.so",
+      "sha256": "e2c77b14ef26d04a86656e94d5da7b13496d4995da1a2af335a062e10af43a71",
+      "bytes": 78232,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/DPU1010.xml",
+      "path": "vendor/etc/display/DPU1010.xml",
+      "sha256": "13fab3ce4523f64bf010f6b5d274c03334f772afac21f6ee564cd17b10e3e53f",
+      "bytes": 2242,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/DPU1020.xml",
+      "path": "vendor/etc/display/DPU1020.xml",
+      "sha256": "74350400a83eb503ee0338eb8463c464979a9932b222dbe27d375fb981000ad6",
+      "bytes": 2236,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/DPU10__.xml",
+      "path": "vendor/etc/display/DPU10__.xml",
+      "sha256": "fa61dc023295aba6ee0f0a9318bd3a4088cfcce151fc39d4afa13192c79bdef9",
+      "bytes": 1989,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/DPU870.xml",
+      "path": "vendor/etc/display/DPU870.xml",
+      "sha256": "9ab3586d4aa2a1be627272d835070d0a56252a25435760e10344e652e3d335f1",
+      "bytes": 2238,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/DPU9__.xml",
+      "path": "vendor/etc/display/DPU9__.xml",
+      "sha256": "539585646ea5546fb1155c94f6f5b4a3186de5bb356f52a3dca1d9b5bc71a78b",
+      "bytes": 2102,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/perf_hint_threshold.xml",
+      "path": "vendor/etc/display/perf_hint_threshold.xml",
+      "sha256": "8c4d4cabaf4c3cf817ccdfea70f8f3bf13931a1ff398a935ea12f4f61a1badc1",
+      "bytes": 1144,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/advanced_sf_offsets.xml",
+      "path": "vendor/etc/display/advanced_sf_offsets.xml",
+      "sha256": "f6084a89a0fee4ad3286081807a4d3b70d8536f61ad4084ad491f734160c4b13",
+      "bytes": 1948,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json",
+      "path": "vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json",
+      "sha256": "3fc40faa88a83890d19f570e6750bbbf1b05c98ac5a443ae059676b3f6d59893",
+      "bytes": 785651,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display color-management runtime or display configuration read by the selected composer.",
       "metadata": {
         "uid": 0,
         "gid": 0,
