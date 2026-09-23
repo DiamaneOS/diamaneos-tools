@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "efe1c541395ae20f6fa00eed8f245cbf3eb2a3af59063562caaf379f984c9ee9",
+  "model_sha256": "665b428e9e5f1aec758a301c6842accce66853a6cb5e04dd7b9ba61a05bf6b55",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -239,7 +239,49 @@
         "mode": 493,
         "selinux": "u:object_r:tee_exec:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libGPreqcancel.so",
+          "soname": "libGPreqcancel.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libdrmtime.so",
+          "soname": "libdrmtime.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libgpt.so",
+          "soname": "libgpt.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libops.so",
+          "soname": "libops.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libqisl.so",
+          "soname": "libqisl.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/librpmb.so",
+          "soname": "librpmb.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libspl.so",
+          "soname": "libspl.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        },
+        {
+          "path": "vendor/lib64/libssd.so",
+          "soname": "libssd.so",
+          "reason": "qseecomd ListenerMngr loads this listener with dlopen(RTLD_NOW) at startup; if it is missing, listener registration fails, qseecomd exits 255 and KeyMint cannot unlock /data"
+        }
+      ]
     },
     {
       "input": "vendor/bin/thermal-engine-v2",
@@ -2866,6 +2908,249 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/librpmb.so",
+      "path": "vendor/lib64/librpmb.so",
+      "sha256": "45c219f0ee1c45f6ef7420e8bf82d5b158789fb9578e3b9e03cd7fc90669f1ea",
+      "bytes": 50256,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libssd.so",
+      "path": "vendor/lib64/libssd.so",
+      "sha256": "667b6ec360b6a14538a231379966726ea6b1e4c2a209d808aa4a0d509679b253",
+      "bytes": 15192,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so",
+        "vendor/lib64/libdiag.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libgpt.so",
+      "path": "vendor/lib64/libgpt.so",
+      "sha256": "b9bfd88684a14e6cd21c801a1db5c98b4f4e05f86ad3e375034b4ff5449d84d4",
+      "bytes": 40424,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libdrmtime.so",
+      "path": "vendor/lib64/libdrmtime.so",
+      "sha256": "cbacdc2024f48a296be91c70e38fa207017a64767fe44d32626315838f94a424",
+      "bytes": 14904,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so",
+        "vendor/lib64/libdiag.so",
+        "vendor/lib64/libtime_genoff.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libGPreqcancel.so",
+      "path": "vendor/lib64/libGPreqcancel.so",
+      "sha256": "2076547b53d049f4fe7a04bccf76bdd282911652b7263dfc90148f6225eb78b8",
+      "bytes": 27768,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libGPreqcancel_svc.so",
+        "vendor/lib64/libQSEEComAPI.so",
+        "vendor/lib64/libdiag.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libGPreqcancel_svc.so",
+      "path": "vendor/lib64/libGPreqcancel_svc.so",
+      "sha256": "34db75b64f513ca0c34428c0abee6d583c1c68111cfeeee0c120055d04c0817f",
+      "bytes": 32048,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Dependency of a qseecomd secure-world listener; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libops.so",
+      "path": "vendor/lib64/libops.so",
+      "sha256": "99910663d0055782338d3426dad2424518fe4b06a6136d49295c634bda0201b3",
+      "bytes": 36584,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so",
+        "vendor/lib64/libdrm.so",
+        "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqisl.so",
+      "path": "vendor/lib64/libqisl.so",
+      "sha256": "52eed4da8f8b5c47f23b42d49b6d031d084dec22dc1858762bbe7a22f66f1122",
+      "bytes": 40584,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libspl.so",
+      "path": "vendor/lib64/libspl.so",
+      "sha256": "929b1c1c4c2e0914c479e1a901299e5f73fda62f483ad529c1849074f4ec4875",
+      "bytes": 15120,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "qseecomd secure-world listener loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtime_genoff.so",
+      "path": "vendor/lib64/libtime_genoff.so",
+      "sha256": "93a863da3ed2cbb99028f22d75cba5eba4f840ce8832e4c764219cf418a48654",
+      "bytes": 23680,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Dependency of a qseecomd secure-world listener; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "path": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so",
+      "sha256": "d55b5f5430df5a9a5f4e3a3a8c79af173ac2001a50f810342cd4ad55e69a537b",
+      "bytes": 157008,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Dependency of a qseecomd secure-world listener; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     }

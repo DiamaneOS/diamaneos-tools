@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v8",
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v9",
   "scope": "Candidate metadata revision with updated FP6 source and patch inventories. The upstream generic source map is unchanged; qualification of v4 remains bound to its original tools commit, not transferred to this identity.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -101,12 +101,12 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "92beacf8ffcd8cd837a2047c701a3f4a1a559e654e7d331c957f710818745faa"
+      "sha256": "21329923113bd454667b9fe6c09400b49fd915dc1fe8f52aa1a35fb3ad831ba6"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "87cfe7ebca476b70f659bdd25f4017dce6be4c394e7d1a2c2523addbfec99a16"
+      "sha256": "e50b4af6e322d03aba524535d6036907d9253cb49c6d5ce83cf4ea3cbbf29cc4"
     }
   ],
   "device_inputs": {
