@@ -171,7 +171,11 @@ class NativeProductTests(unittest.TestCase):
         bp = rendered['Android.bp'].decode()
         service = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.biometrics.fingerprint-service"'):]
         service = service[:service.index('}\n')]
-        self.assertIn('"fp6_stock_vendor_lib64_hw_fingerprint.default"', service)
+        self.assertIn('"fingerprint.default"', service)
+        driver = bp[bp.index('name: "fingerprint.default"'):]
+        driver = driver[:driver.index('}\n')]
+        self.assertIn('prefer: true', driver)
+        self.assertIn('files/vendor/lib64/hw/fingerprint.default.so', driver)
         self.assertIn('fingerprint-default.rc', service)
         self.assertIn('fingerprint-default.xml', service)
         for stem in ['android.hardware.biometrics.common-V3-ndk',
