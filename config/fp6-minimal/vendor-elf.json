@@ -191,9 +191,19 @@
       "bytes": 102008
     },
     {
+      "path": "vendor/lib64/libcolor-default.so",
+      "sha256": "1512a7e8f5556495025448dd588ff4706f2a5ae1b0a063227316aa808113c496",
+      "bytes": 52176
+    },
+    {
       "path": "vendor/lib64/libdiag.so",
       "sha256": "b5e346d5aa56da5c2c0af4064653c396e5ba71bb7c382cc52feefe9dcf81cc0e",
       "bytes": 326616
+    },
+    {
+      "path": "vendor/lib64/libdigital-dimming.so",
+      "sha256": "e2c77b14ef26d04a86656e94d5da7b13496d4995da1a2af335a062e10af43a71",
+      "bytes": 78232
     },
     {
       "path": "vendor/lib64/libdisplayconfig.qti.so",
@@ -361,6 +371,16 @@
       "bytes": 28096
     },
     {
+      "path": "vendor/lib64/libqdcm-algo.so",
+      "sha256": "8b57b4cb7c211455092ce4dbb7892555baf1c23aef24765f4dfe820824383274",
+      "bytes": 593032
+    },
+    {
+      "path": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "sha256": "c84d66a44a046a4e141c949f47255af312c05656b40ea7aacab0eaaba5f88b68",
+      "bytes": 553632
+    },
+    {
       "path": "vendor/lib64/libqisl.so",
       "sha256": "52eed4da8f8b5c47f23b42d49b6d031d084dec22dc1858762bbe7a22f66f1122",
       "bytes": 40584
@@ -436,6 +456,11 @@
       "bytes": 490968
     },
     {
+      "path": "vendor/lib64/libsdm-color.so",
+      "sha256": "fa998a63e3f36dfb998d17bd55e845da62cf7aa0425861668a17f1d481b294a9",
+      "bytes": 466936
+    },
+    {
       "path": "vendor/lib64/libsdm-disp-vndapis.so",
       "sha256": "99e1410bd8a570590e229d0bf3dca2d17342f9feb1f461335b147ad6a551f759",
       "bytes": 151800
@@ -461,6 +486,16 @@
       "bytes": 49096
     },
     {
+      "path": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "sha256": "e66febb064b81332eaf79525f1dd7a3e531dd28ac46e430495e484c71611c52e",
+      "bytes": 205672
+    },
+    {
+      "path": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "sha256": "aef37575bdc7f72e8a044d524aa5a893b58314bec2eef5bb1e9f0003974185c8",
+      "bytes": 106400
+    },
+    {
       "path": "vendor/lib64/libspl.so",
       "sha256": "929b1c1c4c2e0914c479e1a901299e5f73fda62f483ad529c1849074f4ec4875",
       "bytes": 15120
@@ -479,6 +514,11 @@
       "path": "vendor/lib64/libtime_genoff.so",
       "sha256": "93a863da3ed2cbb99028f22d75cba5eba4f840ce8832e4c764219cf418a48654",
       "bytes": 23680
+    },
+    {
+      "path": "vendor/lib64/libtinyxml2_1.so",
+      "sha256": "26eb6bb8f3532a357a4864d85c9e250d2f709f03d509f9f9c34c870f5f36d725",
+      "bytes": 115720
     },
     {
       "path": "vendor/lib64/libvmmem.so",
@@ -3966,6 +4006,88 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcolor-default.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libdiag.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -4011,6 +4133,82 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libtinyxml2_1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtinyxml2_1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdigital-dimming.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
       ]
     },
     {
@@ -6226,6 +6424,166 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-algo.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libjsoncpp.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqdcm-json-mode-parser.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libqisl.so",
       "needed": "libQSEEComAPI.so",
       "kind": "selected-stock",
@@ -7272,6 +7630,88 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libtinyxml2_1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtinyxml2_1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdm-color.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libsdm-disp-vndapis.so",
       "needed": "libbinder.so",
       "kind": "platform-or-vndk34",
@@ -7421,6 +7861,12 @@
     },
     {
       "consumer": "vendor/lib64/libsdmcore.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmcore.so",
       "needed": "libsdmdal.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libsdmdal.so"
@@ -7430,6 +7876,12 @@
       "needed": "libsdmutils.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmcore.so",
+      "needed": "libsnapdragoncolor-manager.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libsnapdragoncolor-manager.so"
     },
     {
       "consumer": "vendor/lib64/libsdmcore.so",
@@ -7633,6 +8085,214 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libcolor-default.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libcolor-default.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libdigital-dimming.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdigital-dimming.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libdrm.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdrm.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libsnapdragoncolor-qdcm.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libsnapdragoncolor-qdcm.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libtinyxml2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-manager.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libqdcm-algo.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqdcm-algo.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libqdcm-json-mode-parser.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqdcm-json-mode-parser.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsnapdragoncolor-qdcm.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
       ]
     },
     {
@@ -7847,6 +8507,38 @@
     },
     {
       "consumer": "vendor/lib64/libtime_genoff.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtinyxml2_1.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtinyxml2_1.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtinyxml2_1.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtinyxml2_1.so",
       "needed": "libm.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
