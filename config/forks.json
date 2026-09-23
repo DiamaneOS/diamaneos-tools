@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "policy": "Every upstream project in the DiamaneOS manifest overlay is a DiamaneOS fork on branch android17. Upstream updates are fetched and rebased into a local candidate branch for build and review; the fork branch is only moved after review, and nothing is pushed by tooling. Released builds freeze exact commits in the build environment. Fairphone forks track the public-build branch where it exists, otherwise rc; CodeLinaro forks track a release tag or, when pinned by commit, need an explicit reference to update.",
+  "forks": [
+    {"id": "boot-control", "slug": "hardware_qcom_bootctrl", "path": "hardware/qcom/bootctrl", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/bootctrl", "ref": "odm/rc/target/16/fp6", "kind": "branch"}},
+    {"id": "recovery-support", "slug": "vendor_qcom_opensource_recovery-ext", "path": "vendor/qcom/opensource/recovery-ext", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/recovery-ext", "ref": "odm/public-build/target/16/fp6", "kind": "branch"}},
+    {"id": "power-hal", "slug": "vendor_qcom_opensource_power", "path": "vendor/qcom/opensource/power", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/power", "ref": "odm/rc/target/16/fp6", "kind": "branch"}},
+    {"id": "thermal-hal", "slug": "vendor_qcom_opensource_thermal-hal", "path": "vendor/qcom/opensource/thermal-hal", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/thermal", "ref": "odm/public-build/target/16/fp6", "kind": "branch"}},
+    {"id": "lights-hal", "slug": "vendor_qcom_opensource_lights", "path": "vendor/qcom/opensource/lights", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/lights", "ref": "odm/rc/target/16/fp6", "kind": "branch"}},
+    {"id": "vibrator-hal", "slug": "vendor_qcom_opensource_vibrator", "path": "vendor/qcom/opensource/vibrator", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/vibrator", "ref": "odm/public-build/target/16/fp6", "kind": "branch"}},
+    {"id": "usb-hal", "slug": "vendor_qcom_opensource_usb", "path": "vendor/qcom/opensource/usb", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/usb", "ref": "odm/rc/target/16/fp6", "kind": "branch"}},
+    {"id": "healthd-ext", "slug": "vendor_qcom_opensource_healthd-ext", "path": "vendor/qcom/opensource/healthd-ext", "branch": "android17",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/healthd-ext", "ref": "odm/rc/target/16/fp6", "kind": "branch"}},
+    {"id": "display-hal", "slug": "hardware_qcom_display", "path": "hardware/qcom/display", "branch": "android17",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/display", "ref": "DISPLAY.LA.4.0.r2-09500-lanai.0", "kind": "tag"}},
+    {"id": "display-interfaces", "slug": "vendor_qcom_opensource_display-commonsys-intf", "path": "vendor/qcom/opensource/commonsys-intf/display", "branch": "android17",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/display-commonsys-intf", "ref": "0bd3aa234cb00ec16b5c6092e98ce622ae1e86eb", "kind": "commit"}},
+    {"id": "qcom-interfaces", "slug": "vendor_qcom_opensource_interfaces", "path": "vendor/qcom/opensource/interfaces", "branch": "android17",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/interfaces", "ref": "357f62518548d522e47bff78b825321bf8f15f00", "kind": "commit"}},
+    {"id": "libvmmem", "slug": "vendor_qcom_opensource_libvmmem", "path": "vendor/qcom/opensource/libvmmem", "branch": "android17",
+     "upstream": {"url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem", "ref": "543447bf4b8197d58258729f155b91c750a0247e", "kind": "commit"}}
+  ]
+}
