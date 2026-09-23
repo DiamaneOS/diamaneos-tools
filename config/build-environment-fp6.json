@@ -96,7 +96,7 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "6456deee559a79871622c7909043e57c6efc2be56b500c5ef433a2c1650ef43c"
+      "sha256": "6d572df6c71bc2be95366406b3b4fc679dcdd55a78f3e13fb249751da2c35eba"
     },
     {
       "id": "fp6-selected-native-files",
@@ -127,13 +127,13 @@
     "overlay_revision": "5c170030bf41d6b65aed6670f1f330381281d8f1",
     "overlay_sha256": "5c6a5e5161e3c7ea6f1dcac28ca3909d17e735e0a55e96d17479375d298b6a08",
     "project_count": 1067,
-    "project_map_sha256": "4b74c7e1c95d312f319ff6d01cae637c0809a2b92a6539ad0c19291d1ca7872f",
+    "project_map_sha256": "5aa7ec50d584ebca55348717a2b35ca996cb5186b85b8b3758e00722b40e929b",
     "resolved_revisions": {
       "device/fairphone/FP6": "e5fc7791ebae6b8d603ddf44eef997daf1344fb4",
       "vendor/diamaneos": "25902929a0cd4de5a30159c8a853b09c82662b81",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
-      "vendor/qcom/opensource/power": "e4cd2b7d6551aaf72bf56650ebd8366022d0deb9"
+      "vendor/qcom/opensource/power": "77e84432d9434a1ae51cabfed6f3449591d5e288"
     }
   }
 }

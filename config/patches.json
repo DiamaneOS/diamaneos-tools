@@ -45,17 +45,25 @@
       "workspace": "android",
       "path": "vendor/qcom/opensource/power",
       "base_revision": "2aa3974fc92a0d130e989a203b9a231398834071",
-      "derived_revision": "e4cd2b7d6551aaf72bf56650ebd8366022d0deb9",
-      "canonical_diff_sha256": "88d5deb87c1a5c39be4516448ebbd10e6fe9b24111e1ee5d68c286d4b09f0a30",
+      "derived_revision": "77e84432d9434a1ae51cabfed6f3449591d5e288",
+      "canonical_diff_sha256": "a500af600cf99de112a573b88c4535609a7de995dd94846573b682da9beb04e9",
       "changed_files": [
         "Android.bp",
         "Android.mk.legacy",
         "LICENSES/BSD-3-Clause-Clear.txt",
         "LICENSES/consumed-source-notices.txt",
-        "README.md"
+        "PowerHintSession.cpp",
+        "README.md",
+        "tests/host/run.sh",
+        "tests/host/session_lifecycle_test.cpp",
+        "tests/host/stubs/aidl/android/hardware/power/BnPowerHintSession.h",
+        "tests/host/stubs/aidl/android/hardware/power/SessionHint.h",
+        "tests/host/stubs/aidl/android/hardware/power/WorkDuration.h",
+        "tests/host/stubs/android-base/logging.h",
+        "tests/host/stubs/cutils/properties.h"
       ],
-      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices.",
-      "validation": "Native compilation and actual product graph pass. Runtime performance backend and device behavior remain unqualified."
+      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test).",
+      "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
     },
     {
       "id": "kernel-common-va48",
