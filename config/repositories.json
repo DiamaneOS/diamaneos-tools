@@ -263,6 +263,16 @@
       "upstream_url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem"
     },
     {
+      "checkout_path": "WORK_ROOT/os/hardware/qcom/wlan",
+      "id": "wifi-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_qcom_wlan.git",
+      "revision": null,
+      "slug": "hardware_qcom_wlan",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/wlan"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/thermal-hal",
       "id": "thermal-hal",
       "publication": "public-source",

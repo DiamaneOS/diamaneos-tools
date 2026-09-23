@@ -25,6 +25,8 @@
     {"id": "qcom-interfaces", "slug": "vendor_qcom_opensource_interfaces", "path": "vendor/qcom/opensource/interfaces", "branch": "android17",
      "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/interfaces", "ref": "357f62518548d522e47bff78b825321bf8f15f00", "kind": "commit"}},
     {"id": "libvmmem", "slug": "vendor_qcom_opensource_libvmmem", "path": "vendor/qcom/opensource/libvmmem", "branch": "android17",
-     "upstream": {"url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem", "ref": "543447bf4b8197d58258729f155b91c750a0247e", "kind": "commit"}}
+     "upstream": {"url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem", "ref": "543447bf4b8197d58258729f155b91c750a0247e", "kind": "commit"}},
+    {"id": "wifi-hal", "slug": "hardware_qcom_wlan", "path": "hardware/qcom/wlan", "branch": "android17",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/wlan", "ref": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0", "kind": "tag"}}
   ]
 }
