@@ -27,12 +27,41 @@ SOURCE_INTERFACES = {
     'android.hardware.security.rkp-V3-ndk',
     'android.hardware.security.secureclock-V1-ndk',
     'android.hardware.security.sharedsecret-V1-ndk',
+    # Qualcomm display stack built from source (OP-DISPLAY-HAL-SOURCE). The stock
+    # Android 14 composer cannot present under Android 17's SurfaceFlinger.
+    'libdisplayconfig.qti',
+    'libdisplaydebug',
+    'libdrmutils',
+    'libgpu_tonemapper',
+    'libgralloc.qti',
+    'libgralloccore',
+    'libgrallocutils',
+    'libhistogram',
+    'libqservice',
+    'libsdedrm',
+    'libsdmcore',
+    'libsdmdal',
+    'libsdmutils',
+    'libvmmem',
+    'vendor.display.config@2.0',
+    'vendor.qti.hardware.display.color-V1-ndk',
+    'vendor.qti.hardware.display.composer3-V1-ndk',
+    'vendor.qti.hardware.display.config-V5-ndk',
+    'vendor.qti.hardware.display.config-V7-ndk',
+    'vendor.qti.hardware.display.config-V11-ndk',
+    'vendor.qti.hardware.display.demura-V1-ndk',
+    'vendor.qti.hardware.display.mapper@2.0',
+    'vendor.qti.hardware.display.mapper@3.0',
+    'vendor.qti.hardware.display.mapper@4.0',
+    'vendor.qti.hardware.display.mapperextensions@1.0',
+    'vendor.qti.hardware.display.mapperextensions@1.1',
+    'vendor.qti.hardware.display.mapperextensions@1.2',
+    'vendor.qti.hardware.display.mapperextensions@1.3',
+    'vendor.qti.hardware.display.postproc-V1-ndk',
 }
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
- 'vendor.qti.hardware.display.allocator-service':('vendor.qti.hardware.display.allocator-service.rc','vendor.qti.hardware.display.allocator-service.xml'),
- 'vendor.qti.hardware.display.composer-service':('vendor.qti.hardware.display.composer-service.rc','vendor.qti.hardware.display.composer-service.xml'),
  'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
  'vendor.qti.hardware.memtrack-service':('memtrack_qti.rc','memtrack_qti.xml'),
  'vendor.qti.hardware.qseecom@1.0-service':('vendor.qti.hardware.qseecom@1.0-service.rc','vendor.qti.hardware.qseecom@1.0-service.xml'),
@@ -65,7 +94,6 @@ def blueprint(kind, properties):
 # Passthrough HAL libraries whose VINTF declaration makes them discoverable.
 # Without hwservicemanager, HIDL resolves passthrough HALs only through VINTF.
 LIBRARY_VINTF = {
- 'android.hardware.graphics.mapper@4.0-impl-qti-display': 'android.hardware.graphics.mapper-impl-qti-display.xml',
 }
 RUNTIME_EDGE = 'selected-stock-runtime'
 

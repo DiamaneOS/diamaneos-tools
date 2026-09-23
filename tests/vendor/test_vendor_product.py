@@ -85,15 +85,23 @@ class NativeProductTests(unittest.TestCase):
             required = qseecomd[qseecomd.index('required:'):]
             self.assertIn('"' + name + '"', required[:required.index('\n')])
             self.assertNotIn('"' + name + '"', qseecomd[qseecomd.index('shared_libs:'):].split('\n')[0])
-        for stem in ['libGPreqcancel_svc', 'libtime_genoff', 'vendor.qti.hardware.display.config-V7-ndk']:
+        for stem in ['libGPreqcancel_svc', 'libtime_genoff']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertIn('"vendor.qti.hardware.display.config-V7-ndk"', bp)
 
-    def test_composer_ipc_libraries_installed_as_required(self):
-        bp = self.render()['Android.bp'].decode()
-        composer = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.composer-service"'):]
-        composer = composer[:composer.index('}\n')]
-        for stem in ['libmemutils', 'libqrtrclient']:
-            self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', composer[composer.index('required:'):].split('\n')[0])
+    def test_source_display_stack_replaces_stock_services(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        for stem in ['bin_hw_vendor.qti.hardware.display.composer-service',
+                     'bin_hw_vendor.qti.hardware.display.allocator-service',
+                     'lib64_hw_android.hardware.graphics.mapper@4.0-impl-qti-display',
+                     'lib64_libsdmcore', 'lib64_libgralloc.qti']:
+            self.assertNotIn('fp6_stock_vendor_' + stem, modules)
+        # Closed libraries the source stack loads with dlopen stay installed.
+        for stem in ['libsdm-color', 'libsnapdragoncolor-manager', 'libsdm-disp-vndapis',
+                     'libmemutils', 'libqrtrclient', 'libadreno_utils']:
+            self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertIn(b'"libgralloc.qti"', rendered['Android.bp'])
 
     def test_adreno_compiler_backends_installed_as_required(self):
         bp = self.render()['Android.bp'].decode()
@@ -118,8 +126,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_display_color_manager_installed_as_required(self):
         bp = self.render()['Android.bp'].decode()
-        for loader, stems in [('fp6_stock_vendor_lib64_libsdmcore', ['libsdm-color', 'libsnapdragoncolor-manager']),
-                              ('fp6_stock_vendor_lib64_libsnapdragoncolor-manager', ['libcolor-default', 'libsnapdragoncolor-qdcm']),
+        for loader, stems in [('fp6_stock_vendor_lib64_libsnapdragoncolor-manager', ['libcolor-default', 'libsnapdragoncolor-qdcm']),
                               ('fp6_stock_vendor_lib64_libsnapdragoncolor-qdcm', ['libqdcm-algo', 'libqdcm-json-mode-parser'])]:
             block = bp[bp.index('name: "' + loader + '"'):]
             block = block[:block.index('}\n')]
@@ -150,19 +157,14 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('.vndk.', bp)
         self.assertNotIn('ro.vndk.version', make)
         self.assertNotIn('PRODUCT_EXTRA_VNDK_VERSIONS', make)
-        allocator = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.allocator-service"'):]
-        self.assertIn('"libbinder"', allocator[:allocator.index('}\n')])
+        color = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.color-service"'):]
+        self.assertIn('"libbinder"', color[:color.index('}\n')])
 
-    def test_mapper_library_carries_its_vintf_declaration(self):
-        bp = self.render()['Android.bp'].decode()
-        mapper = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_android.hardware.graphics.mapper@4.0-impl-qti-display"'):]
-        mapper = mapper[:mapper.index('}\n')]
-        self.assertIn('vintf_fragments: ["files/vendor/etc/vintf/manifest/android.hardware.graphics.mapper-impl-qti-display.xml"]', mapper)
-
-    def test_missing_library_vintf_declaration_rejected(self):
-        self.recipe['files'] = [r for r in self.recipe['files']
-                                if not r['path'].endswith('mapper-impl-qti-display.xml')]
-        with self.assertRaises(VendorError): self.render()
+    def test_stock_display_vintf_fragments_are_not_installed(self):
+        make = self.render()['device-vendor.mk'].decode()
+        for name in ['vendor.qti.hardware.display.composer-service.xml', 'vendor.qti.hardware.display.allocator-service.xml',
+                     'android.hardware.graphics.mapper-impl-qti-display.xml']:
+            self.assertNotIn(name, make)
 
     def test_undeclared_runtime_edge_rejected(self):
         row = next(r for r in self.recipe['files'] if r['path'] == 'vendor/bin/qseecomd')
