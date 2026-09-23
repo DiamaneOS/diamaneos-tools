@@ -548,6 +548,17 @@ generation to the otherwise absent `vendor/fairphone/FP6` workspace path under
 the build workspace lock. Keep its provenance and recipe with the build record.
 Never hand-edit a generated file or substitute a tree from another stock build.
 
+A selected file may declare `runtime_dependencies`: selected files it loads
+with `dlopen` rather than through `NEEDED`, each with the exact soname and a
+reviewed reason. `vendor-elf.json` mirrors each one as a
+`selected-stock-runtime` edge. Such providers join the component closure and
+the reachable set and are rendered as `required` modules: installed with their
+consumer, never linked. A declaration without its edge, an edge without its
+declaration, or a soname that differs from the provider is rejected. The ELF
+closure alone cannot see these loads: qseecomd opens its secure-world listener
+libraries (`librpmb.so` and others) this way, and without them it exits, the
+QSEE KeyMint cannot serve vold and `/data` never mounts.
+
 The renderer retains native source-built interface libraries where declared,
 enables native ELF checks and generates init/VINTF packaging with the provider.
 It records a narrowly pinned transformation of the performance configuration

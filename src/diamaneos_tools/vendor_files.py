@@ -120,6 +120,12 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
         used_notices.update(item['notices'])
         for dependency in item.get('dependencies', []):
             safe_path(dependency)
+        runtime = [r['path'] for r in item.get('runtime_dependencies', [])]
+        if len(runtime) != len(set(runtime)) or set(runtime) & set(item.get('dependencies', [])):
+            raise VendorError('repeated or overlapping runtime dependency')
+        for dependency in runtime:
+            if safe_path(dependency) not in regular_inputs or dependency == item['path']:
+                raise VendorError('runtime dependency must name another selected regular file')
         if 'target' in item:
             destination = link_destination(item)
             if destination not in regular_inputs:
@@ -138,7 +144,8 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
     closure = {'schema_version': 1, 'model_sha256': model_sha256,
                'stock_build': recipe['stock_build'], 'region': recipe['region'],
                'artifacts': [dict({k: i[k] for k in fields}, source_or_prebuilt='prebuilt',
-                                  dependencies=[link_destination(i)] if 'target' in i else i['dependencies'])
+                                  dependencies=[link_destination(i)] if 'target' in i else
+                                  i['dependencies'] + [r['path'] for r in i.get('runtime_dependencies', [])])
                              for i in sorted(selected, key=lambda i: i['path'])],
                'component_results': []}
     for component in model['fp6_components']:
