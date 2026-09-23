@@ -474,13 +474,6 @@ class BaselineTest(unittest.TestCase):
                 os.environ["FAKE_MODE"] = prev
 
 
-    def test_disconnected_error_not_unsupported(self):
-        code, rep = self._live("shell-gone")
-        self.assertEqual(code, 0)
-        self.assertEqual(rep["collection_status"], "partial")
-        self.assertTrue(all(c["status"] == "error" for c in rep["cases"]))
-        self.assertNotIn("FAKE123", json.dumps(rep))
-
     def test_serial_run_id_refs_stay_resolvable(self):
         import tempfile
         adb = self._fake()

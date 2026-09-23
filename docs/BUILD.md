@@ -68,24 +68,29 @@ native policy and device behavior checked separately.
 
 ## Pinned Android environment
 
-The current metadata record is v6: it binds the source-owned device policy,
-selected native services, reduced optional performance inputs and explicit GPU
-firmware dependencies while retaining the same GrapheneOS release. The composed
-FP6 candidate is product-v18: it selects the generic first-stage ramdisk, GKI
-v4 headers and the published boot/recovery AVB chains, builds the protected VM
-firmware (`pvmfw`) from source into the system AVB chain, installs the vendor
-module blocklist in the first-stage ramdisk as well as `vendor_dlkm`, and builds
-the kernel with a 48-bit virtual address space, retaining checked
-GPT I/O, the recovery runtime and complete VINTF matrices.
-UFS access remains scoped to the boot-control service. It reuses the configured
-source workspace with exact source revisions and a project map. These are
-candidate identities. The accepted generic v4 result below stays bound to its
-original tools snapshot; it is not relabelled as a v6 qualification.
+The current metadata identity and input pins are recorded in
+[`config/build-environment.json`](../config/build-environment.json). The composed
+FP6 candidate identity and its source, device and generated-input recipe pins are
+recorded in
+[`config/build-environment-fp6.json`](../config/build-environment-fp6.json).
+Read `environment_id` and the referenced records from the selected configuration;
+these identifiers are build-input identities, not public OS release versions.
+
+The FP6 configuration binds the source-owned device policy, selected native
+services, performance inputs and GPU firmware dependencies. The product selects
+the generic first-stage ramdisk, GKI v4 headers and the published boot/recovery
+AVB chains, builds protected VM firmware (`pvmfw`) from source into the system
+AVB chain, installs the vendor module blocklist in both the first-stage ramdisk
+and `vendor_dlkm`, and uses a 48-bit virtual address space kernel. UFS access
+remains scoped to the boot-control service. Exact revisions and project-map
+digests bind the selected workspace. The accepted generic result below remains
+bound to its original configuration and tools snapshot; changing current pins
+does not requalify or relabel that result.
 
 `config/build-environment.json` is the build-input authority for FP6-033. It
 binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,
 official signer-list hash, signer identity, tagged `default.xml`, canonical
-1,057-project commit map, the GPG-verified `repo` v2.65 tag object/commit, host
+project commit map, the GPG-verified `repo` v2.65 tag object/commit, host
 packages, external tools and project/device input hashes. The Debian `repo`
 2.54 package is only the launcher; the self-updating implementation is a
 separate input and is pinned to commit
