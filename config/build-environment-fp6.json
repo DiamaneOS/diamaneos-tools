@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "environment_id": "fp6-android17-grapheneos-2026091000-product-v22",
-  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies an Android 17 vendor without a VNDK version and the passthrough graphics mapper VINTF declaration; native and device acceptance are separate.",
+  "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies an Android 17 vendor without a VNDK version and the passthrough graphics mapper VINTF declaration with its device compatibility matrix entry; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -127,9 +127,9 @@
     "overlay_revision": "5c170030bf41d6b65aed6670f1f330381281d8f1",
     "overlay_sha256": "5c6a5e5161e3c7ea6f1dcac28ca3909d17e735e0a55e96d17479375d298b6a08",
     "project_count": 1067,
-    "project_map_sha256": "3025aa36f4604d03a83249b2f238c7ce6324773ebe26b67834eee4ad8e177110",
+    "project_map_sha256": "1ddf6d05530815d9b99b9de9f18841d7566e48a5305d4cb69ce521a85031cfde",
     "resolved_revisions": {
-      "device/fairphone/FP6": "e7017127774a2880203268a73712efda2fee1798",
+      "device/fairphone/FP6": "7a1cc316df06399cf089f29d402c328598194919",
       "vendor/diamaneos": "25902929a0cd4de5a30159c8a853b09c82662b81",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
