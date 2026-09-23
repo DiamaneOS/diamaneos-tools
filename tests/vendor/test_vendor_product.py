@@ -130,6 +130,20 @@ class NativeProductTests(unittest.TestCase):
         self.assertIn('vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json', make)
         self.assertIn('vendor/etc/snapdragon_color_libs_config.xml', make)
 
+    def test_color_manager_uses_old_abi_tinyxml2_module(self):
+        bp = self.render()['Android.bp'].decode()
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libsnapdragoncolor-manager"'):]
+        shared = block[:block.index('}\n')]
+        shared = shared[shared.index('shared_libs:'):].split('\n')[0]
+        self.assertIn('"libtxml2v34"', shared)
+        self.assertNotIn('"libtinyxml2"', shared)
+
+    def test_dependency_rewrite_rejects_unsafe_input(self):
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_needed(b'\x7fELF\x02\x01' + bytes(64), 'libtinyxml2.so', 'libtxml2v3.so')
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_needed(b'not an elf', 'libtinyxml2.so', 'libtxml2v34.so')
+
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
