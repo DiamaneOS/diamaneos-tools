@@ -771,12 +771,14 @@
       "dependencies": [
         "device-platform-kernel",
         "firmware-trusted-boot",
+        "graphics-display-media",
         "public-hal-services"
       ],
       "interfaces": [
         "fingerprint biometric HAL",
         "Gatekeeper and KeyMint AIDL",
         "secure processor and trusted execution",
+        "qseecomd output-protection listener (libops) using the display stack",
         "framework credential and keystore clients"
       ],
       "source_candidates": [
