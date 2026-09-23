@@ -86,6 +86,11 @@ ACTIVATION={
 
 
 def module(path):
+    # The pinned AOSP tree builds a generic fingerprint.default stub into the
+    # same vendor path. Soong's preferred prebuilt replaces that source module
+    # without disabling the upstream source or accepting duplicate outputs.
+    if path == 'vendor/lib64/hw/fingerprint.default.so':
+        return 'fingerprint.default'
     return 'fp6_stock_' + path.replace('/', '_').removesuffix('.so')
 
 
@@ -295,6 +300,8 @@ def render(recipe, selection, notice_kind):
         props = {'name': name, 'vendor': True, 'compile_multilib': '64',
                  'srcs': ['files/' + path], 'stem': stem, 'strip': {'none': True},
                  'shared_libs': sorted(set(dependencies[path])), 'system_shared_libs': []}
+        if path == 'vendor/lib64/hw/fingerprint.default.so':
+            props['prefer'] = True
         if required[path]:
             props['required'] = sorted(set(required[path]))
         if relative != '.':
