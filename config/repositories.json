@@ -221,6 +221,46 @@
       "slug": "vendor_qcom_opensource_power",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/power"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/hardware/qcom/display",
+      "id": "display-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_qcom_display.git",
+      "revision": null,
+      "slug": "hardware_qcom_display",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/display"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/commonsys-intf/display",
+      "id": "display-interfaces",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_display-commonsys-intf.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_display-commonsys-intf",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/display-commonsys-intf"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/interfaces",
+      "id": "qcom-interfaces",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_interfaces.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_interfaces",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/interfaces"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/libvmmem",
+      "id": "libvmmem",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_libvmmem.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_libvmmem",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem"
     }
   ],
   "schema_version": 1
