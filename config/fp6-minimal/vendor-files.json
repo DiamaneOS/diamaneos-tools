@@ -3798,9 +3798,9 @@
       },
       "runtime_dependencies": [
         {
-          "path": "vendor/lib64/hw/fingerprint.fp6.so",
-          "soname": "fingerprint.fp6.so",
-          "reason": "The wrapper loads the FP6 fingerprint module through hw_get_module; ro.hardware.fingerprint=fp6 selects this file."
+          "path": "vendor/lib64/hw/libfingerprint.default.so",
+          "soname": "libfingerprint.default.so",
+          "reason": "The wrapper loads the FP6 fingerprint module through hw_get_module; ro.hardware.fingerprint=fp6 selects the device link hw/fingerprint.fp6.so to this file."
         }
       ]
     },
@@ -3866,7 +3866,7 @@
     },
     {
       "input": "vendor/lib64/hw/fingerprint.default.so",
-      "path": "vendor/lib64/hw/fingerprint.fp6.so",
+      "path": "vendor/lib64/hw/libfingerprint.default.so",
       "sha256": "ae08b39c8c78b40a769795684afc7d342c19acf8c1b443fdc56be47b5ca8bedd",
       "bytes": 1087480,
       "component_id": "credentials-security",
@@ -3877,7 +3877,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "FP6 stock fingerprint HAL, installed under an FP6-specific name so it cannot collide with AOSP reference fingerprint modules",
+      "purpose": "FP6 stock fingerprint module, installed under its own SONAME; the device links hw/fingerprint.fp6.so to it for hw_get_module (ro.hardware.fingerprint=fp6)",
       "metadata": {
         "uid": 0,
         "gid": 0,
