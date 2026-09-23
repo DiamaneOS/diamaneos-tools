@@ -128,6 +128,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('fp6_stock_vendor_lib64_libsdmextension', bp)
         make = self.render()['device-vendor.mk'].decode()
         self.assertIn('vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json', make)
+        self.assertIn('vendor/etc/snapdragon_color_libs_config.xml', make)
 
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
