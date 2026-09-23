@@ -55,6 +55,11 @@ def blueprint(kind, properties):
                                   for k, v in properties.items()) + '}\n\n'
 
 
+# Passthrough HAL libraries whose VINTF declaration makes them discoverable.
+# Without hwservicemanager, HIDL resolves passthrough HALs only through VINTF.
+LIBRARY_VINTF = {
+ 'android.hardware.graphics.mapper@4.0-impl-qti-display': 'android.hardware.graphics.mapper-impl-qti-display.xml',
+}
 RUNTIME_EDGE = 'selected-stock-runtime'
 
 
@@ -179,6 +184,12 @@ def render(recipe, selection, notice_kind):
             props['required'] = sorted(set(required[path]))
         if relative != '.':
             props['relative_install_path'] = relative
+        if library and stem in LIBRARY_VINTF:
+            config = 'vendor/etc/vintf/manifest/' + LIBRARY_VINTF[stem]
+            if config not in rows:
+                raise VendorError('missing library VINTF declaration')
+            props['vintf_fragments'] = ['files/' + config]
+            consumed.add(config)
         if not library:
             if stem not in ACTIVATION:
                 raise VendorError('native executable lacks reviewed activation')
