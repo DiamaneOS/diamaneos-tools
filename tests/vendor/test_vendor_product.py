@@ -88,6 +88,13 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libGPreqcancel_svc', 'libtime_genoff', 'vendor.qti.hardware.display.config-V7-ndk']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
 
+    def test_composer_ipc_libraries_installed_as_required(self):
+        bp = self.render()['Android.bp'].decode()
+        composer = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.composer-service"'):]
+        composer = composer[:composer.index('}\n')]
+        for stem in ['libmemutils', 'libqrtrclient']:
+            self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', composer[composer.index('required:'):].split('\n')[0])
+
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()

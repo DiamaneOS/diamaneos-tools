@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "9a9ae6a26faa040bd4a3195ce0db728505d38e3dc36a2dff8f6e0105a42c8b29",
+  "model_sha256": "8a2e85c26250bb154c22f42712ded5f7b4f3a735d3af6b11ede65ffba4341d3b",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -145,7 +145,19 @@
         "mode": 493,
         "selinux": "u:object_r:hal_graphics_composer_default_exec:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libmemutils.so",
+          "soname": "libmemutils.so",
+          "reason": "The display composer (SDM IPCImpl::Init) loads this with dlopen at startup; if it is missing the composer crashes and surfaceflinger never starts"
+        },
+        {
+          "path": "vendor/lib64/libqrtrclient.so",
+          "soname": "libqrtrclient.so",
+          "reason": "The display composer (SDM IPCImpl::Init) loads this with dlopen at startup; if it is missing the composer crashes and surfaceflinger never starts"
+        }
+      ]
     },
     {
       "input": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
@@ -3171,6 +3183,73 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libmemutils.so",
+      "path": "vendor/lib64/libmemutils.so",
+      "sha256": "04d91ad68bf6eabf7aafd626fb25d48232b91624e19c863cd4b015a0ca47d5e2",
+      "bytes": 43992,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libvmmem.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Display composer IPC library loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqrtrclient.so",
+      "path": "vendor/lib64/libqrtrclient.so",
+      "sha256": "00a9b0ac112121fe7f8bec3b6ed6b8dea0b5ec889172c9b460775a352ef428e6",
+      "bytes": 56616,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libqrtr.so",
+        "vendor/lib64/libsdmutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Display composer IPC library loaded with dlopen at startup; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqrtr.so",
+      "path": "vendor/lib64/libqrtr.so",
+      "sha256": "93d10dbc0dc43da7ad609a684be8ef0d48da37dd4f84274cb956103f0ba7022b",
+      "bytes": 28272,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Dependency of the display composer QRTR client; activation is defined by the FP6 product renderer.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     }
