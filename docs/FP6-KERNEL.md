@@ -7,13 +7,14 @@ The native entrypoints and compatibility boundaries below explain that workflow.
 The initial development kernel uses Fairphone's pinned Android 14 / Linux 6.1
 GKI/vendor source set with the Android 17 product. The source set is separate
 from the platform checkout. `config/fp6-sources.json` identifies the upstream
-families; `config/patches.json` binds the two downstream build-rule changes that
-expose the matched devfreq header to the graphics package. Do not substitute
+families; [`config/patches.json`](../config/patches.json) binds the downstream
+changes, including the matched devfreq header exported to the graphics package
+and the common/vendor kernel configuration and ABI changes. Do not substitute
 Pixel kernel sources or disable strict KMI, module protection or sandbox checks.
 
-`config/kernel-sources-fp6.json` records all 63 resolved kernel-workspace
-projects and link exports. Fetch each project from its declared source URL,
-check out its exact revision, then apply only the downstream revisions in
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) records the
+resolved kernel-workspace projects and link exports. Fetch each project from its
+declared source URL, check out its exact revision, then apply only the downstream revisions in
 `config/patches.json`. Retain the resulting resolved manifest before building. Preserve link exports, except the two absent legacy `kernel/build`
 entrypoints `build.sh` and `build_abi.sh` at
 `f19534bc201764082056c886279fb69aeb423641`. Use the actual Bazel entrypoint.
@@ -48,11 +49,11 @@ Merge DTs using the pinned vendor rules and reconcile bootloader selectors again
 stock. Retain effective common and vendor configurations, built-in module lists,
 Module.symvers, public certificate and all module signatures.
 
-The reviewed development selection contains 440 distinct modules. Its packaging
-has 60 system DLKM, 269 vendor DLKM and 297 vendor-ramdisk modules; overlaps are
-intentional for normal/recovery availability. Each placement is hash-bound and
-has an explicit load list. Stripping debug sections from unsigned modules must
-preserve module metadata and symbol versions. Preserve signed GKI modules byte
+[`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) defines
+the reviewed development module selection, partition placement and load lists.
+Overlaps between system DLKM, vendor DLKM and the vendor ramdisk are intentional
+for normal/recovery availability. Each placement is hash-bound. Stripping debug
+sections from unsigned modules must preserve module metadata and symbol versions. Preserve signed GKI modules byte
 for byte. Compare the final image contents, not only intermediate directories.
 
 Native checks establish strict common KMI/ABI, selected provider CRC/namespace

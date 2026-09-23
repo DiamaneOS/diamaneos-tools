@@ -59,9 +59,11 @@ It does not mount a filesystem, run factory scripts or copy device-unique state.
 The current extraction contract is specific to this ext4 stock vendor image;
 it rejects an unexpected filesystem rather than guessing another decoder.
 
-`stock-files/current` contains 132 selected files, one notice file and one
-symlink. Product generation applies the reviewed source replacements, activation
-and configuration derivation. Its complete output inventory is stored in
+`stock-files/current` contains the regular files, notice file and symlinks
+declared in
+[`config/fp6-minimal/vendor-files.json`](../config/fp6-minimal/vendor-files.json).
+Product generation applies the reviewed source replacements, activation and
+configuration derivation. Its complete output inventory is stored in
 `vendor-product/inventories/<generation>.json`. Generated provenance distinguishes
 original bytes from derived files and retained inputs from installed libraries.
 Identical inputs reproduce the same generation; changed or missing inputs fail
@@ -76,10 +78,12 @@ before replacing `current`. Scratch raw images are removed after extraction.
   --workspace "$WORK_ROOT/fp6-kernel" --jobs 16 --timeout 7200
 ```
 
-Preparation uses all 63 source pins in `config/kernel-sources-fp6.json`, the
-exact downstream revisions/diffs in `config/patches.json`, and the declared
-link adaptations in `config/kernel-workspace-fp6.json`. It verifies tracked and
-untracked source inputs and writes a resolved Kleaf manifest. It refuses edited
+Preparation uses the source pins in
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json), the exact
+downstream revisions/diffs in [`config/patches.json`](../config/patches.json),
+and the declared link adaptations in
+[`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json). It verifies
+tracked and untracked source inputs and writes a resolved Kleaf manifest. It refuses edited
 sources or occupied unexpected link destinations. The two absent legacy shell
 entrypoints are explicitly excluded; source-directory links using `src="."`
 are preserved.
@@ -93,8 +97,9 @@ independent acquisition or a second builder. Omit it for a standalone checkout.
 The build command runs the non-consolidate GKI/vendor targets, strict common KMI
 and explicit common ABI comparison, all queried FP6 external modules (requiring
 WLAN and audio), all declared vendor DT projects, and the pinned DT merger. It
-packages the reviewed 440-module selection and load lists from
-`config/fp6-kernel-packaging.json`, with 14 merged DTBs and 95 DTBO entries.
+packages the module selection and load lists from
+[`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json),
+which also declares the required merged DTB and DTBO entry counts.
 It preserves signed GKI modules, checks other modules' metadata/CRCs after
 stripping, verifies signatures against the built-in GKI certificate and checks
 selected providers, namespaces, dependencies and compiled GKI protection lists.
