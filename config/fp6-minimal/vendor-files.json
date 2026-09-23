@@ -3776,6 +3776,115 @@
         "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
+      "path": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
+      "sha256": "42cd628419266d75f5975e7c8a329264f30df76cd5278a96f8e00ad37478bbd2",
+      "bytes": 68720,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:fingerprint",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:hal_fingerprint_default_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/hw/fingerprint.default.so",
+          "soname": "fingerprint.default.so",
+          "reason": "The wrapper loads the FP6 fingerprint module by hardware-module filename."
+        }
+      ]
+    },
+    {
+      "input": "vendor/etc/init/fingerprint-default.rc",
+      "path": "vendor/etc/init/fingerprint-default.rc",
+      "sha256": "a6d925cc3e1d35345e158a6be23562b9e175b4100f01677b9a650053ea8a75f3",
+      "bytes": 203,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:fingerprint",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/permissions/android.hardware.fingerprint.xml",
+      "path": "vendor/etc/permissions/android.hardware.fingerprint.xml",
+      "sha256": "2a71ae806bdc70e7f0f72c1ac010cae49fcb520efc4b10de52aaed57fe365662",
+      "bytes": 834,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:fingerprint",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/vintf/manifest/fingerprint-default.xml",
+      "path": "vendor/etc/vintf/manifest/fingerprint-default.xml",
+      "sha256": "5c2095d2545e646f03e6e3813381f05ce97c02d832fd7951fb23b78f3c7a5162",
+      "bytes": 222,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:fingerprint",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/hw/fingerprint.default.so",
+      "path": "vendor/lib64/hw/fingerprint.default.so",
+      "sha256": "ae08b39c8c78b40a769795684afc7d342c19acf8c1b443fdc56be47b5ca8bedd",
+      "bytes": 1087480,
+      "component_id": "credentials-security",
+      "inventory_ref": "userspace_hal_families:fingerprint",
+      "dependencies": [
+        "vendor/lib64/libQSEEComAPI.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 stock fingerprint HAL, selected for private hardware bring-up after source-only alternatives were reviewed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [

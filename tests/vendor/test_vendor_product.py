@@ -166,6 +166,26 @@ class NativeProductTests(unittest.TestCase):
                      'android.hardware.graphics.mapper-impl-qti-display.xml']:
             self.assertNotIn(name, make)
 
+    def test_fp6_fingerprint_uses_stock_hardware_and_source_interfaces(self):
+        rendered = self.render()
+        bp = rendered['Android.bp'].decode()
+        service = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.biometrics.fingerprint-service"'):]
+        service = service[:service.index('}\n')]
+        self.assertIn('"fp6_stock_vendor_lib64_hw_fingerprint.default"', service)
+        self.assertIn('fingerprint-default.rc', service)
+        self.assertIn('fingerprint-default.xml', service)
+        for stem in ['android.hardware.biometrics.common-V3-ndk',
+                     'android.hardware.biometrics.fingerprint-V3-ndk']:
+            self.assertIn('"' + stem + '"', service)
+            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, bp)
+        self.assertIn('android.hardware.fingerprint.xml', rendered['device-vendor.mk'].decode())
+        self.assertNotIn('android.hardware.biometrics.face', bp)
+
+    def test_unreviewed_fingerprint_source_dependency_rejected(self):
+        edge = next(e for e in self.selection['edges'] if e['kind'] == 'source-module')
+        edge['needed'] = 'unreviewed-source-V3-ndk.so'
+        with self.assertRaises(VendorError): self.render()
+
     def test_undeclared_runtime_edge_rejected(self):
         row = next(r for r in self.recipe['files'] if r['path'] == 'vendor/bin/qseecomd')
         row['runtime_dependencies'] = row['runtime_dependencies'][1:]

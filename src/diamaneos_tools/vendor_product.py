@@ -59,7 +59,14 @@ SOURCE_INTERFACES = {
     'vendor.qti.hardware.display.mapperextensions@1.3',
     'vendor.qti.hardware.display.postproc-V1-ndk',
 }
+SOURCE_MODULE_DEPENDENCIES = {
+    # The FP6 stock fingerprint wrapper uses the stable V3 AIDL ABI. Build
+    # these libraries from the pinned Android tree, not the factory image.
+    'android.hardware.biometrics.common-V3-ndk',
+    'android.hardware.biometrics.fingerprint-V3-ndk',
+}
 ACTIVATION={
+ 'android.hardware.biometrics.fingerprint-service':('fingerprint-default.rc','fingerprint-default.xml'),
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
  'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
@@ -237,6 +244,10 @@ def render(recipe, selection, notice_kind):
             rewrite = NEEDED_REWRITES.get(edge['consumer'])
             if rewrite and rewrite['needed'] == edge['needed']:
                 dep = rewrite['module']
+        elif edge['kind'] == 'source-module':
+            dep = edge['needed'].removesuffix('.so')
+            if dep not in SOURCE_MODULE_DEPENDENCIES or edge['needed'] != dep + '.so':
+                raise VendorError('unreviewed source module dependency')
         else:
             raise VendorError('unresolved ELF dependency')
         dependencies[edge['consumer']].append(dep)
