@@ -253,6 +253,26 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_manifest",
+      "id": "kernel-manifest",
+      "publication": "generated",
+      "remote_url": "https://github.com/DiamaneOS/kernel_manifest-fp6.git",
+      "revision": null,
+      "slug": "kernel_manifest-fp6",
+      "state": "active",
+      "upstream_url": null
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/device/fairphone/FP6-kernel",
+      "id": "kernel-prebuilts",
+      "publication": "generated",
+      "remote_url": "https://github.com/DiamaneOS/device_fairphone_FP6-kernels.git",
+      "revision": null,
+      "slug": "device_fairphone_FP6-kernels",
+      "state": "planned",
+      "upstream_url": null
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/bootctrl",
       "id": "boot-control",
       "publication": "public-source",
