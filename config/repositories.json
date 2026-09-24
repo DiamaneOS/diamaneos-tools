@@ -193,6 +193,66 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/graphics-kernel"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/camera-kernel",
+      "id": "kernel-camera",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_camera.git",
+      "revision": null,
+      "slug": "kernel_fairphone_camera",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/camera-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/dataipa",
+      "id": "kernel-dataipa",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_dataipa.git",
+      "revision": null,
+      "slug": "kernel_fairphone_dataipa",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/dataipa"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/display-drivers",
+      "id": "kernel-display",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_display.git",
+      "revision": null,
+      "slug": "kernel_fairphone_display",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/display-drivers"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/securemsm-kernel",
+      "id": "kernel-securemsm",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_securemsm.git",
+      "revision": null,
+      "slug": "kernel_fairphone_securemsm",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/securemsm-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/touch-drivers",
+      "id": "kernel-touch",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_touch.git",
+      "revision": null,
+      "slug": "kernel_fairphone_touch",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/touch-drivers"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
+      "id": "kernel-video",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_video.git",
+      "revision": null,
+      "slug": "kernel_fairphone_video",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/bootctrl",
       "id": "boot-control",
       "publication": "public-source",

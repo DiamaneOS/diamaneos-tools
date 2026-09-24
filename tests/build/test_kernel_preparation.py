@@ -51,6 +51,22 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertGreater(len(diff),262144)
         self.changes[0].update(derived_revision=revision,canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['abi.stg','file'])
         self.assertEqual('PASS',self.prepare()['status'])
+    def test_file_list_bound_by_digest(self):
+        # Upstream merges record a digest of the changed file list instead of the list.
+        del self.changes[0]['changed_files']
+        self.changes[0]['changed_files_sha256'] = hashlib.sha256(b'file\n').hexdigest()
+        self.assertEqual('PASS', self.prepare()['status'])
+    def test_file_list_digest_mismatch_rejected(self):
+        del self.changes[0]['changed_files']
+        self.changes[0]['changed_files_sha256'] = hashlib.sha256(b'other\n').hexdigest()
+        self.assertRaisesRegex(kernel.KernelError, 'file set differs', self.prepare)
+    def test_unpatched_project_fetches_from_its_own_url(self):
+        # A project taken unmodified from another upstream (GrapheneOS common) names its URL.
+        self.plan['projects'][0].update(url=str(self.repo), revision=self.changes[0]['derived_revision'])
+        with patch.object(kernel,'configuration',return_value=(self.plan,[],self.adaptation)):
+            result = kernel.prepare(self.workspace)
+        self.assertEqual('PASS', result['status'])
+        self.assertEqual('derived\n',(self.workspace/'kernel_platform/common/file').read_text())
     def test_standalone_fetch_without_reference(self):
         self.changes[0]['repository'] = str(self.repo)
         with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):
