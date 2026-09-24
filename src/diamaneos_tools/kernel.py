@@ -21,9 +21,17 @@ from .vendor import ROOT, load_json, VendorError, encoded
 KMI = '--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom'
 # Downstream patch diffs can carry a recorded ABI definition; keep the capture bounded.
 MAX_PATCH_DIFF_BYTES = 64 * 1024 * 1024
-CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki',
-        '//msm-kernel:fps_gki_abi', '//common:kernel_aarch64_abi']
+# The GrapheneOS common kernel changes the GKI configuration and does not keep
+# a comparable recorded GKI ABI, so no ABI comparison is run: every module is
+# built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
+CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki', '//msm-kernel:fps_gki_abi']
 IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
+# External module targets left out of the build, with the reason.
+EXCLUDED_MODULE_TARGETS = {
+    '//vendor/qcom/opensource/mm-sys-kernel/ubwcp:fps_gki_ubwcp':
+        'UBWC-P needs ZONE_DEVICE, which the hardened kernel disables; gralloc only uses it '
+        'when vendor.gralloc.hw_supports_ubwcp is set, which FP6 does not do.',
+}
 
 
 class KernelError(ValueError):
@@ -85,7 +93,7 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
         require(not dest.is_symlink(), 'source directory is a symlink')
         patch = patches.get(row['path'])
         revision = patch['derived_revision'] if patch else row['revision']
-        url = patch['repository'] if patch else plan['source_url'] + row['project']
+        url = patch['repository'] if patch else row.get('url') or plan['source_url'] + row['project']
         created = prepare and not (dest / '.git').exists()
         if created:
             require(not dest.exists() or not any(dest.iterdir()), 'unowned source directory is occupied')
@@ -112,8 +120,13 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
                                MAX_PATCH_DIFF_BYTES, cwd=root)
             require(diff['transport'] == 'ok' and hashlib.sha256(diff['stdout']).hexdigest() == patch['canonical_diff_sha256'],
                     'downstream patch bytes differ')
-            require(git(dest, 'diff', '--name-only', row['revision'], revision).splitlines() == patch['changed_files'],
-                    'downstream patch file set differs')
+            names = git(dest, 'diff', '--name-only', row['revision'], revision).splitlines()
+            if 'changed_files' in patch:
+                require(names == patch['changed_files'], 'downstream patch file set differs')
+            else:
+                # Upstream merges touch thousands of files; bind the list by digest.
+                listed = hashlib.sha256(''.join(n + '\n' for n in names).encode()).hexdigest()
+                require(listed == patch['changed_files_sha256'], 'downstream patch file set differs')
         expected[row['path']]['revision'] = revision
     return list(expected.values())
 
@@ -208,7 +221,18 @@ def module_metadata(path):
     return sorted(values)
 
 
-def render_package(candidate, selected, merged, image, recipe, strip, work):
+SIGNATURE_FIELDS = (b'sig_id', b'signer', b'sig_key', b'sig_hashalgo', b'signature')
+
+
+def signature(values):
+    return [(k, v) for k, v in values if k in SIGNATURE_FIELDS]
+
+
+def render_package(candidate, selected, merged, image, recipe, strip, work, signing=None):
+    """Stage the kernel package. The GKI build signs its own modules; vendor
+    and external modules are stripped and then signed with the same build key,
+    because the kernel only loads modules signed with it (MODULE_SIG_FORCE).
+    signing is (sign-file, private key, certificate, hash algorithm)."""
     candidate.mkdir()
     (candidate / 'modules').mkdir()
     signed = []
@@ -218,12 +242,23 @@ def render_package(candidate, selected, merged, image, recipe, strip, work):
         if any(k == b'signer' and v for k, v in before):
             shutil.copyfile(source, dest); signed.append(name)
             require(sha(dest) == sha(source), 'signed module changed')
+            require(module_metadata(dest) == before, 'copying changed module metadata')
         else:
             call([strip, '--strip-debug', '-o', dest, source], cwd=work)
-        require(module_metadata(dest) == before, 'stripping changed module metadata')
+            require(module_metadata(dest) == before, 'stripping changed module metadata')
+            if signing:
+                sign_file, key, cert, algorithm = signing
+                call([sign_file, algorithm, key, cert, dest], cwd=work)
+                after = module_metadata(dest)
+                require([r for r in after if r[0] not in SIGNATURE_FIELDS] == before and signature(after),
+                        'signing changed module metadata')
         require(call(['modprobe', '--dump-modversions', source], cwd=work) ==
                 call(['modprobe', '--dump-modversions', dest], cwd=work), 'stripping changed symbol CRCs')
     require(set(signed) == set(recipe['partitions']['system_dlkm']), 'signed module placement differs')
+    if signing:
+        keys = {tuple(r for r in signature(module_metadata(p)) if r[0] != b'signature')
+                for p in (candidate / 'modules').iterdir()}
+        require(len(keys) == 1, 'modules are not all signed with the kernel build key')
     shutil.copyfile(image, candidate / 'Image')
     (candidate / 'dtbs').mkdir()
     for path in sorted(merged.glob('*.dtb')): shutil.copyfile(path, candidate / 'dtbs' / path.name)
@@ -292,18 +327,15 @@ def build(root, jobs, timeout):
         save()
         try:
             bazel('core-build', ['build', *flags, *CORE, *IMPLICIT])
-            bazel('common-abi', ['run', *flags, '//common:kernel_aarch64_abi_dist', '--', '--dist_dir', str(run / 'abi')])
             # Capture only top-level configured outputs; other transitions can be unbuilt.
             paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
             execution, core = output_files(work, paths)
-            # run :kernel_aarch64_abi_dist enforces failure; also inspect the rule's saved comparison code.
-            exit_files = set(p.parent / 'exit_code_file.txt' for p in
-                             (execution / 'bazel-out').glob('*/bin/common/kernel_aarch64_abi_diff/abi_stgdiff'))
-            require(exit_files and all(p.is_file() and p.read_text().strip() == '0' for p in exit_files), 'common ABI comparison failed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
-            targets = sorted(set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines()))
+            found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
+            require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')
+            targets = sorted(found - set(EXCLUDED_MODULE_TARGETS))
             require(targets and all(re.fullmatch(r'//vendor/[A-Za-z0-9_./-]+:fps_gki[A-Za-z0-9_.-]*', t) for t in targets), 'invalid external target set')
             require(any('/audio-kernel:' in t for t in targets) and any('/wlan/qcacld-3.0:' in t for t in targets), 'missing audio/WLAN target')
             (run / 'module-targets.txt').write_text('\n'.join(targets) + '\n')
@@ -371,9 +403,19 @@ def build(root, jobs, timeout):
             interfaces = verify_built(work, run, selected, core + external,
                                       one(core, 'vmlinux', '/common/kernel_aarch64/'),
                                       module_metadata, call, require)
+            # The GKI build's own key and signing tool, next to its Image.
+            gki = image.parent
+            for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
+                require((gki / name).is_file() and (gki / name).resolve().is_relative_to(work / 'out'),
+                        'kernel signing input missing: ' + name)
+            require(re.search(rb'^CONFIG_MODULE_SIG_FORCE=y$', effective.read_bytes(), re.M) and
+                    re.search(rb'^CONFIG_MODULE_SIG_HASH="sha256"$', effective.read_bytes(), re.M),
+                    'kernel does not enforce sha256 module signatures')
             candidate = run / 'candidate'
             render_package(candidate, selected, merged, image, recipe,
-                           work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-strip', work)
+                           work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-strip', work,
+                           (gki / 'scripts/sign-file', gki / 'certs/signing_key.pem',
+                            gki / 'certs/signing_key.x509', 'sha256'))
             sources(root, plan, changes); verify_untracked(root, rows, adaptation)
             for p in candidate.rglob('*'):
                 if p.is_file(): p.chmod(0o640)

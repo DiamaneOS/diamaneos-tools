@@ -66,34 +66,21 @@
       "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
     },
     {
-      "id": "kernel-common-va48",
-      "repository": "https://github.com/DiamaneOS/kernel_fairphone_common",
-      "workspace": "kernel",
-      "path": "kernel_platform/common",
-      "base_revision": "221d6fa50ed25ad745e769d04163c25a4890281f",
-      "derived_revision": "13ab154b39979ffe216bf1635fd588499351e6e2",
-      "canonical_diff_sha256": "db77b68fd5ac47443794b8670cefd2a02361bf1d71f54579d835f846d8c9666a",
-      "changed_files": [
-        "android/abi_gki_aarch64.stg",
-        "arch/arm64/configs/gki_defconfig"
-      ],
-      "purpose": "Select a 48-bit virtual address space in the GKI defconfig and record the resulting ABI. The hardened userspace allocator's up-front region reservations exceed the 39-bit (512 GiB) user address space, so every process aborts at its first allocation. The extra page-table level changes pud_t and the CRCs of 4731 dependent symbols, with no symbol additions or removals.",
-      "validation": "The kernel and all modules are built together from source and compared against this ABI. Prebuilt modules built for the frozen android14-6.1 KMI do not load. Device qualification of the hypervisor, vendor modules and userspace on 48-bit VA remains."
-    },
-    {
-      "id": "kernel-devfreq-export",
+      "id": "kernel-qcom-grapheneos",
       "repository": "https://github.com/DiamaneOS/kernel_fairphone_qcom",
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
-      "derived_revision": "61e9f54d8202e52ac5b2b71ed121efac5e2e807d",
-      "canonical_diff_sha256": "2502c79c33e41e212f323e7b51c82a9675332fbdde3c96ae65b195568c0815e6",
-      "changed_files": [
-        "BUILD.bazel",
-        "arch/arm64/configs/gki_defconfig"
-      ],
-      "purpose": "Expose the matched devfreq header as a narrow Bazel dependency, and select a 48-bit virtual address space in the vendor GKI defconfig to match the common kernel.",
-      "validation": "Core, explicit GKI and external module builds pass, with native KMI/ABI checks. The 48-bit address-space change requires a new kernel build and device qualification."
+      "derived_revision": "e9039dd8e1a7fa8beea13ce4afcac57d25514697",
+      "canonical_diff_sha256": "cb27dbdb5c411f0489787d37c67cee2633e4d8b656ca3565d4b2644795c3ad41",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. Conflict resolutions and the follow-up fixes are separate commits on the fork.",
+      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The file list is bound by digest because the merge touches thousands of files. Device qualification remains.",
+      "changed_files_sha256": "66ee27c34bf1a29163a06155d5feaa2650b23b19a0576f70d8a0c93fcd9facc6",
+      "merged_upstream": {
+        "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
+        "tag": "2026091900",
+        "revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71"
+      }
     },
     {
       "id": "graphics-devfreq-import",
@@ -101,13 +88,14 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/graphics-kernel",
       "base_revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95",
-      "derived_revision": "9cb84a927a0c491c960be32c77e6b2676556d985",
-      "canonical_diff_sha256": "ce8985cee5943c4ee46bbade3ceda8a6616ae6835242b6f07ff511c4f33902f0",
+      "derived_revision": "ac07f3305bd325b4322a42ff3e3052e6f98b2026",
+      "canonical_diff_sha256": "92e30abf6429e137f2c54d14877c25eb6d3ad3c4ae7246c7a228879526558d68",
+      "purpose": "Declare the GPU dependency on the exported matched devfreq header. Also rename the local in_range() helper that clashes with the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module compilation passes without changing header contents, KMI or sandbox checks. Runtime qualification remains separate.",
       "changed_files": [
-        "build/kgsl_defs.bzl"
-      ],
-      "purpose": "Declare the GPU dependency on the exported matched devfreq header.",
-      "validation": "External module compilation passes without changing header contents, KMI or sandbox checks. Runtime qualification remains separate."
+        "build/kgsl_defs.bzl",
+        "kgsl_regmap.c"
+      ]
     },
     {
       "id": "fp6-device-policy",
@@ -269,6 +257,100 @@
       ],
       "purpose": "Own the selected FP6 policy, exact source provenance and graphics, credential and Type-C node setup in the device tree.",
       "validation": "Equivalent selected policy passed native USER checks with zero permissive domains; source-owned path and installed image integration checks are recorded separately. Runtime verification remains required."
+    },
+    {
+      "id": "kernel-camera-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_camera",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/camera-kernel",
+      "base_revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e",
+      "derived_revision": "02c283a64ba62532a31b11ca00e22bb199e04024",
+      "canonical_diff_sha256": "aeebba2d1670b3f00ae39e585b57e9a8ad40d896cc6f17de21af26295f983da5",
+      "changed_files": [
+        "drivers/camera_main.c"
+      ],
+      "purpose": "Use designated initializers for the camera submodule tables. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
+    },
+    {
+      "id": "kernel-dataipa-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_dataipa",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/dataipa",
+      "base_revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7",
+      "derived_revision": "9367c3927069dc7b6e0f0ea8a92126f134b5d45d",
+      "canonical_diff_sha256": "58a88bc96482a9c43ff8fec8ca7059bc33cd8cf6c685db8070cac7eea1900513",
+      "changed_files": [
+        "drivers/platform/msm/ipa/ipa_clients/ipa_usb.c",
+        "drivers/platform/msm/ipa/ipa_v3/dump/ipa5.5/ipa_reg_dump.h",
+        "drivers/platform/msm/ipa/ipa_v3/ipa.c",
+        "drivers/platform/msm/ipa/ipa_v3/ipahal/ipahal_hw_stats.c",
+        "drivers/platform/msm/ipa/ipa_v3/ipahal/ipahal_nat.c"
+      ],
+      "purpose": "Use designated initializers for IPA operation tables and keep the panic handler helper when neither deep sleep nor hibernation is built. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
+    },
+    {
+      "id": "kernel-display-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_display",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/display-drivers",
+      "base_revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
+      "derived_revision": "e8d4cf02d886ba59a64b5799057954d898d7a69f",
+      "canonical_diff_sha256": "f5676e0abaa7b0387e2dedab2c8bec660d21d44e594ba73637267da7ac478c4a",
+      "changed_files": [
+        "msm/sde/sde_encoder.c",
+        "msm/sde/sde_reg_dma.c"
+      ],
+      "purpose": "Use designated initializers for the encoder and register DMA operation tables. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
+    },
+    {
+      "id": "kernel-securemsm-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_securemsm",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/securemsm-kernel",
+      "base_revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335",
+      "derived_revision": "0efa44df45c82b8052d17375fda585b58a99844b",
+      "canonical_diff_sha256": "491d6ca0f869e5d08002bae7d1a9030043ab5d828adb7c1ca0c005f16b83a5f3",
+      "changed_files": [
+        "crypto-qti/qce50.c"
+      ],
+      "purpose": "Use designated initializers for the crypto engine PM table. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
+    },
+    {
+      "id": "kernel-touch-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_touch",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/touch-drivers",
+      "base_revision": "37908c61a4589f25fca8a078873124e97faadb6d",
+      "derived_revision": "3f4a6ffec200e4f1a770c545c08584b4ed37ab0a",
+      "canonical_diff_sha256": "c05c37d456966d2a554f5bd36a503eb09bed0d1803f4b0e2a84f8dc013fe9b1b",
+      "changed_files": [
+        "goodix_berlin_driver/goodix_ts_inspect.c",
+        "goodix_berlin_driver/goodix_ts_proc.c"
+      ],
+      "purpose": "Use the kernel MAX() helper in the Goodix driver. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
+    },
+    {
+      "id": "kernel-video-hardened",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_video",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/video-driver",
+      "base_revision": "9f32033e6d3c574a22af778e8841c62034020d93",
+      "derived_revision": "b57c7f145886170df14eca648b0b94d9b2eb66cb",
+      "canonical_diff_sha256": "22d1d32dd5d08524ac1c0669ef61d113b8107c7a0c5f0fbbadf6430f77a909e6",
+      "changed_files": [
+        "driver/variant/iris2/inc/hfi_buffer_iris2.h",
+        "driver/variant/iris3/inc/hfi_buffer_iris3.h",
+        "driver/variant/iris33/inc/hfi_buffer_iris33.h",
+        "driver/vidc/src/msm_vidc_driver.c",
+        "driver/vidc/src/venus_hfi_response.c"
+      ],
+      "purpose": "Include linux/minmax.h before the local MIN/MAX fallbacks and rename the local in_range() helpers. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
+      "validation": "External module builds with the FP6 kernel; device qualification remains."
     }
   ]
 }

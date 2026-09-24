@@ -115,9 +115,10 @@
       ]
     },
     {
-      "project": "kernel/common",
+      "project": "GrapheneOS/kernel_common-6.1",
       "path": "kernel_platform/common",
-      "revision": "221d6fa50ed25ad745e769d04163c25a4890281f",
+      "revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
+      "url": "https://github.com/GrapheneOS/kernel_common-6.1",
       "linkfiles": [
         {
           "dest": "kernel_platform/.source_date_epoch_dir",
