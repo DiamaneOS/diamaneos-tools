@@ -166,36 +166,30 @@ class NativeProductTests(unittest.TestCase):
                      'android.hardware.graphics.mapper-impl-qti-display.xml']:
             self.assertNotIn(name, make)
 
-    def test_fp6_fingerprint_uses_stock_hardware_and_source_interfaces(self):
+    def test_fp6_fingerprint_ships_stock_module_without_stock_service(self):
         rendered = self.render()
         bp = rendered['Android.bp'].decode()
-        service = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.biometrics.fingerprint-service"'):]
-        service = service[:service.index('}\n')]
-        # FP6-specific service names and the module's own SONAME as its file
-        # name: no collision with AOSP's reference fingerprint service or
-        # libhardware stub, no module shadowing, and Soong's ELF checks hold.
-        self.assertIn('"fp6_stock_vendor_lib64_hw_libfingerprint.default"', service)
+        # The device tree builds the AIDL service; only the FocalTech module is
+        # taken from stock, under its own SONAME so it cannot shadow AOSP's
+        # libhardware stub and Soong's ELF checks hold.
+        self.assertNotIn('android.hardware.biometrics.fingerprint-service', bp)
+        self.assertNotIn('fingerprint-service', rendered['device-vendor.mk'].decode())
         driver = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_libfingerprint.default"'):]
         driver = driver[:driver.index('}\n')]
         self.assertNotIn('prefer', driver)
         self.assertIn('files/vendor/lib64/hw/libfingerprint.default.so', driver)
         self.assertNotIn('check_elf_files', driver)
-        self.assertIn('android.hardware.biometrics.fingerprint-service.fp6.rc', service)
-        self.assertIn('android.hardware.biometrics.fingerprint-service.fp6.xml', service)
         self.assertNotIn('name: "fingerprint.default"', bp)
-        self.assertNotIn('fingerprint-default.rc', bp)
+        self.assertIn('fp6_stock_vendor_lib64_hw_libfingerprint.default', rendered['device-vendor.mk'].decode())
         stock = {r['path']: r['input'] for r in self.recipe['files']}
         self.assertEqual(stock['vendor/lib64/hw/libfingerprint.default.so'], 'vendor/lib64/hw/fingerprint.default.so')
-        for stem in ['android.hardware.biometrics.common-V3-ndk',
-                     'android.hardware.biometrics.fingerprint-V3-ndk']:
-            self.assertIn('"' + stem + '"', service)
-            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, bp)
         self.assertIn('android.hardware.fingerprint.xml', rendered['device-vendor.mk'].decode())
         self.assertNotIn('android.hardware.biometrics.face', bp)
 
-    def test_unreviewed_fingerprint_source_dependency_rejected(self):
-        edge = next(e for e in self.selection['edges'] if e['kind'] == 'source-module')
-        edge['needed'] = 'unreviewed-source-V3-ndk.so'
+    def test_unreviewed_source_module_dependency_rejected(self):
+        consumer = self.selection['files'][0]['path']
+        self.selection['edges'].append({'consumer': consumer, 'needed': 'unreviewed-source-V3-ndk.so',
+                                        'kind': 'source-module'})
         with self.assertRaises(VendorError): self.render()
 
     def test_undeclared_runtime_edge_rejected(self):
