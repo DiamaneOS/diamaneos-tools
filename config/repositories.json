@@ -199,7 +199,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_camera.git",
       "revision": null,
       "slug": "kernel_fairphone_camera",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/camera-kernel"
     },
     {
@@ -209,7 +209,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_dataipa.git",
       "revision": null,
       "slug": "kernel_fairphone_dataipa",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/dataipa"
     },
     {
@@ -219,7 +219,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_display.git",
       "revision": null,
       "slug": "kernel_fairphone_display",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/display-drivers"
     },
     {
@@ -229,7 +229,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_securemsm.git",
       "revision": null,
       "slug": "kernel_fairphone_securemsm",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/securemsm-kernel"
     },
     {
@@ -239,7 +239,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_touch.git",
       "revision": null,
       "slug": "kernel_fairphone_touch",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/touch-drivers"
     },
     {
@@ -249,7 +249,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_video.git",
       "revision": null,
       "slug": "kernel_fairphone_video",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
     },
     {
