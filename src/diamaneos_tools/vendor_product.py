@@ -59,16 +59,10 @@ SOURCE_INTERFACES = {
     'vendor.qti.hardware.display.mapperextensions@1.3',
     'vendor.qti.hardware.display.postproc-V1-ndk',
 }
-SOURCE_MODULE_DEPENDENCIES = {
-    # The FP6 stock fingerprint wrapper uses the stable V3 AIDL ABI. Build
-    # these libraries from the pinned Android tree, not the factory image.
-    'android.hardware.biometrics.common-V3-ndk',
-    'android.hardware.biometrics.fingerprint-V3-ndk',
-}
+# Stable AIDL libraries a selected blob links that are built from the pinned
+# Android tree instead of taken from the factory image. None are needed now.
+SOURCE_MODULE_DEPENDENCIES = set()
 ACTIVATION={
- # Installed under FP6-specific names: AOSP's reference fingerprint service uses
- # fingerprint-default.rc/.xml, and Soong emits install rules for every module.
- 'android.hardware.biometrics.fingerprint-service':('android.hardware.biometrics.fingerprint-service.fp6.rc','android.hardware.biometrics.fingerprint-service.fp6.xml'),
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
  'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
