@@ -248,7 +248,9 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
             require(module_metadata(dest) == before, 'stripping changed module metadata')
             if signing:
                 sign_file, key, cert, algorithm = signing
-                call([sign_file, algorithm, key, cert, dest], cwd=work)
+                # sign-file is a host tool linked to the kernel build tools' libcrypto.
+                tools_env = dict(os.environ, LD_LIBRARY_PATH=str(work / 'prebuilts/kernel-build-tools/linux-x86/lib64'))
+                call([sign_file, algorithm, key, cert, dest], cwd=work, env=tools_env)
                 after = module_metadata(dest)
                 require([r for r in after if r[0] not in SIGNATURE_FIELDS] == before and signature(after),
                         'signing changed module metadata')
