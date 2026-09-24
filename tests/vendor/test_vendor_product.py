@@ -28,7 +28,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('fp6_stock_vendor_lib64_libdrm', modules)
         self.assertIn(b'"libdrm"', first['Android.bp'])
         self.assertIn(b'vendor.qti.hardware.perf2.xml', first['Android.bp'])
-        for stem in ['liblearningmodule', 'libmemperfd', 'libmeters', 'libprotobuf-cpp-lite-21.7']:
+        for stem in ['liblearningmodule', 'libmemperfd', 'libmeters']:
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
         self.assertIn('fp6_stock_vendor_lib64_libqti-perfd', modules)
         self.assertNotIn(b'vendor/etc/lm/', first['device-vendor.mk'])
@@ -156,6 +156,25 @@ class NativeProductTests(unittest.TestCase):
             vendor_product.rewrite_needed(b'\x7fELF\x02\x01' + bytes(64), 'libtinyxml2.so', 'libtxml2v3.so')
         with self.assertRaises(VendorError):
             vendor_product.rewrite_needed(b'not an elf', 'libtinyxml2.so', 'libtxml2v34.so')
+
+    def test_sensor_stack_installed_with_activation_and_configuration(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        for name in ['fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal',
+                     'fp6_stock_vendor_bin_sscrpcd', 'fp6_stock_vendor_lib64_sensors.qsh',
+                     'fp6_stock_vendor_lib64_libssc_default_listener',
+                     'fp6_stock_vendor_lib64_libprotobuf-cpp-lite-21.7']:
+            self.assertIn(name, modules)
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal"'):]
+        block = block[:block.index('}\n')]
+        self.assertIn('files/vendor/etc/init/android.hardware.sensors-service-multihal.rc', block)
+        self.assertIn('files/vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml', block)
+        self.assertIn('"fp6_stock_vendor_lib64_sensors.qsh"', block[block.index('required:'):].split('\n')[0])
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_sscrpcd"'):]
+        self.assertIn('"fp6_stock_vendor_lib64_libssc_default_listener"', block[:block.index('}\n')])
+        for path in ['sensors/hals.conf', 'sensors/sns_reg_config', 'sensors/config/volcano_tmd2755_0.json']:
+            self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
 
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
