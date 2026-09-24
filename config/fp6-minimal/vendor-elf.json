@@ -1,11 +1,6 @@
 {
   "files": [
     {
-      "path": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "sha256": "42cd628419266d75f5975e7c8a329264f30df76cd5278a96f8e00ad37478bbd2",
-      "bytes": 68720
-    },
-    {
       "path": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
       "sha256": "61b2d6643ede5a859d6798ffd344b1f1ee8314757f113cd518a7bd550383b6af",
       "bytes": 15056
@@ -612,102 +607,6 @@
     }
   ],
   "edges": [
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "android.hardware.biometrics.common-V3-ndk.so",
-      "kind": "source-module"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "android.hardware.biometrics.fingerprint-V3-ndk.so",
-      "kind": "source-module"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libfingerprint.default.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/hw/libfingerprint.default.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libhardware.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
     {
       "consumer": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
       "needed": "libc++.so",
@@ -9274,7 +9173,7 @@
     }
   ],
   "roots": [
-    "vendor/bin/hw/android.hardware.biometrics.fingerprint-service",
+    "vendor/lib64/hw/libfingerprint.default.so",
     "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
     "vendor/bin/hw/android.hardware.security.keymint-service-qti",
     "vendor/bin/hw/vendor.qti.hardware.display.color-service",
