@@ -45,6 +45,9 @@ REQUIRED_CATEGORIES = {
     "firmware-trusted-boot",
     "esim",
     "optional-vendor-services",
+    # Userspace daemons and libraries that start and serve the remote
+    # processors; kept apart from the firmware they talk to.
+    "remote-processor-services",
 }
 INVESTIGATION_STATES = {
     "unknown", "candidate", "private-bringup", "qualification-failed",

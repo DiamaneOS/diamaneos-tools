@@ -120,9 +120,15 @@ class NativeProductTests(unittest.TestCase):
         for stem, rc in [('rmt_storage', 'vendor.qti.rmt_storage.rc'), ('tftp_server', 'vendor.qti.tftp.rc')]:
             block = bp[bp.index('name: "fp6_stock_vendor_bin_' + stem + '"'):]
             self.assertIn('init_rc: ["files/vendor/etc/init/' + rc + '"]', block[:block.index('}\n')])
+        # Userspace daemons and libraries have their own component, not the
+        # firmware they talk to (whose replacement needs OEM signing).
         owners = {r['path']: r['component_id'] for r in self.recipe['files']}
-        for stem in ['libqrtr', 'libqmi_cci', 'libqmi_csi', 'libperipheral_client']:
-            self.assertEqual('firmware-trusted-boot', owners['vendor/lib64/' + stem + '.so'])
+        for stem in ['libqrtr', 'libqmi_cci', 'libqmi_csi', 'libperipheral_client', 'libjson']:
+            self.assertEqual('remote-processor-services', owners['vendor/lib64/' + stem + '.so'])
+        for stem in ['pd-mapper', 'pm-service', 'pm-proxy', 'rmt_storage', 'tftp_server']:
+            self.assertEqual('remote-processor-services', owners['vendor/bin/' + stem])
+        self.assertFalse([p for p, owner in owners.items() if owner == 'firmware-trusted-boot'
+                          and p.startswith(('vendor/bin/', 'vendor/lib64/'))])
 
     def test_display_color_manager_installed_as_required(self):
         bp = self.render()['Android.bp'].decode()

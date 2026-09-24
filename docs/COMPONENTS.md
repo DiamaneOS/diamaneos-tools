@@ -13,7 +13,11 @@ registry. FP6 hardware decisions live in the separate `fp6_components` array,
 so extending the hardware model does not change the meaning or identifiers of
 the earlier records.
 
-The model groups the known FP6 integration surface into twelve categories.
+The model groups the known FP6 integration surface into thirteen categories.
+Userspace code is kept apart from the firmware it talks to: the
+remote-processor daemons and QMI/QRTR libraries have their own category,
+because replacing them does not need the OEM signing authority that firmware
+replacement does.
 Every category records its purpose, dependency edges, relevant interfaces,
 source candidates, private bring-up boundary, present decision state, next
 experiment and conditions that invalidate the decision. A missing category,
