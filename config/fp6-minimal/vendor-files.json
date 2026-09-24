@@ -3838,6 +3838,1971 @@
         "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/bin/hw/android.hardware.sensors-service.multihal",
+      "path": "vendor/bin/hw/android.hardware.sensors-service.multihal",
+      "sha256": "44dfd54fd9d2125ac036a58d2f16cc4acc3981816b80b60b80f3cc38c2e9c8a6",
+      "bytes": 139544,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors-V2-ndk.so",
+        "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so",
+        "vendor/lib64/android.hardware.sensors@2.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "AOSP sensors multi-HAL (AIDL ISensors/default); loads the sub-HALs in /vendor/etc/sensors/hals.conf.",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:hal_sensors_default_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/sensors.qsh.so",
+          "soname": "sensors.qsh.so",
+          "reason": "the multi-HAL loads every sub-HAL named in /vendor/etc/sensors/hals.conf with dlopen; this Qualcomm sub-HAL serves all ADSP sensors"
+        },
+        {
+          "path": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
+          "soname": "sensors.dynamic_sensor_hal.so",
+          "reason": "the multi-HAL loads every sub-HAL named in /vendor/etc/sensors/hals.conf with dlopen; this AOSP-based sub-HAL serves dynamic (HID) sensors such as head trackers"
+        }
+      ]
+    },
+    {
+      "input": "vendor/bin/sscrpcd",
+      "path": "vendor/bin/sscrpcd",
+      "sha256": "4fc8c5c4c47d974ea82f8847cf53212dbfd7cdd642c6cd33fc983651288406e0",
+      "bytes": 15624,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libsnsutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Starts the sensors protection domain on the ADSP over FastRPC (stock vendor.sensors.sscrpcd.rc).",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:vendor_sensors_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libssc_default_listener.so",
+          "soname": "libssc_default_listener.so",
+          "reason": "sscrpcd loads this FastRPC listener with dlopen; the sensors domain on the ADSP reads the sensor configuration and the persist registry through it"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/sensors.qsh.so",
+      "path": "vendor/lib64/sensors.qsh.so",
+      "sha256": "fdbc89289ff47bf197e5d8ab577459d8ef909c5ae296dfc2a9065cc18010670c",
+      "bytes": 528024,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so",
+        "vendor/lib64/android.hardware.sensors@2.1.so",
+        "vendor/lib64/libcdsprpc.so",
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqsh.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsns_direct_channel_stub.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsdiaglog.so",
+        "vendor/lib64/libsnsutils.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm sensors sub-HAL for the ADSP sensor core (light, proximity, motion, magnetometer, pressure, hall).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
+      "path": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
+      "sha256": "562f6a019640a7c3e96e2df7f9297ee788e65caedbabe3fedc374e1d160a776c",
+      "bytes": 296240,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so",
+        "vendor/lib64/android.hardware.sensors@2.1.so",
+        "vendor/lib64/libhidparser.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Dynamic (HID) sensors sub-HAL listed in the stock hals.conf.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
+      "path": "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
+      "sha256": "a928d87802d2e72f89934f6d27955f614311b9c38cf33083c8a0d6189ba4dae3",
+      "bytes": 15560,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so",
+        "vendor/lib64/android.hardware.sensors@2.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@2.0.so",
+      "path": "vendor/lib64/android.hardware.sensors@2.0.so",
+      "sha256": "299d6b36661d9a9b8b852bcabc110d140ec7c46741c8f89739c326f3990d8c11",
+      "bytes": 208776,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@2.1.so",
+      "path": "vendor/lib64/android.hardware.sensors@2.1.so",
+      "sha256": "bbf288bfb86c7ce5b34aefd5f223b0b51c33e57bb403c2e338c824a0dfa061d8",
+      "bytes": 214016,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
+      "path": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
+      "sha256": "755eb4acca46915a680c1216c27b0bf4ee34b165978960bf9114958921478ea5",
+      "bytes": 122736,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libssc_default_listener.so",
+      "path": "vendor/lib64/libssc_default_listener.so",
+      "sha256": "b44f1db3207aa13ab480f7dd6a9dc76c7fdda828c3702d9d89377bc835aa81e8",
+      "bytes": 19656,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libsdsprpc.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FastRPC listener for the ADSP sensors domain (configuration and registry access).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnsutils.so",
+      "path": "vendor/lib64/libsnsutils.so",
+      "sha256": "e3239fd35bfe6fc39933c3f1fc81e4327a614a66fa9e875fb1a2b1e45f1e8163",
+      "bytes": 28624,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libsensorslog.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsns_direct_channel_stub.so",
+      "path": "vendor/lib64/libsns_direct_channel_stub.so",
+      "sha256": "ca4cc58e5c4f92f46352b12f9a0d4b05ca3955ee0853b316076f4a3c09b99f6e",
+      "bytes": 15424,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libcdsprpc.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcdsprpc.so",
+      "path": "vendor/lib64/libcdsprpc.so",
+      "sha256": "4cd5bd9a8942e4c92b6228bd9092eed8d4b5e3a89f270d2653baf781c1da7fcb",
+      "bytes": 467592,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libvmmem.so",
+        "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnsapi.so",
+      "path": "vendor/lib64/libsnsapi.so",
+      "sha256": "1f146f81b04eb87aac34b4a89a3f6011cf7ce1faec4d719bbf92c74c81a000d0",
+      "bytes": 1235808,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqsh.so",
+      "path": "vendor/lib64/libqsh.so",
+      "sha256": "49dffab72b8a2f9153eb24d8edee014969a708a52a78f7c466d63e4c706b906c",
+      "bytes": 113480,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnsdiaglog.so",
+      "path": "vendor/lib64/libsnsdiaglog.so",
+      "sha256": "f6d5090370c9bd9ae4da72bb302dc3ad17085520ddc7d0d5747a29788bcf9784",
+      "bytes": 41064,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libdiag.so",
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqsh.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsensorslog.so",
+      "path": "vendor/lib64/libsensorslog.so",
+      "sha256": "b811f8d3a9efa4ed22eb1e5f5cb16ada6a7058b2f54dcf3cd8f98286939f2e5d",
+      "bytes": 15536,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libhidparser.so",
+      "path": "vendor/lib64/libhidparser.so",
+      "sha256": "761710740d60f1ef0bd85875db8abaea2de5f69fe1868c27915a85fa87a766f2",
+      "bytes": 70192,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@1.0.so",
+      "path": "vendor/lib64/android.hardware.sensors@1.0.so",
+      "sha256": "40b262aace0fde6dc707a14ab6e39d5f9493b51a5480d7abfa509b252b004427",
+      "bytes": 149040,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsdsprpc.so",
+      "path": "vendor/lib64/libsdsprpc.so",
+      "sha256": "1c27360c61a78d20d1134056ce8c4de5cfbdfbf4791ad83e381e46afabf4fdcd",
+      "bytes": 467592,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libvmmem.so",
+        "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
+      "path": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
+      "sha256": "6df137ac25b2a83d8c4486dbbc32b79316792b53f50c9ec0aceb7cff5bb20c6a",
+      "bytes": 164736,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/init/android.hardware.sensors-service-multihal.rc",
+      "path": "vendor/etc/init/android.hardware.sensors-service-multihal.rc",
+      "sha256": "8a42a1eaab48439f3400a2e34781c517e3368d1d793aa61a273669dd4984a7b5",
+      "bytes": 264,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml",
+      "path": "vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml",
+      "sha256": "8b0da4077cb13dba150f2848d10134b60acae40d939017b7dd1c3cbc35487981",
+      "bytes": 841,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/init/vendor.sensors.sscrpcd.rc",
+      "path": "vendor/etc/init/vendor.sensors.sscrpcd.rc",
+      "sha256": "229f1998520806f079318a0053ee125f24c23746ad0704e2dfd525f59b62d701",
+      "bytes": 1922,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/json.lst",
+      "path": "vendor/etc/sensors/config/json.lst",
+      "sha256": "4175126adf53979b5e183a42bf4892e3e4da7e40a2ed86ed62c89501f3c1c3aa",
+      "bytes": 994,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/milos_qsh_ble_0.json",
+      "path": "vendor/etc/sensors/config/milos_qsh_ble_0.json",
+      "sha256": "85e26fe31d07e43f847ac4a8f41cf538bf217c3abbea3eb17996be6bb18a3001",
+      "bytes": 238,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/qsh_ble.json",
+      "path": "vendor/etc/sensors/config/qsh_ble.json",
+      "sha256": "3aae03223b4ca6f05f2597cdc08630ad36ca8483bb7495924daaa507e9db7e40",
+      "bytes": 1126,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_amd.json",
+      "path": "vendor/etc/sensors/config/sns_amd.json",
+      "sha256": "f3abc0f33ffcdb8129bad5945a2112227d7a2e03a5ce5efd98ae5c57cad4903e",
+      "bytes": 596,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_amd_sw_enabled.json",
+      "path": "vendor/etc/sensors/config/sns_amd_sw_enabled.json",
+      "sha256": "6d577f2b350ca4f2cea160780f11a77745c4dfecaddf2041ce76e07634e7f1be",
+      "bytes": 580,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_aont.json",
+      "path": "vendor/etc/sensors/config/sns_aont.json",
+      "sha256": "e5351978635f9346f2ba934dc18f7fc5f216916a072164414dfe26cf24e07399",
+      "bytes": 141,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_basic_gestures.json",
+      "path": "vendor/etc/sensors/config/sns_basic_gestures.json",
+      "sha256": "5d390ca97dbd1a4589421a865c783436bbe492b27fb5cf25afbc1e8eb3fe1a25",
+      "bytes": 1182,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_bring_to_ear.json",
+      "path": "vendor/etc/sensors/config/sns_bring_to_ear.json",
+      "sha256": "ca8822ee2cde871b535292e4111373c7dc20148c42d355c149e6e0b89055f27d",
+      "bytes": 1188,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v1_0_amd.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v1_0_amd.json",
+      "sha256": "c338292672189d949d37019b6b691e1dc5d42203047843dc4c165008657a9b6f",
+      "bytes": 391,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v1_0_ttw.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v1_0_ttw.json",
+      "sha256": "1fa8402e133dcbe9827f0a8656e0f585cc9a4961d4dd0002ddc15b4a0d162216",
+      "bytes": 6124,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v2_0_walk.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v2_0_walk.json",
+      "sha256": "f89666b28aacc8b0cc54168b977e51ec60286d1c1a521a1db7d845506997af7a",
+      "bytes": 449,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v3_0_walk.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v3_0_walk.json",
+      "sha256": "af9dbd52ab89f95a839d46a98059fd11bc11e5681095984dbfcbd41e693c7bf0",
+      "bytes": 1229,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v3_1_walk.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v3_1_walk.json",
+      "sha256": "8afd06c7b802e56cefc118fdb49af157c8a0f49454d8c2068d7d7d83efb8077e",
+      "bytes": 1323,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v4_0_sensors.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v4_0_sensors.json",
+      "sha256": "0de42733ce0d2869b36027d93ce3bfbb1279d817f45e4993dc5881e06a25db35",
+      "bytes": 1163,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v4_0_te_cd_regs.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v4_0_te_cd_regs.json",
+      "sha256": "4969c5386dae12ddb076a4630703720fe346a3ccea62671b6e00e5b995fd9918",
+      "bytes": 1617,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v5.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v5.json",
+      "sha256": "fbba2ef55fe632ad1dff81abf1d02b77bb879726e01cde6e3af8b556219a7c94",
+      "bytes": 1684,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v5_0_te_cd_regs.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v5_0_te_cd_regs.json",
+      "sha256": "e56a8731457b1f905de8f33437f7c60f84e88427ae2c06c0b25a28bdb921a26e",
+      "bytes": 1985,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_ccd_v5_1_te_cd_regs.json",
+      "path": "vendor/etc/sensors/config/sns_ccd_v5_1_te_cd_regs.json",
+      "sha256": "0674460c2af9b3ac2c8fa6d0f7ff2d0d897d51def4e734350ca8208647e44e6f",
+      "bytes": 3129,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_cm.json",
+      "path": "vendor/etc/sensors/config/sns_cm.json",
+      "sha256": "8d43cf9b4b1bdab4c71c129d79b895588955498b93b44a496b1a7993f1b12f4c",
+      "bytes": 586,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_dae.json",
+      "path": "vendor/etc/sensors/config/sns_dae.json",
+      "sha256": "438da7149b5af0603dd2ad2451522fe81987c07030b23d225c775f93b978a225",
+      "bytes": 921,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_device_orient.json",
+      "path": "vendor/etc/sensors/config/sns_device_orient.json",
+      "sha256": "e734193b09a6c7ea33074b3c8cd7995c99e53c4d48e7194b0ebd219a57ab003d",
+      "bytes": 1042,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_diag_filter.json",
+      "path": "vendor/etc/sensors/config/sns_diag_filter.json",
+      "sha256": "af1a02bfba39864da9ffa2d311caa623721d58d017487e3ecdb9081da5cc62cc",
+      "bytes": 6928,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_direct_channel.json",
+      "path": "vendor/etc/sensors/config/sns_direct_channel.json",
+      "sha256": "4a6c1821edfb7b449edef4bf077f35920579f22af903d6512a4f858b364b33f6",
+      "bytes": 164,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_distance_bound.json",
+      "path": "vendor/etc/sensors/config/sns_distance_bound.json",
+      "sha256": "755d99a5664df4bc42ff62b756ebe23291b7905294a5d74bb32d426f1ef9808d",
+      "bytes": 972,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_dpc.json",
+      "path": "vendor/etc/sensors/config/sns_dpc.json",
+      "sha256": "6e90fc7c221d9f14f791652c2f0858bf22aad12e465372240025ec54d555a38c",
+      "bytes": 761,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_facing.json",
+      "path": "vendor/etc/sensors/config/sns_facing.json",
+      "sha256": "8bbdd1d228072e66f9ff522f9eef4d256dde36f562f025b873023e5a9202e70f",
+      "bytes": 881,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_flight_md.json",
+      "path": "vendor/etc/sensors/config/sns_flight_md.json",
+      "sha256": "fee9754c643a912b8a260fb322dc3e5edae269560470c2ddc1b0e93723377aea",
+      "bytes": 566,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_fmv.json",
+      "path": "vendor/etc/sensors/config/sns_fmv.json",
+      "sha256": "3ffc94a7dd2caf7126fef49dfb4d00c34f206520f2e25a5107075c3a9ba93b64",
+      "bytes": 1531,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_fmv_legacy.json",
+      "path": "vendor/etc/sensors/config/sns_fmv_legacy.json",
+      "sha256": "6453974dac7abc5fbcbc4b2c440610622af51006466ba5642cddcd07eb4f9df0",
+      "bytes": 1583,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_gyro_cal.json",
+      "path": "vendor/etc/sensors/config/sns_gyro_cal.json",
+      "sha256": "00db53926280ec139a0b0a424cecb5940068658245ddb913badcba6c09dc9dd8",
+      "bytes": 740,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_heart_rate.json",
+      "path": "vendor/etc/sensors/config/sns_heart_rate.json",
+      "sha256": "05cb7058ab63d2c8a35ae653fbc86041902d39bea94fe782cc7f9616fba60abb",
+      "bytes": 3593,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_mag_cal.json",
+      "path": "vendor/etc/sensors/config/sns_mag_cal.json",
+      "sha256": "32683591e829d44447002cfeee75c173751d3d49e1182b265fb8d828a30fe11a",
+      "bytes": 510,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_mag_cal_legacy.json",
+      "path": "vendor/etc/sensors/config/sns_mag_cal_legacy.json",
+      "sha256": "5963da9915cd35aa4f66a639bd0fdda24fb8f53c781557514d8d8a363058e8b3",
+      "bytes": 313,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_multishake.json",
+      "path": "vendor/etc/sensors/config/sns_multishake.json",
+      "sha256": "0c46f27bbdd0990839d5ca91f5423cd53d1fd37e50bcfd5e91c00d21f543eaab",
+      "bytes": 862,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_offbody_detect_phone.json",
+      "path": "vendor/etc/sensors/config/sns_offbody_detect_phone.json",
+      "sha256": "22c2fe309e4cf8e30931a70d96f9db3ea6b1c133fc73e58d156dd7688b3ce11f",
+      "bytes": 173,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_pedometer.json",
+      "path": "vendor/etc/sensors/config/sns_pedometer.json",
+      "sha256": "e3fad61cb6d6e8f017b4cdea1269f01c41ff28b42d4a0dabaae5312eba0b4e56",
+      "bytes": 909,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_psd_disable.json",
+      "path": "vendor/etc/sensors/config/sns_psd_disable.json",
+      "sha256": "ea359ae64ed9049669d35bcf93451e5639c939c80e34034da968c765fd255948",
+      "bytes": 330,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_psd_enable.json",
+      "path": "vendor/etc/sensors/config/sns_psd_enable.json",
+      "sha256": "ea8f5f8be9cba19b7cc50178970173f444274635db8ec87415eb484e4d9cf47d",
+      "bytes": 354,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_rmd.json",
+      "path": "vendor/etc/sensors/config/sns_rmd.json",
+      "sha256": "40f96ad69d4c01b7b08fa16db27101432cf80d18fb370bad0db16a71c343d239",
+      "bytes": 687,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_rotv.json",
+      "path": "vendor/etc/sensors/config/sns_rotv.json",
+      "sha256": "de7be9d2e7c8347fab384f6585f4a242081bbce90d2445e66c8439e5b2051eb7",
+      "bytes": 643,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_smd.json",
+      "path": "vendor/etc/sensors/config/sns_smd.json",
+      "sha256": "33aa771d4e9c0a855659b6c59dabf9e5d006341a734000c932ede1efeccd5ccf",
+      "bytes": 1145,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_tilt.json",
+      "path": "vendor/etc/sensors/config/sns_tilt.json",
+      "sha256": "fe0189eeea6269abde89a92a4e4637e4d2c58cbd17a91872372a2c92c9d6e5f0",
+      "bytes": 634,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_tilt_sw_enabled.json",
+      "path": "vendor/etc/sensors/config/sns_tilt_sw_enabled.json",
+      "sha256": "4fb9b1bcfed5803c38a70f146a1c7501712473828d916a1317aaf3760b32b7f2",
+      "bytes": 542,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_tilt_to_wake.json",
+      "path": "vendor/etc/sensors/config/sns_tilt_to_wake.json",
+      "sha256": "96a85328e4b0c267545ad499a5b9ec371f348eccfaeadeaa41d2d37a4936a4c7",
+      "bytes": 1405,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_transport_ppe.json",
+      "path": "vendor/etc/sensors/config/sns_transport_ppe.json",
+      "sha256": "66f86daab35c70d5675adae5070bf4ca64cfc0d067b55807faf02b5068fbf914",
+      "bytes": 432,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/sns_wrist_pedo.json",
+      "path": "vendor/etc/sensors/config/sns_wrist_pedo.json",
+      "sha256": "96f7e5b4bfc7800b6b347736bd529a49d941b3e2f6c0dbf49f5412dd5f1eba98",
+      "bytes": 653,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_bu52053nvx_0.json",
+      "path": "vendor/etc/sensors/config/volcano_bu52053nvx_0.json",
+      "sha256": "89fe4e1f0ea6dac25a61da9123b36a25b2b128ecfc98e1390729a13306e0561a",
+      "bytes": 2724,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_default_sensors.json",
+      "path": "vendor/etc/sensors/config/volcano_default_sensors.json",
+      "sha256": "a805d59abdfd71dcb2ce7d889b3c90210713284568651fdfc4f7ff0323ae8de5",
+      "bytes": 5532,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_dynamic_sensors.json",
+      "path": "vendor/etc/sensors/config/volcano_dynamic_sensors.json",
+      "sha256": "bf1ce2d3415458ea836560a4243eb6221c528afe653b7563016c3432c923b891",
+      "bytes": 955,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_dynamic_sensors_template.json",
+      "path": "vendor/etc/sensors/config/volcano_dynamic_sensors_template.json",
+      "sha256": "542328179a393efe6eb85660185352ec55c07ac24d99951fcbe232fab1b852d3",
+      "bytes": 571,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_icm4x6xx_0.json",
+      "path": "vendor/etc/sensors/config/volcano_icm4x6xx_0.json",
+      "sha256": "ddf20f3b7e986efc935fc27c10738f091e66243a2f584d60b4e36a137b24f688",
+      "bytes": 7913,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_iot_bu52053nvx_0.json",
+      "path": "vendor/etc/sensors/config/volcano_iot_bu52053nvx_0.json",
+      "sha256": "70fca3cc0596511f6d0f26485fc5fa9c850df3904b4b7583cc41e402ca405774",
+      "bytes": 2775,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_irq.json",
+      "path": "vendor/etc/sensors/config/volcano_irq.json",
+      "sha256": "30d7a9042f768687ec0b52ef5c57c44144d0f3115d2f278786d865cc35e6c07a",
+      "bytes": 193,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_lps22df_0.json",
+      "path": "vendor/etc/sensors/config/volcano_lps22df_0.json",
+      "sha256": "77c6f68fbcc1751bdd21f17dfcb9d3a7872ec1c70cb2b1dd7374f5ce8d730a99",
+      "bytes": 4273,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_lsm6dso_0.json",
+      "path": "vendor/etc/sensors/config/volcano_lsm6dso_0.json",
+      "sha256": "a38765923f6db84254a8b82042cb413c5ee29ee007420a78d42e01b952fb1358",
+      "bytes": 4376,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_mmc56x3x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_mmc56x3x_0.json",
+      "sha256": "e4ed2af8eea76c1db161e10abce4c5d45d47000b73533df26ec17519ae3f54a5",
+      "bytes": 2530,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_mtp_lsm6dso_0.json",
+      "path": "vendor/etc/sensors/config/volcano_mtp_lsm6dso_0.json",
+      "sha256": "fd5c1cbf028b7d7af985154d2aab86fc5d2c1900914bdde1a1d7b5bc589a176d",
+      "bytes": 8211,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_mtp_mmc56x3x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_mtp_mmc56x3x_0.json",
+      "sha256": "220aea423751a174a576bbf774620123e8da646457c5ee682d34cf658c902d74",
+      "bytes": 2945,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_power_0.json",
+      "path": "vendor/etc/sensors/config/volcano_power_0.json",
+      "sha256": "fac26f313caeb9c8030768051c935019cd646d802226fd3b89c54bc4be8429da",
+      "bytes": 759,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_qmc630x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_qmc630x_0.json",
+      "sha256": "8b08ef7011b624cefe82c25a2625aca91fa365651831be3196826b99c0ae75ae",
+      "bytes": 6084,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_qrd_lsm6dso_0.json",
+      "path": "vendor/etc/sensors/config/volcano_qrd_lsm6dso_0.json",
+      "sha256": "43263f4b69a6d04101fd6067d3d9d65696b2b7502cb08fae4cecdcce9eed9ede",
+      "bytes": 12430,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_qrd_mmc56x3x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_qrd_mmc56x3x_0.json",
+      "sha256": "4d787f3a6c574b0ba2fb6e7d2fddb8fa2b104d561df448ec4fbb7ab352528de0",
+      "bytes": 5248,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_qrd_tmd2755_0.json",
+      "path": "vendor/etc/sensors/config/volcano_qrd_tmd2755_0.json",
+      "sha256": "c2fbf683f0a441c7d897aae7dbbd012d686bb532e47d5dde8722ab7c43a74683",
+      "bytes": 7224,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_spl07_0.json",
+      "path": "vendor/etc/sensors/config/volcano_spl07_0.json",
+      "sha256": "738d0593e7ba53e1fb7d84bf492e4f6cef8002792b600dbc1c7d56df63864976",
+      "bytes": 3596,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_stk3bcx_0.json",
+      "path": "vendor/etc/sensors/config/volcano_stk3bcx_0.json",
+      "sha256": "616e69f0e1956cd760b6b661bfe147516e9b4c7eaf6f5c57e108b994b5f0628a",
+      "bytes": 6014,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_sx932x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_sx932x_0.json",
+      "sha256": "770c417e363e0e0f8ef5d042d8dbb2c6b6db8db84bacdc1adbed2968b3b15f95",
+      "bytes": 7928,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_tmd2755_0.json",
+      "path": "vendor/etc/sensors/config/volcano_tmd2755_0.json",
+      "sha256": "6ee2747d006117fbb42edacecf3b5f95fb93c4dcb7a14c66a91de3a7d3ae8b32",
+      "bytes": 7261,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_vertigo_lsm6dso_0.json",
+      "path": "vendor/etc/sensors/config/volcano_vertigo_lsm6dso_0.json",
+      "sha256": "ea6757c9fbee46340a04be87a06b39c9e4eed8fcefa2ecd2eb32339a33a50644",
+      "bytes": 8211,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/config/volcano_vertigo_mmc56x3x_0.json",
+      "path": "vendor/etc/sensors/config/volcano_vertigo_mmc56x3x_0.json",
+      "sha256": "e1c549fc68cbc9094c523b33f64d2d52718b83cf28aed6d70dd741b4e9f90578",
+      "bytes": 2875,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/hals.conf",
+      "path": "vendor/etc/sensors/hals.conf",
+      "sha256": "bc557b49cb701087efcf16281e9e394c80a11e49693f144e84fed8e74b2f4f9b",
+      "bytes": 45,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/sensors/sns_reg_config",
+      "path": "vendor/etc/sensors/sns_reg_config",
+      "sha256": "8ce55309de50426cd9792847c67f1234a1ee74ac47cabf36ff6d2bee428f7e92",
+      "bytes": 573,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [

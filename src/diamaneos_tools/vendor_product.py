@@ -78,6 +78,10 @@ ACTIVATION={
  'pd-mapper':(None,None),
  'pm-service':(None,None),
  'pm-proxy':(None,None),
+ # Sensors: AOSP multi-HAL with the Qualcomm sub-HALs in hals.conf; sscrpcd starts
+ # the sensors protection domain on the ADSP.
+ 'android.hardware.sensors-service.multihal':('android.hardware.sensors-service-multihal.rc','android.hardware.sensors-multihal.xml'),
+ 'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
 }
 
 
