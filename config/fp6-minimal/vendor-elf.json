@@ -11,11 +11,6 @@
       "bytes": 45616
     },
     {
-      "path": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "sha256": "44dfd54fd9d2125ac036a58d2f16cc4acc3981816b80b60b80f3cc38c2e9c8a6",
-      "bytes": 139544
-    },
-    {
       "path": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
       "sha256": "47562a76cda99fbb6c6f0c93ccca0d3b191110ade8ec76cae7c985d32dad45a3",
       "bytes": 37648
@@ -126,11 +121,6 @@
       "bytes": 46576
     },
     {
-      "path": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "sha256": "755eb4acca46915a680c1216c27b0bf4ee34b165978960bf9114958921478ea5",
-      "bytes": 122736
-    },
-    {
       "path": "vendor/lib64/android.hardware.sensors@1.0.so",
       "sha256": "40b262aace0fde6dc707a14ab6e39d5f9493b51a5480d7abfa509b252b004427",
       "bytes": 149040
@@ -179,11 +169,6 @@
       "path": "vendor/lib64/hw/libqtigatekeeper.so",
       "sha256": "e5aa6cd54c70e2c3d6c685a10c34999f122c62a1fe64c324cca1c642a92d6d73",
       "bytes": 70720
-    },
-    {
-      "path": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "sha256": "562f6a019640a7c3e96e2df7f9297ee788e65caedbabe3fedc374e1d160a776c",
-      "bytes": 296240
     },
     {
       "path": "vendor/lib64/hw/vendor.qti.hardware.qseecom@1.0-impl.so",
@@ -299,11 +284,6 @@
       "path": "vendor/lib64/libgsl.so",
       "sha256": "b7e923726ad0f8600d5764fb58228f9ff634ae8f9d7a9b05dbf4e85265cd386f",
       "bytes": 2280600
-    },
-    {
-      "path": "vendor/lib64/libhidparser.so",
-      "sha256": "761710740d60f1ef0bd85875db8abaea2de5f69fe1868c27915a85fa87a766f2",
-      "bytes": 70192
     },
     {
       "path": "vendor/lib64/libhistogram.so",
@@ -876,138 +856,6 @@
       "export_lists": [
         "/etc/vndksp.libraries.34.txt"
       ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "android.hardware.sensors-V2-ndk.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors-V2-ndk.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "android.hardware.sensors@2.0-ScopedWakelock.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "android.hardware.sensors@2.0.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.0.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "android.hardware.sensors@2.1.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.1.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libfmq.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libhidlbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libpower.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "sensors.dynamic_sensor_hal.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "needed": "sensors.qsh.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/sensors.qsh.so"
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
@@ -2520,62 +2368,6 @@
       ]
     },
     {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "android.hardware.common-V2-ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "android.hardware.common.fmq-V1-ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/lib64/android.hardware.sensors@1.0.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -3473,102 +3265,6 @@
     },
     {
       "consumer": "vendor/lib64/hw/libqtigatekeeper.so",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "android.hardware.sensors@2.0-ScopedWakelock.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so"
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "android.hardware.sensors@2.0.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.0.so"
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "android.hardware.sensors@2.1.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.sensors@2.1.so"
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libhidlbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libhidparser.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libhidparser.so"
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
       "needed": "libutils.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -5449,46 +5145,6 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libhidparser.so",
-      "needed": "libbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libhidparser.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libhidparser.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libhidparser.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libhidparser.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
       ]
     },
     {
@@ -10881,7 +10537,7 @@
     "vendor/lib64/libsdm-disp-vndapis.so",
     "vendor/lib64/libskewknob.so",
     "vendor/lib64/libsnapdragoncolor-manager.so",
-    "vendor/bin/hw/android.hardware.sensors-service.multihal",
+    "vendor/lib64/sensors.qsh.so",
     "vendor/bin/sscrpcd"
   ],
   "firmware_inputs": [

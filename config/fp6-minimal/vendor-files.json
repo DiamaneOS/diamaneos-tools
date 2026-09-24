@@ -3840,41 +3840,37 @@
       }
     },
     {
-      "input": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "path": "vendor/bin/hw/android.hardware.sensors-service.multihal",
-      "sha256": "44dfd54fd9d2125ac036a58d2f16cc4acc3981816b80b60b80f3cc38c2e9c8a6",
-      "bytes": 139544,
+      "input": "vendor/lib64/sensors.qsh.so",
+      "path": "vendor/lib64/sensors.qsh.so",
+      "sha256": "fdbc89289ff47bf197e5d8ab577459d8ef909c5ae296dfc2a9065cc18010670c",
+      "bytes": 528024,
       "component_id": "connectivity-peripherals",
       "inventory_ref": "userspace_hal_families:sensors",
       "dependencies": [
-        "vendor/lib64/android.hardware.sensors-V2-ndk.so",
         "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
         "vendor/lib64/android.hardware.sensors@2.0.so",
-        "vendor/lib64/android.hardware.sensors@2.1.so"
+        "vendor/lib64/android.hardware.sensors@2.1.so",
+        "vendor/lib64/libcdsprpc.so",
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqsh.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsns_direct_channel_stub.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsdiaglog.so",
+        "vendor/lib64/libsnsutils.so",
+        "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "AOSP sensors multi-HAL (AIDL ISensors/default); loads the sub-HALs in /vendor/etc/sensors/hals.conf.",
+      "purpose": "Qualcomm sensors sub-HAL for the ADSP sensor core (light, proximity, motion, magnetometer, pressure, hall); the source-built multi-HAL loads it from hals.conf.",
       "metadata": {
         "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:hal_sensors_default_exec:s0",
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
-      },
-      "runtime_dependencies": [
-        {
-          "path": "vendor/lib64/sensors.qsh.so",
-          "soname": "sensors.qsh.so",
-          "reason": "the multi-HAL loads every sub-HAL named in /vendor/etc/sensors/hals.conf with dlopen; this Qualcomm sub-HAL serves all ADSP sensors"
-        },
-        {
-          "path": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-          "soname": "sensors.dynamic_sensor_hal.so",
-          "reason": "the multi-HAL loads every sub-HAL named in /vendor/etc/sensors/hals.conf with dlopen; this AOSP-based sub-HAL serves dynamic (HID) sensors such as head trackers"
-        }
-      ]
+      }
     },
     {
       "input": "vendor/bin/sscrpcd",
@@ -3906,30 +3902,19 @@
       ]
     },
     {
-      "input": "vendor/lib64/sensors.qsh.so",
-      "path": "vendor/lib64/sensors.qsh.so",
-      "sha256": "fdbc89289ff47bf197e5d8ab577459d8ef909c5ae296dfc2a9065cc18010670c",
-      "bytes": 528024,
+      "input": "vendor/lib64/libsns_direct_channel_stub.so",
+      "path": "vendor/lib64/libsns_direct_channel_stub.so",
+      "sha256": "ca4cc58e5c4f92f46352b12f9a0d4b05ca3955ee0853b316076f4a3c09b99f6e",
+      "bytes": 15424,
       "component_id": "connectivity-peripherals",
       "inventory_ref": "userspace_hal_families:sensors",
       "dependencies": [
-        "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
-        "vendor/lib64/android.hardware.sensors@2.0.so",
-        "vendor/lib64/android.hardware.sensors@2.1.so",
-        "vendor/lib64/libcdsprpc.so",
-        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
-        "vendor/lib64/libqsh.so",
-        "vendor/lib64/libsensorslog.so",
-        "vendor/lib64/libsns_direct_channel_stub.so",
-        "vendor/lib64/libsnsapi.so",
-        "vendor/lib64/libsnsdiaglog.so",
-        "vendor/lib64/libsnsutils.so",
-        "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so"
+        "vendor/lib64/libcdsprpc.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Qualcomm sensors sub-HAL for the ADSP sensor core (light, proximity, motion, magnetometer, pressure, hall).",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -3939,22 +3924,165 @@
       }
     },
     {
-      "input": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "path": "vendor/lib64/hw/sensors.dynamic_sensor_hal.so",
-      "sha256": "562f6a019640a7c3e96e2df7f9297ee788e65caedbabe3fedc374e1d160a776c",
-      "bytes": 296240,
+      "input": "vendor/lib64/libcdsprpc.so",
+      "path": "vendor/lib64/libcdsprpc.so",
+      "sha256": "4cd5bd9a8942e4c92b6228bd9092eed8d4b5e3a89f270d2653baf781c1da7fcb",
+      "bytes": 467592,
       "component_id": "connectivity-peripherals",
       "inventory_ref": "userspace_hal_families:sensors",
       "dependencies": [
-        "vendor/lib64/android.hardware.sensors@2.0-ScopedWakelock.so",
-        "vendor/lib64/android.hardware.sensors@2.0.so",
-        "vendor/lib64/android.hardware.sensors@2.1.so",
-        "vendor/lib64/libhidparser.so"
+        "vendor/lib64/libvmmem.so",
+        "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Dynamic (HID) sensors sub-HAL listed in the stock hals.conf.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnsapi.so",
+      "path": "vendor/lib64/libsnsapi.so",
+      "sha256": "1f146f81b04eb87aac34b4a89a3f6011cf7ce1faec4d719bbf92c74c81a000d0",
+      "bytes": 1235808,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqsh.so",
+      "path": "vendor/lib64/libqsh.so",
+      "sha256": "49dffab72b8a2f9153eb24d8edee014969a708a52a78f7c466d63e4c706b906c",
+      "bytes": 113480,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsnsdiaglog.so",
+      "path": "vendor/lib64/libsnsdiaglog.so",
+      "sha256": "f6d5090370c9bd9ae4da72bb302dc3ad17085520ddc7d0d5747a29788bcf9784",
+      "bytes": 41064,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/libdiag.so",
+        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
+        "vendor/lib64/libqsh.so",
+        "vendor/lib64/libsensorslog.so",
+        "vendor/lib64/libsnsapi.so",
+        "vendor/lib64/libsnsutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsensorslog.so",
+      "path": "vendor/lib64/libsensorslog.so",
+      "sha256": "b811f8d3a9efa4ed22eb1e5f5cb16ada6a7058b2f54dcf3cd8f98286939f2e5d",
+      "bytes": 15536,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@2.0.so",
+      "path": "vendor/lib64/android.hardware.sensors@2.0.so",
+      "sha256": "299d6b36661d9a9b8b852bcabc110d140ec7c46741c8f89739c326f3990d8c11",
+      "bytes": 208776,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/android.hardware.sensors@2.1.so",
+      "path": "vendor/lib64/android.hardware.sensors@2.1.so",
+      "sha256": "bbf288bfb86c7ce5b34aefd5f223b0b51c33e57bb403c2e338c824a0dfa061d8",
+      "bytes": 214016,
+      "component_id": "connectivity-peripherals",
+      "inventory_ref": "userspace_hal_families:sensors",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so",
+        "vendor/lib64/android.hardware.sensors@2.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -3978,7 +4106,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -3988,62 +4116,19 @@
       }
     },
     {
-      "input": "vendor/lib64/android.hardware.sensors@2.0.so",
-      "path": "vendor/lib64/android.hardware.sensors@2.0.so",
-      "sha256": "299d6b36661d9a9b8b852bcabc110d140ec7c46741c8f89739c326f3990d8c11",
-      "bytes": 208776,
+      "input": "vendor/lib64/libsnsutils.so",
+      "path": "vendor/lib64/libsnsutils.so",
+      "sha256": "e3239fd35bfe6fc39933c3f1fc81e4327a614a66fa9e875fb1a2b1e45f1e8163",
+      "bytes": 28624,
       "component_id": "connectivity-peripherals",
       "inventory_ref": "userspace_hal_families:sensors",
       "dependencies": [
-        "vendor/lib64/android.hardware.sensors@1.0.so"
+        "vendor/lib64/libsensorslog.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/android.hardware.sensors@2.1.so",
-      "path": "vendor/lib64/android.hardware.sensors@2.1.so",
-      "sha256": "bbf288bfb86c7ce5b34aefd5f223b0b51c33e57bb403c2e338c824a0dfa061d8",
-      "bytes": 214016,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/android.hardware.sensors@1.0.so",
-        "vendor/lib64/android.hardware.sensors@2.0.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "path": "vendor/lib64/android.hardware.sensors-V2-ndk.so",
-      "sha256": "755eb4acca46915a680c1216c27b0bf4ee34b165978960bf9114958921478ea5",
-      "bytes": 122736,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4075,189 +4160,22 @@
       }
     },
     {
-      "input": "vendor/lib64/libsnsutils.so",
-      "path": "vendor/lib64/libsnsutils.so",
-      "sha256": "e3239fd35bfe6fc39933c3f1fc81e4327a614a66fa9e875fb1a2b1e45f1e8163",
-      "bytes": 28624,
+      "input": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
+      "path": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
+      "sha256": "6df137ac25b2a83d8c4486dbbc32b79316792b53f50c9ec0aceb7cff5bb20c6a",
+      "bytes": 164736,
       "component_id": "connectivity-peripherals",
       "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libsensorslog.so"
-      ],
+      "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libsns_direct_channel_stub.so",
-      "path": "vendor/lib64/libsns_direct_channel_stub.so",
-      "sha256": "ca4cc58e5c4f92f46352b12f9a0d4b05ca3955ee0853b316076f4a3c09b99f6e",
-      "bytes": 15424,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libcdsprpc.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libcdsprpc.so",
-      "path": "vendor/lib64/libcdsprpc.so",
-      "sha256": "4cd5bd9a8942e4c92b6228bd9092eed8d4b5e3a89f270d2653baf781c1da7fcb",
-      "bytes": 467592,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libvmmem.so",
-        "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libsnsapi.so",
-      "path": "vendor/lib64/libsnsapi.so",
-      "sha256": "1f146f81b04eb87aac34b4a89a3f6011cf7ce1faec4d719bbf92c74c81a000d0",
-      "bytes": 1235808,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
-        "vendor/lib64/libqmi_cci.so",
-        "vendor/lib64/libqmi_common_so.so",
-        "vendor/lib64/libqmi_encdec.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libqsh.so",
-      "path": "vendor/lib64/libqsh.so",
-      "sha256": "49dffab72b8a2f9153eb24d8edee014969a708a52a78f7c466d63e4c706b906c",
-      "bytes": 113480,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
-        "vendor/lib64/libqmi_cci.so",
-        "vendor/lib64/libqmi_common_so.so",
-        "vendor/lib64/libqmi_encdec.so",
-        "vendor/lib64/libsensorslog.so",
-        "vendor/lib64/libsnsapi.so",
-        "vendor/lib64/libsnsutils.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libsnsdiaglog.so",
-      "path": "vendor/lib64/libsnsdiaglog.so",
-      "sha256": "f6d5090370c9bd9ae4da72bb302dc3ad17085520ddc7d0d5747a29788bcf9784",
-      "bytes": 41064,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [
-        "vendor/lib64/libdiag.so",
-        "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
-        "vendor/lib64/libqsh.so",
-        "vendor/lib64/libsensorslog.so",
-        "vendor/lib64/libsnsapi.so",
-        "vendor/lib64/libsnsutils.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libsensorslog.so",
-      "path": "vendor/lib64/libsensorslog.so",
-      "sha256": "b811f8d3a9efa4ed22eb1e5f5cb16ada6a7058b2f54dcf3cd8f98286939f2e5d",
-      "bytes": 15536,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libhidparser.so",
-      "path": "vendor/lib64/libhidparser.so",
-      "sha256": "761710740d60f1ef0bd85875db8abaea2de5f69fe1868c27915a85fa87a766f2",
-      "bytes": 70192,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     },
@@ -4272,7 +4190,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4295,72 +4213,12 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
-      "path": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
-      "sha256": "6df137ac25b2a83d8c4486dbbc32b79316792b53f50c9ec0aceb7cff5bb20c6a",
-      "bytes": 164736,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/init/android.hardware.sensors-service-multihal.rc",
-      "path": "vendor/etc/init/android.hardware.sensors-service-multihal.rc",
-      "sha256": "8a42a1eaab48439f3400a2e34781c517e3368d1d793aa61a273669dd4984a7b5",
-      "bytes": 264,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml",
-      "path": "vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml",
-      "sha256": "8b0da4077cb13dba150f2848d10134b60acae40d939017b7dd1c3cbc35487981",
-      "bytes": 841,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
     },
@@ -4375,7 +4233,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4395,7 +4253,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4415,7 +4273,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4435,7 +4293,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4455,7 +4313,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4475,7 +4333,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4495,7 +4353,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4515,7 +4373,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4535,7 +4393,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4555,7 +4413,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4575,7 +4433,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4595,7 +4453,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4615,7 +4473,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4635,7 +4493,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4655,7 +4513,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4675,7 +4533,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4695,7 +4553,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4715,7 +4573,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4735,7 +4593,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4755,7 +4613,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4775,7 +4633,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4795,7 +4653,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4815,7 +4673,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4835,7 +4693,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4855,7 +4713,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4875,7 +4733,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4895,7 +4753,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4915,7 +4773,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4935,7 +4793,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4955,7 +4813,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4975,7 +4833,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4995,7 +4853,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5015,7 +4873,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5035,7 +4893,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5055,7 +4913,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5075,7 +4933,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5095,7 +4953,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5115,7 +4973,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5135,7 +4993,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5155,7 +5013,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5175,7 +5033,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5195,7 +5053,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5215,7 +5073,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5235,7 +5093,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5255,7 +5113,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5275,7 +5133,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5295,7 +5153,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5315,7 +5173,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5335,7 +5193,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5355,7 +5213,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5375,7 +5233,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5395,7 +5253,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5415,7 +5273,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5435,7 +5293,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5455,7 +5313,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5475,7 +5333,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5495,7 +5353,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5515,7 +5373,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5535,7 +5393,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5555,7 +5413,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5575,7 +5433,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5595,7 +5453,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5615,7 +5473,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5635,7 +5493,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5655,7 +5513,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5675,7 +5533,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5695,7 +5553,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5715,7 +5573,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5735,7 +5593,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5755,7 +5613,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5775,7 +5633,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -5795,7 +5653,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Sensor stack library or configuration for the selected multi-HAL and sscrpcd.",
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
       "metadata": {
         "uid": 0,
         "gid": 0,
