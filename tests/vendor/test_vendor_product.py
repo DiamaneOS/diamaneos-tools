@@ -1,5 +1,6 @@
 """Reject inconsistent native installation and dependency declarations."""
 import copy
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -175,6 +176,10 @@ class NativeProductTests(unittest.TestCase):
         self.assertIn('"fp6_stock_vendor_lib64_libssc_default_listener"', block[:block.index('}\n')])
         for path in ['sensors/hals.conf', 'sensors/sns_reg_config', 'sensors/config/volcano_tmd2755_0.json']:
             self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
+
+    def test_recipe_binds_the_current_component_model(self):
+        model = ROOT / 'config/components.json'
+        self.assertEqual(hashlib.sha256(model.read_bytes()).hexdigest(), self.recipe['model_sha256'])
 
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
