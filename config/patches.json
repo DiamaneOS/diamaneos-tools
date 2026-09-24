@@ -66,16 +66,30 @@
       "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
     },
     {
+      "id": "kernel-common-randstruct-callbacks",
+      "repository": "https://github.com/abhinav-jhanwar/kernel_common-6.1",
+      "workspace": "kernel",
+      "path": "kernel_platform/common",
+      "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
+      "derived_revision": "a1d76f2d8922e7bfdc0f1be24a1badf3045381f7",
+      "canonical_diff_sha256": "9660f0b2be16f12d1b347918d439c1cb91166bbc269158a7d0639bd2703f0ab1",
+      "changed_files": [
+        "include/drm/drm_mode_config.h"
+      ],
+      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel.",
+      "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains."
+    },
+    {
       "id": "kernel-qcom-grapheneos",
       "repository": "https://github.com/DiamaneOS/kernel_fairphone_qcom",
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
-      "derived_revision": "cb82dd16f0fe5abe3aeb1105ca17909777a6036e",
-      "canonical_diff_sha256": "cb27dbdb5c411f0489787d37c67cee2633e4d8b656ca3565d4b2644795c3ad41",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. Conflict resolutions and the follow-up fixes are separate commits on the fork.",
-      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The file list is bound by digest because the merge touches thousands of files. Device qualification remains.",
-      "changed_files_sha256": "66ee27c34bf1a29163a06155d5feaa2650b23b19a0576f70d8a0c93fcd9facc6",
+      "derived_revision": "40d4164f778b72f03a76628e6e42d20af66ddb23",
+      "canonical_diff_sha256": "10796c736b9babd2ac3a261b9680a60b0c7e107c333c268532e2dd215a96f437",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel.",
+      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
+      "changed_files_sha256": "c6e88e341b52cfa657d22f93ec1db9c55cec2607ac751f1201cd3f10a398047a",
       "merged_upstream": {
         "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
         "tag": "2026091900",
@@ -296,14 +310,29 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/display-drivers",
       "base_revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
-      "derived_revision": "d4c8cd5998a57166d1d1a5ed0caf8131b74f594d",
-      "canonical_diff_sha256": "f5676e0abaa7b0387e2dedab2c8bec660d21d44e594ba73637267da7ac478c4a",
+      "derived_revision": "0e1d09a039f7f59e2244d5b2cf086ae518157817",
+      "canonical_diff_sha256": "b8956063f76a11df2c42932174c6902c6e05b24b68d64a51f09914df8d930526",
       "changed_files": [
+        "msm/sde/sde_connector.h",
         "msm/sde/sde_encoder.c",
         "msm/sde/sde_reg_dma.c"
       ],
-      "purpose": "Use designated initializers for the encoder and register DMA operation tables. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
-      "validation": "External module builds with the FP6 kernel; device qualification remains."
+      "purpose": "Use designated initializers for the encoder and register DMA operation tables, and define the DSI callback return type before the connector operations. Needed for one RANDSTRUCT_FULL layout against the GrapheneOS 6.1.177 kernel.",
+      "validation": "External module build, 506-artifact layout scan and r9k FP6 userdebug boot pass; production qualification remains."
+    },
+    {
+      "id": "kernel-wlan-randstruct-callbacks",
+      "repository": "https://github.com/DiamaneOS/kernel_fairphone_wlan_common",
+      "workspace": "kernel",
+      "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
+      "base_revision": "2109d77b6964f27434ec9ea5c284e6bae5c887a9",
+      "derived_revision": "e903e564d34a0872164ec405cf6d9f06c27e22d7",
+      "canonical_diff_sha256": "2715aa7253446dd10bda561f81e3d79d47aac9cc8e894795f68a666f2a2eb6f5",
+      "changed_files": [
+        "umac/global_umac_dispatcher/lmac_if/inc/wlan_lmac_if_def.h"
+      ],
+      "purpose": "Declare Wi-Fi callback return-type tags before wlan_lmac_if_mlme_rx_ops so Clang applies one RANDSTRUCT_FULL layout in every compilation unit.",
+      "validation": "The r9k full-hardening kernel build, Wi-Fi operation on the FP6 userdebug boot and 506-artifact layout scan pass; production qualification remains."
     },
     {
       "id": "kernel-securemsm-hardened",
