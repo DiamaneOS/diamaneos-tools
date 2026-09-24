@@ -206,6 +206,16 @@
       "bytes": 102008
     },
     {
+      "path": "vendor/lib64/libadsp_default_listener.so",
+      "sha256": "f4a341cee9474b2bd0078a3e1492c2ca433d15b84efc02ccc53195927d18b371",
+      "bytes": 19656
+    },
+    {
+      "path": "vendor/lib64/libadsprpc.so",
+      "sha256": "b35202b47b90821083f5722a3b6d835605a42a3eeec496b74ce16686e913d981",
+      "bytes": 467600
+    },
+    {
       "path": "vendor/lib64/libcdsprpc.so",
       "sha256": "4cd5bd9a8942e4c92b6228bd9092eed8d4b5e3a89f270d2653baf781c1da7fcb",
       "bytes": 467592
@@ -1652,6 +1662,12 @@
       "needed": "libqmi_csi.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/libqmi_csi.so"
+    },
+    {
+      "consumer": "vendor/bin/sscrpcd",
+      "needed": "libadsp_default_listener.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libadsp_default_listener.so"
     },
     {
       "consumer": "vendor/bin/sscrpcd",
@@ -3922,6 +3938,144 @@
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "libadsprpc.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libadsprpc.so"
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsp_default_listener.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libdmabufheap.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libhardware.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "libvmmem.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmmem.so"
+    },
+    {
+      "consumer": "vendor/lib64/libadsprpc.so",
+      "needed": "vendor.qti.hardware.dsp@1.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
     },
     {
       "consumer": "vendor/lib64/libcdsprpc.so",

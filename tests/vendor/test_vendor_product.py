@@ -179,6 +179,10 @@ class NativeProductTests(unittest.TestCase):
         block = block[:block.index('}\n')]
         self.assertIn('files/vendor/etc/init/vendor.sensors.sscrpcd.rc', block)
         self.assertIn('"fp6_stock_vendor_lib64_libssc_default_listener"', block)
+        self.assertIn('"fp6_stock_vendor_lib64_libadsp_default_listener"', block)
+        owners = {r['path']: r['component_id'] for r in self.recipe['files']}
+        for stem in ['libadsprpc', 'libcdsprpc', 'libadsp_default_listener', 'libvmmem']:
+            self.assertEqual('remote-processor-services', owners['vendor/lib64/' + stem + '.so'])
         for path in ['sensors/hals.conf', 'sensors/sns_reg_config', 'sensors/config/volcano_tmd2755_0.json']:
             self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
 
