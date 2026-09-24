@@ -58,6 +58,13 @@ SOURCE_INTERFACES = {
     'vendor.qti.hardware.display.mapperextensions@1.2',
     'vendor.qti.hardware.display.mapperextensions@1.3',
     'vendor.qti.hardware.display.postproc-V1-ndk',
+    # Sensors interfaces used by the stock Qualcomm sub-HAL, built from source
+    # with the AOSP sensors multi-HAL (frozen HIDL/AIDL interfaces).
+    'android.hardware.sensors@1.0',
+    'android.hardware.sensors@2.0',
+    'android.hardware.sensors@2.0-ScopedWakelock',
+    'android.hardware.sensors@2.1',
+    'android.hardware.sensors-V2-ndk',
 }
 # Stable AIDL libraries a selected blob links that are built from the pinned
 # Android tree instead of taken from the factory image. None are needed now.
@@ -78,9 +85,8 @@ ACTIVATION={
  'pd-mapper':(None,None),
  'pm-service':(None,None),
  'pm-proxy':(None,None),
- # Sensors: AOSP multi-HAL with the Qualcomm sub-HALs in hals.conf; sscrpcd starts
- # the sensors protection domain on the ADSP.
- 'android.hardware.sensors-service.multihal':('android.hardware.sensors-service-multihal.rc','android.hardware.sensors-multihal.xml'),
+ # sscrpcd starts the sensors protection domain on the ADSP; the sensors
+ # multi-HAL itself is built from source (device.mk).
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
 }
 

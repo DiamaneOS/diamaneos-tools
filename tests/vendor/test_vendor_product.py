@@ -162,18 +162,23 @@ class NativeProductTests(unittest.TestCase):
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
-        for name in ['fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal',
-                     'fp6_stock_vendor_bin_sscrpcd', 'fp6_stock_vendor_lib64_sensors.qsh',
+        for name in ['fp6_stock_vendor_bin_sscrpcd', 'fp6_stock_vendor_lib64_sensors.qsh',
                      'fp6_stock_vendor_lib64_libssc_default_listener',
                      'fp6_stock_vendor_lib64_libprotobuf-cpp-lite-21.7']:
             self.assertIn(name, modules)
-        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal"'):]
+        # The AOSP multi-HAL, dynamic sub-HAL and sensors interfaces are source-built.
+        for name in ['fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal',
+                     'fp6_stock_vendor_lib64_hw_sensors.dynamic_sensor_hal',
+                     'fp6_stock_vendor_lib64_android.hardware.sensors@2.1']:
+            self.assertNotIn(name, modules)
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_sensors.qsh"'):]
         block = block[:block.index('}\n')]
-        self.assertIn('files/vendor/etc/init/android.hardware.sensors-service-multihal.rc', block)
-        self.assertIn('files/vendor/etc/vintf/manifest/android.hardware.sensors-multihal.xml', block)
-        self.assertIn('"fp6_stock_vendor_lib64_sensors.qsh"', block[block.index('required:'):].split('\n')[0])
+        self.assertIn('"android.hardware.sensors@2.1"', block)
+        self.assertIn('"android.hardware.sensors@2.0-ScopedWakelock"', block)
         block = bp[bp.index('name: "fp6_stock_vendor_bin_sscrpcd"'):]
-        self.assertIn('"fp6_stock_vendor_lib64_libssc_default_listener"', block[:block.index('}\n')])
+        block = block[:block.index('}\n')]
+        self.assertIn('files/vendor/etc/init/vendor.sensors.sscrpcd.rc', block)
+        self.assertIn('"fp6_stock_vendor_lib64_libssc_default_listener"', block)
         for path in ['sensors/hals.conf', 'sensors/sns_reg_config', 'sensors/config/volcano_tmd2755_0.json']:
             self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
 
