@@ -192,7 +192,7 @@
       "fp6_source_inventory": {
         "path": "config/fp6-sources.json",
         "schema_version": 1,
-        "sha256": "2f9363122e6bf587f18bf5979463db1ee603b0ce830231135d85d48bb30aecd0"
+        "sha256": "3742c6769137252184094b2aac8ddaf2039fefe97ae208153174aff88abc4fae"
       },
       "selected_stock": {
         "build": "FP6.QREL.16.100.0",
@@ -978,6 +978,71 @@
         "a caller or activation path is discovered",
         "safety or functionality evidence changes",
         "stock or regional input changes"
+      ]
+    },
+    {
+      "id": "remote-processor-services",
+      "component": "Remote-processor support daemons and QMI/QRTR libraries",
+      "category": "remote-processor-services",
+      "function": "Map protection domains, manage peripheral subsystems and serve remote storage and files to the modem and DSPs, so the remote processors started from firmware can run; kept separate from the firmware they talk to.",
+      "owner_task": "FP6-042",
+      "decision_owner": "FP6 platform integration maintainer",
+      "region_scope": [
+        "all"
+      ],
+      "inventory_refs": [
+        "userspace_hal_families:remote-processor-services"
+      ],
+      "blocker_refs": [],
+      "dependencies": [
+        "device-platform-kernel",
+        "firmware-trusted-boot"
+      ],
+      "interfaces": [
+        "QRTR sockets and QMI services",
+        "servreg/protection-domain mapping",
+        "peripheral manager clients",
+        "remote storage (EFS) and TFTP file service for the modem and DSPs",
+        "SELinux domains vendor_pd_mapper, vendor_per_mgr, vendor_per_proxy, vendor_rmt_storage and vendor_rfs_access"
+      ],
+      "source_candidates": [
+        {
+          "id": "linux-msm-remote-processor-daemons",
+          "kind": "substitute",
+          "reference": "https://github.com/linux-msm pd-mapper, qrtr, rmtfs and tqftpserv",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "candidate",
+          "rationale": "Open-source implementations of protection-domain mapping, QRTR, remote storage and the TFTP file server; not established as drop-in replacements for the FP6 service-registration contract, configuration and peripheral manager."
+        },
+        {
+          "id": "json-c",
+          "kind": "same-implementation",
+          "reference": "https://github.com/json-c/json-c",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "candidate",
+          "rationale": "The stock libjson.so exports the json-c API (version marker 0.12.99) used by pd-mapper; the vendor source and patch lineage are unknown, so a maintained json-c build must be checked for ABI and behaviour."
+        }
+      ],
+      "decision_state": "private-bringup",
+      "public_disposition": null,
+      "private_bringup": {
+        "eligible": true,
+        "verified_necessary_for": [
+          "booting the ADSP, CDSP and modem with their service registration during private bring-up"
+        ],
+        "required_prebuilt_refs": [
+          "userspace_hal_families:remote-processor-services"
+        ],
+        "rationale": "The stock daemons and QMI libraries are the recorded providers of the userspace side of remote-processor startup; source, memory-safety and enforcing-mode containment are not yet qualified."
+      },
+      "qualification_evidence": [],
+      "next_experiment": "Establish the running UID/GID, capabilities, SELinux domain and endpoints of each daemon with SELinux enforcing, and evaluate the linux-msm and json-c source candidates against the FP6 service-registration contract.",
+      "update_triggers": [
+        "remote-processor daemon or QMI library changes",
+        "modem or DSP firmware changes",
+        "SELinux policy for the daemon domains changes"
       ]
     }
   ],

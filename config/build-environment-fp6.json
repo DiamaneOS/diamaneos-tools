@@ -86,7 +86,7 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "2f9363122e6bf587f18bf5979463db1ee603b0ce830231135d85d48bb30aecd0"
+      "sha256": "3742c6769137252184094b2aac8ddaf2039fefe97ae208153174aff88abc4fae"
     },
     {
       "id": "stock-input-inventory",
@@ -101,7 +101,7 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "7608b7f9200762178671e67d0b756bff640ada719580010354db3904f3d81c43"
+      "sha256": "dd1eeb66117188d31ec5d360eb282593f09e2bd35d47185efe1aa60191677bdc"
     },
     {
       "id": "fp6-native-dependencies",
