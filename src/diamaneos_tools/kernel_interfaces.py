@@ -123,8 +123,10 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require)
     sections = call(['readelf', '-SW', vmlinux], cwd=work)
     header = call(['readelf', '-h', vmlinux], cwd=work)
     require('ELF64' in header and 'little endian' in header and 'AArch64' in header, 'unexpected GKI ELF format')
-    def symbol(label):
+    def symbol(label, optional=False):
         found = [l.split() for l in nm.splitlines() if l.split()[-1:] == [label]]
+        if optional and not found:
+            return None
         require(len(found) == 1, 'missing/ambiguous GKI symbol: ' + label)
         return found[0]
     def data(address, size):
@@ -147,11 +149,20 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require)
     der = run / 'builtin-cert.der'; der.write_bytes(cert)
     require(binary(['openssl','x509','-inform','DER','-in',der,'-outform','DER']) == cert, 'expected one exact built-in certificate')
     pem = run / 'builtin-cert.pem'; pem.write_bytes(binary(['openssl','x509','-inform','DER','-in',der]))
-    protection = {}
-    for label in ('gki_unprotected_symbols','gki_protected_exports_symbols'):
-        row = symbol(label); require(len(row) == 4, 'missing sized GKI protection array')
-        protection[label] = [v.decode('ascii') for v in data(int(row[0],16),int(row[1],16)).split(b'\0') if v]
-        require(protection[label] == sorted(set(protection[label])), 'noncanonical GKI protection array')
+    # GKI module protection (MODULE_SIG_PROTECT) lets unsigned vendor modules
+    # load with restricted symbol access. Kernels that force signatures
+    # instead (GrapheneOS) have no protection arrays; then every module
+    # must carry a signature from the built-in certificate.
+    rows = {label: symbol(label, optional=True)
+            for label in ('gki_unprotected_symbols','gki_protected_exports_symbols')}
+    require(len({row is None for row in rows.values()}) == 1, 'partial GKI protection arrays')
+    protection = None
+    if all(rows.values()):
+        protection = {}
+        for label, row in rows.items():
+            require(len(row) == 4, 'missing sized GKI protection array')
+            protection[label] = [v.decode('ascii') for v in data(int(row[0],16),int(row[1],16)).split(b'\0') if v]
+            require(protection[label] == sorted(set(protection[label])), 'noncanonical GKI protection array')
     modules, signed = [], []
     for filename, p in sorted(selected.items()):
         info = {}
@@ -170,8 +181,11 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require)
                 binary(['openssl','cms','-verify','-binary','-inform','DER','-in',signature,
                         '-content',payload,'-certfile',pem,'-nointern','-noverify','-out','/dev/null'])
             signed.append(filename)
+    if protection is None:
+        require(sorted(signed) == sorted(selected), 'unsigned module with forced module signatures')
     result = review(modules, symbols, selected, protection=protection, signed=signed)
-    result.update(builtin_certificate_sha256=sha(der),vmlinux_sha256=sha(vmlinux),signed_module_count=len(signed))
+    result.update(builtin_certificate_sha256=sha(der),vmlinux_sha256=sha(vmlinux),signed_module_count=len(signed),
+                  module_protection='gki-protected-exports' if protection else 'forced-signatures')
     (run/'module-interfaces.json').write_bytes(encoded(result))
     require(result['status'] == 'PASS', 'selected module CRC, namespace or protection check failed')
     return result

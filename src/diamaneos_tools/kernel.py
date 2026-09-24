@@ -399,10 +399,6 @@ def build(root, jobs, timeout):
             shutil.copyfile(effective, run / 'gki.config')
             shutil.copyfile(kit / '.config', run / 'vendor.config')
             image = one(core, 'Image', '/common/kernel_aarch64/')
-            from .kernel_interfaces import verify_built
-            interfaces = verify_built(work, run, selected, core + external,
-                                      one(core, 'vmlinux', '/common/kernel_aarch64/'),
-                                      module_metadata, call, require)
             # The GKI build's own key and signing tool, next to its Image.
             gki = image.parent
             for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
@@ -416,6 +412,12 @@ def build(root, jobs, timeout):
                            work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-strip', work,
                            (gki / 'scripts/sign-file', gki / 'certs/signing_key.pem',
                             gki / 'certs/signing_key.x509', 'sha256'))
+            # Check the packaged (stripped and signed) modules against the Image's
+            # built-in certificate, symbol CRCs and namespaces.
+            from .kernel_interfaces import verify_built
+            verify_built(work, run, {name: candidate / 'modules' / name for name in selected},
+                         core + external, one(core, 'vmlinux', '/common/kernel_aarch64/'),
+                         module_metadata, call, require)
             sources(root, plan, changes); verify_untracked(root, rows, adaptation)
             for p in candidate.rglob('*'):
                 if p.is_file(): p.chmod(0o640)
