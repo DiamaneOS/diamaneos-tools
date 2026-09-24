@@ -706,9 +706,12 @@
         "FP6-SRC-008"
       ],
       "dependencies": [
+        "credentials-security",
         "device-platform-kernel",
         "firmware-trusted-boot",
-        "public-hal-services"
+        "graphics-display-media",
+        "public-hal-services",
+        "remote-processor-services"
       ],
       "interfaces": [
         "Wi-Fi and Bluetooth framework/HAL/kernel contracts",
