@@ -71,7 +71,7 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
-      "derived_revision": "e9039dd8e1a7fa8beea13ce4afcac57d25514697",
+      "derived_revision": "cb82dd16f0fe5abe3aeb1105ca17909777a6036e",
       "canonical_diff_sha256": "cb27dbdb5c411f0489787d37c67cee2633e4d8b656ca3565d4b2644795c3ad41",
       "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. Conflict resolutions and the follow-up fixes are separate commits on the fork.",
       "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The file list is bound by digest because the merge touches thousands of files. Device qualification remains.",
@@ -88,7 +88,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/graphics-kernel",
       "base_revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95",
-      "derived_revision": "ac07f3305bd325b4322a42ff3e3052e6f98b2026",
+      "derived_revision": "060f120a661d7502c9a695f376aadb3522484c83",
       "canonical_diff_sha256": "92e30abf6429e137f2c54d14877c25eb6d3ad3c4ae7246c7a228879526558d68",
       "purpose": "Declare the GPU dependency on the exported matched devfreq header. Also rename the local in_range() helper that clashes with the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
       "validation": "External module compilation passes without changing header contents, KMI or sandbox checks. Runtime qualification remains separate.",
@@ -264,7 +264,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/camera-kernel",
       "base_revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e",
-      "derived_revision": "02c283a64ba62532a31b11ca00e22bb199e04024",
+      "derived_revision": "a55273983c899774181765543db8eba7f53b527c",
       "canonical_diff_sha256": "aeebba2d1670b3f00ae39e585b57e9a8ad40d896cc6f17de21af26295f983da5",
       "changed_files": [
         "drivers/camera_main.c"
@@ -278,7 +278,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/dataipa",
       "base_revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7",
-      "derived_revision": "9367c3927069dc7b6e0f0ea8a92126f134b5d45d",
+      "derived_revision": "930769c9a2a12675327d0cc2368a328fe1944d71",
       "canonical_diff_sha256": "58a88bc96482a9c43ff8fec8ca7059bc33cd8cf6c685db8070cac7eea1900513",
       "changed_files": [
         "drivers/platform/msm/ipa/ipa_clients/ipa_usb.c",
@@ -296,7 +296,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/display-drivers",
       "base_revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
-      "derived_revision": "e8d4cf02d886ba59a64b5799057954d898d7a69f",
+      "derived_revision": "d4c8cd5998a57166d1d1a5ed0caf8131b74f594d",
       "canonical_diff_sha256": "f5676e0abaa7b0387e2dedab2c8bec660d21d44e594ba73637267da7ac478c4a",
       "changed_files": [
         "msm/sde/sde_encoder.c",
@@ -311,7 +311,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/securemsm-kernel",
       "base_revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335",
-      "derived_revision": "0efa44df45c82b8052d17375fda585b58a99844b",
+      "derived_revision": "b041c591488f1f96938e87bb8b835e13aaea1367",
       "canonical_diff_sha256": "491d6ca0f869e5d08002bae7d1a9030043ab5d828adb7c1ca0c005f16b83a5f3",
       "changed_files": [
         "crypto-qti/qce50.c"
@@ -325,7 +325,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/touch-drivers",
       "base_revision": "37908c61a4589f25fca8a078873124e97faadb6d",
-      "derived_revision": "3f4a6ffec200e4f1a770c545c08584b4ed37ab0a",
+      "derived_revision": "3c87eb3f2f294513efe6d8247711ee99ea56ac31",
       "canonical_diff_sha256": "c05c37d456966d2a554f5bd36a503eb09bed0d1803f4b0e2a84f8dc013fe9b1b",
       "changed_files": [
         "goodix_berlin_driver/goodix_ts_inspect.c",
@@ -340,7 +340,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/video-driver",
       "base_revision": "9f32033e6d3c574a22af778e8841c62034020d93",
-      "derived_revision": "b57c7f145886170df14eca648b0b94d9b2eb66cb",
+      "derived_revision": "1abcea15d00fc27e605aa9e492cd5e5353fabc97",
       "canonical_diff_sha256": "22d1d32dd5d08524ac1c0669ef61d113b8107c7a0c5f0fbbadf6430f77a909e6",
       "changed_files": [
         "driver/variant/iris2/inc/hfi_buffer_iris2.h",
