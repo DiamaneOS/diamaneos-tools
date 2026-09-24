@@ -101,7 +101,7 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "88bd1741cbd77e2c9ab864b2539cc6249c59a0b203d582ee9fe4c3d24f38e8c7"
+      "sha256": "c205faaf6f2b8b8347520fcde8746ce150922b25691567d1e95a165c982eb26d"
     },
     {
       "id": "fp6-native-dependencies",
