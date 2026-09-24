@@ -607,9 +607,9 @@ enables native ELF checks and generates init/VINTF packaging with the provider.
 It records a narrowly pinned transformation of the performance configuration
 that disables optional learning/memory/prekill gates while preserving core
 power hints. Original and derived hashes remain distinct. This generation is
-also explicit about the runtime roots: the disabled learning/memory plugins,
-their meters library and their otherwise unused protobuf dependency are not
-installed. Source-interface replacements and uninstalled optional libraries
+also explicit about the runtime roots: the disabled learning/memory plugins
+and their meters library are not installed. Their protobuf runtime is installed
+only because the sensor stack links it. Source-interface replacements and uninstalled optional libraries
 are listed in generated provenance; retained authenticated inputs are not an
 installed-artifact inventory. Learning configuration files are not installed.
 This generation is
