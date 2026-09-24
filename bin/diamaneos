@@ -29,7 +29,7 @@ def main(argv=None):
         from diamaneos_tools import vendor_product
         return vendor_product.main(argv[2:])
     if not argv or argv[0] in ("-h", "--help"):
-        print("usage: diamaneos {baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|build inputs|forks status|forks update} [...]")
+        print("usage: diamaneos {baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks status|forks update} [...]")
         print("routes: baseline capture -> read-only collector")
         print("        baseline pilot -> target-bound connected stock-baseline pilot")
         print("        baseline boot -> staged declared stock restart-time measurement")
@@ -47,7 +47,7 @@ def main(argv=None):
         print("        test compatibility -> version-bound official-suite harness")
         print("        test run -> target-bound staged device tests")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
-        print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        build inputs -> install verified generated Android inputs")
+        print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        kernel manifest -> render or check the kernel repo manifest\n        build inputs -> install verified generated Android inputs")
         return 0
     if argv[:2] == ["baseline", "capture"]:
         return baseline.main(argv[2:])
