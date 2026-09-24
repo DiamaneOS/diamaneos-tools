@@ -213,6 +213,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/dataipa"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
+      "id": "kernel-wlan-common",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_wlan_common.git",
+      "revision": null,
+      "slug": "kernel_fairphone_wlan_common",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn.git"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/display-drivers",
       "id": "kernel-display",
       "publication": "public-source",
