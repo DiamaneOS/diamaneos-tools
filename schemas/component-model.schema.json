@@ -173,7 +173,7 @@
       "properties": {
         "id": {"$ref": "#/definitions/id"},
         "component": {"$ref": "#/definitions/text"},
-        "category": {"enum": ["device-platform-kernel", "oss-vendor-libraries", "public-hal-services", "camera", "graphics-display-media", "audio", "radio-ims-data", "connectivity-peripherals", "credentials-security", "firmware-trusted-boot", "esim", "optional-vendor-services"]},
+        "category": {"enum": ["device-platform-kernel", "oss-vendor-libraries", "public-hal-services", "camera", "graphics-display-media", "audio", "radio-ims-data", "connectivity-peripherals", "credentials-security", "firmware-trusted-boot", "esim", "optional-vendor-services", "remote-processor-services"]},
         "function": {"$ref": "#/definitions/text"},
         "owner_task": {"pattern": "^FP6-[0-9]{3}(?:/[0-9]{3})*$", "type": "string"},
         "decision_owner": {"$ref": "#/definitions/text"},

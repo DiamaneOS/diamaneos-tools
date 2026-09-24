@@ -331,7 +331,7 @@ class ComponentModelTest(unittest.TestCase):
             result = subprocess.run(command, cwd=temporary,
                                     capture_output=True, text=True, timeout=30)
             self.assertEqual(0, result.returncode, result.stderr)
-            self.assertIn("12 FP6 categories", result.stdout)
+            self.assertIn("13 FP6 categories", result.stdout)
             self.assertIn("No artifact closure", result.stdout)
             self.assertEqual(before, set(Path(temporary).iterdir()))
 

@@ -1964,8 +1964,8 @@
       "path": "vendor/lib64/libqmi_cci.so",
       "sha256": "6ebde9c14e201f7fd063c053da79f2b5cce4f06f7f0cd32fb9b760fb80ef0b75",
       "bytes": 66640,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libqmi_encdec.so"
       ],
@@ -1986,8 +1986,8 @@
       "path": "vendor/lib64/libqmi_common_so.so",
       "sha256": "ca599505ab61e0e07373e3d3ddfc698df9b621bae2399f63c8b693240f3b0993",
       "bytes": 15056,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -2006,8 +2006,8 @@
       "path": "vendor/lib64/libqmi_encdec.so",
       "sha256": "090b42bc0d69f81a7894fec96c87b183122c66b858892c47c6290ce41e06c236",
       "bytes": 23928,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3054,8 +3054,8 @@
       "path": "vendor/lib64/libqrtr.so",
       "sha256": "93d10dbc0dc43da7ad609a684be8ef0d48da37dd4f84274cb956103f0ba7022b",
       "bytes": 28272,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3124,8 +3124,8 @@
       "path": "vendor/bin/pd-mapper",
       "sha256": "5d3a65916f0541036fb7c5c606c2bc7ac3b130d5ccae9e3fa61ea00e922731a6",
       "bytes": 33152,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libjson.so",
         "vendor/lib64/libqmi_cci.so",
@@ -3150,8 +3150,8 @@
       "path": "vendor/bin/pm-service",
       "sha256": "e9e9c7e3cf1ce953f726801aa97f85b5e00183ab5eaa9b697d0490bd07bf3e31",
       "bytes": 74760,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libmdmdetect.so",
         "vendor/lib64/libperipheral_client.so",
@@ -3177,8 +3177,8 @@
       "path": "vendor/bin/pm-proxy",
       "sha256": "686a281caef8f9f202717a7dc6155e75ddea07025d143fb1104f2021b29d2156",
       "bytes": 31936,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libmdmdetect.so",
         "vendor/lib64/libperipheral_client.so"
@@ -3200,8 +3200,8 @@
       "path": "vendor/bin/rmt_storage",
       "sha256": "eb556dc8fa4b2c6a42f1a99eeaf6e0920f7f22eaf1fe5b69f90f1cc24bd60531",
       "bytes": 42360,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libmdmdetect.so",
         "vendor/lib64/libqmi_common_so.so",
@@ -3224,8 +3224,8 @@
       "path": "vendor/bin/tftp_server",
       "sha256": "119bf3b62bb453f526ad2304446d0fcfe89bb919eb36ab955eb7986aa119075c",
       "bytes": 125152,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libqrtr.so",
         "vendor/lib64/libqsocket.so"
@@ -3247,8 +3247,8 @@
       "path": "vendor/lib64/libjson.so",
       "sha256": "eb1c5c49b72d8060466995466bce7b9f97b212e10403257912213832216ccc17",
       "bytes": 53096,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3267,8 +3267,8 @@
       "path": "vendor/lib64/libqmi_csi.so",
       "sha256": "d7993ec2a5a09c56d29ef3fd03ba5c95e8f7392f3e8d7843a8578f81470cb09c",
       "bytes": 45736,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libqmi_encdec.so"
       ],
@@ -3289,8 +3289,8 @@
       "path": "vendor/lib64/libmdmdetect.so",
       "sha256": "402df343a8932a8df60859158e7dcdbbf05c4706da900a9eb4963ca393ef9cce",
       "bytes": 24120,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3309,8 +3309,8 @@
       "path": "vendor/lib64/libperipheral_client.so",
       "sha256": "21ed5e851785d01ca52b361f00ce928195c159a05f544589851a9ab38d0b8264",
       "bytes": 92656,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libmdmdetect.so"
       ],
@@ -3331,8 +3331,8 @@
       "path": "vendor/lib64/libqsocket.so",
       "sha256": "3bb666896f4c92586a232285f5fc6666b515be48085d27369bccd1f7cbc9ec4c",
       "bytes": 15328,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3351,8 +3351,8 @@
       "path": "vendor/etc/init/vendor.qti.rmt_storage.rc",
       "sha256": "e43198fb1fbdac63e8439d1445d9068d5a2c168a7daeb8683c3168e1155d0169",
       "bytes": 255,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3371,8 +3371,8 @@
       "path": "vendor/etc/init/vendor.qti.tftp.rc",
       "sha256": "07f8714fea9616c2ae240ee120117b8b12a94770a3f6e1102d3c5c22e402a833",
       "bytes": 324,
-      "component_id": "firmware-trusted-boot",
-      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"

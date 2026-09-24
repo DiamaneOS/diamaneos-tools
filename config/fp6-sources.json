@@ -988,6 +988,15 @@
       "load_path": "Explicit selected stock runtime libraries, perf2 service, thermal-engine-v2 and their authenticated configuration/dependencies; no blanket auxiliary-package inclusion.",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "remote-processor-services",
+      "origin": "proprietary-prebuilt-userspace",
+      "source_revisions": [],
+      "abi_uapi": "QRTR/QMI service registration, protection-domain mapping, peripheral (subsystem) management, remote storage and file-server protocols with the modem and DSPs",
+      "load_path": "generated vendor tree (vendor/bin, vendor/lib64); started by the device init.qcom.rc and the stock rmt_storage/tftp init files",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
     }
   ],
   "firmware_families": [
