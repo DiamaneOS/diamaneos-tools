@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from urllib.parse import urlparse
 
 from diamaneos_tools import kernel
 
@@ -25,7 +26,8 @@ class KernelManifestTests(unittest.TestCase):
                 project = projects[row['path']]
                 patch = patches.get(row['path'])
                 if patch:
-                    self.assertEqual('diamaneos', project.get('remote'))
+                    owner = urlparse(patch['repository']).path.strip('/').split('/')[0]
+                    self.assertEqual(owner.lower(), project.get('remote'))
                     self.assertEqual(patch['repository'].rsplit('/', 1)[1], project.get('name'))
                     self.assertEqual(patch['derived_revision'], project.get('revision'))
                 else:
@@ -52,7 +54,9 @@ class KernelManifestTests(unittest.TestCase):
                 self.assertEqual(0, kernel.main(['manifest', '--output', str(path)]))
                 self.assertEqual(self.rendered, path.read_bytes())
                 self.assertEqual(0, kernel.main(['manifest', '--check', str(path)]))
-                path.write_bytes(self.rendered.replace(b'cb82dd16', b'00000000'))
+                revision = self.changes[0]['derived_revision'].encode()
+                self.assertIn(revision, self.rendered)
+                path.write_bytes(self.rendered.replace(revision, b'0' * 40))
                 self.assertEqual(2, kernel.main(['manifest', '--check', str(path)]))
                 self.assertEqual(2, kernel.main(['manifest']))
 

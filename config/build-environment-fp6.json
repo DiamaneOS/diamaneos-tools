@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-product-v27",
+  "environment_id": "fp6-android17-grapheneos-2026091000-product-v28",
   "scope": "Pinned development product with generic first-stage ramdisk, GKI v4 headers, the FP6 boot/recovery AVB chains source-built pvmfw in the system chain the vendor module blocklist in the first-stage ramdisk a 48-bit virtual address space kernel and a vendor bootconfig that does not duplicate bootloader-supplied keys a first-stage fstab without the stock /odm/persist mount the qseecomd listener libraries declared as runtime dependencies an Android 17 vendor without a VNDK version and the passthrough graphics mapper VINTF declaration with its device compatibility matrix entry hwservicemanager for the stock HIDL graphics HALs vndservicemanager for the stock display composer and its runtime-loaded IPC libraries the Adreno runtime compiler backends and stock sysfs permissions for the lights, vibrator, display and USB HALs; native and device acceptance are separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -101,7 +101,7 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "dd1eeb66117188d31ec5d360eb282593f09e2bd35d47185efe1aa60191677bdc"
+      "sha256": "1cf3192214297c72a7de3d434409d6579749471f2c191a12d1293eaf2e304413"
     },
     {
       "id": "fp6-native-dependencies",
