@@ -2327,8 +2327,8 @@
       "path": "vendor/lib64/libvmmem.so",
       "sha256": "4bb557b7b98df520f33ba3f633a78ba1ace34fe8ca4f2e3afcfd168265510c57",
       "bytes": 40832,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -3895,9 +3895,14 @@
       },
       "runtime_dependencies": [
         {
+          "path": "vendor/lib64/libadsp_default_listener.so",
+          "soname": "libadsp_default_listener.so",
+          "reason": "sscrpcd loads this FastRPC listener with dlopen for the sensors domain on the ADSP, which reads the sensor configuration and the persist registry through it; without it sscrpcd retries forever and the sensor core never publishes sensors"
+        },
+        {
           "path": "vendor/lib64/libssc_default_listener.so",
           "soname": "libssc_default_listener.so",
-          "reason": "sscrpcd loads this FastRPC listener with dlopen; the sensors domain on the ADSP reads the sensor configuration and the persist registry through it"
+          "reason": "sscrpcd loads this FastRPC listener with dlopen (sensors DSP listener, as in stock)"
         }
       ]
     },
@@ -3928,8 +3933,8 @@
       "path": "vendor/lib64/libcdsprpc.so",
       "sha256": "4cd5bd9a8942e4c92b6228bd9092eed8d4b5e3a89f270d2653baf781c1da7fcb",
       "bytes": 467592,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libvmmem.so",
         "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
@@ -4138,19 +4143,41 @@
       }
     },
     {
+      "input": "vendor/lib64/libadsp_default_listener.so",
+      "path": "vendor/lib64/libadsp_default_listener.so",
+      "sha256": "f4a341cee9474b2bd0078a3e1492c2ca433d15b84efc02ccc53195927d18b371",
+      "bytes": 19656,
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
+      "dependencies": [
+        "vendor/lib64/libadsprpc.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FastRPC listener for ADSP protection domains (sensors configuration and registry access).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
       "input": "vendor/lib64/libssc_default_listener.so",
       "path": "vendor/lib64/libssc_default_listener.so",
       "sha256": "b44f1db3207aa13ab480f7dd6a9dc76c7fdda828c3702d9d89377bc835aa81e8",
       "bytes": 19656,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libsdsprpc.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "FastRPC listener for the ADSP sensors domain (configuration and registry access).",
+      "purpose": "FastRPC listener for the sensors DSP domain.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -4164,8 +4191,8 @@
       "path": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
       "sha256": "6df137ac25b2a83d8c4486dbbc32b79316792b53f50c9ec0aceb7cff5bb20c6a",
       "bytes": 164736,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -4200,12 +4227,35 @@
       }
     },
     {
+      "input": "vendor/lib64/libadsprpc.so",
+      "path": "vendor/lib64/libadsprpc.so",
+      "sha256": "b35202b47b90821083f5722a3b6d835605a42a3eeec496b74ce16686e913d981",
+      "bytes": 467600,
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
+      "dependencies": [
+        "vendor/lib64/libvmmem.so",
+        "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Sensor stack library or configuration for the Qualcomm sub-HAL and sscrpcd.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
       "input": "vendor/lib64/libsdsprpc.so",
       "path": "vendor/lib64/libsdsprpc.so",
       "sha256": "1c27360c61a78d20d1134056ce8c4de5cfbdfbf4791ad83e381e46afabf4fdcd",
       "bytes": 467592,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:sensors",
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [
         "vendor/lib64/libvmmem.so",
         "vendor/lib64/vendor.qti.hardware.dsp@1.0.so"
