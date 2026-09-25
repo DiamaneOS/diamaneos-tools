@@ -493,8 +493,14 @@ def repo_manifest():
 
     def remote(url):
         parsed = urlparse(url)
-        require(parsed.scheme == 'https' and parsed.hostname == 'github.com', 'unexpected project host: ' + url)
-        owner, name = parsed.path.strip('/').removesuffix('.git').split('/')
+        require(parsed.scheme == 'https', 'unexpected project URL: ' + url)
+        path = parsed.path.strip('/').removesuffix('.git')
+        if parsed.hostname == 'git.codelinaro.org':
+            require(path.startswith('clo/la/'), 'unexpected CodeLinaro project: ' + url)
+            remotes.setdefault('codelinaro', 'https://git.codelinaro.org/clo/la/')
+            return 'codelinaro', path.removeprefix('clo/la/')
+        require(parsed.hostname == 'github.com', 'unexpected project host: ' + url)
+        owner, name = path.split('/')
         remotes.setdefault(owner.lower(), 'https://github.com/' + owner + '/')
         return owner.lower(), name
 

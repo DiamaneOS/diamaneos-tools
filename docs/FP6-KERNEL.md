@@ -4,9 +4,14 @@ Use the public `kernel prepare`, `kernel build` and `build inputs` workflow in
 [FP6 preparation](FP6-PREPARATION.md) to reconstruct and install the entire set.
 The native entrypoints and compatibility boundaries below explain that workflow.
 
-The initial development kernel uses Fairphone's pinned Android 14 / Linux 6.1
-GKI/vendor source set with the Android 17 product. The source set is separate
-from the platform checkout. `config/fp6-sources.json` identifies the upstream
+The development kernel follows Qualcomm's CodeLinaro release for this chip
+(`LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0` and the kernel-platform and
+techpack releases it names), with the GrapheneOS `kernel_common-6.1` release
+merged into the vendor kernel. Fairphone's FP6 hardware changes (the `fps`
+target, panel, touch, camera and sensor drivers) are carried as DiamaneOS
+patches; only the FP6 device trees, which Qualcomm does not publish for this
+chip, still come from Fairphone. The source set is separate from the platform
+checkout. `config/fp6-sources.json` identifies the upstream
 families; [`config/patches.json`](../config/patches.json) binds the downstream
 changes, including the matched devfreq header exported to the graphics package
 and the common/vendor kernel configuration and ABI changes. Do not substitute

@@ -6,19 +6,22 @@
     {
       "project": "abl/tianocore/edk2",
       "path": "kernel_platform/bootable/bootloader/edk2",
-      "revision": "eff625234b8c58aa0294c5a8ebb006f08a9338aa",
+      "revision": "09dca949df9515b1d4f702c78fb205d76b3f8043",
+      "url": "https://git.codelinaro.org/clo/la/abl/tianocore/edk2",
       "linkfiles": []
     },
     {
       "project": "kernel_platform/build/bazel_common_rules",
       "path": "kernel_platform/build/bazel_common_rules",
       "revision": "9ac051a42545593e4a6bda7f11511acb8476f4e2",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/build/bazel_common_rules",
       "linkfiles": []
     },
     {
       "project": "kernel/build",
       "path": "kernel_platform/build/kernel",
-      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "revision": "aa777cca3d5f2443114fe71ccfed9bd74cd7c66a",
+      "url": "https://git.codelinaro.org/clo/la/kernel/build",
       "linkfiles": [
         {
           "dest": "kernel_platform/tools/bazel",
@@ -130,30 +133,49 @@
       "project": "kernel_platform/external/bazel-skylib",
       "path": "kernel_platform/external/bazel-skylib",
       "revision": "7fdbc462f5001b7e82f026aa90bd43c494e2a8d8",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/bazel-skylib",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/external/bazelbuild-rules_license",
+      "path": "kernel_platform/external/bazelbuild-rules_license",
+      "revision": "f578df4fd057ffe2023728444759535685631548",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/bazelbuild-rules_license",
+      "linkfiles": []
+    },
+    {
+      "project": "kernel_platform/external/bazelbuild-rules_pkg",
+      "path": "kernel_platform/external/bazelbuild-rules_pkg",
+      "revision": "059aaa0ece0c03b731076db6300f50f83d25829a",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/bazelbuild-rules_pkg",
       "linkfiles": []
     },
     {
       "project": "kernel_platform/external/dtc",
       "path": "kernel_platform/external/dtc",
       "revision": "2bc3f4250c591a4519a899f0f62600834a4da693",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/dtc",
       "linkfiles": []
     },
     {
       "project": "kernel_platform/external/python/absl-py",
       "path": "kernel_platform/external/python/absl-py",
       "revision": "e46584edbb247bf79c74c4f105b6fff18234cee8",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/python/absl-py",
       "linkfiles": []
     },
     {
       "project": "kernel_platform/external/stardoc",
       "path": "kernel_platform/external/stardoc",
       "revision": "0d74fed6f8d0844f696771e71bc0b071cae99021",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/external/stardoc",
       "linkfiles": []
     },
     {
       "project": "kernel/qcom",
       "path": "kernel_platform/msm-kernel",
-      "revision": "80da648332ffb13f3415224058d286e47429eca7",
+      "revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
+      "url": "https://git.codelinaro.org/clo/la/kernel/qcom",
       "linkfiles": [
         {
           "dest": "kernel_platform/WORKSPACE",
@@ -162,6 +184,10 @@
         {
           "dest": "kernel_platform/build_with_bazel.py",
           "src": "build_with_bazel.py"
+        },
+        {
+          "dest": "kernel_platform/build/qcom_build_extensions",
+          "src": "qcom_build_extensions"
         }
       ]
     },
@@ -181,12 +207,14 @@
       "project": "kernel_platform/prebuilts/bazel/linux-x86_64",
       "path": "kernel_platform/prebuilts/bazel/linux-x86_64",
       "revision": "eee09422f02e60f28192bcb5a8ce8660baba6706",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/prebuilts/bazel/linux-x86_64",
       "linkfiles": []
     },
     {
       "project": "kernel_platform/prebuilts/build-tools",
       "path": "kernel_platform/prebuilts/build-tools",
       "revision": "3f7cae3e5f7b0cbbb50ececa504e959b5e1a0b1e",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/prebuilts/build-tools",
       "linkfiles": [
         {
           "dest": "kernel_platform/build/prebuilts/build-tools",
@@ -198,6 +226,7 @@
       "project": "kernel_platform/prebuilts/clang-tools",
       "path": "kernel_platform/prebuilts/clang-tools",
       "revision": "0613fc5443d035335a9541994607bacae03750f2",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/prebuilts/clang-tools",
       "linkfiles": [
         {
           "dest": "kernel_platform/build/prebuilts/clang-tools",
@@ -208,13 +237,15 @@
     {
       "project": "kernelplatform/prebuilts-master/clang/host/linux-x86",
       "path": "kernel_platform/prebuilts/clang/host/linux-x86",
-      "revision": "28b975ada54f8610ed531a6b57253aed10e7c87d",
+      "revision": "9002aa7843a39e9b35bb2d2cbf741cdaf719b981",
+      "url": "https://git.codelinaro.org/clo/la/kernelplatform/prebuilts-master/clang/host/linux-x86",
       "linkfiles": []
     },
     {
       "project": "kernelplatform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
       "path": "kernel_platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
       "revision": "dd099b5d68822602228e2af66693e61e7b54e0a9",
+      "url": "https://git.codelinaro.org/clo/la/kernelplatform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
       "linkfiles": [
         {
           "dest": "kernel_platform/build/build-tools/sysroot",
@@ -226,12 +257,14 @@
       "project": "kernel_platform/prebuilts/jdk/jdk11",
       "path": "kernel_platform/prebuilts/jdk/jdk11",
       "revision": "ced68c9308cbc1b6ec3e602dba8d0d56df8b6d73",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/prebuilts/jdk/jdk11",
       "linkfiles": []
     },
     {
       "project": "kernel/prebuilts/build-tools",
       "path": "kernel_platform/prebuilts/kernel-build-tools",
       "revision": "d153b7ab4a4956198957e258d4f370e875c53059",
+      "url": "https://git.codelinaro.org/clo/la/kernel/prebuilts/build-tools",
       "linkfiles": [
         {
           "dest": "kernel_platform/build/prebuilts/kernel-build-tools",
@@ -243,6 +276,7 @@
       "project": "kernel_platform/toolchain/prebuilts/ndk/r23",
       "path": "kernel_platform/prebuilts/ndk-r23",
       "revision": "269a5dc9e862f78dc2030d9262f73cb2642b8127",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/toolchain/prebuilts/ndk/r23",
       "linkfiles": []
     },
     {
@@ -255,12 +289,14 @@
       "project": "kernel_platform/system/tools/mkbootimg",
       "path": "kernel_platform/tools/mkbootimg",
       "revision": "b17f184a20744a7e0a421f901bdf20a23be22b07",
+      "url": "https://git.codelinaro.org/clo/la/kernel_platform/system/tools/mkbootimg",
       "linkfiles": []
     },
     {
       "project": "platform/vendor/nxp/opensource/driver",
       "path": "vendor/nxp/opensource/driver",
-      "revision": "cbd4b1fd28f4681ea74fe038d96f464da4a28e45",
+      "revision": "c6f0de7127de042241c6f2ac7c60c5deb77d7d85",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/nxp/opensource/driver",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/nfc-kernel-dlkm-vendor-product.mk",
@@ -275,7 +311,8 @@
     {
       "project": "platform/vendor/qcom/opensource/audio-kernel-ar",
       "path": "vendor/qcom/opensource/audio-kernel",
-      "revision": "5bfffea5cc2dbb996e773cdc2b5daf1a30602ac1",
+      "revision": "3176d0df29c2930a287d2840121fe76e056cfdba",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/audio-kernel-ar",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/audio_kernel_vendor_board.mk",
@@ -290,7 +327,8 @@
     {
       "project": "platform/vendor/qcom-opensource/bt-kernel",
       "path": "vendor/qcom/opensource/bt-kernel",
-      "revision": "00d8248a3643bf6939ff886a6ba6a59d05b43554",
+      "revision": "fea32fbec2ab16ef887c83b741f137ea9fb695d2",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/bt-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/bt_kernel_vendor_board.mk",
@@ -305,7 +343,8 @@
     {
       "project": "platform/vendor/opensource/camera-kernel",
       "path": "vendor/qcom/opensource/camera-kernel",
-      "revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e",
+      "revision": "db93e61705f7a8a20d9b4896307f80fb904ca767",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/camera-kernel_board.mk",
@@ -320,7 +359,8 @@
     {
       "project": "platform/vendor/opensource/dataipa",
       "path": "vendor/qcom/opensource/dataipa",
-      "revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7",
+      "revision": "726acc3f151ffaf65493df90a1f089db957136b2",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/dataipa",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/dataipa_dlkm_vendor_board.mk",
@@ -339,7 +379,8 @@
     {
       "project": "platform/vendor/qcom/opensource/datarmnet",
       "path": "vendor/qcom/opensource/datarmnet",
-      "revision": "1f9d44114ba7129c0c7e0a0b01462ef9c0acd963",
+      "revision": "068a54349c3cbe72a10d34abf2d3b4363d68d26c",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/datarmnet_dlkm_vendor_board.mk",
@@ -354,7 +395,8 @@
     {
       "project": "platform/vendor/qcom/opensource/datarmnet-ext",
       "path": "vendor/qcom/opensource/datarmnet-ext",
-      "revision": "a00d9d886cc0e47a652578b607383ccf0e02d5bc",
+      "revision": "95ef911b8582c527a67a0fc3eacbe23a8bea0205",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/datarmnet_ext_dlkm_vendor_board.mk",
@@ -369,7 +411,8 @@
     {
       "project": "platform/vendor/opensource/display-drivers",
       "path": "vendor/qcom/opensource/display-drivers",
-      "revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
+      "revision": "1065a7677a1a33214ba1b8733f0d5872ede004b8",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-drivers",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/display_driver_product.mk",
@@ -384,7 +427,8 @@
     {
       "project": "platform/vendor/qcom/opensource/dsp-kernel",
       "path": "vendor/qcom/opensource/dsp-kernel",
-      "revision": "92510955132be5961ba4f51f42a49bc77ccbca8f",
+      "revision": "5988aecba8fd60eaed2465ad2250ecc2400dcc20",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/dsp-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/dsp_kernel_board.mk",
@@ -414,13 +458,15 @@
     {
       "project": "platform/vendor/qcom/opensource/graphics-kernel",
       "path": "vendor/qcom/opensource/graphics-kernel",
-      "revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95",
+      "revision": "e4cb2ea52efd472a20b10f77e3a087c58c41d135",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/graphics-kernel",
       "linkfiles": []
     },
     {
       "project": "platform/vendor/opensource/mm-drivers",
       "path": "vendor/qcom/opensource/mm-drivers",
       "revision": "a7b138e9ad13cfdca39fb86f599fa16c0ced2282",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mm-drivers",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/mm_driver_product.mk",
@@ -435,7 +481,8 @@
     {
       "project": "platform/vendor/opensource/mm-sys-kernel",
       "path": "vendor/qcom/opensource/mm-sys-kernel",
-      "revision": "a76f665f9e09fb220d23c71fefa370bb85c68836",
+      "revision": "88eb9646a400c3c70d3614c3912af530dd332060",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mm-sys-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/ubwcp_kernel_vendor_board.mk",
@@ -450,7 +497,8 @@
     {
       "project": "platform/vendor/opensource/mmrm-driver",
       "path": "vendor/qcom/opensource/mmrm-driver",
-      "revision": "caebb7aea11c2bb9c04ef53c1e3c4c486df5b35e",
+      "revision": "35211a9255b69d52ddc2b82dc8b1dd2840b98868",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/mmrm_kernel_board.mk",
@@ -465,7 +513,8 @@
     {
       "project": "platform/vendor/qcom/opensource/securemsm-kernel",
       "path": "vendor/qcom/opensource/securemsm-kernel",
-      "revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335",
+      "revision": "e1010ac4fede58b28a66ae87572b0cbb8aa5849d",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/securemsm-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/securemsm_kernel_product_board.mk",
@@ -481,6 +530,7 @@
       "project": "platform/vendor/qcom/opensource/spu-kernel",
       "path": "vendor/qcom/opensource/spu-kernel",
       "revision": "8209e34e04c393339b8ca49f8f9b9feae3f0908d",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/spu-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/spu_driver_board.mk",
@@ -495,7 +545,8 @@
     {
       "project": "platform/vendor/opensource/synx-kernel",
       "path": "vendor/qcom/opensource/synx-kernel",
-      "revision": "86615db72c6f2852ab5650f7283a7a244754bb75",
+      "revision": "e63a9eaf9544d725a249ede2a72a4fef3b860c96",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/synx-kernel",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/synx_kernel_product.mk",
@@ -510,7 +561,8 @@
     {
       "project": "platform/vendor/opensource/touch-drivers",
       "path": "vendor/qcom/opensource/touch-drivers",
-      "revision": "37908c61a4589f25fca8a078873124e97faadb6d",
+      "revision": "167825dc915600f14e045829a0bffc8981224a81",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/touch-drivers",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/board-defs/vendor/touch_driver_board.mk",
@@ -525,7 +577,8 @@
     {
       "project": "platform/vendor/opensource/video-driver",
       "path": "vendor/qcom/opensource/video-driver",
-      "revision": "9f32033e6d3c574a22af778e8841c62034020d93",
+      "revision": "976400c73395c8cc681c8bd13a3dc18a91804caa",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/video_kernel_product.mk",
@@ -540,25 +593,29 @@
     {
       "project": "platform/vendor/qcom-opensource/wlan/fw-api",
       "path": "vendor/qcom/opensource/wlan/fw-api",
-      "revision": "11b7398a61abee5996626222558139f3817fa63c",
+      "revision": "1dfe638abcf0aba66965742ec452c935c69c19b7",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/fw-api",
       "linkfiles": []
     },
     {
       "project": "platform/vendor/qcom-opensource/wlan/platform",
       "path": "vendor/qcom/opensource/wlan/platform",
-      "revision": "9c69b3184709b293f04acc66662076d1ea6d78bd",
+      "revision": "8cf79ed25f2d9eae20b1873f22e1f187d58fc39f",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/platform",
       "linkfiles": []
     },
     {
       "project": "platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn",
       "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
-      "revision": "2109d77b6964f27434ec9ea5c284e6bae5c887a9",
+      "revision": "381b9c881a34b62efdd05c45c3a624fec1a6af97",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn",
       "linkfiles": []
     },
     {
       "project": "platform/vendor/qcom-opensource/wlan/qcacld-3.0",
       "path": "vendor/qcom/opensource/wlan/qcacld-3.0",
-      "revision": "fd08604385a181351af0302bb52b3eff22d92ea0",
+      "revision": "05fc8e4467c6ca276e4ad303687da362e62baadd",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0",
       "linkfiles": []
     },
     {
@@ -666,7 +723,8 @@
     {
       "project": "platform/vendor/st/opensource/driver",
       "path": "vendor/st/opensource/driver",
-      "revision": "9564cbb00af95b2c05b62977c7c787d92f2b6a67",
+      "revision": "60e8a8fa7512bb3684330c005356e2060ad161a6",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/driver",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/nfc-kernel-dlkm-vendor-product-stm.mk",
@@ -681,7 +739,8 @@
     {
       "project": "platform/vendor/st/opensource/eSE-driver",
       "path": "vendor/st/opensource/eSE-driver",
-      "revision": "11285a0aef9d24749e8e0a6eae1f7f833a7bb56d",
+      "revision": "96e919fb8a6f29037b03f1a2ab73b11b0ef817eb",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/eSE-driver",
       "linkfiles": [
         {
           "dest": "vendor/qcom/defs/product-defs/vendor/ese_kernel_product.mk",

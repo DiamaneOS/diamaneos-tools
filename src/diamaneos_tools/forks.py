@@ -72,7 +72,7 @@ def load_sources(sources):
                 or not isinstance(source.get('url'), str) or not source['url'].startswith('https://')
                 or follow.get('kind') not in ('branch', 'tags', 'manual')
                 or not NAME.match(pin.get('repository', '')) or not REF.match(pin.get('file', ''))
-                or ('pointer' in pin) == ('list' in pin)):
+                or sum(k in pin for k in ('pointer', 'list', 'xml_project_path')) != 1):
             raise ForkError(f"invalid source entry: {source.get('id')}")
         if follow['kind'] == 'branch':
             if not REF.match(follow.get('ref', '')):
@@ -225,6 +225,13 @@ def pinned_value(root, source):
     path = base / pin['file']
     if not path.is_file():
         return None
+    if 'xml_project_path' in pin:
+        import xml.etree.ElementTree as ET
+        found = [p.get('revision') for p in ET.parse(path).getroot().iter('project')
+                 if p.get('path') == pin['xml_project_path']]
+        if len(found) != 1 or not found[0]:
+            raise ForkError(f"pin of {source['id']} does not resolve to one manifest revision")
+        return found[0]
     data = json.loads(path.read_text())
     if 'pointer' in pin:
         return json_pointer(data, pin['pointer'])
