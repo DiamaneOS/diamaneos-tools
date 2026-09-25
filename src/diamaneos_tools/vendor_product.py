@@ -70,10 +70,60 @@ SOURCE_INTERFACES = {
     'android.hidl.allocator@1.0',
     'libhidltransport',
     'libtinycompress',
+    'android.hardware.gnss-V3-ndk',
+    'android.hardware.health-V1-ndk',
+    'android.hardware.health@1.0',
+    'android.hardware.health@2.0',
+    'android.hardware.health@2.1',
+    # AOSP radio, secure-element and netd interfaces linked by the stock radio
+    # daemon, its data module and nicmd; built from source (vendor variants).
+    'android.hardware.radio-V2-ndk',
+    'android.hardware.radio.config-V2-ndk',
+    'android.hardware.radio.data-V2-ndk',
+    'android.hardware.radio.messaging-V2-ndk',
+    'android.hardware.radio.modem-V2-ndk',
+    'android.hardware.radio.network-V2-ndk',
+    'android.hardware.radio.sap-V1-ndk',
+    'android.hardware.radio.sim-V2-ndk',
+    'android.hardware.radio.voice-V2-ndk',
+    'android.hardware.radio@1.0',
+    'android.hardware.radio@1.1',
+    'android.hardware.radio@1.2',
+    'android.hardware.radio@1.3',
+    'android.hardware.radio@1.4',
+    'android.hardware.radio@1.5',
+    'android.hardware.radio@1.6',
+    'android.hardware.secure_element-V1-ndk',
+    'android.system.net.netd-V1-ndk',
+    # AOSP seccomp helper through which qcrilNrd applies its stock policy.
+    'libavservices_minijail',
+    # Frozen AOSP Bluetooth HCI HIDL interfaces linked by the stock Qualcomm
+    # Bluetooth service and HCI implementation (device bluetooth/bluetooth.mk).
+    'android.hardware.bluetooth@1.0',
+    'android.hardware.bluetooth@1.1',
+    # AOSP NFC interfaces the stock Samsung NFC HAL and its implementation
+    # (nfc_nci_sec.so) link, built from source (frozen AIDL V1 and HIDL 1.0-1.2).
+    'android.hardware.nfc-V1-ndk',
+    'android.hardware.nfc@1.0',
+    'android.hardware.nfc@1.1',
+    'android.hardware.nfc@1.2',
 }
 # Stable AIDL libraries a selected blob links that are built from the pinned
-# Android tree instead of taken from the factory image. None are needed now.
-SOURCE_MODULE_DEPENDENCIES = set()
+# Android tree instead of taken from the factory image (no stock row exists).
+SOURCE_MODULE_DEPENDENCIES = {
+    # Camera (OP-HW-BRINGUP camera): AOSP camera AIDL interfaces, the HIDL
+    # shims and the Qualcomm interface libraries the stock CamX/CHI link.
+    'android.hardware.camera.common-V1-ndk',
+    'android.hardware.camera.device-V2-ndk',
+    'android.hardware.camera.metadata-V2-ndk',
+    'android.hardware.camera.provider-V2-ndk',
+    'libhidltransport',
+    'libhwbinder',
+    'vendor.qti.hardware.camera.offlinecamera-V1-ndk',
+    'vendor.qti.hardware.camera.postproc@1.0',
+    'vendor.qti.hardware.display.allocator@4.0',
+    'vendor.qti.hardware.display.config-V2-ndk',
+}
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
@@ -90,12 +140,77 @@ ACTIVATION={
  'pd-mapper':(None,None),
  'pm-service':(None,None),
  'pm-proxy':(None,None),
+ # ssr_setup enables subsystem restart (recovery) for the modem and DSPs from
+ # persist.vendor.ssr.restart_level; stock starts it from init.qcom.rc, which
+ # is not selected. The FP6 device modem/init.modem.rc defines the service.
+ 'ssr_setup':(None,None),
  # sscrpcd starts the sensors protection domain on the ADSP; the sensors
  # multi-HAL itself is built from source (device.mk).
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
  # audioadsprpcd starts the audio protection domain on the ADSP.
  'audioadsprpcd':('vendor.qti.audio-adsprpc-service.rc',None),
+ # Stock GNSS HAL (IGnss v3); its rc is a pinned derivation (GNSS_CONFIG_REWRITES).
+ # vendor.qti.gnss-service.xml (ILocAidlGnss) is not installed.
+ 'android.hardware.gnss-aidl-service-qti':('android.hardware.gnss-aidl-service-qti.rc','android.hardware.gnss-aidl-service-qti.xml'),
+ # The stock CamX/CHI camera provider (AIDL ICameraProvider/vendor_qti/0).
+ 'vendor.qti.camera.provider-service_64':('vendor.qti.camera.provider-service_64.rc','vendor.qti.camera.provider.xml'),
+ # The QCRIL radio daemon declares only the services r9p uses: the AOSP radio
+ # HAL and the Qualcomm IMS, radio-config, audio-messenger and LPA services.
+ 'qcrilNrd':('qcrilNrd.rc',('android.hardware.radio.config.xml','android.hardware.radio.data.xml',
+                            'android.hardware.radio.messaging.xml','android.hardware.radio.modem.xml',
+                            'android.hardware.radio.network.xml','android.hardware.radio.sim.xml',
+                            'android.hardware.radio.voice.xml','vendor.qti.hardware.radio.ims.xml',
+                            'vendor.qti.hardware.radio.qtiradioconfig.xml','vendor.qti.hardware.radio.am.xml',
+                            'vendor.qti.hardware.radio.lpa.xml')),
+ # nicmd configures the rmnet data interfaces for modem data calls.
+ 'nicmd':('nicmd.rc',None),
+ # The Bluetooth HCI service: the device bluetooth/init.fp6.bluetooth.rc starts
+ # it without the stock diag and ssgtzd groups, and the device manifest.xml
+ # declares android.hardware.bluetooth@1.1::IBluetoothHci/default.
+ 'android.hardware.bluetooth@1.1-service-qti':(None,None),
+ # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default); its rc also sets the
+ # /dev/sec-nfc owner at boot.
+ 'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),
 }
+
+# Reviewed stock Java components outside vendor (private bring-up). They keep
+# the stock signature (presigned); their privileges come only from the device's
+# privileged-permission allowlist, never from our platform key.
+# path -> (module name = install directory, privileged). Every privileged app
+# needs a complete device allowlist entry (grants and denials).
+STOCK_APPS = {
+ 'system_ext/priv-app/ims/ims.apk':('ims', True),
+ # Privileged so that its shared UID android.uid.qtiphone is privileged: a
+ # non-privileged package can then not join it (InstallPackageHelper
+ # assertPackageWithSharedUserIdIsPrivileged).
+ 'system_ext/app/QtiTelephonyService/QtiTelephonyService.apk':('QtiTelephonyService', True),
+ # eSIM LPA; the device disables its services by default (sysconfig).
+ 'product/app/uimlpaservice/uimlpaservice.apk':('uimlpaservice', True),
+}
+# JNI libraries of the stock apps and the platform libraries they link.
+STOCK_JNI = {
+ 'system_ext/lib64/libimscamera_jni.so':['libc++', 'libc', 'libcutils', 'libdl', 'liblog', 'libm', 'libnativehelper', 'libutils'],
+ 'system_ext/lib64/libimsmedia_jni.so':['libandroid', 'libbinder', 'libc++', 'libc', 'libcutils', 'libdl', 'libgui', 'liblog', 'libm', 'libnativehelper', 'libutils'],
+}
+# Data copied as is: shared-library jars (not on the boot class path, not
+# preopted) and the permission XMLs that declare them. Reviewed one by one:
+# SystemConfig gives system_ext and product permission XMLs full rights, so a
+# selected XML may only map its library name to the jar listed here.
+STOCK_LIBRARIES = {
+ 'system_ext/etc/permissions/qti_telephony_hidl_wrapper.xml':'system_ext/framework/qti-telephony-hidl-wrapper.jar',
+ 'system_ext/etc/permissions/qti_telephony_utils.xml':'system_ext/framework/qti-telephony-utils.jar',
+ 'product/etc/permissions/ims_ext_common.xml':'product/framework/ims-ext-common.jar',
+ 'product/etc/permissions/lpa.xml':'product/framework/uimlpalibrary.jar',
+ 'product/etc/permissions/qti_telephony_hidl_wrapper_prd.xml':'product/framework/qti-telephony-hidl-wrapper-prd.jar',
+ 'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
+}
+STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values())
+PARTITIONS = {'system_ext': ('system_ext_specific', '$(TARGET_COPY_OUT_SYSTEM_EXT)'),
+              'product': ('product_specific', '$(TARGET_COPY_OUT_PRODUCT)')}
+
+
+def notice_license(partition):
+    return 'fp6_selected_stock_notices' + ('' if partition == 'vendor' else '_' + partition)
 
 
 def module(path):
@@ -114,7 +229,24 @@ def blueprint(kind, properties):
 # Passthrough HAL libraries whose VINTF declaration makes them discoverable.
 # Without hwservicemanager, HIDL resolves passthrough HALs only through VINTF.
 LIBRARY_VINTF = {
+ # The CHI override links this library, which registers the offline camera
+ # AIDL service inside the camera provider process (stock declaration).
+ 'vendor.qti.hardware.camera.offlinecamera-service-impl': 'vendor.qti.camera.offlinecamera-impl.xml',
 }
+# Non-ELF data the stock CamX reads from /vendor/lib64 (sensor modules, tuning,
+# flash/face-detection tables, BitML networks). Copied as is; generate()
+# rejects ELF content under these paths.
+LIB64_DATA = (
+    re.compile(r'vendor/lib64/camera/[A-Za-z0-9_.]+\.bin'),
+    re.compile(r'vendor/lib64/bm4d73v02s12n[0-9]{2}\.bin'),
+)
+# Hexagon (DSP) libraries loaded over FastRPC. Installed with Soong
+# prebuilt_rfsa into /vendor/lib/rfsa/adsp, which the stock FastRPC loader
+# searches (libcdsprpc/libadsprpc path strings); the stock
+# /vendor/lib64/rfs/dsp copies move there because no Soong type installs to
+# that directory and PRODUCT_COPY_FILES rejects ELF files.
+DSP_DIRECTORIES = ('vendor/lib/rfsa/adsp/', 'vendor/lib64/rfs/dsp/')
+DSP_MACHINE_MAGIC = b'\x7fELF\x01\x01\x01\x00'  # ELF32 little-endian (QDSP6, e_machine 164)
 RUNTIME_EDGE = 'selected-stock-runtime'
 
 # Blobs built against an Android 14 VNDK library whose Android 17 ABI differs.
@@ -290,6 +422,11 @@ def render(recipe, selection, notice_kind):
     text += blueprint('package', {'default_applicable_licenses': ['fp6_selected_stock_notices']})
     text += blueprint('license', {'name': 'fp6_selected_stock_notices',
                                  'license_kinds': [notice_kind], 'license_text': ['NOTICE.xml']})
+    for partition in sorted({p.split('/')[0] for p in rows} - {'vendor'}):
+        if partition not in PARTITIONS:
+            raise VendorError('unsupported install partition')
+        text += blueprint('license', {'name': notice_license(partition), 'license_kinds': [notice_kind],
+                                     'license_text': ['NOTICE-' + partition + '.xml']})
     kept = reachable(selection)
     names, consumed = [], set(elfs) - kept
     for path in sorted(elfs):
@@ -322,31 +459,88 @@ def render(recipe, selection, notice_kind):
             if stem not in ACTIVATION:
                 raise VendorError('native executable lacks reviewed activation')
             rc, fragment = ACTIVATION[stem]
-            for key, directory, filename in [('init_rc', 'init', rc),
-                                              ('vintf_fragments', 'vintf/manifest', fragment)]:
-                if filename:
+            for key, directory, filenames in [('init_rc', 'init', rc),
+                                               ('vintf_fragments', 'vintf/manifest', fragment)]:
+                filenames = (filenames,) if isinstance(filenames, str) else (filenames or ())
+                for filename in filenames:
                     config = 'vendor/etc/' + directory + '/' + filename
                     if config not in rows:
                         raise VendorError('missing service activation file')
-                    props[key] = ['files/' + config]
+                    props.setdefault(key, []).append('files/' + config)
                     consumed.add(config)
         text += blueprint('cc_prebuilt_library_shared' if library else 'cc_prebuilt_binary', props)
+    for path in sorted(rows):
+        partition = path.split('/')[0]
+        if partition == 'vendor':
+            continue
+        flag = PARTITIONS[partition][0]
+        if path in STOCK_APPS:
+            name, privileged = STOCK_APPS[path]
+            if Path(path).parent.name != name:
+                raise VendorError('stock app install directory differs')
+            names.append(name)
+            consumed.add(path)
+            text += blueprint('android_app_import', {
+                'name': name, flag: True, 'apk': 'files/' + path, 'presigned': True,
+                'preprocessed': True, 'privileged': privileged, 'dex_preopt': {'enabled': False},
+                'enforce_uses_libs': False, 'licenses': [notice_license(partition)]})
+        elif path in STOCK_JNI:
+            if rows[path]['dependencies'] or partition != 'system_ext':
+                raise VendorError('stock JNI library has unreviewed dependencies')
+            name = module(path)
+            names.append(name)
+            consumed.add(path)
+            text += blueprint('cc_prebuilt_library_shared', {
+                'name': name, flag: True, 'compile_multilib': '64', 'srcs': ['files/' + path],
+                'stem': Path(path).name.removesuffix('.so'), 'strip': {'none': True},
+                'shared_libs': STOCK_JNI[path], 'system_shared_libs': [],
+                'licenses': [notice_license(partition)]})
+        elif path not in STOCK_DATA or (path in STOCK_LIBRARIES and STOCK_LIBRARIES[path] not in rows):
+            raise VendorError('unclassified Android installation input')
     for link in recipe.get('symlinks', []):
         destination = vendor_files.link_destination(link)
-        if destination not in elfs:
-            raise VendorError('alias has no native provider')
+        partition = link['path'].split('/')[0]
+        if partition == 'vendor':
+            if destination not in elfs:
+                raise VendorError('alias has no native provider')
+            placement = {'vendor': True}
+        else:
+            if destination not in STOCK_JNI or destination not in rows or not link['path'].startswith(tuple(
+                    str(Path(app).parent) + '/lib/arm64/' for app in STOCK_APPS)):
+                raise VendorError('alias has no native provider')
+            placement = {PARTITIONS[partition][0]: True, 'licenses': [notice_license(partition)]}
         name = module(link['path']) + '_alias'
         names.append(name)
-        text += blueprint('install_symlink', dict(name=name, vendor=True,
-                          installed_location=link['path'].removeprefix('vendor/'),
+        text += blueprint('install_symlink', dict(name=name, **placement,
+                          installed_location=link['path'].removeprefix(partition + '/'),
                           symlink_target=link['target'], required=[module(destination)]))
+    dsp_names = set()
+    for path in sorted(rows):
+        if not path.startswith(DSP_DIRECTORIES):
+            continue
+        if (path in elfs or Path(path).parent.as_posix() + '/' not in DSP_DIRECTORIES
+                or not re.fullmatch(r'[A-Za-z0-9_]+\.so', Path(path).name) or Path(path).name in dsp_names):
+            raise VendorError('invalid DSP library input')
+        dsp_names.add(Path(path).name)
+        name = module(path)
+        names.append(name)
+        consumed.add(path)
+        text += blueprint('prebuilt_rfsa', {'name': name, 'vendor': True, 'src': 'files/' + path,
+                                            'filename': Path(path).name, 'relative_install_path': 'adsp'})
     make = '# Generated from the authenticated selection.\nPRODUCT_PACKAGES += ' + ' '.join(names)
     make += '\nPRODUCT_VENDOR_PROPERTIES += ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
         if path.startswith('vendor/etc/lm/'):
             # No learning plugin is installed or enabled in this composition.
             continue
-        if (path not in firmware_paths and not path.startswith('vendor/etc/')) or path.startswith(('vendor/etc/init/', 'vendor/etc/vintf/')):
+        partition = path.split('/')[0]
+        if partition in PARTITIONS and path in STOCK_DATA:
+            make += ('PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':'
+                     + PARTITIONS[partition][1] + '/' + path.removeprefix(partition + '/') + '\n')
+            continue
+        if path in elfs or path.startswith(('vendor/etc/init/', 'vendor/etc/vintf/')) or (
+                path not in firmware_paths and not path.startswith('vendor/etc/')
+                and not any(p.fullmatch(path) for p in LIB64_DATA)):
             raise VendorError('unclassified Android installation input')
         make += 'PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/' + path.removeprefix('vendor/') + '\n'
     return {'Android.bp': text.encode(), 'device-vendor.mk': make.encode(),
@@ -383,15 +577,40 @@ AUDIO_CONFIG_REWRITES = {
         'source_sha256': 'ad423c0311b365759c692c64bc5f25ddca7ee788e8b769f2d53f8e801d4e3513',
         'sha256': 'e507aa16508f03f8550b49e11ec7440bf32b68e1c29648a28bd27bd3f00d0f5e',
         'reason': 'Disable context detection and remove deferred sound-trigger/model configuration'},
+    'vendor/etc/audio/sku_volcano/audio_policy_configuration.xml': {
+        'source_sha256': '3bf77c8f71e1ad1186e226b177c0c4cc9881c9ed9bad91cf848b632b7f039219',
+        'sha256': 'db37e22a193fceadd924b1c91d2ad3cf552e2cfa36709ee18ac3ada3ea48ff25',
+        'reason': 'Route Bluetooth A2DP and LE audio through the AOSP software Bluetooth audio module instead of DSP offload'},
 }
+# Primary-module device ports that exist only for Bluetooth DSP offload.
+BT_OFFLOAD_PORTS = (b'BT A2DP Out', b'BT A2DP Headphones', b'BT A2DP Speaker', b'BT BLE Out',
+                    b'BT BLE Speaker', b'BT BLE Broadcast', b'A2DP In', b'BLE In')
+
+
+def bluetooth_software_audio_policy(data):
+    """Drop the offload-only Bluetooth ports from the primary module and use the AOSP Bluetooth module."""
+    names = b'|'.join(re.escape(n) for n in BT_OFFLOAD_PORTS)
+    derived = re.sub(rb'^[ \t]*<devicePort tagName="(?:' + names + rb')"[^>]*>.*?</devicePort>\n',
+                     b'', data, flags=re.S | re.M)
+    derived = re.sub(rb'^[ \t]*<route type="mix" sink="(?:' + names + rb')"\s+sources="[^"]*"/>\n',
+                     b'', derived, flags=re.M)
+    derived = re.sub(rb'sources="([^"]*)"', lambda m: b'sources="' + b','.join(
+        s for s in m[1].split(b',') if s not in (b'A2DP In', b'BLE In')) + b'"', derived)
+    return derived.replace(
+        b'        <!-- Bluetooth Audio HAL for hearing aid -->\n'
+        b'        <xi:include href="/vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml"/>\n',
+        b'        <!-- Bluetooth Audio HAL: AOSP software A2DP, hearing aid and LE audio -->\n'
+        b'        <xi:include href="/vendor/etc/bluetooth_with_le_audio_policy_configuration_7_0.xml"/>\n')
 
 
 def audio_config(path, data):
-    """Pinned removal of deferred closed effects and sound-trigger configuration."""
+    """Pinned removal of deferred closed effects, sound-trigger and Bluetooth offload configuration."""
     rule = AUDIO_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('audio configuration differs from reviewed EU stock input')
-    if path.endswith('/audio_effects.xml'):
+    if path.endswith('/audio_policy_configuration.xml'):
+        derived = bluetooth_software_audio_policy(data)
+    elif path.endswith('/audio_effects.xml'):
         derived = re.sub(rb'^.*<(?:library|effect) name="(?:audiosphere|quasar)"[^\n]*\n',
                          b'', data, flags=re.M)
     else:
@@ -403,6 +622,169 @@ def audio_config(path, data):
         raise VendorError('derived audio configuration differs from reviewed result')
     return derived
 
+
+CAMERA_CONFIG_REWRITES = {
+    'vendor/etc/init/vendor.qti.camera.provider-service_64.rc': {
+        'source_sha256': 'ccc0c2b945c1be4fee8061ddc519d090c2c8f76ea70b3c733b11429eb20175f8',
+        'sha256': '9f3fa09193baeb9a6afc2a92e562f0b0701dc81e03057b891061c0c89cdf75fe',
+        'reason': 'Limit camera provider groups to camera, media (secure FastRPC node), oem_2907 (thermal) '
+                  'and wakelock; drop the undeclared postproc/AON interface lines and the '
+                  'cam_event_inject fault-injection chown'},
+}
+
+
+def camera_config(path, data):
+    """Pinned reduction of the stock camera provider service definition."""
+    rule = CAMERA_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('camera configuration differs from reviewed EU stock input')
+    derived = re.sub(rb'^    interface vendor\.qti\.hardware\.camera\.(?:postproc|aon)@1\.0::\S+ \S+\n',
+                     b'', data, flags=re.M)
+    derived = derived.replace(b'    group audio camera input drmrpc oem_2907 oem_2912 wakelock\n',
+                              b'    group camera media oem_2907 wakelock\n')
+    derived = re.sub(rb'\non boot\n    chown cameraserver camera /sys/module/camera/parameters/cam_event_inject\n\Z',
+                     b'', derived)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived camera configuration differs from reviewed result')
+    return derived
+
+
+TELEPHONY_CONFIG_REWRITES = {
+    'vendor/etc/init/qcrilNrd.rc': {
+        'source_sha256': 'fbb2c179c4c4ede0ceb3445dbb7c169f198546f4d1eed672d2ff8287eb74e26a',
+        'sha256': 'd41b734e8a936f052de2fbddd44ab9a441f1b9ff32f9ba6a5c8c47864edaf66f',
+        'reason': 'Drop the log, readproc, diag (oem_2901) and SSG socket (oem_2912) groups from the radio daemon'},
+    'vendor/etc/init/nicmd.rc': {
+        'source_sha256': 'b756045f1b044b7f690bd3296fec9e82351cd8afee99ee5af8bdc2f8c1a3f7e3',
+        'sha256': '0a4a6373d3eb0b6d587739a93111d65fb30ea15b0074a28f8086731cf5b3cfc1',
+        'reason': 'Declare the root user and bound nicmd to the capabilities its stock SELinux domain allows'},
+    'vendor/etc/data/nicm_config.xml': {
+        'source_sha256': 'd9c5fd8ab8be49512d6ce4bf628c1f7c3218de1c287569e3f19e64040d35d0a0',
+        'sha256': '03914a36e14990016b6bf72da90b95230c4e67381b0faadd2b82454dd30defaf',
+        'reason': 'Turn off the persistent nicmd file log (/data/vendor/nicmd/nicmd.log)'},
+}
+
+
+def telephony_config(path, data):
+    """Pinned reductions of the stock radio daemon, nicmd service and nicmd log configuration."""
+    rule = TELEPHONY_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('telephony configuration differs from reviewed EU stock input')
+    if path.endswith('/qcrilNrd.rc'):
+        derived = data.replace(b'    group radio cache inet misc audio log readproc wakelock oem_2901 oem_2912\n',
+                               b'    group radio cache inet misc audio wakelock\n')
+    elif path.endswith('/nicmd.rc'):
+        service = b'service vendor.nicmd /system/vendor/bin/nicmd\n    class main\n'
+        derived = data.replace(service, service + b'    user root\n'
+                               b'    capabilities NET_ADMIN NET_RAW SETGID SETUID SETPCAP KILL BLOCK_SUSPEND\n')
+    else:
+        # nicmd enables its file logger only when both values are non-zero
+        # (libnicm_internal.so ConfigurationManager::parseConfiguration).
+        derived = data.replace(b'<data name="num_log_files" type="int"> 4 </data>',
+                               b'<data name="num_log_files" type="int"> 0 </data>')
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived telephony configuration differs from reviewed result')
+    return derived
+
+
+def stock_library_declaration(path, data):
+    """A selected stock permission XML may only declare its reviewed shared library."""
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        raise VendorError('stock permission file is not well formed') from None
+    children = list(root)
+    if (root.tag != 'permissions' or root.attrib or len(children) != 1 or children[0].tag != 'library'
+            or set(children[0].attrib) != {'name', 'file'} or list(children[0])
+            or children[0].get('file') != '/' + STOCK_LIBRARIES[path]):
+        raise VendorError('stock permission file declares more than its reviewed library')
+    return children[0].get('name')
+
+
+# The stock Samsung NFC HAL returns these routes to the NFC stack
+# (nfc_hal_getVendorConfig). Stock sends unregistered ISO-DEP AIDs, the NFC-A/B
+# default and NFC-F to the SIM (0x83). Route them to the host (0x00, the AOSP
+# default). DEFAULT_OFFHOST_ROUTE and OFFHOST_ROUTE_UICC stay, so a registered
+# off-host service still reaches the SIM.
+NFC_CONFIG_REWRITES = {
+    'vendor/etc/libnfc-sec-vendor.conf': {
+        'source_sha256': 'f18694ead707eb26e818368edf3e1a854ee86a1408e82f28b1c1ac8d9c40c05c',
+        'sha256': '99dc5bbac35db5856987623073a917efa9b183256ac008b6aa55e08fb43e329b',
+        'reason': 'Route unregistered ISO-DEP, NFC-F and default listen traffic to the host, not the SIM'},
+}
+
+
+def nfc_config(path, data):
+    """Pinned change of the default listen routes from the SIM (0x83) to the host (0x00)."""
+    rule = NFC_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('NFC configuration differs from reviewed EU stock input')
+    derived = data
+    for key in (b'DEFAULT_ROUTE', b'DEFAULT_ISODEP_ROUTE', b'DEFAULT_NFCF_ROUTE'):
+        derived, count = re.subn(rb'^' + key + rb'=0x83$', key + b'=0x00', derived, flags=re.M)
+        if count != 1:
+            raise VendorError('NFC configuration differs from reviewed EU stock input')
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived NFC configuration differs from reviewed result')
+    return derived
+
+
+GNSS_CONFIG_REWRITES = {
+    'vendor/etc/izat.conf': {
+        'source_sha256': 'faaf2906fb7520b8c348e4f47e797d4a0b574d332cd647cc0c251a3352352c4f',
+        'sha256': 'e1f26cf0524ed52d102e27f8efaa490598985455c73158cd4fb1eda257b50c6d',
+        'reason': 'Disable Qualcomm cloud positioning, Wi-Fi scan injection and the uninstalled location daemons'},
+    'vendor/etc/gps.conf': {
+        'source_sha256': 'a89ca530acfa96685d87160ecf61ac49f3a26128dfa24372c4eb917ec7ccdd57',
+        'sha256': 'b7c87609084cc1b65fa7f9a32bfe38100fddea9a6e2f2f248d287e9dfe55002f',
+        'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface'},
+    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': {
+        'source_sha256': 'c26a05a20d168de2ff460b6493029368e7ae7fe774c65c794c11e635d3856d1f',
+        'sha256': 'e497937eefe98b5127ceca4331fa271067ef7bd1eb66b794db1aea5728c3f555',
+        'reason': 'Advertise only IGnss/default and keep only the system and gps groups'},
+}
+IZAT_DISABLED_PROCESSES = ('lowi-server', 'xtwifi-client', 'slim_daemon', 'xtra-daemon', 'edgnss-daemon', 'blpsvc')
+GNSS_REQUIRED = {
+    'vendor/etc/gps.conf': (b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n'),
+    'vendor/etc/izat.conf': (b'\nGTP_MODE=DISABLED\n', b'\nFREE_WIFI_SCAN_INJECT=DISABLED\n',
+                             b'\nSUPL_WIFI=DISABLED\n', b'\nWIFI_SUPPLICANT_INFO=DISABLED\n'),
+    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': (b'\n    interface aidl android.hardware.gnss.IGnss/default\n',
+                                                                  b'\n    group system gps\n'),
+}
+GNSS_FORBIDDEN = {
+    'vendor/etc/gps.conf': (b'xtracloud', b'izatcloud', b'://'),
+    'vendor/etc/izat.conf': (b'xtracloud', b'izatcloud', b'://', b'\nPROCESS_STATE=ENABLED'),
+    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': (b'ILocAidlGnss', b'radio', b'vendor_qti_diag',
+                                                                  b'vendor_ssgtzd', b'capabilities', b'inet'),
+}
+
+
+def gnss_config(path, data):
+    """Pinned privacy and activation edits of the stock GNSS configuration."""
+    rule = GNSS_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('GNSS configuration differs from reviewed EU stock input')
+    if path.endswith('/izat.conf'):
+        derived = data.replace(b'GTP_PRIVACY_VERSION_URL = https://info.izatcloud.net/privacy/version.html\n', b'')
+        for key, old in ((b'GTP_MODE', b'SDK'), (b'FREE_WIFI_SCAN_INJECT', b'BASIC'),
+                         (b'SUPL_WIFI', b'BASIC'), (b'WIFI_SUPPLICANT_INFO', b'BASIC')):
+            derived = derived.replace(b'\n' + key + b'=' + old + b'\n', b'\n' + key + b'=DISABLED\n')
+        for name in IZAT_DISABLED_PROCESSES:
+            derived = re.sub(rb'(\nPROCESS_NAME=' + re.escape(name.encode()) + rb'\nPROCESS_ARGUMENT=[^\n]*\nPROCESS_STATE=)ENABLED\n',
+                             rb'\1DISABLED\n', derived)
+    elif path.endswith('/gps.conf'):
+        derived = data.replace(b'#NTP server\nNTP_SERVER=time.xtracloud.net\n', b'')
+        derived = derived.replace(b'\nLOC_DIAGIFACE_ENABLED = 1\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n')
+    else:
+        derived = data.replace(b'    interface aidl vendor.qti.gnss.ILocAidlGnss/default\n', b'')
+        derived = derived.replace(b'    group system gps radio vendor_qti_diag vendor_ssgtzd\n', b'    group system gps\n')
+    if (any(token not in derived for token in GNSS_REQUIRED[path])
+            or any(token in derived for token in GNSS_FORBIDDEN[path])):
+        raise VendorError('derived GNSS configuration violates its privacy invariants')
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived GNSS configuration differs from reviewed result')
+    return derived
 
 def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
     closure = vendor_files.selection(recipe, public=False, **policy)
@@ -443,13 +825,29 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 vendor_files.copy_verified(inputs, item, tree / 'files' / item['path'])
             for item in recipe['notices']:
                 vendor_files.copy_verified(inputs, item, tree / 'notices' / item['sha256'])
-            if len(recipe['notices']) != 1:
+            for item in recipe['files']:
+                data_input = any(p.fullmatch(item['path']) for p in LIB64_DATA)
+                dsp_input = item['path'].startswith(DSP_DIRECTORIES)
+                if not (data_input or dsp_input):
+                    continue
+                with open(tree / 'files' / item['path'], 'rb') as stream:
+                    head = stream.read(20)
+                if data_input and head[:4] == b'\x7fELF':
+                    raise VendorError('ELF content in a vendor/lib64 data input')
+                if dsp_input and (head[:8] != DSP_MACHINE_MAGIC or head[18:20] != (164).to_bytes(2, 'little')):
+                    raise VendorError('DSP library input is not a QDSP6 ELF')
+            partitions = sorted({i['path'].split('/')[0] for i in recipe['files']})
+            archives = {n['input']: n for n in recipe['notices']}
+            if (len(archives) != len(partitions)
+                    or set(archives) != {p + '/etc/NOTICE.xml.gz' for p in partitions}):
                 raise VendorError('FP6 product requires its reviewed stock notice archive')
-            with gzip.GzipFile(fileobj=io.BytesIO((tree / 'notices' / recipe['notices'][0]['sha256']).read_bytes())) as stream:
-                notice = stream.read(64 * 1024**2 + 1)
-            if len(notice) > 64 * 1024**2:
-                raise VendorError('expanded notice exceeds size limit')
-            rendered['NOTICE.xml'] = notice
+            for partition in partitions:
+                archive = archives[partition + '/etc/NOTICE.xml.gz']
+                with gzip.GzipFile(fileobj=io.BytesIO((tree / 'notices' / archive['sha256']).read_bytes())) as stream:
+                    notice = stream.read(64 * 1024**2 + 1)
+                if len(notice) > 64 * 1024**2:
+                    raise VendorError('expanded notice exceeds size limit')
+                rendered['NOTICE.xml' if partition == 'vendor' else 'NOTICE-' + partition + '.xml'] = notice
             config = tree / 'files/vendor/etc/perf/perfconfigstore.xml'
             original = config.read_bytes()
             derived = performance_config(original)
@@ -462,6 +860,25 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 config = tree / 'files' / path
                 config.write_bytes(audio_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in CAMERA_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(camera_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in TELEPHONY_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(telephony_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in NFC_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(nfc_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in GNSS_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(gnss_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            provenance['stock_shared_libraries'] = {
+                path: stock_library_declaration(path, (tree / 'files' / path).read_bytes())
+                for path in sorted(STOCK_LIBRARIES) if path in {i['path'] for i in recipe['files']}}
             for path, rewrite in sorted(NEEDED_REWRITES.items()):
                 blob = tree / 'files' / path
                 original = blob.read_bytes()
