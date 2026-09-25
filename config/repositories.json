@@ -63,6 +63,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/kernel/qcom"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/common",
+      "id": "kernel-common",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_common-6.1.git",
+      "revision": null,
+      "slug": "kernel_common-6.1",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/kernel_common-6.1"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/kernel/fairphone/sm7635-modules",
       "id": "modules",
       "publication": "public-source",

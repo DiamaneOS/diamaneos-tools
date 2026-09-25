@@ -231,6 +231,34 @@ qualification. Do not modify this accepted environment in place, add planned
 empty repositories or use the overlay to freeze revisions already supplied by
 the signed GrapheneOS release.
 
+## Upstream tracking
+
+[`config/forks.json`](../config/forks.json) lists every upstream the build uses.
+`forks` are the repositories DiamaneOS forks and patches: the manifest overlay
+forks and the kernel forks in `config/patches.json`. Each names the upstream
+reference it follows. `sources` are pinned inputs that are not forked (the
+GrapheneOS release, the repo launcher, Fairphone's source manifest, the
+Qualcomm SELinux policy and the stock factory image). Each names the file and
+field that hold its pin, so the registry never repeats a revision. `newer`
+patterns name the branches or tags that would supersede a followed reference,
+such as Fairphone's next `odm/rc/target/<android>/fp6` branch or the next
+CodeLinaro release tag.
+
+```sh
+bin/diamaneos forks check           # remote refs only; exit 1 when something moved
+bin/diamaneos forks status --fetch  # commits behind and patches carried, per fork
+bin/diamaneos forks update <id>     # rebase our patches into update/<date>-<commit>
+```
+
+`check` downloads no history. It reads each remote's branch and tag names and
+answers "is this commit already ours?" locally, without fetching missing
+objects into partial clones. States: `current`, `update-available` (the followed
+branch moved), `newer-release` (a newer branch or tag exists), `pinned-commit`
+(the entry follows no branch or tag yet), `manual-check` (not a Git source) and
+`error`. Adopting any update is a reviewed, signed change: rebase, update the
+pins (`config/patches.json`, the kernel manifest, the build environment), run
+the tests and the kernel layout checks, build, then push.
+
 ## Signing handoff
 
 The online builder stops at unsigned target-files and otatools. Signing roles,
