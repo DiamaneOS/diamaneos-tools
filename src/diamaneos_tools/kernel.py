@@ -71,6 +71,16 @@ def git(path, *args):
     return call(['git', '-c', 'core.hooksPath=/dev/null', '-C', path, *args], cwd=path).strip()
 
 
+HUNK_CONTEXT = re.compile(rb'^(@@ -[0-9,]+ \+[0-9,]+ @@).*$', re.M)
+
+
+def canonical_diff(diff):
+    """A patch diff without the function name Git appends to hunk headers. Which
+    name it prints depends on the Git version's diff drivers (the kernel's
+    .gitattributes selects cpp and dts), not on the change itself."""
+    return HUNK_CONTEXT.sub(rb'\1', diff)
+
+
 def configuration():
     plan = load_json(ROOT / 'config/kernel-sources-fp6.json')
     changes = [p for p in load_json(ROOT / 'config/patches.json')['patches'] if p['workspace'] == 'kernel']
@@ -118,9 +128,10 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
             git(dest, 'checkout', '--detach', revision)
         require(git(dest, 'rev-parse', 'HEAD') == revision, 'source revision mismatch: ' + row['path'])
         if patch:
-            diff = process.run(['git', '-C', str(dest), 'diff', '--full-index', row['revision'], revision], 120,
-                               MAX_PATCH_DIFF_BYTES, cwd=root)
-            require(diff['transport'] == 'ok' and hashlib.sha256(diff['stdout']).hexdigest() == patch['canonical_diff_sha256'],
+            diff = process.run(['git', '-C', str(dest), 'diff', '--full-index', '--no-ext-diff', '--no-textconv',
+                                '--no-color', row['revision'], revision], 120, MAX_PATCH_DIFF_BYTES, cwd=root)
+            require(diff['transport'] == 'ok' and
+                    hashlib.sha256(canonical_diff(diff['stdout'])).hexdigest() == patch['canonical_diff_sha256'],
                     'downstream patch bytes differ')
             names = git(dest, 'diff', '--name-only', row['revision'], revision).splitlines()
             if 'changed_files' in patch:
