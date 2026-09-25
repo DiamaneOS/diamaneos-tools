@@ -708,8 +708,8 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/wlan/qcacld-3.0",
       "base_revision": "05fc8e4467c6ca276e4ad303687da362e62baadd",
-      "derived_revision": "b93d874403e4dbb5715c17c206cc4ef5024c9528",
-      "canonical_diff_sha256": "209a6a935e41568c0771e35fc3dd88d328fb41bcf2ef9651cba3664178dd850d",
+      "derived_revision": "9370ca19fef33a844435558217ce7bc723a0ca2b",
+      "canonical_diff_sha256": "5d72d5c78cb0a0e96322ba515316dbe02fb36fe9b462953bb5cf9785df93f646",
       "changed_files": [
         "configs/fps_consolidate_kiwi-v2_defconfig",
         "configs/fps_consolidate_peach-v2_defconfig",
@@ -725,9 +725,10 @@
         "core/mac/src/pe/lim/lim_process_sme_req_messages.c",
         "core/mac/src/pe/lim/lim_send_sme_rsp_messages.c",
         "core/mac/src/pe/sch/sch_beacon_process.c",
+        "target_variants.bzl",
         "wlan_qcacld3_modules.bzl"
       ],
-      "purpose": "Carry the device build target and the APC host fix on the CodeLinaro qcacld-3.0 release.",
+      "purpose": "Carry the device build target (including its target_variants entry) and the APC host fix on the CodeLinaro qcacld-3.0 release.",
       "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
     },
     {
