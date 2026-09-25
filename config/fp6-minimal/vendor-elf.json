@@ -48621,6 +48621,13 @@
       "bytes": 1719,
       "consumer": "Awinic haptic_hv vibrator kernel driver",
       "source": "FP6 exact EU stock haptics firmware"
+    },
+    {
+      "path": "vendor/firmware/vpu20_2v.mbn",
+      "sha256": "675f4b657d444835cdaedcd913a3131869de57e7584a15522ce0c66e4e4366fe",
+      "bytes": 2036328,
+      "consumer": "qcom,volcano-vidc (msm_video.ko, Iris video core)",
+      "source": "kernel_qcom_video driver/platform/volcano/src/msm_vidc_volcano.c .fwname \"vpu20_2v\"; driver/vidc/src/firmware.c request_firmware(\"%s.mbn\")"
     }
   ]
 }

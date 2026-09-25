@@ -583,6 +583,15 @@ class NativeProductTests(unittest.TestCase):
             self.assertEqual(rule['source_sha256'], rows[path]['sha256'])
             with self.assertRaises(VendorError): vendor_product.telephony_config(path, b'unreviewed')
 
+    def test_iris_video_firmware_copied_to_vendor_firmware(self):
+        # msm_video.ko requests vpu20_2v.mbn for every volcano SKU; without it
+        # the video core fails "sys init" at probe (media stage A).
+        make = self.render()['device-vendor.mk'].decode()
+        self.assertIn('vendor/firmware/vpu20_2v.mbn:$(TARGET_COPY_OUT_VENDOR)/firmware/vpu20_2v.mbn', make)
+        self.assertNotIn('vpu20_2v_unsigned', make)
+        owners = {r['path']: r['component_id'] for r in self.recipe['files']}
+        self.assertEqual('firmware-trusted-boot', owners['vendor/firmware/vpu20_2v.mbn'])
+
     def test_recipe_satisfies_the_component_graph(self):
         from diamaneos_tools import components, vendor_files
         model_data = (ROOT / 'config/components.json').read_bytes()
