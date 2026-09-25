@@ -145,6 +145,9 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
                 # Upstream merges touch thousands of files; bind the list by digest.
                 listed = hashlib.sha256(''.join(n + '\n' for n in names).encode()).hexdigest()
                 require(listed == patch['changed_files_sha256'], 'downstream patch file set differs')
+        # A forked project checks out its derived commit; link exclusions stay keyed
+        # to the upstream revision named in the source plan.
+        expected[row['path']]['base_revision'] = row['revision']
         expected[row['path']]['revision'] = revision
     return list(expected.values())
 
@@ -153,7 +156,7 @@ def links(root, rows, adaptation):
     for row in rows:
         for link in row['linkfiles']:
             skipped = [e for e in adaptation['excluded_linkfiles'] if
-                       e['project'] == row['project'] and e['revision'] == row['revision'] and
+                       e['project'] == row['project'] and e['revision'] == row.get('base_revision', row['revision']) and
                        e['src'] == link['src'] and e['dest'] == link['dest']]
             src = root / row['path'] / (Path('.') if link['src'] == '.' else relative(link['src']))
             if skipped:
