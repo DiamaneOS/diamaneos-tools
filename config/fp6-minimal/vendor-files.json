@@ -17444,6 +17444,178 @@
         "selinux": "u:object_r:system_lib_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/lib64/libsdmextension.so",
+      "path": "vendor/lib64/libsdmextension.so",
+      "sha256": "fa0eba207960de3a94063ab14d22a655e2fa9a64c64a76be9848de5808a43c41",
+      "bytes": 2395096,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libdisplayqos.so",
+        "vendor/lib64/libdisplayskuutils.so",
+        "vendor/lib64/libdrm.so",
+        "vendor/lib64/libintervmipc.so",
+        "vendor/lib64/libmemutils.so",
+        "vendor/lib64/libminksocket_vendor.so",
+        "vendor/lib64/libqrtr.so",
+        "vendor/lib64/libsdedrm.so",
+        "vendor/lib64/libsdm-color.so",
+        "vendor/lib64/libsdmdal.so",
+        "vendor/lib64/libsdmutils.so",
+        "vendor/lib64/libtestutils.so",
+        "vendor/lib64/libtinyxml2_1.so",
+        "vendor/lib64/libvmfilexfer.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm SDM extension: composition strategy (layer to display-pipe assignment) the source-built display HAL loads with dlopen; without it every frame is composed on the GPU.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libdisplayqos.so",
+      "path": "vendor/lib64/libdisplayqos.so",
+      "sha256": "76e51596158101d591c7fab06b1600ac3fc6742c3a0d59e58418ceec3a760d7b",
+      "bytes": 127160,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libdisplayskuutils.so",
+      "path": "vendor/lib64/libdisplayskuutils.so",
+      "sha256": "d92466c1fa5f202bcdd97ddec20c2d3e0aace4b0ad5139ed5d3ca3896e077301",
+      "bytes": 70720,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libsdmutils.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtestutils.so",
+      "path": "vendor/lib64/libtestutils.so",
+      "sha256": "b6e2a1c08904ec26421cb65140ba9ceb7c6d0ad5f70dc811e2130875a7c86683",
+      "bytes": 27104,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libvmfilexfer.so",
+      "path": "vendor/lib64/libvmfilexfer.so",
+      "sha256": "f3b382d947086d47153d4f316705bb45e005b9b5a24d670c8edecfe76b024fb7",
+      "bytes": 65744,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libmemutils.so",
+        "vendor/lib64/libqrtr.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libintervmipc.so",
+      "path": "vendor/lib64/libintervmipc.so",
+      "sha256": "081c21847c555ad9f3b7b88401deb830eeab2e764ba87c12de5034552f254eac",
+      "bytes": 40160,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libqrtr.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libminksocket_vendor.so",
+      "path": "vendor/lib64/libminksocket_vendor.so",
+      "sha256": "0845592eda7f7efe13da64c17779a6e483f2ec4a7f3943f15a2662830edd605f",
+      "bytes": 120944,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libqrtr.so",
+        "vendor/lib64/libvmmem.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [

@@ -1206,6 +1206,16 @@
       "bytes": 15288
     },
     {
+      "path": "vendor/lib64/libdisplayqos.so",
+      "sha256": "76e51596158101d591c7fab06b1600ac3fc6742c3a0d59e58418ceec3a760d7b",
+      "bytes": 127160
+    },
+    {
+      "path": "vendor/lib64/libdisplayskuutils.so",
+      "sha256": "d92466c1fa5f202bcdd97ddec20c2d3e0aace4b0ad5139ed5d3ca3896e077301",
+      "bytes": 70720
+    },
+    {
       "path": "vendor/lib64/libdrm.so",
       "sha256": "28cb1c84cb0b59bc6f9dda0fefef7a553747ce6f1384327ebdf6b16f3408fa62",
       "bytes": 94744
@@ -1309,6 +1319,11 @@
       "path": "vendor/lib64/libidl.so",
       "sha256": "a46e48bb23be3bd7d69064267e553becb15e22bde599968ccddc8ade2d345740",
       "bytes": 27960
+    },
+    {
+      "path": "vendor/lib64/libintervmipc.so",
+      "sha256": "081c21847c555ad9f3b7b88401deb830eeab2e764ba87c12de5034552f254eac",
+      "bytes": 40160
     },
     {
       "path": "vendor/lib64/libipebpsstriping.so",
@@ -1434,6 +1449,11 @@
       "path": "vendor/lib64/libminkdescriptor.so",
       "sha256": "d0256294996d89ec3eae0ea6d83ca8ec2d54134a230101264524dad3f9e186ca",
       "bytes": 54352
+    },
+    {
+      "path": "vendor/lib64/libminksocket_vendor.so",
+      "sha256": "0845592eda7f7efe13da64c17779a6e483f2ec4a7f3943f15a2662830edd605f",
+      "bytes": 120944
     },
     {
       "path": "vendor/lib64/libmlremosaicsnapshot.so",
@@ -1836,6 +1856,11 @@
       "bytes": 413640
     },
     {
+      "path": "vendor/lib64/libsdmextension.so",
+      "sha256": "fa0eba207960de3a94063ab14d22a655e2fa9a64c64a76be9848de5808a43c41",
+      "bytes": 2395096
+    },
+    {
       "path": "vendor/lib64/libsdmutils.so",
       "sha256": "2ab68219713c34eec121a7f72eeb4b78cb3c63563d22e15a6f9f694148ea933e",
       "bytes": 67016
@@ -1931,6 +1956,11 @@
       "bytes": 14824
     },
     {
+      "path": "vendor/lib64/libtestutils.so",
+      "sha256": "b6e2a1c08904ec26421cb65140ba9ceb7c6d0ad5f70dc811e2130875a7c86683",
+      "bytes": 27104
+    },
+    {
       "path": "vendor/lib64/libtfestriping.so",
       "sha256": "c674e14f17dc81fd30057e5b6947071ae0e983b47dd62dcb8f6466b9c558559e",
       "bytes": 134184
@@ -1964,6 +1994,11 @@
       "path": "vendor/lib64/libubwcp.so",
       "sha256": "5284532f8a5358b3be7957f51612313713f1db878939e0dedb7eddf530d30b3b",
       "bytes": 14928
+    },
+    {
+      "path": "vendor/lib64/libvmfilexfer.so",
+      "sha256": "f3b382d947086d47153d4f316705bb45e005b9b5a24d670c8edecfe76b024fb7",
+      "bytes": 65744
     },
     {
       "path": "vendor/lib64/libvmmem.so",
@@ -29448,6 +29483,118 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayqos.so",
+      "needed": "libtinyxml2_1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtinyxml2_1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libdisplayskuutils.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libdrm.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -31060,6 +31207,50 @@
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libintervmipc.so",
+      "needed": "libqrtr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqrtr.so"
     },
     {
       "consumer": "vendor/lib64/libipebpsstriping.so",
@@ -33420,6 +33611,66 @@
       "export_lists": [
         "/etc/vndksp.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libqrtr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqrtr.so"
+    },
+    {
+      "consumer": "vendor/lib64/libminksocket_vendor.so",
+      "needed": "libvmmem.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmmem.so"
     },
     {
       "consumer": "vendor/lib64/libmlremosaicsnapshot.so",
@@ -40144,6 +40395,212 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "android.hardware.thermal-V1-ndk.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "android.hardware.thermal@1.0.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "android.hardware.thermal@2.0.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libcrypto.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libdisplayqos.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplayqos.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libdisplayskuutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplayskuutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libdrm.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdrm.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libhidltransport.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libintervmipc.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libintervmipc.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libmemutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libmemutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libminksocket_vendor.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libminksocket_vendor.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libqrtr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqrtr.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libsdedrm.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdedrm.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libsdm-color.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdm-color.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libsdmdal.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmdal.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libsdmutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libsdmutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libssl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libtestutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtestutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libtinyxml2_1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtinyxml2_1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libsdmextension.so",
+      "needed": "libvmfilexfer.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmfilexfer.so"
+    },
+    {
       "consumer": "vendor/lib64/libsdmutils.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -41334,6 +41791,38 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libtestutils.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtestutils.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtestutils.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtestutils.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libtfestriping.so",
       "needed": "android.hardware.graphics.allocator-V1-ndk.so",
       "kind": "selected-stock",
@@ -41778,6 +42267,56 @@
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libdisplaydebug.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libdisplaydebug.so"
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libmemutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libmemutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libvmfilexfer.so",
+      "needed": "libqrtr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqrtr.so"
     },
     {
       "consumer": "vendor/lib64/libvmmem.so",
@@ -47626,7 +48165,8 @@
     "vendor/bin/ssr_setup",
     "vendor/bin/hw/android.hardware.nfc-service.sec",
     "vendor/bin/hw/qcrilNrd",
-    "vendor/bin/nicmd"
+    "vendor/bin/nicmd",
+    "vendor/lib64/libsdmextension.so"
   ],
   "firmware_inputs": [
     {
