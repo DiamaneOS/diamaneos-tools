@@ -60,6 +60,18 @@ class KernelManifestTests(unittest.TestCase):
                 self.assertEqual(2, kernel.main(['manifest', '--check', str(path)]))
                 self.assertEqual(2, kernel.main(['manifest']))
 
+    def test_codelinaro_projects_share_one_remote(self):
+        remotes = {r.get('name'): r.get('fetch') for r in self.root.iter('remote')}
+        self.assertEqual('https://git.codelinaro.org/clo/la/', remotes['codelinaro'])
+        projects = {p.get('path'): p for p in self.root.iter('project')}
+        patched = {c['path'] for c in self.changes}
+        for row in self.plan['projects']:
+            if row['path'] not in patched and row.get('url', '').startswith('https://git.codelinaro.org/clo/la/'):
+                with self.subTest(path=row['path']):
+                    self.assertEqual('codelinaro', projects[row['path']].get('remote'))
+                    self.assertEqual(row['url'].removeprefix('https://git.codelinaro.org/clo/la/'),
+                                     projects[row['path']].get('name'))
+
 
 if __name__ == '__main__':
     unittest.main()
