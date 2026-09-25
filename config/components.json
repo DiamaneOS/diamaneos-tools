@@ -570,9 +570,11 @@
       ],
       "blocker_refs": [],
       "dependencies": [
+        "credentials-security",
         "device-platform-kernel",
         "firmware-trusted-boot",
-        "public-hal-services"
+        "public-hal-services",
+        "remote-processor-services"
       ],
       "interfaces": [
         "Android audio HAL and policy",
