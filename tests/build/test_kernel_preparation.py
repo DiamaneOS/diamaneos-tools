@@ -26,7 +26,7 @@ class KernelPreparationTests(unittest.TestCase):
         base=self.git('rev-parse','HEAD')
         (self.repo/'file').write_text('derived\n');self.git('commit','-qam','derived','--no-gpg-sign')
         revision=self.git('rev-parse','HEAD')
-        diff=subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision])
+        diff=kernel.canonical_diff(subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision]))
         self.plan={'source_url':'https://example.invalid/','projects':[dict(project='kernel/common',path='kernel_platform/common',revision=base,linkfiles=[dict(src='.',dest='kernel_platform/common-link')])]}
         self.changes=[dict(path='kernel_platform/common',base_revision=base,derived_revision=revision,repository='https://example.invalid/common',canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['file'])]
         self.adaptation={'excluded_linkfiles':[],'generated_links':[]}
@@ -47,10 +47,18 @@ class KernelPreparationTests(unittest.TestCase):
         base=self.changes[0]['base_revision']
         (self.repo/'abi.stg').write_text('symbol line\n'*60000);self.git('add','abi.stg')
         self.git('commit','-qm','record abi','--no-gpg-sign');revision=self.git('rev-parse','HEAD')
-        diff=subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision])
+        diff=kernel.canonical_diff(subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision]))
         self.assertGreater(len(diff),262144)
         self.changes[0].update(derived_revision=revision,canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['abi.stg','file'])
         self.assertEqual('PASS',self.prepare()['status'])
+    def test_canonical_diff_ignores_hunk_function_context(self):
+        # Git versions name the enclosing function differently; the change is the same.
+        a = b'@@ -10,7 +10,8 @@ static int probe(struct device *dev)\n-x\n+y\n'
+        b = b'@@ -10,7 +10,8 @@ struct foo {\n-x\n+y\n'
+        self.assertEqual(kernel.canonical_diff(a), kernel.canonical_diff(b))
+        self.assertEqual(b'@@ -1 +1 @@\n+@@ -2 +2 @@ in content\n',
+                         kernel.canonical_diff(b'@@ -1 +1 @@ ctx\n+@@ -2 +2 @@ in content\n'))
+
     def test_file_list_bound_by_digest(self):
         # Upstream merges record a digest of the changed file list instead of the list.
         del self.changes[0]['changed_files']

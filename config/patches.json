@@ -92,7 +92,7 @@
       "path": "kernel_platform/msm-kernel",
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
       "derived_revision": "8604cc38de0424a9abbea90e033d3d58946a55ac",
-      "canonical_diff_sha256": "ba3235aad425c61f3ec32378bb59df1a8e194705b418dabd809f9e09dd94eacc",
+      "canonical_diff_sha256": "163f3161e3aeea1a0d78d616d374c28db074a493c6f4ed2894f03f6eda607601",
       "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel.",
       "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
       "changed_files_sha256": "564d7d883ec530e97fa2af2e5facd25f2c2c9bbcb3a197562a1c1660d98c5d57",
@@ -109,7 +109,7 @@
       "path": "vendor/qcom/opensource/graphics-kernel",
       "base_revision": "e4cb2ea52efd472a20b10f77e3a087c58c41d135",
       "derived_revision": "f3470488a0bebd80dadec7312c1389ac73a5fef7",
-      "canonical_diff_sha256": "191aafc71b26a17e99e54eddf7c85af84f43250a9420fb281f450f212ea37e75",
+      "canonical_diff_sha256": "7538a29724f83d7008d0b23fac565acaf5fc77910c8423d8dab64cf43d4a3a9e",
       "purpose": "Declare the GPU dependency on the exported matched devfreq header. Also rename the local in_range() helper that clashes with the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
       "validation": "External module compilation passes without changing header contents, KMI or sandbox checks. Runtime qualification remains separate.",
       "changed_files": [
@@ -288,7 +288,7 @@
       "path": "vendor/qcom/opensource/camera-kernel",
       "base_revision": "db93e61705f7a8a20d9b4896307f80fb904ca767",
       "derived_revision": "4739adbc3c6e81c6ab4e991e6414e90224b4e2b3",
-      "canonical_diff_sha256": "e5110f1dc846496b660f1b2b80a160b0e86b72544745f4a142e44f3649c2b6f1",
+      "canonical_diff_sha256": "33b660ec50c858a17db989e2c8deb623147bf04e12db961bf4a042b9d6e62f9c",
       "changed_files": [
         "Android.mk",
         "Kbuild",
@@ -320,7 +320,7 @@
       "path": "vendor/qcom/opensource/dataipa",
       "base_revision": "726acc3f151ffaf65493df90a1f089db957136b2",
       "derived_revision": "4872c2651e7d4a0793cc774f0d4a89f814beef5c",
-      "canonical_diff_sha256": "2d3edb7c97a9efb152cef080624e23d0da8fd805dc9dd4feaed0082e31bf30fb",
+      "canonical_diff_sha256": "7a42e15cc51c25fe7f687043c303a064ddc533012cc7424d3247427ca1dc2c49",
       "changed_files": [
         "BUILD.bazel",
         "drivers/platform/msm/ipa/ipa_clients/ipa_usb.c",
@@ -341,7 +341,7 @@
       "path": "vendor/qcom/opensource/display-drivers",
       "base_revision": "1065a7677a1a33214ba1b8733f0d5872ede004b8",
       "derived_revision": "9574dc7f8daad0fc98266f434be35e87f65b6d4d",
-      "canonical_diff_sha256": "cf77d6da2248ee957c93dc8ebf4196766dbc2841ea830337bddd783aeb8b5867",
+      "canonical_diff_sha256": "d222ca39162ebc7b404a3e8abc89e1d48357d4108f238566079b293ec7e47cda",
       "changed_files": [
         "msm/Android.mk",
         "msm/dsi/dsi_defs.h",
@@ -379,7 +379,7 @@
       "path": "vendor/qcom/opensource/securemsm-kernel",
       "base_revision": "e1010ac4fede58b28a66ae87572b0cbb8aa5849d",
       "derived_revision": "1ee0ba29a2f578d4c2c6c0105219d082f7d595d8",
-      "canonical_diff_sha256": "fb7902d6bb8446996655050f47d662969085dd74120dde7316f3e0408bad75d8",
+      "canonical_diff_sha256": "aa32e0187808a91c50148f7b685ffb37a8e5e48de9c14196bd1f8912a8ee20af",
       "changed_files": [
         "BUILD.bazel",
         "build/fps.bzl",
@@ -395,7 +395,7 @@
       "path": "vendor/qcom/opensource/touch-drivers",
       "base_revision": "167825dc915600f14e045829a0bffc8981224a81",
       "derived_revision": "91bc2babbb8db80c64000baa91df5be49c5e3c1c",
-      "canonical_diff_sha256": "0fd15e78e62622f4f4619dd714bb6ad8754e8fced86f930fc7f65731bb61165f",
+      "canonical_diff_sha256": "9f7bf6a3aa4ee3d40ba8e03b34adf1582dfa02e42f6f907cb0e5b1563f7bdd46",
       "changed_files": [
         "Android.mk",
         "BUILD.bazel",
@@ -448,7 +448,7 @@
       "path": "vendor/qcom/opensource/video-driver",
       "base_revision": "976400c73395c8cc681c8bd13a3dc18a91804caa",
       "derived_revision": "604b9c08a0800776baf009061e7979c6a3f2013b",
-      "canonical_diff_sha256": "ee1c39ec6958255092065de63fe872839613aae9145bd8e50c9a8c20dfda5a3a",
+      "canonical_diff_sha256": "eeca4856bebb2de571c5907c6c4a10dc3b5dd5dc46060924943884da493cf594",
       "changed_files": [
         "Android.mk",
         "BUILD.bazel",
