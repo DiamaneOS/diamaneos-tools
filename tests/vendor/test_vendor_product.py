@@ -136,6 +136,17 @@ class NativeProductTests(unittest.TestCase):
         self.assertFalse([p for p, owner in owners.items() if owner == 'firmware-trusted-boot'
                           and p.startswith(('vendor/bin/', 'vendor/lib64/'))])
 
+    def test_allocator_v1_is_installed_not_linked(self):
+        out = self.render()
+        bp = out['Android.bp'].decode()
+        self.assertNotIn('"android.hardware.graphics.allocator-V1-ndk"', bp)
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcommonchiutils"'):]
+        self.assertIn('check_elf_files: false', block[:block.index('}\n')])
+        self.assertIn('"android.hardware.graphics.allocator-V2-ndk"',
+                      bp[bp.index('name: "fp6_stock_vendor_lib64_libcamximageformatutils"'):].split('}\n')[0])
+        self.assertIn('PRODUCT_PACKAGES += android.hardware.graphics.allocator-V1-ndk.vendor',
+                      out['device-vendor.mk'].decode())
+
     def test_display_color_manager_installed_as_required(self):
         bp = self.render()['Android.bp'].decode()
         for loader, stems in [('fp6_stock_vendor_lib64_libsnapdragoncolor-manager', ['libcolor-default', 'libsnapdragoncolor-qdcm']),
