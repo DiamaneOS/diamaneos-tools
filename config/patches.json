@@ -67,7 +67,7 @@
     },
     {
       "id": "kernel-common-randstruct-callbacks",
-      "repository": "https://github.com/abhinav-jhanwar/kernel_common-6.1",
+      "repository": "https://github.com/DiamaneOS/kernel_common-6.1",
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
