@@ -65,6 +65,11 @@ SOURCE_INTERFACES = {
     'android.hardware.sensors@2.0-ScopedWakelock',
     'android.hardware.sensors@2.1',
     'android.hardware.sensors-V2-ndk',
+    # AOSP libraries the stock audio HAL, PAL and AGM link, built from source
+    # with the AOSP audio service and HIDL wrappers (device audio.mk).
+    'android.hidl.allocator@1.0',
+    'libhidltransport',
+    'libtinycompress',
 }
 # Stable AIDL libraries a selected blob links that are built from the pinned
 # Android tree instead of taken from the factory image. None are needed now.
@@ -88,6 +93,8 @@ ACTIVATION={
  # sscrpcd starts the sensors protection domain on the ADSP; the sensors
  # multi-HAL itself is built from source (device.mk).
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
+ # audioadsprpcd starts the audio protection domain on the ADSP.
+ 'audioadsprpcd':('vendor.qti.audio-adsprpc-service.rc',None),
 }
 
 
@@ -367,6 +374,36 @@ def performance_config(data):
     return result
 
 
+AUDIO_CONFIG_REWRITES = {
+    'vendor/etc/audio/sku_volcano/audio_effects.xml': {
+        'source_sha256': '6de7bf739222d27f88adb1a95fa6f010e0d1c151b60d0a3da5603dbf0c74d1fe',
+        'sha256': '04990d1f19e82641c50c00c66dbddb3be06811ad817a9f73bbbde8e78109b856',
+        'reason': 'Defer closed AudioSphere and Quasar effects'},
+    'vendor/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml': {
+        'source_sha256': 'ad423c0311b365759c692c64bc5f25ddca7ee788e8b769f2d53f8e801d4e3513',
+        'sha256': 'e507aa16508f03f8550b49e11ec7440bf32b68e1c29648a28bd27bd3f00d0f5e',
+        'reason': 'Disable context detection and remove deferred sound-trigger/model configuration'},
+}
+
+
+def audio_config(path, data):
+    """Pinned removal of deferred closed effects and sound-trigger configuration."""
+    rule = AUDIO_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('audio configuration differs from reviewed EU stock input')
+    if path.endswith('/audio_effects.xml'):
+        derived = re.sub(rb'^.*<(?:library|effect) name="(?:audiosphere|quasar)"[^\n]*\n',
+                         b'', data, flags=re.M)
+    else:
+        derived = data.replace(b'<param key="context_manager_enable" value ="true" />',
+                               b'<param key="context_manager_enable" value ="false" />')
+        derived = re.sub(rb'    <sound_trigger_platform_info>.*?</sound_trigger_platform_info>\n',
+                         b'', derived, flags=re.S)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived audio configuration differs from reviewed result')
+    return derived
+
+
 def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
     closure = vendor_files.selection(recipe, public=False, **policy)
     rendered = render(recipe, selection, notice_kind)
@@ -421,6 +458,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 'source_sha256': hashlib.sha256(original).hexdigest(),
                 'sha256': hashlib.sha256(derived).hexdigest(),
                 'reason': 'Disable optional learning, memory plugin and prekill startup gates'}]
+            for path, rewrite in AUDIO_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(audio_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in sorted(NEEDED_REWRITES.items()):
                 blob = tree / 'files' / path
                 original = blob.read_bytes()

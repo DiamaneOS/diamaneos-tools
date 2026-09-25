@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "7a601bad957895d038eaebe0739046e82f0649cb5d6a927ff77a1c3742370c82",
+  "model_sha256": "3bf25a24af7669084c73ed18f80ba5075fdf469b79e50ef23f6c7aceaee9aeac",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -5709,6 +5709,1004 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/hw/audio.primary.volcano.so",
+      "path": "vendor/lib64/hw/audio.primary.volcano.so",
+      "sha256": "83e31c6b0362761e0f318d21212ac422aeaadae8832bdd35296fcb2f46a7bdcb",
+      "bytes": 538080,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/android.hidl.allocator@1.0.so",
+        "vendor/lib64/libagm.so",
+        "vendor/lib64/libar-pal.so",
+        "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+        "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+        "vendor/lib64/vendor.qti.hardware.pal@1.0-impl.so",
+        "vendor/lib64/vendor.qti.hardware.pal@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock primary audio HAL (AudioReach) for the FP6 sound card; the source-built AOSP audio service loads it and it hosts the PAL and AGM HIDL services.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/bin/audioadsprpcd",
+      "path": "vendor/bin/audioadsprpcd",
+      "sha256": "785da9dda0df3cef4e7f52ba435f518eb9e9b81936555918ab6c4a7ff3cafd82",
+      "bytes": 15392,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Starts the audio protection domain on the ADSP over FastRPC (stock vendor.qti.audio-adsprpc-service.rc).",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:vendor_audioadsprpcd_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libadsp_default_listener.so",
+          "soname": "libadsp_default_listener.so",
+          "reason": "audioadsprpcd loads this FastRPC listener with dlopen for the audio protection domain on the ADSP"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libagm_pcm_plugin.so",
+      "path": "vendor/lib64/libagm_pcm_plugin.so",
+      "sha256": "ac9b5b0b45f79b10e2ecca5fe6ca6cbe8a47189e9a2cb1b08132bba4caaea08e",
+      "bytes": 40760,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libagmclient.so",
+        "vendor/lib64/libaudio_log_utils.so",
+        "vendor/lib64/libsndcardparser.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libagm_compress_plugin.so",
+      "path": "vendor/lib64/libagm_compress_plugin.so",
+      "sha256": "7369be6f150a894b273154ee50b760fce97db5de9c2d0357ef8fecce7a2d261d",
+      "bytes": 40864,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libagmclient.so",
+        "vendor/lib64/libaudio_log_utils.so",
+        "vendor/lib64/libsndcardparser.so",
+        "vendor/lib64/libtinycompress.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libagm_mixer_plugin.so",
+      "path": "vendor/lib64/libagm_mixer_plugin.so",
+      "sha256": "e827d782b93731ac07356f241e90716da51f41aa635a8d14126877cff7f969d9",
+      "bytes": 54048,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libagmclient.so",
+        "vendor/lib64/libaudio_log_utils.so",
+        "vendor/lib64/libsndcardparser.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/soundfx/libqcompostprocbundle.so",
+      "path": "vendor/lib64/soundfx/libqcompostprocbundle.so",
+      "sha256": "959a2d417d76c65fafbcb8485843c0027afbe42fb768f815efec06f6d83d8758",
+      "bytes": 66072,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-pal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/soundfx/libqcomvisualizer.so",
+      "path": "vendor/lib64/soundfx/libqcomvisualizer.so",
+      "sha256": "8ad571c0a38526e924fcc053e6e3dbb5eda4927f08358fa8c85835365ebcacbd",
+      "bytes": 40752,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-pal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/soundfx/libqcomvoiceprocessing.so",
+      "path": "vendor/lib64/soundfx/libqcomvoiceprocessing.so",
+      "sha256": "ce81a88dde08ff485980756e61d9b67bba54d4447bb4f65afd5544401921075b",
+      "bytes": 28008,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/soundfx/libvolumelistener.so",
+      "path": "vendor/lib64/soundfx/libvolumelistener.so",
+      "sha256": "1a4b34183e66dc03b565bbcc695b57f1950d42e4789be70ddf212ef376a44e62",
+      "bytes": 36576,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-pal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libar-pal.so",
+      "path": "vendor/lib64/libar-pal.so",
+      "sha256": "7f801ed948fb045dbf325abbf30cf6c55ac3161215733cb162286a75f20538e1",
+      "bytes": 3949824,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libagmclient.so",
+        "vendor/lib64/libar-gsl.so",
+        "vendor/lib64/libarmemlog.so",
+        "vendor/lib64/liblx-osal.so",
+        "vendor/lib64/libtinycompress.so",
+        "vendor/lib64/libvui_intf.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock PAL (platform audio layer): routing, devices, calibration and use-case graphs for the primary HAL.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libadm.so",
+          "soname": "libadm.so",
+          "reason": "PAL loads its audio deadline management plugin with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/android.hidl.allocator@1.0.so",
+      "path": "vendor/lib64/android.hidl.allocator@1.0.so",
+      "sha256": "8d3fa5af910300be1459ca2ddaf7f9f5e0842d37bc1999d1999823398373f50d",
+      "bytes": 84128,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.pal@1.0-impl.so",
+      "path": "vendor/lib64/vendor.qti.hardware.pal@1.0-impl.so",
+      "sha256": "47177fe1e45a5bf1d001fe9a56b130c68f882a7c6b1d2e711c2aa6aa262d66e1",
+      "bytes": 159312,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/android.hidl.allocator@1.0.so",
+        "vendor/lib64/libar-pal.so",
+        "vendor/lib64/libhidltransport.so",
+        "vendor/lib64/vendor.qti.hardware.pal@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.pal@1.0.so",
+      "path": "vendor/lib64/vendor.qti.hardware.pal@1.0.so",
+      "sha256": "5bbbe522bd9614323c9c21892bb2a61317292c81a5d6c971db588055bc468a30",
+      "bytes": 338720,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+      "path": "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+      "sha256": "e40e31fc1f2432dbf9be42472b8fbad49af84ed2d7c4520baa48f820c0b1b391",
+      "bytes": 84408,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libagm.so",
+        "vendor/lib64/libar-gsl.so",
+        "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+      "path": "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+      "sha256": "39e9d8cd4b27d67631ece60f9fc6f3efca69da1055c42d4ac0416fc79de09a66",
+      "bytes": 383240,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libagm.so",
+      "path": "vendor/lib64/libagm.so",
+      "sha256": "2e3f4a0981d67feddb5a7a218b9a867153a34629505b991c9afeba54e638bb93",
+      "bytes": 188600,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-gsl.so",
+        "vendor/lib64/libarmemlog.so",
+        "vendor/lib64/libats.so",
+        "vendor/lib64/libaudio_log_utils.so",
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AGM (audio graph manager) between PAL, the ALSA plugins and the ADSP graph services.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsndcardparser.so",
+      "path": "vendor/lib64/libsndcardparser.so",
+      "sha256": "f44c11b0c84827db4303f9107a5e334f6ecd47b86a3dd546d418d412145ddfd8",
+      "bytes": 36304,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libagmclient.so",
+      "path": "vendor/lib64/libagmclient.so",
+      "sha256": "b64bcb27fc26d8c5f4688ce00ae0850fde59019f697882013527b7155071d9d6",
+      "bytes": 85640,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libaudio_log_utils.so",
+      "path": "vendor/lib64/libaudio_log_utils.so",
+      "sha256": "464f9dfe3c5e61bac9b7c46ba87ace81fc8b001ab794ff176017bb26f3bca3e2",
+      "bytes": 37232,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtinycompress.so",
+      "path": "vendor/lib64/libtinycompress.so",
+      "sha256": "e3bb1c6daec993b5d88fe021f0669ea3f4f9a1a3ae39e6a3ede02bdbe6f2d939",
+      "bytes": 23896,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libadm.so",
+      "path": "vendor/lib64/libadm.so",
+      "sha256": "8cc2f3bac0d48c9aeafeb49949b46d13ff6324c82e0d00acd460caf475aecc86",
+      "bytes": 43864,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libar-gsl.so",
+      "path": "vendor/lib64/libar-gsl.so",
+      "sha256": "ac1c76711622b9388b72e50d19731e3f4edbddfec8b10eca160772121af8aee1",
+      "bytes": 241168,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-acdb.so",
+        "vendor/lib64/libar-gpr.so",
+        "vendor/lib64/liblx-ar_util.so",
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/liblx-osal.so",
+      "path": "vendor/lib64/liblx-osal.so",
+      "sha256": "c44711b5e71e9fd64f3e40e8aff77631a7bb817e49eb567cba05aed64be991d2",
+      "bytes": 78592,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libdiag.so",
+        "vendor/lib64/libpdmapper.so",
+        "vendor/lib64/libpdnotifier.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libvui_intf.so",
+      "path": "vendor/lib64/libvui_intf.so",
+      "sha256": "3103ea48748c7f2561f7bd9d73eb541b756bef5454dae73117ab47a778f33063",
+      "bytes": 295704,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Voice UI interface linked by stock PAL; no sound-trigger service or model is installed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libarmemlog.so",
+      "path": "vendor/lib64/libarmemlog.so",
+      "sha256": "48f2b3ae62388694eb2d50341cb4de41111a615caf8b3bdc40aefa8daceb4c7f",
+      "bytes": 74136,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Memory logger linked by stock PAL and AGM; diagnostics only, replaced by the source build later.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libhidltransport.so",
+      "path": "vendor/lib64/libhidltransport.so",
+      "sha256": "67671ecd1afa19997fb74b92701e8090740943368308a3eb6109d194aef58821",
+      "bytes": 10512,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libats.so",
+      "path": "vendor/lib64/libats.so",
+      "sha256": "8a8cdb4a2e5012bfcf11ede0479856ec875a964cc3d53f355c83e60970402f4d",
+      "bytes": 142472,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/libar-acdb.so",
+        "vendor/lib64/libar-gsl.so",
+        "vendor/lib64/libdiag.so",
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libar-acdb.so",
+      "path": "vendor/lib64/libar-acdb.so",
+      "sha256": "028843d8ed8c38d2d0f33756dc4348912ea55bfe7fc4c8cb965c259e9a253514",
+      "bytes": 336512,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/liblx-ar_util.so",
+      "path": "vendor/lib64/liblx-ar_util.so",
+      "sha256": "b8bd0dd42339e1f3fac11b0d2d1547fe02f49aa10e2ff08a88babae095b5aa47",
+      "bytes": 40336,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libar-gpr.so",
+      "path": "vendor/lib64/libar-gpr.so",
+      "sha256": "7ce3c306891974c45c74c2378939dc75fad84d8b91ca9db0bd7790ee94bebd71",
+      "bytes": 79592,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [
+        "vendor/lib64/liblx-osal.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libpdmapper.so",
+      "path": "vendor/lib64/libpdmapper.so",
+      "sha256": "6707c09c21047ae564e3de99d73b59f80516d138be93342e3e252389d2ffefb1",
+      "bytes": 32472,
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
+      "dependencies": [
+        "vendor/lib64/libjson.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Protection-domain mapper/notifier client shared by the DSP services (audio graph services use it).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libpdnotifier.so",
+      "path": "vendor/lib64/libpdnotifier.so",
+      "sha256": "074fc34430e46565f85e548618974b698a4543f1dc17f8a4067104cfbb6f00c5",
+      "bytes": 19904,
+      "component_id": "remote-processor-services",
+      "inventory_ref": "userspace_hal_families:remote-processor-services",
+      "dependencies": [
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmi_common_so.so",
+        "vendor/lib64/libqmi_encdec.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Protection-domain mapper/notifier client shared by the DSP services (audio graph services use it).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/init/vendor.qti.audio-adsprpc-service.rc",
+      "path": "vendor/etc/init/vendor.qti.audio-adsprpc-service.rc",
+      "sha256": "b2c6180a4ba5764b4ad3c4e1cb58da716f8c8cee2298868f690706195b54200a",
+      "bytes": 1779,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/audio/sku_volcano/audio_effects.xml",
+      "path": "vendor/etc/audio/sku_volcano/audio_effects.xml",
+      "sha256": "6de7bf739222d27f88adb1a95fa6f010e0d1c151b60d0a3da5603dbf0c74d1fe",
+      "bytes": 8959,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock effects configuration without the closed AudioSphere and Quasar effects (reviewed derivation).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/audio/sku_volcano/audio_policy_configuration.xml",
+      "path": "vendor/etc/audio/sku_volcano/audio_policy_configuration.xml",
+      "sha256": "3bf77c8f71e1ad1186e226b177c0c4cc9881c9ed9bad91cf848b632b7f039219",
+      "bytes": 41711,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/audio/sku_volcano/mixer_paths_volcano_mtp_fps.xml",
+      "path": "vendor/etc/audio/sku_volcano/mixer_paths_volcano_mtp_fps.xml",
+      "sha256": "741759da6a2f69e5dd5db1e204d8dc17240a7929d78a4d4d74b6fdeb4391b507",
+      "bytes": 52009,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml",
+      "path": "vendor/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml",
+      "sha256": "ad423c0311b365759c692c64bc5f25ddca7ee788e8b769f2d53f8e801d4e3513",
+      "bytes": 99598,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock FP6 resource manager configuration without context detection and sound-trigger entries (reviewed derivation).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml",
+      "path": "vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml",
+      "sha256": "c1207c777e039eb0e529c7e4f0aa1203d2b3b95cf675d21c6905f98527e8c80a",
+      "bytes": 1518,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/card-defs.xml",
+      "path": "vendor/etc/card-defs.xml",
+      "sha256": "8c0c2b50c3257eeccf3dfb54ea4d808b5089008a0ebbec71cf293f5197889a7e",
+      "bytes": 10882,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/usecaseKvManager_fps.xml",
+      "path": "vendor/etc/usecaseKvManager_fps.xml",
+      "sha256": "aebef06c420b8660e8af39c6553580a89b2d41ebecd36686867a4d3534eec99d",
+      "bytes": 93024,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6 use-case key/value table that stock PAL reads from this exact path.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/microphone_characteristics.xml",
+      "path": "vendor/etc/microphone_characteristics.xml",
+      "sha256": "55768983364c1902004cff2dc77efa8079593bed9c5bb793b6c216dece6f4260",
+      "bytes": 12432,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Exact EU stock audio configuration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/acdbdata/adsp_avs_config.acdb",
+      "path": "vendor/etc/acdbdata/adsp_avs_config.acdb",
+      "sha256": "afdb8811d24b599eac5572caa78eb972aa542a4b70ecf3219f5f2bc33df176db",
+      "bytes": 968,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "ADSP AVS configuration database matching the selected stock calibration.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/acdbdata/volcano_mtp_fps/MTP_acdb_cal.acdb",
+      "path": "vendor/etc/acdbdata/volcano_mtp_fps/MTP_acdb_cal.acdb",
+      "sha256": "3379a56bde769880b43a89908b64727182b9679263b6ec5e3e5b11f898c101a0",
+      "bytes": 2815610,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6-specific AudioReach calibration selected from the kernel sound-card name.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/acdbdata/volcano_mtp_fps/MTP_workspaceFileXml.qwsp",
+      "path": "vendor/etc/acdbdata/volcano_mtp_fps/MTP_workspaceFileXml.qwsp",
+      "sha256": "c3073d5d44732ee69845f1115cb22bf36582ece97911e4b24ddcfccca942967a",
+      "bytes": 887680,
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "FP6-specific AudioReach calibration workspace selected from the kernel sound-card name.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/firmware/aw882xx_acf.bin",
+      "path": "vendor/firmware/aw882xx_acf.bin",
+      "sha256": "af723973655ba5901948d4a22212323e39ce53ff0156021185720af4af6ab0b3",
+      "bytes": 4328,
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:radio-connectivity-dsp-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "AW882xx speaker amplifier coefficient firmware requested by the kernel driver.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
         "capabilities_hex": ""
       }
     }
