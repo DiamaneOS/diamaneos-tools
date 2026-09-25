@@ -101,12 +101,12 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "d1f4cb6e3613720b4ad154017d3954e2391829128edbe6b97df241e54e8d4f2d"
+      "sha256": "5952f45393fc04adb646a14bb85175bdb8c19118db3a1a6cc8f7623a02bce553"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "d73e15356f944caec5387f63770dc4c07cf2a8fa58a4dc9e77c5b0ccc4854f01"
+      "sha256": "3232e61b730f70bbc80d3ace83a320c0849adf6efad4cb9183bb0ba86fd6b72e"
     }
   ],
   "device_inputs": {
