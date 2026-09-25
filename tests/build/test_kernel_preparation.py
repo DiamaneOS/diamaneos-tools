@@ -75,6 +75,14 @@ class KernelPreparationTests(unittest.TestCase):
             result = kernel.prepare(self.workspace)
         self.assertEqual('PASS', result['status'])
         self.assertEqual('derived\n',(self.workspace/'kernel_platform/common/file').read_text())
+    def test_reference_objects_are_shared_from_a_detached_workspace(self):
+        # A reference prepared by tools has no branches, only a detached checkout.
+        self.git('checkout','-q','--detach'); self.git('branch','-D','master' if 'master' in self.git('branch') else 'main')
+        result=self.prepare()
+        self.assertTrue(result['local_object_reference'])
+        alternates=(self.workspace/'kernel_platform/common/.git/objects/info/alternates').read_text()
+        self.assertIn(str(self.repo/'.git/objects'),alternates)
+
     def test_standalone_fetch_without_reference(self):
         self.changes[0]['repository'] = str(self.repo)
         with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):
