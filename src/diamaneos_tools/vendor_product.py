@@ -123,6 +123,11 @@ SOURCE_MODULE_DEPENDENCIES = {
     'vendor.qti.hardware.camera.postproc@1.0',
     'vendor.qti.hardware.display.allocator@4.0',
     'vendor.qti.hardware.display.config-V2-ndk',
+    # Display (OP-UI-LAG): thermal interfaces linked by the stock SDM
+    # composition-strategy extension; the tree builds all three.
+    'android.hardware.thermal-V1-ndk',
+    'android.hardware.thermal@1.0',
+    'android.hardware.thermal@2.0',
 }
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),

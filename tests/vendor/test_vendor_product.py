@@ -144,7 +144,12 @@ class NativeProductTests(unittest.TestCase):
             block = block[:block.index('}\n')]
             for stem in stems:
                 self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', block[block.index('required:'):].split('\n')[0])
-        self.assertNotIn('fp6_stock_vendor_lib64_libsdmextension', bp)
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libsdmextension"'):]
+        shared = block[:block.index('}\n')]
+        for dep in ['fp6_stock_vendor_lib64_libdisplayqos', 'fp6_stock_vendor_lib64_libdisplayskuutils',
+                    'android.hardware.thermal@2.0', 'libhidltransport']:
+            self.assertIn('"' + dep + '"', shared)
+        self.assertNotIn('fp6_stock_vendor_lib64_android.hardware.thermal', bp)
         make = self.render()['device-vendor.mk'].decode()
         self.assertIn('vendor/etc/display/qdcm_calib_data_nt37705_amoled_command_mode_dsi_panel.json', make)
         self.assertIn('vendor/etc/snapdragon_color_libs_config.xml', make)
