@@ -71,7 +71,7 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
-      "derived_revision": "a1d76f2d8922e7bfdc0f1be24a1badf3045381f7",
+      "derived_revision": "ee6d08cab486243c93df29ca57331eee5b92c538",
       "canonical_diff_sha256": "9660f0b2be16f12d1b347918d439c1cb91166bbc269158a7d0639bd2703f0ab1",
       "changed_files": [
         "include/drm/drm_mode_config.h"
@@ -85,7 +85,7 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "80da648332ffb13f3415224058d286e47429eca7",
-      "derived_revision": "40d4164f778b72f03a76628e6e42d20af66ddb23",
+      "derived_revision": "dfe1d4295fb47e26b8d2164dfea0ac0e0646fb1b",
       "canonical_diff_sha256": "10796c736b9babd2ac3a261b9680a60b0c7e107c333c268532e2dd215a96f437",
       "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel.",
       "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
@@ -310,7 +310,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/display-drivers",
       "base_revision": "a3519ad7b983c6ab59df302243392e34b344a23d",
-      "derived_revision": "0e1d09a039f7f59e2244d5b2cf086ae518157817",
+      "derived_revision": "a7cb4b823c7d467c392e2ab90d3ebb8a6579b79c",
       "canonical_diff_sha256": "b8956063f76a11df2c42932174c6902c6e05b24b68d64a51f09914df8d930526",
       "changed_files": [
         "msm/sde/sde_connector.h",
@@ -326,7 +326,7 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
       "base_revision": "2109d77b6964f27434ec9ea5c284e6bae5c887a9",
-      "derived_revision": "e903e564d34a0872164ec405cf6d9f06c27e22d7",
+      "derived_revision": "77df5967ce41a254b2891417ad2a2332be90a8f2",
       "canonical_diff_sha256": "2715aa7253446dd10bda561f81e3d79d47aac9cc8e894795f68a666f2a2eb6f5",
       "changed_files": [
         "umac/global_umac_dispatcher/lmac_if/inc/wlan_lmac_if_def.h"
