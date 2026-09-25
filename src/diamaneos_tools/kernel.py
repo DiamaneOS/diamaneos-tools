@@ -110,12 +110,17 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
         if created:
             require(not dest.exists() or not any(dest.iterdir()), 'unowned source directory is occupied')
             dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.mkdir(exist_ok=True)
+            git(dest, 'init', '-q')
             if reference and (reference / row['path'] / '.git').exists():
                 # Local object reuse is optional; all revisions and patch preimages are still verified.
-                call(['git', 'clone', '--no-checkout', '--shared', reference / row['path'], dest], cwd=root)
-            else:
-                dest.mkdir(exist_ok=True)
-                git(dest, 'init', '-q')
+                # Link the object store directly: a prepared workspace has only detached checkouts, and
+                # cloning a repository without refs yields an empty clone without shared objects.
+                objects = Path(git(reference / row['path'], 'rev-parse', '--path-format=absolute', '--git-path', 'objects'))
+                require(objects.is_dir(), 'reference object store missing: ' + row['path'])
+                alternates = dest / '.git/objects/info/alternates'
+                alternates.parent.mkdir(parents=True, exist_ok=True)
+                alternates.write_text(str(objects) + '\n')
         require((dest / '.git').exists(), 'source project missing: ' + row['path'])
         require(created or (not git(dest, 'diff', '--name-only') and not git(dest, 'diff', '--cached', '--name-only')),
                 'tracked source changes: ' + row['path'])
