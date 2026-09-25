@@ -14,6 +14,11 @@ from . import process
 from .vendor import VendorError, encoded, load_json, ROOT
 
 
+# Logical partitions of the stock super image a selection may read. Each is an
+# ext4 image read with the pinned debugfs; system and odm stay out of scope.
+EXTRACT_PARTITIONS = ('vendor', 'system_ext', 'product')
+
+
 def sha(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -48,8 +53,9 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins):
     rows = selection['files'] + selection['notices']
     links = selection.get('symlinks', [])
     paths = [relative(r['input']) for r in rows + links]
-    if len(set(paths)) != len(paths) or any(p.parts[0] != 'vendor' for p in paths):
-        raise VendorError('expected unique selected vendor paths')
+    if len(set(paths)) != len(paths) or any(p.parts[0] not in EXTRACT_PARTITIONS or len(p.parts) < 2
+                                            for p in paths):
+        raise VendorError('expected unique selected stock partition paths')
     identity = hashlib.sha256(encoded({'stock': stock, 'selection': selection,
                                        'image_tools': tool_pins, 'format': 1})).hexdigest()
     if output.is_symlink():
@@ -99,28 +105,39 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins):
                 regular(snapshot, record['bytes'], record['sha256'])
                 call('simg2img', [snapshot, work / 'super.raw.img'])
                 partitions = work / 'partitions'; partitions.mkdir()
-                call('lpunpack', ['-p', 'vendor_a', work / 'super.raw.img', partitions])
-                image = partitions / 'vendor_a.img'
-                if image.is_symlink() or not image.is_file():
-                    raise VendorError('vendor partition was not unpacked')
-                with image.open('rb') as stream:
-                    stream.seek(1080)
-                    if stream.read(2) != bytes.fromhex('53ef'):
-                        raise VendorError('pinned extraction requires an ext4 vendor image')
+                images = {}
+                for name in sorted({p.parts[0] for p in paths}):
+                    call('lpunpack', ['-p', name + '_a', work / 'super.raw.img', partitions])
+                    image = partitions / (name + '_a.img')
+                    if image.is_symlink() or not image.is_file():
+                        raise VendorError('selected stock partition was not unpacked')
+                    with image.open('rb') as stream:
+                        stream.seek(1080)
+                        if stream.read(2) != bytes.fromhex('53ef'):
+                            raise VendorError('pinned extraction requires ext4 stock partition images')
+                    images[name] = image
                 # Extract only regular files, never rdump a filesystem or follow its links.
                 # Relative host paths keep debugfs commands independent of workspace spelling.
+                # Each input is read from the image of its own partition.
                 for row in rows:
                     rel = relative(row['input']); target = tree / rel
                     target.parent.mkdir(parents=True, exist_ok=True)
                     source = '/' + '/'.join(rel.parts[1:])
+                    image = images[rel.parts[0]]
                     info = call('debugfs_static', ['-R', 'stat ' + source, image])
                     if b'Type: regular' not in info:
                         raise VendorError('selected input is not a regular filesystem inode')
                     call('debugfs_static', ['-R', 'dump ' + source + ' tree/' + rel.as_posix(), image])
                     regular(target, row['bytes'], row['sha256'])
                 for row in links:
-                    rel = relative(row['input']); relative(row['target'])
+                    rel = relative(row['input']); target = row['target']
+                    # Stock app library links are absolute (/system_ext/lib64/...);
+                    # they must stay inside their own partition.
+                    relative(target.removeprefix('/'))
+                    if target.startswith('/') and target.split('/')[1] != rel.parts[0]:
+                        raise VendorError('selected alias crosses partition boundary')
                     source = '/' + '/'.join(rel.parts[1:])
+                    image = images[rel.parts[0]]
                     info = call('debugfs_static', ['-R', 'stat ' + source, image])
                     match = re.search(rb'Fast link dest: "([^"\r\n]+)"', info)
                     if b'Type: symlink' not in info or not match or match[1].decode() != row['target']:

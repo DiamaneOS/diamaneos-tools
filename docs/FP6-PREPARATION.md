@@ -53,11 +53,15 @@ these inputs, as described in [BUILD.md](BUILD.md#native-fp6-product-integration
 
 Staging authenticates the factory ZIP and selected image hashes. Extraction
 independently authenticates `super.img`, expands the sparse image, unpacks only
-`vendor_a`, and uses the pinned ext4 reader to dump only declared regular files.
-It checks each file's size/hash, the alias inode/target and the notice archive.
-It does not mount a filesystem, run factory scripts or copy device-unique state.
-The current extraction contract is specific to this ext4 stock vendor image;
-it rejects an unexpected filesystem rather than guessing another decoder.
+the logical partitions the recipe reads (`vendor_a`, and `system_ext_a` or
+`product_a` when stock Java components are selected), and uses the pinned ext4
+reader to dump only declared regular files, each from its own partition image.
+It checks each file's size/hash, the alias inode/target (an absolute alias
+target must stay in its own partition) and the notice archives. It does not
+mount a filesystem, run factory scripts or copy device-unique state. The
+current extraction contract is specific to these ext4 stock images; it rejects
+an unexpected filesystem or another partition (system, odm) rather than
+guessing another decoder.
 
 `stock-files/current` contains the regular files, notice file and symlinks
 declared in

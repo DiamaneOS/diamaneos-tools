@@ -421,10 +421,12 @@
         "FP6-SRC-005"
       ],
       "dependencies": [
+        "connectivity-peripherals",
         "device-platform-kernel",
         "firmware-trusted-boot",
         "graphics-display-media",
-        "public-hal-services"
+        "public-hal-services",
+        "remote-processor-services"
       ],
       "interfaces": [
         "camera provider and framework contracts",
@@ -636,9 +638,11 @@
         "FP6-SRC-006"
       ],
       "dependencies": [
+        "credentials-security",
         "device-platform-kernel",
         "firmware-trusted-boot",
-        "public-hal-services"
+        "public-hal-services",
+        "remote-processor-services"
       ],
       "interfaces": [
         "radio HAL and telephony framework",
@@ -663,7 +667,8 @@
         "eligible": true,
         "verified_necessary_for": [
           "ordinary voice, SMS, data, VoLTE and VoWiFi during private bring-up",
-          "EU carrier compatibility experiments"
+          "EU carrier compatibility experiments",
+          "eSIM profile management through the hardware-layer Qualcomm LPA (owner decision 2, 2026-09-25)"
         ],
         "required_prebuilt_refs": [
           "userspace_hal_families:radio-ims"
@@ -738,15 +743,16 @@
         "eligible": true,
         "verified_necessary_for": [
           "Wi-Fi, Bluetooth, positioning and sensors during private bring-up",
-          "NFC/eSE integration experiments"
+          "NFC reader, host card emulation and controller bring-up with the stock Samsung HAL"
         ],
         "required_prebuilt_refs": [
           "userspace_hal_families:bluetooth",
           "userspace_hal_families:gnss",
           "userspace_hal_families:sensors",
-          "userspace_hal_families:wifi"
+          "userspace_hal_families:wifi",
+          "userspace_hal_families:nfc-secure-element"
         ],
-        "rationale": "These stock userspace providers are necessary for their hardware paths while matching source layers and replacement candidates are qualified. NFC/eSE remains candidate-only until its exact userspace selection is resolved."
+        "rationale": "These stock userspace providers are necessary for their hardware paths while matching source layers and replacement candidates are qualified. NFC uses the stock Samsung S3NRN4V HAL (android.hardware.nfc-service.sec) and its configuration; the secure-element HAL stays with the radio selection."
       },
       "qualification_evidence": [],
       "next_experiment": "Build the published host/kernel layers, bind the exact userspace/firmware closure and exercise connectivity, positioning, NFC, sensor, suspend, restart and privacy behavior per subsystem.",

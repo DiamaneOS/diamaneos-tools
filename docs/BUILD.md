@@ -583,7 +583,8 @@ bin/diamaneos vendor product --inputs "$STOCK_FILES" \
   --output "$VENDOR_GENERATIONS" --notice-kind "$NOTICE_KIND"
 ```
 
-`STOCK_FILES` contains the extracted `vendor/` files. `NOTICE_KIND` is the
+`STOCK_FILES` contains the extracted `vendor/` files and, for the reviewed stock
+Java components, the extracted `system_ext/` and `product/` files. `NOTICE_KIND` is the
 reviewed Android build-system notice classification for those inputs. The
 command checks component policy, hashes, dependency edges and activation files,
 then publishes a content-addressed tree through `current`. Copy that complete
