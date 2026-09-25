@@ -17479,7 +17479,34 @@
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
-      }
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libsdm-colormgr-algo.so",
+          "soname": "libsdm-colormgr-algo.so",
+          "reason": "ColorMgrAlgoClient: colour-manager algorithms for pipe allocation"
+        },
+        {
+          "path": "vendor/lib64/libqseed3.so",
+          "soname": "libqseed3.so",
+          "reason": "ScalarConfig: QSEED3 scaler coefficients"
+        },
+        {
+          "path": "vendor/lib64/librcmask.so",
+          "soname": "librcmask.so",
+          "reason": "rounded-corner mask generation (vendor.display.enable_rc_support)"
+        },
+        {
+          "path": "vendor/lib64/libclstc_tm.so",
+          "soname": "libclstc_tm.so",
+          "reason": "HDRIntfClient: tone mapping; capabilities init fails without it"
+        },
+        {
+          "path": "vendor/lib64/libhdr_tm.so",
+          "soname": "libhdr_tm.so",
+          "reason": "HDRIntfClient: HDR tone mapping"
+        }
+      ]
     },
     {
       "input": "vendor/lib64/libdisplayqos.so",
@@ -17634,6 +17661,149 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libsdm-colormgr-algo.so",
+      "path": "vendor/lib64/libsdm-colormgr-algo.so",
+      "sha256": "2034b506f73bc1de76f0c87283ec1d88d988c15115aef93c4b1446beee374cc2",
+      "bytes": 77296,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqseed3.so",
+      "path": "vendor/lib64/libqseed3.so",
+      "sha256": "44d97da2ea550fcf60e7584c9649402c370bb235db59786ab3a47c0b79bf3ff2",
+      "bytes": 227224,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/librcmask.so",
+      "path": "vendor/lib64/librcmask.so",
+      "sha256": "9e9d021717afb7917986b9c5cd217426ce9586aa58d8f2d3d09461cbcdb2cb7a",
+      "bytes": 52296,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libclstc_tm.so",
+      "path": "vendor/lib64/libclstc_tm.so",
+      "sha256": "1af30b2f28d2bff3c525b0d7a9264af1a684004886aba1861d5ec59d27db4680",
+      "bytes": 249704,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libdisplayskuutils.so",
+        "vendor/lib64/libsdmutils.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libhdr_tm.so",
+      "path": "vendor/lib64/libhdr_tm.so",
+      "sha256": "bfb1bc562dbedfb6c00d1bfd30d8bae178265a545c0f03641f99386d868e4095",
+      "bytes": 382096,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplayskuutils.so",
+        "vendor/lib64/libsdm-color.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libhdr_backlight_adapter.so",
+          "soname": "libhdr_backlight_adapter.so",
+          "reason": "libhdr_tm loads its backlight adapter by name"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libhdr_backlight_adapter.so",
+      "path": "vendor/lib64/libhdr_backlight_adapter.so",
+      "sha256": "2882ee104807d4ceeba6dafd3a905c4ac5c026b455df6329250a5fcc5a36e871",
+      "bytes": 48288,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libdisplaydebug.so",
+        "vendor/lib64/libtinyxml2_1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library required by the SDM composition-strategy extension.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     }
