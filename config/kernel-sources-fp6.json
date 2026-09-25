@@ -198,12 +198,6 @@
       "linkfiles": []
     },
     {
-      "project": "kernel_platform/prebuilts/asuite",
-      "path": "kernel_platform/prebuilts/asuite",
-      "revision": "933fe29a05b097caed99d630727cfc301f770798",
-      "linkfiles": []
-    },
-    {
       "project": "kernel_platform/prebuilts/bazel/linux-x86_64",
       "path": "kernel_platform/prebuilts/bazel/linux-x86_64",
       "revision": "eee09422f02e60f28192bcb5a8ce8660baba6706",
@@ -277,12 +271,6 @@
       "path": "kernel_platform/prebuilts/ndk-r23",
       "revision": "269a5dc9e862f78dc2030d9262f73cb2642b8127",
       "url": "https://git.codelinaro.org/clo/la/kernel_platform/toolchain/prebuilts/ndk/r23",
-      "linkfiles": []
-    },
-    {
-      "project": "kernel_platform/tools/tradefederation/prebuilts",
-      "path": "kernel_platform/prebuilts/tradefed",
-      "revision": "47fc8dbfffc41429e87a5e76188b7707d63792f4",
       "linkfiles": []
     },
     {
@@ -453,7 +441,8 @@
           "dest": "vendor/qcom/defs/board-defs/vendor/eva_kernel_board.mk",
           "src": "eva_kernel_board.mk"
         }
-      ]
+      ],
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/eva-kernel"
     },
     {
       "project": "platform/vendor/qcom/opensource/graphics-kernel",
