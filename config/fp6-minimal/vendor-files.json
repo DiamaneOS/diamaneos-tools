@@ -17616,6 +17616,26 @@
         "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/etc/displayconfig/display_id_4630947039571902850.xml",
+      "path": "vendor/etc/displayconfig/display_id_4630947039571902850.xml",
+      "sha256": "d25a2f52cd62a4f1b5a06c4e519240347fe98e5b1d75690ff6d9ddb0ad4e4afe",
+      "bytes": 7362,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock display configuration: brightness-to-nits map (0.23-782 nits), high-brightness mode only above 0.85 in sunlight or for HDR, and brightness ramps. Installed as display_port_130.xml by the device.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [
