@@ -17806,6 +17806,26 @@
         "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/firmware/vpu20_2v.mbn",
+      "path": "vendor/firmware/vpu20_2v.mbn",
+      "sha256": "675f4b657d444835cdaedcd913a3131869de57e7584a15522ce0c66e4e4366fe",
+      "bytes": 2036328,
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:vendor-peripheral-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Signed Iris video core firmware; msm_video.ko requests vpu20_2v.mbn for every volcano SKU (r9p boot 1 kernel log: \"Direct firmware load for vpu20_2v.mbn failed with error -2\").",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [
