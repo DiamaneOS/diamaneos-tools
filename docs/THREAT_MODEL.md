@@ -348,8 +348,13 @@ presumed.
 - eSIM uses a maintained hardware-layer LPA with least privilege and
   hardening; OpenEUICC is not used. Candidate: the Qualcomm LPA. (2026-09-25)
 - VoLTE is required. The closed Qualcomm IMS stack is used with an explicit
-  permission allowlist. (2026-09-25) Replacing it with source is plan
+  permission allowlist. (2026-09-25) The IMS data connection is to be brought
+  up by DiamaneOS's own code (a small modem-facing service and a one-permission
+  app) instead of Qualcomm's connectivity engine; closed code there is a
+  fallback only. (2026-09-26) Replacing the IMS stack itself with source is plan
   direction, not a dated decision.
+- The call-audio messenger keeps the one audio-routing permission it needs;
+  replacing it with our own app is an open item. (2026-09-26)
 
 Requirements added by the 2026-09-25 review (not separate decisions): a
 cellular hardening control is offered only once it is verified to reach the
