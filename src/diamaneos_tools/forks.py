@@ -274,7 +274,8 @@ def check_fork(root, fork, refs):
                          if is_ancestor(repo, refs['refs/tags/' + t], fork['branch'])]
             current = contained[-1] if contained else ''
             result['latest_release_contained'] = current or None
-        found += newer_refs(refs, 'refs/tags/', pattern, current) if current or upstream['kind'] != 'branch' else []
+        # With no release contained yet, the fork predates the whole series: every release is newer.
+        found += newer_refs(refs, 'refs/tags/', pattern, current)
     if found:
         result['newer'] = found
         if result['state'] in ('current', 'pinned-commit'):
