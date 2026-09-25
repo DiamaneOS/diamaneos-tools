@@ -175,6 +175,13 @@ class ForkTests(unittest.TestCase):
         result = forks.check(self.root, [self.fork], [], self.lister())[0]
         self.assertEqual(['1100'], result['newer'])
 
+    def test_fork_older_than_every_release_reports_them_all(self):
+        self.fork['newer'] = {'tags': r'^r([0-9]+)$'}
+        self.advance_upstream()
+        run(self.upstream, 'tag', 'r1'); run(self.upstream, 'tag', 'r2')
+        result = forks.check(self.root, [self.fork], [], self.lister())[0]
+        self.assertEqual((None, ['r1', 'r2']), (result['latest_release_contained'], result['newer']))
+
     def test_check_sources_by_pin(self):
         pinfile = Path(self.tmp.name) / 'pins' / 'pins.json'
         pinfile.parent.mkdir()
