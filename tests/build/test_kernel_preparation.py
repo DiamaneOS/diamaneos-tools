@@ -103,6 +103,14 @@ class KernelPreparationTests(unittest.TestCase):
     def test_link_escape_and_occupied_destination_rejected(self):
         self.prepare();p=self.workspace/'kernel_platform/common-link';p.unlink();p.symlink_to(self.root)
         self.assertRaisesRegex(kernel.KernelError,'link differs',self.prepare)
+    def test_link_exclusion_follows_the_upstream_revision_of_a_fork(self):
+        # The excluded link names the plan (upstream) revision; the workspace holds the fork's commit.
+        self.plan['projects'][0]['linkfiles'].append(dict(src='legacy.sh',dest='kernel_platform/legacy.sh'))
+        self.adaptation['excluded_linkfiles'].append(dict(project='kernel/common',revision=self.changes[0]['base_revision'],
+                                                          src='legacy.sh',dest='kernel_platform/legacy.sh'))
+        self.assertEqual('PASS',self.prepare()['status'])
+        self.assertFalse((self.workspace/'kernel_platform/legacy.sh').exists())
+
     def test_undeclared_missing_link_rejected(self):
         self.plan['projects'][0]['linkfiles'].append(dict(src='missing',dest='kernel_platform/missing'))
         self.assertRaisesRegex(kernel.KernelError,'missing or escaped',self.prepare)
