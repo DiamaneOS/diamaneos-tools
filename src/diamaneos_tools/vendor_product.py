@@ -257,6 +257,15 @@ RUNTIME_EDGE = 'selected-stock-runtime'
 # Blobs built against an Android 14 VNDK library whose Android 17 ABI differs.
 # The dependency is renamed to a source-built copy with the old ABI (device
 # compat module); input and output bytes are pinned.
+# Stable AIDL interface versions that selected stock libraries link but that
+# cannot be link dependencies here: Android 17's libui links allocator V2, the
+# stock camera libraries (built against Android 14) link V1, and Soong rejects
+# a module whose dependency graph reaches two versions of one interface. The
+# link is dropped from the stock modules that have it, their ELF check is
+# skipped, and the vendor library is installed as its own package, so both
+# versions are on the device as in stock.
+RUNTIME_ONLY_AIDL = {'android.hardware.graphics.allocator-V1-ndk'}
+
 NEEDED_REWRITES = {
  'vendor/lib64/libsnapdragoncolor-manager.so': {
   'needed': 'libtinyxml2.so', 'replacement': 'libtxml2v34.so', 'module': 'libtxml2v34',
@@ -434,6 +443,7 @@ def render(recipe, selection, notice_kind):
                                      'license_text': ['NOTICE-' + partition + '.xml']})
     kept = reachable(selection)
     names, consumed = [], set(elfs) - kept
+    runtime_only = set()
     for path in sorted(elfs):
         if path not in kept:
             continue
@@ -450,6 +460,11 @@ def render(recipe, selection, notice_kind):
         props = {'name': name, 'vendor': True, 'compile_multilib': '64',
                  'srcs': ['files/' + path], 'stem': stem, 'strip': {'none': True},
                  'shared_libs': sorted(set(dependencies[path])), 'system_shared_libs': []}
+        dropped = RUNTIME_ONLY_AIDL.intersection(props['shared_libs'])
+        if dropped:
+            props['shared_libs'] = [d for d in props['shared_libs'] if d not in dropped]
+            props['check_elf_files'] = False
+            runtime_only.update(dropped)
         if required[path]:
             props['required'] = sorted(set(required[path]))
         if relative != '.':
@@ -533,6 +548,8 @@ def render(recipe, selection, notice_kind):
         text += blueprint('prebuilt_rfsa', {'name': name, 'vendor': True, 'src': 'files/' + path,
                                             'filename': Path(path).name, 'relative_install_path': 'adsp'})
     make = '# Generated from the authenticated selection.\nPRODUCT_PACKAGES += ' + ' '.join(names)
+    if runtime_only:
+        make += '\nPRODUCT_PACKAGES += ' + ' '.join(sorted(d + '.vendor' for d in runtime_only))
     make += '\nPRODUCT_VENDOR_PROPERTIES += ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
         if path.startswith('vendor/etc/lm/'):
