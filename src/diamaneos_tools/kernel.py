@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 from xml.sax.saxutils import quoteattr
 import xml.etree.ElementTree as ET
 
-from . import process
+from . import kernel_layout, process
 from .vendor_extract import sha, relative
 from .vendor import ROOT, load_json, VendorError, encoded
 
@@ -171,12 +171,30 @@ def verify_untracked(root, rows, adaptation):
                     'untracked source input: ' + full)
 
 
+def shared_headers(root, adaptation):
+    """Headers that the core kernel and the vendor kernel tree each carry must stay
+    byte-identical: structures in them cross the Image/module boundary, and a
+    difference can change a RANDSTRUCT layout on one side only."""
+    checked = 0
+    for group in adaptation.get('shared_headers', []):
+        listings = []
+        for tree in group['trees']:
+            listing = git(root / relative(tree), 'ls-tree', '-r', '--full-tree', 'HEAD', '--',
+                          *[relative(p).as_posix() for p in group['paths']])
+            require(listing, 'shared headers missing: ' + tree)
+            listings.append(listing)
+        require(all(l == listings[0] for l in listings), 'shared headers differ between ' + ' and '.join(group['trees']))
+        checked += len(listings[0].splitlines())
+    return checked
+
+
 def prepare(root, reference=None):
     plan, changes, adaptation = configuration()
     with locked(root):
         rows = sources(root, plan, changes, prepare=True, reference=reference)
         links(root, rows, adaptation)
         verify_untracked(root, rows, adaptation)
+        shared = shared_headers(root, adaptation)
         manifest = ET.Element('manifest')
         for row in rows:
             ET.SubElement(manifest, 'project', name=row['project'], revision=row['revision'],
@@ -187,6 +205,7 @@ def prepare(root, reference=None):
                   'source_plan_sha256': sha(ROOT / 'config/kernel-sources-fp6.json'),
                   'patches_sha256': sha(ROOT / 'config/patches.json'),
                   'resolved_manifest_sha256': sha(root / 'resolved-manifest.xml'),
+                  'shared_headers_checked': shared,
                   'local_object_reference': borrowed_objects, 'device_commands_executed': 0}
         (root / 'preparation.json').write_bytes(encoded(result))
         return result
@@ -301,6 +320,7 @@ def build(root, jobs, timeout):
         rows = sources(root, plan, changes)
         links(root, rows, adaptation)
         verify_untracked(root, rows, adaptation)
+        shared_headers(root, adaptation)
         preparation = load_json(root / 'preparation.json')
         require(sha(root / 'resolved-manifest.xml') == preparation['resolved_manifest_sha256'], 'resolved source manifest changed')
         require(preparation['source_plan_sha256'] == sha(ROOT / 'config/kernel-sources-fp6.json') and
@@ -344,6 +364,9 @@ def build(root, jobs, timeout):
             require(any('/audio-kernel:' in t for t in targets) and any('/wlan/qcacld-3.0:' in t for t in targets), 'missing audio/WLAN target')
             (run / 'module-targets.txt').write_text('\n'.join(targets) + '\n')
             bazel('external-modules', ['build', *flags, *targets])
+            warnings = [w for name in ('core-build', 'external-modules')
+                        for w in kernel_layout.visibility_warnings((run / (name + '.log')).read_bytes())]
+            require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + '; '.join(warnings[:5]))
             paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
                           'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
             (run / 'module-paths.txt').write_text(paths)
@@ -395,6 +418,21 @@ def build(root, jobs, timeout):
                     choices = [p for p in choices if '/common/' in str(p)]
                 require(choices and len({sha(p) for p in choices}) == 1, 'missing/ambiguous selected module: ' + name)
                 selected[name] = choices[0]
+            # Every built module and both kernels' debug objects, from the output
+            # tree of the packaged Image (Bazel also keeps other configurations).
+            vmlinux = one(core, 'vmlinux', '/common/kernel_aarch64/')
+            bin_dir = next(p for p in vmlinux.parents if p.name == 'bin')
+            debug = sorted(bin_dir.rglob('unstripped/*.ko'))
+            require({p.name for p in debug} >= set(selected), 'unstripped module missing for the layout scan')
+            debug += [vmlinux, bin_dir / 'msm-kernel/fps_gki_kbuild_mixed_tree/vmlinux']
+            require(debug[-1].is_file(), 'vendor kernel vmlinux missing for the layout scan')
+            result['phase'] = 'layout-scan'; save(); print('layout-scan', flush=True)
+            layout = kernel_layout.scan(work / 'prebuilts/kernel-build-tools/linux-x86/bin/pahole', debug, min(jobs, 4))
+            layout['objects_scanned'] = [p.relative_to(execution).as_posix() for p in debug]
+            (run / 'layout-scan.json').write_bytes(encoded(layout))
+            require(not layout['errors'], 'layout scan could not read ' + str(len(layout['errors'])) + ' objects')
+            require(not layout['mismatches'], 'RANDSTRUCT layout differs between compilation units: ' +
+                    ', '.join(m['name'] for m in layout['mismatches']))
             from . import kernel_config
             effective = one(core, '.config', '/common/kernel_aarch64_config/')
             config_report = kernel_config.check(effective.read_bytes(), load_json(ROOT / 'config/kernel-policy-fp6.json'), 'development')
@@ -431,6 +469,7 @@ def build(root, jobs, timeout):
             result.update(status='PASS', module_count=len(selected), dtb_count=len(dtbs), dtbo_count=len(dtbos),
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
+                          layout_scan_sha256=sha(run / 'layout-scan.json'),
                           scope='Development build and packaging; installed-image, runtime and production qualification are separate.')
             save()
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:

@@ -56,6 +56,29 @@ for normal/recovery availability. Each placement is hash-bound. Stripping debug
 sections from unsigned modules must preserve module metadata and symbol versions. Preserve signed GKI modules byte
 for byte. Compare the final image contents, not only intermediate directories.
 
+The hardened kernel enables `RANDSTRUCT_FULL`. Clang randomizes a structure of
+only function pointers only when every struct or enum its members name is
+already declared; if a callback's return type is the first mention of a tag,
+that compilation unit silently keeps declaration order. The same callback table
+then has two layouts depending on include order, and a call through it lands on
+the wrong callback (a CFI panic at boot). Clang reports the parameter-list case
+as `-Wvisibility`, never the return-type case. `kernel build` therefore:
+
+- fails on any `-Wvisibility` warning in the core or external-module build log
+  (a cached Bazel action does not repeat its warnings; a clean build does);
+- scans every DWARF definition of every function-pointer-only structure in both
+  kernels' `vmlinux` and every unstripped module (`src/diamaneos_tools/kernel_layout.py`),
+  writes `layout-scan.json` into the run and fails if one structure has more
+  than one member order;
+- with `kernel prepare`, requires the DRM headers that both the common and the
+  vendor kernel tree carry (`shared_headers` in
+  [`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json)) to
+  be byte-identical, since their structures cross the Image/module boundary.
+
+Fix a reported split at its source by declaring the tag before the structure
+(an include or a forward declaration), never by disabling RANDSTRUCT. Any
+upstream kernel, GrapheneOS or Qualcomm merge can reintroduce one.
+
 Native checks establish strict common KMI/ABI, selected provider CRC/namespace
 coverage, stage dependency planning, GKI certificate/signature binding and image
 payload preservation. The consumed UFS BSG layout agrees with the kernel;

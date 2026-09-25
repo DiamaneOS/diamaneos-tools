@@ -29,5 +29,18 @@
       "dest": "kernel_platform/vendor",
       "source": "vendor"
     }
+  ],
+  "shared_headers": [
+    {
+      "trees": [
+        "kernel_platform/common",
+        "kernel_platform/msm-kernel"
+      ],
+      "paths": [
+        "include/drm",
+        "include/uapi/drm"
+      ],
+      "reason": "The core kernel is built from common and the vendor modules against msm-kernel; DRM structures cross that boundary, so a difference in either copy can give them different RANDSTRUCT layouts (drm_mode_config.h needed the same fix in both). The 149 headers are identical at the pinned revisions."
+    }
   ]
 }
