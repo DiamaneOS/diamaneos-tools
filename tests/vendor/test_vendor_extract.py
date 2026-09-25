@@ -26,7 +26,7 @@ class ExtractionTests(unittest.TestCase):
         self.selection = {k:self.stock[k] for k in ('archive_sha256','stock_build','region')}
         self.selection.update(files=[dict(input='vendor/lib64/hal@1.0.so',bytes=len(self.data),sha256=hashlib.sha256(self.data).hexdigest())],notices=[],symlinks=[])
         self.output = self.root / 'output'
-        self.bad_inode = False; self.fail = False; self.calls = []
+        self.bad_inode = False; self.fail = False; self.calls = []; self.links = {}
     def native(self, argv, *args, cwd=None, **kwargs):
         self.calls.append(argv)
         tool = Path(argv[0]).name
@@ -34,10 +34,13 @@ class ExtractionTests(unittest.TestCase):
         text = b''
         if tool == 'lpunpack':
             data = bytearray(1082); data[1080:] = bytes.fromhex('53ef')
-            (Path(argv[-1])/'vendor_a.img').write_bytes(data)
+            (Path(argv[-1])/(argv[2]+'.img')).write_bytes(data)
         elif tool == 'debugfs_static':
             command = argv[2]
-            if command.startswith('stat '): text = b'Type: directory' if self.bad_inode else b'Type: regular'
+            if command.startswith('stat '):
+                source = (Path(argv[-1]).name.removesuffix('_a.img'), command.split()[-1])
+                if source in self.links: text = b'Type: symlink\nFast link dest: "' + self.links[source].encode() + b'"'
+                else: text = b'Type: directory' if self.bad_inode else b'Type: regular'
             elif command.startswith('dump '): (cwd / command.split()[-1]).write_bytes(self.data)
         return {'transport':'ok','stdout':text,'stderr':b''}
     def extract(self):
@@ -62,8 +65,31 @@ class ExtractionTests(unittest.TestCase):
     def test_edited_generation_rejected(self):
         self.extract();(self.output/'current/vendor/lib64/hal@1.0.so').write_bytes(b'bad')
         self.assertRaises(VendorError,self.extract)
+    def test_system_ext_and_product_inputs_read_from_their_own_images(self):
+        digest=hashlib.sha256(self.data).hexdigest()
+        for name in ('system_ext/priv-app/ims/ims.apk','product/framework/lib.jar'):
+            self.selection['files'].append(dict(input=name,bytes=len(self.data),sha256=digest))
+        target='/system_ext/lib64/libjni.so'
+        self.selection['symlinks'].append(dict(input='system_ext/priv-app/ims/lib/arm64/libjni.so',target=target,
+                                               sha256=hashlib.sha256(target.encode()).hexdigest()))
+        self.links[('system_ext','/priv-app/ims/lib/arm64/libjni.so')]=target
+        result=self.extract()
+        self.assertEqual((3,1),(result['file_count'],result['symlink_count']))
+        self.assertEqual(['product_a','system_ext_a','vendor_a'],[c[2] for c in self.calls if Path(c[0]).name=='lpunpack'])
+        dumps={c[2].split()[1]:Path(c[-1]).name for c in self.calls if Path(c[0]).name=='debugfs_static' and c[2].startswith('dump ')}
+        self.assertEqual({'/priv-app/ims/ims.apk':'system_ext_a.img','/framework/lib.jar':'product_a.img',
+                          '/lib64/hal@1.0.so':'vendor_a.img'},dumps)
+        self.assertEqual(self.data,(self.output/'current/product/framework/lib.jar').read_bytes())
+        self.assertEqual(target,os.readlink(self.output/'current/system_ext/priv-app/ims/lib/arm64/libjni.so'))
+    def test_absolute_alias_cannot_leave_its_partition(self):
+        target='/vendor/lib64/hal@1.0.so'
+        self.selection['symlinks'].append(dict(input='system_ext/lib64/alias.so',target=target,
+                                               sha256=hashlib.sha256(target.encode()).hexdigest()))
+        self.assertRaises(VendorError,self.extract)
+        self.assertFalse((self.output/'current').exists())
     def test_unsafe_paths_and_wrong_partition(self):
-        for name in ('../escape','vendor/../../escape','/absolute','vendor/a\ncommand','userdata/file'):
+        for name in ('../escape','vendor/../../escape','/absolute','vendor/a\ncommand','userdata/file',
+                     'system/lib64/libc.so','odm/etc/file','system_ext'):
             with self.subTest(name=name):
                 self.selection['files'][0]['input']=name;self.assertRaises(VendorError,self.extract)
         self.assertFalse(self.calls)
