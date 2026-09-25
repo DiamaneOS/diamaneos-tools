@@ -212,6 +212,19 @@ class ForkTests(unittest.TestCase):
         self.assertTrue(local)
         self.assertTrue(all(c.kwargs['env']['GIT_NO_LAZY_FETCH'] == '1' for c in local))
 
+    def test_manifest_xml_pin(self):
+        root = Path(self.tmp.name)
+        (root / 'manifest').mkdir()
+        (root / 'manifest' / 'diamaneos.xml').write_text(
+            '<manifest><project name="x" path="vendor/x" remote="codelinaro" revision="' + 'a' * 40 + '" /></manifest>')
+        source = {'id': 'x', 'url': 'https://example.invalid', 'follow': {'kind': 'branch', 'ref': 'main'},
+                  'pin': {'repository': 'manifest', 'file': 'diamaneos.xml', 'xml_project_path': 'vendor/x'}}
+        forks.load_sources([source])
+        self.assertEqual('a' * 40, forks.pinned_value(root, source))
+        source['pin']['xml_project_path'] = 'vendor/missing'
+        with self.assertRaises(forks.ForkError):
+            forks.pinned_value(root, source)
+
     def test_unreachable_upstream_is_an_error_not_a_crash(self):
         self.fork['upstream']['url'] = str(Path(self.tmp.name) / 'missing')
         result = forks.check(self.root, [self.fork], [], self.lister())[0]

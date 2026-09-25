@@ -3,14 +3,14 @@
   "excluded_linkfiles": [
     {
       "project": "kernel/build",
-      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "revision": "aa777cca3d5f2443114fe71ccfed9bd74cd7c66a",
       "src": "build.sh",
       "dest": "kernel_platform/build/build.sh",
       "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."
     },
     {
       "project": "kernel/build",
-      "revision": "f19534bc201764082056c886279fb69aeb423641",
+      "revision": "aa777cca3d5f2443114fe71ccfed9bd74cd7c66a",
       "src": "build_abi.sh",
       "dest": "kernel_platform/build/build_abi.sh",
       "reason": "Manifest names absent legacy shell entry point; Bazel entry point and explicit ABI targets remain required."

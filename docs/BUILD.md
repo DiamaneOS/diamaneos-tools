@@ -235,10 +235,12 @@ the signed GrapheneOS release.
 
 [`config/forks.json`](../config/forks.json) lists every upstream the build uses.
 `forks` are the repositories DiamaneOS forks and patches: the manifest overlay
-forks and the kernel forks in `config/patches.json`. Each names the upstream
-reference it follows. `sources` are pinned inputs that are not forked (the
+forks and the kernel forks in `config/patches.json`. A fork exists only where
+DiamaneOS changes the code; each follows the CodeLinaro release branch of the
+selected Qualcomm release. `sources` are pinned inputs used unmodified: the
 GrapheneOS release, the repo launcher, Fairphone's source manifest, the
-Qualcomm SELinux policy and the stock factory image). Each names the file and
+Qualcomm SELinux policy, the stock factory image and the platform repositories
+the manifest overlay takes straight from CodeLinaro or Fairphone. Each names the file and
 field that hold its pin, so the registry never repeats a revision. `newer`
 patterns name the branches or tags that would supersede a followed reference,
 such as Fairphone's next `odm/rc/target/<android>/fp6` branch or the next
