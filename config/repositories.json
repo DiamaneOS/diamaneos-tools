@@ -56,9 +56,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel",
       "id": "kernel",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_qcom.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_msm-6.1.git",
       "revision": null,
-      "slug": "kernel_fairphone_qcom",
+      "slug": "kernel_qcom_msm-6.1",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/kernel/qcom"
     },
@@ -71,26 +71,6 @@
       "slug": "kernel_common-6.1",
       "state": "active",
       "upstream_url": "https://github.com/GrapheneOS/kernel_common-6.1"
-    },
-    {
-      "checkout_path": "WORK_ROOT/os/kernel/fairphone/sm7635-modules",
-      "id": "modules",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_sm7635-modules.git",
-      "revision": null,
-      "slug": "kernel_fairphone_sm7635-modules",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/os/kernel/fairphone/sm7635-dt",
-      "id": "dt",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_sm7635-dt.git",
-      "revision": null,
-      "slug": "kernel_fairphone_sm7635-dt",
-      "state": "planned",
-      "upstream_url": null
     },
     {
       "checkout_path": "WORK_ROOT/os/vendor/diamaneos",
@@ -196,9 +176,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/graphics-kernel",
       "id": "kernel-graphics",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_graphics.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_graphics.git",
       "revision": null,
-      "slug": "kernel_fairphone_graphics",
+      "slug": "kernel_qcom_graphics",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/graphics-kernel"
     },
@@ -206,9 +186,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/camera-kernel",
       "id": "kernel-camera",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_camera.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_camera.git",
       "revision": null,
-      "slug": "kernel_fairphone_camera",
+      "slug": "kernel_qcom_camera",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/camera-kernel"
     },
@@ -216,9 +196,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/dataipa",
       "id": "kernel-dataipa",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_dataipa.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_dataipa.git",
       "revision": null,
-      "slug": "kernel_fairphone_dataipa",
+      "slug": "kernel_qcom_dataipa",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/dataipa"
     },
@@ -226,9 +206,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
       "id": "kernel-wlan-common",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_wlan_common.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_wlan_common.git",
       "revision": null,
-      "slug": "kernel_fairphone_wlan_common",
+      "slug": "kernel_qcom_wlan_common",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn.git"
     },
@@ -236,9 +216,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/display-drivers",
       "id": "kernel-display",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_display.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_display.git",
       "revision": null,
-      "slug": "kernel_fairphone_display",
+      "slug": "kernel_qcom_display",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/display-drivers"
     },
@@ -246,9 +226,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/securemsm-kernel",
       "id": "kernel-securemsm",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_securemsm.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_securemsm.git",
       "revision": null,
-      "slug": "kernel_fairphone_securemsm",
+      "slug": "kernel_qcom_securemsm",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/securemsm-kernel"
     },
@@ -256,9 +236,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/touch-drivers",
       "id": "kernel-touch",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_touch.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_touch.git",
       "revision": null,
-      "slug": "kernel_fairphone_touch",
+      "slug": "kernel_qcom_touch",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/touch-drivers"
     },
@@ -266,9 +246,9 @@
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
       "id": "kernel-video",
       "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_fairphone_video.git",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_video.git",
       "revision": null,
-      "slug": "kernel_fairphone_video",
+      "slug": "kernel_qcom_video",
       "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
     },
@@ -341,6 +321,156 @@
       "slug": "hardware_qcom_wlan",
       "state": "active",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/wlan"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/bootable/bootloader/edk2",
+      "id": "kernel-qcom-edk2",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_edk2.git",
+      "revision": null,
+      "slug": "kernel_qcom_edk2",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/abl/tianocore/edk2"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/build/kernel",
+      "id": "kernel-qcom-build",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_build.git",
+      "revision": null,
+      "slug": "kernel_qcom_build",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/kernel/build"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/nxp/opensource/driver",
+      "id": "kernel-nxp-nfc",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_nxp_nfc.git",
+      "revision": null,
+      "slug": "kernel_nxp_nfc",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/nxp/opensource/driver"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/audio-kernel",
+      "id": "kernel-qcom-audio",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_audio.git",
+      "revision": null,
+      "slug": "kernel_qcom_audio",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/audio-kernel-ar"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/bt-kernel",
+      "id": "kernel-qcom-bt",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_bt.git",
+      "revision": null,
+      "slug": "kernel_qcom_bt",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/bt-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/datarmnet",
+      "id": "kernel-qcom-datarmnet",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_datarmnet.git",
+      "revision": null,
+      "slug": "kernel_qcom_datarmnet",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/datarmnet-ext",
+      "id": "kernel-qcom-datarmnet-ext",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_datarmnet-ext.git",
+      "revision": null,
+      "slug": "kernel_qcom_datarmnet-ext",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/dsp-kernel",
+      "id": "kernel-qcom-dsp",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_dsp.git",
+      "revision": null,
+      "slug": "kernel_qcom_dsp",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/dsp-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/mm-sys-kernel",
+      "id": "kernel-qcom-mm-sys",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_mm-sys.git",
+      "revision": null,
+      "slug": "kernel_qcom_mm-sys",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mm-sys-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/mmrm-driver",
+      "id": "kernel-qcom-mmrm",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_mmrm.git",
+      "revision": null,
+      "slug": "kernel_qcom_mmrm",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/synx-kernel",
+      "id": "kernel-qcom-synx",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_synx.git",
+      "revision": null,
+      "slug": "kernel_qcom_synx",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/synx-kernel"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/platform",
+      "id": "kernel-qcom-wlan-platform",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_wlan_platform.git",
+      "revision": null,
+      "slug": "kernel_qcom_wlan_platform",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/platform"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/qcacld-3.0",
+      "id": "kernel-qcom-qcacld",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_qcacld.git",
+      "revision": null,
+      "slug": "kernel_qcom_qcacld",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/st/opensource/driver",
+      "id": "kernel-st-nfc",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_st_nfc.git",
+      "revision": null,
+      "slug": "kernel_st_nfc",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/driver"
+    },
+    {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/st/opensource/eSE-driver",
+      "id": "kernel-st-ese",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_st_ese.git",
+      "revision": null,
+      "slug": "kernel_st_ese",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/eSE-driver"
     }
   ],
   "schema_version": 1
