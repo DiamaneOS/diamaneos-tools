@@ -684,11 +684,16 @@ TELEPHONY_CONFIG_REWRITES = {
         'source_sha256': 'd9c5fd8ab8be49512d6ce4bf628c1f7c3218de1c287569e3f19e64040d35d0a0',
         'sha256': '03914a36e14990016b6bf72da90b95230c4e67381b0faadd2b82454dd30defaf',
         'reason': 'Turn off the persistent nicmd file log (/data/vendor/nicmd/nicmd.log)'},
+    'vendor/etc/qcril_database/qcrilNr.db': {
+        'source_sha256': '256d26428b62739d2f3d9f3d1fe75bc1a3db5d83732f48bdb9440e57c514054a',
+        'sha256': '82454b7e786d858c36f88037a891419942275d661f9f3de57303f4755e67011b',
+        'reason': 'Turn off QCRIL power-up optimisation, which holds incoming SMS and USSD until an OEM-hook '
+                  'UI-ready call we do not ship, and bump the version so an existing /data copy is upgraded'},
 }
 
 
 def telephony_config(path, data):
-    """Pinned reductions of the stock radio daemon, nicmd service and nicmd log configuration."""
+    """Pinned reductions of the stock radio daemon, nicmd service, nicmd log and QCRIL database."""
     rule = TELEPHONY_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('telephony configuration differs from reviewed EU stock input')
@@ -699,6 +704,12 @@ def telephony_config(path, data):
         service = b'service vendor.nicmd /system/vendor/bin/nicmd\n    class main\n'
         derived = data.replace(service, service + b'    user root\n'
                                b'    capabilities NET_ADMIN NET_RAW SETGID SETUID SETPCAP KILL BLOCK_SUSPEND\n')
+    elif path.endswith('/qcrilNr.db'):
+        # Same-length edits of two SQLite records (SQLite keeps no page
+        # checksums): poweron_opt def_val 1 -> 0 and qcrildb_version 15.0 -> 16.0.
+        derived = (data.replace(b'\x04M\x0f\x00persist.vendor.radio.poweron_opt1',
+                                b'\x04M\x0f\x00persist.vendor.radio.poweron_opt0')
+                       .replace(b'\x04+\x15\x00qcrildb_version15.0', b'\x04+\x15\x00qcrildb_version16.0'))
     else:
         # nicmd enables its file logger only when both values are non-zero
         # (libnicm_internal.so ConfigurationManager::parseConfiguration).
