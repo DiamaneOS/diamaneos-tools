@@ -313,6 +313,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/power"
     },
     {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/vibrator",
+      "id": "vibrator-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_vibrator.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_vibrator",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/vibrator"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/display",
       "id": "display-hal",
       "publication": "public-source",
