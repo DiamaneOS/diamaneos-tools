@@ -1857,7 +1857,7 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "No plan task names network location or geocoding yet: extend FP6-103 or add a task (owner decision). The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects, and bind request/response ceilings from captured native traffic before activation."
+          "description": "FP6-103 owns network location and geocoding (plan amended 2026-09-26); the owner still chooses an EU relay, Apple directly or off for location, and a self-hosted EU Nominatim or OpenStreetMap-or-off for geocoding. The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off. Bind request/response ceilings from captured native traffic before activation."
         }
       ],
       "example": {
@@ -1902,7 +1902,7 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "No plan task names network location or geocoding yet: extend FP6-103 or add a task (owner decision). The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects, and bind request/response ceilings from captured native traffic before activation."
+          "description": "FP6-103 owns network location and geocoding (plan amended 2026-09-26); the owner still chooses an EU relay, Apple directly or off for location, and a self-hosted EU Nominatim or OpenStreetMap-or-off for geocoding. The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off. Bind request/response ceilings from captured native traffic before activation."
         },
         {
           "id": "GEOCODER-HOSTING",
