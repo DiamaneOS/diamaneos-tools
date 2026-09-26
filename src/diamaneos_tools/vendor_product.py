@@ -18,7 +18,8 @@ SOURCE_INTERFACES = {
     'libdrm',
     # libkeymaster_messages is not listed: it is a C++ implementation library
     # that only the closed KeyMint HAL uses, so that HAL keeps the stock copy it
-    # was built with (a source copy could change class layouts unnoticed).
+    # was built with (a source copy could change class layouts unnoticed). It
+    # is installed on odm (ODM_LIBRARIES below).
     'android.hardware.gatekeeper-V1-ndk',
     'android.hardware.graphics.allocator-V1-ndk',
     'android.hardware.graphics.composer3-V2-ndk',
@@ -216,6 +217,12 @@ STOCK_LIBRARIES = {
  'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
 }
 STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values())
+# Stock vendor libraries whose name is also an AOSP vendor-available library.
+# Soong defines an install rule for every variant in the tree, so a stock copy
+# in /vendor/lib64 collides with the AOSP one at the same path. These go to
+# /odm/lib64 instead, which the vendor and sphal linker namespaces search before
+# /vendor/lib64, so their stock consumers still load the stock copy.
+ODM_LIBRARIES = {'libkeymaster_messages'}
 PARTITIONS = {'system_ext': ('system_ext_specific', '$(TARGET_COPY_OUT_SYSTEM_EXT)'),
               'product': ('product_specific', '$(TARGET_COPY_OUT_PRODUCT)')}
 
@@ -466,6 +473,11 @@ def render(recipe, selection, notice_kind):
         props = {'name': name, 'vendor': True, 'compile_multilib': '64',
                  'srcs': ['files/' + path], 'stem': stem, 'strip': {'none': True},
                  'shared_libs': sorted(set(dependencies[path])), 'system_shared_libs': []}
+        if library and stem in ODM_LIBRARIES:
+            if relative != '.':
+                raise VendorError('odm library outside lib64')
+            del props['vendor']
+            props = {'name': name, 'device_specific': True, **{k: v for k, v in props.items() if k != 'name'}}
         dropped = RUNTIME_ONLY_AIDL.intersection(props['shared_libs'])
         if dropped:
             props['shared_libs'] = [d for d in props['shared_libs'] if d not in dropped]
