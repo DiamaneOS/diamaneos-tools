@@ -101,7 +101,7 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "dafa0c31863253c1d67ed96b3794ab3af1f24f1090079c47d2927838f70340e8"
+      "sha256": "669ebd1b10a39eaacbf9b160d9657cee46648af30f43a052b7fc4aa99d069625"
     },
     {
       "id": "fp6-native-dependencies",
@@ -120,7 +120,7 @@
     "shell": "bash",
     "generic_qualification_target": "sdk_phone64_x86_64-cur-userdebug",
     "generic_qualification_command": "m",
-    "fp6_release_target": "diamaneos_FP6-cur-user",
+    "fp6_release_target": "FP6-cur-user",
     "production_signing_material_allowed": false
   },
   "composition": {

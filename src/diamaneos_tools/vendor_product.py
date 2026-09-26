@@ -163,7 +163,8 @@ ACTIVATION={
  # The stock CamX/CHI camera provider (AIDL ICameraProvider/vendor_qti/0).
  'vendor.qti.camera.provider-service_64':('vendor.qti.camera.provider-service_64.rc','vendor.qti.camera.provider.xml'),
  # The QCRIL radio daemon declares only the services r9p uses: the AOSP radio
- # HAL and the Qualcomm IMS, radio-config, audio-messenger and LPA services.
+ # HAL and the Qualcomm IMS, radio-config, call-audio (IQcRilAudio, served to
+ # the device's own bridge) and LPA services.
  'qcrilNrd':('qcrilNrd.rc',('android.hardware.radio.config.xml','android.hardware.radio.data.xml',
                             'android.hardware.radio.messaging.xml','android.hardware.radio.modem.xml',
                             'android.hardware.radio.network.xml','android.hardware.radio.sim.xml',
@@ -188,17 +189,19 @@ ACTIVATION={
 # needs a complete device allowlist entry (grants and denials).
 STOCK_APPS = {
  'system_ext/priv-app/ims/ims.apk':('ims', True),
- # Privileged so that its shared UID android.uid.qtiphone is privileged: a
- # non-privileged package can then not join it (InstallPackageHelper
- # assertPackageWithSharedUserIdIsPrivileged).
- 'system_ext/app/QtiTelephonyService/QtiTelephonyService.apk':('QtiTelephonyService', True),
- # eSIM LPA; the device disables its services by default (sysconfig).
+ # Not selected: QtiTelephonyService (the IQcRilAudio call-audio client). The
+ # device's own call-audio bridge (device callaudio/) replaces it with the
+ # normal permission MODIFY_AUDIO_SETTINGS instead of MODIFY_AUDIO_ROUTING.
+ # eSIM LPA; its EuiccService is on by default from r9s, the unused UimLpaService stays off (device sysconfig).
  'product/app/uimlpaservice/uimlpaservice.apk':('uimlpaservice', True),
 }
 # JNI libraries of the stock apps and the platform libraries they link.
 STOCK_JNI = {
  'system_ext/lib64/libimscamera_jni.so':['libc++', 'libc', 'libcutils', 'libdl', 'liblog', 'libm', 'libnativehelper', 'libutils'],
  'system_ext/lib64/libimsmedia_jni.so':['libandroid', 'libbinder', 'libc++', 'libc', 'libcutils', 'libdl', 'libgui', 'liblog', 'libm', 'libnativehelper', 'libutils'],
+ # The LPA's ServiceLib: service-manager lookups only (isDeclared,
+ # waitForService); the product app's linker namespace searches /product/lib64.
+ 'product/lib64/libjni_aidl_service.so':['libbinder_ndk', 'libc++', 'libc', 'libdl', 'liblog', 'libm'],
 }
 # Data copied as is: shared-library jars (not on the boot class path, not
 # preopted) and the permission XMLs that declare them. Reviewed one by one:
@@ -508,7 +511,7 @@ def render(recipe, selection, notice_kind):
                 'preprocessed': True, 'privileged': privileged, 'dex_preopt': {'enabled': False},
                 'enforce_uses_libs': False, 'licenses': [notice_license(partition)]})
         elif path in STOCK_JNI:
-            if rows[path]['dependencies'] or partition != 'system_ext':
+            if rows[path]['dependencies'] or partition not in ('system_ext', 'product'):
                 raise VendorError('stock JNI library has unreviewed dependencies')
             name = module(path)
             names.append(name)
