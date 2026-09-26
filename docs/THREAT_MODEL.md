@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework and the network location and geocoding decisions; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions and the keyboard privacy gap; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -276,6 +276,7 @@ task in parentheses where one owns the check, or says that none does yet.
 | Asset | Attacker capability | Entry point | Intended mitigation | Remaining limit | Validation | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | Correct user decisions | User error, confusing warning, inaccessible flow | Setup, permissions, updates, backup and restore, recovery | Plain outcomes, progressive disclosure, scoped grants, explicit destructive confirmations; first-boot assistive path before setup needs it; critical wording gets fluent review or a disclosed source-language fallback; honest "unsupported" states instead of hidden gaps; a control that is shown must work | Bootloader and firmware screens may stay inaccessible; English fallback alone is not usability proof | Interface design, localization and accessibility, passphrase onboarding, accessible journey validation | Assumption. |
+| Typed text and personal words | Someone with the device before first unlock, a copy of a backup, or a view of the screen | The keyboard's learned, personal-dictionary and contact word lists; backups; fields that ask the keyboard not to learn (incognito) | Learned and personal words kept only in credential-encrypted storage and excluded from backups; the no-learning flag honoured; no typed or personal data in logs; no network permission (already true); keyboard fork with these fixes before swipe typing ships | The inherited keyboard keeps personal-dictionary words and contact names in storage that is available before first unlock, allows them in backups and ignores the no-learning flag; learned words are off by default | Keyboard fork privacy commit and its tests (no owning task yet) | Observed gap (source review of the inherited keyboard, 2026-09-26). |
 
 ## FP6 source and firmware boundary
 
@@ -457,4 +458,7 @@ Revision history:
   owner-approved shell rework. The owner then chose network location with a
   DiamaneOS EU relay to Apple, Apple directly or Apple China directly, all
   opt-in and off by default, and no DiamaneOS geocoder: geocoding stays off unless the user opts
-  in to OpenStreetMap's public Nominatim.
+  in to OpenStreetMap's public Nominatim. A source review of the inherited keyboard found that it
+  keeps personal-dictionary words and contact names in storage available before
+  first unlock, allows them in backups and ignores the no-learning flag; the
+  Everyday use rows record it.
