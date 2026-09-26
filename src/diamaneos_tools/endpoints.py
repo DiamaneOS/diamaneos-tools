@@ -34,7 +34,6 @@ APPENDIX_B = {
     'widevine-proxy': 'widevineprovisioning.grapheneos.org',
     'ct-mirror': 'gstatic.grapheneos.org',
     'dns-check': 'dnscheck.grapheneos.org',
-    'info-release-feed': 'grapheneos.org/releases.atom',
     'network-location': 'gs-loc.apple.grapheneos.org',
     'geocoder': 'nominatim.grapheneos.org',
     'attestation': 'attestation.app',
@@ -42,7 +41,7 @@ APPENDIX_B = {
 PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary',
                    'artifact-mirror-non-eu', 'git-primary', 'git-backup',
                    'git-mirror', 'email', 'monitoring', 'cdn', 'object-storage'}
-PUBLIC_MIRRORS = {'os-updates', 'apps-catalog', 'info-release-feed'}
+PUBLIC_MIRRORS = {'os-updates', 'apps-catalog'}
 # Reviewed exception (owner decision 2026-09-26): DiamaneOS hosts no geocoder.
 # The contract stays for coverage; its opt-in goes directly from the device to a
 # disclosed non-EU service, so it has no relay upstream and no service entry.

@@ -457,30 +457,6 @@
       "observed_on": "2026-09-11"
     },
     {
-      "id": "info-client",
-      "repository": "https://github.com/GrapheneOS/Info",
-      "revision": "f5216fe1c86163fde86ddbe7b1f4d0cab816f42b",
-      "path": "app/src/main/kotlin/app/grapheneos/info/ui/releases/ReleasesViewModel.kt",
-      "symbols": [
-        "updateChangelog"
-      ],
-      "sha256": "30ae1d974416521526bad0cdcce729886be916dc5689198b66b31ef3e49c928e",
-      "role": "research-pin",
-      "observed_on": "2026-09-11"
-    },
-    {
-      "id": "info-prebuilt",
-      "repository": "https://github.com/GrapheneOS/platform_external_Info",
-      "revision": "09b5bc8d26eadb57cf8e375156d2af22b341111e",
-      "path": "Android.bp",
-      "symbols": [
-        "InfoApp"
-      ],
-      "sha256": "ec9f80d20cf0dfdec105c71a7ee82d07d5baa1594c8243d38c8b3c3e24def0be",
-      "role": "manifest-pin",
-      "observed_on": "2026-09-11"
-    },
-    {
       "id": "network-server",
       "repository": "https://github.com/GrapheneOS/grapheneos.org",
       "revision": "7964a206035a2a7bbf85770e70a86b4538f78a69",
@@ -1780,51 +1756,6 @@
         "request": "AAAA abc123-dnsotls-ds.dnscheck.diamaneos.de. IN",
         "response": "*.dnscheck.diamaneos.de. 3600 IN AAAA 100::1",
         "expected": "DNS zone example, not an HTTPS service; wildcard must cover both resolver probe labels and return configured records. DNSSEC/MFA provisioning is infrastructure staging."
-      }
-    },
-    {
-      "id": "info-release-feed",
-      "upstream_host": "grapheneos.org/releases.atom",
-      "replacement_host": "diamaneos.de",
-      "consumer": "Info ReleasesViewModel.updateChangelog; manifest contains InfoApp prebuilt",
-      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Informational release notes",
-      "protocol": "HTTPS Atom UTF-8 text; current client finds entry/id/title with regular expressions, so generated entries need one-line serialization. Feed content is not release authentication.",
-      "protocol_status": "blocked",
-      "path_method": "GET /releases.atom",
-      "request_fields": [
-        "No device body; ordinary HTTPS request."
-      ],
-      "response_fields": [
-        "Atom XML with entry/id/title and notes; <=2 MiB project cap."
-      ],
-      "verification_root": "HTTPS system trust and controlled project publication. Any update/installer bytes still require independent release verification; never derive a trust root from feed text.",
-      "timeout_retry": "Observed: 10 s connect, 30 s read; upstream readBytes unbounded. Project total 30 s, 2 MiB cap; native bounding and error UI work in system app delivery.",
-      "cache_freshness": "Feed refreshed on release and checked hourly; do not advertise feed >24 h beyond successful publication/freshness check. Existing local entries may remain visible; no implemented stale banner is claimed.",
-      "failure_fallback": "Server returns503 if stale/unavailable. Client catches network error and shows snackbar, retaining existing entries in memory. Malformed data must not authorize an update; native parser robustness/byte limits remain INFO-BIND.",
-      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. No hardware identifier needed.",
-      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
-      "jurisdiction": "eu-primary",
-      "owner_task": "FP6-112",
-      "status": "blocked-contract",
-      "source_refs": [
-        "info-client",
-        "info-prebuilt"
-      ],
-      "limits_profile": "feed",
-      "upstreams": [],
-      "implementation_blockers": [
-        {
-          "id": "INFO-BIND",
-          "owner_task": "FP6-112",
-          "description": "Bind shipping Info prebuilt to reviewed fork revision; repoint feed URL, retain one-line entry compatibility, add/test 2 MiB bound and explicit stale/error presentation."
-        }
-      ],
-      "example": {
-        "kind": "wire-shape",
-        "request": "GET /releases.atom HTTP/1.1\r\nHost: diamaneos.de\r\n\r\n",
-        "response": "<feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>urn:diamaneos:example</id><title>Example release</title><content type=\"text\">Illustrative notes</content></entry></feed>\n",
-        "expected": "Synthetic single-line Atom entry, not an accepted release; feed text never authenticates an OTA."
       }
     },
     {
