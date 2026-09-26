@@ -197,18 +197,6 @@
       "credentials": "none-read-only-serving"
     },
     {
-      "id": "info-release-feed",
-      "endpoints": [
-        "info-release-feed"
-      ],
-      "host": "release-primary",
-      "mirror": "artifact-mirror-non-eu",
-      "owner_task": "FP6-112",
-      "status": "planned",
-      "activation": "blocked-pending-implementation",
-      "credentials": "none-read-only-serving"
-    },
-    {
       "id": "network-location",
       "endpoints": [
         "network-location"
