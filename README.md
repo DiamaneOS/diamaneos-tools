@@ -46,7 +46,7 @@ fastboot --version
   recorded by the build or release manifest that consumes them.
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
-- [Interface design reference](DESIGN.md)
-- [Lift branding and reusable assets](design/branding/README.md)
+- Interface design and branding live in the separate, private
+  `diamaneos-design` repository.
 
 Only implemented commands can be run. Planned features and unresolved evidence are identified in their component contracts; a planning record is not a runtime result.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Move the interface design, branding and their bundled assets to the separate
+  diamaneos-design repository.
+
 - Bind explicit FP6 recovery setup and narrower UFS policy in a new product
   environment. Reject missing kernel verification tools before compilation.
 
