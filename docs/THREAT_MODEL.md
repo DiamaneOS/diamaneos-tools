@@ -61,7 +61,7 @@ last column is not released.
 
 | Area | Private bring-up builds today | Release requirement | Gate |
 | --- | --- | --- | --- |
-| Build type | `userdebug`, ADB on by default, `adb root` available; non-user builds pre-trust a developer ADB key when one is provided | `user` build, `ro.debuggable=0`, ADB off and authenticated, no pre-trusted keys, no adb over network | Production-form user candidate (FP6-047), debug exposure audit (FP6-060) |
+| Build type | `userdebug`, ADB on by default, `adb root` available; from r9s ADB asks on the phone before trusting a computer and no developer key is pre-trusted (development builds before r9s accepted adb from any computer) | `user` build, `ro.debuggable=0`, ADB off and authenticated, no pre-trusted keys, no adb over network | Production-form user candidate (FP6-047), debug exposure audit (FP6-060) |
 | SELinux | Whole system permissive; no MAC protection is enforced | Enforcing, no permissive domains | Enforcing runs per subsystem (no owning task yet), user candidate (FP6-047) |
 | Bootloader and keys | Unlocked; images signed with public AOSP test keys | Locked on a DiamaneOS AVB key; release keys only; relock never enrols a public test key | Custom-key relock (FP6-050), signing roles and equipment (FP6-035, FP6-036) |
 | Network endpoints | Inherited GrapheneOS services (connectivity, time, CT list, provisioning proxies, app catalog, SUPL proxy) | DiamaneOS EU endpoints with visible standard-server choices | Endpoint contracts (FP6-100), endpoint implementations (FP6-102 to FP6-112) |
