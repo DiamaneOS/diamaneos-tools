@@ -333,6 +333,16 @@
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/wlan"
     },
     {
+      "checkout_path": "WORK_ROOT/os/frameworks/opt/telephony",
+      "id": "telephony-framework",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_opt_telephony.git",
+      "revision": null,
+      "slug": "platform_frameworks_opt_telephony",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_opt_telephony"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/bootable/bootloader/edk2",
       "id": "kernel-qcom-edk2",
       "publication": "public-source",
