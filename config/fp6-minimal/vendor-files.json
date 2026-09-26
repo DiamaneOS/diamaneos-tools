@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "d68655a67c31b19002820e4f806f61203fc8983d0cc9b6e0d121f0ca80c1e016",
+  "model_sha256": "00fbd89743368f6ca2d03762dce6fc93308bc88eeb3ddd96c92908133cc4850b",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -16671,26 +16671,6 @@
       }
     },
     {
-      "input": "system_ext/app/QtiTelephonyService/QtiTelephonyService.apk",
-      "path": "system_ext/app/QtiTelephonyService/QtiTelephonyService.apk",
-      "sha256": "104efe167c3f80ebde2e307d6037d5042e67940eacaa26c588ff0f2fd333fcd5",
-      "bytes": 61854,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [],
-      "notices": [
-        "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
-      ],
-      "purpose": "Stock QtiTelephonyService: IQcRilAudio client that passes vsid and call_state from QCRIL to the audio HAL so voice calls get audio; presigned, installed privileged so its shared UID stays closed.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "product/app/uimlpaservice/uimlpaservice.apk",
       "path": "product/app/uimlpaservice/uimlpaservice.apk",
       "sha256": "281f24de857d79ad1c1c2d80e97b85c7ae2a68180f3cdfaadf42fa11c3fcdecd",
@@ -16701,12 +16681,32 @@
       "notices": [
         "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
       ],
-      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged, disabled by default (device sysconfig).",
+      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; its EuiccService is on from r9s and its unused UimLpaService stays off (device sysconfig).",
       "metadata": {
         "uid": 0,
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:system_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "product/lib64/libjni_aidl_service.so",
+      "path": "product/lib64/libjni_aidl_service.so",
+      "sha256": "48b8a1bf2157abe44f4879109904bae9ad74459defeb2bf3d8b742c415bba70c",
+      "bytes": 35528,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
+      ],
+      "purpose": "JNI library the LPA loads in ServiceLib.<clinit> (AServiceManager_isDeclared and waitForService for IUimLpa); links platform libraries only.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_lib_file:s0",
         "capabilities_hex": ""
       }
     },
@@ -16721,7 +16721,7 @@
       "notices": [
         "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
       ],
-      "purpose": "Shared library qti-telephony-hidl-wrapper required by the IMS app and QtiTelephonyService (uses-library).",
+      "purpose": "Shared library qti-telephony-hidl-wrapper required by the IMS app (uses-library).",
       "metadata": {
         "uid": 0,
         "gid": 0,

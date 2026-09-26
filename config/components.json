@@ -15,7 +15,7 @@
       "status": "pinned"
     },
     {
-      "component": "OpenEUICC LPA (candidate)",
+      "component": "OpenEUICC LPA (rejected)",
       "decision_owner": "designated project maintainer",
       "distribution_form": "TBD in eSIM integration (privileged system integration)",
       "evidence": "Licence text read; version/integration undecided",
@@ -25,8 +25,8 @@
       "notices_obligation": "Source + licence text + written offer as applicable; Installation-Information analysis for locked-bootloader distribution is the precise open question (no blanket ban, no clearance)",
       "owner_task": "FP6-089",
       "revision": "unpriv-v1.7.2 (observed latest tag 2026-09-10, detection only; integration pins at eSIM integration)",
-      "source_url": "https://github.com/estkme-group/OpenEUICC (candidate)",
-      "status": "blocked"
+      "source_url": "https://github.com/estkme-group/OpenEUICC",
+      "status": "rejected: owner no-go 2026-09-25/26 (GrapheneOS os-issue-tracker #6275 and #2631); not a candidate, prototype or fallback"
     },
     {
       "component": "Unknown-tracker detector (maintained, TBD)",
@@ -914,13 +914,13 @@
       ],
       "source_candidates": [
         {
-          "id": "openeuicc",
-          "kind": "substitute",
-          "reference": "OpenEUICC unpriv-v1.7.2 candidate recorded in components",
-          "revision": "unpriv-v1.7.2 detection pin; integration revision unresolved",
+          "id": "esim-source-lpa",
+          "kind": "none-identified",
+          "reference": "No maintained source LPA is identified for FP6; OpenEUICC, including EasyEUICC, is excluded by owner decision (2026-09-25/26; GrapheneOS os-issue-tracker #6275 and #2631)",
+          "revision": null,
           "compatibility": "unknown",
-          "assessment": "candidate",
-          "rationale": "Source availability and licence inspection do not establish privileged FP6 integration, protocol completeness, carrier behavior or sustainable maintenance."
+          "assessment": "not-identified",
+          "rationale": "FP6-207 records any source LPA it finds. The OpenEUICC exclusion is an owner scope decision, not a qualification result."
         }
       ],
       "decision_state": "candidate",
@@ -929,10 +929,10 @@
         "eligible": false,
         "verified_necessary_for": [],
         "required_prebuilt_refs": [],
-        "rationale": "The stock eSIM path has not yet been separated into exact component outputs in the bound source inventory, so no prebuilt exception is declared here."
+        "rationale": "The stock Qualcomm LPA and its JNI library ship as private bring-up under radio-ims-data (owner decision 2, 2026-09-25), so no separate prebuilt exception is declared here. Open gates before public use: -20 user-CA trust, -01 presigned update path, no download screen, -21 erase at reset."
       },
       "qualification_evidence": [],
-      "next_experiment": "Trace the exact stock LPA/protocol/native closure, bind the OpenEUICC integration revision and compare profile download, activation, switching, deletion safeguards, reset, privacy and carrier behavior.",
+      "next_experiment": "Qualify the stock Qualcomm LPA (com.qualcomm.qti.lpa, private bring-up under radio-ims-data) in FP6-207 against PRD-08: profile download, activation, switching, deletion safeguards, reset and erase, privacy, trust (-20), updates (-01) and carrier behavior; record any source LPA found.",
       "update_triggers": [
         "LPA or protocol source changes",
         "Android Euicc APIs change",

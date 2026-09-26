@@ -557,9 +557,9 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn(line, ims)
         self.assertNotIn('certificate', ims)
         self.assertIn('installed_location: "priv-app/ims/lib/arm64/libimsmedia_jni.so"', bp)
-        audio = bp[bp.index('name: "QtiTelephonyService"'):]
-        audio = audio[:audio.index('}\n')]
-        self.assertIn('privileged: true', audio)
+        # The stock call-audio client is replaced by the device's own bridge.
+        self.assertNotIn('QtiTelephonyService', bp)
+        self.assertNotIn('QtiTelephonyService', make)
         self.assertIn('license_text: ["NOTICE-system_ext.xml"]', bp)
         for path in ['system_ext/framework/qti-telephony-utils.jar:$(TARGET_COPY_OUT_SYSTEM_EXT)/framework/qti-telephony-utils.jar',
                      'product/etc/permissions/ims_ext_common.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/ims_ext_common.xml']:
@@ -579,6 +579,16 @@ class NativeProductTests(unittest.TestCase):
                      'product/etc/permissions/lpa.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/lpa.xml',
                      'system_ext/framework/extphonelib.jar:$(TARGET_COPY_OUT_SYSTEM_EXT)/framework/extphonelib.jar']:
             self.assertIn('vendor/fairphone/FP6/files/' + path, make)
+        # ServiceLib's JNI library, installed where the product app's linker
+        # namespace looks (/product/lib64) and linked to platform libraries only.
+        start = bp.index('srcs: ["files/product/lib64/libjni_aidl_service.so"]')
+        jni = bp[bp.rindex('cc_prebuilt_library_shared {', 0, start):]
+        jni = jni[:jni.index('}\n')]
+        for line in ['product_specific: true', 'stem: "libjni_aidl_service"', 'system_shared_libs: []',
+                     'licenses: ["fp6_selected_stock_notices_product"]']:
+            self.assertIn(line, jni)
+        for lib in ['libbinder_ndk', 'libc++', 'libc', 'libdl', 'liblog', 'libm']:
+            self.assertIn('"%s"' % lib, jni)
 
     def test_unreviewed_stock_jar_or_permission_file_rejected(self):
         for path in ['product/framework/other.jar', 'system_ext/etc/permissions/privapp-permissions-other.xml']:
@@ -632,10 +642,13 @@ class NativeProductTests(unittest.TestCase):
             source_sha256=hashlib.sha256(source_data).hexdigest(), public=False)
         radio = next(r for r in closure['component_results'] if r['component_id'] == 'radio-ims-data')
         self.assertIn('system_ext/priv-app/ims/ims.apk', radio['artifact_paths'])
-        # The call-audio messenger belongs to the audio path; QCRIL keeps its
-        # IQcRilAudio interface library and VINTF declaration.
+        # The stock call-audio client is not selected (the device builds its own
+        # bridge); QCRIL keeps its IQcRilAudio interface library and VINTF
+        # declaration, which the bridge talks to.
         audio = next(r for r in closure['component_results'] if r['component_id'] == 'audio-stack')
-        self.assertIn('system_ext/app/QtiTelephonyService/QtiTelephonyService.apk', audio['artifact_paths'])
+        self.assertFalse(any('QtiTelephonyService' in p for p in audio['artifact_paths']))
+        self.assertNotIn('system_ext/app/QtiTelephonyService/QtiTelephonyService.apk',
+                         {r['path'] for r in self.recipe['files']})
         self.assertIn('vendor/lib64/vendor.qti.hardware.radio.am-V1-ndk.so', radio['artifact_paths'])
 
     def test_unreviewed_system_ext_input_rejected(self):
