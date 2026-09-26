@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-09-26 (endpoint additions from the branding inventory; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-26 (endpoint additions from the branding inventory and the approved shell rework; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -329,8 +329,11 @@ broad compatibility shims.
 Shared visual tokens and components carry no platform authority. Credential,
 update, backup, network and content-processing authorities stay separate. Each
 nontrivial Settings, launcher or SystemUI change needs demonstrated benefit, an
-owner, measured rebase cost and regression checks. No shell rewrite is
-presumed.
+owner, measured rebase cost and regression checks. The project owner approved
+a substantial shell rework on 2026-09-26 (lockscreen, shade and Quick Settings,
+Home, Recents and app transitions through Launcher3, SystemUI and WM Shell);
+framework authorities are not replaced and no shared visual controller gains
+platform authority.
 
 ## Decision record
 
@@ -450,4 +453,5 @@ Revision history:
   geocoding and attestation services, the browser's own connectivity checks,
   probe names sent while checks are off, and the Android Auto DHCP hostname;
   endpoint contracts now number 17. Later the same day the plan gave network
-  location and geocoding to FP6-103.
+  location and geocoding to FP6-103, and the Fresh-UI boundary recorded the
+  owner-approved shell rework.

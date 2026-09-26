@@ -13,9 +13,9 @@ targets Fairphone 6 and uses GrapheneOS as its upstream OS base.
 
 Original DiamaneOS code, documentation and artwork in this repository are
 licensed under [Apache-2.0](LICENSE), except where another licence is identified.
-Bundled Lucide icons retain their ISC licence and Feather MIT notice;
-Instrument Sans fonts retain the SIL Open Font License 1.1. See [NOTICE](NOTICE)
-for attribution and the locations of the complete upstream licence texts.
+Third-party design assets moved with the interface design and branding to the
+separate diamaneos-design repository, which carries their licence notices; see
+[NOTICE](NOTICE).
 
 The copyright licence is separate from use of the DiamaneOS name and logo as
 trademarks; see section 6 of the Apache licence. Referenced upstream projects

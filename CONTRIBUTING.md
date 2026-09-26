@@ -154,9 +154,9 @@ engine for similar-looking steps. Test the composed acceptance boundary when a
 fix spans provenance, locking or process completion. Passing individual helper
 tests does not establish the caller's end-to-end result.
 
-Use `main` for tools and standalone services, `android17` for the current
-manifest/device/shared product line, and `android14-6.1` for the current
-Fairphone kernel forks. Preserve upstream history and signed commits. Keep
+Use `main` for tools and standalone services, and `android17` for every OS
+repository: the manifest, device and shared product repositories and the kernel
+forks. Preserve upstream history and signed commits. Keep
 independent Git backups; ROM images and build evidence belong outside source
 Git. Repository discovery is in `config/repositories.json`; exact build pins
 remain in the manifest and environment records.
