@@ -369,6 +369,20 @@
       "validation": "External module build, 506-artifact layout scan and r9k FP6 userdebug boot pass; production qualification remains."
     },
     {
+      "id": "kernel-display-devicetree-aod",
+      "repository": "https://github.com/DiamaneOS/kernel_qcom_display-devicetree",
+      "workspace": "kernel",
+      "path": "vendor/qcom/proprietary/display-devicetree",
+      "base_revision": "56394aacd960d7e6d71ef88b9b073f7ea3754be6",
+      "derived_revision": "d94b9d844cc37cbec58835ce8fdc2eba0fafe5c5",
+      "canonical_diff_sha256": "486797a7e584c97265ba2ab29d81b3c11c3b9a9284451433b2fd068d56fbe8d6",
+      "changed_files": [
+        "display/dsi-panel-nt37705-boe-amoled-cmd.dtsi"
+      ],
+      "purpose": "Restore the FP6 factory image's always-on display settings for the NT37705 panel: idle brightness 0x0003 instead of 0x09D9 in the five low-power command sets, and no D2 command at power-on. Fairphone's published tree brightens AOD four seconds after locking.",
+      "validation": "Diff matches the FP6.QREL.16.100.0 factory dtbo for these commands; dtbo build and the AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
+    },
+    {
       "id": "kernel-wlan-randstruct-callbacks",
       "repository": "https://github.com/DiamaneOS/kernel_qcom_wlan_common",
       "workspace": "kernel",
