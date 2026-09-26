@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
+  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26, with the owner's network location and geocoder choices recorded the same day. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
   "canonical_domain": "diamaneos.de",
   "providers": [
     {
@@ -148,6 +148,20 @@
       "jurisdiction": "eu-primary",
       "disclosure": "Netnod is Swedish. Multiple Netnod hosts are one operator, not independent operators. Six source slots and at least three agreeing samples are project service policy, not fields or quorum checks in the Android HTTPS client. Qualify source diversity in TIME-SOURCES before enabling this service.",
       "owner_task": "FP6-102"
+    },
+    {
+      "name": "network-location",
+      "default": "Off. Opt-in choices: the DiamaneOS EU relay to Apple's location service (location.diamaneos.de) or Apple's service directly (gs-loc.apple.com). Owner decision 2026-09-26, the same model as GrapheneOS.",
+      "jurisdiction": "non-eu-direct-exception",
+      "disclosure": "Apple is a US operator. Either choice sends nearby Wi-Fi access points and cells, which reveal approximate location, to Apple. The EU relay keeps no cache and no per-request logs and hides the device IP from Apple; the direct choice also gives Apple the device IP. The setup wizard's location switch must not turn either on silently. The network position seeds the GNSS engine: in an indoor owner test on the FP6 (2026-09-26), GPS alone gave no fix within several minutes; with Apple directly the first network fix arrived about 35 s after the app's request and GPS locked about 1 s later.",
+      "owner_task": "FP6-103"
+    },
+    {
+      "name": "geocoder",
+      "default": "Off. DiamaneOS hosts no geocoder for now (owner decision 2026-09-26); users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly, with a DiamaneOS User-Agent.",
+      "jurisdiction": "non-eu-direct-exception",
+      "disclosure": "Run by the OpenStreetMap Foundation, registered in England and Wales (UK). When the user opts in, OpenStreetMap sees the device IP, the searched text or the queried coordinates (usually the user's own location), the language and the User-Agent; no DiamaneOS server is in the path. Use stays within OpenStreetMap's Nominatim usage policy (identify the app, low request rate, attribution). Ask the OpenStreetMap Foundation before it becomes anything more than an opt-in. Self-hosting can be revisited if people use it.",
+      "owner_task": "FP6-103"
     }
   ],
   "sources": [
@@ -1819,7 +1833,7 @@
       "replacement_host": "location.diamaneos.de",
       "consumer": "NetworkLocation ApplePositioningService (app.grapheneos.networklocation), selected by the network location setting",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Wi-Fi and cell positioning through a proxy for Apple's location service, used only when the user turns network location on",
+      "purpose": "Wi-Fi and cell positioning through a DiamaneOS EU relay for Apple's location service, one of two opt-in choices (the other is Apple directly); network location is off by default",
       "protocol": "HTTPS POST in Apple's location request format: a short binary header (request version, locale, client identifier and version, request code) followed by a length-prefixed protobuf ALSLocationRequest naming nearby Wi-Fi access points and cells. The response skips a 10-byte header and carries a protobuf ALSLocationResponse. The client sends macOS locationd headers. A proxy forwards the body unchanged and adds no identifiers.",
       "protocol_status": "blocked",
       "path_method": "POST /clls/wloc",
@@ -1833,8 +1847,8 @@
       "verification_root": "HTTPS with system trust (the client uses a modern-TLS socket factory). Positions are a location hint, not a trust decision; nothing beyond TLS authenticates them.",
       "timeout_retry": "Client connect and read timeouts are 10 s each; one request per lookup, with client-side throttling and caches deciding re-requests. The proxy answers within the client deadline with one upstream attempt and no server retries.",
       "cache_freshness": "No proxy cache: cached queries would keep location history. The client keeps its own time-limited cache.",
-      "failure_fallback": "Proxy or upstream outage: pass an error status through (5xx) and never synthesize positions. The client falls back to satellite positioning or no network location. The setting also offers Apple directly, Apple China and off.",
-      "exposed_data": "The EU proxy sees the device IP and the list of nearby Wi-Fi access points and cells, which reveals the user's approximate location. Apple receives the same query with the proxy's IP instead of the device's. Network location is off by default, but the setup wizard's location switch turns it on (branding inventory OP-BRANDING NET-13; to confirm on the device).",
+      "failure_fallback": "Proxy or upstream outage: pass an error status through (5xx) and never synthesize positions. The client falls back to satellite positioning or no network location. The inherited setting also offers Apple directly, Apple China and off; DiamaneOS offers this relay and Apple directly as user choices, off by default (owner decision 2026-09-26); whether the inherited Apple China option stays is not yet decided.",
+      "exposed_data": "The EU proxy sees the device IP and the list of nearby Wi-Fi access points and cells, which reveals the user's approximate location. Apple receives the same query with the proxy's IP instead of the device's. If the user chooses Apple directly instead, Apple also sees the device IP and no DiamaneOS server is in the path. Network location is off by default, but the inherited setup wizard's location switch turns it on (branding inventory OP-BRANDING NET-13; to confirm on the device); the DiamaneOS setup wizard must not turn it on silently.",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-103",
@@ -1857,7 +1871,7 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "FP6-103 owns network location and geocoding (plan amended 2026-09-26); the owner still chooses an EU relay, Apple directly or off for location, and a self-hosted EU Nominatim or OpenStreetMap-or-off for geocoding. The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off. Bind request/response ceilings from captured native traffic before activation."
+          "description": "Scope decided 2026-09-26 (owner): network location offers the DiamaneOS EU relay and Apple directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
         }
       ],
       "example": {
@@ -1873,7 +1887,7 @@
       "replacement_host": "geocoder.diamaneos.de",
       "consumer": "NetworkLocation NominatimGeocoder (the Android Geocoder provider), selected by the geocoder setting",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Turns place names into coordinates and coordinates into addresses for apps that use Android's Geocoder, only when the user turns geocoding on",
+      "purpose": "Turns place names into coordinates and coordinates into addresses for apps that use Android's Geocoder, only when the user turns geocoding on. DiamaneOS hosts no geocoder for now (owner decision 2026-09-26): the opt-in goes directly to OpenStreetMap's public Nominatim, and geocoder.diamaneos.de is only reserved in case self-hosting is revisited.",
       "protocol": "HTTPS GET of the Nominatim API with format=geocodejson: /search for place names (optionally bounded to a box) and /reverse for coordinates at zoom 18, with addressdetails and extratags. The client sends Accept-Language from the requested locale and the User-Agent 'GrapheneOS geocoder 1', which a DiamaneOS fork must change.",
       "protocol_status": "blocked",
       "path_method": "GET /search?format=geocodejson&q=...&limit=...&addressdetails=1&extratags=1[&viewbox=...&bounded=1]; GET /reverse?format=geocodejson&lat=...&lon=...&zoom=18&addressdetails=1&extratags=1",
@@ -1884,11 +1898,11 @@
         "GeocodeJSON FeatureCollection with geometry and address fields. The literal body {\"error\":\"Unable to geocode\"} means no result; any non-200 status is a failure."
       ],
       "verification_root": "HTTPS with system trust (modern-TLS socket factory). Results are map data, not a security decision.",
-      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per call. The server answers within the client deadline with no server retries.",
-      "cache_freshness": "No cache of queries or answers, because they reveal places a user looks up. Map data freshness follows the hosting choice: a self-hosted instance updates from OpenStreetMap data on a schedule.",
-      "failure_fallback": "Outage or overload: an error status, so apps get no result rather than invented addresses. The setting also offers OpenStreetMap's own server and off.",
-      "exposed_data": "The service sees the device IP, the searched text or coordinates, the user's language and the client User-Agent. Reverse-geocoded coordinates are usually the user's own location. Geocoding is off by default.",
-      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per call. No DiamaneOS server: the geocode limits profile applies only if self-hosting is revisited. OpenStreetMap's usage policy caps an app at 1 request per second across all its users.",
+      "cache_freshness": "No DiamaneOS server, so no DiamaneOS cache of queries or answers, which reveal places a user looks up. Map data freshness is OpenStreetMap's.",
+      "failure_fallback": "OpenStreetMap outage, overload or refusal: an error status, so apps get no result rather than invented addresses. The DiamaneOS setting offers only off (the default) and OpenStreetMap's public Nominatim.",
+      "exposed_data": "When the user opts in, OpenStreetMap's public Nominatim (the OpenStreetMap Foundation, UK) sees the device IP, the searched text or the queried coordinates, the user's language and the client User-Agent; no DiamaneOS server is in the path. Reverse-geocoded coordinates are usually the user's own location. Geocoding is off by default.",
+      "retention": "No DiamaneOS server, so no project logs. Opted-in queries fall under the OpenStreetMap Foundation's own policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-103",
       "status": "blocked-contract",
@@ -1902,12 +1916,12 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "FP6-103 owns network location and geocoding (plan amended 2026-09-26); the owner still chooses an EU relay, Apple directly or off for location, and a self-hosted EU Nominatim or OpenStreetMap-or-off for geocoding. The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off. Bind request/response ceilings from captured native traffic before activation."
+          "description": "Scope decided 2026-09-26 (owner): network location offers the DiamaneOS EU relay and Apple directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
         },
         {
           "id": "GEOCODER-HOSTING",
           "owner_task": "FP6-103",
-          "description": "Choose between an EU-hosted Nominatim instance (import size, update schedule, ODbL attribution and the OpenStreetMap usage policy) and dropping the DiamaneOS option so users get only OpenStreetMap's server or off. The User-Agent must name DiamaneOS in either case, which needs the NetworkLocation fork."
+          "description": "Decided 2026-09-26 (owner): DiamaneOS hosts no geocoder for now. Geocoding stays off by default; users may opt in to OpenStreetMap's public Nominatim directly. Self-hosting can be revisited if people use it. Before enabling the opt-in: the NetworkLocation fork sends a User-Agent that names DiamaneOS, and use stays within OpenStreetMap's Nominatim usage policy: identify the app, keep a low request rate (the policy's absolute maximum is 1 request per second, counted across all users of an app) and show OpenStreetMap attribution for the ODbL data. The policy also requires results to be cached and the service to be switchable at OpenStreetMap's request without a software update; meet both or agree an alternative with the OpenStreetMap Foundation, and ask the Foundation before the option becomes anything more than an opt-in."
         }
       ],
       "example": {

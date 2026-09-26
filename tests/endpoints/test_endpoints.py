@@ -222,6 +222,26 @@ class ContractsTest(unittest.TestCase):
         next(s for s in self.services['services'] if s['id']=='dns-check')['host']='release-primary'
         self.bad_services()
 
+    def test_unhosted_geocoder_has_no_project_host(self):
+        # Owner decision 2026-09-26: no DiamaneOS geocoder; opt-in goes direct.
+        message='unhosted endpoint must not be assigned to a project host'
+        self.services['services'].append({'id':'geocoder','endpoints':['geocoder'],'host':'release-primary','mirror':None,'owner_task':'FP6-103','status':'planned','activation':'blocked-pending-implementation','credentials':'none-read-only-serving'})
+        self.assertIn(message,api.validate_services(self.inv,self.services))
+        self.setUp()
+        next(s for s in self.services['services'] if s['id']=='network-location')['endpoints'].append('geocoder')
+        self.assertIn(message,api.validate_services(self.inv,self.services))
+
+    def test_unhosted_geocoder_discloses_direct_choice(self):
+        message=['unhosted endpoint needs a disclosed direct-device choice and no relay']
+        next(d for d in self.inv['client_defaults'] if d['name']=='geocoder')['jurisdiction']='eu-primary'
+        self.assertEqual(message,api.validate_inventory(self.inv))
+        self.setUp()
+        self.inv['client_defaults']=[d for d in self.inv['client_defaults'] if d['name']!='geocoder']
+        self.assertEqual(message,api.validate_inventory(self.inv))
+        self.setUp()
+        next(e for e in self.inv['endpoints'] if e['id']=='geocoder')['upstreams']=[{'host':'geocoder-relay.example','operator':'Example','jurisdiction':'DE','mode':'bounded-proxy','data':'Queries.'}]
+        self.assertEqual(message,api.validate_inventory(self.inv))
+
     def test_service_owner_and_mirror_scope(self):
         self.services['services'][0]['owner_task']='FP6-101'
         self.bad_services()
