@@ -1,6 +1,6 @@
 # Endpoint contracts
 
-`config/endpoints.json` is the source of truth for the 14 inherited endpoint contracts. `schemas/endpoint-contract.schema.json` defines its format. Infrastructure's `config/services.json` assigns these contracts to authority roles; `schemas/services.schema.json` validates that selection. These are design inputs for implementation, not deployed configuration.
+`config/endpoints.json` is the source of truth for the 17 inherited endpoint contracts. `schemas/endpoint-contract.schema.json` defines its format. Infrastructure's `config/services.json` assigns these contracts to authority roles; `schemas/services.schema.json` validates that selection. These are design inputs for implementation, not deployed configuration.
 
 Use the setup and explicit integration command in [TESTING.md](TESTING.md). A valid result means both documents satisfy their schemas and reference/authority checks. It does not mean that a server, native client, account, signature ceremony or physical device has passed testing. Every service remains `blocked-pending-implementation` until its implementation acceptance evidence exists.
 
@@ -8,7 +8,7 @@ The existing `owner_task` and `verify_at` fields carry maintainer tracking metad
 
 ## Reading the evidence
 
-Each endpoint has `source_refs` into the `sources` array. An entry records the repository, full commit, actual file path, symbol locators and SHA-256 of the retrieved file. Open `repository/blob/revision/path` to inspect it. The observations were retrieved over HTTPS on 2026-09-11; file hashes make this review reproducible but do not authenticate a future shipping release.
+Each endpoint has `source_refs` into the `sources` array. An entry records the repository, full commit, actual file path, symbol locators and SHA-256 of the retrieved file. Open `repository/blob/revision/path` to inspect it. The observations were retrieved over HTTPS on 2026-09-11, and on 2026-09-26 for the network-location, geocoder and attestation contracts and for Vanadium's own connectivity checks; file hashes make this review reproducible but do not authenticate a future shipping release.
 
 `manifest-pin` means the revision agrees with the reviewed source manifest. `research-pin` means a separately resolved AppStore, Info or Vanadium source revision; it is **not** proof that a particular prebuilt APK was built from that revision. `server-reference` describes upstream routing and upstream destinations, not a contract we blindly copy. The relevant app/device implementation must bind the final binary and recheck these observations when the pin changes. The frameworks tree API was truncated, so relevant services files were fetched directly; this is not a claim to have searched every upstream file.
 
@@ -19,6 +19,10 @@ The pinned sources establish the following protocol boundaries:
 - `dnscheck.grapheneos.org` is a DNS probe suffix. It needs authoritative wildcard records and a chosen resolver, not an HTTP service on the release VPS.
 - `gstatic.grapheneos.org` serves Android platform CT lists. Its pinned verifier allowlists the public key independently and verifies each list's signature; the downloaded public key alone is not a trust root.
 - HTTPS time uses an integer `X-Time` in Unix **milliseconds**. The Android client does not send a nonce or implement a six-source quorum. Its bootstrap hostname lookup explicitly bypasses Private DNS; do not claim the configured Swiss DoT default covers that path. The project time server owns authenticated upstream sampling and agreement.
+- `gs-loc.apple.grapheneos.org` is GrapheneOS's relay for Apple's Wi-Fi and cell positioning, used only when network location is on. The request lists nearby access points and cells, so a relay sees approximate location; it must keep no cache or per-request logs.
+- `nominatim.grapheneos.org` answers Android Geocoder queries (place names and coordinates) when geocoding is on. The client's User-Agent names GrapheneOS, so a DiamaneOS fork must change it whatever the hosting choice.
+- `attestation.app` serves Auditor's opt-in remote verification and sample submission. It is the only stateful contract (paired accounts and history), and it needs DiamaneOS key pins and FP6 support that GrapheneOS's server does not have.
+- Vanadium also probes `connectivitycheck.grapheneos.network` itself, and its DNS-over-HTTPS probe uses that name even when the OS setting turns checks off. Only a rebuilt browser can repoint it (FP6-111).
 - TLS proxies can see the outer RKP, Widevine and SUPL protocol. Some fields may be encrypted, but saying the entire payload is opaque would overstate privacy. The contract names each actual upstream and what it receives.
 
 ## Bounds and freshness
@@ -37,7 +41,7 @@ When selection is stale, use each endpoint's `failure_fallback`: no fresh select
 
 `example.kind=wire-shape` freezes the reviewed transport shape, including empty 204 bodies and time units. Example timestamps, device tokens and release IDs are illustrative. `schematic-not-conformance` explicitly has no valid cryptographic/native acceptance fixture yet. Do not treat it as one. Signed catalog/OTA, CBOR, ASN.1, CRX, CT and proprietary device samples must come from the pinned consumer/test producer under the listed implementation owner; invented successful payloads would conceal the missing evidence.
 
-The ten unique implementation gates are defined once by ID in the endpoint rows (a shared gate may be referenced by both component rows). None can be cleared by changing `status` alone. A gate closes with the actual pin/key/config, valid native fixture, corrupt/truncated/oversized case, measured timeout and stale/outage result in the implementing task. Source-only and fixture-only tests cannot clear device eligibility or hardware behavior.
+The thirteen unique implementation gates are defined once by ID in the endpoint rows (a shared gate may be referenced by more than one row, such as `COMPONENT-BIND` and `NETLOC-SCOPE`). None can be cleared by changing `status` alone. A gate closes with the actual pin/key/config, valid native fixture, corrupt/truncated/oversized case, measured timeout and stale/outage result in the implementing task. Source-only and fixture-only tests cannot clear device eligibility or hardware behavior.
 
 `COMPONENT-BIND` is a real compatibility conflict: the observed Vanadium patch hardcodes the component download host. Mirroring the unmodified APK and its package repository does not prove that this host can be repointed. CT and browser-component delivery and browser APK delivery must demonstrate a supported configuration or return the decision to the responsible maintainer. Rebuilding/resigning, TLS interception, leaving inherited traffic or disabling components is not an authorized automatic resolution.
 
