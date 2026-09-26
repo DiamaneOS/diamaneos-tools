@@ -21,8 +21,8 @@
       "items": {
         "$ref": "#/definitions/endpoint"
       },
-      "maxItems": 17,
-      "minItems": 17,
+      "maxItems": 16,
+      "minItems": 16,
       "type": "array"
     },
     "note": {
