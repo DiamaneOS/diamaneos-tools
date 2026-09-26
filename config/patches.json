@@ -50,13 +50,14 @@
       "workspace": "android",
       "path": "vendor/qcom/opensource/power",
       "base_revision": "bb2c0b20efcd2cbc8a3857c5c00a9452355c99b8",
-      "derived_revision": "6683dc9bfb513bfe118eee2f069b03224065fbf3",
-      "canonical_diff_sha256": "914382bcf0672e8f6aab4c51cafe96a29f93a1b384d3b66c25dca823a5da6e79",
+      "derived_revision": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
+      "canonical_diff_sha256": "f8671fd94640c1343e2626bbab58b1ce11d1d0bf93249a9a64abf85303fed930",
       "changed_files": [
         "Android.bp",
         "Android.mk.legacy",
         "LICENSES/BSD-3-Clause-Clear.txt",
         "LICENSES/consumed-source-notices.txt",
+        "Power.cpp",
         "PowerHintSession.cpp",
         "README.md",
         "config/volcano/powerhint.xml",
@@ -68,7 +69,7 @@
         "tests/host/stubs/android-base/logging.h",
         "tests/host/stubs/cutils/properties.h"
       ],
-      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test).",
+      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test). Support Mode::DOUBLE_TAP_TO_WAKE through the FP6 touch controller's gesture_wakeup node.",
       "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
     },
     {
