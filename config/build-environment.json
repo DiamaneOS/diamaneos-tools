@@ -86,7 +86,7 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "3742c6769137252184094b2aac8ddaf2039fefe97ae208153174aff88abc4fae"
+      "sha256": "563f0615047ac9fa89c65920af819a3dee3e80ec85f79d70e88fb098c5f44063"
     },
     {
       "id": "stock-input-inventory",
@@ -96,17 +96,17 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "7c2f869951e4cd559d8d03d7abde778f99816cc28395abcd77a4fc694ffa0989"
+      "sha256": "540cbb478d641545e5c099f3e20572a5f6fe769aabf801e639b22cf965607d19"
     },
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "5952f45393fc04adb646a14bb85175bdb8c19118db3a1a6cc8f7623a02bce553"
+      "sha256": "01482e55d3b345c17dfa298cf41d667f816654d1eb210e26dafa60e20590d60c"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "3232e61b730f70bbc80d3ace83a320c0849adf6efad4cb9183bb0ba86fd6b72e"
+      "sha256": "866d9f3e8c674d30d43df03fda968467038e5f18c776b090cff077902a4f8877"
     }
   ],
   "device_inputs": {

@@ -243,6 +243,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/touch-drivers"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/proprietary/display-devicetree",
+      "id": "kernel-display-devicetree",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_display-devicetree.git",
+      "revision": null,
+      "slug": "kernel_qcom_display-devicetree",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/proprietary/display-devicetree"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
       "id": "kernel-video",
       "publication": "public-source",
@@ -303,6 +313,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/power"
     },
     {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/vibrator",
+      "id": "vibrator-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_vibrator.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_vibrator",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/vibrator"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/display",
       "id": "display-hal",
       "publication": "public-source",
@@ -321,6 +341,16 @@
       "slug": "hardware_qcom_wlan",
       "state": "active",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/wlan"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/frameworks/opt/telephony",
+      "id": "telephony-framework",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_opt_telephony.git",
+      "revision": null,
+      "slug": "platform_frameworks_opt_telephony",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_opt_telephony"
     },
     {
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/bootable/bootloader/edk2",

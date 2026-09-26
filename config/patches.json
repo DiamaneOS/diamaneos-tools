@@ -50,13 +50,14 @@
       "workspace": "android",
       "path": "vendor/qcom/opensource/power",
       "base_revision": "bb2c0b20efcd2cbc8a3857c5c00a9452355c99b8",
-      "derived_revision": "6683dc9bfb513bfe118eee2f069b03224065fbf3",
-      "canonical_diff_sha256": "914382bcf0672e8f6aab4c51cafe96a29f93a1b384d3b66c25dca823a5da6e79",
+      "derived_revision": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
+      "canonical_diff_sha256": "f8671fd94640c1343e2626bbab58b1ce11d1d0bf93249a9a64abf85303fed930",
       "changed_files": [
         "Android.bp",
         "Android.mk.legacy",
         "LICENSES/BSD-3-Clause-Clear.txt",
         "LICENSES/consumed-source-notices.txt",
+        "Power.cpp",
         "PowerHintSession.cpp",
         "README.md",
         "config/volcano/powerhint.xml",
@@ -68,8 +69,41 @@
         "tests/host/stubs/android-base/logging.h",
         "tests/host/stubs/cutils/properties.h"
       ],
-      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test).",
-      "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
+      "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test). Support Mode::DOUBLE_TAP_TO_WAKE through the FP6 touch controller's gesture_wakeup node.",
+      "validation": "At 6683dc9: native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Double-tap to wake (f59bd8b, Power.cpp): not yet compiled (the host test does not build Power.cpp); r9s build and the tap-to-wake owner test pending. Runtime performance backend and device behavior remain unqualified."
+    },
+    {
+      "id": "vibrator-awinic-effects",
+      "repository": "https://github.com/DiamaneOS/vendor_qcom_opensource_vibrator",
+      "workspace": "android",
+      "path": "vendor/qcom/opensource/vibrator",
+      "base_revision": "ee288ad6ab45e39069aedb5122f7fa198050f533",
+      "derived_revision": "ffecf5cc1cbc2244495dcbbff6acde93467da458",
+      "canonical_diff_sha256": "a0faff16a913b7c72af1a469ad7dd4b47af92336ff94b555285a5b258b0df918",
+      "changed_files": [
+        "aidl/Vibrator.cpp",
+        "aidl/include/Vibrator.h",
+        "aidl/vendor.qti.hardware.vibrator.service.rc"
+      ],
+      "purpose": "Play the Awinic chip's RAM waveforms as real effects (tick, click, heavy click, double click, pop, thud) with a gain per strength, amplitude control and three composition primitives, mapped by the owner's feel test; no RTP streaming, and no input-device access when the Awinic chip is present.",
+      "validation": "Vibrator.cpp compiles with the platform flags on the builder; a host test with ThreadSanitizer (fake driver) checks write order, play lengths, single callbacks, input rejection and that the motor always ends stopped; the vendor policy with the new labels compiles and passes neverallows. Mapping retuned after that test; r9s build and phone test pending."
+    },
+    {
+      "id": "telephony-poll-coalescing",
+      "repository": "https://github.com/DiamaneOS/platform_frameworks_opt_telephony",
+      "workspace": "android",
+      "path": "frameworks/opt/telephony",
+      "base_revision": "02e1bf0ea9fe5d2cdb3cf954cc1353a935821ebc",
+      "derived_revision": "6c54c1b07423bf379ac750a43755c563f148ea4f",
+      "canonical_diff_sha256": "fc6b920f6ac9d1edec1350f57882a147954a6df3df74b096135eb1554a14a567",
+      "changed_files": [
+        "src/java/com/android/internal/telephony/Phone.java",
+        "src/java/com/android/internal/telephony/ServiceStateTracker.java",
+        "tests/telephonytests/src/com/android/internal/telephony/GsmCdmaPhoneTest.java",
+        "tests/telephonytests/src/com/android/internal/telephony/ServiceStateTrackerTest.java"
+      ],
+      "purpose": "Batch the vendor RIL's network-state polls while the phone is idle: with ro.telephony.network_state_poll_window_ms set, a network-state report polls at once unless the phone is idle, SIM ready, radio on, in service and no phone has a call, ECBM or emergency SMS; then later reports within the window wait for the next poll, with a wakeup backstop at twice the window. Screen on, charging and every non-idle state poll immediately; unset keeps upstream behaviour.",
+      "validation": "telephony-common compiles in the r9r tree (2026-09-26). FrameworksTelephonyTests does not compile at the GrapheneOS base (SmsDispatchersControllerTest, GsmInboundSmsHandlerTest), so the new tests are reviewed but not run. FP6 value 5000 ms (owner accepted the 10 s worst case); r9s phone test pending."
     },
     {
       "id": "kernel-common-randstruct-callbacks",
@@ -92,7 +126,7 @@
         "net/tipc/socket.c"
       ],
       "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes).",
-      "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; the r9q data-call test is pending."
+      "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs on r9q (TIPC module) and r9r (this revision, with the 6.1.178 fixes), both SELinux permissive; the enforcing r9s data test is pending."
     },
     {
       "id": "kernel-qcom-grapheneos",
@@ -102,7 +136,7 @@
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
       "derived_revision": "50d02443304a5d0932346beebe25f1a192c86c73",
       "canonical_diff_sha256": "4a80942793acb26508d512f7e6968fdb17278c35e96ac391f770989c6dc53b39",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration The same 6.1.178 TIPC fixes as the common kernel.",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel.",
       "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
       "changed_files_sha256": "bde61ca3c5863abe76c27d1d7473fa292ca63f74cfb9b57d7d5b38b0f1bf5a79",
       "merged_upstream": {
@@ -366,6 +400,20 @@
       ],
       "purpose": "Use designated initializers for the encoder and register DMA operation tables, and define the DSI callback return type before the connector operations. Needed for one RANDSTRUCT_FULL layout against the GrapheneOS 6.1.177 kernel.",
       "validation": "External module build, 506-artifact layout scan and r9k FP6 userdebug boot pass; production qualification remains."
+    },
+    {
+      "id": "kernel-display-devicetree-aod",
+      "repository": "https://github.com/DiamaneOS/kernel_qcom_display-devicetree",
+      "workspace": "kernel",
+      "path": "vendor/qcom/proprietary/display-devicetree",
+      "base_revision": "56394aacd960d7e6d71ef88b9b073f7ea3754be6",
+      "derived_revision": "d94b9d844cc37cbec58835ce8fdc2eba0fafe5c5",
+      "canonical_diff_sha256": "486797a7e584c97265ba2ab29d81b3c11c3b9a9284451433b2fd068d56fbe8d6",
+      "changed_files": [
+        "display/dsi-panel-nt37705-boe-amoled-cmd.dtsi"
+      ],
+      "purpose": "Restore the FP6 factory image's always-on display settings for the NT37705 panel: idle brightness 0x0003 instead of 0x09D9 in the five low-power command sets, and no D2 command at power-on. Fairphone's published tree brightens AOD four seconds after locking.",
+      "validation": "Exact inverse of Fairphone's 4492d50 (FPS-3248): the panel file returns to the pre-4492d50 and Android 15 branch content, and all panel command arrays match the FP6.QREL.15.178.0 factory dtbo. The FP6.QREL.16.100.0 dtbo matches too except its two DBV-1290 brightness-mode command sets, which append a normal brightness write. r9s kernel run: only dtbo.img differs from r9r. AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
     },
     {
       "id": "kernel-wlan-randstruct-callbacks",

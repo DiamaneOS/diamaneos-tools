@@ -850,17 +850,15 @@
     },
     {
       "id": "gnss",
-      "origin": "mixed-published-source-and-proprietary-prebuilt",
-      "source_revisions": [
-        {
-          "path": "hardware/qcom/gps",
-          "revision": "ec46034bf80b932f8b1571e57bc71342b90474e1"
-        }
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "source_revisions": [],
+      "reference_vintf": [
+        "android.hardware.gnss AIDL V3 IGnss/default"
       ],
       "abi_uapi": "GNSS AIDL, location libraries, QMI/modem and assistance-data protocols",
-      "load_path": "source-built service/libraries plus generated vendor blobs",
-      "licence_profile": "published-source-review-required",
-      "rebuilt_from_source": "partial only"
+      "load_path": "generated vendor tree (stock GNSS HAL and location closure) and modem partition; the frozen AOSP GNSS and health interface libraries it links are built from source (renderer SOURCE_INTERFACES)",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
     },
     {
       "id": "graphics-display-media",
@@ -878,17 +876,15 @@
     },
     {
       "id": "nfc-secure-element",
-      "origin": "published-source-selection-unresolved-plus-possible-prebuilts",
-      "source_revisions": [
-        {
-          "path": "vendor/nxp/opensource/interfaces/nfc",
-          "revision": "e48755e2060da21c881259bf202bb2b94944998a"
-        }
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "source_revisions": [],
+      "reference_vintf": [
+        "android.hardware.nfc AIDL V1 INfc/default"
       ],
-      "abi_uapi": "NFC AIDL/HIDL, OMAPI secure-element interfaces and selected NFC/eSE driver",
-      "load_path": "reference product names android.hardware.nfc-service.sec; exact FP6 generated selection unresolved",
-      "licence_profile": "published-source-review-required",
-      "rebuilt_from_source": "unverified until selection is bound"
+      "abi_uapi": "NFC AIDL/HIDL and the Samsung controller transport (sec_nfc); the UICC secure-element HAL stays with the radio selection",
+      "load_path": "generated vendor tree (stock android.hardware.nfc-service.sec, nfc_nci_sec.so and configuration); the frozen AOSP NFC interface libraries they link are built from source (renderer SOURCE_INTERFACES)",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
     },
     {
       "id": "power-thermal-lights-vibrator-usb",
@@ -956,11 +952,7 @@
       "source_revisions": [
         {
           "path": "hardware/qcom/wlan",
-          "revision": "4db04e2fe5f3166f7b688a3d66c90da8fd6f27d5"
-        },
-        {
-          "path": "device/qcom/wlan",
-          "revision": "47b1b99d286f30cc58262412a5f12018d149eddd"
+          "revision": "ce08fb7abc80478b70299bfbc0411a438b0e2e31"
         }
       ],
       "abi_uapi": "Android Wi-Fi HAL/supplicant, nl80211/cfg80211 and QCA6750 firmware API",
