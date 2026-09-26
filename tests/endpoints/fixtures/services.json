@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design minimal role selection; deployment remains infrastructure staging and endpoint owners. No host addresses, credentials, provisioning or live isolation proof claimed.",
+  "note": "endpoint contract design minimal role selection; deployment remains infrastructure staging and endpoint owners. No host addresses, credentials, provisioning or live isolation proof claimed. The geocoder contract has no service entry: DiamaneOS hosts no geocoder (owner decision 2026-09-26), and its opt-in goes directly from the device to OpenStreetMap.",
   "hosts": [
     {
       "id": "release-primary",
@@ -212,18 +212,6 @@
       "id": "network-location",
       "endpoints": [
         "network-location"
-      ],
-      "host": "release-primary",
-      "mirror": null,
-      "owner_task": "FP6-103",
-      "status": "planned",
-      "activation": "blocked-pending-implementation",
-      "credentials": "none-read-only-serving"
-    },
-    {
-      "id": "geocoder",
-      "endpoints": [
-        "geocoder"
       ],
       "host": "release-primary",
       "mirror": null,

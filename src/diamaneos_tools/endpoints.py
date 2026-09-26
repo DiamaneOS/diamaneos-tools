@@ -43,6 +43,10 @@ PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary',
                    'artifact-mirror-non-eu', 'git-primary', 'git-backup',
                    'git-mirror', 'email', 'monitoring', 'cdn', 'object-storage'}
 PUBLIC_MIRRORS = {'os-updates', 'apps-catalog', 'info-release-feed'}
+# Reviewed exception (owner decision 2026-09-26): DiamaneOS hosts no geocoder.
+# The contract stays for coverage; its opt-in goes directly from the device to a
+# disclosed non-EU service, so it has no relay upstream and no service entry.
+UNHOSTED = {'geocoder'}
 FORBIDDEN_KEYS = {'password', 'privatekey', 'token', 'secret', 'seed',
                   'mnemonic', 'imei', 'imsi', 'iccid', 'serial', 'custody'}
 
@@ -204,6 +208,10 @@ def validate_inventory(inv):
         errors.append('Swiss resolver default exception is missing')
     if 'authenticated-time' not in defaults or defaults['authenticated-time']['jurisdiction'] != 'eu-primary':
         errors.append('time source jurisdiction must distinguish EU operators')
+    for eid in UNHOSTED:
+        endpoint = next((e for e in inv['endpoints'] if e['id'] == eid), None)
+        if endpoint is None or endpoint['upstreams'] or defaults.get(eid, {}).get('jurisdiction') != 'non-eu-direct-exception':
+            errors.append('unhosted endpoint needs a disclosed direct-device choice and no relay')
     return errors[:MAX_ERRORS]
 
 
@@ -249,14 +257,16 @@ def validate_services(inv, services):
             if eid not in endpoints:
                 errors.append('service endpoint reference is missing')
                 continue
+            if eid in UNHOSTED:
+                errors.append('unhosted endpoint must not be assigned to a project host')
             if service['owner_task'] != endpoints[eid]['owner_task']:
                 errors.append('service and endpoint owner disagree')
             if h and h['role'] != ('dns' if eid == 'dns-check' else 'release'):
                 errors.append('endpoint assigned to wrong authority role')
             if bool(service['mirror']) != (eid in PUBLIC_MIRRORS):
                 errors.append('endpoint mirror selection does not match reviewed static scope')
-    if Counter(assigned) != Counter(endpoints.keys()):
-        errors.append('each endpoint must be assigned exactly once')
+    if Counter(assigned) != Counter(endpoints.keys() - UNHOSTED):
+        errors.append('each hosted endpoint must be assigned exactly once')
     return errors[:MAX_ERRORS]
 
 
