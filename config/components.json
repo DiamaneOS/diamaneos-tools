@@ -192,7 +192,7 @@
       "fp6_source_inventory": {
         "path": "config/fp6-sources.json",
         "schema_version": 1,
-        "sha256": "3742c6769137252184094b2aac8ddaf2039fefe97ae208153174aff88abc4fae"
+        "sha256": "563f0615047ac9fa89c65920af819a3dee3e80ec85f79d70e88fb098c5f44063"
       },
       "selected_stock": {
         "build": "FP6.QREL.16.100.0",

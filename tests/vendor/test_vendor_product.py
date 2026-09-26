@@ -29,8 +29,12 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('fp6_stock_vendor_lib64_libdrm', modules)
         self.assertIn(b'"libdrm"', first['Android.bp'])
         self.assertIn(b'vendor.qti.hardware.perf2.xml', first['Android.bp'])
+        # The perf HAL's learning-module plugins are gated off and not selected.
+        paths = {r['path'] for r in self.recipe['files']}
         for stem in ['liblearningmodule', 'libmemperfd', 'libmeters']:
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
+            self.assertNotIn('vendor/lib64/' + stem + '.so', paths)
+        self.assertFalse([p for p in paths if p.startswith('vendor/etc/lm/')])
         self.assertIn('fp6_stock_vendor_lib64_libqti-perfd', modules)
         self.assertNotIn(b'vendor/etc/lm/', first['device-vendor.mk'])
 
@@ -89,6 +93,31 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libGPreqcancel_svc', 'libtime_genoff']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
         self.assertIn('"vendor.qti.hardware.display.config-V7-ndk"', bp)
+
+    def test_unused_qseecom_proxy_service_not_selected(self):
+        # No installed file looks up the userspace QSEECom AIDL proxy; qseecomd
+        # and the TEE clients use libQSEEComAPI directly.
+        rendered = self.render()
+        paths = {r['path'] for r in self.recipe['files']}
+        self.assertFalse([p for p in paths if 'vendor.qti.hardware.qseecom' in p])
+        self.assertFalse([r for r in self.selection['roots'] if 'vendor.qti.hardware.qseecom' in r])
+        self.assertNotIn('vendor.qti.hardware.qseecom@1.0-service', vendor_product.ACTIVATION)
+        self.assertNotIn(b'vendor.qti.hardware.qseecom', rendered['Android.bp'])
+        modules = json.loads(rendered['modules.json'])
+        for name in ['fp6_stock_vendor_bin_qseecomd', 'fp6_stock_vendor_lib64_libQSEEComAPI']:
+            self.assertIn(name, modules)
+
+    def test_keymint_links_the_stock_keymaster_messages(self):
+        # A C++ implementation library, not a frozen interface: the stock
+        # KeyMint HAL keeps the copy it was built with.
+        self.assertNotIn('libkeymaster_messages', vendor_product.SOURCE_INTERFACES)
+        rendered = self.render()
+        self.assertIn('fp6_stock_vendor_lib64_libkeymaster_messages', json.loads(rendered['modules.json']))
+        bp = rendered['Android.bp'].decode()
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libqtikeymint"'):]
+        block = block[:block.index('}\n')]
+        self.assertIn('"fp6_stock_vendor_lib64_libkeymaster_messages"', block)
+        self.assertNotIn('"libkeymaster_messages"', block)
 
     def test_source_display_stack_replaces_stock_services(self):
         rendered = self.render()
@@ -603,6 +632,11 @@ class NativeProductTests(unittest.TestCase):
             source_sha256=hashlib.sha256(source_data).hexdigest(), public=False)
         radio = next(r for r in closure['component_results'] if r['component_id'] == 'radio-ims-data')
         self.assertIn('system_ext/priv-app/ims/ims.apk', radio['artifact_paths'])
+        # The call-audio messenger belongs to the audio path; QCRIL keeps its
+        # IQcRilAudio interface library and VINTF declaration.
+        audio = next(r for r in closure['component_results'] if r['component_id'] == 'audio-stack')
+        self.assertIn('system_ext/app/QtiTelephonyService/QtiTelephonyService.apk', audio['artifact_paths'])
+        self.assertIn('vendor/lib64/vendor.qti.hardware.radio.am-V1-ndk.so', radio['artifact_paths'])
 
     def test_unreviewed_system_ext_input_rejected(self):
         row = copy.deepcopy(next(r for r in self.recipe['files'] if r['path'].startswith('system_ext/')))

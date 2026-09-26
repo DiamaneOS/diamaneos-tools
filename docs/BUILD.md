@@ -605,14 +605,24 @@ QSEE KeyMint cannot serve vold and `/data` never mounts.
 
 The renderer retains native source-built interface libraries where declared,
 enables native ELF checks and generates init/VINTF packaging with the provider.
+Declared are frozen AIDL and HIDL interfaces, the libraries of the source-built
+display stack and a few AOSP libraries that stock blobs link (such as
+`libdrm`, `libtinycompress` and `libavservices_minijail`). A C++ implementation
+library that only a closed HAL uses stays stock: the stock KeyMint HAL keeps its
+`libkeymaster_messages`, because a class-layout change would pass the ELF
+checks. The same caveat applies where closed stock code links a source-built
+display library, such as `libsdmextension` against the source `libsdm*`
+libraries and CamX against `libgralloc.qti`; the ELF checks cannot catch a
+layout change there either.
 It records a narrowly pinned transformation of the performance configuration
 that disables optional learning/memory/prekill gates while preserving core
 power hints. Original and derived hashes remain distinct. This generation is
-also explicit about the runtime roots: the disabled learning/memory plugins
-and their meters library are not installed. Their protobuf runtime is installed
-only because the sensor stack links it. Source-interface replacements and uninstalled optional libraries
-are listed in generated provenance; retained authenticated inputs are not an
-installed-artifact inventory. Learning configuration files are not installed.
+also explicit about the runtime roots: the disabled learning/memory plugins,
+their meters library and the learning configuration are not selected at all.
+Their protobuf runtime is installed only because the sensor stack links it.
+Source-interface replacements and uninstalled optional libraries are listed in
+generated provenance; retained authenticated inputs are not an
+installed-artifact inventory.
 This generation is
 for private development: its success does not establish public component
 acceptance, runtime compatibility or permission to flash.

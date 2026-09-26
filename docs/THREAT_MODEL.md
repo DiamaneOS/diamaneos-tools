@@ -65,7 +65,7 @@ last column is not released.
 | SELinux | Whole system permissive; no MAC protection is enforced | Enforcing, no permissive domains | Enforcing runs per subsystem (no owning task yet), user candidate (FP6-047) |
 | Bootloader and keys | Unlocked; images signed with public AOSP test keys; the OS has no OEM unlocking control yet, so the bootloader's unlock-ability flag stays as the stock OS left it | Locked on a DiamaneOS AVB key; release keys only; relock never enrols a public test key; OEM unlocking shown and managed by the OS, so users can turn it off after relocking and back on before unlocking | Custom-key relock (FP6-050), signing roles and equipment (FP6-035, FP6-036) |
 | Network endpoints | Inherited GrapheneOS services (connectivity, time, CT list, provisioning proxies, app catalog, SUPL proxy) | DiamaneOS EU endpoints with visible standard-server choices | Endpoint contracts (FP6-100), endpoint implementations (FP6-102 to FP6-112) |
-| Closed vendor code | 741 stock Qualcomm/Fairphone files (about 369 MB) selected stock-first, all hash-pinned; per-file purpose still generic for part of the set | Each file justified; layers replaced by source builds where possible | Component removal and closure gate (FP6-060, FP6-061, FP6-208), per-component source replacement (FP6-200 to FP6-207) |
+| Closed vendor code | 720 stock Qualcomm/Fairphone files (about 369 MB) selected stock-first, all hash-pinned; per-file purpose still generic for part of the set | Each file justified; layers replaced by source builds where possible | Component removal and closure gate (FP6-060, FP6-061, FP6-208), per-component source replacement (FP6-200 to FP6-207) |
 | Debug interfaces | Userspace Qualcomm diag removed; debug USB functions still to be removed | No debug USB functions, diag or trace sinks in user builds | Debug exposure audit (FP6-060) |
 | Firmware | Whatever stock release was last flashed | Dated firmware patch level shown; firmware update path defined | Firmware review (FP6-206) |
 
@@ -128,16 +128,19 @@ do not belong on it until SELinux is enforcing.
   control properties are absent.
 - No StrongBox or Weaver exposed: stock declares only default TEE KeyMint and
   RKP instances and no Weaver HAL. Stock does ship disabled software for a
-  Secure Processing Unit; whether the FP6 has a usable, provisioned SPU is
-  unknown. The accurate statement is "stock exposes no StrongBox or Weaver",
-  not "the phone has no secure hardware". The eUICC, NFC controller and TEE are
-  separate boundaries.
+  Secure Processing Unit, but the FP6 device tree describes no such unit and
+  the images carry no SPU firmware or provisioning, so none is usable; whether
+  the chip itself has one is unknown. The accurate statement is "stock exposes
+  no StrongBox or Weaver", not "the phone has no secure hardware". The eUICC,
+  NFC controller and TEE are separate boundaries.
 - Attestation is TEE-only. A locked custom-key build reports a yellow verified
   boot state, never green. The GrapheneOS Auditor app does not support FP6.
-  Remote key provisioning is not enabled yet (the device does not set the
-  provisioning properties stock sets), so hardware attestation is expected to
-  fail; enabling it would route requests through the inherited GrapheneOS
-  proxy. Wiping the phone does not yet ask the TEE to delete all old keys.
+  Builds before r9s did not enable remote key provisioning, so hardware
+  attestation was expected to fail. From r9s (not yet tested on the phone) the
+  device sets the provisioning properties stock sets; requests go through the
+  inherited GrapheneOS proxy until DiamaneOS runs its own. From r9s the device
+  also reports the factory attestation IDs, and a wipe asks the TEE to delete
+  all old keys (untested).
 - No pKVM: on current firmware the kernel runs under Qualcomm's Gunyah
   hypervisor, not KVM, so Android protected VMs are unavailable (observed on a
   bring-up build). Gunyah and its trusted VMs are closed firmware.
@@ -219,8 +222,8 @@ task in parentheses where one owns the check, or says that none does yet.
 | --- | --- | --- | --- | --- | --- | --- |
 | App and user data | Malicious or over-permissioned app | Permissions, background listeners, IPC/URI grants, sensors | Per-app Network and Sensors permissions, Storage and Contact Scopes (inherited); install presets (Untrusted/Standard/Trusted); per-app routing and filtering; privacy dashboard with CE-only bounded history | Preset "Trusted" is user-chosen policy, never an audit; routing attribution limits (shared UIDs, own DoH/DoT, system and modem traffic); v1 features not implemented yet | Inherited hardening (FP6-046), privacy presets (FP6-072), DNS architecture and filter (FP6-078, FP6-079), per-app network controls (FP6-080), privacy dashboard (FP6-081) | Assumption: inherited controls present in source, unvalidated on FP6; v1 features not implemented. |
 | Per-app destination history (dashboard) | AFU forensic examiner; malicious app | Dashboard storage, backups, bug reports | CE-only storage, aggregate by default, 7-day default, clear on reboot by default, no backup, no bug-report inclusion | The dashboard is itself the most sensitive log on the device | Privacy dashboard (FP6-081) | Assumption: plan rules only. |
-| Kernel integrity and all data | Malicious app; compromised app or renderer process | GPU driver node (reachable by every app, as on stock), binder, loaded network-protocol modules and socket families, DSP remote-call driver (limited to named groups) | GrapheneOS kernel hardening configuration merged into the vendor kernel; kernel lockdown (confidentiality); SELinux socket and device restrictions; module set reduced to what the product uses | No MTE; large vendor driver surface; hardening hand-merged into a vendor kernel with an intentional KMI deviation; protocol modules with no product use still loaded; TIPC re-enabled (GrapheneOS disables it) because Qualcomm's mobile-data stack needs it, built as a module without network bearers or crypto and limited by SELinux to two radio daemons; profiling work must never weaken lockdown or tracing restrictions in user builds | Kernel build (FP6-041), debug exposure and component removal (FP6-060, FP6-061), enforcing runs (no owning task yet) | Assumption: module reduction not done, SELinux permissive. Observed (bring-up): lockdown confidentiality active. |
-| Camera, microphone, sensor streams, device integrity | Malicious app or remote content reaching closed vendor code through a platform service | Camera, media, display, audio, sensors, GNSS, NFC and Bluetooth HAL interfaces; same-process GPU libraries; persist and vendor data files parsed by closed code | Per-file allowlisted, hash-pinned stock selection; SELinux grants bound to each service domain; reduced service users, groups and capabilities; tight device-node permissions; Qualcomm diagnostics, telemetry and factory services excluded; layers replaced by source builds over time | Large closed parsers (camera about 185 MB) without MTE and mostly without seccomp; closed performance and thermal daemons run as root; Android 14 ABI vendor code on Android 17; per-file purpose still generic for part of the set; closed code updates only through Fairphone stock releases | Debug exposure and component removal (FP6-060, FP6-061), closure gate (FP6-208), camera (FP6-045, FP6-203), audio (FP6-044, FP6-205), hardware media integration (no owning task yet), enforcing runs (no owning task yet) | Bring-up (not qualified): selection reviewed per subsystem and running permissive; enforcing untested. |
+| Kernel integrity and all data | Malicious app; compromised app or renderer process | GPU driver node (reachable by every app, as on stock), binder, loaded network-protocol modules and socket families, DSP remote-call driver (limited to named groups) | GrapheneOS kernel hardening configuration merged into the vendor kernel; kernel lockdown (confidentiality); SELinux socket and device restrictions; module set reduced to what the product uses | No MTE; large vendor driver surface; hardening hand-merged into a vendor kernel with an intentional KMI deviation; protocol modules with no product use still loaded; TIPC re-enabled (GrapheneOS disables it) because Qualcomm's mobile-data stack needs it, built as a module without network bearers or crypto; under enforcing SELinux neither user-installed nor privileged apps can reach it, its sockets are limited to two radio daemons and its configuration interface to system components that hold the network-admin capability, including the network stack module; profiling work must never weaken lockdown or tracing restrictions in user builds | Kernel build (FP6-041), debug exposure and component removal (FP6-060, FP6-061), enforcing runs (no owning task yet) | Assumption: module reduction not done, SELinux permissive. Observed (bring-up): lockdown confidentiality active. |
+| Camera, microphone, sensor streams, device integrity | Malicious app or remote content reaching closed vendor code through a platform service | Camera, media, display, audio, sensors, GNSS, NFC and Bluetooth HAL interfaces; same-process GPU libraries; persist and vendor data files parsed by closed code | Per-file allowlisted, hash-pinned stock selection; SELinux grants bound to each service domain; internal service endpoints of a closed HAL reachable only from that HAL's own process (audio from r9s); reduced service users, groups and capabilities; tight device-node permissions; Qualcomm diagnostics, telemetry and factory services excluded; layers replaced by source builds over time | Large closed parsers (camera about 185 MB) without MTE and mostly without seccomp; closed performance and thermal daemons run as root; Android 14 ABI vendor code on Android 17; per-file purpose still generic for part of the set; closed code updates only through Fairphone stock releases | Debug exposure and component removal (FP6-060, FP6-061), closure gate (FP6-208), camera (FP6-045, FP6-203), audio (FP6-044, FP6-205), hardware media integration (no owning task yet), enforcing runs (no owning task yet) | Bring-up (not qualified): selection reviewed per subsystem and running permissive; enforcing untested. |
 | Persistent hardware identifiers | Any app | System properties, persist files, sysfs, logs | Vendor-internal property types with no read grant, narrowed sysfs labels, random Bluetooth address per install (intended), Wi-Fi MAC randomization, traceability services excluded, enforcing SELinux | Readable on any permissive build; which Bluetooth address path runs is unrecorded (the HAL tries a factory address first) and the address appears in logs and bug reports; the stock camera HAL writes the camera module serial numbers to the log at every start; Wi-Fi MAC randomization unverified; a flash dump reveals persist data | Enforcing runs and an identifier probe test (no owning task yet), Wi-Fi and Bluetooth bring-up (FP6-043) | Observed gap (bring-up, permissive): some hardware serials are exposed as system properties; enforcing denial not yet shown. |
 | Secondary-profile data | Other user or profile on the same device | User switch, stopped and running profiles, unified vs separate challenge | Same credential policy on every independent challenge via a real service boundary; CE/DE separation; session end is not deletion | Unified-challenge profiles follow platform semantics, no invented independent key; a stopped session is data-bearing until deleted | Encryption and hardening validation (FP6-046), credential-policy enforcement (FP6-071) | Assumption. |
 
@@ -261,7 +264,7 @@ task in parentheses where one owns the check, or says that none does yet.
 | --- | --- | --- | --- | --- | --- | --- |
 | OS integrity on a released, locked build | Attacker with write access to partitions | Boot chain, OTA, recovery, sideload, inactive A/B slot | Locked bootloader on a custom AVB root, vbmeta flags 0; SHA-256 hashtrees; rollback indexes set only by signed releases; signed full and incremental OTAs from the same pipeline; recovery accepts release keys only; relock locks both lock states | Yellow boot (never green); downgrade-brick risk; Fairphone unlock service dependency; firmware not in OTAs; whether slot changes are refused while locked is untested | Custom-key relock (FP6-050), OTA install and interrupted-update tests, signing verifier (FP6-035) | Observed gap (bring-up images): SHA-1 hashtrees, release-style rollback indexes and a public test key contradict three listed mitigations. Assumption: locked behaviour untested. Observed (bring-up): AVB chain built and parsed. |
 | Firmware security | Anyone exploiting an already fixed firmware bug | XBL, TrustZone, hypervisor, modem, DSP, Wi-Fi and Bluetooth firmware | Per-partition firmware inventory with hashes; firmware delivery in OTAs from verified Fairphone releases (to be designed); separate dated patch levels for platform, kernel, vendor and firmware | The project cannot build or sign firmware; no firmware update path yet; firmware lags ASB; the Gunyah hypervisor and its trusted VMs are closed | Firmware review and update path (FP6-206), stock input verification (FP6-040) | Observed gap: firmware stays at the last flashed stock release. |
-| Keys, Gatekeeper throttling, fingerprint templates | Compromised system or HAL process; malicious app reaching TEE clients | TEE driver and client services, TEE listener daemon, fingerprint HAL | TEE access only for named HAL domains; unused TEE proxy services removed; RPMB access limited | Closed TEE with a public history of key-extraction bugs; no StrongBox or Weaver; an unused TEE proxy service still runs; KeyMint key deletion (rollback resistance) unverified | TEE and credential validation (FP6-046, FP6-050), attestation limits (FP6-065, FP6-106), security status reporting (FP6-073) | Observed gap: unused TEE proxy still running. Bring-up (not qualified): services run; enforcing and throttling persistence unverified. |
+| Keys, Gatekeeper throttling, fingerprint templates | Compromised system or HAL process; malicious app reaching TEE clients | TEE driver and client services, TEE listener daemon, fingerprint HAL | TEE access only for named HAL domains; unused userspace TEE proxy services removed; RPMB access limited; a wipe asks the TEE to delete all old keys | Closed TEE with a public history of key-extraction bugs; no StrongBox or Weaver; KeyMint key deletion on wipe (rollback resistance) set from r9s and unverified | TEE and credential validation (FP6-046, FP6-050), attestation limits (FP6-065, FP6-106), security status reporting (FP6-073) | Observed gap (builds before r9s): an unused userspace TEE proxy ran; removed from r9s, not yet built. Bring-up (not qualified): services run; enforcing and throttling persistence unverified. |
 
 ### Supply chain, signing and development process
 
@@ -291,11 +294,11 @@ modules meet the selected KMI/UAPI, or that the binaries reproduce stock.
 
 The camera, radio and IMS, secure-world, sensor, DRM and much of the graphics
 and media runtime still depend on proprietary userspace or firmware. The
-current bring-up selection holds 741 closed stock files (about 369 MB). Grouped
-by purpose: camera 213, radio and IMS 151, sensors 84, display and GPU 82,
-power and thermal 46, credentials 41, audio 41, plus smaller Bluetooth, NFC,
-GNSS and fingerprint sets. Each closed layer is to be replaced by a source build
-where one exists.
+current bring-up selection holds 720 closed stock files (about 369 MB). Grouped
+by purpose: camera 213, radio and IMS 150, sensors 84, display and GPU 82,
+audio 42, credentials 36, power and thermal 29, remote-processor services 28,
+plus smaller Bluetooth, NFC, GNSS and fingerprint sets. Each closed layer is to
+be replaced by a source build where one exists.
 
 The selected EU stock input is `FP6.QREL.16.100.0`; its verified factory
 package is the authoritative extraction input. Vendor generation uses an
@@ -375,7 +378,8 @@ the production TLS trust rule before it ships.
 - Malicious-app path: permission and background listener, presets plus per-app
   routing and filtering. Also: camera permission, camera service, closed camera
   provider (grants bound to its domain, reduced groups, no network once SELinux
-  is enforcing).
+  is enforcing). The flashlight controls reach the closed provider without the
+  camera permission, with simple on/off and strength values only (AOSP design).
 - Cellular path: fake base station, 2G fallback, user hardening choice, modem.
   Reviewed on a bring-up build: the hardening choice did not reach the modem,
   and the interface did not show the failure.
