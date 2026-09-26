@@ -133,8 +133,11 @@ do not belong on it until SELinux is enforcing.
   not "the phone has no secure hardware". The eUICC, NFC controller and TEE are
   separate boundaries.
 - Attestation is TEE-only. A locked custom-key build reports a yellow verified
-  boot state, never green. The GrapheneOS Auditor app does not support FP6. Key
-  provisioning goes through the inherited GrapheneOS proxy on bring-up builds.
+  boot state, never green. The GrapheneOS Auditor app does not support FP6.
+  Remote key provisioning is not enabled yet (the device does not set the
+  provisioning properties stock sets), so hardware attestation is expected to
+  fail; enabling it would route requests through the inherited GrapheneOS
+  proxy. Wiping the phone does not yet ask the TEE to delete all old keys.
 - No pKVM: on current firmware the kernel runs under Qualcomm's Gunyah
   hypervisor, not KVM, so Android protected VMs are unavailable (observed on a
   bring-up build). Gunyah and its trusted VMs are closed firmware.
