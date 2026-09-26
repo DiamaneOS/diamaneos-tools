@@ -46,6 +46,16 @@ class KernelConfigTests(unittest.TestCase):
         self.assertEqual([r['symbol'] for r in result['failures']],
                          ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48'])
 
+    def test_tipc_stays_a_local_only_module(self):
+        # Qualcomm's data stack needs TIPC; its network bearer, crypto and diag must stay out.
+        data = self.config(False)
+        for old, new in [(b'CONFIG_TIPC=m', b'# CONFIG_TIPC is not set'),
+                         (b'# CONFIG_TIPC_MEDIA_UDP is not set', b'CONFIG_TIPC_MEDIA_UDP=y'),
+                         (b'# CONFIG_TIPC_CRYPTO is not set', b'CONFIG_TIPC_CRYPTO=y'),
+                         (b'# CONFIG_TIPC_DIAG is not set', b'CONFIG_TIPC_DIAG=m')]:
+            with self.subTest(change=new):
+                self.assertEqual(kernel_config.check(data.replace(old, new), self.policy, 'development')['status'], 'FAIL')
+
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')
         result = kernel_config.check(data, self.policy, 'production')
