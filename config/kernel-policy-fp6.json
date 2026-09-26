@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-development-baseline-v3",
+  "id": "fp6-android14-6-1-development-baseline-v4",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -19,7 +19,11 @@
     "CONFIG_ARM64_VA_BITS_48": "y",
     "CONFIG_ARM64_VA_BITS": "48",
     "CONFIG_INIT_ON_FREE_DEFAULT_ON": "y",
-    "CONFIG_RANDSTRUCT_FULL": "y"
+    "CONFIG_RANDSTRUCT_FULL": "y",
+    "CONFIG_TIPC": "m",
+    "CONFIG_TIPC_MEDIA_UDP": "n",
+    "CONFIG_TIPC_CRYPTO": "n",
+    "CONFIG_TIPC_DIAG": "n"
   },
   "production": {
     "CONFIG_SECURITY_SELINUX_DEVELOP": "n",

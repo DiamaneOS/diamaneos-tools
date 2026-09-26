@@ -77,14 +77,21 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
-      "derived_revision": "cfdc601d69e812309ca60dd0b5600616f900503d",
-      "canonical_diff_sha256": "ed08ab40ba545adbaff8ca85a6ecefb91f03ad6bee572cbd3da3acd6b48b3ae3",
+      "derived_revision": "91b7060d83ebd9103feaff3fc7f6db12a0ec34bb",
+      "canonical_diff_sha256": "66d35125a0b7643048e2130d05b94f91bff6750dbfb42b9a5add2ee1c8e3d4d6",
       "changed_files": [
         "arch/arm64/configs/gki_defconfig",
         "include/drm/drm_mode_config.h",
-        "modules.bzl"
+        "modules.bzl",
+        "net/tipc/bcast.c",
+        "net/tipc/bcast.h",
+        "net/tipc/bearer.c",
+        "net/tipc/name_distr.c",
+        "net/tipc/netlink.c",
+        "net/tipc/node.c",
+        "net/tipc/socket.c"
       ],
-      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC.",
+      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes).",
       "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; the r9q data-call test is pending."
     },
     {
@@ -93,11 +100,11 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
-      "derived_revision": "75cd66c3f0956521a8572be0011125b92a45a1f0",
-      "canonical_diff_sha256": "3d5486af8c98866aa5ea8755d335073c6d76a4ade9709703b5568780a5b76c9f",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration.",
+      "derived_revision": "50d02443304a5d0932346beebe25f1a192c86c73",
+      "canonical_diff_sha256": "4a80942793acb26508d512f7e6968fdb17278c35e96ac391f770989c6dc53b39",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration The same 6.1.178 TIPC fixes as the common kernel.",
       "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
-      "changed_files_sha256": "564d7d883ec530e97fa2af2e5facd25f2c2c9bbcb3a197562a1c1660d98c5d57",
+      "changed_files_sha256": "bde61ca3c5863abe76c27d1d7473fa292ca63f74cfb9b57d7d5b38b0f1bf5a79",
       "merged_upstream": {
         "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
         "tag": "2026091900",
