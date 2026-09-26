@@ -70,7 +70,7 @@
         "tests/host/stubs/cutils/properties.h"
       ],
       "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test). Support Mode::DOUBLE_TAP_TO_WAKE through the FP6 touch controller's gesture_wakeup node.",
-      "validation": "Native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Runtime performance backend and device behavior remain unqualified."
+      "validation": "At 6683dc9: native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Double-tap to wake (f59bd8b, Power.cpp): not yet compiled (the host test does not build Power.cpp); r9s build and the tap-to-wake owner test pending. Runtime performance backend and device behavior remain unqualified."
     },
     {
       "id": "kernel-common-randstruct-callbacks",
@@ -380,7 +380,7 @@
         "display/dsi-panel-nt37705-boe-amoled-cmd.dtsi"
       ],
       "purpose": "Restore the FP6 factory image's always-on display settings for the NT37705 panel: idle brightness 0x0003 instead of 0x09D9 in the five low-power command sets, and no D2 command at power-on. Fairphone's published tree brightens AOD four seconds after locking.",
-      "validation": "Diff matches the FP6.QREL.16.100.0 factory dtbo for these commands; dtbo build and the AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
+      "validation": "Exact inverse of Fairphone's 4492d50 (FPS-3248): the panel file returns to the pre-4492d50 and Android 15 branch content, and all panel command arrays match the FP6.QREL.15.178.0 factory dtbo. The FP6.QREL.16.100.0 dtbo matches too except its two DBV-1290 brightness-mode command sets, which append a normal brightness write. r9s kernel run: only dtbo.img differs from r9r. AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
     },
     {
       "id": "kernel-wlan-randstruct-callbacks",
