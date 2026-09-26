@@ -207,6 +207,42 @@
       "status": "planned",
       "activation": "blocked-pending-implementation",
       "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "network-location",
+      "endpoints": [
+        "network-location"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-103",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "geocoder",
+      "endpoints": [
+        "geocoder"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-103",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
+    },
+    {
+      "id": "attestation",
+      "endpoints": [
+        "attestation"
+      ],
+      "host": "release-primary",
+      "mirror": null,
+      "owner_task": "FP6-106",
+      "status": "planned",
+      "activation": "blocked-pending-implementation",
+      "credentials": "none-read-only-serving"
     }
   ],
   "management_policy": {
