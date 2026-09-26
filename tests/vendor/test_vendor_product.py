@@ -118,6 +118,13 @@ class NativeProductTests(unittest.TestCase):
         block = block[:block.index('}\n')]
         self.assertIn('"fp6_stock_vendor_lib64_libkeymaster_messages"', block)
         self.assertNotIn('"libkeymaster_messages"', block)
+        # Installed on odm: an AOSP libkeymaster_messages variant owns the
+        # /vendor/lib64 path, and the vendor namespace searches /odm/lib64 first.
+        own = bp[bp.index('name: "fp6_stock_vendor_lib64_libkeymaster_messages"'):]
+        own = own[:own.index('}\n')]
+        self.assertIn('device_specific: true', own)
+        self.assertNotIn('vendor: true', own)
+        self.assertIn('stem: "libkeymaster_messages"', own)
 
     def test_source_display_stack_replaces_stock_services(self):
         rendered = self.render()
