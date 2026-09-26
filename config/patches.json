@@ -73,6 +73,23 @@
       "validation": "At 6683dc9: native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Double-tap to wake (f59bd8b, Power.cpp): not yet compiled (the host test does not build Power.cpp); r9s build and the tap-to-wake owner test pending. Runtime performance backend and device behavior remain unqualified."
     },
     {
+      "id": "telephony-poll-coalescing",
+      "repository": "https://github.com/DiamaneOS/platform_frameworks_opt_telephony",
+      "workspace": "android",
+      "path": "frameworks/opt/telephony",
+      "base_revision": "02e1bf0ea9fe5d2cdb3cf954cc1353a935821ebc",
+      "derived_revision": "6c54c1b07423bf379ac750a43755c563f148ea4f",
+      "canonical_diff_sha256": "fc6b920f6ac9d1edec1350f57882a147954a6df3df74b096135eb1554a14a567",
+      "changed_files": [
+        "src/java/com/android/internal/telephony/Phone.java",
+        "src/java/com/android/internal/telephony/ServiceStateTracker.java",
+        "tests/telephonytests/src/com/android/internal/telephony/GsmCdmaPhoneTest.java",
+        "tests/telephonytests/src/com/android/internal/telephony/ServiceStateTrackerTest.java"
+      ],
+      "purpose": "Batch the vendor RIL's network-state polls while the phone is idle: with ro.telephony.network_state_poll_window_ms set, a network-state report polls at once unless the phone is idle, SIM ready, radio on, in service and no phone has a call, ECBM or emergency SMS; then later reports within the window wait for the next poll, with a wakeup backstop at twice the window. Screen on, charging and every non-idle state poll immediately; unset keeps upstream behaviour.",
+      "validation": "telephony-common compiles in the r9r tree (2026-09-26). FrameworksTelephonyTests does not compile at the GrapheneOS base (SmsDispatchersControllerTest, GsmInboundSmsHandlerTest), so the new tests are reviewed but not run. FP6 value 5000 ms (owner accepted the 10 s worst case); r9s phone test pending."
+    },
+    {
       "id": "kernel-common-randstruct-callbacks",
       "repository": "https://github.com/DiamaneOS/kernel_common-6.1",
       "workspace": "kernel",
