@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "3e3e76fe1ec39dbde207abcfb9b03be1edf821bafff02bef5bc18997773655cd",
+  "model_sha256": "d68655a67c31b19002820e4f806f61203fc8983d0cc9b6e0d121f0ca80c1e016",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -121,30 +121,6 @@
         "gid": 2000,
         "mode": 493,
         "selinux": "u:object_r:vendor_hal_perf_default_exec:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
-      "path": "vendor/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
-      "sha256": "8fffbbe2784b582868e7a70fd75b2984064cd52fc3ce5ce5b05fd4c27eb6ad01",
-      "bytes": 36808,
-      "component_id": "credentials-security",
-      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
-      "dependencies": [
-        "vendor/lib64/hw/vendor.qti.hardware.qseecom@1.0-impl.so",
-        "vendor/lib64/libQSEEComAPI.so",
-        "vendor/lib64/vendor.qti.hardware.qseecom-V1-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:vendor_hal_qseecom_default_exec:s0",
         "capabilities_hex": ""
       }
     },
@@ -362,306 +338,6 @@
       "path": "vendor/etc/init/vendor.qti.hardware.perf2-hal-service.rc",
       "sha256": "aeebc7e101a93aadd998704f3a916b43e5309152952222c74dd4f9119a5d8248",
       "bytes": 1519,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/init/vendor.qti.hardware.qseecom@1.0-service.rc",
-      "path": "vendor/etc/init/vendor.qti.hardware.qseecom@1.0-service.rc",
-      "sha256": "ad6c3939dd6b9f7e1e88fe079b1a2b762910fb412cb2de32ed017797c510b9f8",
-      "bytes": 355,
-      "component_id": "credentials-security",
-      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/AdaptLaunchFeature.xml",
-      "path": "vendor/etc/lm/AdaptLaunchFeature.xml",
-      "sha256": "d5a74e07cba1c00205e223041822d6f876e15df6995e4ce61ac2d0c5c943afc9",
-      "bytes": 2449,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/AppClassifierFeature.xml",
-      "path": "vendor/etc/lm/AppClassifierFeature.xml",
-      "sha256": "f4e7f249c40d429e57cbdd1a31f823e9404b88ff823f3f5d09ca57d47c23b62a",
-      "bytes": 1201,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/LightningLaunchesFeature.xml",
-      "path": "vendor/etc/lm/LightningLaunchesFeature.xml",
-      "sha256": "53a20afb47f7109350e5b1eb1b9d07912233adf0b1fe7c15247c38b93beeeeaa",
-      "bytes": 2700,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/PreKillFeature.xml",
-      "path": "vendor/etc/lm/PreKillFeature.xml",
-      "sha256": "ac7ccf6096830e9bc15b4bc0c8cfe9426787839733f6d204d0908748becac063",
-      "bytes": 2812,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/PrefAppsFeature.xml",
-      "path": "vendor/etc/lm/PrefAppsFeature.xml",
-      "sha256": "b6a2c177abc671549879a462f4a3959b00d1b0ac5c0841da2d4db7f339d33bfb",
-      "bytes": 2935,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/ProCompFeature.xml",
-      "path": "vendor/etc/lm/ProCompFeature.xml",
-      "sha256": "0ca6240254c5a5339db9f1bba43dd9d75362400a03a3e955e0fcdc4d8bf9b9ec",
-      "bytes": 1992,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/QAPE.xml",
-      "path": "vendor/etc/lm/QAPE.xml",
-      "sha256": "c70d51647fea7d1d837fed797366e2626507fad00c428e73546592bbaa0f88d8",
-      "bytes": 7483,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/QGPE.xml",
-      "path": "vendor/etc/lm/QGPE.xml",
-      "sha256": "abe233ece5457b44f55dc69308dbd8fdc217eb0ed54625410fe2429c7f6c7b3a",
-      "bytes": 11315,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/QGPEActionMap.xml",
-      "path": "vendor/etc/lm/QGPEActionMap.xml",
-      "sha256": "509cbd664f77b5f0b6cf9bb8ce1dc16b9fa81e4ccddf9de19fe37eafc94aa5c2",
-      "bytes": 4629,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/SilkyScrollsFeature.xml",
-      "path": "vendor/etc/lm/SilkyScrollsFeature.xml",
-      "sha256": "7fb2f6529b10e79a0cf0450d3e4cf7fd5dec9d6b4e29f621e5e1e10b3cf17f6e",
-      "bytes": 2251,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/prekill/prekill_2GB.data",
-      "path": "vendor/etc/lm/prekill/prekill_2GB.data",
-      "sha256": "b89b0d7b8d4b3576cf70313f74c9ff6683d3c5162edd2fa3db9bfd107f036c58",
-      "bytes": 1434,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/prekill/prekill_4GB.data",
-      "path": "vendor/etc/lm/prekill/prekill_4GB.data",
-      "sha256": "4640013f6237a69de52eda80df379e565724985a1e08d0b3f82658fe06c25ba9",
-      "bytes": 1414,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/prekill/prekill_6GB.data",
-      "path": "vendor/etc/lm/prekill/prekill_6GB.data",
-      "sha256": "ef177fa9194dfe52278ee95a578e191ddb84b4359849b3cb9d29b9a4155a1348",
-      "bytes": 1762,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/lm/sPLHFeature.xml",
-      "path": "vendor/etc/lm/sPLHFeature.xml",
-      "sha256": "e6bf912d126c02a8300d324f323d8e3256facb7f2739b69cc95748f6d0e78192",
-      "bytes": 1829,
       "component_id": "public-hal-services",
       "inventory_ref": "userspace_hal_families:power-thermal-backends",
       "dependencies": [],
@@ -924,26 +600,6 @@
       "bytes": 1829,
       "component_id": "public-hal-services",
       "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/vintf/manifest/vendor.qti.hardware.qseecom@1.0-service.xml",
-      "path": "vendor/etc/vintf/manifest/vendor.qti.hardware.qseecom@1.0-service.xml",
-      "sha256": "7335e2a1fba60409a60591bda931a1e59097af7fa9d10bc28473bca22daa6b93",
-      "bytes": 565,
-      "component_id": "credentials-security",
-      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -1281,29 +937,6 @@
         "vendor/lib64/android.hardware.gatekeeper-V1-ndk.so",
         "vendor/lib64/libkeymasterdeviceutils.so",
         "vendor/lib64/libqcbor.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/hw/vendor.qti.hardware.qseecom@1.0-impl.so",
-      "path": "vendor/lib64/hw/vendor.qti.hardware.qseecom@1.0-impl.so",
-      "sha256": "e3d32d461201d342064dba72cb0f14533064ee61be7bf6a14761a97ed4f49123",
-      "bytes": 70800,
-      "component_id": "credentials-security",
-      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
-      "dependencies": [
-        "vendor/lib64/libQSEEComAPI.so",
-        "vendor/lib64/vendor.qti.hardware.qseecom-V1-ndk.so"
       ],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -1711,28 +1344,6 @@
       }
     },
     {
-      "input": "vendor/lib64/liblearningmodule.so",
-      "path": "vendor/lib64/liblearningmodule.so",
-      "sha256": "6d0f5dc419136c0c92124cb65a5d489be1c4a0a38ea71f46bfee52e5de6191f0",
-      "bytes": 295584,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libperfgluelayer.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/libllvm-glnext.so",
       "path": "vendor/lib64/libllvm-glnext.so",
       "sha256": "92e4793f85781209bc712ac8c2c66798985997caf98be0d79f6c4bf98fcf65ce",
@@ -1760,52 +1371,6 @@
           "reason": "The Adreno shader compiler front end loads this core compiler with dlopen; without it the first shader compile aborts (\"Failed to load core compiler\") and surfaceflinger crashes"
         }
       ]
-    },
-    {
-      "input": "vendor/lib64/libmemperfd.so",
-      "path": "vendor/lib64/libmemperfd.so",
-      "sha256": "4f4785c2fa15ceb56aa8c46531a1123827a77580889bbc764b2d8fd9828e17da",
-      "bytes": 764552,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/liblearningmodule.so",
-        "vendor/lib64/libperfgluelayer.so",
-        "vendor/lib64/libprotobuf-cpp-lite-21.7.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libmeters.so",
-      "path": "vendor/lib64/libmeters.so",
-      "sha256": "0832494a2e6c3689bce92581c9871e5e444a42be05e91a99333e40e2f39810cb",
-      "bytes": 36864,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/liblearningmodule.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
     },
     {
       "input": "vendor/lib64/libminkdescriptor.so",
@@ -2656,26 +2221,6 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.qseecom-V1-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.qseecom-V1-ndk.so",
-      "sha256": "e9b37e695b94b14cb1a7bc08afe3e5b5c266af5a45b31aab4aa955b854ae257d",
-      "bytes": 93504,
-      "component_id": "credentials-security",
-      "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     },
@@ -13461,7 +13006,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Frozen AOSP interface library linked by the stock GNSS HAL; replaced by the source-built module.",
+      "purpose": "Frozen AOSP health interface library; the stock GNSS HAL is its only consumer, so it is filed with GNSS. Replaced by the source-built module.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -13481,7 +13026,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Frozen AOSP interface library linked by the stock GNSS HAL; replaced by the source-built module.",
+      "purpose": "Frozen AOSP health interface library; the stock GNSS HAL is its only consumer, so it is filed with GNSS. Replaced by the source-built module.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -13503,7 +13048,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Frozen AOSP interface library linked by the stock GNSS HAL; replaced by the source-built module.",
+      "purpose": "Frozen AOSP health interface library; the stock GNSS HAL is its only consumer, so it is filed with GNSS. Replaced by the source-built module.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -13526,7 +13071,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Frozen AOSP interface library linked by the stock GNSS HAL; replaced by the source-built module.",
+      "purpose": "Frozen AOSP health interface library; the stock GNSS HAL is its only consumer, so it is filed with GNSS. Replaced by the source-built module.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -17130,8 +16675,8 @@
       "path": "system_ext/app/QtiTelephonyService/QtiTelephonyService.apk",
       "sha256": "104efe167c3f80ebde2e307d6037d5042e67940eacaa26c588ff0f2fd333fcd5",
       "bytes": 61854,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
+      "component_id": "audio-stack",
+      "inventory_ref": "userspace_hal_families:audio",
       "dependencies": [],
       "notices": [
         "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"

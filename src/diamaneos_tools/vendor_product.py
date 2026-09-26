@@ -16,7 +16,9 @@ from .vendor import VendorError, encoded
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_INTERFACES = {
     'libdrm',
-    'libkeymaster_messages',
+    # libkeymaster_messages is not listed: it is a C++ implementation library
+    # that only the closed KeyMint HAL uses, so that HAL keeps the stock copy it
+    # was built with (a source copy could change class layouts unnoticed).
     'android.hardware.gatekeeper-V1-ndk',
     'android.hardware.graphics.allocator-V1-ndk',
     'android.hardware.graphics.composer3-V2-ndk',
@@ -28,7 +30,9 @@ SOURCE_INTERFACES = {
     'android.hardware.security.secureclock-V1-ndk',
     'android.hardware.security.sharedsecret-V1-ndk',
     # Qualcomm display stack built from source (OP-DISPLAY-HAL-SOURCE). The stock
-    # Android 14 composer cannot present under Android 17's SurfaceFlinger.
+    # Android 14 composer failed to present under Android 17 when tried without
+    # libsdmextension and is untested with it; source is kept so we can patch
+    # and harden the code that handles every app's buffers.
     'libdisplayconfig.qti',
     'libdisplaydebug',
     'libdrmutils',
@@ -134,7 +138,6 @@ ACTIVATION={
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
  'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
  'vendor.qti.hardware.memtrack-service':('memtrack_qti.rc','memtrack_qti.xml'),
- 'vendor.qti.hardware.qseecom@1.0-service':('vendor.qti.hardware.qseecom@1.0-service.rc','vendor.qti.hardware.qseecom@1.0-service.xml'),
  'qseecomd':('qseecomd.rc',None),
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
  'vendor.qti.hardware.perf2-hal-service':('vendor.qti.hardware.perf2-hal-service.rc','vendor.qti.hardware.perf2.xml'),
@@ -552,9 +555,6 @@ def render(recipe, selection, notice_kind):
         make += '\nPRODUCT_PACKAGES += ' + ' '.join(sorted(d + '.vendor' for d in runtime_only))
     make += '\nPRODUCT_VENDOR_PROPERTIES += ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
-        if path.startswith('vendor/etc/lm/'):
-            # No learning plugin is installed or enabled in this composition.
-            continue
         partition = path.split('/')[0]
         if partition in PARTITIONS and path in STOCK_DATA:
             make += ('PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':'
@@ -575,6 +575,8 @@ def performance_config(data):
     if hashlib.sha256(data).hexdigest() != 'bc2c287db99b1d184ee281429cd8703e8b8976fe9e0a951378d454cfb69e60db':
         raise VendorError('performance configuration differs from reviewed input')
     import xml.etree.ElementTree as ET
+    # The perf HAL dlopens the learning module and memperfd only behind these
+    # gates; neither they nor the learning-module configuration are selected.
     disabled = {'vendor.debug.enable.lm', 'vendor.debug.enable.memperfd', 'ro.vendor.perf.enable.prekill'}
     def replace(match):
         token = match[0]
