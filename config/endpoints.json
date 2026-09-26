@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design contract design reviewed 2026-09-11. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
+  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
   "canonical_domain": "diamaneos.de",
   "providers": [
     {
@@ -572,6 +572,144 @@
       "sha256": "7d93438e66f1911e544b75060d1015e0757588226354b18cd8dd27561a84d2bb",
       "role": "manifest-pin",
       "observed_on": "2026-09-11"
+    },
+    {
+      "id": "netloc-client",
+      "repository": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation",
+      "revision": "474472e844069392236782df2568db1f404945d0",
+      "path": "src/app/grapheneos/networklocation/ApplePositioningService.kt",
+      "symbols": [
+        "ApplePositioningService.fetch",
+        "getServerUrl",
+        "NETWORK_LOCATION_GRAPHENEOS_APPLE_PROXY"
+      ],
+      "sha256": "0e862132c2df46d044f122c26008342741cae6fa3f9be9b65955787238017eda",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "netloc-settings",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/ext/settings/NetworkLocationSettings.java",
+      "symbols": [
+        "NETWORK_LOCATION_SETTING",
+        "NETWORK_LOCATION_DISABLED",
+        "NETWORK_LOCATION_GRAPHENEOS_APPLE_PROXY"
+      ],
+      "sha256": "1ffb7dccf749d5edd105ecaa8eadc94114ef1db30d1c9c0c4e1a0e76fecb0050",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "geocoder-client",
+      "repository": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation",
+      "revision": "474472e844069392236782df2568db1f404945d0",
+      "path": "src/app/grapheneos/geocoder/NominatimGeocoder.kt",
+      "symbols": [
+        "forwardGeocode",
+        "reverseGeocode",
+        "getServerBaseUrl",
+        "USER_AGENT_VERSION"
+      ],
+      "sha256": "5d70696f2b01c2d99dddfee6ca332e9d70c3f71231d3314e30f91d168938259f",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "geocoder-settings",
+      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
+      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "path": "core/java/android/ext/settings/GeocoderSettings.java",
+      "symbols": [
+        "GEOCODER_SETTING",
+        "GEOCODER_DISABLED",
+        "GEOCODER_SERVER_GRAPHENEOS"
+      ],
+      "sha256": "533b296069983fa136b18f5837d88d6cea12c59685c5146dafd4d47943088657",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "auditor-remote",
+      "repository": "https://github.com/GrapheneOS/Auditor",
+      "revision": "fb53bd3e5b5f57d660b33437395deec5156a3018",
+      "path": "app/src/main/java/app/attestation/auditor/RemoteVerifyJob.java",
+      "symbols": [
+        "DOMAIN",
+        "BASE_URL",
+        "CHALLENGE_URL",
+        "VERIFY_URL",
+        "DEFAULT_INTERVAL"
+      ],
+      "sha256": "b75fea6d91c32943348865c9f54b48193b83b294ae23be9787bfd90b413ede81",
+      "role": "research-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "auditor-sample",
+      "repository": "https://github.com/GrapheneOS/Auditor",
+      "revision": "fb53bd3e5b5f57d660b33437395deec5156a3018",
+      "path": "app/src/main/java/app/attestation/auditor/SubmitSampleJob.java",
+      "symbols": [
+        "SUBMIT_URL",
+        "KEYSTORE_ALIAS_SAMPLE"
+      ],
+      "sha256": "90261fa14a941717c372c9cf27fb62d7c893181643cc48fcb2b94937cf36315c",
+      "role": "research-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "auditor-prebuilt",
+      "repository": "https://github.com/GrapheneOS/platform_external_Auditor",
+      "revision": "8115eb9d03e8b77dd54f5931d50aacc6b19a04fb",
+      "path": "prebuilt/app-release.apk",
+      "symbols": [
+        "app.attestation.auditor version 92"
+      ],
+      "sha256": "f54d47ae7f57871906020d5dc1c32ef44913ca18cf79a6771d812a9c9e012bca",
+      "role": "manifest-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "vanadium-connchecks",
+      "repository": "https://github.com/GrapheneOS/Vanadium",
+      "revision": "02d87ad8e17aee77d0fea49d122349a5da87ed2e",
+      "path": "patches/0207-Respect-connectivity-check-setting-on-browser-connec.patch",
+      "symbols": [
+        "ConnectivityChecker",
+        "httpNoContentUrl",
+        "httpsNoContentUrl"
+      ],
+      "sha256": "7e96fd35ba10d688dc755b20c9b7654e4455926d8b2c6a0ca17adaea0ee50030",
+      "role": "research-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "vanadium-doh-probe",
+      "repository": "https://github.com/GrapheneOS/Vanadium",
+      "revision": "02d87ad8e17aee77d0fea49d122349a5da87ed2e",
+      "path": "patches/0205-Respect-connectivity-check-setting-on-DNS-over-HTTPS.patch",
+      "symbols": [
+        "formatted_probe_grapheneos_qname_",
+        "kRespectConnChecksOsSetting"
+      ],
+      "sha256": "5e3fc0c92d2a229ef250181f3f28f71c52a67673b8e9d6b9e11dc79f2ff5fdfd",
+      "role": "research-pin",
+      "observed_on": "2026-09-26"
+    },
+    {
+      "id": "vanadium-connchecks-setting",
+      "repository": "https://github.com/GrapheneOS/Vanadium",
+      "revision": "02d87ad8e17aee77d0fea49d122349a5da87ed2e",
+      "path": "patches/0204-net-layer-for-fetching-OS-connectivity-check-setting.patch",
+      "symbols": [
+        "kGrapheneOsDohProbeHostname",
+        "GetConnChecksOsSetting"
+      ],
+      "sha256": "6ec633e5beed32a2c20eef51e34a2ed2f4668bf7ccedbce6f85c1bd3a44bac4d",
+      "role": "research-pin",
+      "observed_on": "2026-09-26"
     }
   ],
   "limits_profiles": [
@@ -874,6 +1012,81 @@
       "access_log_retention_seconds": 0,
       "aggregate_log_retention_seconds": 86400,
       "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "location",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 65536,
+      "response_body_bytes": 1048576,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 10,
+      "connect_seconds": 5,
+      "idle_seconds": 10,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 30,
+      "burst_per_ip": 10,
+      "global_requests_per_second": 60,
+      "max_active": 32,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "geocode",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 0,
+      "response_body_bytes": 1048576,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 10,
+      "connect_seconds": 5,
+      "idle_seconds": 10,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 30,
+      "burst_per_ip": 10,
+      "global_requests_per_second": 60,
+      "max_active": 32,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
+    },
+    {
+      "id": "attestation",
+      "transport": "https",
+      "basis": "project-staging-policy",
+      "request_body_bytes": 262144,
+      "response_body_bytes": 65536,
+      "request_header_bytes": 8192,
+      "request_target_bytes": 2048,
+      "deadline_seconds": 30,
+      "connect_seconds": 5,
+      "idle_seconds": 15,
+      "attempts": 1,
+      "redirects": 0,
+      "requests_per_minute_per_ip": 12,
+      "burst_per_ip": 6,
+      "global_requests_per_second": 30,
+      "max_active": 32,
+      "max_queued": 0,
+      "cache_bytes": 0,
+      "refresh_seconds": 0,
+      "max_verified_age_seconds": 0,
+      "access_log_retention_seconds": 0,
+      "aggregate_log_retention_seconds": 86400,
+      "aggregate_log_bytes": 10485760
     }
   ],
   "endpoints": [
@@ -1151,7 +1364,7 @@
       "id": "connectivity-check",
       "upstream_host": "connectivitycheck.grapheneos.network",
       "replacement_host": "connectivitycheck.diamaneos.de",
-      "consumer": "NetworkStack NetworkMonitor",
+      "consumer": "NetworkStack NetworkMonitor; also the Vanadium browser's own connectivity checker",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
       "purpose": "Primary connectivity/portal check",
       "protocol": "Exact 204 with empty body; HTTP intentionally detects interception and is not authenticated proof. Native portal heuristics distinguish other statuses/body shapes; do not replace them with a fabricated portal-signal field.",
@@ -1167,7 +1380,7 @@
       "timeout_retry": "Observed socket timeout 10 s, parallel probe evaluation timeout 3 s; reevaluation delay grows to 10 min. Project server responds within 3 s total; no server retries.",
       "cache_freshness": "No cached probe success; endpoint returns current reachability only. Neither probe is an update/attestation trust service.",
       "failure_fallback": "Endpoint outage: timeout or HTTP 503, never synthesize 204. Portal interception reaches native captive-portal flow. Keep standard-server/disabled settings and explain changed exposure; switching is user-visible, not an automatic redirect to inherited hosts.",
-      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Hostname is an OS fingerprint to network observers. No upstream fetch.",
+      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Hostname is an OS fingerprint to network observers. No upstream fetch. Vanadium also probes this host itself (HTTP and HTTPS /generate_204) while the OS setting selects the default servers, and its DNS-over-HTTPS probe asks the user's resolver for this hostname even when the OS setting turns checks off. Repointing Vanadium needs a rebuilt browser (FP6-111).",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
@@ -1175,7 +1388,10 @@
       "source_refs": [
         "network-config",
         "network-monitor",
-        "network-server"
+        "network-server",
+        "vanadium-connchecks",
+        "vanadium-doh-probe",
+        "vanadium-connchecks-setting"
       ],
       "limits_profile": "probe",
       "upstreams": [],
@@ -1524,7 +1740,7 @@
       "timeout_retry": "Native resolver scheduling remains independent of web probes. Query/answer staging ceiling 512 bytes; selected service checks 10 s. Authoritative provider rate/latency policy is external, not enforced by our VPS.",
       "cache_freshness": "Authoritative TTL 3600; recursive caches may keep records. Never mistake cached DNS answers for live connectivity.",
       "failure_fallback": "Authoritative/resolver outage: DNS failure and native Private DNS validation/backoff; no HTTP fallback service. Preserve explicit standard-resolver setting. Non-answer acceptance in inherited validator is documented, not claimed cryptographic positive-answer proof.",
-      "exposed_data": "Configured recursive resolver sees device IP and query. INWX authority normally sees recursive resolver IP and query; authoritative query metadata may still reveal OS use. Quad9 is a Swiss direct-device default exception, not an EU proxy. INWX uses global Anycast: German operator jurisdiction does not mean all DNS query processing occurs in Germany.",
+      "exposed_data": "Configured recursive resolver sees device IP and query. INWX authority normally sees recursive resolver IP and query; authoritative query metadata may still reveal OS use. Quad9 is a Swiss direct-device default exception, not an EU proxy. INWX uses global Anycast: German operator jurisdiction does not mean all DNS query processing occurs in Germany. The resolver sends this probe name to the user's Private DNS provider even when connectivity checks are turned off, because the probe suffix falls back to the default (branding inventory OP-BRANDING NET-04).",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
@@ -1595,6 +1811,157 @@
         "request": "GET /releases.atom HTTP/1.1\r\nHost: diamaneos.de\r\n\r\n",
         "response": "<feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>urn:diamaneos:example</id><title>Example release</title><content type=\"text\">Illustrative notes</content></entry></feed>\n",
         "expected": "Synthetic single-line Atom entry, not an accepted release; feed text never authenticates an OTA."
+      }
+    },
+    {
+      "id": "network-location",
+      "upstream_host": "gs-loc.apple.grapheneos.org",
+      "replacement_host": "location.diamaneos.de",
+      "consumer": "NetworkLocation ApplePositioningService (app.grapheneos.networklocation), selected by the network location setting",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Wi-Fi and cell positioning through a proxy for Apple's location service, used only when the user turns network location on",
+      "protocol": "HTTPS POST in Apple's location request format: a short binary header (request version, locale, client identifier and version, request code) followed by a length-prefixed protobuf ALSLocationRequest naming nearby Wi-Fi access points and cells. The response skips a 10-byte header and carries a protobuf ALSLocationResponse. The client sends macOS locationd headers. A proxy forwards the body unchanged and adds no identifiers.",
+      "protocol_status": "blocked",
+      "path_method": "POST /clls/wloc",
+      "request_fields": [
+        "Binary header: request version 1, locale, client identifier, client version, request code, protobuf length.",
+        "Protobuf ALSLocationRequest: nearby Wi-Fi access point identifiers and/or cell identifiers, plus fixed client metadata."
+      ],
+      "response_fields": [
+        "10 header bytes the client skips, then protobuf ALSLocationResponse with positions for the queried access points or cells; any non-200 status is a failure."
+      ],
+      "verification_root": "HTTPS with system trust (the client uses a modern-TLS socket factory). Positions are a location hint, not a trust decision; nothing beyond TLS authenticates them.",
+      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per lookup, with client-side throttling and caches deciding re-requests. The proxy answers within the client deadline with one upstream attempt and no server retries.",
+      "cache_freshness": "No proxy cache: cached queries would keep location history. The client keeps its own time-limited cache.",
+      "failure_fallback": "Proxy or upstream outage: pass an error status through (5xx) and never synthesize positions. The client falls back to satellite positioning or no network location. The setting also offers Apple directly, Apple China and off.",
+      "exposed_data": "The EU proxy sees the device IP and the list of nearby Wi-Fi access points and cells, which reveals the user's approximate location. Apple receives the same query with the proxy's IP instead of the device's. Network location is off by default, but the setup wizard's location switch turns it on (branding inventory OP-BRANDING NET-13; to confirm on the device).",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "jurisdiction": "eu-proxy-to-non-eu-upstream",
+      "owner_task": "FP6-103",
+      "status": "blocked-contract",
+      "source_refs": [
+        "netloc-client",
+        "netloc-settings"
+      ],
+      "limits_profile": "location",
+      "upstreams": [
+        {
+          "host": "gs-loc.apple.com",
+          "operator": "Apple",
+          "jurisdiction": "US",
+          "mode": "bounded-proxy",
+          "data": "Nearby Wi-Fi access points and cells in Apple's request format; the proxy IP replaces the device IP."
+        }
+      ],
+      "implementation_blockers": [
+        {
+          "id": "NETLOC-SCOPE",
+          "owner_task": "FP6-103",
+          "description": "No plan task names network location or geocoding yet: extend FP6-103 or add a task (owner decision). The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects, and bind request/response ceilings from captured native traffic before activation."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "POST /clls/wloc (binary header + protobuf ALSLocationRequest)",
+        "response": "HTTP 200, 10 header bytes + protobuf ALSLocationResponse",
+        "expected": "The owning task supplies captured native request and response fixtures plus malformed, oversized and upstream-outage cases before activation; no synthetic position fixture is claimed."
+      }
+    },
+    {
+      "id": "geocoder",
+      "upstream_host": "nominatim.grapheneos.org",
+      "replacement_host": "geocoder.diamaneos.de",
+      "consumer": "NetworkLocation NominatimGeocoder (the Android Geocoder provider), selected by the geocoder setting",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Turns place names into coordinates and coordinates into addresses for apps that use Android's Geocoder, only when the user turns geocoding on",
+      "protocol": "HTTPS GET of the Nominatim API with format=geocodejson: /search for place names (optionally bounded to a box) and /reverse for coordinates at zoom 18, with addressdetails and extratags. The client sends Accept-Language from the requested locale and the User-Agent 'GrapheneOS geocoder 1', which a DiamaneOS fork must change.",
+      "protocol_status": "blocked",
+      "path_method": "GET /search?format=geocodejson&q=...&limit=...&addressdetails=1&extratags=1[&viewbox=...&bounded=1]; GET /reverse?format=geocodejson&lat=...&lon=...&zoom=18&addressdetails=1&extratags=1",
+      "request_fields": [
+        "Query text, or latitude and longitude; result limit; optional bounding box; Accept-Language; client User-Agent."
+      ],
+      "response_fields": [
+        "GeocodeJSON FeatureCollection with geometry and address fields. The literal body {\"error\":\"Unable to geocode\"} means no result; any non-200 status is a failure."
+      ],
+      "verification_root": "HTTPS with system trust (modern-TLS socket factory). Results are map data, not a security decision.",
+      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per call. The server answers within the client deadline with no server retries.",
+      "cache_freshness": "No cache of queries or answers, because they reveal places a user looks up. Map data freshness follows the hosting choice: a self-hosted instance updates from OpenStreetMap data on a schedule.",
+      "failure_fallback": "Outage or overload: an error status, so apps get no result rather than invented addresses. The setting also offers OpenStreetMap's own server and off.",
+      "exposed_data": "The service sees the device IP, the searched text or coordinates, the user's language and the client User-Agent. Reverse-geocoded coordinates are usually the user's own location. Geocoding is off by default.",
+      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-103",
+      "status": "blocked-contract",
+      "source_refs": [
+        "geocoder-client",
+        "geocoder-settings"
+      ],
+      "limits_profile": "geocode",
+      "upstreams": [],
+      "implementation_blockers": [
+        {
+          "id": "NETLOC-SCOPE",
+          "owner_task": "FP6-103",
+          "description": "No plan task names network location or geocoding yet: extend FP6-103 or add a task (owner decision). The server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so repointing needs a NetworkLocation fork; its package ID stays unchanged (owner decision 2026-09-26). Confirm on FP6 what the setup wizard's location switch selects, and bind request/response ceilings from captured native traffic before activation."
+        },
+        {
+          "id": "GEOCODER-HOSTING",
+          "owner_task": "FP6-103",
+          "description": "Choose between an EU-hosted Nominatim instance (import size, update schedule, ODbL attribution and the OpenStreetMap usage policy) and dropping the DiamaneOS option so users get only OpenStreetMap's server or off. The User-Agent must name DiamaneOS in either case, which needs the NetworkLocation fork."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "GET /reverse?format=geocodejson&lat=52.52&lon=13.405&zoom=18&addressdetails=1&extratags=1",
+        "response": "HTTP 200, GeocodeJSON FeatureCollection",
+        "expected": "The owning task supplies captured fixtures for search, reverse, no-result, malformed and outage cases before activation; no synthetic address fixture is claimed."
+      }
+    },
+    {
+      "id": "attestation",
+      "upstream_host": "attestation.app",
+      "replacement_host": "attestation.diamaneos.de",
+      "consumer": "Auditor RemoteVerifyJob and SubmitSampleJob (app.attestation.auditor, shipped as a prebuilt)",
+      "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
+      "purpose": "Optional remote verification of a paired device's hardware-backed attestation, and optional submission of attestation samples",
+      "protocol": "HTTPS POST to /auditor/challenge (get a single-use challenge), /auditor/verify (send the attestation for the paired account) and /auditor/submit (sample submission). Remote verification runs as a periodic job (default every 4 hours; 1 hour to 7 days) after the user pairs the device with an account. Sample submission runs only when the user starts it.",
+      "protocol_status": "blocked",
+      "path_method": "POST /auditor/challenge; POST /auditor/verify; POST /auditor/submit",
+      "request_fields": [
+        "verify: identifiers stored when the device was paired, and the serialized attestation for the server challenge.",
+        "submit: attestation certificate chains (TEE, and StrongBox where present), the kernel uname string and the full system property list."
+      ],
+      "response_fields": [
+        "challenge: challenge bytes; verify: success or failure and any schedule change; submit: status. Exact fields to be bound from the fork and server."
+      ],
+      "verification_root": "HTTPS with system trust. The server checks attestation against pinned OS signing keys and supported devices; GrapheneOS's server has neither DiamaneOS keys nor the FP6.",
+      "timeout_retry": "Client connect and read timeouts are 30 s; the job scheduler retries with its own backoff. The server answers each request once, with no server retries.",
+      "cache_freshness": "Never cache challenges or verification results; each challenge is single use.",
+      "failure_fallback": "Outage: the job fails and the app shows a failed remote check; never report success without a verified attestation. Local device-to-device verification in Auditor does not use this service.",
+      "exposed_data": "The service sees account identifiers from pairing, the device IP, and attestation data including OS version and patch level. Sample submission adds the full system property list, attestation certificate chains and the kernel version. Both features are opt-in.",
+      "retention": "The service keeps verification history for paired accounts, which is its purpose; the retention period is set in FP6-106. No access or body logs otherwise; aggregate counters only: 24 hours, 10 MiB cap per service.",
+      "jurisdiction": "eu-primary",
+      "owner_task": "FP6-106",
+      "status": "blocked-contract",
+      "source_refs": [
+        "auditor-remote",
+        "auditor-sample",
+        "auditor-prebuilt"
+      ],
+      "limits_profile": "attestation",
+      "upstreams": [],
+      "implementation_blockers": [
+        {
+          "id": "ATTEST-SERVER",
+          "owner_task": "FP6-106",
+          "description": "Fork Auditor with DiamaneOS key pins, FP6 support and the DiamaneOS server (the domain is a literal in RemoteVerifyJob); its package ID stays unchanged (owner decision 2026-09-26). Run an attestation server built from source. Until then DiamaneOS builds must not offer remote verification or sample submission against GrapheneOS's server. Set history retention and sample handling before activation. Unlike every other contract this service keeps state (paired accounts, history), so it must not run on the read-only release host; the services model needs a separate host role and credentials for it before activation."
+        }
+      ],
+      "example": {
+        "kind": "schematic-not-conformance",
+        "request": "POST /auditor/challenge",
+        "response": "HTTP 200, challenge bytes",
+        "expected": "The owning task supplies fixtures from the forked client and server, plus replayed-challenge, wrong-key, unsupported-device and outage cases, before activation."
       }
     }
   ]

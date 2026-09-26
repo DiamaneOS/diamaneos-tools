@@ -35,6 +35,9 @@ APPENDIX_B = {
     'ct-mirror': 'gstatic.grapheneos.org',
     'dns-check': 'dnscheck.grapheneos.org',
     'info-release-feed': 'grapheneos.org/releases.atom',
+    'network-location': 'gs-loc.apple.grapheneos.org',
+    'geocoder': 'nominatim.grapheneos.org',
+    'attestation': 'attestation.app',
 }
 PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary',
                    'artifact-mirror-non-eu', 'git-primary', 'git-backup',
