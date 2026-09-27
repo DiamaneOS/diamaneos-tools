@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <bool name="config_buttonTextAllCaps">true</bool>
+    <dimen name="config_buttonCornerRadius">4dp</dimen>
+    <integer name="config_screenBrightnessDoze">1</integer>
+    <string-array name="config_ambientSensors" translatable="false" />
+    <item type="dimen" name="config_screenBrightnessMinimumNitsFloat" format="float">2.0</item>
+    <declare-styleable name="ExampleView">
+        <attr name="exampleColor" format="color" />
+        <attr name="android:textColor" />
+    </declare-styleable>
+    <java-symbol type="bool" name="config_buttonTextAllCaps" />
+</resources>

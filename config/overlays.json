@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "api_level": 37,
+  "inapplicable_qualifier_tokens": [
+    "r(XA|XB|XC)",
+    "television|watch|car|desk|appliance|vrheadset",
+    "sw([6-9][0-9]{2}|[0-9]{4,})dp"
+  ],
+  "overlay_roots": [
+    {"path": "vendor_diamaneos/overlay", "role": "product"},
+    {"path": "device_fairphone_FP6/rro", "role": "device"}
+  ],
+  "targets": [
+    {
+      "package": "android",
+      "sources": [
+        {"project": "frameworks/base", "res": ["core/res/res"]}
+      ]
+    },
+    {
+      "package": "com.android.settings",
+      "sources": [
+        {"project": "packages/apps/Settings", "res": ["res", "res-export", "res-product"]},
+        {"project": "frameworks/base", "res": ["packages/SettingsLib/res", "packages/SettingsLib/*/res",
+                                               "packages/SettingsLib/Spa/spa/res"]},
+        {"project": "frameworks/libs/systemui", "res": ["iconloaderlib/res"]}
+      ]
+    },
+    {
+      "package": "com.android.systemui",
+      "sources": [
+        {"project": "frameworks/base", "res": ["packages/SystemUI/res", "packages/SystemUI/res-keyguard",
+                                               "packages/SystemUI/res-product", "packages/SystemUI/shared/res",
+                                               "packages/SystemUI/shared/biometrics/res",
+                                               "packages/SystemUI/animation/res", "packages/SystemUI/customization/res",
+                                               "packages/SystemUI/customization/clocks/common/res",
+                                               "packages/SystemUI/compose/scene/res",
+                                               "libs/WindowManager/Shell/res", "libs/WindowManager/Shell/shared/res",
+                                               "packages/SettingsLib/res", "packages/SettingsLib/*/res"]},
+        {"project": "frameworks/libs/systemui", "res": ["iconloaderlib/res", "animationlib/res"]}
+      ]
+    },
+    {
+      "package": "com.android.phone",
+      "sources": [
+        {"project": "packages/services/Telephony", "res": ["res"]}
+      ]
+    },
+    {
+      "package": "com.android.carrierconfig",
+      "sources": [
+        {"project": "packages/apps/CarrierConfig", "res": ["res"]}
+      ]
+    }
+  ]
+}

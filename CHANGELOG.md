@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add `overlays check`: compare each resource overlay with its target's
+  resources at a GrapheneOS release (from a source tree or fetched at the
+  pinned commits), including overlayable policies, partitions, signing and
+  priorities, with a JSON report for CI.
+
 - Move the interface design, branding and their bundled assets to the separate
   diamaneos-design repository.
 

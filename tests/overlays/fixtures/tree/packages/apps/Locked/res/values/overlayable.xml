@@ -1,0 +1,13 @@
+<resources>
+    <overlayable name="Theme" actor="overlay://theme">
+        <policy type="product|signature">
+            <item type="color" name="accent" />
+        </policy>
+        <policy type="signature">
+            <item type="color" name="secret" />
+        </policy>
+        <policy type="odm">
+            <item type="color" name="odm_only" />
+        </policy>
+    </overlayable>
+</resources>
