@@ -96,17 +96,17 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "540cbb478d641545e5c099f3e20572a5f6fe769aabf801e639b22cf965607d19"
+      "sha256": "82190d7be3532e025a86be99930024a0ce5e218cbdc813d9da11359cda2877cf"
     },
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "01482e55d3b345c17dfa298cf41d667f816654d1eb210e26dafa60e20590d60c"
+      "sha256": "d8f7a2bbb95d345428ee13fc4fe6b80007b7b61bdf67d3d6ec97b8e1f6ffbb4a"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "866d9f3e8c674d30d43df03fda968467038e5f18c776b090cff077902a4f8877"
+      "sha256": "5612c6477af6f77f84faab7d59fdfbcac30c0fd0785ee07515c2a38388a35a51"
     }
   ],
   "device_inputs": {
