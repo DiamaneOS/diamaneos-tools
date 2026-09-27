@@ -193,9 +193,9 @@ STOCK_APPS = {
  # Not selected: QtiTelephonyService (the IQcRilAudio call-audio client). The
  # device's own call-audio bridge (device callaudio/) replaces it with the
  # normal permission MODIFY_AUDIO_SETTINGS instead of MODIFY_AUDIO_ROUTING.
- # eSIM LPA; the device keeps its services off by default, as stock (sysconfig),
- # because it cannot list profiles on the FP6. Nothing then loads its JNI
- # library (libjni_aidl_service), which is not selected.
+ # eSIM LPA; the device sysconfig turns its services off by default because it
+ # cannot list profiles on the FP6 (stock leaves its eSIM service on). Nothing
+ # then loads its JNI library (libjni_aidl_service), which is not selected.
  'product/app/uimlpaservice/uimlpaservice.apk':('uimlpaservice', True),
 }
 # JNI libraries of the stock apps and the platform libraries they link.

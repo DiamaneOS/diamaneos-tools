@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "e83efd49c0b9d989821856e5dd685a08fe4562699eba4511af2c33cc231c6208",
+  "model_sha256": "8a4f310ae022e93150793562144398930b45ef0874b06a503aa25bcb3433eb41",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -16701,7 +16701,7 @@
       "notices": [
         "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
       ],
-      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; its services are off by default, as on stock (device sysconfig).",
+      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; the device sysconfig turns its services off by default because it cannot list profiles on the FP6 (stock leaves its eSIM service on).",
       "metadata": {
         "uid": 0,
         "gid": 0,

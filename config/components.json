@@ -668,7 +668,7 @@
         "verified_necessary_for": [
           "ordinary voice, SMS, data, VoLTE and VoWiFi during private bring-up",
           "EU carrier compatibility experiments",
-          "eSIM profile management through the hardware-layer Qualcomm LPA (owner decision 2, 2026-09-25)"
+          "installed eSIM profiles used as SIMs; the stock Qualcomm LPA stays installed with its services off (owner decisions 2, 2026-09-25, and 2026-09-27)"
         ],
         "required_prebuilt_refs": [
           "userspace_hal_families:radio-ims"
@@ -929,10 +929,10 @@
         "eligible": false,
         "verified_necessary_for": [],
         "required_prebuilt_refs": [],
-        "rationale": "The stock Qualcomm LPA ships as private bring-up under radio-ims-data (owner decision 2, 2026-09-25), so no separate prebuilt exception is declared here; its services are off by default, as on stock, because it cannot list profiles on the FP6, and its JNI library is not selected. Open gates before public use: -20 user-CA trust, -01 presigned update path, no download screen, -21 erase at reset."
+        "rationale": "The stock Qualcomm LPA ships as private bring-up under radio-ims-data (owner decision 2, 2026-09-25), so no separate prebuilt exception is declared here; DiamaneOS turns its services off by default because it cannot list profiles on the FP6 (stock leaves its eSIM service on), and its JNI library is not selected. Installed eSIM profiles keep working as SIMs without an LPA (owner decision 2026-09-27). Open gates before the stock LPA could be turned on: -20 user-CA trust, -01 presigned update path, no download screen, -21 erase at reset."
       },
       "qualification_evidence": [],
-      "next_experiment": "Qualify the stock Qualcomm LPA (com.qualcomm.qti.lpa, private bring-up under radio-ims-data) in FP6-207 against PRD-08: profile download, activation, switching, deletion safeguards, reset and erase, privacy, trust (-20), updates (-01) and carrier behavior; record any source LPA found.",
+      "next_experiment": "Build our own source LPA (list, enable, disable and delete over the platform's logical channels; download later) behind an off-by-default eSIM support switch (owner decision 2026-09-27) and qualify it in FP6-207 against PRD-08: activation, switching, deletion safeguards, reset and erase, privacy, trust and carrier behavior. The stock Qualcomm LPA stays installed with its services off.",
       "update_triggers": [
         "LPA or protocol source changes",
         "Android Euicc APIs change",
