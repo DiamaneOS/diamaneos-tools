@@ -272,6 +272,17 @@
           ]
         }
       ]
+    },
+    {
+      "package": "com.android.networkstack.tethering",
+      "sources": [
+        {
+          "project": "packages/modules/Connectivity",
+          "res": [
+            "Tethering/res"
+          ]
+        }
+      ]
     }
   ]
 }
