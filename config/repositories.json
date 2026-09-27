@@ -253,6 +253,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/proprietary/display-devicetree"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "id": "kernel-qcom-devicetree",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_devicetree.git",
+      "revision": null,
+      "slug": "kernel_qcom_devicetree",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/kernel_platform/qcom/proprietary/devicetree"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
       "id": "kernel-video",
       "publication": "public-source",

@@ -111,11 +111,12 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
-      "derived_revision": "91b7060d83ebd9103feaff3fc7f6db12a0ec34bb",
-      "canonical_diff_sha256": "66d35125a0b7643048e2130d05b94f91bff6750dbfb42b9a5add2ee1c8e3d4d6",
+      "derived_revision": "cc4d2290c01caa79a47ce575def9f487fa53d18b",
+      "canonical_diff_sha256": "cc079fdab5f40ddd623c2850126e60372ff14a5465eb4b79b9ec04c861b78cca",
       "changed_files": [
         "arch/arm64/configs/gki_defconfig",
         "include/drm/drm_mode_config.h",
+        "init/main.c",
         "modules.bzl",
         "net/tipc/bcast.c",
         "net/tipc/bcast.h",
@@ -125,8 +126,8 @@
         "net/tipc/node.c",
         "net/tipc/socket.c"
       ],
-      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes).",
-      "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs on r9q (TIPC module) and r9r (this revision, with the 6.1.178 fixes), both SELinux permissive; the enforcing r9s data test is pending."
+      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes). Turn off SELinux development mode and restrict dmesg to root from boot. Log boot parameters that are handed to user space by name only, since the bootloader's can carry device identifiers.",
+      "validation": "The r9k full-hardening build and FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs on r9q (TIPC module) and r9r (this revision, with the 6.1.178 fixes), both SELinux permissive; the enforcing r9s data test is pending. r9t production configuration and parameter logging: signatures verified, kconfig and savedefconfig checked (only the two intended symbols change), init/main.o compiled with the build's clang and the logging checked in a user-space harness; kernel build and phone test pending."
     },
     {
       "id": "kernel-qcom-grapheneos",
@@ -134,11 +135,11 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
-      "derived_revision": "50d02443304a5d0932346beebe25f1a192c86c73",
-      "canonical_diff_sha256": "4a80942793acb26508d512f7e6968fdb17278c35e96ac391f770989c6dc53b39",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel.",
-      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains.",
-      "changed_files_sha256": "bde61ca3c5863abe76c27d1d7473fa292ca63f74cfb9b57d7d5b38b0f1bf5a79",
+      "derived_revision": "315d9e06e0b35526c2c1d4a8fcb88486a65814da",
+      "canonical_diff_sha256": "39bce5a8386cb6724019327884c6a148da7f0f78f0a3a8c9c2ac82d761b88167",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel. The same production configuration and boot-parameter logging change as the common kernel.",
+      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The r9k full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains. r9t: the same two commits as the common kernel with identical file contents; signatures verified, vendor configuration and init/main.o checked the same way; kernel build and phone test pending.",
+      "changed_files_sha256": "bad4a2b01aa89a4fa47267ede1f776a8dec0a1b71bc0113b336eb0f95f0d790b",
       "merged_upstream": {
         "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
         "tag": "2026091900",
@@ -414,6 +415,20 @@
       ],
       "purpose": "Restore the FP6 factory image's always-on display settings for the NT37705 panel: idle brightness 0x0003 instead of 0x09D9 in the five low-power command sets, and no D2 command at power-on. Fairphone's published tree brightens AOD four seconds after locking.",
       "validation": "Exact inverse of Fairphone's 4492d50 (FPS-3248): the panel file returns to the pre-4492d50 and Android 15 branch content, and all panel command arrays match the FP6.QREL.15.178.0 factory dtbo. The FP6.QREL.16.100.0 dtbo matches too except its two DBV-1290 brightness-mode command sets, which append a normal brightness write. r9s kernel run: only dtbo.img differs from r9r. AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
+    },
+    {
+      "id": "kernel-devicetree-ramoops",
+      "repository": "https://github.com/DiamaneOS/kernel_qcom_devicetree",
+      "workspace": "kernel",
+      "path": "kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "base_revision": "e54c8cb7d2d1d99026eff5d0d1c858db4739c478",
+      "derived_revision": "485e37e3f8f704f1e8843dc930afb25dd246b281",
+      "canonical_diff_sha256": "5b9beca8201efad773be55720987d1d510cac2b9c937024062e60192b6d91778",
+      "changed_files": [
+        "fps_overlay/fp6.dts"
+      ],
+      "purpose": "Give pstore/ramoops a 4 MiB reserved-memory region, placed at boot, in the FP6 device tree: 2 MiB kernel console, 2 MiB pmsg, no dump records and no ftrace, write-combined, outside the linear map and aligned to its size (GrapheneOS's Pixel layout). Fairphone's node sits under /soc without memory, so the driver fails and no log survives a reboot.",
+      "validation": "The unpatched fp6.dtb rebuilt from the pinned sources is byte-identical to the r9s run's; the patched tree compiles, its decompiled change is only the node move, and all 14 merged FP6 SKU overlays still apply. Kernel build and phone test pending; whether the FP6 firmware keeps the region across a reset is part of that test."
     },
     {
       "id": "kernel-wlan-randstruct-callbacks",
