@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -139,9 +139,11 @@ do not belong on it until SELinux is enforcing.
 - Attestation is TEE-only. A locked custom-key build reports a yellow verified
   boot state, never green. The GrapheneOS Auditor app does not support FP6.
   Builds before r9s did not enable remote key provisioning, so hardware
-  attestation was expected to fail. From r9s (not yet tested on the phone) the
-  device sets the provisioning properties stock sets; requests go through the
-  inherited GrapheneOS proxy until DiamaneOS runs its own. From r9s the device
+  attestation was expected to fail. From r9s the device sets the provisioning
+  properties stock sets; requests go through the inherited GrapheneOS proxy
+  until DiamaneOS runs its own. On r9t provisioning reaches the server, but the
+  TEE's certificate request fails on every attempt, so no attestation keys are
+  provisioned and hardware attestation still fails (cause open). From r9s the device
   also reports the factory attestation IDs, and a wipe asks the TEE to delete
   all old keys (untested).
 - No pKVM: on current firmware the kernel runs under Qualcomm's Gunyah
