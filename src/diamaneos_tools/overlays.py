@@ -27,7 +27,7 @@ Errors (exit 1):
   policy               no overlayable policy allows the overlay's partition
   not-static, has-code, partition, certificate, platform-key
                        packaging rules for preinstalled overlays
-  same-priority        two overlays on one target share android:priority
+  same-priority        two overlays on one partition and target share android:priority
   overlap              two overlays on one target define the same resource
   unknown-target       the target package is not in the target registry
   target-source        a registered target source is not available
@@ -1276,12 +1276,12 @@ def cross_checks(package, group):
     for index, first in enumerate(ordered):
         for second in ordered[index + 1:]:
             pair = f'{first["module"]} ({first["partition"]}) and {second["module"]} ({second["partition"]})'
-            if first['priority'] == second['priority']:
-                how = ('the APK path decides their order' if first['partition'] == second['partition']
-                       else 'only the partition order decides which wins')
+            # android:priority only orders overlays within one partition; across
+            # partitions the partition order decides, whatever the priorities.
+            if first['partition'] == second['partition'] and first['priority'] == second['priority']:
                 result.append(finding('error', 'same-priority', f'{pair} both target {package} with priority '
-                                      f'{first["priority"]}; {how}', f'{first["module"]},{second["module"]}',
-                                      package))
+                                      f'{first["priority"]}; the APK path decides their order',
+                                      f'{first["module"]},{second["module"]}', package))
             shared = sorted(set(first['resources'].entries) & set(second['resources'].entries))
             for key in shared:
                 result.append(finding('error', 'overlap', f'{pair} both overlay {key[0]}/{key[1]} in {package}; '

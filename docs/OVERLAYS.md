@@ -106,7 +106,7 @@ Errors (exit status 1):
 | `not-static`, `has-code` | The overlay is not `android:isStatic="true"`, or does not declare `android:hasCode="false"`. |
 | `partition` | A product overlay is not on product, or a device overlay is not on vendor or odm. |
 | `platform-key`, `certificate` | The module sets `certificate`; overlays are signed with the default key, which release signing maps to its own key. |
-| `same-priority` | Two overlays on one target have the same `android:priority`. Android orders static overlays by partition, then priority, then APK path, so a tie within one partition is decided by file names. |
+| `same-priority` | Two overlays on the same partition and target have the same `android:priority`. Android orders static overlays by partition, then priority, then APK path, so such a tie is decided by file names. Priority is never compared across partitions: an overlay on a later partition (product after vendor) always wins, so overlays on different partitions may share a priority. |
 | `overlap` | Two overlays on one target define the same resource; the message names the one that wins. |
 | `unknown-target` | The target package is not registered. |
 | `target-source` | A registered source project or directory is unavailable, or a target file is unreadable. |

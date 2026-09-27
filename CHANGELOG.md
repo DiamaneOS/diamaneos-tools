@@ -5,7 +5,7 @@
 - Add `overlays check`: compare each resource overlay with its target's
   resources at a GrapheneOS release (from a source tree or fetched at the
   pinned commits), including overlayable policies, partitions, signing and
-  priorities, with a JSON report for CI. Product overlays also follow the
+  priorities within a partition, with a JSON report for CI. Product overlays also follow the
   agreed allowlist, denylist and qualifier-coverage rules; target variants that
   always win on the FP6 (API level, density, smallest width) are errors; git
   runs isolated from the caller's environment and configuration; and a tag

@@ -522,14 +522,13 @@ class ProductRuleTests(Fixture):
 class CrossOverlayTests(Fixture):
     DEVICE_MANIFEST = 'workspace/device_example/rro/DeviceFrameworkOverlay/AndroidManifest.xml'
 
-    def test_same_priority_across_partitions(self):
+    def test_same_priority_across_partitions_is_fine(self):
+        # Priority is only compared within a partition, so a vendor and a
+        # product overlay may share one; the product overlay wins either way.
         self.edit(self.DEVICE_MANIFEST, 'android:priority="1"', 'android:priority="2"')
         code, report, _ = self.check()
-        self.assertEqual(code, 1)
-        finding = self.only(report, 'same-priority')
-        self.assertEqual(finding['target'], 'android')
-        self.assertIn('DeviceFrameworkOverlay (vendor) and ExampleFrameworkOverlay (product)', finding['message'])
-        self.assertIn('only the partition order decides', finding['message'])
+        self.assertEqual(code, 0)
+        self.assertNotIn('same-priority', self.codes(report))
 
     def test_same_priority_on_one_partition(self):
         self.write('workspace/vendor_example/overlay/Second/Android.bp',
