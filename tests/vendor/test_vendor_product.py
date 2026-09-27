@@ -44,6 +44,22 @@ class NativeProductTests(unittest.TestCase):
         self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != path]
         with self.assertRaises(VendorError): self.render()
 
+    def test_touch_controller_firmware_copied_to_vendor_firmware(self):
+        # eswin_ts.ko requests EPH86XX_fw.bin at probe; without it ueventd's
+        # firmware fallback waits out the kernel's 60 s timeout (r9s boot).
+        path = 'vendor/firmware/EPH86XX_fw.bin'
+        make = self.render()['device-vendor.mk'].decode()
+        self.assertIn('vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/firmware/EPH86XX_fw.bin', make)
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        self.assertEqual(('firmware-trusted-boot', 'firmware_families:vendor-peripheral-firmware'),
+                         (row['component_id'], row['inventory_ref']))
+        self.assertEqual((0, 0, 0o644, 'u:object_r:vendor_firmware_file:s0'),
+                         tuple(row['metadata'][k] for k in ('uid', 'gid', 'mode', 'selinux')))
+        firmware = next(f for f in self.selection['firmware_inputs'] if f['path'] == path)
+        self.assertEqual((row['sha256'], row['bytes']), (firmware['sha256'], firmware['bytes']))
+        firmware['sha256'] = '0' * 64
+        with self.assertRaises(VendorError): self.render()
+
     def test_missing_runtime_root_rejected(self):
         self.selection['roots'].append('vendor/lib64/missing.so')
         with self.assertRaises(VendorError): self.render()
