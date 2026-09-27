@@ -109,8 +109,9 @@ stripping, verifies signatures against the built-in GKI certificate and checks
 selected providers, namespaces, dependencies and compiled GKI protection lists.
 It rejects any module on the packaging deny list. The effective GKI and vendor
 configurations must pass the production profile (`kernel-config.json`,
-`vendor-kernel-config.json`); `--config-profile development` is for diagnostic
-kernels only. See [FP6-KERNEL.md](FP6-KERNEL.md).
+`vendor-kernel-config.json`); `--config-profile development` only relaxes that
+check to the baseline and does not change the kernel configuration. See
+[FP6-KERNEL.md](FP6-KERNEL.md).
 
 Logs and terminal results are in `fp6-kernel/runs/<run>/`. `current` advances to
 that run's `candidate` only after all steps pass. Failed runs remain available.

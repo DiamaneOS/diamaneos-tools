@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-kernel-policy-v5",
+  "id": "fp6-android14-6-1-kernel-policy-v6",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -28,12 +28,15 @@
     "CONFIG_USERFAULTFD": "y",
     "CONFIG_IO_URING": "y",
     "CONFIG_UNICODE": "y",
-    "CONFIG_F2FS_FS": "y"
+    "CONFIG_F2FS_FS": "y",
+    "CONFIG_KPROBES": "y",
+    "CONFIG_KRETPROBES": "y",
+    "CONFIG_FW_LOADER_USER_HELPER": "y",
+    "CONFIG_DEBUG_FS": "y",
+    "CONFIG_DEBUG_FS_ALLOW_ALL": "y"
   },
   "production": {
     "CONFIG_SECURITY_SELINUX_DEVELOP": "n",
-    "CONFIG_SECURITY_DMESG_RESTRICT": "y",
-    "CONFIG_DEBUG_FS_ALLOW_ALL": "n",
-    "CONFIG_DEBUG_FS_DISALLOW_MOUNT": "y"
+    "CONFIG_SECURITY_DMESG_RESTRICT": "y"
   }
 }

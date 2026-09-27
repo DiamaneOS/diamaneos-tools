@@ -68,6 +68,20 @@ class KernelConfigTests(unittest.TestCase):
                 result = kernel_config.check(changed, self.policy, 'development')
                 self.assertEqual([r['symbol'] for r in result['failures']], [symbol])
 
+    def test_settings_hardware_support_depends_on_stay_on(self):
+        # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and
+        # the debugfs API that the display driver and a recovery module need.
+        data = self.config(False)
+        for symbol in ('CONFIG_KPROBES', 'CONFIG_KRETPROBES', 'CONFIG_FW_LOADER_USER_HELPER',
+                       'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_ALLOW_ALL'):
+            with self.subTest(symbol=symbol):
+                changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
+                result = kernel_config.check(changed, self.policy, 'production')
+                self.assertIn(symbol, [r['symbol'] for r in result['failures']])
+        changed = data.replace(b'CONFIG_DEBUG_FS_ALLOW_ALL=y', b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y')
+        result = kernel_config.check(changed, self.policy, 'development')
+        self.assertEqual([r['symbol'] for r in result['failures']], ['CONFIG_DEBUG_FS_ALLOW_ALL'])
+
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')
         result = kernel_config.check(data, self.policy, 'production')
@@ -101,5 +115,5 @@ class KernelConfigTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stderr)
             report = json.loads(result.stdout)
             self.assertEqual(report['status'], 'FAIL')
-            self.assertEqual(len(report['production_differences']), 4)
+            self.assertEqual(len(report['production_differences']), len(self.policy['production']))
             self.assertNotIn(directory, result.stdout)

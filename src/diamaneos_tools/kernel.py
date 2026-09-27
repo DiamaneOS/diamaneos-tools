@@ -606,8 +606,9 @@ def main(argv=None):
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
     parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
-                        help='build: kernel configuration policy to enforce; development allows SELinux '
-                             'development mode and open debugfs, for diagnostic kernels only')
+                        help='build: kernel configuration policy to check; development checks only the '
+                             'baseline. It does not change the kernel configuration, which comes from '
+                             'the pinned defconfig')
     args = parser.parse_args(argv)
     if args.operation == 'manifest':
         try:

@@ -7,6 +7,13 @@
   survives list regeneration; retire the NXP/ST NFC, ST eSE, mm-sys and Kleaf
   build forks.
 
+- Pin the r9t kernel commits (no SELinux development mode, dmesg restricted,
+  boot parameters handed to user space logged by name only) and a new fork of
+  the SoC device tree that gives pstore/ramoops a memory region on the FP6.
+  Keep debugfs as on r9s, pin the kprobe, firmware-fallback and debugfs
+  settings that hardware support depends on, and correct the docs: the
+  development profile only relaxes the configuration check.
+
 - Move the interface design, branding and their bundled assets to the separate
   diamaneos-design repository.
 
