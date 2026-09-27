@@ -51,4 +51,22 @@ class ProductInputTests(unittest.TestCase):
         (self.vendor/'current').unlink();(self.vendor/'current').symlink_to('../escape')
         self.assertRaises(ValueError,self.install)
 
+    def test_carrier_asset_names_install_with_exact_bytes(self):
+        tree=(self.vendor/'current').resolve()
+        name='carrier-assets/device-carrier-config/carrier_config_carrierid_1881_遠傳電信 AT&T.xml'
+        p=tree/name;p.parent.mkdir(parents=True);p.write_bytes(b'<carrier_config/>');p.chmod(0o640)
+        inventory=self.vendor/'inventories'/('a'*64+'.json')
+        records=json.loads(inventory.read_text());records[name]={'bytes':p.stat().st_size,'sha256':sha(p)}
+        inventory.write_text(json.dumps(records))
+        self.assertEqual('PASS',self.install()['status'])
+        self.assertEqual(p.read_bytes(),(self.source/'vendor/fairphone/FP6'/name).read_bytes())
+
+    def test_generated_names_reject_traversal_and_controls(self):
+        for name in ('/outside','../outside','a/../b','a//b','a/./b','a/','a\\b','a\nb','a\x00b'):
+            with self.subTest(name=name):
+                records={name:{'bytes':7,'sha256':sha(self.vendor/'current/input')}}
+                with self.assertRaisesRegex(ValueError,'invalid generated input path'):
+                    subject.install_one((self.vendor/'current').resolve(),records,self.root/'destination')
+                self.assertFalse((self.root/'destination').exists())
+
 if __name__=='__main__':unittest.main()
