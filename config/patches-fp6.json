@@ -237,8 +237,8 @@
       "workspace": "android",
       "path": "device/fairphone/FP6",
       "base_revision": "41a637fd3c21010bf42241b37fdf0160efee966e",
-      "derived_revision": "dc13eff1969c2f72249b391cc242915ff33f9bf2",
-      "canonical_diff_sha256": "b732bf669fd6b01ec37947de44caf7592557c3cc65a7113a1b4f08a9bb248d7f",
+      "derived_revision": "b84b75767cc1f9f518f6f19724c2d8571a563434",
+      "canonical_diff_sha256": "4c2d659dcf3871425ac28b795ad5ae739ae2b8386a1c510bbd9075227becb8a8",
       "changed_files": [
         "BoardConfig.mk",
         "boot/init.qcom.rc",
@@ -260,7 +260,7 @@
         "telephony/privapp-permissions-fp6-iwlan.xml",
         "telephony/telephony.mk"
       ],
-      "purpose": "Integrate the source IMS broker, modem-backed IWLAN and stock carrier data with scoped policy.",
+      "purpose": "Integrate the source IMS broker and isolated Wi-Fi reporter with modem-backed IWLAN and stock carrier data.",
       "validation": "Local host/static and Java API checks only where applicable; full Android compilation, enforcing policy and device/carrier behavior remain unqualified."
     },
     {
