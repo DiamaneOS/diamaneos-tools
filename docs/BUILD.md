@@ -237,7 +237,11 @@ the signed GrapheneOS release.
 `forks` are the repositories DiamaneOS forks and patches: the manifest overlay
 forks and the kernel forks in `config/patches.json`. A fork exists only where
 DiamaneOS changes the code; each follows the CodeLinaro release branch of the
-selected Qualcomm release. `sources` are pinned inputs used unmodified: the
+selected Qualcomm release. A fork that stops carrying a needed change leaves
+both files, its project is pinned unmodified in the source plan, and
+`config/repositories.json` marks it `retired` (still published, so earlier
+builds can be reproduced). A `follow_note` says why a fork that ships nothing
+is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
 GrapheneOS release, the repo launcher, Fairphone's source manifest, the
 Qualcomm SELinux policy, the stock factory image and the platform repositories
 the manifest overlay takes straight from CodeLinaro or Fairphone. Each names the file and

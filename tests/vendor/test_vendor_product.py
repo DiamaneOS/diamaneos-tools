@@ -60,6 +60,22 @@ class NativeProductTests(unittest.TestCase):
             for property in ('vendor: true', 'presigned: true', 'privileged: true'):
                 self.assertIn(property, block)
 
+    def test_touch_controller_firmware_copied_to_vendor_firmware(self):
+        # eswin_ts.ko requests EPH86XX_fw.bin at probe; without it ueventd's
+        # firmware fallback waits out the kernel's 60 s timeout (r9s boot).
+        path = 'vendor/firmware/EPH86XX_fw.bin'
+        make = self.render()['device-vendor.mk'].decode()
+        self.assertIn('vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/firmware/EPH86XX_fw.bin', make)
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        self.assertEqual(('firmware-trusted-boot', 'firmware_families:vendor-peripheral-firmware'),
+                         (row['component_id'], row['inventory_ref']))
+        self.assertEqual((0, 0, 0o644, 'u:object_r:vendor_firmware_file:s0'),
+                         tuple(row['metadata'][k] for k in ('uid', 'gid', 'mode', 'selinux')))
+        firmware = next(f for f in self.selection['firmware_inputs'] if f['path'] == path)
+        self.assertEqual((row['sha256'], row['bytes']), (firmware['sha256'], firmware['bytes']))
+        firmware['sha256'] = '0' * 64
+        with self.assertRaises(VendorError): self.render()
+
     def test_missing_runtime_root_rejected(self):
         self.selection['roots'].append('vendor/lib64/missing.so')
         with self.assertRaises(VendorError): self.render()
@@ -602,16 +618,14 @@ class NativeProductTests(unittest.TestCase):
                      'product/etc/permissions/lpa.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/lpa.xml',
                      'system_ext/framework/extphonelib.jar:$(TARGET_COPY_OUT_SYSTEM_EXT)/framework/extphonelib.jar']:
             self.assertIn('vendor/fairphone/FP6/files/' + path, make)
-        # ServiceLib's JNI library, installed where the product app's linker
-        # namespace looks (/product/lib64) and linked to platform libraries only.
-        start = bp.index('srcs: ["files/product/lib64/libjni_aidl_service.so"]')
-        jni = bp[bp.rindex('cc_prebuilt_library_shared {', 0, start):]
-        jni = jni[:jni.index('}\n')]
-        for line in ['product_specific: true', 'stem: "libjni_aidl_service"', 'system_shared_libs: []',
-                     'licenses: ["fp6_selected_stock_notices_product"]']:
-            self.assertIn(line, jni)
-        for lib in ['libbinder_ndk', 'libc++', 'libc', 'libdl', 'liblog', 'libm']:
-            self.assertIn('"%s"' % lib, jni)
+        # The LPA's services stay off (device sysconfig), so nothing loads its
+        # ServiceLib JNI library: it is neither selected nor installable.
+        self.assertNotIn('libjni_aidl_service', bp + make)
+        self.assertFalse([r for r in self.recipe['files'] if r['path'].startswith('product/lib64/')])
+        row = copy.deepcopy(next(r for r in self.recipe['files'] if r['path'].startswith('product/')))
+        row['path'] = row['input'] = 'product/lib64/libjni_aidl_service.so'
+        self.recipe['files'].append(row)
+        with self.assertRaises(VendorError): self.render()
 
     def test_unreviewed_stock_jar_or_permission_file_rejected(self):
         for path in ['product/framework/other.jar', 'system_ext/etc/permissions/privapp-permissions-other.xml']:
