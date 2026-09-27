@@ -174,8 +174,12 @@ init's environment listing); kernel parameters keep their values in the log.
 pstore/ramoops has a 4 MiB region placed at boot in `/reserved-memory` of the
 FP6 device tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), from
 the DiamaneOS fork of Fairphone's SoC device-tree project. It keeps the
-previous boot's kernel console and pmsg in RAM across a soft reboot; whether
-the FP6 firmware preserves that memory is still to be tested. The console zone
+previous boot's kernel console and pmsg in RAM across a warm reboot. The
+kernel reboots cold by default (`/sys/kernel/reboot/mode` is `cold`, and
+Qualcomm download mode is off), and so does a kernel crash, so the PMIC does a
+hard reset that powers the RAM off and the region comes back empty. A one-off
+warm reboot on r9t kept both zones, so the bootloader itself does not clear
+RAM. Cold reboots stay the default (owner decision, 2026-09-27). The console zone
 gets only what reaches a console: the device tree's bootargs set loglevel=6,
 so it holds notice-level and more severe messages (warnings, errors, panic
 output), not info lines. The region has no fixed address; the ramoops driver
