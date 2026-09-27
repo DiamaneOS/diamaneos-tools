@@ -121,6 +121,46 @@ class KernelPreparationTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 
+class KernelDenyListTests(unittest.TestCase):
+    def setUp(self):
+        self.recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+
+    def test_committed_recipe_keeps_denied_modules_out(self):
+        denied = kernel.denied_modules(self.recipe)
+        for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko'):
+            self.assertIn(name, denied)
+        # Kept on purpose: USB waits for the EUD extcon, glink_probe imports
+        # qcom_glink_spss, KGSL imports coresight and the audio machine driver wcd937x.
+        for name in ('eud.ko', 'qcom_glink_spss.ko', 'coresight.ko', 'wcd937x_dlkm.ko'):
+            self.assertNotIn(name, denied)
+            self.assertTrue(any(name in names for names in self.recipe['partitions'].values()))
+
+    def test_regenerated_list_with_a_denied_module_is_rejected(self):
+        for key in ('partitions', 'load_lists'):
+            with self.subTest(key=key):
+                recipe = copy.deepcopy(self.recipe)
+                target = 'system_dlkm' if key == 'partitions' else 'system_dlkm/modules.load'
+                recipe[key][target].append('can.ko')
+                self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: can.ko',
+                                       kernel.denied_modules, recipe)
+
+    def test_dash_and_underscore_spellings_match(self):
+        recipe = copy.deepcopy(self.recipe)
+        recipe['partitions']['vendor_dlkm'].append('snd_soc_hdmi_codec.ko')
+        self.assertRaisesRegex(kernel.KernelError, 'snd_soc_hdmi_codec.ko', kernel.denied_modules, recipe)
+        recipe = copy.deepcopy(self.recipe)
+        recipe['denied_modules'].append({'modules': ['snd_soc_hdmi_codec.ko'], 'reason': 'again'})
+        self.assertRaisesRegex(kernel.KernelError, 'duplicate denied module', kernel.denied_modules, recipe)
+
+    def test_every_denied_group_states_a_reason(self):
+        for group in ({'modules': ['x.ko'], 'reason': ' '}, {'modules': [], 'reason': 'r'},
+                      {'modules': ['x.ko'], 'reason': 'r', 'extra': 1}, {'modules': ['../x.ko'], 'reason': 'r'}):
+            with self.subTest(group=group):
+                recipe = copy.deepcopy(self.recipe)
+                recipe['denied_modules'] = [group]
+                self.assertRaises(kernel.KernelError, kernel.denied_modules, recipe)
+
+
 class KernelPackagingBlocklistTests(unittest.TestCase):
     def test_first_stage_ramdisk_uses_the_vendor_blocklist(self):
         recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
