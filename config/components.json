@@ -929,7 +929,7 @@
         "eligible": false,
         "verified_necessary_for": [],
         "required_prebuilt_refs": [],
-        "rationale": "The stock Qualcomm LPA and its JNI library ship as private bring-up under radio-ims-data (owner decision 2, 2026-09-25), so no separate prebuilt exception is declared here. Open gates before public use: -20 user-CA trust, -01 presigned update path, no download screen, -21 erase at reset."
+        "rationale": "The stock Qualcomm LPA ships as private bring-up under radio-ims-data (owner decision 2, 2026-09-25), so no separate prebuilt exception is declared here; its services are off by default, as on stock, because it cannot list profiles on the FP6, and its JNI library is not selected. Open gates before public use: -20 user-CA trust, -01 presigned update path, no download screen, -21 erase at reset."
       },
       "qualification_evidence": [],
       "next_experiment": "Qualify the stock Qualcomm LPA (com.qualcomm.qti.lpa, private bring-up under radio-ims-data) in FP6-207 against PRD-08: profile download, activation, switching, deletion safeguards, reset and erase, privacy, trust (-20), updates (-01) and carrier behavior; record any source LPA found.",
