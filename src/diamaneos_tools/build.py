@@ -528,7 +528,24 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
     names = {entry.get("name") for entry in base.findall("project")}
     revisions = composition.get("resolved_revisions", {})
     used_revisions, remote_revisions = set(), {}
+    upstream_projects = tuple(base.findall("project"))
+    removed_paths, added_paths = set(), set()
     for entry in addition:
+        if entry.tag == "remove-project":
+            # A fork replaces exactly one signed upstream project at the same
+            # path. No optional/wildcard removal, overlay-on-overlay removal or
+            # stale root exports. The final project map still binds every SHA.
+            matches = [p for p in upstream_projects if p.get("name") == entry.get("name")]
+            if (set(entry.attrib) != {"name"} or len(entry) or len(matches) != 1
+                    or matches[0] not in list(base) or len(matches[0])):
+                raise BuildError("replacement must remove one unexported upstream project")
+            original = matches[0]
+            original_path = original.get("path", original.get("name"))
+            base.remove(original)
+            paths.remove(original_path)
+            names.remove(original.get("name"))
+            removed_paths.add(original_path)
+            continue
         if entry.tag == "remote":
             if (set(entry.attrib) not in ({"name", "fetch"}, {"name", "fetch", "revision"}) or len(entry)
                     or not SAFE_ID_RE.fullmatch(entry.get("name", ""))
@@ -541,9 +558,14 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
                 remote_revisions[entry.get("name")] = entry.get("revision")
             remotes.add(entry.get("name"))
         elif entry.tag == "project":
-            if set(entry.attrib) not in ({"name", "path", "remote", "revision"},
-                                         {"name", "path", "remote"}) or len(entry):
+            attributes = set(entry.attrib) - {"groups"}
+            if attributes not in ({"name", "path", "remote", "revision"},
+                                  {"name", "path", "remote"}) or len(entry):
                 raise BuildError("overlay projects must be explicit and contain no exports")
+            if "groups" in entry.attrib and not re.fullmatch(
+                    r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:,[A-Za-z0-9][A-Za-z0-9_.-]*)*",
+                    entry.get("groups", "")):
+                raise BuildError("invalid project groups")
             name, project_path = entry.get("name"), entry.get("path")
             revision = entry.get("revision", remote_revisions.get(entry.get("remote"), ""))
             if not SHA1_RE.fullmatch(revision):
@@ -562,9 +584,12 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
                 raise BuildError("overlay project overlaps metadata or output")
             paths.add(project_path)
             names.add(name)
+            added_paths.add(project_path)
         else:
-            raise BuildError("only additive remote and project entries are supported")
+            raise BuildError("unsupported source overlay operation")
         base.append(entry)
+    if not removed_paths <= added_paths:
+        raise BuildError("removed upstream project lacks a same-path replacement")
     if used_revisions != set(revisions):
         raise BuildError("unused resolved overlay revisions")
     composed = ET.tostring(base, encoding="utf-8")
