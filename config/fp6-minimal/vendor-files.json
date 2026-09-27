@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "00fbd89743368f6ca2d03762dce6fc93308bc88eeb3ddd96c92908133cc4850b",
+  "model_sha256": "e83efd49c0b9d989821856e5dd685a08fe4562699eba4511af2c33cc231c6208",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -13495,6 +13495,26 @@
       }
     },
     {
+      "input": "vendor/firmware/EPH86XX_fw.bin",
+      "path": "vendor/firmware/EPH86XX_fw.bin",
+      "sha256": "b819b8196dec7b60a96df9bec7efe439bc12644ef442393d5075e1984e2d1368",
+      "bytes": 206490,
+      "component_id": "firmware-trusted-boot",
+      "inventory_ref": "firmware_families:vendor-peripheral-firmware",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "ESWIN EPH86xx touch controller firmware that the eswin_ts kernel driver requests at probe (device tree eswin,fw_name). The driver compares its header (product ID, application version) with the controller's firmware and writes it to the controller when they differ, as on stock. Without it ueventd's firmware fallback waits out the kernel's 60 s timeout while module loading stalls.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
       "input": "vendor/bin/hw/qcrilNrd",
       "path": "vendor/bin/hw/qcrilNrd",
       "sha256": "375648e1fb48311bf8aaf0fdeba848d0d0b59264f84d9e421e8352d375298e54",
@@ -16681,32 +16701,12 @@
       "notices": [
         "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
       ],
-      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; its EuiccService is on from r9s and its unused UimLpaService stays off (device sysconfig).",
+      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; its services are off by default, as on stock (device sysconfig).",
       "metadata": {
         "uid": 0,
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "product/lib64/libjni_aidl_service.so",
-      "path": "product/lib64/libjni_aidl_service.so",
-      "sha256": "48b8a1bf2157abe44f4879109904bae9ad74459defeb2bf3d8b742c415bba70c",
-      "bytes": 35528,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "JNI library the LPA loads in ServiceLib.<clinit> (AServiceManager_isDeclared and waitForService for IUimLpa); links platform libraries only.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_lib_file:s0",
         "capabilities_hex": ""
       }
     },
