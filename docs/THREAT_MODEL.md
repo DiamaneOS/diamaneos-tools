@@ -43,7 +43,9 @@ Second phone boot: the DCM daemon started automatically under UID/GID 2990,
 enforcing SELinux, seccomp and no-new-privileges, with no effective/permitted
 capabilities. Both cellular IMS bearers connected, but the broker saw a background
 firewall block because Android omits apps without INTERNET from those rule updates.
-The broker now declares that normal permission for correct UID tracking; its direct
+The broker now declares INTERNET for correct UID tracking. On this base it is a
+runtime-revocable Network permission, auto-granted by the base default; the broker
+does not bypass revocation. Its direct
 IP/raw/modem socket neverallows and blocked-state handling remain unchanged. This
 expands Android permission authorization and must be reviewed alongside possible
 indirect IPC paths; it is not a claim that every network-capable system service is
