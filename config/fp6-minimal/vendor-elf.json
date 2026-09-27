@@ -48140,6 +48140,13 @@
       "source": "FP6 exact EU stock haptics firmware"
     },
     {
+      "path": "vendor/firmware/EPH86XX_fw.bin",
+      "sha256": "b819b8196dec7b60a96df9bec7efe439bc12644ef442393d5075e1984e2d1368",
+      "bytes": 206490,
+      "consumer": "ESWIN EPH861x touch controller kernel driver (eswin_ts.ko)",
+      "source": "touch-drivers eswin_touch/eswin_eph861x.c eph_load_fw request_firmware(fw_name) with eswin,fw_name = \"EPH86XX_fw.bin\" in the FP6 device tree (fps_overlay/volcano-mtp.dtsi)"
+    },
+    {
       "path": "vendor/firmware/vpu20_2v.mbn",
       "sha256": "675f4b657d444835cdaedcd913a3131869de57e7584a15522ce0c66e4e4366fe",
       "bytes": 2036328,
