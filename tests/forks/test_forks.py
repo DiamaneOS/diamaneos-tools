@@ -106,7 +106,8 @@ class ForkTests(unittest.TestCase):
         patches = json.loads((ROOT / 'config/patches.json').read_text())['patches']
         self.assertLessEqual({p['repository'].rstrip('/').split('/')[-1] for p in patches} - {'device_fairphone_FP6'}, slugs)
         repositories = json.loads((ROOT / 'config/repositories.json').read_text())['repositories']
-        forked = {r['slug'] for r in repositories if r['state'] == 'active' and r['upstream_url']}
+        # A fork can be planned (created locally, not yet published) before a build uses it.
+        forked = {r['slug'] for r in repositories if r['state'] in ('active', 'planned') and r['upstream_url']}
         self.assertEqual(forked - {'platform_manifest'}, slugs)
         self.assertIn('grapheneos-platform', {s['id'] for s in sources})
 
