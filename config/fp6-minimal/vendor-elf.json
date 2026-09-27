@@ -961,6 +961,11 @@
       "bytes": 46944
     },
     {
+      "path": "vendor/lib64/libWlanServiceJni.so",
+      "sha256": "f2f61c7fc9893401fc7a34eac2bf280386d5a0ec6f4d9fc9e501b8c5a6558208",
+      "bytes": 303712
+    },
+    {
       "path": "vendor/lib64/libadm.so",
       "sha256": "8cc2f3bac0d48c9aeafeb49949b46d13ff6324c82e0d00acd460caf475aecc86",
       "bytes": 43864
@@ -1069,6 +1074,11 @@
       "path": "vendor/lib64/libbtnv.so",
       "sha256": "d66e50bec8a2ab1dbfbc789f7ddab2004c4d3b26c445fe864d7c5467d0dde88f",
       "bytes": 23888
+    },
+    {
+      "path": "vendor/lib64/libcacertclient.so",
+      "sha256": "d886943fdee41fb87fbb0fb2b74f0e8e07e406b4433fc4389481b8300033d111",
+      "bytes": 37256
     },
     {
       "path": "vendor/lib64/libcamerapostproc.so",
@@ -1349,6 +1359,11 @@
       "path": "vendor/lib64/libisphwsetting.so",
       "sha256": "99e8e2f8a0360291e53d2f1851a0e49785f8f30aa3f98ca202efce7ec9e2cb98",
       "bytes": 709360
+    },
+    {
+      "path": "vendor/lib64/libjnihelper.so",
+      "sha256": "2e93a244778765a91606ad0c6f473b522cc8b3d34671d8180717043455cc889e",
+      "bytes": 83232
     },
     {
       "path": "vendor/lib64/libjpege.so",
@@ -2209,6 +2224,11 @@
       "path": "vendor/lib64/vendor.qti.hardware.bttpi-V3-ndk.so",
       "sha256": "ac33b1f303f6370fe78bca4895459e3bcbdc12d04099163d31dd31d6eb4d26b1",
       "bytes": 102784
+    },
+    {
+      "path": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "sha256": "cffd5e94d1b551b164630d3d4fee9aaf125feaf1903f811fad390da56a19cb56",
+      "bytes": 181296
     },
     {
       "path": "vendor/lib64/vendor.qti.hardware.camera.aon-service-impl.so",
@@ -25053,6 +25073,68 @@
       "provider": "vendor/lib64/libqcrilNrLogger.so"
     },
     {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libWlanServiceJni.so",
+      "needed": "vendor.qti.hardware.data.iwlandata-V1-ndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.data.iwlandata-V1-ndk.so"
+    },
+    {
       "consumer": "vendor/lib64/libadm.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -26585,6 +26667,76 @@
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcacertclient.so",
+      "needed": "vendor.qti.hardware.cacert@1.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so"
     },
     {
       "consumer": "vendor/lib64/libcamerapostproc.so",
@@ -32033,6 +32185,72 @@
       "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libcacertclient.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcacertclient.so"
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libqmi_cci.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqmi_cci.so"
+    },
+    {
+      "consumer": "vendor/lib64/libjnihelper.so",
+      "needed": "libqmiservices.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqmiservices.so"
     },
     {
       "consumer": "vendor/lib64/libjpege.so",
@@ -45551,6 +45769,70 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/vendor.qti.hardware.camera.aon-service-impl.so",
       "needed": "android.hardware.graphics.allocator-V1-ndk.so",
       "kind": "selected-stock",
@@ -48087,7 +48369,11 @@
     "vendor/bin/hw/android.hardware.nfc-service.sec",
     "vendor/bin/hw/qcrilNrd",
     "vendor/bin/nicmd",
-    "vendor/lib64/libsdmextension.so"
+    "vendor/lib64/libsdmextension.so",
+    "vendor/lib64/libjnihelper.so",
+    "vendor/lib64/libcacertclient.so",
+    "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+    "vendor/lib64/libWlanServiceJni.so"
   ],
   "firmware_inputs": [
     {

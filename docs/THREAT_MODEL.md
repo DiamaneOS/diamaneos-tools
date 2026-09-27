@@ -1,5 +1,25 @@
 # DiamaneOS Threat Model and Product Boundaries
 
+IMS/IWLAN candidate update (2026-09-27): the source DCM broker and stock Qualcomm
+IWLAN/certificate frontend are prepared on an integration branch. The certificate
+helper adds a modem-facing QRTR client; it and IWLAN share their own application
+UID, retain the stock signer and receive no privileged Android permission grants.
+QRTR has no per-QMI-service isolation, so compromise of an allowed client remains
+a modem trust risk. A device-owned domain inventory prevents silent additions.
+The two stock packages need scoped hidden-API exceptions for platform IPC; this
+does not grant Android signature permissions or bypass their SELinux domain.
+Carrier configuration is extracted as data for a source-built service, including
+a pinned repair of malformed stock no-SIM XML. The stock carrier APK is not
+installed. These are source-level mitigations awaiting native policy, package and
+carrier checks; see [carrier integration](CARRIER-INTEGRATION.md). AML remains
+deferred and unselected. Android already includes a privileged IMS entitlement
+client through its telephony product. The candidate replaces it with a source
+fork that removes Google-push libraries, bounds carrier responses, restricts
+exported entry points and preserves provisioning state on failed queries. The
+inspected stock profiles and current configuration do not enable that flow;
+activation remains carrier-driven. Push-dependent carriers remain a compatibility
+limit, not a reason to invent approval flags.
+
 Revision: 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are

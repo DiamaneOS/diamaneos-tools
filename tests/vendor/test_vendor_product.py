@@ -44,6 +44,22 @@ class NativeProductTests(unittest.TestCase):
         self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != path]
         with self.assertRaises(VendorError): self.render()
 
+    def test_carrier_apk_is_data_only_and_iwlan_has_its_jni(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        self.assertNotIn('CustomerCarrierConfig', modules)
+        self.assertNotIn(b'CustomerCarrierConfig.apk:', rendered['device-vendor.mk'])
+        self.assertIn(b'name: "fp6_stock_carrier_assets"', rendered['Android.bp'])
+        for name in ('IWlanService', 'CACertService', 'fp6_stock_vendor_lib64_libWlanServiceJni',
+                     'fp6_stock_vendor_lib64_libjnihelper', 'fp6_stock_vendor_lib64_libcacertclient'):
+            self.assertIn(name, modules)
+        self.assertNotIn('CneApp', modules)
+        bp = rendered['Android.bp'].decode()
+        for name in ('IWlanService', 'CACertService'):
+            block = bp[bp.index('name: "' + name + '"'):].split('\n}\n', 1)[0]
+            for property in ('vendor: true', 'presigned: true', 'privileged: true'):
+                self.assertIn(property, block)
+
     def test_missing_runtime_root_rejected(self):
         self.selection['roots'].append('vendor/lib64/missing.so')
         with self.assertRaises(VendorError): self.render()

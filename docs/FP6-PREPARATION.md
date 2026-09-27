@@ -37,6 +37,10 @@ A different tool build requires a reviewed pin update and affected verification.
 
 ## Extract and generate the vendor product
 
+Set `AAPT2` to the absolute path of the selected Android SDK build-tools `aapt2`.
+It decodes the stock carrier configuration resources; its hash is recorded in
+the generated provenance. See [carrier integration](CARRIER-INTEGRATION.md).
+
 ```sh
 "$TOOLS_ROOT/bin/diamaneos" vendor stage --archive "$FACTORY_ZIP" \
   --output "$WORK_ROOT/stock-images"
@@ -45,7 +49,7 @@ A different tool build requires a reviewed pin update and affected verification.
   --image-tools "$IMAGE_TOOLS" --output "$WORK_ROOT/stock-files"
 "$TOOLS_ROOT/bin/diamaneos" vendor product \
   --inputs "$(realpath "$WORK_ROOT/stock-files/current")" \
-  --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND"
+  --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2"
 ```
 
 Set `NOTICE_KIND` to the reviewed Android build-system notice classification for

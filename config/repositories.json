@@ -501,6 +501,56 @@
       "slug": "kernel_st_ese",
       "state": "active",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/eSE-driver"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/hardware/diamaneos/ims",
+      "id": "ims",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_diamaneos_ims.git",
+      "revision": null,
+      "slug": "hardware_diamaneos_ims",
+      "state": "active",
+      "upstream_url": null
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/CarrierConfig",
+      "id": "carrier-config",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_CarrierConfig.git",
+      "revision": null,
+      "slug": "platform_packages_apps_CarrierConfig",
+      "state": "active",
+      "upstream_url": "https://android.googlesource.com/platform/packages/apps/CarrierConfig"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/services/Iwlan",
+      "id": "iwlan",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_services_Iwlan.git",
+      "revision": null,
+      "slug": "platform_packages_services_Iwlan",
+      "state": "active",
+      "upstream_url": "https://android.googlesource.com/platform/packages/services/Iwlan"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/EmergencyLocation",
+      "id": "emergency-location",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_EmergencyLocation.git",
+      "revision": null,
+      "slug": "platform_packages_apps_EmergencyLocation",
+      "state": "active",
+      "upstream_url": null
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/ImsServiceEntitlement",
+      "id": "ims-entitlement",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_ImsServiceEntitlement.git",
+      "revision": null,
+      "slug": "platform_packages_apps_ImsServiceEntitlement",
+      "state": "active",
+      "upstream_url": "https://android.googlesource.com/platform/packages/apps/ImsServiceEntitlement"
     }
   ],
   "schema_version": 1
