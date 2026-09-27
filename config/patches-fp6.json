@@ -237,8 +237,8 @@
       "workspace": "android",
       "path": "device/fairphone/FP6",
       "base_revision": "41a637fd3c21010bf42241b37fdf0160efee966e",
-      "derived_revision": "8e467049e2990b1c5a4683e25b57eabf192b507e",
-      "canonical_diff_sha256": "8d5dd6031a66821a95509bc1df4c78528d238300be9fd353f255c4f4d375906b",
+      "derived_revision": "95e6298e5981e30d423009fd8f6e828178e5898f",
+      "canonical_diff_sha256": "fe0ec74c385a4f0f96e2a0fd169a7ecdfcba50fcf0f289502500043fd0a99423",
       "changed_files": [
         "BoardConfig.mk",
         "boot/init.qcom.rc",
@@ -247,6 +247,7 @@
         "rro/FP6FrameworksOverlay/res/values/telephony.xml",
         "rro/FP6TeleServiceOverlay/res/values/config.xml",
         "sepolicy/telephony-system-ext/fp6_qti_lpa_app.te",
+        "sepolicy/telephony-system-ext/property_contexts",
         "sepolicy/telephony/fp6_iwlan_app.te",
         "sepolicy/telephony/iwlan_property.te",
         "sepolicy/telephony/property_contexts",

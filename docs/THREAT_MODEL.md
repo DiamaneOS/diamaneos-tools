@@ -31,6 +31,14 @@ a build-time AID declaration alone does not give init a runtime user mapping.
 Final-image checks require that mapping and the dedicated domains. These controls
 still require phone checks.
 
+First phone boot: the broker reached its dedicated domain under enforcing policy,
+but the vendor daemon's lifecycle gate referenced a platform-internal property.
+The gate is now owned by system_ext init; the daemon stays vendor-confined and
+non-lazy, preserving the persistent kill switch without widening property access.
+The Android 17 full SDK version is explicitly labeled as a public build property
+instead of granting the vendor IWLAN app access to default_prop. These startup
+fixes are pending a new native build and phone test; IMS is not yet accepted.
+
 Revision: 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
