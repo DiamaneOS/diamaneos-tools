@@ -268,8 +268,8 @@
       "workspace": "android",
       "path": "packages/apps/CarrierConfig",
       "base_revision": "c9f82c3de8293731d4230758dc258916c12335a6",
-      "derived_revision": "1b31b327a770e3a10e137c14a0befb44ce274ae5",
-      "canonical_diff_sha256": "2b2319fca5a34698fab5d68285e1cd5d7550d31af4c0e86fe7e559e196ab6fe9",
+      "derived_revision": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
+      "canonical_diff_sha256": "844a5c8c1caa2964d0f7d2f1442f0dbfd5511051dd59616d991c835814132202",
       "changed_files": [
         "Android.bp",
         "LICENSE",
