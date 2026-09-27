@@ -32,6 +32,7 @@ IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
 # still exist, so a stale entry fails the build instead of hiding a new target.
 # (UBWC-P left with the mm-sys fork: the unforked project has no fps target.)
 EXCLUDED_MODULE_TARGETS = {}
+MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
 
 
 class KernelError(ValueError):
@@ -228,6 +229,33 @@ def prepare(root, reference=None):
         return result
 
 
+def module_key(name):
+    """Module names as the loader compares them: '-' and '_' are the same."""
+    return name.removesuffix('.ko').replace('-', '_')
+
+
+def denied_modules(recipe):
+    """The modules FP6 never ships, each with its reason. The partition and load
+    lists come from Fairphone's lists and may be regenerated; this deny list
+    survives that, and a denied module in any list fails the build. Whether a
+    remaining module still needs a denied one is checked on the built set
+    (module-interfaces.json)."""
+    denied = {}
+    for group in recipe.get('denied_modules', []):
+        require(isinstance(group, dict) and set(group) == {'modules', 'reason'} and
+                isinstance(group['reason'], str) and group['reason'].strip() and
+                isinstance(group['modules'], list) and group['modules'], 'invalid denied module group')
+        for name in group['modules']:
+            require(isinstance(name, str) and MODULE_NAME.fullmatch(name), 'invalid denied module name')
+            require(module_key(name) not in {module_key(n) for n in denied}, 'duplicate denied module: ' + name)
+            denied[name] = group['reason']
+    keys = {module_key(n) for n in denied}
+    listed = set().union(*map(set, recipe['partitions'].values()), *map(set, recipe['load_lists'].values()))
+    back = sorted(n for n in listed if module_key(n) in keys)
+    require(not back, 'denied module in the packaging recipe: ' + ', '.join(back))
+    return denied
+
+
 def output_files(work, paths):
     execution = Path(call([work / 'tools/bazel', '--batch', 'info', 'execution_root'], cwd=work).strip()).resolve()
     require(execution.is_relative_to(work / 'out'), 'execution root outside workspace output')
@@ -333,6 +361,7 @@ def build(root, jobs, timeout):
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
     plan, changes, adaptation = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
+    denied = denied_modules(recipe)
     with locked(root):
         rows = sources(root, plan, changes)
         links(root, rows, adaptation)
@@ -427,6 +456,11 @@ def build(root, jobs, timeout):
             require(len(dtbs) == recipe['dtb_count'] and len(dtbos) == recipe['dtbo_count'], 'merged DT inventory changed')
             command('pack-dtbo', [work / 'prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg', 'create', merged / 'dtbo.img', '--page_size=4096', *dtbos], merge_env)
             wanted = set().union(*map(set, recipe['partitions'].values()))
+            # A denied module that is no longer built was renamed or dropped;
+            # review the deny list rather than let a renamed copy back in.
+            built = {module_key(p.name) for p in core + vendor_core + external if p.suffix == '.ko'}
+            stale = sorted(n for n in denied if module_key(n) not in built)
+            require(not stale, 'denied module no longer built (update the deny list): ' + ', '.join(stale))
             selected = {}
             for name in sorted(wanted):
                 pool = core if name in recipe['partitions']['system_dlkm'] else vendor_core + external
@@ -483,7 +517,8 @@ def build(root, jobs, timeout):
             inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
                          for p in sorted(candidate.rglob('*')) if p.is_file()]
             (run / 'artifacts.json').write_bytes(encoded(inventory))
-            result.update(status='PASS', module_count=len(selected), dtb_count=len(dtbs), dtbo_count=len(dtbos),
+            result.update(status='PASS', module_count=len(selected), denied_module_count=len(denied),
+                          dtb_count=len(dtbs), dtbo_count=len(dtbos),
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
                           layout_scan_sha256=sha(run / 'layout-scan.json'),

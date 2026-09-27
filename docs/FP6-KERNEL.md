@@ -61,6 +61,23 @@ for normal/recovery availability. Each placement is hash-bound. Stripping debug
 sections from unsigned modules must preserve module metadata and symbol versions. Preserve signed GKI modules byte
 for byte. Compare the final image contents, not only intermediate directories.
 
+The same file's `denied_modules` lists the modules FP6 never ships, each group
+with its reason: the CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and
+kheaders GKI modules, the in-kernel Bluetooth stack, the HDMI bridge and codecs,
+other chips' WLAN drivers, the WCD938x codec, FM radio, the TrustZone log reader,
+the SPSS loader and bridge, the FocalTech touch driver and the kretprobe-based
+FunctionFS logger. The partition and load lists come from Fairphone's lists; the
+deny list survives their regeneration. `kernel build` fails when a denied module
+is back in any list (`-` and `_` spellings match) or is no longer built (renamed
+or dropped: review the entry). A cut is allowed only when no remaining module
+imports it; the build's own dependency check (`module-interfaces.json`) enforces
+that, because libmodprobe loads a dependency even when a list leaves it out.
+Device-tree references count too: `eud` stays because the USB controller node
+takes its extcon from it, `qcom_glink_spss` because `glink_probe` imports it,
+`coresight` because KGSL is built with its CoreSight support, and `wcd937x`,
+`wcd939x` and `wsa883x` because the audio machine driver imports them. Those
+need a configuration or device-tree change first.
+
 The hardened kernel enables `RANDSTRUCT_FULL`. Clang randomizes a structure of
 only function pointers only when every struct or enum its members name is
 already declared; if a callback's return type is the first mention of a tag,
