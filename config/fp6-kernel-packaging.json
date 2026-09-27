@@ -3,62 +3,30 @@
   "scope": "FP6 development kernel placement; runtime and production qualification are separate.",
   "partitions": {
     "system_dlkm": [
-      "6lowpan.ko",
       "8021q.ko",
       "aqc111.ko",
       "asix.ko",
       "ax88179_178a.ko",
-      "bluetooth.ko",
       "bsd_comp.ko",
-      "btbcm.ko",
-      "btqca.ko",
-      "btsdio.ko",
-      "can-bcm.ko",
-      "can-dev.ko",
-      "can-gw.ko",
-      "can-raw.ko",
-      "can.ko",
       "cdc-acm.ko",
       "cdc_eem.ko",
       "cdc_ether.ko",
       "cdc_ncm.ko",
       "ftdi_sio.ko",
-      "gzvm.ko",
-      "hci_uart.ko",
-      "hidp.ko",
-      "ieee802154.ko",
-      "ieee802154_6lowpan.ko",
-      "ieee802154_socket.ko",
-      "kheaders.ko",
-      "l2tp_core.ko",
-      "l2tp_ppp.ko",
       "libarc4.ko",
-      "mac802154.ko",
       "mii.ko",
-      "nfc.ko",
-      "nhc_dest.ko",
-      "nhc_fragment.ko",
-      "nhc_hop.ko",
-      "nhc_ipv6.ko",
-      "nhc_mobility.ko",
-      "nhc_routing.ko",
-      "nhc_udp.ko",
       "ppp_deflate.ko",
       "ppp_generic.ko",
       "ppp_mppe.ko",
       "pppox.ko",
-      "pptp.ko",
       "r8152.ko",
       "r8153_ecm.ko",
-      "rfcomm.ko",
       "rfkill.ko",
       "rtl8150.ko",
-      "slcan.ko",
       "slhc.ko",
       "tipc.ko",
       "usbnet.ko",
       "usbserial.ko",
-      "vcan.ko",
       "wwan.ko",
       "zram.ko",
       "zsmalloc.ko"
@@ -126,7 +94,6 @@
       "dynpf_scmi.ko",
       "emkit_info.ko",
       "eud.ko",
-      "f_fs_ipc_log.ko",
       "focaltech_fp.ko",
       "fsa4480-i2c.ko",
       "gcc-cliffs.ko",
@@ -175,9 +142,7 @@
       "leds-qti-tri-led.ko",
       "llcc-qcom.ko",
       "llcc_perfmon.ko",
-      "lt9611uxc.ko",
       "mac80211.ko",
-      "max31760_fan.ko",
       "mdt_loader.ko",
       "mem-hooks.ko",
       "mem_buf.ko",
@@ -275,7 +240,6 @@
       "qcom_scmi_client.ko",
       "qcom_scmi_vendor.ko",
       "qcom_smd.ko",
-      "qcom_spss.ko",
       "qcom_stats.ko",
       "qcom_sysmon.ko",
       "qcom_tsens.ko",
@@ -293,7 +257,6 @@
       "qrtr-mhi.ko",
       "qrtr-smd.ko",
       "qrtr.ko",
-      "qsee_ipc_irq_bridge.ko",
       "qseecom_proxy.ko",
       "qti-fixed-regulator.ko",
       "qti-glink-adc.ko",
@@ -326,7 +289,6 @@
       "smem.ko",
       "smp2p.ko",
       "smp2p_sleepstate.ko",
-      "snd-soc-hdmi-codec.ko",
       "snd-usb-audio-qmi.ko",
       "socinfo.ko",
       "spi-msm-geni.ko",
@@ -348,7 +310,6 @@
       "thermal_minidump.ko",
       "thermal_pause.ko",
       "tmecom-intf.ko",
-      "tz_log_dlkm.ko",
       "ucsi_glink.ko",
       "ufs_qcom.ko",
       "ufshcd-crypto-qti.ko",
@@ -385,7 +346,6 @@
       "cdsprm.ko",
       "cfg80211.ko",
       "charger-ulog-glink.ko",
-      "cnss2.ko",
       "cnss_nl.ko",
       "cnss_plat_ipc_qmi_svc.ko",
       "cnss_prealloc.ko",
@@ -421,9 +381,7 @@
       "dynpf_scmi.ko",
       "eswin_ts.ko",
       "eud.ko",
-      "f_fs_ipc_log.ko",
       "focaltech_fp.ko",
-      "focaltech_fts.ko",
       "frpc-adsprpc.ko",
       "fsa4480-i2c.ko",
       "gh_ctrl.ko",
@@ -440,7 +398,6 @@
       "gpucc-volcano.ko",
       "gsim.ko",
       "hdcp_qseecom_dlkm.ko",
-      "hdmi_dlkm.ko",
       "health_monitor.ko",
       "heap_mem_ext_v01.ko",
       "hung_task_enh.ko",
@@ -463,10 +420,8 @@
       "lpass_cdc_va_macro_dlkm.ko",
       "lpass_cdc_wsa2_macro_dlkm.ko",
       "lpass_cdc_wsa_macro_dlkm.ko",
-      "lt9611uxc.ko",
       "mac80211.ko",
       "machine_dlkm.ko",
-      "max31760_fan.ko",
       "mbhc_dlkm.ko",
       "mem-hooks.ko",
       "memlat.ko",
@@ -509,9 +464,7 @@
       "q6_dlkm.ko",
       "q6_notifier_dlkm.ko",
       "q6_pdr_dlkm.ko",
-      "qca_cld3_peach_v2.ko",
       "qca_cld3_qca6750.ko",
-      "qca_cld3_wcn6450.ko",
       "qce50_dlkm.ko",
       "qcedev-mod_dlkm.ko",
       "qcom-cpufreq-hw-debug.ko",
@@ -534,7 +487,6 @@
       "qcom_q6v5_pas.ko",
       "qcom_ramdump.ko",
       "qcom_smd.ko",
-      "qcom_spss.ko",
       "qcom_stats.ko",
       "qcom_sysmon.ko",
       "qcrypto-msm_dlkm.ko",
@@ -545,7 +497,6 @@
       "qrng_dlkm.ko",
       "qrtr-mhi.ko",
       "qrtr-smd.ko",
-      "qsee_ipc_irq_bridge.ko",
       "qseecom_proxy.ko",
       "qti-fixed-regulator.ko",
       "qti-glink-adc.ko",
@@ -560,7 +511,6 @@
       "qti_thermal_vendor_hooks.ko",
       "qti_userspace_cdev.ko",
       "qts.ko",
-      "radio-i2c-rtc6226-qca.ko",
       "rdbg.ko",
       "reboot-mode.ko",
       "redriver.ko",
@@ -585,7 +535,6 @@
       "smmu_proxy_dlkm.ko",
       "smp2p.ko",
       "smp2p_sleepstate.ko",
-      "snd-soc-hdmi-codec.ko",
       "snd-usb-audio-qmi.ko",
       "snd_event_dlkm.ko",
       "spf_core_dlkm.ko",
@@ -607,7 +556,6 @@
       "sys_pm_vx.ko",
       "sysmon_subsystem_stats.ko",
       "thermal_config.ko",
-      "tz_log_dlkm.ko",
       "ucsi_glink.ko",
       "usb_f_ccid.ko",
       "usb_f_cdev.ko",
@@ -618,8 +566,6 @@
       "wcd9378_slave_dlkm.ko",
       "wcd937x_dlkm.ko",
       "wcd937x_slave_dlkm.ko",
-      "wcd938x_dlkm.ko",
-      "wcd938x_slave_dlkm.ko",
       "wcd939x_dlkm.ko",
       "wcd939x_slave_dlkm.ko",
       "wcd9xxx_dlkm.ko",
@@ -883,7 +829,6 @@
       "msm_memshare.ko",
       "smp2p.ko",
       "smp2p_sleepstate.ko",
-      "qsee_ipc_irq_bridge.ko",
       "glink_probe.ko",
       "pmic_glink.ko",
       "qti_battery_debug.ko",
@@ -932,7 +877,6 @@
       "qcom_iommu_debug.ko",
       "drm_dp_aux_bus.ko",
       "drm_display_helper.ko",
-      "lt9611uxc.ko",
       "bhs-irq-controller.ko",
       "qseecom_proxy.ko",
       "sg.ko",
@@ -944,7 +888,6 @@
       "phy-msm-ssusb-qmp.ko",
       "phy-msm-snps-eusb2.ko",
       "dwc3-msm.ko",
-      "f_fs_ipc_log.ko",
       "usb_f_cdev.ko",
       "usb_f_ccid.ko",
       "usb_f_qdss.ko",
@@ -973,7 +916,6 @@
       "cpu_voltage_cooling.ko",
       "ddr_cdev.ko",
       "qti_userspace_cdev.ko",
-      "max31760_fan.ko",
       "msm_lmh_dcvs.ko",
       "thermal_config.ko",
       "gpu_dump_skip_cdev.ko",
@@ -987,7 +929,6 @@
       "rproc_qcom_common.ko",
       "qcom_q6v5.ko",
       "qcom_q6v5_pas.ko",
-      "qcom_spss.ko",
       "qcom_sysmon.ko",
       "qcom_glink.ko",
       "qcom_glink_smem.ko",
@@ -1026,7 +967,6 @@
       "stm_heartbeat.ko",
       "stm_ftrace.ko",
       "snd-usb-audio-qmi.ko",
-      "snd-soc-hdmi-codec.ko",
       "qrtr-smd.ko",
       "qrtr-mhi.ko",
       "smcinvoke_dlkm.ko",
@@ -1037,21 +977,15 @@
       "msm-mmrm.ko"
     ],
     "system_dlkm/modules.load": [
-      "gzvm.ko",
-      "kheaders.ko",
       "zsmalloc.ko",
       "libarc4.ko",
       "zram.ko",
       "mii.ko",
-      "can-dev.ko",
-      "vcan.ko",
-      "slcan.ko",
       "ppp_generic.ko",
       "bsd_comp.ko",
       "ppp_deflate.ko",
       "ppp_mppe.ko",
       "pppox.ko",
-      "pptp.ko",
       "slhc.ko",
       "wwan.ko",
       "rtl8150.ko",
@@ -1067,35 +1001,9 @@
       "cdc-acm.ko",
       "usbserial.ko",
       "ftdi_sio.ko",
-      "hci_uart.ko",
-      "btsdio.ko",
-      "btbcm.ko",
-      "btqca.ko",
       "8021q.ko",
-      "can.ko",
-      "can-raw.ko",
-      "can-bcm.ko",
-      "can-gw.ko",
-      "bluetooth.ko",
-      "rfcomm.ko",
-      "hidp.ko",
-      "l2tp_core.ko",
-      "l2tp_ppp.ko",
       "tipc.ko",
-      "rfkill.ko",
-      "6lowpan.ko",
-      "nhc_dest.ko",
-      "nhc_fragment.ko",
-      "nhc_hop.ko",
-      "nhc_ipv6.ko",
-      "nhc_mobility.ko",
-      "nhc_routing.ko",
-      "nhc_udp.ko",
-      "ieee802154_6lowpan.ko",
-      "ieee802154.ko",
-      "ieee802154_socket.ko",
-      "mac802154.ko",
-      "nfc.ko"
+      "rfkill.ko"
     ],
     "vendor_dlkm/modules.load": [
       "msm_sysstats.ko",
@@ -1127,7 +1035,6 @@
       "msm_memshare.ko",
       "smp2p.ko",
       "smp2p_sleepstate.ko",
-      "qsee_ipc_irq_bridge.ko",
       "glink_probe.ko",
       "pmic_glink.ko",
       "qti_battery_debug.ko",
@@ -1176,7 +1083,6 @@
       "qcom_iommu_debug.ko",
       "drm_dp_aux_bus.ko",
       "drm_display_helper.ko",
-      "lt9611uxc.ko",
       "bhs-irq-controller.ko",
       "qseecom_proxy.ko",
       "sg.ko",
@@ -1188,7 +1094,6 @@
       "phy-msm-ssusb-qmp.ko",
       "phy-msm-snps-eusb2.ko",
       "dwc3-msm.ko",
-      "f_fs_ipc_log.ko",
       "usb_f_cdev.ko",
       "usb_f_ccid.ko",
       "usb_f_qdss.ko",
@@ -1217,7 +1122,6 @@
       "cpu_voltage_cooling.ko",
       "ddr_cdev.ko",
       "qti_userspace_cdev.ko",
-      "max31760_fan.ko",
       "msm_lmh_dcvs.ko",
       "thermal_config.ko",
       "gpu_dump_skip_cdev.ko",
@@ -1231,7 +1135,6 @@
       "rproc_qcom_common.ko",
       "qcom_q6v5.ko",
       "qcom_q6v5_pas.ko",
-      "qcom_spss.ko",
       "qcom_sysmon.ko",
       "qcom_glink.ko",
       "qcom_glink_smem.ko",
@@ -1270,15 +1173,11 @@
       "stm_heartbeat.ko",
       "stm_ftrace.ko",
       "snd-usb-audio-qmi.ko",
-      "snd-soc-hdmi-codec.ko",
       "cfg80211.ko",
       "mac80211.ko",
       "qrtr-smd.ko",
       "qrtr-mhi.ko",
       "qca_cld3_qca6750.ko",
-      "qca_cld3_peach_v2.ko",
-      "qca_cld3_wcn6450.ko",
-      "cnss2.ko",
       "icnss2.ko",
       "cnss_plat_ipc_qmi_svc.ko",
       "wlan_firmware_service.ko",
@@ -1307,7 +1206,6 @@
       "aw882xx_dlkm.ko",
       "lpass_bt_swr_dlkm.ko",
       "swr_haptics_dlkm.ko",
-      "hdmi_dlkm.ko",
       "lpass_cdc_wsa2_macro_dlkm.ko",
       "lpass_cdc_wsa_macro_dlkm.ko",
       "lpass_cdc_va_macro_dlkm.ko",
@@ -1318,8 +1216,6 @@
       "wsa883x_dlkm.ko",
       "wcd937x_dlkm.ko",
       "wcd937x_slave_dlkm.ko",
-      "wcd938x_dlkm.ko",
-      "wcd938x_slave_dlkm.ko",
       "wcd9378_dlkm.ko",
       "wcd9378_slave_dlkm.ko",
       "swr_dmic_dlkm.ko",
@@ -1347,12 +1243,10 @@
       "hdcp_qseecom_dlkm.ko",
       "smmu_proxy_dlkm.ko",
       "smcinvoke_dlkm.ko",
-      "tz_log_dlkm.ko",
       "btpower.ko",
       "bt_fm_slim.ko",
       "btfmcodec.ko",
       "bt_fm_swr.ko",
-      "radio-i2c-rtc6226-qca.ko",
       "camera.ko",
       "msm_drm.ko",
       "msm_ext_display.ko",
@@ -1360,7 +1254,6 @@
       "msm_hw_fence.ko",
       "msm-mmrm.ko",
       "goodix_ts.ko",
-      "focaltech_fts.ko",
       "eswin_ts.ko",
       "qts.ko",
       "msm_video.ko",
@@ -1371,6 +1264,135 @@
     "vendor_boot/modules.blocklist": "# SPDX-License-Identifier: GPL-2.0-only\n# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.\nblocklist 8250_of\nblocklist adc-tm\nblocklist atomic64_test\nblocklist dummy-cpufreq\nblocklist dummy_hcd\nblocklist dummy_hcd\nblocklist e4000\nblocklist failover\nblocklist fc0011\nblocklist fc0012\nblocklist fc0013\nblocklist fc2580\nblocklist ipclite_test\nblocklist it913x\nblocklist limits_stat\nblocklist limits_stress\nblocklist lkdtm\nblocklist llcc_perfmon\nblocklist locktorture\nblocklist m88rs6000t\nblocklist max2165\nblocklist mc44s803\nblocklist mmrm_test_module\nblocklist msi001\nblocklist mt2060\nblocklist mt2063\nblocklist mt20xx\nblocklist mt2131\nblocklist mt2266\nblocklist mxl301rf\nblocklist net_failover\nblocklist qca_cld3_kiwi\nblocklist qm1d1b0004\nblocklist qm1d1c0042\nblocklist qt1010\nblocklist r820t\nblocklist rcutorture\nblocklist rtc-test\nblocklist si2157\nblocklist tda18212\nblocklist tda18218\nblocklist tda18250\nblocklist tda18271\nblocklist tda827x\nblocklist tda8290\nblocklist tda9887\nblocklist tea5761\nblocklist tea5767\nblocklist test_user_copy\nblocklist torture\nblocklist tua9001\nblocklist tuner-simple\nblocklist tuner-types\nblocklist tuner-xc2028\nblocklist vmw_vsock_virtio_transport\nblocklist vmw_vsock_virtio_transport_common\nblocklist vsock\nblocklist vsock_diag\nblocklist xc4000\nblocklist xc5000\n",
     "vendor_dlkm/modules.blocklist": "# SPDX-License-Identifier: GPL-2.0-only\n# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.\nblocklist 8250_of\nblocklist adc-tm\nblocklist atomic64_test\nblocklist dummy-cpufreq\nblocklist dummy_hcd\nblocklist dummy_hcd\nblocklist e4000\nblocklist failover\nblocklist fc0011\nblocklist fc0012\nblocklist fc0013\nblocklist fc2580\nblocklist ipclite_test\nblocklist it913x\nblocklist limits_stat\nblocklist limits_stress\nblocklist lkdtm\nblocklist llcc_perfmon\nblocklist locktorture\nblocklist m88rs6000t\nblocklist max2165\nblocklist mc44s803\nblocklist mmrm_test_module\nblocklist msi001\nblocklist mt2060\nblocklist mt2063\nblocklist mt20xx\nblocklist mt2131\nblocklist mt2266\nblocklist mxl301rf\nblocklist net_failover\nblocklist qca_cld3_kiwi\nblocklist qm1d1b0004\nblocklist qm1d1c0042\nblocklist qt1010\nblocklist r820t\nblocklist rcutorture\nblocklist rtc-test\nblocklist si2157\nblocklist tda18212\nblocklist tda18218\nblocklist tda18250\nblocklist tda18271\nblocklist tda827x\nblocklist tda8290\nblocklist tda9887\nblocklist tea5761\nblocklist tea5767\nblocklist test_user_copy\nblocklist torture\nblocklist tua9001\nblocklist tuner-simple\nblocklist tuner-types\nblocklist tuner-xc2028\nblocklist vmw_vsock_virtio_transport\nblocklist vmw_vsock_virtio_transport_common\nblocklist vsock\nblocklist vsock_diag\nblocklist xc4000\nblocklist xc5000\n"
   },
+  "denied_modules": [
+    {
+      "modules": [
+        "can-bcm.ko",
+        "can-dev.ko",
+        "can-gw.ko",
+        "can-raw.ko",
+        "can.ko",
+        "slcan.ko",
+        "vcan.ko"
+      ],
+      "reason": "CAN bus protocol and drivers: the FP6 has no CAN hardware, and slcan adds a tty line discipline (finding -35)."
+    },
+    {
+      "modules": [
+        "6lowpan.ko",
+        "ieee802154.ko",
+        "ieee802154_6lowpan.ko",
+        "ieee802154_socket.ko",
+        "mac802154.ko",
+        "nhc_dest.ko",
+        "nhc_fragment.ko",
+        "nhc_hop.ko",
+        "nhc_ipv6.ko",
+        "nhc_mobility.ko",
+        "nhc_routing.ko",
+        "nhc_udp.ko"
+      ],
+      "reason": "IEEE 802.15.4 and 6LoWPAN: the FP6 has no radio for them (finding -35)."
+    },
+    {
+      "modules": [
+        "nfc.ko"
+      ],
+      "reason": "Kernel NFC socket family: FP6 NFC is the Samsung sec_nfc transport used by the stock HAL, which does not use it and does not import it (finding -35)."
+    },
+    {
+      "modules": [
+        "l2tp_core.ko",
+        "l2tp_ppp.ko",
+        "pptp.ko"
+      ],
+      "reason": "PPTP and L2TP tunnels: Android no longer has the legacy VPN types that used them (finding -35)."
+    },
+    {
+      "modules": [
+        "gzvm.ko"
+      ],
+      "reason": "MediaTek GenieZone hypervisor driver: a different SoC family."
+    },
+    {
+      "modules": [
+        "kheaders.ko"
+      ],
+      "reason": "Kernel headers archive for tracing tools: no product use."
+    },
+    {
+      "modules": [
+        "bluetooth.ko",
+        "btbcm.ko",
+        "btqca.ko",
+        "btsdio.ko",
+        "hci_uart.ko",
+        "hidp.ko",
+        "rfcomm.ko"
+      ],
+      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; on r9s the RFCOMM kernel thread was already denied its socket bind (finding -35)."
+    },
+    {
+      "modules": [
+        "hdmi_dlkm.ko",
+        "lt9611uxc.ko",
+        "snd-soc-hdmi-codec.ko"
+      ],
+      "reason": "HDMI bridge and HDMI/DisplayPort audio codecs: the FP6 device tree has no LT9611 node, and its sound card turns external-display audio off (qcom,ext-disp-audio-rx = 0) and names only the stub, lpass-cdc and wcd9378 codecs."
+    },
+    {
+      "modules": [
+        "max31760_fan.ko"
+      ],
+      "reason": "Fan controller: no node in the FP6 device tree."
+    },
+    {
+      "modules": [
+        "cnss2.ko",
+        "qca_cld3_peach_v2.ko",
+        "qca_cld3_wcn6450.ko"
+      ],
+      "reason": "WLAN host drivers for other chips: the FP6 runs its QCA6750 through icnss2 and qca_cld3_qca6750; the device tree has no cnss2 (PCIe) node, cnss2's only user is peach_v2, and on r9s wcn6450 failed with \"Driver already registered\"."
+    },
+    {
+      "modules": [
+        "wcd938x_dlkm.ko",
+        "wcd938x_slave_dlkm.ko"
+      ],
+      "reason": "WCD938x audio codec: not in the FP6 device tree (the FP6 codec is WCD9378) and imported by nothing. wcd937x, wcd939x and wsa883x stay until the audio machine driver stops importing them."
+    },
+    {
+      "modules": [
+        "radio-i2c-rtc6226-qca.ko"
+      ],
+      "reason": "FM radio: its probe fails on the FP6 (GPIO busy) and no FM stack is shipped."
+    },
+    {
+      "modules": [
+        "tz_log_dlkm.ko"
+      ],
+      "reason": "TrustZone log reader (/proc/tzdbg): a debug interface with no user."
+    },
+    {
+      "modules": [
+        "qcom_spss.ko",
+        "qsee_ipc_irq_bridge.ko"
+      ],
+      "reason": "Secure processor (SPSS) loader and its QSEE interrupt bridge: the FP6 device tree has no SPSS or bridge node (finding -85). qcom_glink_spss stays: glink_probe imports it."
+    },
+    {
+      "modules": [
+        "focaltech_fts.ko"
+      ],
+      "reason": "FocalTech touch driver: no matching node (the FP6 touch controllers are Goodix and ESWIN), and it creates a world-writable proc node."
+    },
+    {
+      "modules": [
+        "f_fs_ipc_log.ko"
+      ],
+      "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on r9s. Debug only, imported by nothing (finding -18)."
+    }
+  ],
   "dtb_count": 14,
   "dtbo_count": 95
 }
