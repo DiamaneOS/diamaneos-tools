@@ -602,16 +602,14 @@ class NativeProductTests(unittest.TestCase):
                      'product/etc/permissions/lpa.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/lpa.xml',
                      'system_ext/framework/extphonelib.jar:$(TARGET_COPY_OUT_SYSTEM_EXT)/framework/extphonelib.jar']:
             self.assertIn('vendor/fairphone/FP6/files/' + path, make)
-        # ServiceLib's JNI library, installed where the product app's linker
-        # namespace looks (/product/lib64) and linked to platform libraries only.
-        start = bp.index('srcs: ["files/product/lib64/libjni_aidl_service.so"]')
-        jni = bp[bp.rindex('cc_prebuilt_library_shared {', 0, start):]
-        jni = jni[:jni.index('}\n')]
-        for line in ['product_specific: true', 'stem: "libjni_aidl_service"', 'system_shared_libs: []',
-                     'licenses: ["fp6_selected_stock_notices_product"]']:
-            self.assertIn(line, jni)
-        for lib in ['libbinder_ndk', 'libc++', 'libc', 'libdl', 'liblog', 'libm']:
-            self.assertIn('"%s"' % lib, jni)
+        # The LPA's services stay off (device sysconfig), so nothing loads its
+        # ServiceLib JNI library: it is neither selected nor installable.
+        self.assertNotIn('libjni_aidl_service', bp + make)
+        self.assertFalse([r for r in self.recipe['files'] if r['path'].startswith('product/lib64/')])
+        row = copy.deepcopy(next(r for r in self.recipe['files'] if r['path'].startswith('product/')))
+        row['path'] = row['input'] = 'product/lib64/libjni_aidl_service.so'
+        self.recipe['files'].append(row)
+        with self.assertRaises(VendorError): self.render()
 
     def test_unreviewed_stock_jar_or_permission_file_rejected(self):
         for path in ['product/framework/other.jar', 'system_ext/etc/permissions/privapp-permissions-other.xml']:
