@@ -1,0 +1,25 @@
+// Product overlays used by the overlay check tests.
+
+overlay_defaults_dirs = ["res"]
+
+runtime_resource_overlay {
+    name: "ExampleFrameworkOverlay",
+    product_specific: true,
+    manifest: "ExampleFrameworkOverlay/AndroidManifest.xml",
+    resource_dirs: ["ExampleFrameworkOverlay/res"],
+}
+
+runtime_resource_overlay {
+    name: "ExampleSettingsOverlay",
+    product_specific: true,
+    manifest: "ExampleSettingsOverlay/AndroidManifest.xml",
+    resource_dirs: ["ExampleSettingsOverlay/" + "res"],
+}
+
+/* The locked target declares <overlayable>. */
+runtime_resource_overlay {
+    name: "ExampleLockedOverlay",
+    product_specific: true,
+    manifest: "ExampleLockedOverlay/AndroidManifest.xml",
+    resource_dirs: ["ExampleLockedOverlay/res"],
+}

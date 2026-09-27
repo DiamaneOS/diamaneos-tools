@@ -663,6 +663,27 @@ The original early-risk ledger remains an input to final case selection.
 Complete CDD coverage and all applicable CTS, CTS Verifier, VTS and modular
 suite results remain release-gate work on the actual FP6 `user` candidate.
 
+## Resource overlay check
+
+`bin/diamaneos overlays check` compares every DiamaneOS resource overlay with
+its target's resources at a GrapheneOS release; see [OVERLAYS.md](OVERLAYS.md)
+for the rules, sources and report. Its tests use small fixture trees and local
+Git remotes, so they need no network:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlays -t .
+```
+
+Run the real check on each new release tag, with target sources fetched into a
+private cache outside this repository:
+
+```sh
+bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR>
+```
+
+A passing check means the overlaid names, qualifiers and overlayable policies
+agree with the sources. It is not idmap2 on the built targets or a phone check.
+
 ## Endpoint contracts
 
 The baseline collector remains stdlib-only. Endpoint schema validation uses the

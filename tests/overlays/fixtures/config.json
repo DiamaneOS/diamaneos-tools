@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "api_level": 37,
+  "inapplicable_qualifier_tokens": ["r(XA|XB|XC)", "sw([6-9][0-9]{2}|[0-9]{4,})dp"],
+  "overlay_roots": [
+    {"path": "vendor_example/overlay", "role": "product"},
+    {"path": "device_example/rro", "role": "device"}
+  ],
+  "targets": [
+    {"package": "android", "sources": [{"project": "frameworks/base", "res": ["core/res/res"]}]},
+    {"package": "com.android.settings", "sources": [
+      {"project": "packages/apps/Settings", "res": ["res"]},
+      {"project": "frameworks/base", "res": ["packages/*/res"]}
+    ]},
+    {"package": "com.example.locked", "sources": [{"project": "packages/apps/Locked", "res": ["res"]}]}
+  ]
+}

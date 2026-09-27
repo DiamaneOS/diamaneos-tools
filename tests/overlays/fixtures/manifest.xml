@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="upstream" fetch="https://example.invalid/" />
+  <default remote="upstream" revision="refs/heads/main" />
+  <project name="platform_frameworks_base" path="frameworks/base" revision="1111111111111111111111111111111111111111" />
+  <project name="platform_packages_apps_Settings" path="packages/apps/Settings" revision="2222222222222222222222222222222222222222" />
+  <project name="platform_packages_apps_Locked" path="packages/apps/Locked" revision="3333333333333333333333333333333333333333" />
+</manifest>

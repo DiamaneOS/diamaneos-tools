@@ -1,0 +1,7 @@
+<resources>
+    <string name="settings_title">Settings</string>
+    <plurals name="apps_count">
+        <item quantity="one">1 app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+</resources>
