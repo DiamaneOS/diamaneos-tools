@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from . import components, vendor_files
+from . import carrier_data, components, vendor_files
 from .vendor import VendorError, encoded
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -171,7 +171,7 @@ ACTIVATION={
                             'android.hardware.radio.network.xml','android.hardware.radio.sim.xml',
                             'android.hardware.radio.voice.xml','vendor.qti.hardware.radio.ims.xml',
                             'vendor.qti.hardware.radio.qtiradioconfig.xml','vendor.qti.hardware.radio.am.xml',
-                            'vendor.qti.hardware.radio.lpa.xml')),
+                            'vendor.qti.hardware.radio.lpa.xml','vendor.qti.hardware.data.iwlandata.xml')),
  # nicmd configures the rmnet data interfaces for modem data calls.
  'nicmd':('nicmd.rc',None),
  # The Bluetooth HCI service: the device bluetooth/init.fp6.bluetooth.rc starts
@@ -189,6 +189,11 @@ ACTIVATION={
 # path -> (module name = install directory, privileged). Every privileged app
 # needs a complete device allowlist entry (grants and denials).
 STOCK_APPS = {
+ # The coupled Qualcomm IWLAN and modem-certificate frontend, without CNE.
+ # Privileged placement keeps their shared UID closed to new ordinary installs;
+ # they request only normal permissions and receive no additional privileged grants.
+ 'vendor/app/IWlanService/IWlanService.apk':('IWlanService', True),
+ 'vendor/app/CACertService/CACertService.apk':('CACertService', True),
  'system_ext/priv-app/ims/ims.apk':('ims', True),
  # Not selected: QtiTelephonyService (the IQcRilAudio call-audio client). The
  # device's own call-audio bridge (device callaudio/) replaces it with the
@@ -216,7 +221,7 @@ STOCK_LIBRARIES = {
  'product/etc/permissions/qti_telephony_hidl_wrapper_prd.xml':'product/framework/qti-telephony-hidl-wrapper-prd.jar',
  'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
 }
-STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values())
+STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml'}
 # Stock vendor libraries whose name is also an AOSP vendor-available library.
 # Soong defines an install rule for every variant in the tree, so a stock copy
 # in /vendor/lib64 collides with the AOSP one at the same path. These go to
@@ -509,10 +514,16 @@ def render(recipe, selection, notice_kind):
         text += blueprint('cc_prebuilt_library_shared' if library else 'cc_prebuilt_binary', props)
     for path in sorted(rows):
         partition = path.split('/')[0]
-        if partition == 'vendor':
+        if partition == 'vendor' and path not in STOCK_APPS:
             continue
-        flag = PARTITIONS[partition][0]
-        if path in STOCK_APPS:
+        flag = 'vendor' if partition == 'vendor' else PARTITIONS[partition][0]
+        if path == carrier_data.APK_PATH:
+            consumed.add(path)
+            text += blueprint('filegroup', {
+                'name': 'fp6_stock_carrier_assets',
+                'srcs': [carrier_data.ASSET_DIRECTORY + '/*.xml'],
+                'path': 'carrier-assets', 'licenses': [notice_license(partition)]})
+        elif path in STOCK_APPS:
             name, privileged = STOCK_APPS[path]
             if Path(path).parent.name != name:
                 raise VendorError('stock app install directory differs')
@@ -836,7 +847,7 @@ def gnss_config(path, data):
         raise VendorError('derived GNSS configuration differs from reviewed result')
     return derived
 
-def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
+def generate(recipe, selection, inputs, output, *, notice_kind, aapt2=None, **policy):
     closure = vendor_files.selection(recipe, public=False, **policy)
     rendered = render(recipe, selection, notice_kind)
     provenance = {'operation': 'fp6-native-product-generation',
@@ -845,6 +856,13 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                   'elf_selection_sha256': hashlib.sha256(encoded(selection)).hexdigest(),
                   'renderer_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'notice_kind': notice_kind, 'native_or_device_accepted': False}
+    has_carrier_data = any(row['path'] == carrier_data.APK_PATH for row in recipe['files'])
+    if has_carrier_data:
+        if aapt2 is None:
+            raise VendorError('stock carrier data requires --aapt2')
+        provenance['carrier_extractor_sha256'] = hashlib.sha256(
+            Path(carrier_data.__file__).read_bytes()).hexdigest()
+        provenance['aapt2_sha256'] = hashlib.sha256(Path(aapt2).read_bytes()).hexdigest()
     kept = reachable(selection)
     provenance['uninstalled_optional_libraries'] = sorted(
         r['path'] for r in selection['files'] if r['path'] not in kept)
@@ -875,6 +893,15 @@ def generate(recipe, selection, inputs, output, *, notice_kind, **policy):
                 vendor_files.copy_verified(inputs, item, tree / 'files' / item['path'])
             for item in recipe['notices']:
                 vendor_files.copy_verified(inputs, item, tree / 'notices' / item['sha256'])
+            if has_carrier_data:
+                assets, report = carrier_data.extract(tree / 'files' / carrier_data.APK_PATH, aapt2)
+                if report['aapt2_sha256'] != provenance['aapt2_sha256']:
+                    raise VendorError('carrier extraction tool changed during generation')
+                asset_dir = tree / carrier_data.ASSET_DIRECTORY
+                asset_dir.mkdir(parents=True)
+                for name, data in assets.items():
+                    (asset_dir / name).write_bytes(data)
+                provenance['carrier_data'] = report
             for item in recipe['files']:
                 data_input = any(p.fullmatch(item['path']) for p in LIB64_DATA)
                 dsp_input = item['path'].startswith(DSP_DIRECTORIES)
@@ -991,12 +1018,13 @@ def main(argv=None):
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--notice-kind', required=True, help='reviewed Android notice classification')
+    parser.add_argument('--aapt2', type=Path, help='aapt2 for selected stock carrier data extraction')
     args = parser.parse_args(argv)
     try:
         model_data = (ROOT / 'config/components.json').read_bytes()
         source_data = (ROOT / 'config/fp6-sources.json').read_bytes()
         result = generate(components.load_json(args.recipe), components.load_json(args.selection),
-            args.inputs, args.output, notice_kind=args.notice_kind,
+            args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2,
             model=components.loads(model_data), sources=components.loads(source_data),
             environment=components.load_json(ROOT / 'config/build-environment.json'),
             model_sha256=hashlib.sha256(model_data).hexdigest(),

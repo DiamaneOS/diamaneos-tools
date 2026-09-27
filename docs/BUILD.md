@@ -582,9 +582,13 @@ consume these declarations to create the image aliases.
 `vendor-elf.json` binds their reviewed dependencies. Generate the Android
 integration using the same extracted partition roots:
 
+`AAPT2` is the absolute path of the selected Android SDK build-tools `aapt2`.
+Its hash and the extracted carrier-data hashes enter generation provenance;
+see [carrier integration](CARRIER-INTEGRATION.md).
+
 ```sh
 bin/diamaneos vendor product --inputs "$STOCK_FILES" \
-  --output "$VENDOR_GENERATIONS" --notice-kind "$NOTICE_KIND"
+  --output "$VENDOR_GENERATIONS" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2"
 ```
 
 `STOCK_FILES` contains the extracted `vendor/` files and, for the reviewed stock

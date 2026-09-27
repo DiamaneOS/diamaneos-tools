@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.100.0",
   "region": "EU",
   "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "00fbd89743368f6ca2d03762dce6fc93308bc88eeb3ddd96c92908133cc4850b",
+  "model_sha256": "1c0c77143f35ae4dc0453831adb3136ce3f566df4e0251a5a6bee8df657a1e2f",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -17369,6 +17369,194 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_firmware_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libjnihelper.so",
+      "path": "vendor/lib64/libjnihelper.so",
+      "sha256": "2e93a244778765a91606ad0c6f473b522cc8b3d34671d8180717043455cc889e",
+      "bytes": 83232,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [
+        "vendor/lib64/libcacertclient.so",
+        "vendor/lib64/libqmi_cci.so",
+        "vendor/lib64/libqmiservices.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcacertclient.so",
+      "path": "vendor/lib64/libcacertclient.so",
+      "sha256": "d886943fdee41fb87fbb0fb2b74f0e8e07e406b4433fc4389481b8300033d111",
+      "bytes": 37256,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [
+        "vendor/lib64/vendor.qti.hardware.cacert@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "path": "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
+      "sha256": "cffd5e94d1b551b164630d3d4fee9aaf125feaf1903f811fad390da56a19cb56",
+      "bytes": 181296,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/app/IWlanService/IWlanService.apk",
+      "path": "vendor/app/IWlanService/IWlanService.apk",
+      "sha256": "e5b93257348f71e3dda9cc194b01f0cdc6973d780a2378280342dfec17b1f9b3",
+      "bytes": 410014,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_app_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/app/CACertService/CACertService.apk",
+      "path": "vendor/app/CACertService/CACertService.apk",
+      "sha256": "ff37df9b3ec396c382cda3a1c9855db7355cbc9c29dc770b0d2e498124668f9f",
+      "bytes": 45470,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_app_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/vintf/manifest/vendor.qti.hardware.data.iwlandata.xml",
+      "path": "vendor/etc/vintf/manifest/vendor.qti.hardware.data.iwlandata.xml",
+      "sha256": "030dc5c45aad1e0ebc900fa9a817e6ca9681711ccee569e922b2f18ed5c36aa1",
+      "bytes": 398,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "system_ext/priv-app/CustomerCarrierConfig/CustomerCarrierConfig.apk",
+      "path": "system_ext/priv-app/CustomerCarrierConfig/CustomerCarrierConfig.apk",
+      "sha256": "a3ed4740b3edea50cf856d9652ca32dd17fb776be852c40b30cdd1de6e98ce97",
+      "bytes": 453608,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
+      ],
+      "purpose": "Data-only input for the source-built carrier configuration service; the stock APK is not installed or executed.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libWlanServiceJni.so",
+      "path": "vendor/lib64/libWlanServiceJni.so",
+      "sha256": "f2f61c7fc9893401fc7a34eac2bf280386d5a0ec6f4d9fc9e501b8c5a6558208",
+      "bytes": 303712,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [
+        "vendor/lib64/vendor.qti.hardware.data.iwlandata-V1-ndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Qualcomm IWLAN frontend or its QMI certificate dependency; preserves the stock radio-service path without CNE or a second DCM publisher.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "product/etc/apns-conf.xml",
+      "path": "product/etc/apns-conf.xml",
+      "sha256": "ebb1cd75332dabb6a051a72f612d29014a6b2a804e833f25b5af4f9fbc3ee0d2",
+      "bytes": 1210000,
+      "component_id": "radio-ims-data",
+      "inventory_ref": "userspace_hal_families:radio-ims",
+      "dependencies": [],
+      "notices": [
+        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
+      ],
+      "purpose": "Stock APN configuration, including IMS and emergency data profiles; preserve carrier filters, types and row order without speculative merges.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_file:s0",
         "capabilities_hex": ""
       }
     }

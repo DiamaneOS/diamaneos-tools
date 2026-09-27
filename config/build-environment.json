@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v13",
+  "environment_id": "fp6-android17-grapheneos-2026091000-debian13-v13-ims-iwlan",
   "scope": "Candidate metadata revision with updated FP6 source and patch inventories. The upstream generic source map is unchanged; qualification of v4 remains bound to its original tools commit, not transferred to this identity.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -101,12 +101,12 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "01482e55d3b345c17dfa298cf41d667f816654d1eb210e26dafa60e20590d60c"
+      "sha256": "5fcebcb4e65d14fba05820a6a18cf00c63261110fedcc59aa8455d9235c0ea08"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "866d9f3e8c674d30d43df03fda968467038e5f18c776b090cff077902a4f8877"
+      "sha256": "d72df27fe68de1d74e964d129f6466de59d6f44ed5cbb8369643c52b8d3ede3d"
     }
   ],
   "device_inputs": {
