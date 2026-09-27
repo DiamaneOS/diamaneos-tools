@@ -404,6 +404,23 @@ def build(root, jobs, timeout, profile='production'):
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
             execution, core = output_files(work, paths)
+            def one(files, name, fragment):
+                found = [p for p in files if p.name == name and fragment in str(p)]
+                require(len(found) == 1, 'ambiguous/missing artifact: ' + fragment + '/' + name)
+                return found[0]
+            vendor_core = [p for p in core if '/msm-kernel/fps_gki/' in str(p)]
+            # Check both configurations before building the modules: the Image
+            # uses the GKI one, the vendor modules are built against the vendor
+            # tree's, and both must meet the same policy.
+            from . import kernel_config
+            policy = load_json(ROOT / 'config/kernel-policy-fp6.json')
+            effective = one(core, '.config', '/common/kernel_aarch64_config/')
+            for label, config, report in ((profile + ' kernel', effective, 'kernel-config.json'),
+                                          (profile + ' vendor kernel', one(vendor_core, '.config', '/fps_gki/'),
+                                           'vendor-kernel-config.json')):
+                checked = kernel_config.check(config.read_bytes(), policy, profile)
+                (run / report).write_bytes(encoded(checked))
+                require(checked['status'] == 'PASS', label + ' configuration regressed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
             found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
             require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')
@@ -419,11 +436,6 @@ def build(root, jobs, timeout, profile='production'):
                           'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
             (run / 'module-paths.txt').write_text(paths)
             _, external = output_files(work, paths)
-            def one(files, name, fragment):
-                found = [p for p in files if p.name == name and fragment in str(p)]
-                require(len(found) == 1, 'ambiguous/missing artifact: ' + fragment + '/' + name)
-                return found[0]
-            vendor_core = [p for p in core if '/msm-kernel/fps_gki/' in str(p)]
             kit = run / 'kit'; kit.mkdir()
             base = run / 'base-dts'; base.mkdir()
             for name in ('.config', 'Module.symvers'):
@@ -486,17 +498,6 @@ def build(root, jobs, timeout, profile='production'):
             require(not layout['errors'], 'layout scan could not read ' + str(len(layout['errors'])) + ' objects')
             require(not layout['mismatches'], 'RANDSTRUCT layout differs between compilation units: ' +
                     ', '.join(m['name'] for m in layout['mismatches']))
-            from . import kernel_config
-            policy = load_json(ROOT / 'config/kernel-policy-fp6.json')
-            effective = one(core, '.config', '/common/kernel_aarch64_config/')
-            config_report = kernel_config.check(effective.read_bytes(), policy, profile)
-            (run / 'kernel-config.json').write_bytes(encoded(config_report))
-            require(config_report['status'] == 'PASS', profile + ' kernel configuration regressed')
-            # The vendor modules are built against the vendor tree's configuration;
-            # it must meet the same policy as the Image they load into.
-            vendor_report = kernel_config.check((kit / '.config').read_bytes(), policy, profile)
-            (run / 'vendor-kernel-config.json').write_bytes(encoded(vendor_report))
-            require(vendor_report['status'] == 'PASS', profile + ' vendor kernel configuration regressed')
             shutil.copyfile(effective, run / 'gki.config')
             shutil.copyfile(kit / '.config', run / 'vendor.config')
             image = one(core, 'Image', '/common/kernel_aarch64/')
