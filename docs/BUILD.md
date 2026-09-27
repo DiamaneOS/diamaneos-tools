@@ -506,7 +506,11 @@ hash authenticates the installed `.repo/local_manifests/diamaneos.xml` bytes.
 The map/count describe the entire composed checkout. The `upstream` record
 continues to bind the independently authenticated GrapheneOS release.
 
-Only additive HTTPS remotes and explicitly resolved projects are supported.
+HTTPS remotes and explicitly resolved projects are supported. A fork may replace
+exactly one upstream project without root exports, at the same path, using an
+explicit `remove-project` followed by its replacement. Optional, ambiguous,
+unmatched or incomplete removals are rejected. Reviewed project groups are
+preserved; the overlay hash binds this metadata as well as the source choices.
 Development overlays may put an Android branch on the owned remote and let
 projects inherit it. An immutable environment then records `resolved_revisions`,
 a map from each moving project's checkout path to its exact 40-character commit.

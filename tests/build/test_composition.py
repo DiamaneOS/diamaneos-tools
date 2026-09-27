@@ -73,7 +73,7 @@ class CompositionTests(unittest.TestCase):
             self.overlay.replace(b'https://example.invalid/device/',b'file:///untrusted/'),
             self.overlay.replace(b'</manifest>',b'<remove-project name="base"/></manifest>'),
             self.overlay.replace(b'</manifest>',b'<include name="other.xml"/></manifest>'),
-            self.overlay.replace(b'<project name="phone"',b'<project groups="extra" name="phone"'),
+            self.overlay.replace(b'<project name="phone"',b'<project groups="pdk,../escape" name="phone"'),
         ]
         for overlay in changes:
             with self.subTest(overlay=overlay):
@@ -142,3 +142,54 @@ class CompositionTests(unittest.TestCase):
         self.config['composition']['overlay_sha256'] = hashlib.sha256(overlay).hexdigest()
         composed = build.compose_source_manifest(self.config, self.source, self.base)
         self.assertEqual(build.parse_project_map(self.combined), build.parse_project_map(composed))
+
+    def replacement_overlay(self):
+        overlay = ('<manifest><remote name="fork" fetch="https://example.invalid/forks/"/>'
+                   '<remove-project name="base"/>'
+                   '<project name="forked-base" path="build/make" remote="fork" revision="'
+                   + 'b'*40 + '"/></manifest>').encode()
+        expected = ('<manifest><remote name="upstream" fetch="https://example.invalid/base/"/>'
+                    '<remote name="fork" fetch="https://example.invalid/forks/"/>'
+                    '<project name="forked-base" path="build/make" remote="fork" revision="'
+                    + 'b'*40 + '"/></manifest>').encode()
+        rows, digest = build.parse_project_map(expected)
+        self.path.write_bytes(overlay)
+        self.config['composition'].update(overlay_sha256=hashlib.sha256(overlay).hexdigest(),
+            project_count=len(rows), project_map_sha256=digest)
+        return overlay, expected
+
+    def test_exact_fork_replacement_keeps_path_and_digest_binding(self):
+        overlay, expected = self.replacement_overlay()
+        result = build.compose_source_manifest(self.config, self.source, self.base)
+        self.assertEqual(build.parse_project_map(expected), build.parse_project_map(result))
+        self.assertNotIn(b'remove-project', result)
+        self.path.write_bytes(overlay.replace(b'b'*40, b'd'*40))
+        self.config['composition']['overlay_sha256'] = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(build.BuildError, 'project map'):
+            build.compose_source_manifest(self.config, self.source, self.base)
+
+    def test_reviewed_project_groups_preserved(self):
+        overlay, _ = self.replacement_overlay()
+        overlay = overlay.replace(b'<project name="forked-base"',
+                                  b'<project groups="pdk,sysui-studio" name="forked-base"')
+        self.path.write_bytes(overlay)
+        self.config['composition']['overlay_sha256'] = hashlib.sha256(overlay).hexdigest()
+        result = ET.fromstring(build.compose_source_manifest(self.config, self.source, self.base))
+        self.assertEqual(result.find('project').get('groups'), 'pdk,sysui-studio')
+
+    def test_replacement_rejects_ambiguous_missing_and_partial_removals(self):
+        original, _ = self.replacement_overlay()
+        for overlay in (
+                original.replace(b'<remove-project name="base"/>', b'<remove-project name="missing"/>'),
+                original.replace(b'<remove-project name="base"/>', b'<remove-project name="base" optional="true"/>'),
+                original.replace(b'<remove-project name="base"/>', b'<remove-project name="base"/>'*2),
+                original.replace(b'path="build/make"', b'path="different/path"')):
+            with self.subTest(overlay=overlay):
+                self.path.write_bytes(overlay)
+                self.config['composition']['overlay_sha256'] = hashlib.sha256(overlay).hexdigest()
+                with self.assertRaises(build.BuildError):
+                    build.compose_source_manifest(self.config, self.source, self.base)
+        self.replacement_overlay()
+        exported = self.base.replace(b'/></manifest>', b'><copyfile src="x" dest="x"/></project></manifest>')
+        with self.assertRaisesRegex(build.BuildError, 'unexported upstream'):
+            build.compose_source_manifest(self.config, self.source, exported)
