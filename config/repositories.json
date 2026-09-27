@@ -259,7 +259,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_qcom_devicetree.git",
       "revision": null,
       "slug": "kernel_qcom_devicetree",
-      "state": "planned",
+      "state": "active",
       "upstream_url": "https://gerrit-public.fairphone.software/platform/kernel_platform/qcom/proprietary/devicetree"
     },
     {
