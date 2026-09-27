@@ -22,7 +22,13 @@ def read(path):
 def install_one(source, records, destination):
     require(isinstance(records,dict) and 0 < len(records) <= 10000, 'invalid input record count')
     for name, row in records.items():
-        relative(name)
+        # Generated carrier assets retain upstream Unicode and punctuation.
+        # These names go through filesystem APIs, never a shell or debugfs.
+        # Stock extraction keeps its separate, narrower argument validation.
+        require(isinstance(name, str) and 0 < len(name.encode('utf-8')) <= 4096
+                and '\\' not in name and not any(ord(c) < 32 or ord(c) == 127 for c in name)
+                and all(p not in ('', '.', '..') and len(p.encode('utf-8')) <= 255
+                        for p in name.split('/')), 'invalid generated input path')
         require(set(row) == {'bytes','sha256'} and type(row['bytes']) is int and
                 0 <= row['bytes'] <= 1024**3 and re.fullmatch('[a-f0-9]{64}',row['sha256']),
                 'invalid input file record')
