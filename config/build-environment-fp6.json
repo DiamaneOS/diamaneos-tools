@@ -96,7 +96,7 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "ecf53e187ee5f3ad28814980f4acad8e7a4af17aaf6411dccd88f4d7f74328dc"
+      "sha256": "f8b5eef4b9d61c1722c61b098bd90e06e3435adce5cfca694b99c2df9c54b3f5"
     },
     {
       "id": "fp6-selected-native-files",
@@ -127,12 +127,12 @@
     "overlay_revision": "6352136409f3116403451d3ea2a60bf47991adfc",
     "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
     "project_count": 1072,
-    "project_map_sha256": "dbc7f64425700574d534226e843fe50e111ee6fd61d2481c705b0d535c2d88f0",
+    "project_map_sha256": "4c65902355192f4995764f3f62e05da16e85e64f4f6f3b10955e0718b8280853",
     "resolved_revisions": {
       "device/fairphone/FP6": "d186724027d8ae7c335158f76e2991a31aa838e9",
       "vendor/diamaneos": "0bb9a106a54dcbe69835a3c8b273028c8f24dea0",
       "hardware/diamaneos/ims": "d45240a93d0902b58faded3bb800bb7ed62ddcee",
-      "packages/apps/CarrierConfig": "1b31b327a770e3a10e137c14a0befb44ce274ae5",
+      "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
       "packages/apps/ImsServiceEntitlement": "08e2d5aaf2dcac7650d3bdc9aa670f1a936ba33a",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
