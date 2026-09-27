@@ -538,36 +538,6 @@
       "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
     },
     {
-      "id": "kernel-qcom-build",
-      "repository": "https://github.com/DiamaneOS/kernel_qcom_build",
-      "workspace": "kernel",
-      "path": "kernel_platform/build/kernel",
-      "base_revision": "aa777cca3d5f2443114fe71ccfed9bd74cd7c66a",
-      "derived_revision": "a610317dfeba1132045ebbff93107d62cbb52a71",
-      "canonical_diff_sha256": "82fe4b0780a0477accb3584fee357d42a65ce442b61c987016daedc8e1b197a5",
-      "changed_files": [
-        "android/prepare_vendor.sh"
-      ],
-      "purpose": "Carry the device build target and bootloader information fixes on the CodeLinaro Kleaf release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
-      "id": "kernel-nxp-nfc",
-      "repository": "https://github.com/DiamaneOS/kernel_nxp_nfc",
-      "workspace": "kernel",
-      "path": "vendor/nxp/opensource/driver",
-      "base_revision": "c6f0de7127de042241c6f2ac7c60c5deb77d7d85",
-      "derived_revision": "d7a6106dcca46ff515c74a101fb129ffff510a6c",
-      "canonical_diff_sha256": "983e65e6b2491fead7158d9121c33a891dee291b15d273a159a7f1bbbb2b3b52",
-      "changed_files": [
-        "BUILD.bazel",
-        "define_modules.bzl",
-        "nfc_kernel_dlkm_vendor_board.mk"
-      ],
-      "purpose": "Carry the device build target and NFC bring-up on the CodeLinaro NXP NFC driver release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
       "id": "kernel-qcom-audio",
       "repository": "https://github.com/DiamaneOS/kernel_qcom_audio",
       "workspace": "kernel",
@@ -689,20 +659,6 @@
       "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
     },
     {
-      "id": "kernel-qcom-mm-sys",
-      "repository": "https://github.com/DiamaneOS/kernel_qcom_mm-sys",
-      "workspace": "kernel",
-      "path": "vendor/qcom/opensource/mm-sys-kernel",
-      "base_revision": "88eb9646a400c3c70d3614c3912af530dd332060",
-      "derived_revision": "c9035c290681506abb2518f42cf5335c17a086ef",
-      "canonical_diff_sha256": "1c7338eafc525b3fc913da6558ad6d7251bc5dc7850357a78ef8c557dc8a9e09",
-      "changed_files": [
-        "ubwcp/BUILD.bazel"
-      ],
-      "purpose": "Carry the device build target on the CodeLinaro release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
       "id": "kernel-qcom-mmrm",
       "repository": "https://github.com/DiamaneOS/kernel_qcom_mmrm",
       "workspace": "kernel",
@@ -786,37 +742,6 @@
         "wlan_qcacld3_modules.bzl"
       ],
       "purpose": "Carry the device build target (including its target_variants entry) and the APC host fix on the CodeLinaro qcacld-3.0 release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
-      "id": "kernel-st-nfc",
-      "repository": "https://github.com/DiamaneOS/kernel_st_nfc",
-      "workspace": "kernel",
-      "path": "vendor/st/opensource/driver",
-      "base_revision": "60e8a8fa7512bb3684330c005356e2060ad161a6",
-      "derived_revision": "7ef048357d2c72484583980a6fe9174e76b05d41",
-      "canonical_diff_sha256": "263b1c8043e9705346cd8dfc721dcc6eb2bf9dde1398e84e505bdd0ad67e3937",
-      "changed_files": [
-        "BUILD.bazel",
-        "define_modules.bzl",
-        "nfc_kernel_dlkm_vendor_board.mk"
-      ],
-      "purpose": "Carry the device build target and NFC bring-up on the CodeLinaro ST NFC driver release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
-      "id": "kernel-st-ese",
-      "repository": "https://github.com/DiamaneOS/kernel_st_ese",
-      "workspace": "kernel",
-      "path": "vendor/st/opensource/eSE-driver",
-      "base_revision": "96e919fb8a6f29037b03f1a2ab73b11b0ef817eb",
-      "derived_revision": "9b20bbbc653997bff85c35da31cf5d6419102896",
-      "canonical_diff_sha256": "a529b46c43fccd37ba0ea276b47f3bfc4d22ff24c3a518c77bb40c4050913cd9",
-      "changed_files": [
-        "BUILD.bazel",
-        "ese_kernel_board.mk"
-      ],
-      "purpose": "Carry the device build target and the OMAPI CTS fix on the CodeLinaro ST eSE driver release.",
       "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
     }
   ]
