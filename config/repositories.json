@@ -373,26 +373,6 @@
       "upstream_url": "https://git.codelinaro.org/clo/la/abl/tianocore/edk2"
     },
     {
-      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/build/kernel",
-      "id": "kernel-qcom-build",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_build.git",
-      "revision": null,
-      "slug": "kernel_qcom_build",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/kernel/build"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/nxp/opensource/driver",
-      "id": "kernel-nxp-nfc",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_nxp_nfc.git",
-      "revision": null,
-      "slug": "kernel_nxp_nfc",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/nxp/opensource/driver"
-    },
-    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/audio-kernel",
       "id": "kernel-qcom-audio",
       "publication": "public-source",
@@ -443,16 +423,6 @@
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/dsp-kernel"
     },
     {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/mm-sys-kernel",
-      "id": "kernel-qcom-mm-sys",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_mm-sys.git",
-      "revision": null,
-      "slug": "kernel_qcom_mm-sys",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mm-sys-kernel"
-    },
-    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/mmrm-driver",
       "id": "kernel-qcom-mmrm",
       "publication": "public-source",
@@ -491,26 +461,6 @@
       "slug": "kernel_qcom_qcacld",
       "state": "active",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/st/opensource/driver",
-      "id": "kernel-st-nfc",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_st_nfc.git",
-      "revision": null,
-      "slug": "kernel_st_nfc",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/driver"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/st/opensource/eSE-driver",
-      "id": "kernel-st-ese",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_st_ese.git",
-      "revision": null,
-      "slug": "kernel_st_ese",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/eSE-driver"
     }
   ],
   "schema_version": 1
