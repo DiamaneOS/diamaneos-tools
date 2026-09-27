@@ -28,12 +28,10 @@ MAX_PATCH_DIFF_BYTES = 64 * 1024 * 1024
 # built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
 CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki', '//msm-kernel:fps_gki_abi']
 IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
-# External module targets left out of the build, with the reason.
-EXCLUDED_MODULE_TARGETS = {
-    '//vendor/qcom/opensource/mm-sys-kernel/ubwcp:fps_gki_ubwcp':
-        'UBWC-P needs ZONE_DEVICE, which the hardened kernel disables; gralloc only uses it '
-        'when vendor.gralloc.hw_supports_ubwcp is set, which FP6 does not do.',
-}
+# External module targets left out of the build, with the reason. Each must
+# still exist, so a stale entry fails the build instead of hiding a new target.
+# (UBWC-P left with the mm-sys fork: the unforked project has no fps target.)
+EXCLUDED_MODULE_TARGETS = {}
 
 
 class KernelError(ValueError):
