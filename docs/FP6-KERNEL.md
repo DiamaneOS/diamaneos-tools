@@ -112,8 +112,9 @@ The development baseline is Linux 6.1.129, while the selected stock reports
 Effective device-tree boot arguments also require production review: the pinned
 source includes `kpti=0` and debugging/tuning options. Configuration-file checks
 do not validate the resulting command line.
-`kernel build` checks both the GKI configuration (the Image) and the vendor
-tree's configuration (the modules) against
+Right after the core build, before any module is built, `kernel build` checks
+both the GKI configuration (the Image) and the vendor tree's configuration (the
+modules) against
 [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
 with the production profile: no SELinux development mode (the kernel cannot be
 switched to permissive), debugfs present for drivers but not mountable, dmesg
