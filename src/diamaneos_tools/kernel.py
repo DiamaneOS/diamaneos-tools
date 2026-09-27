@@ -33,6 +33,7 @@ IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
 # (UBWC-P left with the mm-sys fork: the unforked project has no fps target.)
 EXCLUDED_MODULE_TARGETS = {}
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
+CONFIG_PROFILES = ('production', 'development')
 
 
 class KernelError(ValueError):
@@ -355,10 +356,11 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
     (candidate / 'device-kernel.mk').write_text('# Generated source-built kernel.\nPRODUCT_COPY_FILES += device/fairphone/FP6-kernel/Image:kernel\n')
 
 
-def build(root, jobs, timeout):
+def build(root, jobs, timeout, profile='production'):
     missing = [name for name in ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl')
                if shutil.which(name) is None]
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
+    require(profile in CONFIG_PROFILES, 'unknown kernel configuration profile')
     plan, changes, adaptation = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
     denied = denied_modules(recipe)
@@ -375,7 +377,7 @@ def build(root, jobs, timeout):
         run = root / 'runs' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
         run.mkdir(parents=True)
         result = {'status': 'RUNNING', 'operation': 'kernel-build-and-package', 'commands': [],
-                  'device_commands_executed': 0, 'kernel_accepted': False,
+                  'device_commands_executed': 0, 'kernel_accepted': False, 'config_profile': profile,
                   'preparation_sha256': sha(root / 'preparation.json'),
                   'recipe_sha256': sha(Path(__file__)), 'packaging_recipe_sha256': sha(ROOT / 'config/fp6-kernel-packaging.json')}
         def save():
@@ -485,10 +487,16 @@ def build(root, jobs, timeout):
             require(not layout['mismatches'], 'RANDSTRUCT layout differs between compilation units: ' +
                     ', '.join(m['name'] for m in layout['mismatches']))
             from . import kernel_config
+            policy = load_json(ROOT / 'config/kernel-policy-fp6.json')
             effective = one(core, '.config', '/common/kernel_aarch64_config/')
-            config_report = kernel_config.check(effective.read_bytes(), load_json(ROOT / 'config/kernel-policy-fp6.json'), 'development')
+            config_report = kernel_config.check(effective.read_bytes(), policy, profile)
             (run / 'kernel-config.json').write_bytes(encoded(config_report))
-            require(config_report['status'] == 'PASS', 'development kernel configuration regressed')
+            require(config_report['status'] == 'PASS', profile + ' kernel configuration regressed')
+            # The vendor modules are built against the vendor tree's configuration;
+            # it must meet the same policy as the Image they load into.
+            vendor_report = kernel_config.check((kit / '.config').read_bytes(), policy, profile)
+            (run / 'vendor-kernel-config.json').write_bytes(encoded(vendor_report))
+            require(vendor_report['status'] == 'PASS', profile + ' vendor kernel configuration regressed')
             shutil.copyfile(effective, run / 'gki.config')
             shutil.copyfile(kit / '.config', run / 'vendor.config')
             image = one(core, 'Image', '/common/kernel_aarch64/')
@@ -596,10 +604,14 @@ def main(argv=None):
     parser.add_argument('--reference', type=Path, help='optional existing source workspace for Git object reuse only')
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
+    parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
+                        help='build: kernel configuration policy to enforce; development allows SELinux '
+                             'development mode and open debugfs, for diagnostic kernels only')
     args = parser.parse_args(argv)
     if args.operation == 'manifest':
         try:
             require(args.workspace is None and args.reference is None, 'manifest takes no workspace')
+            require(args.config_profile == 'production', 'config profile is a build option')
             require((args.output is None) != (args.check is None), 'manifest needs exactly one of --output or --check')
             rendered = repo_manifest()
             if args.output:
@@ -617,8 +629,10 @@ def main(argv=None):
     try:
         require(1 <= args.jobs <= 64 and 60 <= args.timeout <= 21600, 'invalid build resource limits')
         require(args.operation == 'prepare' or args.reference is None, 'reference is a preparation option')
+        require(args.operation == 'build' or args.config_profile == 'production', 'config profile is a build option')
         with process.interrupt_on_termination():
-            result = prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else build(args.workspace.absolute(), args.jobs, args.timeout)
+            result = (prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else
+                      build(args.workspace.absolute(), args.jobs, args.timeout, args.config_profile))
         print(json.dumps(result, indent=2)); return 0
     except KeyboardInterrupt:
         print('ERROR: kernel preparation interrupted', file=sys.stderr); return 130

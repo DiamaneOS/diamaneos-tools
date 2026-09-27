@@ -112,9 +112,26 @@ The development baseline is Linux 6.1.129, while the selected stock reports
 Effective device-tree boot arguments also require production review: the pinned
 source includes `kpti=0` and debugging/tuning options. Configuration-file checks
 do not validate the resulting command line.
-Production configuration validation deliberately rejects four inherited settings:
-SELinux development support, unrestricted debugfs, debugfs mount availability
-and unrestricted dmesg. Enforcing USER policy does not make those kernel settings
-production-safe. A production candidate must resolve and revalidate them, then
-repeat affected device tests. The current artifacts use development AVB identities
-and are not release, relock or production-signing inputs.
+`kernel build` checks both the GKI configuration (the Image) and the vendor
+tree's configuration (the modules) against
+[`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
+with the production profile: no SELinux development mode (the kernel cannot be
+switched to permissive), debugfs present for drivers but not mountable, dmesg
+restricted from boot, plus the baseline hardening. The baseline also keeps
+userfaultfd (ART's garbage collector; unprivileged users get user-mode-only
+descriptors), io_uring (compressed OTA updates), Unicode casefolding for f2fs
+and forced lockdown in confidentiality mode. `--config-profile development`
+builds a diagnostic kernel without the production settings; its run records the
+profile. The settings themselves live in `arch/arm64/configs/gki_defconfig`,
+identical in the common and vendor kernel forks; that file must stay in
+`savedefconfig` form, because the GKI build runs `check_defconfig`.
+
+KPROBES stays on. The USB controller glue (`dwc3-msm`) implements its controller
+hooks (pull-up, connection-done, GSI event buffers, stop handling) with
+kretprobes on the built-in dwc3 core; without kprobes those hooks silently
+disappear. Lockdown blocks every kprobe created from user space (tracefs and
+perf) and BPF kernel reads, so only signed kernel code can place probes.
+Turning KPROBES off first needs those hooks as explicit calls in both kernel
+trees. Enforcing USER policy does not replace any of these kernel settings. The
+current artifacts use development AVB identities and are not release, relock or
+production-signing inputs.

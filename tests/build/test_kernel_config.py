@@ -56,6 +56,18 @@ class KernelConfigTests(unittest.TestCase):
             with self.subTest(change=new):
                 self.assertEqual(kernel_config.check(data.replace(old, new), self.policy, 'development')['status'], 'FAIL')
 
+    def test_runtime_features_and_lockdown_stay_on(self):
+        # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
+        # /data (unicode, f2fs) and lockdown, which keeps kprobes and BPF kernel reads
+        # away from user space while KPROBES stays on for the USB controller glue.
+        data = self.config(False)
+        for symbol in ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
+                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'):
+            with self.subTest(symbol=symbol):
+                changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
+                result = kernel_config.check(changed, self.policy, 'development')
+                self.assertEqual([r['symbol'] for r in result['failures']], [symbol])
+
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')
         result = kernel_config.check(data, self.policy, 'production')

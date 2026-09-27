@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Build the FP6 kernel with the production configuration by default and check
+  the vendor configuration too; keep unused modules out with a deny list that
+  survives list regeneration; retire the NXP/ST NFC, ST eSE, mm-sys and Kleaf
+  build forks.
+
 - Move the interface design, branding and their bundled assets to the separate
   diamaneos-design repository.
 
