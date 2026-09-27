@@ -26,7 +26,10 @@ asset-copy rules. XML bytes and the original names remain bound by provenance.
 The DCM service's policy distinguishes inherited platform service discovery from
 invocation: system diagnostics can find its name, but inbound Binder calls remain
 restricted to the broker (and userdebug `su`), with caller-UID validation in the
-daemon. These controls still require the combined native build and phone checks.
+daemon. Product selection also installs the generated vendor user/group databases;
+a build-time AID declaration alone does not give init a runtime user mapping.
+Final-image checks require that mapping and the dedicated domains. These controls
+still require phone checks.
 
 Revision: 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
