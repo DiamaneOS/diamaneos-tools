@@ -123,8 +123,14 @@ def extract(apk, aapt2):
             else:
                 if root.tag not in ('carrier_config', 'carrier_config_list'):
                     raise VendorError('unexpected carrier asset root')
-            output[name] = data
-            members[name] = info.filename
+            # The numeric carrier ID is authoritative; the suffix is only a
+            # display label. Soong's assets copy rule interpolates paths into
+            # a shell script without quoting them. Never send stock labels
+            # (spaces, apostrophes, &, parentheses, etc.) to that rule.
+            output_name = (identity + '_device.xml'
+                           if name.startswith('carrier_config_carrierid_') else name)
+            output[output_name] = data
+            members[output_name] = info.filename
         if not output:
             raise VendorError('carrier APK contains no carrier data')
     for name in ('vendor.xml', 'vendor_no_sim.xml'):

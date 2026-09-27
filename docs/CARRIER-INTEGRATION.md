@@ -11,7 +11,9 @@ CarrierConfig service through its optional `diamaneos_carrierconfig.asset_module
 setting. Carrier identity matching remains in Android, including specific IDs,
 parent IDs and MCC/MNC fallback. Other devices need not select these FP6 assets.
 
-The extractor preserves asset bytes and filter order, excludes legacy filenames
+The extractor preserves asset bytes and filter order. Carrier-ID filenames use a
+fixed suffix, retaining the original member name in provenance; display labels
+never enter the build system's shell commands. It excludes legacy filenames
 that the stock service does not load, and records one exact-hash repair for the
 stock malformed empty no-SIM XML. Unsupported syntax, duplicate identities,
 external XML declarations and excessive input sizes are rejected. The APK hash,

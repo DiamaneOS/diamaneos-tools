@@ -41,7 +41,7 @@ class CarrierDataTests(unittest.TestCase):
             'assets/satellite/fixture.dat': b'not included',
         })
         self.assertEqual(set(files), {'carrier_config_mccmnc_001001.xml',
-                                    'carrier_config_carrierid_123_Test.xml',
+                                    'carrier_config_carrierid_123_device.xml',
                                     'vendor.xml', 'vendor_no_sim.xml'})
         self.assertEqual(files['carrier_config_mccmnc_001001.xml'], xml)
         self.assertIn(b'mcc="001"', files['vendor.xml'])
@@ -53,6 +53,17 @@ class CarrierDataTests(unittest.TestCase):
         with self.assertRaises(VendorError):
             self.extract({'assets/carrier_config_carrierid_1_A.xml': '<carrier_config/>',
                           'assets/carrier_config_carrierid_1_B.xml': '<carrier_config/>'})
+
+    def test_carrier_display_names_never_reach_build_commands(self):
+        data = b'<carrier_config/>'
+        for label in ("MOBI'S-(Mobilina-Srpske)", 'AT&T', '遠傳電信', 'Walmart MX', '$(id);label'):
+            member = 'assets/carrier_config_carrierid_123_' + label + '.xml'
+            with self.subTest(label=label):
+                files, provenance = self.extract({member: data})
+                name = 'carrier_config_carrierid_123_device.xml'
+                self.assertEqual(files[name], data)
+                self.assertEqual(provenance['files'][name]['member'], member)
+                self.assertEqual(set(files), {name, 'vendor.xml', 'vendor_no_sim.xml'})
 
     def test_malformed_oversize_and_external_xml_rejected(self):
         for data in [b'<broken>', b'<wrong/>', b'<!DOCTYPE a><carrier_config/>',
