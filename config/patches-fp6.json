@@ -237,8 +237,8 @@
       "workspace": "android",
       "path": "device/fairphone/FP6",
       "base_revision": "41a637fd3c21010bf42241b37fdf0160efee966e",
-      "derived_revision": "95e6298e5981e30d423009fd8f6e828178e5898f",
-      "canonical_diff_sha256": "fe0ec74c385a4f0f96e2a0fd169a7ecdfcba50fcf0f289502500043fd0a99423",
+      "derived_revision": "dc13eff1969c2f72249b391cc242915ff33f9bf2",
+      "canonical_diff_sha256": "b732bf669fd6b01ec37947de44caf7592557c3cc65a7113a1b4f08a9bb248d7f",
       "changed_files": [
         "BoardConfig.mk",
         "boot/init.qcom.rc",

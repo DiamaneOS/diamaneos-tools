@@ -39,6 +39,18 @@ The Android 17 full SDK version is explicitly labeled as a public build property
 instead of granting the vendor IWLAN app access to default_prop. These startup
 fixes are pending a new native build and phone test; IMS is not yet accepted.
 
+Second phone boot: the DCM daemon started automatically under UID/GID 2990,
+enforcing SELinux, seccomp and no-new-privileges, with no effective/permitted
+capabilities. Both cellular IMS bearers connected, but the broker saw a background
+firewall block because Android omits apps without INTERNET from those rule updates.
+The broker now declares that normal permission for correct UID tracking; its direct
+IP/raw/modem socket neverallows and blocked-state handling remain unchanged. This
+expands Android permission authorization and must be reviewed alongside possible
+indirect IPC paths; it is not a claim that every network-capable system service is
+unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
+thermal-service lookup required by the platform PowerManager constructor; unrelated
+service probes remain denied. These changes await native and phone qualification.
+
 Revision: 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
