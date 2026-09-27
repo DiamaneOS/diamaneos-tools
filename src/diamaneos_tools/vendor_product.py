@@ -198,16 +198,15 @@ STOCK_APPS = {
  # Not selected: QtiTelephonyService (the IQcRilAudio call-audio client). The
  # device's own call-audio bridge (device callaudio/) replaces it with the
  # normal permission MODIFY_AUDIO_SETTINGS instead of MODIFY_AUDIO_ROUTING.
- # eSIM LPA; its EuiccService is on by default from r9s, the unused UimLpaService stays off (device sysconfig).
+ # eSIM LPA; the device sysconfig turns its services off by default because it
+ # cannot list profiles on the FP6 (stock leaves its eSIM service on). Nothing
+ # then loads its JNI library (libjni_aidl_service), which is not selected.
  'product/app/uimlpaservice/uimlpaservice.apk':('uimlpaservice', True),
 }
 # JNI libraries of the stock apps and the platform libraries they link.
 STOCK_JNI = {
  'system_ext/lib64/libimscamera_jni.so':['libc++', 'libc', 'libcutils', 'libdl', 'liblog', 'libm', 'libnativehelper', 'libutils'],
  'system_ext/lib64/libimsmedia_jni.so':['libandroid', 'libbinder', 'libc++', 'libc', 'libcutils', 'libdl', 'libgui', 'liblog', 'libm', 'libnativehelper', 'libutils'],
- # The LPA's ServiceLib: service-manager lookups only (isDeclared,
- # waitForService); the product app's linker namespace searches /product/lib64.
- 'product/lib64/libjni_aidl_service.so':['libbinder_ndk', 'libc++', 'libc', 'libdl', 'liblog', 'libm'],
 }
 # Data copied as is: shared-library jars (not on the boot class path, not
 # preopted) and the permission XMLs that declare them. Reviewed one by one:

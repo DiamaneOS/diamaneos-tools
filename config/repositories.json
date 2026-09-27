@@ -1,6 +1,6 @@
 {
   "github_owner": "DiamaneOS",
-  "revision_policy": "Discovery map only. Active repositories intentionally use null revisions because a repository cannot pin its own future state and this file is not a release lock. Exact cross-repository revisions belong in a separately versioned build or release input manifest.",
+  "revision_policy": "Discovery map only. Active repositories intentionally use null revisions because a repository cannot pin its own future state and this file is not a release lock. Exact cross-repository revisions belong in a separately versioned build or release input manifest. Retired repositories are no longer used by new builds; they stay published so earlier builds can be reproduced.",
   "repositories": [
     {
       "checkout_path": "WORK_ROOT/tools",
@@ -253,6 +253,16 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/proprietary/display-devicetree"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "id": "kernel-qcom-devicetree",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_devicetree.git",
+      "revision": null,
+      "slug": "kernel_qcom_devicetree",
+      "state": "planned",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/kernel_platform/qcom/proprietary/devicetree"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
       "id": "kernel-video",
       "publication": "public-source",
@@ -369,7 +379,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_qcom_build.git",
       "revision": null,
       "slug": "kernel_qcom_build",
-      "state": "active",
+      "state": "retired",
       "upstream_url": "https://git.codelinaro.org/clo/la/kernel/build"
     },
     {
@@ -379,7 +389,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_nxp_nfc.git",
       "revision": null,
       "slug": "kernel_nxp_nfc",
-      "state": "active",
+      "state": "retired",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/nxp/opensource/driver"
     },
     {
@@ -439,7 +449,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_qcom_mm-sys.git",
       "revision": null,
       "slug": "kernel_qcom_mm-sys",
-      "state": "active",
+      "state": "retired",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mm-sys-kernel"
     },
     {
@@ -489,7 +499,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_st_nfc.git",
       "revision": null,
       "slug": "kernel_st_nfc",
-      "state": "active",
+      "state": "retired",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/driver"
     },
     {
@@ -499,7 +509,7 @@
       "remote_url": "https://github.com/DiamaneOS/kernel_st_ese.git",
       "revision": null,
       "slug": "kernel_st_ese",
-      "state": "active",
+      "state": "retired",
       "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/st/opensource/eSE-driver"
     },
     {

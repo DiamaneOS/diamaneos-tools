@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-ims-20260927-v1",
+  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260927-v2",
   "scope": "Private FP6 IMS/IWLAN integration candidate with explicit source commits and authenticated vendor inputs. Native build, policy, package and carrier qualification remain separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -96,17 +96,17 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "6f4ccfdd63c0eb78481496c96a9f9f443b4f23d29c9cee74b4d4b5b8701374d3"
+      "sha256": "ecf53e187ee5f3ad28814980f4acad8e7a4af17aaf6411dccd88f4d7f74328dc"
     },
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "5fcebcb4e65d14fba05820a6a18cf00c63261110fedcc59aa8455d9235c0ea08"
+      "sha256": "6bd92a34005a7d9583fe87557d4eabb1daabb28d5701d1822206872a65e5f9bb"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "d72df27fe68de1d74e964d129f6466de59d6f44ed5cbb8369643c52b8d3ede3d"
+      "sha256": "ecfbaae69c2e11fca3ca7a8bf7e5fe6e805ceede6b35292189f328fc9bb122a4"
     }
   ],
   "device_inputs": {
@@ -127,9 +127,9 @@
     "overlay_revision": "6352136409f3116403451d3ea2a60bf47991adfc",
     "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
     "project_count": 1072,
-    "project_map_sha256": "2c06ef77efea79b18e76e708a891efd1f599150c7aeda387ab0c84c062c0285d",
+    "project_map_sha256": "dbc7f64425700574d534226e843fe50e111ee6fd61d2481c705b0d535c2d88f0",
     "resolved_revisions": {
-      "device/fairphone/FP6": "abfa8d15c95d7fc50515148c316379d1759e0b95",
+      "device/fairphone/FP6": "d186724027d8ae7c335158f76e2991a31aa838e9",
       "vendor/diamaneos": "0bb9a106a54dcbe69835a3c8b273028c8f24dea0",
       "hardware/diamaneos/ims": "d45240a93d0902b58faded3bb800bb7ed62ddcee",
       "packages/apps/CarrierConfig": "1b31b327a770e3a10e137c14a0befb44ce274ae5",

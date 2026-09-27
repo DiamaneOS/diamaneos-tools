@@ -111,8 +111,11 @@ which also declares the required merged DTB and DTBO entry counts.
 It preserves signed GKI modules, checks other modules' metadata/CRCs after
 stripping, verifies signatures against the built-in GKI certificate and checks
 selected providers, namespaces, dependencies and compiled GKI protection lists.
-The effective GKI configuration must pass the development baseline. Production
-differences remain explicit in `kernel-config.json`; see [FP6-KERNEL.md](FP6-KERNEL.md).
+It rejects any module on the packaging deny list. The effective GKI and vendor
+configurations must pass the production profile (`kernel-config.json`,
+`vendor-kernel-config.json`); `--config-profile development` only relaxes that
+check to the baseline and does not change the kernel configuration. See
+[FP6-KERNEL.md](FP6-KERNEL.md).
 
 Logs and terminal results are in `fp6-kernel/runs/<run>/`. `current` advances to
 that run's `candidate` only after all steps pass. Failed runs remain available.

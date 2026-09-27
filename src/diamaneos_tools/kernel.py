@@ -28,12 +28,12 @@ MAX_PATCH_DIFF_BYTES = 64 * 1024 * 1024
 # built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
 CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki', '//msm-kernel:fps_gki_abi']
 IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
-# External module targets left out of the build, with the reason.
-EXCLUDED_MODULE_TARGETS = {
-    '//vendor/qcom/opensource/mm-sys-kernel/ubwcp:fps_gki_ubwcp':
-        'UBWC-P needs ZONE_DEVICE, which the hardened kernel disables; gralloc only uses it '
-        'when vendor.gralloc.hw_supports_ubwcp is set, which FP6 does not do.',
-}
+# External module targets left out of the build, with the reason. Each must
+# still exist, so a stale entry fails the build instead of hiding a new target.
+# (UBWC-P left with the mm-sys fork: the unforked project has no fps target.)
+EXCLUDED_MODULE_TARGETS = {}
+MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
+CONFIG_PROFILES = ('production', 'development')
 
 
 class KernelError(ValueError):
@@ -230,6 +230,33 @@ def prepare(root, reference=None):
         return result
 
 
+def module_key(name):
+    """Module names as the loader compares them: '-' and '_' are the same."""
+    return name.removesuffix('.ko').replace('-', '_')
+
+
+def denied_modules(recipe):
+    """The modules FP6 never ships, each with its reason. The partition and load
+    lists come from Fairphone's lists and may be regenerated; this deny list
+    survives that, and a denied module in any list fails the build. Whether a
+    remaining module still needs a denied one is checked on the built set
+    (module-interfaces.json)."""
+    denied = {}
+    for group in recipe.get('denied_modules', []):
+        require(isinstance(group, dict) and set(group) == {'modules', 'reason'} and
+                isinstance(group['reason'], str) and group['reason'].strip() and
+                isinstance(group['modules'], list) and group['modules'], 'invalid denied module group')
+        for name in group['modules']:
+            require(isinstance(name, str) and MODULE_NAME.fullmatch(name), 'invalid denied module name')
+            require(module_key(name) not in {module_key(n) for n in denied}, 'duplicate denied module: ' + name)
+            denied[name] = group['reason']
+    keys = {module_key(n) for n in denied}
+    listed = set().union(*map(set, recipe['partitions'].values()), *map(set, recipe['load_lists'].values()))
+    back = sorted(n for n in listed if module_key(n) in keys)
+    require(not back, 'denied module in the packaging recipe: ' + ', '.join(back))
+    return denied
+
+
 def output_files(work, paths):
     execution = Path(call([work / 'tools/bazel', '--batch', 'info', 'execution_root'], cwd=work).strip()).resolve()
     require(execution.is_relative_to(work / 'out'), 'execution root outside workspace output')
@@ -329,12 +356,14 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
     (candidate / 'device-kernel.mk').write_text('# Generated source-built kernel.\nPRODUCT_COPY_FILES += device/fairphone/FP6-kernel/Image:kernel\n')
 
 
-def build(root, jobs, timeout):
+def build(root, jobs, timeout, profile='production'):
     missing = [name for name in ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl')
                if shutil.which(name) is None]
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
+    require(profile in CONFIG_PROFILES, 'unknown kernel configuration profile')
     plan, changes, adaptation = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
+    denied = denied_modules(recipe)
     with locked(root):
         rows = sources(root, plan, changes)
         links(root, rows, adaptation)
@@ -348,7 +377,7 @@ def build(root, jobs, timeout):
         run = root / 'runs' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
         run.mkdir(parents=True)
         result = {'status': 'RUNNING', 'operation': 'kernel-build-and-package', 'commands': [],
-                  'device_commands_executed': 0, 'kernel_accepted': False,
+                  'device_commands_executed': 0, 'kernel_accepted': False, 'config_profile': profile,
                   'preparation_sha256': sha(root / 'preparation.json'),
                   'recipe_sha256': sha(Path(__file__)), 'packaging_recipe_sha256': sha(ROOT / 'config/fp6-kernel-packaging.json')}
         def save():
@@ -375,6 +404,23 @@ def build(root, jobs, timeout):
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
             execution, core = output_files(work, paths)
+            def one(files, name, fragment):
+                found = [p for p in files if p.name == name and fragment in str(p)]
+                require(len(found) == 1, 'ambiguous/missing artifact: ' + fragment + '/' + name)
+                return found[0]
+            vendor_core = [p for p in core if '/msm-kernel/fps_gki/' in str(p)]
+            # Check both configurations before building the modules: the Image
+            # uses the GKI one, the vendor modules are built against the vendor
+            # tree's, and both must meet the same policy.
+            from . import kernel_config
+            policy = load_json(ROOT / 'config/kernel-policy-fp6.json')
+            effective = one(core, '.config', '/common/kernel_aarch64_config/')
+            for label, config, report in ((profile + ' kernel', effective, 'kernel-config.json'),
+                                          (profile + ' vendor kernel', one(vendor_core, '.config', '/fps_gki/'),
+                                           'vendor-kernel-config.json')):
+                checked = kernel_config.check(config.read_bytes(), policy, profile)
+                (run / report).write_bytes(encoded(checked))
+                require(checked['status'] == 'PASS', label + ' configuration regressed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
             found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
             require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')
@@ -390,11 +436,6 @@ def build(root, jobs, timeout):
                           'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
             (run / 'module-paths.txt').write_text(paths)
             _, external = output_files(work, paths)
-            def one(files, name, fragment):
-                found = [p for p in files if p.name == name and fragment in str(p)]
-                require(len(found) == 1, 'ambiguous/missing artifact: ' + fragment + '/' + name)
-                return found[0]
-            vendor_core = [p for p in core if '/msm-kernel/fps_gki/' in str(p)]
             kit = run / 'kit'; kit.mkdir()
             base = run / 'base-dts'; base.mkdir()
             for name in ('.config', 'Module.symvers'):
@@ -429,6 +470,11 @@ def build(root, jobs, timeout):
             require(len(dtbs) == recipe['dtb_count'] and len(dtbos) == recipe['dtbo_count'], 'merged DT inventory changed')
             command('pack-dtbo', [work / 'prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg', 'create', merged / 'dtbo.img', '--page_size=4096', *dtbos], merge_env)
             wanted = set().union(*map(set, recipe['partitions'].values()))
+            # A denied module that is no longer built was renamed or dropped;
+            # review the deny list rather than let a renamed copy back in.
+            built = {module_key(p.name) for p in core + vendor_core + external if p.suffix == '.ko'}
+            stale = sorted(n for n in denied if module_key(n) not in built)
+            require(not stale, 'denied module no longer built (update the deny list): ' + ', '.join(stale))
             selected = {}
             for name in sorted(wanted):
                 pool = core if name in recipe['partitions']['system_dlkm'] else vendor_core + external
@@ -452,11 +498,6 @@ def build(root, jobs, timeout):
             require(not layout['errors'], 'layout scan could not read ' + str(len(layout['errors'])) + ' objects')
             require(not layout['mismatches'], 'RANDSTRUCT layout differs between compilation units: ' +
                     ', '.join(m['name'] for m in layout['mismatches']))
-            from . import kernel_config
-            effective = one(core, '.config', '/common/kernel_aarch64_config/')
-            config_report = kernel_config.check(effective.read_bytes(), load_json(ROOT / 'config/kernel-policy-fp6.json'), 'development')
-            (run / 'kernel-config.json').write_bytes(encoded(config_report))
-            require(config_report['status'] == 'PASS', 'development kernel configuration regressed')
             shutil.copyfile(effective, run / 'gki.config')
             shutil.copyfile(kit / '.config', run / 'vendor.config')
             image = one(core, 'Image', '/common/kernel_aarch64/')
@@ -485,7 +526,8 @@ def build(root, jobs, timeout):
             inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
                          for p in sorted(candidate.rglob('*')) if p.is_file()]
             (run / 'artifacts.json').write_bytes(encoded(inventory))
-            result.update(status='PASS', module_count=len(selected), dtb_count=len(dtbs), dtbo_count=len(dtbos),
+            result.update(status='PASS', module_count=len(selected), denied_module_count=len(denied),
+                          dtb_count=len(dtbs), dtbo_count=len(dtbos),
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
                           layout_scan_sha256=sha(run / 'layout-scan.json'),
@@ -563,10 +605,15 @@ def main(argv=None):
     parser.add_argument('--reference', type=Path, help='optional existing source workspace for Git object reuse only')
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
+    parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
+                        help='build: kernel configuration policy to check; development checks only the '
+                             'baseline. It does not change the kernel configuration, which comes from '
+                             'the pinned defconfig')
     args = parser.parse_args(argv)
     if args.operation == 'manifest':
         try:
             require(args.workspace is None and args.reference is None, 'manifest takes no workspace')
+            require(args.config_profile == 'production', 'config profile is a build option')
             require((args.output is None) != (args.check is None), 'manifest needs exactly one of --output or --check')
             rendered = repo_manifest()
             if args.output:
@@ -584,8 +631,10 @@ def main(argv=None):
     try:
         require(1 <= args.jobs <= 64 and 60 <= args.timeout <= 21600, 'invalid build resource limits')
         require(args.operation == 'prepare' or args.reference is None, 'reference is a preparation option')
+        require(args.operation == 'build' or args.config_profile == 'production', 'config profile is a build option')
         with process.interrupt_on_termination():
-            result = prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else build(args.workspace.absolute(), args.jobs, args.timeout)
+            result = (prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else
+                      build(args.workspace.absolute(), args.jobs, args.timeout, args.config_profile))
         print(json.dumps(result, indent=2)); return 0
     except KeyboardInterrupt:
         print('ERROR: kernel preparation interrupted', file=sys.stderr); return 130

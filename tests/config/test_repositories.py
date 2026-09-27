@@ -20,7 +20,7 @@ class RepositoryMapTests(unittest.TestCase):
         self.assertTrue(self.rows)
         for row in self.rows:
             with self.subTest(repository=row["id"]):
-                self.assertIn(row["state"], {"active", "planned"})
+                self.assertIn(row["state"], {"active", "planned", "retired"})
                 self.assertIsNone(row["revision"])
 
     def test_checkout_paths_are_portable_and_repositories_are_public_https(self):

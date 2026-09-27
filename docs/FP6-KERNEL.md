@@ -61,6 +61,23 @@ for normal/recovery availability. Each placement is hash-bound. Stripping debug
 sections from unsigned modules must preserve module metadata and symbol versions. Preserve signed GKI modules byte
 for byte. Compare the final image contents, not only intermediate directories.
 
+The same file's `denied_modules` lists the modules FP6 never ships, each group
+with its reason: the CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and
+kheaders GKI modules, the in-kernel Bluetooth stack, the HDMI bridge and codecs,
+other chips' WLAN drivers, the WCD938x codec, FM radio, the TrustZone log reader,
+the SPSS loader and bridge, the FocalTech touch driver and the kretprobe-based
+FunctionFS logger. The partition and load lists come from Fairphone's lists; the
+deny list survives their regeneration. `kernel build` fails when a denied module
+is back in any list (`-` and `_` spellings match) or is no longer built (renamed
+or dropped: review the entry). A cut is allowed only when no remaining module
+imports it; the build's own dependency check (`module-interfaces.json`) enforces
+that, because libmodprobe loads a dependency even when a list leaves it out.
+Device-tree references count too: `eud` stays because the USB controller node
+takes its extcon from it, `qcom_glink_spss` because `glink_probe` imports it,
+`coresight` because KGSL is built with its CoreSight support, and `wcd937x`,
+`wcd939x` and `wsa883x` because the audio machine driver imports them. Those
+need a configuration or device-tree change first.
+
 The hardened kernel enables `RANDSTRUCT_FULL`. Clang randomizes a structure of
 only function pointers only when every struct or enum its members name is
 already declared; if a callback's return type is the first mention of a tag,
@@ -95,9 +112,61 @@ The development baseline is Linux 6.1.129, while the selected stock reports
 Effective device-tree boot arguments also require production review: the pinned
 source includes `kpti=0` and debugging/tuning options. Configuration-file checks
 do not validate the resulting command line.
-Production configuration validation deliberately rejects four inherited settings:
-SELinux development support, unrestricted debugfs, debugfs mount availability
-and unrestricted dmesg. Enforcing USER policy does not make those kernel settings
-production-safe. A production candidate must resolve and revalidate them, then
-repeat affected device tests. The current artifacts use development AVB identities
-and are not release, relock or production-signing inputs.
+Right after the core build, before any module is built, `kernel build` checks
+both the GKI configuration (the Image) and the vendor tree's configuration (the
+modules) against
+[`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
+with the production profile: no SELinux development mode and dmesg restricted
+from boot, plus the baseline hardening. The baseline also keeps userfaultfd
+(ART's garbage collector; unprivileged users get user-mode-only descriptors),
+io_uring (compressed OTA updates), Unicode casefolding for f2fs and forced
+lockdown in confidentiality mode, and pins settings that hardware support
+depends on without failing loudly: kprobes and kretprobes (below), the
+firmware loader's user-helper fallback (the device init turns on
+`force_sysfs_fallback`, so ueventd loads the firmware) and the debugfs API.
+The settings themselves live in `arch/arm64/configs/gki_defconfig`, identical in
+the common and vendor kernel forks; that file must stay in `savedefconfig` form,
+because the GKI build runs `check_defconfig`.
+
+The profile only selects which policy the tools check. `--config-profile
+development` checks the baseline alone and records the profile in the run; it
+does not change the kernel configuration, which always comes from the pinned
+fork commits. A kernel built from these sources has no SELinux development
+mode in either profile. It cannot be switched to permissive: `setenforce 0`
+fails, and on a userdebug build a permissive request
+(`androidboot.selinux=permissive`) makes init stop with a fatal error, so the
+permissive diagnostic vendor_boot images made for r9s must not be combined with
+it. The only fallbacks are reflashing the r9s images or building a kernel from
+different sources (the defconfig commit reverted, other derived revisions in
+`config/patches.json` and a regenerated kernel manifest).
+
+debugfs stays as it was on r9s (`CONFIG_DEBUG_FS_ALLOW_ALL`). In this tree
+`CONFIG_DEBUG_FS_DISALLOW_MOUNT` also turns off the in-kernel debugfs API: every
+`debugfs_create_*` call fails, the display driver then fails to bind (no display,
+Android never finishes booting) and a recovery module's init fails, which stops
+recovery's first-stage module loading. User builds never mount debugfs;
+debuggable builds mount it early in boot and unmount it once boot completes
+(AOSP `init-debug.rc`, with `ro.product.debugfs_restrictions.enabled=true`), and
+SELinux governs access while it is mounted. A kernel change that keeps the API
+but refuses mounts is the stricter option and an open item.
+
+KPROBES stays on (owner decision, 2026-09-27). The USB controller glue
+(`dwc3-msm`) implements twelve controller hooks (pull-up, connection-done, GSI
+event buffers, stop handling and others) as kretprobes on the built-in dwc3
+core and ignores registration failures, so without kprobes those hooks silently
+disappear. Lockdown blocks every kprobe created from user space (tracefs and
+perf) and BPF kernel reads, so only signed kernel code can place probes.
+Turning KPROBES off first needs those hooks as explicit calls in both kernel
+trees. Enforcing USER policy does not replace any of these kernel settings. The
+current artifacts use development AVB identities and are not release, relock or
+production-signing inputs.
+
+Boot parameters that the kernel does not use are handed to init, and the
+bootloader's can carry device identifiers. Both kernel trees therefore log such
+parameters by name only (in the command line, the unknown-parameter line and
+init's environment listing); kernel parameters keep their values in the log.
+pstore/ramoops has a 4 MiB region placed at boot in `/reserved-memory` of the
+FP6 device tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), from
+the DiamaneOS fork of Fairphone's SoC device-tree project. It keeps the
+previous boot's kernel log in RAM across a soft reboot; whether the FP6 firmware
+preserves that memory is still to be tested.
