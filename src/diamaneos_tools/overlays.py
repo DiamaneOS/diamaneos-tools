@@ -9,8 +9,16 @@ directory. Nothing is built, installed, signed or pushed.
 
 Errors (exit 1):
   missing              an overlaid resource (type/name) is not in the target
-  shadowed             the target defines the resource for an API-level
-                       qualifier that always applies and the overlay does not
+  shadowed             on the configured device (API level, density, smallest
+                       width) a target variant always beats the overlay's
+                       best variant, so the overlay never applies there
+  target-qualifier     (product overlays) the target defines the resource for
+                       qualifiers the overlay does not cover and no reviewed
+                       waiver names them; a warning for device overlays
+  not-allowed          (product overlays) the type or name is not on the
+                       product allowlist
+  denied               (product overlays) the name, pattern or type is on the
+                       product denylist
   not-overlayable      the target declares <overlayable> and the resource is
                        in no overlayable group
   target-name          android:targetName does not match the overlayable group
@@ -23,14 +31,15 @@ Errors (exit 1):
   overlap              two overlays on one target define the same resource
   unknown-target       the target package is not in the target registry
   target-source        a registered target source is not available
-  module, manifest, resources-map, android-mk
+  module, manifest, resources-map, android-mk, static-libs
                        an overlay that this check cannot read or model
 Warnings (exit 1 only with --strict):
   qualifier-not-in-target  the overlay adds a qualifier the target lacks
-  target-qualifier         the target has qualifiers the overlay does not
-                           cover, where the target value still wins
+  target-qualifier         (device overlays) the target has qualifiers the
+                           overlay does not cover, where the target value
+                           still wins
   flagged-in-target        every target definition is behind a feature flag
-  conditional, static-libs the check covers the overlay only partly
+  conditional              the overlay applies only when a property matches
 """
 from __future__ import annotations
 
@@ -73,6 +82,16 @@ PACKAGE = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
 TAG = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
 SHA1 = re.compile(r'^[0-9a-f]{40}$')
 API_QUALIFIER = re.compile(r'^v([0-9]+)$')
+SW_QUALIFIER = re.compile(r'^sw([0-9]+)dp$')
+DENSITY_QUALIFIER = re.compile(r'^(?:ldpi|mdpi|tvdpi|hdpi|xhdpi|xxhdpi|xxxhdpi|nodpi|anydpi|([0-9]+)dpi)$')
+# ResTable_config densities; a config without one counts as DENSITY_MEDIUM when compared.
+DENSITIES = {'ldpi': 120, 'mdpi': 160, 'tvdpi': 213, 'hdpi': 240, 'xhdpi': 320, 'xxhdpi': 480,
+             'xxxhdpi': 640, 'anydpi': 0xfffe, 'nodpi': 0xffff}
+DENSITY_MEDIUM, DENSITY_ANY = 160, 0xfffe
+MAKE_OVERLAYS = re.compile(r'\b(?:PRODUCT|DEVICE)_PACKAGE_OVERLAYS\b')
+MANIFEST_DIRECTIVES = ('include', 'extend-project', 'remove-project')
+# Fetches allow only these URL schemes, whatever the caller's git configuration says.
+FETCH_PROTOCOLS = ('https',)
 
 
 class OverlayCheckError(Exception):
@@ -344,13 +363,20 @@ def classify(relative):
     return ('file', rtype, qualifier, name, flag)
 
 
+class _NoDoctype(ET.TreeBuilder):
+    """Refuses a document type declaration when the parser reaches it, in any encoding."""
+
+    def doctype(self, name, pubid, system):
+        raise OverlayCheckError('XML DTDs are not accepted')
+
+
 def parse_xml(data):
     if len(data) > MAX_XML_BYTES:
         raise OverlayCheckError('XML file exceeds the size limit')
-    if b'<!ENTITY' in data:
-        raise OverlayCheckError('XML entity declarations are not accepted')
+    parser = ET.XMLParser(target=_NoDoctype())
     try:
-        return ET.fromstring(data)
+        parser.feed(data)
+        return parser.close()
     except ET.ParseError as error:
         raise OverlayCheckError(f'invalid XML ({error})') from None
 
@@ -378,13 +404,81 @@ def _safe(value, pattern=SAFE_PATH):
             and all(part not in ('.', '..') for part in value.split('/')))
 
 
+def _positive(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _reasons(value, what, key_pattern=None):
+    """A {package: {entry: reason}} table with non-empty reasons."""
+    if not isinstance(value, dict):
+        raise OverlayCheckError(f'product_rules.{what} must map packages to entries')
+    for package, entries in value.items():
+        if not PACKAGE.match(package) or not isinstance(entries, dict):
+            raise OverlayCheckError(f'product_rules.{what}: invalid package {package}')
+        for entry, reason in entries.items():
+            if not isinstance(reason, str) or not reason.strip():
+                raise OverlayCheckError(f'product_rules.{what}: {package} {entry} needs a reason')
+            if key_pattern and not key_pattern.match(entry):
+                raise OverlayCheckError(f'product_rules.{what}: invalid entry {entry}')
+    return value
+
+
+RESOURCE_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_.]*$')
+RESOURCE_TYPE = re.compile(r'^[a-z][a-z-]*$')
+
+
+def load_product_rules(rules):
+    """Rules 2 to 4 of the agreed overlay spec, for DiamaneOS-wide (product) overlays."""
+    if not isinstance(rules, dict):
+        raise OverlayCheckError('overlay configuration needs product_rules')
+    types = rules.get('allowed_types')
+    prefixes = rules.get('restricted_prefixes', [])
+    if (not isinstance(types, list) or not all(isinstance(t, str) and RESOURCE_TYPE.match(t) for t in types)
+            or 'string' in types):
+        raise OverlayCheckError('product_rules.allowed_types must list resource types (strings are listed by name)')
+    if not isinstance(prefixes, list) or not all(isinstance(p, str) and p for p in prefixes):
+        raise OverlayCheckError('product_rules.restricted_prefixes must list name prefixes')
+    patterns = _reasons(rules.get('denied_patterns', {}), 'denied_patterns')
+    compiled = {}
+    for package, entries in patterns.items():
+        try:
+            compiled[package] = [(re.compile(p), reason) for p, reason in entries.items()]
+        except re.error:
+            raise OverlayCheckError(f'product_rules.denied_patterns: invalid pattern for {package}') from None
+    waivers = rules.get('qualifier_waivers', [])
+    if not isinstance(waivers, list):
+        raise OverlayCheckError('product_rules.qualifier_waivers must be a list')
+    for waiver in waivers:
+        if (not isinstance(waiver, dict) or not isinstance(waiver.get('overlay'), str)
+                or not isinstance(waiver.get('resource'), str) or '/' not in waiver['resource']
+                or not isinstance(waiver.get('qualifiers'), list)
+                or not all(isinstance(q, str) for q in waiver['qualifiers'])
+                or not isinstance(waiver.get('reason'), str) or not waiver['reason'].strip()):
+            raise OverlayCheckError(f'invalid qualifier waiver: {waiver}')
+    return {
+        'allowed_types': set(types), 'restricted_prefixes': tuple(prefixes),
+        'allowed_names': _reasons(rules.get('allowed_names', {}), 'allowed_names', RESOURCE_NAME),
+        'allowed_strings': _reasons(rules.get('allowed_strings', {}), 'allowed_strings', RESOURCE_NAME),
+        'denied_names': _reasons(rules.get('denied_names', {}), 'denied_names', RESOURCE_NAME),
+        'denied_types': _reasons(rules.get('denied_types', {}), 'denied_types', RESOURCE_TYPE),
+        'denied_patterns': compiled, 'qualifier_waivers': waivers,
+    }
+
+
 def load_config(path=CONFIG):
     data = read_json(path)
     if data.get('schema_version') != 1:
         raise OverlayCheckError('overlay configuration needs schema_version 1')
     level = data.get('api_level')
-    if not isinstance(level, int) or isinstance(level, bool) or level < 1:
+    if not _positive(level):
         raise OverlayCheckError('overlay configuration needs a positive api_level')
+    device = data.get('device')
+    if (not isinstance(device, dict) or not _positive(device.get('density_dpi'))
+            or not _positive(device.get('smallest_width_dp'))):
+        raise OverlayCheckError('overlay configuration needs device.density_dpi and device.smallest_width_dp')
+    make_roots = data.get('make_roots', [])
+    if not isinstance(make_roots, list) or not all(_safe(p) for p in make_roots):
+        raise OverlayCheckError('make_roots must list relative directories')
     tokens = data.get('inapplicable_qualifier_tokens', [])
     try:
         inapplicable = [re.compile(t) for t in tokens if isinstance(t, str)]
@@ -412,7 +506,9 @@ def load_config(path=CONFIG):
                     or not all(_safe(p, SAFE_PATTERN) for p in source['res'])):
                 raise OverlayCheckError(f'invalid source for target {package}')
         targets[package] = target
-    return {'api_level': level, 'overlay_roots': roots, 'targets': targets, 'inapplicable': inapplicable}
+    return {'api_level': level, 'overlay_roots': roots, 'targets': targets, 'inapplicable': inapplicable,
+            'device': {'density': device['density_dpi'], 'smallest_width': device['smallest_width_dp']},
+            'make_roots': make_roots, 'product_rules': load_product_rules(data.get('product_rules'))}
 
 
 def pinned_release(path=ENVIRONMENT):
@@ -445,42 +541,79 @@ def _relative_label(path, base):
         return Path(path).name
 
 
-def discover(roots, label_base):
+def _walk(base):
+    for directory, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith('.') and d != 'out')
+        yield Path(directory), filenames
+
+
+def make_findings(directories, label_base):
+    """Overlays declared in make, which this check cannot model: BUILD_RRO_PACKAGE and
+    PRODUCT_PACKAGE_OVERLAYS or DEVICE_PACKAGE_OVERLAYS in any .mk file under the directories."""
+    findings, seen = [], set()
+    for base in directories:
+        if not Path(base).is_dir():
+            continue
+        for here, filenames in _walk(base):
+            for name in sorted(f for f in filenames if f.endswith('.mk')):
+                path = (here / name).resolve()
+                if path in seen:
+                    continue
+                seen.add(path)
+                label = _relative_label(here, label_base) + '/' + name
+                try:
+                    text = path.read_text(encoding='utf-8', errors='replace')
+                except OSError as error:
+                    findings.append(finding('error', 'android-mk', f'{label}: cannot read ({error.strerror})'))
+                    continue
+                if name == 'Android.mk' and 'BUILD_RRO_PACKAGE' in text:
+                    findings.append(finding('error', 'android-mk', f'{label} defines an overlay in make; '
+                                            'declare it as runtime_resource_overlay in Android.bp so it can be checked'))
+                if MAKE_OVERLAYS.search(text):
+                    findings.append(finding('error', 'android-mk', f'{label} sets PRODUCT_PACKAGE_OVERLAYS or '
+                                            'DEVICE_PACKAGE_OVERLAYS, which change target resources at build time '
+                                            'where this check cannot see them; use runtime_resource_overlay modules'))
+    return findings
+
+
+def discover(roots, label_base, make_roots=()):
     """Parse every runtime_resource_overlay under the roots. Returns (overlays, findings)."""
     overlays, findings, manifests_used, manifests_found = [], [], set(), {}
     for root in roots:
         base = Path(root['path'])
         if not base.is_dir():
             raise OverlayCheckError(f'overlay root not found: {root["label"]}')
-        for directory, dirnames, filenames in os.walk(base):
-            dirnames[:] = sorted(d for d in dirnames if not d.startswith('.') and d != 'out')
-            here = Path(directory)
+        for here, filenames in _walk(base):
             label = _relative_label(here, label_base)
             if 'AndroidManifest.xml' in filenames:
                 manifests_found[(here / 'AndroidManifest.xml').resolve()] = label + '/AndroidManifest.xml'
-            if 'Android.mk' in filenames:
-                text = (here / 'Android.mk').read_text(encoding='utf-8', errors='replace')
-                if 'BUILD_RRO_PACKAGE' in text:
-                    findings.append(finding('error', 'android-mk', f'{label}/Android.mk defines an overlay in make; '
-                                            'declare it as runtime_resource_overlay in Android.bp so it can be checked'))
             if 'Android.bp' not in filenames:
                 continue
             bp = here / 'Android.bp'
-            if bp.stat().st_size > MAX_BLUEPRINT_BYTES:
-                raise OverlayCheckError(f'{label}/Android.bp exceeds the size limit')
             try:
+                if bp.stat().st_size > MAX_BLUEPRINT_BYTES:
+                    raise OverlayCheckError(f'{label}/Android.bp exceeds the size limit')
                 modules = parse_blueprint(bp.read_text(encoding='utf-8'))
             except (OverlayCheckError, UnicodeError) as error:
                 findings.append(finding('error', 'module', f'{label}/Android.bp: {error}'))
                 continue
+            except OSError as error:
+                findings.append(finding('error', 'module', f'{label}/Android.bp: cannot read ({error.strerror})'))
+                continue
             for module in modules:
-                if module['type'] != 'runtime_resource_overlay':
+                kind = module['type']
+                if kind != 'runtime_resource_overlay':
+                    if kind.endswith('resource_overlay'):
+                        findings.append(finding('error', 'module', f'{label}/Android.bp:{module["line"]}: {kind} '
+                                                'can change the package name and target, which this check does '
+                                                'not model; use runtime_resource_overlay'))
                     continue
                 overlay, problems, manifest_path = read_overlay(module, here, root['role'], label, label_base)
                 findings.extend(problems)
                 manifests_used.add(manifest_path)
                 if overlay:
                     overlays.append(overlay)
+    findings.extend(make_findings([r['path'] for r in roots] + list(make_roots), label_base))
     for path, label in sorted(manifests_found.items(), key=lambda item: item[1]):
         if path in manifests_used:
             continue
@@ -506,6 +639,10 @@ def read_overlay(module, directory, role, label, label_base):
         return None, [finding('error', 'module', f'{where}: runtime_resource_overlay without a readable name')], None
     name = props['name']
     manifest = props.get('manifest', 'AndroidManifest.xml')
+    if 'defaults' in props:
+        used = (directory / manifest).resolve() if _safe(manifest) else None
+        return None, [finding('error', 'module', f'{where}: defaults are not resolved by this check; set the '
+                              'properties on the module itself', overlay=name)], used
     resource_dirs = props.get('resource_dirs', ['res'])
     if (not _safe(manifest) or not isinstance(resource_dirs, list)
             or not all(_safe(d) for d in resource_dirs)):
@@ -546,8 +683,9 @@ def read_overlay(module, directory, role, label, label_base):
         problems.append(finding('warning', 'conditional', f'{name} applies only when the system property '
                                 f'{required} matches', overlay=name, target=target))
     if props.get('static_libs') or props.get('resource_libs'):
-        problems.append(finding('warning', 'static-libs', f'{name} takes resources from libraries, which this '
-                                'check does not read', overlay=name, target=target))
+        problems.append(finding('error', 'static-libs', f'{name} takes resources from libraries, which this '
+                                'check cannot read; put the values in the overlay\'s own resource_dirs',
+                                overlay=name, target=target))
     for resource_dir in resource_dirs:
         base = directory / resource_dir
         if not base.is_dir():
@@ -555,7 +693,11 @@ def read_overlay(module, directory, role, label, label_base):
                                     overlay=name))
             continue
         for path in sorted(p for p in base.rglob('*') if p.is_file()):
-            overlay['resources'].add_path(path.relative_to(base).as_posix(), path.read_bytes)
+            try:
+                overlay['resources'].add_path(path.relative_to(base).as_posix(), path.read_bytes)
+            except OSError as error:
+                problems.append(finding('error', 'module', f'{name}: cannot read '
+                                        f'{path.relative_to(base).as_posix()} ({error.strerror})', overlay=name))
     for problem in overlay['resources'].problems:
         problems.append(finding('error', 'module', f'{name}: {problem}', overlay=name))
     return overlay, problems, manifest_path
@@ -662,27 +804,38 @@ class ManifestRemote:
 
     kind = 'fetch'
 
-    def __init__(self, cache, projects, url_allowed=https_only, log=None):
+    def __init__(self, cache, projects, url_allowed=https_only, log=None, protocols=FETCH_PROTOCOLS):
         self.cache = Path(cache)
         self.projects = projects
         self.url_allowed = url_allowed
+        self.protocols = tuple(protocols)
         self.log = log or (lambda message: None)
         self.listings = {}
         self.fetched_blobs = 0
 
-    def _git(self, repo, *arguments, offline=True, input_data=None, timeout=GIT_TIMEOUT):
-        env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    def _git(self, repo, *arguments, offline=True, input_data=None, timeout=GIT_TIMEOUT, config=(),
+             with_stderr=False):
+        """Run git on a cache repository only: no GIT_* variables and no user or system configuration
+        from the caller (so GIT_DIR, url.*.insteadOf, http.sslVerify and hooks cannot reach it), TLS
+        verification on, and only the allowed transport protocols."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+        env.update(GIT_TERMINAL_PROMPT='0', GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
         if offline:
             env['GIT_NO_LAZY_FETCH'] = '1'
+        policy = ['-c', 'protocol.allow=never', '-c', 'http.sslVerify=true', '-c', f'core.hooksPath={os.devnull}']
+        for protocol in self.protocols:
+            policy += ['-c', f'protocol.{protocol}.allow=always']
+        for setting in config:
+            policy += ['-c', setting]
         try:
-            result = subprocess.run(['git', '-C', str(repo), *arguments], input=input_data,
+            result = subprocess.run(['git', *policy, '-C', str(repo), *arguments], input=input_data,
                                     capture_output=True, env=env, timeout=timeout)
         except subprocess.TimeoutExpired:
             raise OverlayCheckError(f'git {arguments[0]} timed out') from None
         if result.returncode != 0:
             message = result.stderr.decode('utf-8', 'replace').strip()[-400:]
             raise OverlayCheckError(f'git {arguments[0]} failed: {message}')
-        return result.stdout
+        return result.stdout + result.stderr if with_stderr else result.stdout
 
     def project(self, project):
         entry = self.projects.get(project)
@@ -807,6 +960,9 @@ def parse_manifest(data):
     root = parse_xml(data)
     if root.tag != 'manifest':
         raise OverlayCheckError('not a repo manifest')
+    for directive in MANIFEST_DIRECTIVES:
+        if root.find(directive) is not None:
+            raise OverlayCheckError(f'the manifest uses <{directive}>, which this check does not resolve')
     remotes = {r.get('name'): r for r in root.findall('remote')}
     default = root.find('default')
     default = default.attrib if default is not None else {}
@@ -816,8 +972,8 @@ def parse_manifest(data):
         path = project.get('path', name)
         remote_name = project.get('remote', default.get('remote'))
         remote = remotes.get(remote_name)
-        if not name or not _safe(path) or remote is None or path in projects:
-            raise OverlayCheckError(f'manifest project {name} is incomplete or duplicated')
+        if not name or not _safe(name) or not _safe(path) or remote is None or path in projects:
+            raise OverlayCheckError(f'manifest project {name} is incomplete, unsafe or duplicated')
         revision = project.get('revision') or remote.get('revision') or default.get('revision')
         fetch = remote.get('fetch', '')
         entry = {'name': name, 'revision': revision,
@@ -830,14 +986,40 @@ def parse_manifest(data):
     return projects
 
 
-def fetch_manifest(cache, url, tag, url_allowed=https_only, log=None):
-    remote = ManifestRemote(cache, {}, url_allowed, log)
+def fetch_manifest(cache, url, tag, url_allowed=https_only, log=None, protocols=FETCH_PROTOCOLS, verify=None):
+    remote = ManifestRemote(cache, {}, url_allowed, log, protocols)
     repo = remote.repository(url, promisor=False)
     ref = f'refs/tags/{tag}'
     if not remote._has(repo, [ref]):
         (log or (lambda m: None))(f'fetching manifest tag {tag}')
         remote._git(repo, 'fetch', '--quiet', '--depth=1', '--no-tags', 'origin', f'+{ref}:{ref}', offline=False)
+    if verify:
+        verify(remote, repo, ref)
     return remote._git(repo, 'cat-file', 'blob', f'{ref}^{{commit}}:default.xml')
+
+
+def tag_verifier(release, allowed_signers):
+    """Checks a fetched release tag the way the build does: an SSH-signed annotated tag, verified
+    against the allowed-signers file the build environment pins, naming the pinned signer."""
+    path = Path(allowed_signers).resolve()
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        raise OverlayCheckError('cannot read the allowed-signers file') from None
+    fields = ('allowed_signers_sha256', 'signer_identity', 'signer_key_fingerprint')
+    if not all(isinstance(release.get(f), str) and release[f] for f in fields):
+        raise OverlayCheckError('the build environment names no release signer')
+    if digest != release['allowed_signers_sha256']:
+        raise OverlayCheckError('the allowed-signers file does not match the build environment')
+
+    def verify(remote, repo, ref):
+        if remote._git(repo, 'cat-file', '-t', ref).decode().strip() != 'tag':
+            raise OverlayCheckError(f'{ref} is not an annotated, signed tag')
+        output = remote._git(repo, 'verify-tag', ref, config=(f'gpg.ssh.allowedSignersFile={path}',),
+                             with_stderr=True).decode('utf-8', 'replace')
+        if release['signer_identity'] not in output or release['signer_key_fingerprint'] not in output:
+            raise OverlayCheckError(f'the signature of {ref} does not name the pinned release signer')
+    return verify
 
 
 # --- Checks -----------------------------------------------------------------
@@ -893,15 +1075,106 @@ def module_checks(overlay):
     return result
 
 
-def applicable(qualifier, inapplicable):
-    """False when a qualifier token (a pseudo-locale, a TV or watch mode) never matches the phones."""
-    return not any(p.fullmatch(token) for token in qualifier.split('-') for p in inapplicable)
+def applies(qualifier, config):
+    """False when a qualifier never matches the configured device: a token listed in
+    inapplicable_qualifier_tokens (pseudo-locales, TV or watch modes), a smallest width above the
+    device's, or an API level above api_level."""
+    for token in qualifier.split('-') if qualifier else []:
+        if any(p.fullmatch(token) for p in config['inapplicable']):
+            return False
+        width, level = SW_QUALIFIER.match(token.lower()), API_QUALIFIER.match(token.lower())
+        if width and int(width.group(1)) > config['device']['smallest_width']:
+            return False
+        if level and int(level.group(1)) > config['api_level']:
+            return False
+    return True
 
 
-def resource_checks(overlay, target, api_level, inapplicable=(), incomplete=False):
+def modelled(qualifier):
+    """(smallest width, density, API level) of a qualifier made only of those parts, or None.
+    A missing part is 0, as in ResTable_config."""
+    values = {}
+    for token in qualifier.lower().split('-') if qualifier else []:
+        if (match := SW_QUALIFIER.match(token)):
+            key, value = 'sw', int(match.group(1))
+        elif (match := DENSITY_QUALIFIER.match(token)):
+            key, value = 'density', DENSITIES.get(token) or int(match.group(1))
+        elif (match := API_QUALIFIER.match(token)):
+            key, value = 'version', int(match.group(1))
+        else:
+            return None
+        if key in values:
+            return None
+        values[key] = value
+    return (values.get('sw', 0), values.get('density', 0), values.get('version', 0))
+
+
+def better(mine, other, density):
+    """ResTable_config::isBetterThan at the pin (libs/androidfw/ResourceTypes.cpp) for two matching
+    configurations that differ only in smallest width, density and API level."""
+    if (mine[0] or other[0]) and mine[0] != other[0]:
+        return mine[0] > other[0]
+    if mine[1] != other[1]:
+        this, that = mine[1] or DENSITY_MEDIUM, other[1] or DENSITY_MEDIUM
+        if this == DENSITY_ANY:
+            return True
+        if that == DENSITY_ANY:
+            return False
+        high, low, bigger = (this, that, True) if this >= that else (that, this, False)
+        if high == density:
+            return bigger
+        if low >= density:
+            return not bigger
+        return bigger
+    if (mine[2] or other[2]) and mine[2] != other[2]:
+        return mine[2] > other[2]
+    return False
+
+
+def best(configurations, density):
+    """The configuration AssetManager2 picks among matching ones."""
+    chosen = None
+    for configuration in sorted(configurations):
+        if chosen is None or better(configuration, chosen, density):
+            chosen = configuration
+    return chosen
+
+
+def device_model(mine, theirs, config):
+    """(shadowed, covered) target qualifiers on the configured device. AssetManager2 uses an
+    overlay's value only when the overlay's best configuration is equal to or better than the
+    target's best (AssetManager2.cpp, FindEntry). Only qualifiers made of smallest width, density
+    and API level are modelled; the rest are compared by name."""
+    density = config['device']['density']
+    targets = {q: m for q in theirs if applies(q, config) and (m := modelled(q)) is not None}
+    own = [m for q in mine if applies(q, config) and (m := modelled(q)) is not None]
+    if not targets or not own:
+        return set(), set()
+    chosen = best(own, density)
+    target_best = best(targets.values(), density)
+    if chosen == target_best or better(chosen, target_best, density):
+        return set(), set(targets)
+    shadowed = {q for q, m in targets.items() if not (m == chosen or better(chosen, m, density))}
+    return shadowed, set(targets) - shadowed
+
+
+def _waived(waivers, name, resource, qualifiers):
+    result = set()
+    for waiver in waivers:
+        if waiver['overlay'] == name and waiver['resource'] == resource:
+            listed = {q.lower() for q in waiver['qualifiers']}
+            result |= {q for q in qualifiers if '*' in listed or (q or 'default').lower() in listed}
+    return result
+
+
+def resource_checks(overlay, target, config, incomplete=False):
     name, package, result = overlay['module'], overlay['target'], []
+    product = overlay['role'] == 'product'
     caveat = ' (its sources are incomplete)' if incomplete else ''
     fulfilled = {'public', PARTITION_POLICY.get(overlay['partition'], 'system')}
+    device = config['device']
+    where = f'API {config["api_level"]}, {device["density"]} dpi, smallest width {device["smallest_width"]} dp'
+    waivers = config['product_rules']['qualifier_waivers'] if product else []
     for key, qualifiers in sorted(overlay['resources'].entries.items()):
         resource = f'{key[0]}/{key[1]}'
         mine = set(qualifiers)
@@ -915,17 +1188,21 @@ def resource_checks(overlay, target, api_level, inapplicable=(), incomplete=Fals
         if extra:
             result.append(finding('warning', 'qualifier-not-in-target', f'{name}: {resource} adds qualifiers '
                                   f'{package} does not define for it: {show(extra)}', name, package, resource, extra))
+        shadowed, covered = device_model(mine, theirs, config)
+        if shadowed:
+            result.append(finding('error', 'shadowed', f'{name}: {package} defines {resource} for {show(shadowed)}, '
+                                  f'which wins over every variant the overlay has on the configured device '
+                                  f'({where}), so the overlaid value does not apply there',
+                                  name, package, resource, shadowed))
         mine_lower = {q.lower() for q in mine}
-        uncovered = {q for q in theirs if q.lower() not in mine_lower and applicable(q, inapplicable)}
-        always = {q for q in uncovered if API_QUALIFIER.match(q) and int(q[1:]) <= api_level}
-        if always:
-            result.append(finding('error', 'shadowed', f'{name}: {package} defines {resource} for {show(always)}, '
-                                  f'which applies on every API {api_level} device and replaces the overlaid value',
-                                  name, package, resource, always))
-        if uncovered - always:
-            result.append(finding('warning', 'target-qualifier', f'{name}: {package} also defines {resource} for '
-                                  f'qualifiers the overlay does not cover, where its own value still applies: '
-                                  f'{show(uncovered - always)}', name, package, resource, uncovered - always))
+        uncovered = {q for q in theirs if q.lower() not in mine_lower and applies(q, config)} - shadowed - covered
+        uncovered -= _waived(waivers, name, resource, uncovered)
+        if uncovered:
+            rule = (' (product overlays must cover every target qualifier, or name it in a reviewed waiver)'
+                    if product else '')
+            result.append(finding('error' if product else 'warning', 'target-qualifier', f'{name}: {package} also '
+                                  f'defines {resource} for qualifiers the overlay does not cover, where its own '
+                                  f'value still applies: {show(uncovered)}{rule}', name, package, resource, uncovered))
         if all(None not in flags for flags in theirs.values()):
             flags = sorted({f for fs in theirs.values() for f in fs})
             result.append(finding('warning', 'flagged-in-target', f'{name}: {resource} exists in {package} only '
@@ -952,6 +1229,38 @@ def resource_checks(overlay, target, api_level, inapplicable=(), incomplete=Fals
                 result.append(finding('error', 'policy', f'{name}: {resource} is overlayable only with policy '
                                       f'{"|".join(sorted(policies)) or "none"}; the overlay fulfils '
                                       f'{"|".join(sorted(fulfilled))}', name, package, resource))
+    return result
+
+
+def product_checks(overlay, rules):
+    """Rules 3 and 4 of the agreed spec for DiamaneOS-wide (product) overlays: an allowlist of types
+    and reviewed names, and a denylist that wins over it. Device (FP6 hardware) overlays are exempt."""
+    name, package, result = overlay['module'], overlay['target'], []
+    allowed = rules['allowed_names'].get(package, {})
+    strings = rules['allowed_strings'].get(package, {})
+    denied_names = rules['denied_names'].get(package, {})
+    denied_types = rules['denied_types'].get(package, {})
+    patterns = rules['denied_patterns'].get(package, [])
+    for rtype, rname in sorted(overlay['resources'].entries):
+        resource = f'{rtype}/{rname}'
+        reason = (denied_names.get(rname) or denied_types.get(rtype)
+                  or next((why for pattern, why in patterns if pattern.search(rname)), None))
+        if reason:
+            result.append(finding('error', 'denied', f'{name}: {resource} is on the denylist for {package}: '
+                                  f'{reason}', name, package, resource))
+        elif rname in allowed:
+            continue
+        elif rtype == 'string':
+            if rname not in strings:
+                result.append(finding('error', 'not-allowed', f'{name}: {resource} is not a listed rebrand string '
+                                      f'for {package}', name, package, resource))
+        elif rtype not in rules['allowed_types']:
+            result.append(finding('error', 'not-allowed', f'{name}: {resource}: {rtype} resources are not on the '
+                                  f'product allowlist; name it in product_rules.allowed_names after review',
+                                  name, package, resource))
+        elif rname.startswith(rules['restricted_prefixes']):
+            result.append(finding('error', 'not-allowed', f'{name}: {resource} is a config name that is not on '
+                                  f'the product allowlist for {package}', name, package, resource))
     return result
 
 
@@ -987,6 +1296,8 @@ def run_check(overlays, config, source):
     by_target = {}
     for overlay in overlays:
         findings.extend(module_checks(overlay))
+        if overlay['role'] == 'product':
+            findings.extend(product_checks(overlay, config['product_rules']))
         by_target.setdefault(overlay['target'], []).append(overlay)
     for package, group in sorted(by_target.items()):
         registered = config['targets'].get(package)
@@ -1001,8 +1312,7 @@ def run_check(overlays, config, source):
             summaries[package] = {'resources': len(resources.entries),
                                   'defines_overlayable': resources.defines_overlayable, 'sources': used}
             for overlay in group:
-                findings.extend(resource_checks(overlay, resources, config['api_level'], config['inapplicable'],
-                                                bool(problems)))
+                findings.extend(resource_checks(overlay, resources, config, bool(problems)))
         findings.extend(cross_checks(package, group))
     return sort_findings(findings), summaries
 
@@ -1074,6 +1384,11 @@ def _parser():
                         help='source tree layout: manifest paths (default) or repository names')
     parser.add_argument('--cache', type=Path, help='download cache directory (needed with --fetch)')
     parser.add_argument('--tag', help='GrapheneOS release tag (default: the pinned build environment)')
+    parser.add_argument('--allowed-signers', type=Path,
+                        help='GrapheneOS allowed_signers file (its SHA-256 must match the build environment); '
+                             'verifies the signature of a fetched tag, needed for a tag other than the pinned one')
+    parser.add_argument('--allow-unpinned', action='store_true',
+                        help='fetch a tag other than the pinned one without verifying its signature (TLS only)')
     parser.add_argument('--manifest', type=Path, help='release manifest file instead of fetching the tag')
     parser.add_argument('--json', action='store_true', help='print the report as JSON')
     parser.add_argument('--strict', action='store_true', help='fail on warnings too')
@@ -1084,11 +1399,14 @@ def _log(message):
     print(message, file=sys.stderr, flush=True)
 
 
-def resolve_manifest(args, release, url_allowed=https_only):
+def resolve_manifest(args, release, url_allowed=https_only, protocols=FETCH_PROTOCOLS):
     """Manifest bytes and how they were identified.
 
     A fetched manifest of the pinned release must match the build environment's
-    digest. A manifest file is identified by that digest or by an explicit --tag.
+    digest. A fetched tag other than the pinned one must carry a signature that
+    the pinned allowed-signers file accepts from the pinned signer, unless
+    --allow-unpinned is given. A manifest file is identified by the pinned digest
+    or by an explicit --tag.
     """
     tag = args.tag or release['release_tag']
     if not TAG.match(tag):
@@ -1107,53 +1425,63 @@ def resolve_manifest(args, release, url_allowed=https_only):
         return data, {'release_tag': tag, 'manifest_sha256': digest, 'manifest': state}
     if not args.cache:
         raise OverlayCheckError('fetching the release manifest needs --cache (or pass --manifest)')
-    data = fetch_manifest(args.cache, release['manifest_url'], tag, url_allowed, _log)
+    unpinned = tag != release['release_tag']
+    verify = tag_verifier(release, args.allowed_signers) if args.allowed_signers else None
+    if unpinned and not verify and not args.allow_unpinned:
+        raise OverlayCheckError(f'{tag} is not the pinned release {release["release_tag"]}: pass --allowed-signers '
+                                'with the pinned GrapheneOS allowed_signers file to verify its signature, or '
+                                '--allow-unpinned to rely on TLS alone')
+    data = fetch_manifest(args.cache, release['manifest_url'], tag, url_allowed, _log, protocols, verify)
     digest = hashlib.sha256(data).hexdigest()
-    if tag == release['release_tag'] and digest != pinned:
+    if not unpinned and digest != pinned:
         raise OverlayCheckError(f'the fetched manifest of {tag} does not match the pinned digest')
-    state = 'pinned-digest' if tag == release['release_tag'] else 'fetched-unpinned-tag'
+    state = 'pinned-digest' if not unpinned else ('signed-tag' if verify else 'unverified-tag')
     return data, {'release_tag': tag, 'manifest_sha256': digest, 'manifest': state}
 
 
 def overlay_roots(args, config):
-    """Overlay directories with their roles, and the base for printed paths."""
+    """Overlay directories with their roles, the base for printed paths, and the directories
+    whose make files are searched for make-defined overlays."""
     if args.product_overlays or args.device_overlays:
         roots = [{'path': p, 'role': 'product', 'label': p.name} for p in args.product_overlays]
         roots += [{'path': p, 'role': 'device', 'label': p.name} for p in args.device_overlays]
         common = Path(os.path.commonpath([str(r['path'].resolve()) for r in roots]))
-        return roots, common.parent
+        return roots, common.parent, []
     roots = [{'path': args.root / r['path'], 'role': r['role'], 'label': r['path']}
              for r in config['overlay_roots']]
-    return roots, args.root
+    return roots, args.root, [args.root / p for p in config['make_roots']]
 
 
-def main(argv=None, url_allowed=https_only, release_path=ENVIRONMENT):
+def main(argv=None, url_allowed=https_only, release_path=ENVIRONMENT, protocols=FETCH_PROTOCOLS):
     args = _parser().parse_args(argv)
     try:
         config = load_config(args.config)
-        roots, label_base = overlay_roots(args, config)
+        roots, label_base, make_roots = overlay_roots(args, config)
         if args.fetch:
             if not args.cache:
                 raise OverlayCheckError('--fetch needs --cache')
-            data, info = resolve_manifest(args, pinned_release(release_path), url_allowed)
-            source = ManifestRemote(args.cache, parse_manifest(data), url_allowed, _log)
+            data, info = resolve_manifest(args, pinned_release(release_path), url_allowed, protocols)
+            source = ManifestRemote(args.cache, parse_manifest(data), url_allowed, _log, protocols)
             source_info = dict(info, kind='fetch')
         else:
             projects = None
             if args.source_layout == 'name':
                 if not (args.manifest or args.cache):
                     raise OverlayCheckError('the name layout needs --manifest or --cache for the project map')
-                data, _ = resolve_manifest(args, pinned_release(release_path), url_allowed)
+                data, _ = resolve_manifest(args, pinned_release(release_path), url_allowed, protocols)
                 projects = parse_manifest(data)
             source = SourceTree(args.source_tree, projects)
             source_info = {'kind': 'tree', 'path': args.source_tree.name, 'layout': args.source_layout}
-        overlays, findings = discover(roots, label_base)
+        overlays, findings = discover(roots, label_base, make_roots)
         checked, summaries = run_check(overlays, config, source)
         if args.fetch:
             source_info['fetched_files'] = source.fetched_blobs
         report = build_report(overlays, sort_findings(findings + checked), summaries, source_info, args.strict)
     except OverlayCheckError as error:
         print(f'ERROR: {error}', file=sys.stderr)
+        return 2
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f'ERROR: the check could not run: {error}', file=sys.stderr)
         return 2
     print(json.dumps(report, indent=2) if args.json else render_text(report))
     return 1 if report['status'] == 'fail' else 0

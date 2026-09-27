@@ -674,15 +674,27 @@ Git remotes, so they need no network:
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlays -t .
 ```
 
-Run the real check on each new release tag, with target sources fetched into a
-private cache outside this repository:
+Run the real check on each new release tag and whenever an overlay changes,
+with target sources fetched into a private cache outside this repository. For
+the pinned release:
 
 ```sh
 bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR>
 ```
 
-A passing check means the overlaid names, qualifiers and overlayable policies
-agree with the sources. It is not idmap2 on the built targets or a phone check.
+For a new tag, either update `config/build-environment.json` to it first, or
+verify the tag's signature with the pinned GrapheneOS allowed-signers file:
+
+```sh
+bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR> \
+    --tag <TAG> --allowed-signers <GRAPHENEOS_ALLOWED_SIGNERS>
+```
+
+Product (Tally) overlays fail on rules 1 to 5 without `--strict`; `--strict`
+also fails on the warnings, which are mostly the FP6 hardware overlays' own
+qualifier gaps. A passing check means the overlaid names, qualifiers, allowlist
+and overlayable policies agree with the sources. It is not idmap2 on the built
+targets or a phone check.
 
 ## Endpoint contracts
 
