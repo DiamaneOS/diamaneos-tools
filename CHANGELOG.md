@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Install the stock touch controller firmware, and turn the stock LPA's eSIM
+  service off again without its JNI library: it cannot list profiles on the
+  FP6, and installed eSIM profiles keep working as SIMs.
+
 - Build the FP6 kernel with the production configuration by default and check
   the vendor configuration too; keep unused modules out with a deny list that
   survives list regeneration; retire the NXP/ST NFC, ST eSE, mm-sys and Kleaf
