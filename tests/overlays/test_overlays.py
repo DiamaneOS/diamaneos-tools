@@ -227,6 +227,17 @@ class ResourceTests(Fixture):
         code, report, _ = self.check()
         self.assertEqual((code, report['findings']), (0, []))
 
+    def test_committed_rules_keep_product_overlays_off_the_tally_indicators(self):
+        rules = overlays.load_config()['product_rules']
+        resources = overlays.Resources()
+        for rtype, rname in (('dimen', 'tally_privacy_dot_size'), ('color', 'tally_sensor_dark'),
+                             ('color', 'tally_capture_light'), ('dimen', 'tally_lens_radius'),
+                             ('dimen', 'privacy_dot_size'), ('color', 'ongoing_privacy_chip')):
+            resources.add(rtype, rname, '')
+        overlay = {'module': 'ExampleSystemUIOverlay', 'target': 'com.android.systemui', 'resources': resources}
+        denied = {f['resource'] for f in overlays.product_checks(overlay, rules) if f['code'] == 'denied'}
+        self.assertEqual(denied, {f'{t}/{n}' for t, n in resources.entries})
+
     def test_configuration_model_follows_the_platform(self):
         # ResTable_config::isBetterThan at 480 dpi for the modelled fields.
         m = overlays.modelled
