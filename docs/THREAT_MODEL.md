@@ -720,12 +720,12 @@ Revision history:
   if shipped: a crash takes every privacy indicator down), and that the strip
   showed an alarm more than 12 hours away, Bluetooth when on but not connected
   and the battery percentage always, and the always-on strip briefly after
-  dozing with doze off, all more than stock's lock screen shows; fixes are in
-  progress on the branch, matching stock.
+  dozing with doze off, all more than stock's lock screen shows; the branch now
+  fixes all of them, matching stock, with tests that fail on the old code.
 - 2026-09-28: security review A of step 3.3 (local tally-lock, not built): the
   bouncer's Tally code only draws, and the fingerprint hint's count cannot affect
   unlocking; its background read and write are to be guarded, so a bad value only
-  hides the hint instead of crashing SystemUI (a hardening item, fix queued).
+  hides the hint instead of crashing SystemUI (fixed on the branch).
 - 2026-09-28: the security review of step 3.6 (local tally-recents, not built)
   found that a Stop from Recents did not check that the lock screen was
   dismissed, as the Active apps dialog does, and two robustness gaps: a listener
