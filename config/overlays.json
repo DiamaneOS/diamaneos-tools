@@ -114,7 +114,8 @@
       "com.android.systemui": {
         "^ongoing_appops_": "privacy indicators stay as the SystemUI fork sets them",
         "^ongoing_privacy_": "privacy indicators stay as the SystemUI fork sets them",
-        "^privacy_": "privacy indicators stay as the SystemUI fork sets them"
+        "^privacy_": "privacy indicators stay as the SystemUI fork sets them",
+        "^tally_": "the Tally shell's tokens and indicator resources (sensor and capture colours, the privacy dot's size and margin, lamps, springs) come from the SystemUI fork and its token library; the lens config is a device value"
       }
     },
     "qualifier_waivers": []
