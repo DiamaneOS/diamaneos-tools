@@ -1,5 +1,15 @@
 # DiamaneOS Threat Model and Product Boundaries
 
+IMS status (2026-09-28): the enforcing development image has demonstrated
+ordinary voice, SMS and mobile data on the tested subscriptions, including basic
+Wi-Fi calling and VPN-lockdown coexistence. Reconnection can still leave IMS
+unavailable for roughly ten minutes, and a second-network observer/address
+discrepancy remains under investigation. Emergency calls and carrier location
+delivery are not validated by the passing simulated telephony tests. The new
+`de.diamaneos` app/interface identities require separate build/device validation;
+previous image results are not acceptance of the namespace migration. The
+historical integration notes below describe how the current containment evolved.
+
 IMS/IWLAN candidate update (2026-09-27): the source DCM broker and stock Qualcomm
 IWLAN/certificate frontend are prepared on an integration branch. The certificate
 helper adds a modem-facing QRTR client; it and IWLAN share their own application
