@@ -363,6 +363,116 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_opt_telephony"
     },
     {
+      "checkout_path": "WORK_ROOT/os/frameworks/base",
+      "id": "frameworks-base",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_base.git",
+      "revision": null,
+      "slug": "platform_frameworks_base",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_base"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/frameworks/libs/systemui",
+      "id": "frameworks-libs-systemui",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_libs_systemui.git",
+      "revision": null,
+      "slug": "platform_frameworks_libs_systemui",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_libs_systemui"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/ThemePicker",
+      "id": "theme-picker",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_ThemePicker.git",
+      "revision": null,
+      "slug": "platform_packages_apps_ThemePicker",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_ThemePicker"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/WallpaperPicker2",
+      "id": "wallpaper-picker",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_WallpaperPicker2.git",
+      "revision": null,
+      "slug": "platform_packages_apps_WallpaperPicker2",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_WallpaperPicker2"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Launcher3",
+      "id": "launcher",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_Launcher3.git",
+      "revision": null,
+      "slug": "platform_packages_apps_Launcher3",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_Launcher3"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Settings",
+      "id": "settings",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_Settings.git",
+      "revision": null,
+      "slug": "platform_packages_apps_Settings",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_Settings"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/SettingsIntelligence",
+      "id": "settings-intelligence",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_SettingsIntelligence.git",
+      "revision": null,
+      "slug": "platform_packages_apps_SettingsIntelligence",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_SettingsIntelligence"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/DeskClock",
+      "id": "deskclock",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_DeskClock.git",
+      "revision": null,
+      "slug": "platform_packages_apps_DeskClock",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_DeskClock"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/ExactCalculator",
+      "id": "calculator",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_ExactCalculator.git",
+      "revision": null,
+      "slug": "platform_packages_apps_ExactCalculator",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_ExactCalculator"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/bootable/recovery",
+      "id": "recovery",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_bootable_recovery.git",
+      "revision": null,
+      "slug": "platform_bootable_recovery",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_bootable_recovery"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/inputmethods/LatinIME",
+      "id": "keyboard",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_inputmethods_LatinIME.git",
+      "revision": null,
+      "slug": "platform_packages_inputmethods_LatinIME",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_inputmethods_LatinIME"
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/bootable/bootloader/edk2",
       "id": "kernel-qcom-edk2",
       "publication": "public-source",
