@@ -94,16 +94,19 @@
       "workspace": "android",
       "path": "frameworks/opt/telephony",
       "base_revision": "02e1bf0ea9fe5d2cdb3cf954cc1353a935821ebc",
-      "derived_revision": "6c54c1b07423bf379ac750a43755c563f148ea4f",
-      "canonical_diff_sha256": "fc6b920f6ac9d1edec1350f57882a147954a6df3df74b096135eb1554a14a567",
+      "derived_revision": "4321aee90dc87ab94fb301fdc24cdae19cd87668",
+      "canonical_diff_sha256": "f3a3ae4a17889bb9f1d66418603acc43f9a740f746e264525ceeca3068c3c4ca",
       "changed_files": [
         "src/java/com/android/internal/telephony/Phone.java",
         "src/java/com/android/internal/telephony/ServiceStateTracker.java",
         "tests/telephonytests/src/com/android/internal/telephony/GsmCdmaPhoneTest.java",
-        "tests/telephonytests/src/com/android/internal/telephony/ServiceStateTrackerTest.java"
+        "tests/telephonytests/src/com/android/internal/telephony/ServiceStateTrackerTest.java",
+        "tests/telephonytests/src/com/android/internal/telephony/SmsDispatchersControllerTest.java",
+        "tests/telephonytests/src/com/android/internal/telephony/data/PhoneSwitcherTest.java",
+        "tests/telephonytests/src/com/android/internal/telephony/gsm/GsmInboundSmsHandlerTest.java"
       ],
       "purpose": "Batch the vendor RIL's network-state polls while the phone is idle: with ro.telephony.network_state_poll_window_ms set, a network-state report polls at once unless the phone is idle, SIM ready, radio on, in service and no phone has a call, ECBM or emergency SMS; then later reports within the window wait for the next poll, with a wakeup backstop at twice the window. Screen on, charging and every non-idle state poll immediately; unset keeps upstream behaviour.",
-      "validation": "telephony-common compiles in the r9r tree (2026-09-26). FrameworksTelephonyTests does not compile at the GrapheneOS base (SmsDispatchersControllerTest, GsmInboundSmsHandlerTest), so the new tests are reviewed but not run. FP6 value 5000 ms (owner accepted the 10 s worst case); r9s phone test pending."
+      "validation": "Native telephony and test APK compilation pass. Applicable Android device mocks cover poll coalescing, phone control, SMS and SIM selection; compiled-out feature-flag branches are explicitly skipped. Hardware idle/wakeup effectiveness and carrier lifecycle behavior require separate device evidence."
     },
     {
       "id": "kernel-common-randstruct-callbacks",
