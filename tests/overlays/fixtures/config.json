@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "api_level": 37,
+  "device": {"density_dpi": 480, "smallest_width_dp": 372},
+  "inapplicable_qualifier_tokens": ["r(XA|XB|XC)", "sw([6-9][0-9]{2}|[0-9]{4,})dp"],
+  "overlay_roots": [
+    {"path": "vendor_example/overlay", "role": "product"},
+    {"path": "device_example/rro", "role": "device"}
+  ],
+  "make_roots": ["vendor_example", "device_example"],
+  "product_rules": {
+    "allowed_types": ["style", "color", "drawable", "dimen", "font", "mipmap", "anim"],
+    "restricted_prefixes": ["config_"],
+    "allowed_names": {
+      "android": {"config_buttonTextAllCaps": "no capitals", "config_buttonCornerRadius": "radius 8"}
+    },
+    "allowed_strings": {
+      "com.android.settings": {"settings_title": "rebrand", "lib_summary": "rebrand"}
+    },
+    "denied_names": {"com.example.locked": {"forbidden": "never overlaid"}},
+    "denied_types": {"com.example.locked": {"bool": "behaviour switches stay upstream"}},
+    "denied_patterns": {"com.example.locked": {"^privacy_": "privacy indicators stay upstream"}},
+    "qualifier_waivers": []
+  },
+  "targets": [
+    {"package": "android", "sources": [{"project": "frameworks/base", "res": ["core/res/res"]}]},
+    {"package": "com.android.settings", "sources": [
+      {"project": "packages/apps/Settings", "res": ["res"]},
+      {"project": "frameworks/base", "res": ["packages/*/res"]}
+    ]},
+    {"package": "com.example.locked", "sources": [{"project": "packages/apps/Locked", "res": ["res"]}]}
+  ]
+}

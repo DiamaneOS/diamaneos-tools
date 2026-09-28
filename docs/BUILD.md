@@ -104,7 +104,7 @@ by the upstream build guide. This is a declared compatibility deviation. The
 reference builder closed that deviation for this exact environment with clean
 generic qualification run `generic-qualification-20260919T170522Z`. The run
 used signed tools commit
-`744c347cbbacb8d24ed9e985078798d0e2a2a5e5`, environment
+`24a03bce3bdfb9c0cdf301b9c3ea43331576945f`, environment
 `fp6-android17-grapheneos-2026091000-debian13-v4`, target
 `sdk_phone64_x86_64-cur-userdebug` and an initially empty source-local `out`
 directory. Preflight and postflight retained the same 1,057-project map and
@@ -239,8 +239,10 @@ forks and the kernel forks in `config/patches.json`. A fork exists only where
 DiamaneOS changes the code; each follows the CodeLinaro release branch of the
 selected Qualcomm release. A fork that stops carrying a needed change leaves
 both files, its project is pinned unmodified in the source plan, and
-`config/repositories.json` marks it `retired` (still published, so earlier
-builds can be reproduced). A `follow_note` says why a fork that ships nothing
+`config/repositories.json` marks it `retired` while it is still published.
+Before release a retired fork may be deleted; its entry then goes, and builds
+whose manifests pinned it can no longer be synced from GitHub (the five forks
+retired in r9t were deleted on 2026-09-27). A `follow_note` says why a fork that ships nothing
 is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
 GrapheneOS release, the repo launcher, Fairphone's source manifest, the
 Qualcomm SELinux policy, the stock factory image and the platform repositories
