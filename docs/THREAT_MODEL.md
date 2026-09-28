@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -437,8 +437,17 @@ rule in the supply-chain rows.
   touches never reach an animating app; permission-grant, restricted-setting,
   package-installer, USB, biometric and bouncer windows keep stock or shorter
   enter animations.
-- Quick Settings: Tally tiles reuse the upstream click handlers, so a tile that
-  needs an unlock still asks for one.
+- Quick Settings and the shade: Tally tiles, the first pull's keycaps included,
+  reuse the upstream click, secondary-click and long-click handlers, so a tile
+  that needs an unlock still asks for one; the security footer shows under
+  upstream's conditions with its VPN or management icon; the shade header's
+  privacy container keeps the platform's privacy data and its tap to the stock
+  privacy dialog. Notification cards change drawing only: which notifications
+  show, private-content redaction and work-profile redaction are untouched, and
+  the live lamp is never drawn on a redacted notification. The media card no
+  longer shows album art (less on the lock screen, not more). Side effects are
+  visual only: Quick Settings dialogs, the privacy dialog included, get a 20 dp
+  corner radius.
 - Settings switches: restyled only through their layouts and drawables, never
   their logic (protection against obscured touches, administrator- and
   restricted-setting-disabled states), with those states tested. SettingsLib's
@@ -672,3 +681,9 @@ Revision history:
   the limits: an app's own in-window scrim is not seen, the status bar chips sit
   under SystemUI's dialogs and shade, and the FP6's ring follows the declared
   rectangular cutout.
+- 2026-09-28: the shade and Quick Settings of roadmap step 3.2 (local branch
+  tally-shade, not built) join the shell rules: tiles and keycaps keep the
+  upstream handlers and unlock gating, the security footer and the privacy
+  container keep their conditions, data and tap, notification cards keep every
+  visibility and redaction rule and never light a lamp on a redacted card, and
+  the media card drops album art.
