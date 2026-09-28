@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add `overlays check`: compare each resource overlay with its target's
+  resources at a GrapheneOS release (from a source tree or fetched at the
+  pinned commits), including overlayable policies, partitions, signing and
+  priorities within a partition, with a JSON report for CI. Product overlays also follow the
+  agreed allowlist, denylist and qualifier-coverage rules; target variants that
+  always win on the FP6 (API level, density, smallest width) are errors; git
+  runs isolated from the caller's environment and configuration; and a tag
+  other than the pinned one needs a verified signature.
+
 - Install the stock touch controller firmware, and turn the stock LPA's eSIM
   service off again without its JNI library: it cannot list profiles on the
   FP6, and installed eSIM profiles keep working as SIMs.

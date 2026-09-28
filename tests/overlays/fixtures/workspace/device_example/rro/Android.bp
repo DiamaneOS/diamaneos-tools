@@ -1,0 +1,6 @@
+runtime_resource_overlay {
+    name: "DeviceFrameworkOverlay",
+    vendor: true,
+    manifest: "DeviceFrameworkOverlay/AndroidManifest.xml",
+    resource_dirs: ["DeviceFrameworkOverlay/res"],
+}

@@ -1,0 +1,6 @@
+<resources>
+    <integer name="config_screenBrightnessDoze">17</integer>
+    <string-array name="config_ambientSensors" translatable="false">
+        <item>light</item>
+    </string-array>
+</resources>

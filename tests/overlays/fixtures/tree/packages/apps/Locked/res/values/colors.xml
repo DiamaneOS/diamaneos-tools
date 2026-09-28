@@ -1,0 +1,6 @@
+<resources>
+    <color name="accent">#3D5AFE</color>
+    <color name="plain">#000000</color>
+    <color name="secret">#FF0000</color>
+    <color name="odm_only">#00FF00</color>
+</resources>

@@ -166,7 +166,7 @@ refuses before any adb command. Over-producers are killed at the byte
 cap (termination proven, not just detected); failed captures keep partial
 stdout+stderr evidence with hashes; device-gone stays error/partial, never
 unsupported-complete. At collector revision
-`fddadbb9d1ac6c7853b4add32785703bb90ef11e`, one stock Android 15 FP6 host
+`73452925347dba523cf22b86df58789527b177dc`, one stock Android 15 FP6 host
 acceptance run produced five `ok` cases, one explicit `unsupported` service and
 zero errors; its raw bundle and device identity remain private. That proves the
 bounded read-only capture path, not custom-OS compatibility or comparative
@@ -634,7 +634,7 @@ requires a separate explicit operator authorization; the read-only suite never
 changes a subscription.
 
 FP6-034 hardware-harness acceptance used signed implementation commit
-`33ed9ec01fb9aef6d5e01097dc472bb4f6d3988e` on the accepted test host. The
+`089432fd6d82e10cce384747d4b0438120e60086` on the accepted test host. The
 read-only `smoke` suite ran on the locked stock Android 15 FP6 build
 `FP6.QREL.15.176.0` (`VS21`, user build) as
 `fp6-034-stock15-20260911T234004Z`. The schema-valid, complete report selected
@@ -662,6 +662,39 @@ partner-suite completion is claimed.
 The original early-risk ledger remains an input to final case selection.
 Complete CDD coverage and all applicable CTS, CTS Verifier, VTS and modular
 suite results remain release-gate work on the actual FP6 `user` candidate.
+
+## Resource overlay check
+
+`bin/diamaneos overlays check` compares every DiamaneOS resource overlay with
+its target's resources at a GrapheneOS release; see [OVERLAYS.md](OVERLAYS.md)
+for the rules, sources and report. Its tests use small fixture trees and local
+Git remotes, so they need no network:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlays -t .
+```
+
+Run the real check on each new release tag and whenever an overlay changes,
+with target sources fetched into a private cache outside this repository. For
+the pinned release:
+
+```sh
+bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR>
+```
+
+For a new tag, either update `config/build-environment.json` to it first, or
+verify the tag's signature with the pinned GrapheneOS allowed-signers file:
+
+```sh
+bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR> \
+    --tag <TAG> --allowed-signers <GRAPHENEOS_ALLOWED_SIGNERS>
+```
+
+Product (Tally) overlays fail on rules 1 to 5 without `--strict`; `--strict`
+also fails on the warnings, which are mostly the FP6 hardware overlays' own
+qualifier gaps. A passing check means the overlaid names, qualifiers, allowlist
+and overlayable policies agree with the sources. It is not idmap2 on the built
+targets or a phone check.
 
 ## Endpoint contracts
 

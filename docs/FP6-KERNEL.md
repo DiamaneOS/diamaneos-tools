@@ -156,6 +156,12 @@ event buffers, stop handling and others) as kretprobes on the built-in dwc3
 core and ignores registration failures, so without kprobes those hooks silently
 disappear. Lockdown blocks every kprobe created from user space (tracefs and
 perf) and BPF kernel reads, so only signed kernel code can place probes.
+The same confidentiality level turns tracing off (tracefs stays empty, so
+perfetto and atrace cannot trace) and withholds kernel-memory reads from every
+BPF program, so Android's per-UID CPU time tracking (per-app CPU use in Battery
+usage) and the memevents OOM listener do not start. Integrity level would
+restore both but let root place probes through tracefs; the level is an open
+decision.
 Turning KPROBES off first needs those hooks as explicit calls in both kernel
 trees. Enforcing USER policy does not replace any of these kernel settings. The
 current artifacts use development AVB identities and are not release, relock or
@@ -168,5 +174,15 @@ init's environment listing); kernel parameters keep their values in the log.
 pstore/ramoops has a 4 MiB region placed at boot in `/reserved-memory` of the
 FP6 device tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), from
 the DiamaneOS fork of Fairphone's SoC device-tree project. It keeps the
-previous boot's kernel log in RAM across a soft reboot; whether the FP6 firmware
-preserves that memory is still to be tested.
+previous boot's kernel console and pmsg in RAM across a warm reboot. The
+kernel reboots cold by default (`/sys/kernel/reboot/mode` is `cold`, and
+Qualcomm download mode is off), and so does a kernel crash, so the PMIC does a
+hard reset that powers the RAM off and the region comes back empty. A one-off
+warm reboot on r9t kept both zones, so the bootloader itself does not clear
+RAM. Cold reboots stay the default (owner decision, 2026-09-27). The console zone
+gets only what reaches a console: the device tree's bootargs set loglevel=6,
+so it holds notice-level and more severe messages (warnings, errors, panic
+output), not info lines. The region has no fixed address; the ramoops driver
+finds the dynamically placed region through its reserved-memory lookup, and it
+lands at the same place on every boot while the device tree and memory map
+stay the same.
