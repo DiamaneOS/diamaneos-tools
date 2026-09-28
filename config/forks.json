@@ -2,6 +2,21 @@
   "schema_version": 2,
   "policy": "Every upstream DiamaneOS builds from. forks: repositories we fork and patch (the manifest overlay forks on android17 and the kernel forks pinned in config/patches.json); the fork branch is the pin and upstream is the reference it follows. sources: pinned upstream inputs that are not forked; pin names the file and field that hold the pinned value. newer: branches or tags that would supersede the followed reference, ordered by their capture group. Fairphone forks track the public-build branch where it exists, otherwise rc; CodeLinaro forks track a release tag, or the newest release branch that contains the pinned commit with its release tags as newer. Checks read remote refs only and never move a branch or push; upstream updates are rebased into a local candidate branch for build and review, and adopting one is a reviewed, signed change.",
   "forks": [
+    {
+      "id": "connectivity-framework",
+      "slug": "platform_packages_modules_Connectivity",
+      "path": "packages/modules/Connectivity",
+      "branch": "android17",
+      "follow_note": "GrapheneOS Connectivity framework; rebase with the selected GrapheneOS release tag and retain address-state regression checks.",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
+        "ref": "17",
+        "kind": "branch"
+      },
+      "newer": {
+        "tags": "^([0-9]{10})$"
+      }
+    },
     {"id": "ims-entitlement", "slug": "platform_packages_apps_ImsServiceEntitlement", "path": "packages/apps/ImsServiceEntitlement", "branch": "android17",
      "upstream": {"url": "https://android.googlesource.com/platform/packages/apps/ImsServiceEntitlement", "ref": "fc19d81ab2f3cc7903766ff67cc47b2d6722daa6", "kind": "commit"},
      "follow_note": "Source carrier HTTPS activation and polling without Google push; follow the revision selected by the GrapheneOS release manifest."},
