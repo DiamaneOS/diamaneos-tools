@@ -417,9 +417,10 @@ Every Tally shell commit (roadmap step 3, FP6-211) also keeps these rules. The
 privacy-indicator and disclosure rules are in the everyday-use rows, the rebase
 rule in the supply-chain rows.
 
-- Lock screen and biometric prompt: the bouncer's password and PIN views, the
-  system keyboard and the bouncer window and state machine stay as upstream,
-  restyled through resources only; no custom keyboard and no show-passphrase
+- Lock screen and biometric prompt: the bouncer's window, state machine and
+  input handling and the system keyboard stay as upstream; its look changes
+  through resources and visual-only code (key shape, typeface, button and
+  field styling), each such change with two reviewers; no custom keyboard and no show-passphrase
   key without an owner decision and a review; the bouncer stays protected from
   screenshots and screen recording; lockout, throttling and the duress and wipe
   counters stay untouched, and GrapheneOS's PIN scrambling is kept; the
@@ -428,8 +429,7 @@ rule in the supply-chain rows.
   power menu keeps Lockdown and its lock-screen filtering; the lock-screen
   camera key opens only the secure camera. Commits to keyguard, bouncer and
   biometric code get two reviewers and the keyguard and biometric CTS sets on
-  the FP6. The bouncer's Tally look is resource values behind the Tally flag
-  only; its PIN keys and type stay stock because code sets them.
+  the FP6. The bouncer's Tally look sits behind the Tally flag.
 - Transitions, tested at animation scales 1x and 0.5x: while the phone is
   locked or an app shows over the lock screen, back and close lead only to the
   lock screen, never to Home or an app snapshot (tested from the secure camera
