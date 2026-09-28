@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-qualification-v2",
+  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-namespace-v1",
   "scope": "Private FP6 IMS/IWLAN integration candidate with explicit source commits and authenticated vendor inputs. Native build, policy, package and carrier qualification remain separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -96,7 +96,7 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "067f20a02d5de88946dcdcb3f0fef1d9cde2c7754d179a000717bab613871dfc"
+      "sha256": "64e06d53c66947ec7512e154308a149eb59342cd1afcb2ba112ddb7304194c9c"
     },
     {
       "id": "fp6-selected-native-files",
@@ -127,11 +127,11 @@
     "overlay_revision": "6352136409f3116403451d3ea2a60bf47991adfc",
     "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
     "project_count": 1072,
-    "project_map_sha256": "8d5a53abed53727d7269ef6476f7b77df7a4b5858629e51727b647a8e44037d5",
+    "project_map_sha256": "6fb9d7e8801aadf6b4c5d16e190961785917c63d6f0441ab24db3a07ac002990",
     "resolved_revisions": {
-      "device/fairphone/FP6": "b84b75767cc1f9f518f6f19724c2d8571a563434",
-      "vendor/diamaneos": "0bb9a106a54dcbe69835a3c8b273028c8f24dea0",
-      "hardware/diamaneos/ims": "fab104deca8e3d32050d54c4ad80737f4abaef55",
+      "device/fairphone/FP6": "03481e5f7ec55fb4830ac08bca4f0d5aa5da49fa",
+      "vendor/diamaneos": "36bc54307f2617c927433600995477c1c2ed90e8",
+      "hardware/diamaneos/ims": "990249b73d8537ef9d369900f997d471f1dfa4e1",
       "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
       "packages/apps/ImsServiceEntitlement": "08e2d5aaf2dcac7650d3bdc9aa670f1a936ba33a",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
