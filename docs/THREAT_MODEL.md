@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -445,7 +445,14 @@ rule in the supply-chain rows.
   privacy dialog. Notification cards change drawing only: which notifications
   show, private-content redaction and work-profile redaction are untouched, and
   the live lamp is never drawn on a redacted notification. The media card no
-  longer shows album art (less on the lock screen, not more). Side effects are
+  longer shows album art (less on the lock screen, not more). Heads-up
+  notifications change only their motion, edge and shadow: what a heads-up
+  shows, when and for how long, its gestures, full-screen intents and lock-screen
+  redaction stay stock; a heads-up with a status bar chip keeps stock's reveal so
+  it never covers the chip, and a leaving heads-up is fully off screen before it
+  is removed. The camera and microphone access tiles light their lamps at once,
+  like sensor lamps, but keep the tile colours: sensor green stays reserved for
+  indicators of a sensor in use. Side effects are
   visual only: Quick Settings dialogs, the privacy dialog included, get a 20 dp
   corner radius.
 - Recents' Stop (step 3.6): Launcher3 gets no new permission and never stops an
