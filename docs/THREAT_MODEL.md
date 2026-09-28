@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -448,6 +448,15 @@ rule in the supply-chain rows.
   longer shows album art (less on the lock screen, not more). Side effects are
   visual only: Quick Settings dialogs, the privacy dialog included, get a 20 dp
   corner radius.
+- Recents' Stop (step 3.6): Launcher3 gets no new permission and never stops an
+  app itself. SystemUI tells only the current user's recents app which apps the
+  Active apps dialog would let the user stop (package and user, for the current
+  user and its profiles, nothing stored), and every Stop re-runs the Active apps
+  checks (a foreground service is running, the app's policy is still normal, the
+  user is in the current profiles; never the dialer role, device admins,
+  persistent or system apps) before the platform's stop. The two new
+  SystemUI-proxy methods accept calls only from the recents app's uid in the
+  current user and do nothing with the Tally flag off.
 - Settings switches: restyled only through their layouts and drawables, never
   their logic (protection against obscured touches, administrator- and
   restricted-setting-disabled states), with those states tested. SettingsLib's
@@ -681,6 +690,10 @@ Revision history:
   the limits: an app's own in-window scrim is not seen, the status bar chips sit
   under SystemUI's dialogs and shade, and the FP6's ring follows the declared
   rectangular cutout.
+- 2026-09-28: Recents' Stop of roadmap step 3.6 (local branch tally-recents, not
+  built; security review pending) joins the shell rules: a new SystemUI-proxy
+  surface for the recents app only, with the Active apps checks re-run on every
+  Stop.
 - 2026-09-28: the shade and Quick Settings of roadmap step 3.2 (local branch
   tally-shade, not built) join the shell rules: tiles and keycaps keep the
   upstream handlers and unlock gating, the security footer and the privacy
