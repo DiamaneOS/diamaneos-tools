@@ -511,6 +511,16 @@
       "slug": "platform_packages_apps_ImsServiceEntitlement",
       "state": "active",
       "upstream_url": "https://android.googlesource.com/platform/packages/apps/ImsServiceEntitlement"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/modules/Connectivity",
+      "id": "connectivity-framework",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_modules_Connectivity.git",
+      "revision": null,
+      "slug": "platform_packages_modules_Connectivity",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity"
     }
   ],
   "schema_version": 1

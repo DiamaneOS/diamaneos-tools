@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-wlan-address-v1",
+  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-ipv6-state-v1",
   "scope": "Private FP6 IMS/IWLAN integration candidate with explicit source commits and authenticated vendor inputs. Native build, policy, package and carrier qualification remain separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -96,7 +96,7 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "64e06d53c66947ec7512e154308a149eb59342cd1afcb2ba112ddb7304194c9c"
+      "sha256": "aa39aa36dff9c9130b55cac41ca8fe6f9e034d57f218af5cd761bd90364e4d60"
     },
     {
       "id": "fp6-selected-native-files",
@@ -124,12 +124,12 @@
     "production_signing_material_allowed": false
   },
   "composition": {
-    "overlay_revision": "6352136409f3116403451d3ea2a60bf47991adfc",
-    "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
+    "overlay_revision": "653996a89f8e72c3151d262b89926757b3e6f81d",
+    "overlay_sha256": "483c43fb53490f200f3b5dc8c65d19765168e26b3c737cab5fcc839846b70f2f",
     "project_count": 1072,
-    "project_map_sha256": "8a6b502f14928ea44322040bd82d22835b41f86c2660fe716ecfd790abc74db4",
+    "project_map_sha256": "d06a1548ad56104b45c25e21ef570f4863e264cca8b9c6b3baa2ff64c0b3fc1a",
     "resolved_revisions": {
-      "device/fairphone/FP6": "03481e5f7ec55fb4830ac08bca4f0d5aa5da49fa",
+      "device/fairphone/FP6": "e646a05a89a3b043534b957271eb3fcb20985836",
       "vendor/diamaneos": "36bc54307f2617c927433600995477c1c2ed90e8",
       "hardware/diamaneos/ims": "ec31e06ca8167ccf004f07bfd6693bc45302fa94",
       "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
@@ -139,6 +139,7 @@
       "vendor/qcom/opensource/power": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
       "hardware/qcom/display": "30d823f92d6713cf4bc7cc745c4cf598d432e388",
       "frameworks/opt/telephony": "4321aee90dc87ab94fb301fdc24cdae19cd87668",
+      "packages/modules/Connectivity": "b6f1537e51f8a8b0faa4b32b1c652a0d783d45e0",
       "hardware/qcom/wlan": "d9e8e3b3ff7d4324b49af08b98e0a09de5537904",
       "vendor/qcom/opensource/vibrator": "ffecf5cc1cbc2244495dcbbff6acde93467da458"
     }

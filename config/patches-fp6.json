@@ -237,7 +237,7 @@
       "workspace": "android",
       "path": "device/fairphone/FP6",
       "base_revision": "41a637fd3c21010bf42241b37fdf0160efee966e",
-      "derived_revision": "03481e5f7ec55fb4830ac08bca4f0d5aa5da49fa",
+      "derived_revision": "e646a05a89a3b043534b957271eb3fcb20985836",
       "canonical_diff_sha256": "488399fb278526dbe23fcfdf98e486e50eeb12b832f47d523867b4e7dd51b435",
       "changed_files": [
         "BoardConfig.mk",
