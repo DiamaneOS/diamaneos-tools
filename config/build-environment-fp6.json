@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-wlan-report-v6",
+  "environment_id": "fp6-android17-grapheneos-2026091000-ims-r9t-20260928-qualification-v1",
   "scope": "Private FP6 IMS/IWLAN integration candidate with explicit source commits and authenticated vendor inputs. Native build, policy, package and carrier qualification remain separate.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -127,18 +127,18 @@
     "overlay_revision": "6352136409f3116403451d3ea2a60bf47991adfc",
     "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
     "project_count": 1072,
-    "project_map_sha256": "bcd7d31c88e591cfd64248c6cd64020e0047f94b0bc03eb4c1ab2c114015ddfd",
+    "project_map_sha256": "cd952af8f0648ff7fc39831804208665a069ac13d3e6092185ef0c302af77720",
     "resolved_revisions": {
       "device/fairphone/FP6": "b84b75767cc1f9f518f6f19724c2d8571a563434",
       "vendor/diamaneos": "0bb9a106a54dcbe69835a3c8b273028c8f24dea0",
-      "hardware/diamaneos/ims": "af44e858bec2f81f694b2b97912e9ca4a22c224d",
+      "hardware/diamaneos/ims": "b6b6b9779b3ec1911f7f24d0f667c013bf81dbc5",
       "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
       "packages/apps/ImsServiceEntitlement": "08e2d5aaf2dcac7650d3bdc9aa670f1a936ba33a",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
       "vendor/qcom/opensource/power": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
       "hardware/qcom/display": "30d823f92d6713cf4bc7cc745c4cf598d432e388",
-      "frameworks/opt/telephony": "79737e57698a852dd9e03619255e511689595592",
+      "frameworks/opt/telephony": "4321aee90dc87ab94fb301fdc24cdae19cd87668",
       "hardware/qcom/wlan": "d9e8e3b3ff7d4324b49af08b98e0a09de5537904",
       "vendor/qcom/opensource/vibrator": "ffecf5cc1cbc2244495dcbbff6acde93467da458"
     }
