@@ -721,8 +721,10 @@ Revision history:
   found that a Stop from Recents did not check that the lock screen was
   dismissed, as the Active apps dialog does, and two robustness gaps: a listener
   binder owned by SystemUI crashed it, and reports re-read every app's policy on
-  the thread the privacy indicators use. Fixes are in progress on the branch; the
-  Recents bullet above states the rules with the lock-screen check.
+  the thread the privacy indicators use. The branch now refuses a Stop while the
+  lock screen shows (occluded and dozing included), refuses SystemUI's own binders
+  as the listener and survives a listener that throws, runs the work on SystemUI's
+  long-running thread, and drops the listener when SystemUI lets go of Launcher.
 - 2026-09-28: the security review of step 3.1 (local tally-status, not built) found
   that the area signal restarted the privacy dot's update delay, so an app
   flipping its status bar appearance fast enough could keep the dot from
