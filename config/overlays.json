@@ -72,14 +72,14 @@
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_consent_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
         "duress_pwd_description": "rebrand (UI-02): \"DiamaneOS will remain installed\" instead of GrapheneOS; otherwise unchanged",
         "aep_compat_mode_summary": "rebrand (UI-04): \"DiamaneOS exploit protections\" instead of GrapheneOS; otherwise unchanged",
-        "app_play_integrity_top_intro": "rebrand (UI-03): DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (owner to approve)"
+        "app_play_integrity_top_intro": "rebrand (UI-03): DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (approved by the owner, 28 September 2026)"
       },
       "android": {
         "deprecated_abi_message_grapheneos": "rebrand (UI-08): the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
       },
       "app.grapheneos.setupwizard": {
         "welcome_to_grapheneos": "rebrand (SW-01): \"Welcome to DiamaneOS\"",
-        "grapheneos_desc": "rebrand (SW-01): the DiamaneOS tagline instead of GrapheneOS's (owner to approve)",
+        "grapheneos_desc": "rebrand (SW-01): the DiamaneOS tagline instead of GrapheneOS's (approved by the owner, 28 September 2026)",
         "grapheneos_icon": "rebrand (SW-02): the logo's content description, \"DiamaneOS\""
       },
       "com.android.customization.themes": {
