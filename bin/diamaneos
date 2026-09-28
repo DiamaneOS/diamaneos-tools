@@ -22,6 +22,9 @@ def main(argv=None):
     if argv[:1] == ['forks']:
         from diamaneos_tools import forks
         return forks.main(argv[1:])
+    if argv[:2] == ['fonts', 'check']:
+        from diamaneos_tools import fonts
+        return fonts.main(argv[2:])
     if argv[:2] == ['overlays', 'check']:
         from diamaneos_tools import overlays
         return overlays.main(argv[2:])
@@ -32,7 +35,7 @@ def main(argv=None):
         from diamaneos_tools import vendor_product
         return vendor_product.main(argv[2:])
     if not argv or argv[0] in ("-h", "--help"):
-        print("usage: diamaneos {baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|overlays check} [...]")
+        print("usage: diamaneos {baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: baseline capture -> read-only collector")
         print("        baseline pilot -> target-bound connected stock-baseline pilot")
         print("        baseline boot -> staged declared stock restart-time measurement")
@@ -45,6 +48,7 @@ def main(argv=None):
         print("        carrier matrix validate -> strict no-device carrier-plan validation")
         print("        components validate -> strict no-device component/closure validation")
         print("        endpoints validate -> read-only contract checks")
+        print("        fonts check -> product font customization as Android reads it")
         print("        overlays check -> resource overlays against their targets at a release")
         print("        rig -> identity-bound USB power and battery controller")
         print("        signing -> signing-role, target-files and dummy-proof verification")

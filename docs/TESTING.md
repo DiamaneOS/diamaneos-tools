@@ -696,6 +696,39 @@ qualifier gaps. A passing check means the overlaid names, qualifiers, allowlist
 and overlayable policies agree with the sources. It is not idmap2 on the built
 targets or a phone check.
 
+## Font customization check
+
+`bin/diamaneos fonts check` reads a product `fonts_customization.xml` and its
+fonts the way Android does while it loads the system fonts (FontCustomizationParser,
+FontListParser and SystemFonts at the pinned release). A mistake in that file
+is not local to the added fonts: it can make Android drop every system font or
+stop boot. `--help` lists the errors and warnings. The tests build small
+synthetic fonts, so they need no network:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/fonts -t .
+```
+
+Run it on the build module whenever the file or a font changes, with the
+weights the product's text styles ask for:
+
+```sh
+bin/diamaneos fonts check --module-dir <FONTS_MODULE_DIR> --weights <WEIGHTS> --strict
+```
+
+and on a built image before it is flashed:
+
+```sh
+bin/diamaneos fonts check --xml <PRODUCT_OUT>/product/etc/fonts_customization.xml \
+    --font-dir <PRODUCT_OUT>/product/fonts --weights <WEIGHTS> --strict
+```
+
+The check reads the fonts' tables but does not rasterise them, and it does not
+see the system font list, so it cannot tell whether a named family replaces a
+system one or whether an alias points at a system family. It is stricter than
+Android's XML parser, which accepts a DTD and repeated attributes. A passing
+check is not a boot: `cmd font dump` and logcat stay part of the phone test.
+
 ## Endpoint contracts
 
 The baseline collector remains stdlib-only. Endpoint schema validation uses the

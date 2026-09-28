@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `fonts check`: read a product `fonts_customization.xml` and its fonts
+  as Android does at boot, so a file that would drop every system font, stop
+  boot or draw the wrong weight fails before a build. It checks either the
+  build module (what it installs to /product, what it requires, the recorded
+  SHA-256 of each font) or the files of a built image.
+
 - Add `overlays check`: compare each resource overlay with its target's
   resources at a GrapheneOS release (from a source tree or fetched at the
   pinned commits), including overlayable policies, partitions, signing and
