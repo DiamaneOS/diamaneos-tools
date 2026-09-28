@@ -728,8 +728,11 @@ Revision history:
   flipping its status bar appearance fast enough could keep the dot from
   showing (critical if shipped), that the capture chips' edge was clipped, so
   their dark colour fell below 3:1 on light areas, and that the overlay check did
-  not cover the Tally indicator resources; the check now refuses them (the other
-  fixes are in progress on the branch). Residuals: like the stock dot, the lens
+  not cover the Tally indicator resources; the check now refuses them, and the
+  branch fixes the rest: the dot's colour no longer passes through its update
+  delay, the capture chips' edge is their own border (light variants where no
+  area is known), the VPN icon never overflows because of the dot's room, and the
+  dot's touch area stays within its own column. Residuals: like the stock dot, the lens
   ring and the lamp by the lens are left out of screenshots, and on a locked
   phone and the always-on display they show whether the camera or location is in
   use.
