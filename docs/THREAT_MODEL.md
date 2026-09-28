@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -460,11 +460,15 @@ rule in the supply-chain rows.
 - Settings switches: restyled only through their layouts and drawables, never
   their logic (protection against obscured touches, administrator- and
   restricted-setting-disabled states), with those states tested. SettingsLib's
-  restyle changes only its theme resources; disabled switches draw at 38 % in
-  their real position, and the emergency-alert switches' logic is untouched
-  (presidential alerts stay on). It is not behind the SystemUI Tally flag and
-  reaches every app built on SettingsLib's themes, but changes no resource
-  SystemUI uses.
+  restyle changes its theme resources and adds Tally switch views (subclasses of
+  the switch classes the preferences already bind, and a Compose twin for its
+  Compose pages) that change only drawing and motion: checking, touch handling,
+  accessibility and the enabled state stay the parent classes'. Disabled
+  switches draw at 38 % in their real position, and the emergency-alert
+  switches' logic is untouched (presidential alerts stay on). It is not behind
+  the SystemUI Tally flag and reaches every app built on SettingsLib, but
+  SystemUI's own switch screens take the Tally switch only through flagged
+  layout twins, so with the flag off SystemUI is unchanged.
 - Branding: the system's own label is the literal "DiamaneOS" (apps can read
   it; it reveals only the OS name, as the GrapheneOS label did), and the
   fallback boot logo, shown only when no boot animation is installed, is the
