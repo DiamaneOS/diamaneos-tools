@@ -104,7 +104,7 @@ by the upstream build guide. This is a declared compatibility deviation. The
 reference builder closed that deviation for this exact environment with clean
 generic qualification run `generic-qualification-20260919T170522Z`. The run
 used signed tools commit
-`744c347cbbacb8d24ed9e985078798d0e2a2a5e5`, environment
+`24a03bce3bdfb9c0cdf301b9c3ea43331576945f`, environment
 `fp6-android17-grapheneos-2026091000-debian13-v4`, target
 `sdk_phone64_x86_64-cur-userdebug` and an initially empty source-local `out`
 directory. Preflight and postflight retained the same 1,057-project map and
