@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -690,6 +690,15 @@ Revision history:
   the limits: an app's own in-window scrim is not seen, the status bar chips sit
   under SystemUI's dialogs and shade, and the FP6's ring follows the declared
   rectangular cutout.
+- 2026-09-28: the volume panel, power menu and toasts of roadmap step 3.4 (local
+  branches volume-left and tally-popups, not built): drawing, layout and motion
+  only; ringer, Do Not Disturb, the safe-volume warning, stream muting and every
+  accessibility action stay stock; the power menu keeps its actions, Lockdown,
+  Emergency, its lock-screen filtering and the emergency affordance, and its new
+  notes under Restart and Lockdown name the credential type in the lock screen's
+  own words (the bouncer already shows it, so nothing new is disclosed); toasts
+  change look and motion only. The volume dialog can sit on the left edge by a
+  device value (FP6, as stock FP6).
 - 2026-09-28: the step 3.3 fixes (local tally-lock, not built; two security reviews
   pending): the bouncer's PIN keys, typeface, emergency key and password field
   change by visual-only code behind the Tally flag (input, the keyboard, lockout,
