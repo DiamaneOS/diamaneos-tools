@@ -487,7 +487,9 @@ rule in the supply-chain rows.
   switches' logic is untouched (presidential alerts stay on). It is not behind
   the SystemUI Tally flag and reaches every app built on SettingsLib, but
   SystemUI's own switch screens take the Tally switch only through flagged
-  layout twins, so with the flag off SystemUI is unchanged.
+  layout twins and, on its Compose screens, calls behind the Tally flag with the
+  same arguments and accessibility semantics as Material's switch, so with the
+  flag off SystemUI is unchanged.
 - Branding: the system's own label is the literal "DiamaneOS" (apps can read
   it; it reveals only the OS name, as the GrapheneOS label did), and the
   fallback boot logo, shown only when no boot animation is installed, is the
