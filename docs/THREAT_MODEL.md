@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-29 (Recents' Stop in Launcher3 of step 4b and the Settings homepage of step 6a, with their security reviews); 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -474,8 +474,19 @@ rule in the supply-chain rows.
   space that the dialog would stop, and learns which of them run a foreground
   service; an app with two exemption reasons (for example a carrier-privileged
   device admin) can get a Stop button, in the dialog and in Recents alike; and
-  Recents' Stop sits in the launcher's window, where app overlays can cover it, so
-  Launcher3 must filter obscured touches on it (step 4).
+  Recents' Stop sits in the launcher's window, where app overlays can cover it.
+  Launcher3's side (step 4b) sets SystemUI's listener only while Recents is open
+  and removes it on close, keeps the list in memory only, offers Stop only for a
+  card the user swiped away, named by that card's own task (package and user),
+  and never stops an app itself; Launcher3's manifests, permissions and
+  privileged-app allow-list stay as upstream. The Stop key and its row refuse
+  touches that come through another window over them, and ignore a tap within
+  0.5 s of the row appearing or changing. Limits: a window over another part of
+  the launcher (picture-in-picture, a chat bubble) does not block a tap on Stop,
+  since refusing such touches would break Stop whenever one shows; and the
+  listener binder is not caller-checked, as with Launcher's other SystemUI
+  listeners, but a forged list only decides which swiped apps get a row, and
+  SystemUI re-checks every Stop.
 - Settings switches: restyled only through their layouts and drawables, never
   their logic (protection against obscured touches, administrator- and
   restricted-setting-disabled states), with those states tested. SettingsLib's
@@ -490,6 +501,17 @@ rule in the supply-chain rows.
   layout twins and, on its Compose screens, calls behind the Tally flag with the
   same arguments and accessibility semantics as Material's switch, so with the
   flag off SystemUI is unchanged.
+- Settings homepage (step 6a): regrouped and restyled only. Every top-level
+  entry keeps its page, controller, conditions and restrictions (the pin's 30
+  entries, compared by key and attribute), including GrapheneOS's own, work
+  profile, private space and every security and privacy entry. State lamps show
+  only what the entry's controller already reads (location on, a mode active),
+  beside the summary that says it in words and never beside an administrator's
+  restriction text, with no new read or listener. The bottom search opens the
+  same Settings search with stock's conditions (hidden before setup, in setup
+  flows and where search is off for the user); About phone gains a static mark
+  and a "based on GrapheneOS" line; the homepage keeps stock's hiding of
+  non-system overlays, and nothing new is logged or stored.
 - Branding: the system's own label is the literal "DiamaneOS" (apps can read
   it; it reveals only the OS name, as the GrapheneOS label did), and the
   fallback boot logo, shown only when no boot animation is installed, is the
@@ -784,3 +806,11 @@ Revision history:
   container keep their conditions, data and tap, notification cards keep every
   visibility and redaction rule and never light a lamp on a redacted card, and
   the media card drops album art.
+- 2026-09-29: the security reviews of roadmap steps 4b and 6a (local Launcher3
+  tally-recents and Settings tally-home, not built) found no issue. Launcher3
+  gets no permission, manifest or allow-list change; Recents' Stop names only
+  the swiped card's own app, holds SystemUI's list in memory only while Recents
+  is open, and refuses touches through another window and taps within 0.5 s of
+  a change. The Settings homepage keeps every top-level entry with its page,
+  controller, conditions and restrictions, and its lamps and bottom search add
+  no read, listener or stored state.
