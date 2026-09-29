@@ -942,4 +942,10 @@ Revision history:
   allow-list change; removing the band only hides it (the listener keeps serving
   the key LEDs). The OS's own notices (the android and SystemUI packages) give no
   tally or LED (27e5352e94); they keep their status bar icons and screen
-  recording its capture chip. Security review of these commits pending.
+  recording its capture chip. Their security review (paused) found that the
+  removable items' settings were read from credential-encrypted preferences
+  through a real app context while the taskbar builds its device profile before
+  the first unlock, which would crash-loop Launcher on every boot until then
+  (-139, open, never built; the fix reads them through Launcher's injected
+  preferences). Tally code in Launcher must not open credential-encrypted
+  storage on paths that run before the first unlock.
