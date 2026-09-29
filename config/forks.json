@@ -7,7 +7,7 @@
       "slug": "platform_packages_modules_Connectivity",
       "path": "packages/modules/Connectivity",
       "branch": "android17",
-      "follow_note": "GrapheneOS Connectivity framework; rebase with the selected GrapheneOS release tag and retain address-state regression checks.",
+      "follow_note": "Retained address-state comparison fork; not selected for the preferred-address evaluation. Follow the GrapheneOS release tag before any future adoption.",
       "upstream": {
         "url": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity",
         "ref": "17",
