@@ -761,22 +761,6 @@
       ],
       "purpose": "Carry the device build target (including its target_variants entry) and the APC host fix on the CodeLinaro qcacld-3.0 release.",
       "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
-    },
-    {
-      "id": "connectivity-link-address-state",
-      "repository": "https://github.com/DiamaneOS/platform_packages_modules_Connectivity",
-      "workspace": "android",
-      "path": "packages/modules/Connectivity",
-      "base_revision": "e77de9b029c49faf31265bf6747f2b5d907020b3",
-      "derived_revision": "b6f1537e51f8a8b0faa4b32b1c652a0d783d45e0",
-      "canonical_diff_sha256": "5c4323c73b4b55900b3ce9759a8ca0f2c26656846de613763b1b16265fb13ddc",
-      "changed_files": [
-        "framework/src/android/net/LinkAddress.java",
-        "framework/src/android/net/LinkProperties.java",
-        "tests/common/java/android/net/LinkPropertiesTest.java"
-      ],
-      "purpose": "Propagate address prefix, scope and raw flag changes through LinkProperties equality, preserving address-only comparisons and lifetime-refresh behavior so DAD completion is not suppressed.",
-      "validation": "Framework and common-test/CTS APK compilation pass. Device regressions, packaged-module validation and carrier reconnection qualification remain pending."
     }
   ]
 }
