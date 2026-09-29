@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-29 (Recents' Stop in Launcher3 of step 4b, the Settings homepage of step 6a, Home and All apps of step 4a and Settings search of step 6c, with their security reviews); 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-29 (Recents' Stop in Launcher3 of step 4b, the Settings homepage of step 6a, Home and All apps of step 4a, Settings search of step 6c and the switches and rows of step 6b, with their security reviews); 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -500,7 +500,17 @@ rule in the supply-chain rows.
   SystemUI's own switch screens take the Tally switch only through flagged
   layout twins and, on its Compose screens, calls behind the Tally flag with the
   same arguments and accessibility semantics as Material's switch, so with the
-  flag off SystemUI is unchanged.
+  flag off SystemUI is unchanged. Step 6b lets a Tally switch wait for the system: the thumb
+  moves at the tap, and the lamp lights only while the switch is checked and the
+  setting's own state reports on (Wi-Fi, Bluetooth, hotspot and tethering, NFC,
+  Battery Saver, from the state their controllers already read), so a lamp never
+  shows on for something that is off; turning off darkens it at once, and a
+  failed change goes back unlit as stock. Accessibility still reports the
+  checked state, as stock. Switch rows lose their own ripple and focus highlight
+  (the switch shows both); restricted switches keep their code, including the
+  window-wide filtering of obscured touches, and SettingsLib's rows and cards
+  change only through layouts and drawables, which reach every app built on
+  SettingsLib (the emergency alerts app included; presidential alerts stay on).
 - Home and All apps (step 4a): keycap LEDs and the tallies row come only from
   Launcher's existing notification listener (the one behind notification dots),
   kept in memory: flags, category, channel, importance, the shade's own
@@ -846,3 +856,8 @@ Revision history:
   just gone away (the shade opens instead). The review of step 6c
   (SettingsIntelligence tally, not built) found no issue: the target SDK bump
   to 37 adds platform protections and changes nothing the app can do.
+- 2026-09-29: the security review of roadmap step 6b (local frameworks_base
+  tally-build and Settings tally-switches, not built) found no issue: switches
+  that wait for the system light only once it reports on, restricted switches
+  keep their logic and obscured-touch filtering, and SettingsLib's rows and cards
+  change only in layouts and drawables.
