@@ -63,7 +63,7 @@ unreachable. No Internet socket grant or policy bypass is added. IWLAN gets the
 thermal-service lookup required by the platform PowerManager constructor; unrelated
 service probes remain denied. These changes await native and phone qualification.
 
-Revision: 2026-09-29 (Recents' Stop in Launcher3 of step 4b, the Settings homepage of step 6a, Home and All apps of step 4a, Settings search of step 6c and the switches and rows of step 6b, and WM Shell's motion of step 5, with their security reviews); 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
+Revision: 2026-09-29 (Recents' Stop in Launcher3 of step 4b, the Settings homepage of step 6a, Home and All apps of step 4a, Settings search of step 6c and the switches and rows of step 6b, and the motion of step 5 in WM Shell and Launcher3, with their security reviews); 2026-09-28 (the Tally shell: the privacy-indicator row widened to privacy indicators and disclosures, a shell fork rebase lag row and the shell's commit rules in the Fresh-UI boundary; the prototype's privacy chip at stock's sizes; the native privacy indicators of step 3.1: which of them take a tap, the location lamp by the lens and the limits of the area rule; the lock screen of step 3.3, the SettingsLib switches and the system label of step 3.5; the shade and Quick Settings of step 3.2; Recents' Stop of step 3.6; the step 3.1 fixes and an indicator bug fixed before any build; the step 3.3 fixes: the bouncer's visual-only code, the always-on strip, the per-user hint count, the Tally clock in the shared clock library; the volume panel, power menu and toasts of step 3.4; the step 3.1 security review; the Tally switch views of step 3.5; the shade's animated lamps and heads-up; the step 3.6 security review; the step 3.3 reviews A and B); 2026-09-27 (r9t: the production kernel configuration and module deny list, KPROBES and debugfs kept as on r9s, boot parameters logged by name only, the previous boot's logs kept by pstore/ramoops, the stock LPA's eSIM service off again, the touch controller firmware, what confidentiality lockdown costs at runtime, the saved console's log level, pstore phone results with cold reboots kept; the Tally privacy-indicator row; remote key provisioning failing in the TEE on r9t); 2026-09-26 (endpoint additions from the branding inventory, the approved shell rework, the network location and geocoding decisions, the keyboard privacy gap, and the bring-up and r9s updates; the full refresh of 2026-09-25 replaced the initial model of 2026-09-14).
 
 Status: DiamaneOS is an OS under development. The protections below are
 requirements unless a row's evidence state says otherwise. No row is qualified
@@ -553,6 +553,18 @@ rule in the supply-chain rows.
   window. The page transitions are measured as jank-monitor interactions, which
   write an event-log line with the interaction type, times and a constant tag,
   with no app identity, as stock's other interactions do.
+- Motion (step 5, Launcher half): launching from a key, the return to Home and
+  Back to Home change how the window moves (it grows out of its key and flies
+  back into it on the Tally springs, Home dims and the key's neighbours part),
+  never what opens, closes or goes Home, or when: the gesture's end target and
+  the Back trigger stay GrapheneOS's. The Tally paths apply only to an upright
+  phone with gesture navigation and one full-screen task (split screen, desktop
+  windows, a trackpad, picture-in-picture and landscape keep stock); the recents
+  input consumer, the keyguard paths and Launcher's start paths (quiet-mode
+  profiles, the private space, disabled apps) are unchanged. A tally now opens
+  its app through Launcher's own start path with the app's launcher intent
+  (never the notification's), so it is logged on the device like any Home launch
+  (Launcher's standard launch event); no new log or permission.
 - Settings homepage (step 6a): regrouped and restyled only. Every top-level
   entry keeps its page, controller, conditions and restrictions (the pin's 30
   entries, compared by key and attribute), including GrapheneOS's own, work
@@ -885,3 +897,8 @@ Revision history:
   predictive Back and the keycap splash sit behind the Tally flag, keep stock
   for the keyguard in every state and for consent, credential, translucent and
   multi-window cases, and are shorter than stock's.
+- 2026-09-29: the security review of roadmap step 5's Launcher half (local
+  Launcher3 tally-motion, not built) found no issue: motion only, on the
+  existing launch, gesture and Back paths, with no permission, manifest or
+  allow-list change; a tally's launch is now logged on the device as every Home
+  launch is.
