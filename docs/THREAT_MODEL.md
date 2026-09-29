@@ -909,3 +909,11 @@ Revision history:
   to show media only where GrapheneOS's always-on line does (-134). The lens ring
   lights only for the front camera (4bc99973aff3); the chip and the dot still
   show every camera.
+- 2026-09-29: the owner's phone test of `tally.r9t.20260929.3` found that any
+  app's decorated custom-view notification (a Clock timer) crash-looped SystemUI,
+  taking the status bar, the shade and every privacy indicator with it, because
+  the Tally card colour was read through the posting app's context (-135, high if
+  shipped; fixed on frameworks_base tally-build de8a9edb4265). Tally code must
+  read SystemUI and token resources only through SystemUI's own contexts, never
+  a view inflated from another package; a review of that rule across the Tally
+  code follows.
