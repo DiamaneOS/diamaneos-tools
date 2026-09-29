@@ -127,11 +127,11 @@
     "overlay_revision": "2caddb2cfc8f89e6542c0b99c7bf0675ab285079",
     "overlay_sha256": "24b41bd677985520ba76ed2a284d33e2c0c2610535d80fff5191197eac62fc9a",
     "project_count": 1072,
-    "project_map_sha256": "7588c03ace7f7adced0f04f5b7a2e3ad0b37f2ce3b86a9916bddc92b8980beec",
+    "project_map_sha256": "b2a3a2d754eaa4b592c85eae0701a9635c54050b571fbc2796efda661ce1327d",
     "resolved_revisions": {
       "device/fairphone/FP6": "e646a05a89a3b043534b957271eb3fcb20985836",
       "vendor/diamaneos": "36bc54307f2617c927433600995477c1c2ed90e8",
-      "hardware/diamaneos/ims": "2bc7d118566298838e747dd7e27949f7a1e0dbd9",
+      "hardware/diamaneos/ims": "f93ed4d81264a636b9579865c9cfa7ee153c36f9",
       "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
       "packages/apps/ImsServiceEntitlement": "08e2d5aaf2dcac7650d3bdc9aa670f1a936ba33a",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
