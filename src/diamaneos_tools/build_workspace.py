@@ -173,6 +173,7 @@ class Action:
     env: dict = field(default_factory=dict)
     unset: tuple = ()
     network: bool = False
+    # Compile actions run in a network namespace (see Runner.isolated).
     compile: bool = False
 
     def text(self, isolated: bool) -> str:
@@ -181,7 +182,7 @@ class Action:
         prefix = ' '.join([f'-u {name}' for name in self.unset] + [f'{k}={shlex.quote(str(v))}' for k, v in sorted(self.env.items())])
         prefix = 'env ' + prefix if prefix else ''
         argv = [str(a) for a in self.argv]
-        if isolated and not self.network:
+        if isolated and self.compile:
             argv = ISOLATION + argv
         command = shlex.join(argv)
         where = f'(in {self.cwd}) ' if self.cwd else ''
@@ -206,7 +207,8 @@ class Runner:
         self.echo = echo
 
     def isolated(self, action: Action) -> bool:
-        return not action.network and not self.allow_network and action.argv is not None
+        """Compilation runs without network access unless the user allowed it."""
+        return action.compile and not action.network and not self.allow_network and action.argv is not None
 
     def run(self, action: Action, log: Path):
         self.echo('  ' + action.description)
