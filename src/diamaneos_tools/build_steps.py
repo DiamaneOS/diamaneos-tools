@@ -45,6 +45,15 @@ VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minim
                   'fp6-image-tools.json', 'build-environment.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'components.py')
+# The parts of config/fp6-build.json each step depends on; editing another
+# part (flash texts, say) does not rebuild anything.
+ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
+                  'target_files')
+# Earlier steps each step consumes; a single step refuses stale ones.
+DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'kernel', 'vendor'),
+           'package': ('sync', 'kernel', 'vendor', 'android'),
+           'verify': ('sync', 'kernel', 'vendor', 'android', 'package')}
+MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 
 
 def code_hashes(names):
@@ -53,6 +62,10 @@ def code_hashes(names):
 
 def config_hashes(names):
     return {name: bw.sha_file(ROOT / 'config' / name) for name in names}
+
+
+def config_subset(config: dict, keys) -> str:
+    return bw.digest({key: config.get(key) for key in keys})
 
 
 @dataclass
@@ -70,6 +83,7 @@ class Context:
     factory_zip: Path | None = None
     shallow: bool = False
     echo: object = print
+    dry_run: bool = False
     host: dict | None = None
     cache: dict = field(default_factory=dict)
 
@@ -123,14 +137,33 @@ def has_commit(repository: Path, commit: str) -> bool:
     return run_git(['-C', repository, 'cat-file', '-e', commit + '^{commit}'], check=False).returncode == 0
 
 
-def download(url: str, destination: Path, size: int | None, sha256: str, echo=print,
-             opener=urllib.request.urlopen):
+class SameHostRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to the same host over HTTPS."""
+
+    def __init__(self, host):
+        self.host = host
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urlparse(newurl)
+        if target.scheme != 'https' or target.hostname != self.host:
+            raise BuildStepError(f'refusing a redirect to {newurl}: downloads stay on {self.host} over HTTPS')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def default_opener(url: str):
+    return urllib.request.build_opener(SameHostRedirects(urllib.parse.urlparse(url).hostname)).open
+
+
+def download(url: str, destination: Path, size: int | None, sha256: str, echo=print, opener=None):
     """HTTPS download that resumes and publishes only the pinned bytes.
 
-    ``size`` may be None for small files pinned only by their hash.
+    ``size`` may be None for small files pinned only by their hash; such a
+    download may not exceed MAX_UNKNOWN_DOWNLOAD. Reads stop at the expected
+    size, and redirects must stay on the same host over HTTPS.
     """
     if urllib.parse.urlparse(url).scheme != 'https':
         raise UsageError('downloads must use HTTPS: ' + url)
+    opener = opener or default_opener(url)
     if (destination.is_file() and (size is None or destination.stat().st_size == size)
             and bw.sha_file(destination) == sha256):
         return destination
@@ -145,12 +178,18 @@ def download(url: str, destination: Path, size: int | None, sha256: str, echo=pr
         with opener(request, timeout=120) as response:
             if offset and getattr(response, 'status', 200) != 206:
                 offset = 0
+            limit = (size - offset) if size is not None else MAX_UNKNOWN_DOWNLOAD
             with partial.open('ab' if offset else 'wb') as stream:
-                reported = 0
+                reported = received = 0
                 while True:
-                    chunk = response.read(4 * 1024 * 1024)
+                    chunk = response.read(min(4 * 1024 * 1024, limit - received + 1))
                     if not chunk:
                         break
+                    received += len(chunk)
+                    if received > limit:
+                        stream.close()
+                        partial.unlink()
+                        raise BuildStepError('the download is larger than expected: ' + url)
                     stream.write(chunk)
                     reported += len(chunk)
                     if reported >= 512 * 1024 * 1024:
@@ -217,7 +256,9 @@ def plan_sync(ctx: Context) -> StepPlan:
     upstream, repo = env['upstream'], env['upstream']['repo_tool']
     composition = env.get('composition')
     objects = read_objects(ctx.objects_from)
-    inputs = {'environment_sha256': ctx.environment_sha256, 'shallow': ctx.shallow,
+    # A shallow checkout holds the same pinned tree and passes the same
+    # preflight, so the choice is remembered in the workspace, not digested.
+    inputs = {'environment_sha256': ctx.environment_sha256,
               'objects': {k: bw.sha_file(v) for k, v in sorted(objects.items())}}
     overlay_dir = ws.cache / 'manifest'
     jobs = ctx.jobs_for(cap=16)
@@ -274,8 +315,14 @@ def plan_sync(ctx: Context) -> StepPlan:
     def preflight():
         ctx.cache['sync'] = build.verify_manifest_checkout(env, ws.src, ctx.signers(), ctx.environment_sha256)
 
+    def create():
+        ws.src.mkdir(parents=True, exist_ok=True)
+        if ctx.shallow:
+            ws.state_dir.mkdir(parents=True, exist_ok=True)
+            (ws.state_dir / 'shallow').write_text('Fetch only pinned commits in this workspace.\n')
+
     actions = [
-        Action('Create the source directory', func=lambda: ws.src.mkdir(parents=True, exist_ok=True)),
+        Action('Create the source directory' + (' (shallow checkout)' if ctx.shallow else ''), func=create),
         Action('Download the GrapheneOS signer list and check its hash', func=fetch_signers, network=True),
         Action('Initialise the checkout at the signed release tag',
                argv=['repo', 'init', '-u', upstream['manifest_url'], '-b', 'refs/tags/' + upstream['release_tag'],
@@ -311,7 +358,7 @@ def plan_sync(ctx: Context) -> StepPlan:
 
 
 def _opener(ctx):
-    return ctx.cache.get('opener', urllib.request.urlopen)
+    return ctx.cache.get('opener')
 
 
 def plan_kernel(ctx: Context) -> StepPlan:
@@ -339,6 +386,7 @@ def plan_kernel(ctx: Context) -> StepPlan:
         if result.get('status') != 'PASS':
             raise BuildStepError('the kernel build did not pass')
         return {'run': run, 'result_sha256': bw.sha_file((ws.kernel / run).parent / 'result.json'),
+                'network_isolation': 'off' if ctx.allow_network else 'on',
                 'inventory_sha256': result['inventory_sha256'], 'module_count': result.get('module_count'),
                 'denied_module_count': result.get('denied_module_count'),
                 'dtb_count': result.get('dtb_count'), 'dtbo_count': result.get('dtbo_count')}
@@ -430,7 +478,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 'extraction': ctx.cache['extract']['generation'],
                 'image_tools': ctx.cache['extract']['image_tools'],
                 'generation': product['generation_sha256'], 'inventory_sha256': product['inventory_sha256'],
-                'aapt2_sha256': bw.sha_file(ctx.host_bin / 'aapt2')}
+                'aapt2_sha256': bw.sha_file(ctx.host_bin / 'aapt2'),
+                'network_isolation': 'off' if ctx.allow_network else 'on'}
 
     def valid(state):
         link = ws.vendor / 'current'
@@ -445,7 +494,7 @@ def android_identity(ctx: Context, sync: dict) -> str:
         'environment_sha256': ctx.environment_sha256, 'project_map_sha256': sync['outputs']['project_map_sha256'],
         'vendor_records_sha256': product_inputs.records_sha256(selected['vendor']['records']),
         'kernel_records_sha256': product_inputs.records_sha256(selected['kernel']['records']),
-        'variant': ctx.variant, 'build_config_sha256': hashlib.sha256(ctx.config_raw).hexdigest()})
+        'variant': ctx.variant, 'build_config': config_subset(ctx.config, ANDROID_CONFIG)})
 
 
 def find_target_files(ctx: Context) -> Path:
@@ -470,11 +519,14 @@ def plan_android(ctx: Context) -> StepPlan:
         number = build_number(identity, config)
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': sync['outputs']['project_map_sha256'],
                   'kernel': kernel['outputs'], 'vendor': vendor['outputs'], 'variant': ctx.variant,
-                  'build_config_sha256': hashlib.sha256(ctx.config_raw).hexdigest(), 'build_number': number,
+                  'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
                   'network_isolation': not ctx.allow_network}
         try:
             datetime = newest_commit_time(ws.src, ctx.environment)
-        except (BuildStepError, ValueError, OSError):
+        except (BuildStepError, ValueError, OSError, subprocess.SubprocessError) as error:
+            if not ctx.dry_run:
+                raise BuildStepError('cannot read the commit times of the pinned sources for BUILD_DATETIME '
+                                     f'({error}); run "diamaneos build sync" again') from error
             datetime = None
 
     def install():
@@ -506,11 +558,18 @@ def plan_android(ctx: Context) -> StepPlan:
         if ctx.cache['preflight']['resolved_project_map_sha256'] != ctx.cache['postflight']['resolved_project_map_sha256']:
             raise BuildStepError('the source tree changed during the build')
         target_files = find_target_files(ctx)
-        return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': bw.sha_file(target_files),
-                'build_identity': identity, 'build_number': number, 'build_datetime': datetime,
+        target_sha256 = bw.sha_file(target_files)
+        isolation = 'off' if ctx.allow_network else 'on'
+        # The image set's identity: what the build was made from and how.
+        build_identity = bw.digest({'source_identity': identity, 'build_number': number,
+                                    'network_isolation': isolation, 'tools': product_inputs.tools_identity(),
+                                    'target_files_sha256': target_sha256})
+        return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
+                'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
+                'build_datetime': datetime,
                 'variant': ctx.variant, 'lunch': lunch,
                 'descriptor_sha256': ctx.cache['postflight']['generated_input_descriptor_sha256'],
-                'network_isolation': 'off' if ctx.allow_network else 'on'}
+                'network_isolation': isolation}
 
     def valid(state):
         path = ws.root / state['outputs']['target_files']
@@ -535,38 +594,61 @@ PLANS = {'sync': plan_sync, 'kernel': plan_kernel, 'vendor': plan_vendor, 'andro
 
 # ------------------------------------------------------------------ runner
 
+def step_status(ctx: Context, name: str, plan: StepPlan | None = None) -> str:
+    """'current', 'stale', 'missing' or 'waiting' for one step."""
+    plan = plan or PLANS[name](ctx)
+    passed = ctx.workspace.passed(name)
+    if plan.inputs is None:
+        return 'waiting'
+    if passed is None:
+        return 'missing'
+    return 'current' if passed.get('inputs_sha256') == bw.digest(plan.inputs) and plan.valid(passed) else 'stale'
+
+
+def check_prerequisites(ctx: Context, name: str, steps) -> None:
+    """A step run on its own needs every earlier step it consumes to be current."""
+    for dependency in DEPENDS[name]:
+        if dependency in steps:
+            continue
+        status = step_status(ctx, dependency)
+        if status == 'current':
+            continue
+        reason = 'has not run' if status in ('missing', 'waiting') else 'is out of date (its inputs changed)'
+        raise UsageError(f'{dependency} {reason}; run "diamaneos build {dependency}" or "diamaneos build all"')
+
+
 def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
-    ws, runner = ctx.workspace, bw.Runner(ctx.allow_network, ctx.echo)
-    rerun_from = None
+    ws = ctx.workspace
+    runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
+    earlier_runs = None
     for name in steps:
+        if not dry_run:
+            check_prerequisites(ctx, name, steps)
         plan = PLANS[name](ctx)
-        state = ws.state(name)
-        passed = state if state and state.get('status') == 'PASS' else None
+        passed = ws.passed(name)
         if plan.inputs is None:
-            status = f'waiting for {plan.waiting_for}'
-            fresh = True
+            status, fresh = f'waiting for {plan.waiting_for}', True
         else:
-            key = bw.digest(plan.inputs)
-            fresh = (name in force or rerun_from is not None or passed is None
-                     or passed.get('inputs_sha256') != key or not plan.valid(passed))
+            fresh = (name in force or passed is None or passed.get('inputs_sha256') != bw.digest(plan.inputs)
+                     or not plan.valid(passed))
             status = 'to run' if fresh else 'up to date'
-            if dry_run and rerun_from is not None and name not in force:
-                status = f'to run after {rerun_from}'
+            if dry_run and not fresh and earlier_runs:
+                status = f'up to date unless {earlier_runs} changes its outputs'
         if dry_run:
             ctx.echo(f'{name}: {status}')
-            if fresh:
+            if fresh or earlier_runs:
                 for action in plan.actions:
                     ctx.echo('  - ' + action.text(runner.isolated(action)))
-                if rerun_from is None:
-                    rerun_from = name
+            if fresh and earlier_runs is None:
+                earlier_runs = name
             continue
         if plan.inputs is None:
             raise UsageError(f'run "diamaneos build {plan.waiting_for}" first')
         if not fresh:
             ctx.echo(f'{name}: up to date')
             continue
-        ctx.echo(f'{name}: running')
         log = ws.new_log(name)
+        ctx.echo(f'{name}: running (log: {log})')
         record = {'inputs': plan.inputs, 'inputs_sha256': bw.digest(plan.inputs), 'log': str(log)}
         ws.write_state(name, dict(record, status='RUNNING'))
         ctx.cache['log'] = log
@@ -574,17 +656,42 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             for action in plan.actions:
                 runner.run(action, log)
             outputs = plan.outputs()
-        except (BuildStepError, build.BuildError, ValueError, OSError, KeyError) as error:
-            ws.write_state(name, dict(record, status='FAIL', error=str(error)))
-            if isinstance(error, BuildStepError):
-                raise
-            raise BuildStepError(f'{name} failed: {error}\nFull log: {log}') from error
         except KeyboardInterrupt:
             ws.write_state(name, dict(record, status='FAIL', error='interrupted'))
             raise
+        except Exception as error:  # noqa: BLE001 - every failure is recorded and reported plainly
+            message = str(error) if isinstance(error, (BuildStepError, build.BuildError)) else \
+                f'{type(error).__name__}: {error}'
+            ws.write_state(name, dict(record, status='FAIL', error=message))
+            if isinstance(error, BuildStepError):
+                raise
+            raise BuildStepError(f'{name} failed: {message}\nFull log: {log}') from error
         ws.write_state(name, dict(record, status='PASS', outputs=outputs))
-        rerun_from = rerun_from or name
         ctx.echo(f'{name}: done')
+
+
+def output_present(ctx: Context, name: str) -> bool:
+    """Whether a step's output already takes its disk space (resume)."""
+    ws = ctx.workspace
+    return {'sync': (ws.src / '.repo').is_dir(), 'kernel': (ws.kernel / 'current').is_symlink(),
+            'vendor': (ws.vendor / 'current').is_symlink(),
+            'android': (ctx.out / 'target' / 'product' / ctx.config['product']).is_dir(),
+            'package': False, 'verify': False}[name]
+
+
+def steps_to_run(ctx: Context, steps, force) -> list:
+    """The steps that will run: forced ones, and from the first step that is
+    not current on (a rerun can change later steps' inputs)."""
+    for index, name in enumerate(steps):
+        if name in force:
+            return list(steps[index:])
+        try:
+            status = step_status(ctx, name)
+        except (BuildStepError, ValueError, OSError, KeyError):
+            status = 'stale'
+        if status != 'current':
+            return list(steps[index:])
+    return []
 
 
 def make_context(args, echo=print) -> Context:
@@ -593,18 +700,26 @@ def make_context(args, echo=print) -> Context:
     environment = json.loads(environment_raw)
     build.validate_config(environment)
     config, config_raw = bw.load_config('fp6-build.json')
+    declared = environment['workspace']
+    source, output = Path(declared['source_subdirectory']), Path(declared['output_subdirectory'])
+    if not output.is_relative_to(source) or output.relative_to(source).parts[:1] != (config['out_dir'],):
+        raise UsageError('config/fp6-build.json out_dir does not match the environment\'s output directory')
     variant = args.variant or config['default_variant']
     if variant not in config['variants']:
         raise UsageError('unknown variant: ' + variant)
     if args.jobs is not None and not 1 <= args.jobs <= 1024:
         raise UsageError('--jobs must be between 1 and 1024')
-    return Context(workspace=bw.Workspace(args.workspace or bw.default_workspace()),
+    workspace = bw.Workspace(args.workspace or bw.default_workspace())
+    # A workspace synced shallow stays shallow; a plain "build all" must not
+    # turn it into a full download.
+    shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
+    return Context(workspace=workspace,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, jobs=args.jobs,
                    allow_network=args.allow_network,
                    objects_from=Path(args.objects_from).absolute() if args.objects_from else None,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
-                   shallow=args.shallow, echo=echo)
+                   shallow=shallow, echo=echo, dry_run=getattr(args, 'dry_run', False))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -617,7 +732,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument('--variant', help='user (default) or userdebug')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
-                        help='compile with network access if this host cannot turn it off (recorded)')
+                        help='compile with network access instead of without it. Only for hosts where '
+                             'unprivileged user namespaces are unavailable; recorded in build.json')
     result.add_argument('--shallow', action='store_true',
                         help='sync: fetch only the pinned commits, not their history. Saves roughly '
                              'half of the source download and disk, but the checkout has no history '
@@ -651,10 +767,12 @@ def main(argv=None, echo=print) -> int:
             echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant})')
             run_steps(ctx, steps, force, dry_run=True)
             return 0
-        need_isolation = not ctx.allow_network and any(s in ('kernel', 'vendor', 'android') for s in steps)
-        pending = [s for s in steps if s in force or not ctx.workspace.passed(s)]
+        pending = steps_to_run(ctx, steps, force)
+        need_isolation = not ctx.allow_network and any(s in ('kernel', 'vendor', 'android') for s in pending)
         with ctx.workspace.lock():
-            ctx.host = bw.check_host(ctx.workspace, pending, ctx.environment, ctx.config, need_isolation)
+            present = {s for s in pending if output_present(ctx, s)}
+            ctx.host = bw.check_host(ctx.workspace, pending, ctx.environment, ctx.config, need_isolation,
+                                     present=present)
             for warning in ctx.host['warnings']:
                 echo('note: ' + warning)
             from . import process
@@ -674,3 +792,6 @@ def main(argv=None, echo=print) -> int:
     except (build.BuildError, ValueError, OSError, KeyError) as error:
         print('ERROR: ' + str(error), file=sys.stderr)
         return 2
+    except Exception as error:  # noqa: BLE001 - report, never a traceback
+        print(f'ERROR: unexpected {type(error).__name__}: {error}', file=sys.stderr)
+        return 4
