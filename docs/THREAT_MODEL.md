@@ -522,8 +522,11 @@ rule in the supply-chain rows.
   Launcher's existing notification listener (the one behind notification dots),
   kept in memory: flags, category, channel, importance, the shade's own
   visibility rules and the progress bar and chronometer the system draws, never
-  titles or texts. An LED lights only for live (a foreground service or ongoing
-  notification) or failed (an error notification) and respects the app's dot
+  titles or texts. An LED lights only for live (a running notification, that is a
+  foreground service, a Live Update or ongoing, that shows a live readout or an
+  activity in progress: the system chronometer, a progress bar, a call,
+  navigation, a stopwatch, a Live Update or playing media; permanent background
+  services give nothing) or failed (an error notification) and respects the app's dot
   setting; the Notification dots switch turns both off. Nothing shows that the
   shade hides (a suspended app, Do Not Disturb's list suppression, with
   SystemUI's own exemptions), and the OS's own notices (the android and SystemUI
