@@ -17,6 +17,9 @@ def main(argv=None):
                                                           'package', 'verify', 'all'):
         from diamaneos_tools import build_steps
         return build_steps.main(argv[1:])
+    if argv[:1] == ['flash-steps']:
+        from diamaneos_tools import flash_steps
+        return flash_steps.main(argv[1:])
     if argv[:2] == ['build', 'inputs']:
         from diamaneos_tools import product_inputs
         return product_inputs.main(argv[2:])
@@ -39,10 +42,11 @@ def main(argv=None):
         from diamaneos_tools import vendor_product
         return vendor_product.main(argv[2:])
     if not argv or argv[0] in ("-h", "--help"):
-        print("Build a test image: diamaneos build all [--variant userdebug].")
+        print("Build a test image: diamaneos build all [--variant userdebug], then diamaneos flash-steps.")
         print("  build sync|kernel|vendor|android|package|verify -> the steps of build all, one at a time")
+        print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: baseline capture -> read-only collector")
         print("        baseline pilot -> target-bound connected stock-baseline pilot")
         print("        baseline boot -> staged declared stock restart-time measurement")
