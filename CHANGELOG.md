@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- Add the public build commands. `diamaneos build all` builds a Fairphone 6
+  test image in one workspace as an ordinary user: it syncs the source at the
+  pinned commits, builds the kernel, extracts the stock files from Fairphone's
+  factory package, builds Android with network access off, packages one
+  coherent image set with deterministic wipe images and checks it. Each step
+  can run alone, is skipped when its inputs did not change and resumes after
+  a failure; `--dry-run` prints the plan. `diamaneos flash-steps` prints the
+  fastboot commands for a verified test build. New guide docs/BUILDING.md;
+  docs/BUILD.md becomes the reference and absorbs FP6-PREPARATION.md.
+
+- Bind the generated vendor and kernel inputs to the build environment and
+  the recipes that made them. The full preflight accepts the two generated
+  directories only while that descriptor matches (review finding R4).
+
+- The FP6 build environment now pins the published line only: the public
+  manifest overlay and the android17 head of every DiamaneOS project on
+  2026-09-30.
+
+- Move the per-build device checks of the private build scripts into
+  config/fp6-image-checks.json, the PSTORE and debugfs lines into kernel
+  policy v7, and the kretprobe and param_name_len checks into the kernel
+  build. `vendor extract --record-tools` accepts image tools built from the
+  pinned source and records their hashes.
+
 - Move the stock input to Fairphone FP6.QREL.16.111.0 (2026-09-05 security
   patch). 13 of the 729 selected files changed (camera, GPU and video
   firmware, the QCRIL database, carrier configuration and APNs); none went
