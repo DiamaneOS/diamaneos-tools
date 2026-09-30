@@ -53,15 +53,16 @@ class WorkspaceTests(unittest.TestCase):
 
     def probe(self, **kw):
         values = dict(system='Linux', machine='x86_64', python=(3, 13), which=lambda c: '/usr/bin/' + c,
-                      memory=128 * bw.GIB, free=2000 * bw.GIB, case_sensitive=True, isolation=True,
-                      os_release={'ID': 'debian', 'VERSION_ID': '13'}, packages=None, kernel='6.12', cpus=24)
+                      memory=128 * bw.GIB, free=2000 * bw.GIB, case_sensitive=True, isolation=None,
+                      os_release={'ID': 'debian', 'VERSION_ID': '13'}, packages=None, kernel='6.12', cpus=24,
+                      modules=lambda name: True)
         values.update(kw)
         return values
 
-    def host(self, **kw):
+    def host(self, present=(), **kw):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
-        return bw.check_host(self.ws, bw.STEPS, environment, config, True, self.probe(**kw))
+        return bw.check_host(self.ws, bw.STEPS, environment, config, True, self.probe(**kw), present)
 
     def test_host_check_passes_and_records_the_host(self):
         record = self.host()
@@ -71,11 +72,48 @@ class WorkspaceTests(unittest.TestCase):
     def test_host_check_lists_every_problem(self):
         with self.assertRaises(bw.HostError) as caught:
             self.host(system='Darwin', memory=16 * bw.GIB, free=10 * bw.GIB, case_sensitive=False,
-                      isolation=False, which=lambda c: None if c in ('repo', 'unshare') else '/usr/bin/' + c)
+                      isolation='unshare is older than util-linux 2.38 (it has no --map-current-user)',
+                      which=lambda c: None if c in ('repo', 'unshare') else '/usr/bin/' + c)
         message = str(caught.exception)
         for part in ('needs Linux', 'missing commands: repo, unshare', 'RAM', 'GiB free', 'case-sensitive',
-                     '--allow-network'):
+                     'util-linux 2.38', '--allow-network'):
             self.assertIn(part, message)
+
+    def test_vendor_path_needs_jsonschema(self):
+        with self.assertRaisesRegex(bw.HostError, 'install python3-jsonschema'):
+            self.host(modules=lambda name: name != 'jsonschema')
+
+    def test_memory_floor_allows_what_a_32_gb_machine_reports(self):
+        self.host(memory=int(30.6 * bw.GIB))
+        with self.assertRaisesRegex(bw.HostError, 'RAM'):
+            self.host(memory=29 * bw.GIB)
+
+    def test_disk_estimate_counts_only_steps_without_output(self):
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        full = bw.needed_space(config, bw.STEPS)
+        self.assertEqual(sum(config['disk_estimate_gib'].values()) * bw.GIB, full)
+        resumed = bw.needed_space(config, bw.STEPS, present={'sync', 'kernel', 'vendor', 'android'})
+        self.assertEqual((config['disk_estimate_gib']['package'] + config['disk_estimate_gib']['verify']) * bw.GIB, resumed)
+        self.host(present={'sync', 'kernel', 'vendor', 'android'}, free=100 * bw.GIB)
+        with self.assertRaisesRegex(bw.HostError, 'GiB free'):
+            self.host(free=100 * bw.GIB)
+
+    def test_kmod_is_found_in_sbin(self):
+        self.assertIn('/usr/sbin', bw.tool_path('/usr/bin').split(os.pathsep))
+        self.assertEqual('/usr/bin:/usr/sbin:/sbin', bw.tool_path('/usr/bin'))
+
+    def test_compile_environment_has_no_socket_variables(self):
+        env = bw.scrubbed_environment({'PATH': '/usr/bin', 'SSH_AUTH_SOCK': '/run/user/1/agent',
+                                       'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1/bus',
+                                       'XDG_RUNTIME_DIR': '/run/user/1', 'DOCKER_HOST': 'unix:///x',
+                                       'MY_SOCK': '/x', 'HOME': '/home/u'})
+        self.assertEqual({'PATH': '/usr/bin', 'HOME': '/home/u'}, env)
+        log = self.root / 'env.log'
+        runner = bw.Runner(allow_network=True, echo=lambda *a: None, tmpdir=self.root / 'tmp')
+        with patch.dict(os.environ, {'SSH_AUTH_SOCK': '/run/user/1/agent'}):
+            runner.run(bw.Action('Show', argv=['sh', '-c', 'echo "sock=${SSH_AUTH_SOCK:-none} tmp=$TMPDIR"'],
+                                 compile=True), log)
+        self.assertIn('sock=none tmp=' + str(self.root / 'tmp'), log.read_text())
 
     def test_host_check_notes_other_distributions_and_package_deviations(self):
         record = self.host(os_release={'ID': 'ubuntu', 'VERSION_ID': '24.04'}, packages={'git': '1:2.43'},
