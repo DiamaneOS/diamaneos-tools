@@ -700,6 +700,79 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
 def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
                              environment_sha256: str | None = None) -> dict:
     upstream = config["upstream"]
+    signed_xml = verify_release_manifest(config, source, allowed_signers)
+    repo_pin = upstream["repo_tool"]
+    repo_tag = repo_pin["release_tag"]
+    tag = upstream["release_tag"]
+    manifests = source / ".repo" / "manifests"
+    resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
+    rows, project_map_sha256 = parse_project_map(resolved)
+    declared = config.get("composition", upstream)
+    # Independently bind the signed base before authenticating its additions.
+    base_rows, base_digest = parse_project_map(signed_xml)
+    if len(base_rows) != upstream["project_count"] or base_digest != upstream["project_map_sha256"]:
+        raise BuildError("signed upstream project map mismatch")
+    composed = compose_source_manifest(config, source, signed_xml)
+    if len(rows) != declared["project_count"]:
+        raise BuildError("resolved manifest project count mismatch")
+    if project_map_sha256 != declared["project_map_sha256"]:
+        raise BuildError("resolved manifest project map mismatch")
+    # Remote URLs affect where repo obtains source, even when commit pins match.
+    remote_attributes = lambda data: sorted(tuple(sorted(e.attrib.items()))
+                                           for e in ET.fromstring(data).findall("remote"))
+    if remote_attributes(composed) != remote_attributes(resolved):
+        raise BuildError("resolved manifest remotes differ from declared sources")
+    generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
+    verify_source_layout(config, source, rows, signed_xml, resolved, generated)
+
+    dirty = []
+    for path, _name, _remote, revision in rows:
+        checkout = source / path
+        if not checkout.is_dir():
+            raise BuildError(f"source project is missing: {path}")
+        head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
+        if head != revision:
+            raise BuildError(f"source project revision mismatch: {path}")
+        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1",
+                       "--untracked-files=all"]).stdout
+        if status:
+            dirty.append(path)
+            if len(dirty) >= 20:
+                break
+    manifest_status = _run(["git", "-C", str(manifests), "status", "--porcelain=v1",
+                            "--untracked-files=all"]).stdout
+    if manifest_status:
+        dirty.append(".repo/manifests")
+    if dirty:
+        raise BuildError("source checkout contains dirty or untracked content: "
+                         + ", ".join(dirty))
+    return {
+        "repo_tool_release_tag": repo_tag,
+        "repo_tool_tag_object": repo_pin["tag_object"],
+        "repo_tool_commit": repo_pin["peeled_commit"],
+        "repo_tool_signature_verification": "PASS",
+        "release_tag": tag,
+        "tag_object": upstream["tag_object"],
+        "peeled_commit": upstream["peeled_commit"],
+        "signature_verification": "PASS",
+        "default_manifest_sha256": upstream["default_manifest_sha256"],
+        "resolved_project_count": len(rows),
+        "resolved_project_map_sha256": project_map_sha256,
+        "source_clean": True,
+        "source_layout_verified": True,
+        "generated_inputs": sorted(generated),
+        "generated_input_descriptor_sha256": descriptor_sha256,
+    }
+
+
+def verify_release_manifest(config: dict, source: Path, allowed_signers: Path) -> bytes:
+    """Authenticate the repo tool and the signed release manifest in a checkout.
+
+    Runs before ``repo sync`` as well as in the full preflight. Returns the
+    signed tag's ``default.xml``.
+    """
+    upstream = config["upstream"]
+
     if sha256_file(allowed_signers) != upstream["allowed_signers_sha256"]:
         raise BuildError("allowed-signers file hash mismatch")
     manifests = source / ".repo" / "manifests"
@@ -758,64 +831,7 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     if sha256_bytes(default_xml.stdout) != upstream["default_manifest_sha256"]:
         raise BuildError("signed tag default manifest hash mismatch")
 
-    resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
-    rows, project_map_sha256 = parse_project_map(resolved)
-    declared = config.get("composition", upstream)
-    # Independently bind the signed base before authenticating its additions.
-    base_rows, base_digest = parse_project_map(default_xml.stdout)
-    if len(base_rows) != upstream["project_count"] or base_digest != upstream["project_map_sha256"]:
-        raise BuildError("signed upstream project map mismatch")
-    composed = compose_source_manifest(config, source, default_xml.stdout)
-    if len(rows) != declared["project_count"]:
-        raise BuildError("resolved manifest project count mismatch")
-    if project_map_sha256 != declared["project_map_sha256"]:
-        raise BuildError("resolved manifest project map mismatch")
-    # Remote URLs affect where repo obtains source, even when commit pins match.
-    remote_attributes = lambda data: sorted(tuple(sorted(e.attrib.items()))
-                                           for e in ET.fromstring(data).findall("remote"))
-    if remote_attributes(composed) != remote_attributes(resolved):
-        raise BuildError("resolved manifest remotes differ from declared sources")
-    generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
-    verify_source_layout(config, source, rows, default_xml.stdout, resolved, generated)
-
-    dirty = []
-    for path, _name, _remote, revision in rows:
-        checkout = source / path
-        if not checkout.is_dir():
-            raise BuildError(f"source project is missing: {path}")
-        head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
-        if head != revision:
-            raise BuildError(f"source project revision mismatch: {path}")
-        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1",
-                       "--untracked-files=all"]).stdout
-        if status:
-            dirty.append(path)
-            if len(dirty) >= 20:
-                break
-    manifest_status = _run(["git", "-C", str(manifests), "status", "--porcelain=v1",
-                            "--untracked-files=all"]).stdout
-    if manifest_status:
-        dirty.append(".repo/manifests")
-    if dirty:
-        raise BuildError("source checkout contains dirty or untracked content: "
-                         + ", ".join(dirty))
-    return {
-        "repo_tool_release_tag": repo_tag,
-        "repo_tool_tag_object": repo_pin["tag_object"],
-        "repo_tool_commit": repo_pin["peeled_commit"],
-        "repo_tool_signature_verification": "PASS",
-        "release_tag": tag,
-        "tag_object": upstream["tag_object"],
-        "peeled_commit": upstream["peeled_commit"],
-        "signature_verification": "PASS",
-        "default_manifest_sha256": upstream["default_manifest_sha256"],
-        "resolved_project_count": len(rows),
-        "resolved_project_map_sha256": project_map_sha256,
-        "source_clean": True,
-        "source_layout_verified": True,
-        "generated_inputs": sorted(generated),
-        "generated_input_descriptor_sha256": descriptor_sha256,
-    }
+    return default_xml.stdout
 
 
 def verify_generated_inputs(source: Path, environment_sha256: str | None) -> tuple[set, str | None]:
