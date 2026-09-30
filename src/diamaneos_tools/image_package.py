@@ -8,6 +8,7 @@ deterministically, and build.json records what the set was made from.
 from __future__ import annotations
 
 import datetime
+import json
 import os
 from pathlib import Path
 import shutil
@@ -18,6 +19,8 @@ from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError
 
 SUMS = 'SHA256SUMS'
+# The parts of config/fp6-build.json packaging depends on.
+PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot')
 RECORD = 'build.json'
 TARGET_FILES_COPY = 'target-files.zip'
 
@@ -58,6 +61,19 @@ def check_sums(directory: Path) -> bool:
     return files == set(sums) and all(bw.sha_file(directory / n) == d for n, d in sums.items())
 
 
+def same_build(directory: Path, android_outputs: dict) -> bool:
+    """An existing image set may be reused only if it is intact and was made
+    from exactly this build's target-files and identity."""
+    if not check_sums(directory):
+        return False
+    try:
+        record = json.loads((directory / RECORD).read_bytes())
+    except (OSError, ValueError):
+        return False
+    return (record.get('target_files', {}).get('sha256') == android_outputs['target_files_sha256']
+            and record.get('build_identity') == android_outputs['build_identity'])
+
+
 def zeros(path: Path, size: int) -> None:
     with path.open('wb') as stream:
         stream.truncate(size)
@@ -95,7 +111,8 @@ def plan(ctx):
     android = ws.passed('android')
     code = bw.sha_file(Path(__file__))
     inputs = None if android is None else {
-        'android': android['outputs'], 'build_config_sha256': bw.digest(config), 'code': code}
+        'android': android['outputs'], 'build_config': bw.digest({k: config.get(k) for k in PACKAGE_CONFIG}),
+        'code': code}
     names = image_names(config)
     wipe = config['wipe']
     state = {}
@@ -112,9 +129,10 @@ def plan(ctx):
         if bw.sha_file(target_files) != out['target_files_sha256']:
             raise BuildStepError('the target-files archive changed after the build; run "diamaneos build android" again')
         state.update(target_files=target_files, identifier=identifier, final=final, partial=partial,
-                     reuse=final.is_dir() and check_sums(final))
+                     reuse=final.is_dir() and same_build(final, out))
         if final.exists() and not state['reuse']:
-            raise BuildStepError(f'{final} exists but does not match its SHA256SUMS; move it aside')
+            raise BuildStepError(f'{final} exists but is not this build (its record or SHA256SUMS differ); '
+                                 'move it aside')
         if partial.exists():
             shutil.rmtree(partial)
         if not state['reuse']:
@@ -137,7 +155,7 @@ def plan(ctx):
     def super_image():
         if state['reuse']:
             return
-        runner = bw.Runner(ctx.allow_network, ctx.echo)
+        runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
         runner.run(Action('Build super.img from the same target-files',
                           argv=[ctx.host_bin / 'build_super_image', state['target_files'],
                                 state['partial'] / 'super.img'],
@@ -154,7 +172,7 @@ def plan(ctx):
         if bw.sha_file(frp) != images['frp']['sha256']:
             raise BuildStepError('the FRP image differs from the stock factory image')
         metadata = images['metadata']
-        runner = bw.Runner(ctx.allow_network, ctx.echo)
+        runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
         runner.run(Action('Make the empty metadata filesystem (fixed UUID, time and seed)',
                           argv=[ctx.host_bin / 'make_f2fs', '-g', 'android', '-r',
                                 '-T', str(android['outputs']['build_datetime']), '-U', metadata['uuid'],
@@ -174,6 +192,7 @@ def plan(ctx):
             'notice': 'Test build signed with public test keys. Keep the bootloader unlocked.',
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
+            'source_identity': out.get('source_identity'),
             'tools': tools, 'reproducible': bool(tools.get('clean')),
             'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
             'source': sync['outputs'] if sync else None,

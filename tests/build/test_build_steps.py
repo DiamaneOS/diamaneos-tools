@@ -63,6 +63,21 @@ class DownloadTests(unittest.TestCase):
         self.assertFalse(target.exists())
         self.assertFalse((self.root / 'factory.zip.partial').exists())
 
+    def test_oversized_and_unknown_size_downloads_are_capped(self):
+        target = self.root / 'factory.zip'
+        big = lambda request, timeout: Response(self.data + b'extra')
+        with self.assertRaisesRegex(bw.BuildStepError, 'larger than expected'):
+            steps.download('https://example.invalid/f.zip', target, len(self.data), self.sha, lambda *a: None, big)
+        huge = lambda request, timeout: Response(b'x' * (steps.MAX_UNKNOWN_DOWNLOAD + 1))
+        with self.assertRaisesRegex(bw.BuildStepError, 'larger than expected'):
+            steps.download('https://example.invalid/signers', self.root / 's', None, self.sha, lambda *a: None, huge)
+
+    def test_redirects_leave_neither_the_host_nor_https(self):
+        handler = steps.SameHostRedirects('android-builds.fairphone.com')
+        for url in ('http://android-builds.fairphone.com/f.zip', 'https://mirror.example.invalid/f.zip'):
+            with self.assertRaisesRegex(bw.BuildStepError, 'refusing a redirect'):
+                handler.redirect_request(None, None, 302, 'Found', {}, url)
+
     def test_plain_http_is_refused(self):
         with self.assertRaisesRegex(bw.UsageError, 'HTTPS'):
             steps.download('http://example.invalid/f.zip', self.root / 'f', 1, self.sha)
@@ -132,6 +147,37 @@ class PlanTests(unittest.TestCase):
             with self.assertRaises(bw.UsageError):
                 steps.build_number('0' * 64, config)
 
+    def test_shallow_choice_is_remembered_and_not_part_of_the_digest(self):
+        shallow = self.context(shallow=True)
+        plain = self.context()
+        self.assertEqual(steps.plan_sync(shallow).inputs, steps.plan_sync(plain).inputs)
+        steps.plan_sync(shallow).actions[0].func()
+        later = self.context()
+        self.assertTrue(later.shallow)
+        self.assertIn('--depth=1', [a.argv for a in steps.plan_sync(later).actions if a.argv][0])
+
+    def test_out_dir_must_match_the_environment(self):
+        environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
+        environment['workspace']['output_subdirectory'] = environment['workspace']['source_subdirectory'] + '/out-other'
+        path = self.root / 'environment.json'
+        path.write_text(json.dumps(environment))
+        with self.assertRaisesRegex(bw.UsageError, 'out_dir'):
+            self.context(environment=str(path))
+
+    def test_failed_commit_time_lookup_stops_a_real_build(self):
+        ctx = self.context()
+        for name in ('sync', 'kernel', 'vendor'):
+            ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
+                                             'outputs': {'project_map_sha256': 'p'}})
+        failure = bw.BuildStepError('git log failed')
+        with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                patch.object(steps, 'newest_commit_time', side_effect=failure):
+            with self.assertRaisesRegex(bw.BuildStepError, 'BUILD_DATETIME'):
+                steps.plan_android(ctx)
+            ctx.dry_run = True
+            plan = steps.plan_android(ctx)
+        self.assertIn('<newest pinned commit time>', plan.actions[2].env['BUILD_DATETIME'])
+
     def test_objects_from_needs_an_index_of_existing_bundles(self):
         directory = self.root / 'objects'
         directory.mkdir()
@@ -183,11 +229,35 @@ class RunnerTests(unittest.TestCase):
         self.run_all()
         self.assertEqual(['vendor', 'android', 'package', 'verify'], self.calls)
 
-    def test_forced_step_reruns(self):
+    def test_forced_step_reruns_and_unchanged_outputs_stop_the_cascade(self):
         self.run_all()
         self.calls.clear()
         self.run_all(force=('package',))
-        self.assertEqual(['package', 'verify'], self.calls)
+        self.assertEqual(['package'], self.calls)
+        self.calls.clear()
+        self.run_all(force=('kernel',))
+        self.assertEqual(['kernel'], self.calls)
+
+    def test_any_exception_is_recorded_and_reported_plainly(self):
+        def broken(ctx):
+            plan = self.fake('sync')(ctx)
+            plan.actions = [bw.Action('act', func=lambda: {}['missing key'] + 1)]
+            plan.actions = [bw.Action('act', func=lambda: (_ for _ in ()).throw(TypeError('bad value')))]
+            return plan
+        with patch.dict(steps.PLANS, {'sync': broken}):
+            with self.assertRaisesRegex(bw.BuildStepError, 'sync failed: TypeError: bad value'):
+                steps.run_steps(self.ctx, ('sync',))
+        self.assertEqual('TypeError: bad value', self.ctx.workspace.state('sync')['error'])
+
+    def test_single_step_refuses_stale_prerequisites(self):
+        self.run_all()
+        self.inputs['kernel']['value'] = 2
+        with patch.dict(steps.PLANS, {n: self.fake(n) for n in bw.STEPS}):
+            with self.assertRaisesRegex(bw.UsageError, 'kernel is out of date'):
+                steps.run_steps(self.ctx, ('package',), force=('package',))
+            with self.assertRaisesRegex(bw.UsageError, 'kernel is out of date'):
+                steps.run_steps(self.ctx, ('android',), force=('android',))
+            steps.run_steps(self.ctx, ('vendor',), force=('vendor',))
 
     def test_failure_is_recorded_and_the_next_run_resumes(self):
         self.fail = 'android'

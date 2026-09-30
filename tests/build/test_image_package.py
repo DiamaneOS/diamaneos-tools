@@ -79,6 +79,26 @@ class PackageTests(unittest.TestCase):
         second = run_plan(self.ctx, image_package.plan(self.ctx))
         self.assertEqual(first, second)
 
+    def test_changed_target_files_never_reuse_an_image_set(self):
+        first = run_plan(self.ctx, image_package.plan(self.ctx))
+        ws = self.ctx.workspace
+        state = ws.passed('android')
+        path = ws.root / state['outputs']['target_files']
+        with zipfile.ZipFile(path, 'w') as archive:
+            for name in image_package.image_names(self.ctx.config):
+                archive.writestr(f'IMAGES/{name}.img', f'new {name} image'.encode())
+            archive.writestr('VENDOR/etc/fstab.qcom', FSTAB)
+        state['outputs']['target_files_sha256'] = bw.sha_file(path)
+        ws.write_state('android', state)
+        with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+        state['outputs']['build_identity'] = 'e' * 64
+        ws.write_state('android', state)
+        second = run_plan(self.ctx, image_package.plan(self.ctx))
+        self.assertNotEqual(first['directory'], second['directory'])
+        self.assertEqual(b'new boot image', (ws.root / second['directory'] / 'boot.img').read_bytes())
+        self.assertEqual(b'boot image', (ws.root / first['directory'] / 'boot.img').read_bytes())
+
     def test_changed_target_files_is_refused(self):
         path = self.ctx.workspace.root / self.ctx.workspace.passed('android')['outputs']['target_files']
         os.chmod(path, 0o640)
