@@ -1021,3 +1021,11 @@ Revision history:
   media-session read no longer throws on a malformed value (-145, fixed before
   any build). Every value Home reads from notification extras is app-controlled
   and must be read without a throwing path.
+- 2026-09-30: -144 fixed (frameworks_base tally-build 121efa3492f5; the same
+  change on the owner's fork, branch chip_leak, for GrapheneOS): a promoted chip
+  whose notification the lock screen redacts shows only the public version's
+  short text or the icon, also while the lock screen is occluded; notifications
+  the lock screen hides give no chip. Its sweep left two low stock items open
+  (-146: status bar notification icons are never redacted; -147: always-on
+  promoted notifications with a trust agent and a separately locked work
+  profile, and dream chips upstream).
