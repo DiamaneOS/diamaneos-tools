@@ -260,6 +260,17 @@ def denied_modules(recipe):
 SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
 
 
+def clang_bin(work):
+    """The kernel's own clang, as its pinned common/build.config.constants names it."""
+    constants = work / 'common' / 'build.config.constants'
+    require(constants.is_file(), 'common/build.config.constants is missing')
+    match = re.search(r'^CLANG_VERSION=(r[0-9a-z]+)$', constants.read_text(), re.M)
+    require(match is not None, 'common/build.config.constants sets no CLANG_VERSION')
+    path = work / 'prebuilts/clang/host/linux-x86' / ('clang-' + match.group(1)) / 'bin'
+    require(path.is_dir(), 'the kernel\'s pinned clang is missing: clang-' + match.group(1))
+    return path
+
+
 def import_allowlist(recipe):
     """Symbols only the named modules may import, with the reason."""
     rules = recipe.get('module_import_allowlist', {})
@@ -558,7 +569,7 @@ def build(root, jobs, timeout, profile='production'):
                     'kernel does not enforce sha256 module signatures')
             candidate = run / 'candidate'
             render_package(candidate, selected, merged, image, recipe,
-                           work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-strip', work,
+                           clang_bin(work) / 'llvm-strip', work,
                            (gki / 'scripts/sign-file', gki / 'certs/signing_key.pem',
                             gki / 'certs/signing_key.x509', 'sha256'))
             # Check the packaged (stripped and signed) modules against the Image's
@@ -569,7 +580,7 @@ def build(root, jobs, timeout, profile='production'):
                          module_metadata, call, require)
             # Symbol rules moved from the per-build checks: which modules may
             # import a symbol, and symbols that must not exist in the Image.
-            nm = work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-nm'
+            nm = clang_bin(work) / 'llvm-nm'
             check_module_imports({name: candidate / 'modules' / name for name in selected}, allowlist,
                                  lambda path: undefined_symbols(call([nm, '-u', path], cwd=work)))
             system_map = vmlinux.parent / 'System.map'

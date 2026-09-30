@@ -226,3 +226,13 @@ class KernelSymbolRuleTests(unittest.TestCase):
         self.assertRaises(kernel.KernelError, kernel.forbidden_symbols,
                           {'forbidden_symbols': [{'symbol': 'x', 'reason': ''}]})
 
+    def test_clang_comes_from_the_pinned_build_constants(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            (work / 'common').mkdir()
+            (work / 'common/build.config.constants').write_text('BRANCH=android14-6.1\nCLANG_VERSION=r487747c\n')
+            with self.assertRaisesRegex(kernel.KernelError, 'clang-r487747c'):
+                kernel.clang_bin(work)
+            (work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin').mkdir(parents=True)
+            (work / 'prebuilts/clang/host/linux-x86/clang-r999/bin').mkdir(parents=True)
+            self.assertEqual(work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin', kernel.clang_bin(work))
