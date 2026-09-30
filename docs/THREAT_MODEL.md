@@ -543,6 +543,19 @@ rule in the supply-chain rows.
   tied to the caller's target or disabled at the pin). No permission or
   component change; the search index, its providers and their permissions are
   untouched, and results show what they showed.
+- Calculator (step 7, ExactCalculator fork): styling (DayNight with dynamic
+  colour, Tally keycaps from the token library, resources only), the AC and
+  "( )" keys, edge-to-edge and key labels that grow with the text size. The
+  manifest is unchanged: no permission, component, backup (allowBackup stays
+  false) or storage change; the keycap drawable is inflated by class name only
+  from the app's own resources.
+- Recovery and fastbootd titles (step 7, bootable_recovery fork, option A): the
+  fork changes exactly two title literals ("DiamaneOS Recovery", "DiamaneOS
+  Fastboot"); the compiled code is otherwise identical to the pin. Recovery runs
+  as root and wipes, sideloads and verifies packages, so every GrapheneOS rebase
+  of this fork is reviewed as a diff that must stay those two literals; signature
+  checks against otacerts and GrapheneOS's recovery restrictions (no SD-card entry,
+  serialno-constrained updates rejected, no serial number shown) are unchanged.
 - Motion (step 5, WM Shell half, behind the Tally flag): pages opening and
   closing inside and between apps, predictive Back between activities and tasks,
   and the cold-start splash change how they move, never what opens or closes.
@@ -970,3 +983,8 @@ Revision history:
   stay on the phone until emptied. Home's tallies and keycap LEDs count only
   things with a live readout or an activity in progress (owner, 30 September),
   never permanent background services.
+- 2026-09-30: step 7's Calculator fork and recovery title fork (local tally
+  branches, not built): no manifest change in Calculator; recovery changes two
+  string literals only. Notification rows get themed app icons (vendor_diamaneos
+  release config, the flag android.app.notifications_redesign_themed_app_icons,
+  read only by SystemUI's notification icon provider).
