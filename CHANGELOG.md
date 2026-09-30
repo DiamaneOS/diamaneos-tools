@@ -16,9 +16,15 @@
   the recipes that made them. The full preflight accepts the two generated
   directories only while that descriptor matches (review finding R4).
 
-- The FP6 build environment now pins the published line only: the public
-  manifest overlay and the android17 head of every DiamaneOS project on
-  2026-09-30.
+- The FP6 build environment now pins the published development line only:
+  the public manifest overlay and the android17 head of every DiamaneOS
+  project on 2026-09-30, including a build/make fork whose one change keeps
+  the device's zero boot header fields when release tools rebuild boot,
+  init_boot and recovery.
+
+- The `flash-steps --wipe` steps clear userdata, metadata, FRP and misc by
+  flashing images, as Fairphone's factory package does, never with
+  `fastboot -w` or `fastboot erase`.
 
 - Move the per-build device checks of the private build scripts into
   config/fp6-image-checks.json, the PSTORE and debugfs lines into kernel
