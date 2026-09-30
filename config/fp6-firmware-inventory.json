@@ -1,0 +1,1820 @@
+{
+  "schema_version": 1,
+  "scope": "Per-image identity of the firmware in the official Fairphone FP6 factory packages that DiamaneOS tracks. Read from the archives only; nothing here was read from a phone. See docs/FIRMWARE.md.",
+  "selected_build": "FP6.QREL.16.111.0",
+  "previous_build": "FP6.QREL.16.100.0",
+  "stock_flash_script": {
+    "sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
+    "identical_in_both_builds": true,
+    "requires": "fastboot oem device-info reporting both \"Device unlocked: true\" and \"Device critical unlocked: true\"",
+    "lock_commands": "none (never locks or unlocks)",
+    "slot_handling": "writes both _a and _b of every A/B partition, then selects slot a",
+    "order": [
+      {
+        "partition": "abl_a",
+        "image": "abl.elf"
+      },
+      {
+        "partition": "abl_b",
+        "image": "abl.elf"
+      },
+      {
+        "partition": "aop_a",
+        "image": "aop.mbn"
+      },
+      {
+        "partition": "aop_b",
+        "image": "aop.mbn"
+      },
+      {
+        "partition": "aop_config_a",
+        "image": "aop_devcfg.mbn"
+      },
+      {
+        "partition": "aop_config_b",
+        "image": "aop_devcfg.mbn"
+      },
+      {
+        "partition": "bluetooth_a",
+        "image": "BTFM.bin"
+      },
+      {
+        "partition": "bluetooth_b",
+        "image": "BTFM.bin"
+      },
+      {
+        "partition": "cpucp_a",
+        "image": "cpucp.elf"
+      },
+      {
+        "partition": "cpucp_b",
+        "image": "cpucp.elf"
+      },
+      {
+        "partition": "cpucp_dtb_a",
+        "image": "cpucp_dtbs.elf"
+      },
+      {
+        "partition": "cpucp_dtb_b",
+        "image": "cpucp_dtbs.elf"
+      },
+      {
+        "partition": "devcfg_a",
+        "image": "devcfg.mbn"
+      },
+      {
+        "partition": "devcfg_b",
+        "image": "devcfg.mbn"
+      },
+      {
+        "partition": "dsp_a",
+        "image": "dspso.bin"
+      },
+      {
+        "partition": "dsp_b",
+        "image": "dspso.bin"
+      },
+      {
+        "partition": "featenabler_a",
+        "image": "featenabler.mbn"
+      },
+      {
+        "partition": "featenabler_b",
+        "image": "featenabler.mbn"
+      },
+      {
+        "partition": "hyp_a",
+        "image": "hypvm.mbn"
+      },
+      {
+        "partition": "hyp_b",
+        "image": "hypvm.mbn"
+      },
+      {
+        "partition": "imagefv_a",
+        "image": "imagefv.elf"
+      },
+      {
+        "partition": "imagefv_b",
+        "image": "imagefv.elf"
+      },
+      {
+        "partition": "keymaster_a",
+        "image": "keymint.mbn"
+      },
+      {
+        "partition": "keymaster_b",
+        "image": "keymint.mbn"
+      },
+      {
+        "partition": "logfs",
+        "image": "logfs_ufs_8mb.bin"
+      },
+      {
+        "partition": "modem_a",
+        "image": "NON-HLOS.bin"
+      },
+      {
+        "partition": "modem_b",
+        "image": "NON-HLOS.bin"
+      },
+      {
+        "partition": "multiimgoem_a",
+        "image": "multi_image.mbn"
+      },
+      {
+        "partition": "multiimgoem_b",
+        "image": "multi_image.mbn"
+      },
+      {
+        "partition": "pvmfw_a",
+        "image": "pvmfw.img"
+      },
+      {
+        "partition": "pvmfw_b",
+        "image": "pvmfw.img"
+      },
+      {
+        "partition": "qupfw_a",
+        "image": "qupv3fw.elf"
+      },
+      {
+        "partition": "qupfw_b",
+        "image": "qupv3fw.elf"
+      },
+      {
+        "partition": "shrm_a",
+        "image": "shrm.elf"
+      },
+      {
+        "partition": "shrm_b",
+        "image": "shrm.elf"
+      },
+      {
+        "partition": "storsec",
+        "image": "storsec.mbn"
+      },
+      {
+        "partition": "study",
+        "image": "study.img"
+      },
+      {
+        "partition": "studybk_a",
+        "image": "study.img"
+      },
+      {
+        "partition": "studybk_b",
+        "image": "study.img"
+      },
+      {
+        "partition": "toolsfv",
+        "image": "tools.fv"
+      },
+      {
+        "partition": "tz_a",
+        "image": "tz.mbn"
+      },
+      {
+        "partition": "tz_b",
+        "image": "tz.mbn"
+      },
+      {
+        "partition": "uefi_a",
+        "image": "uefi.elf"
+      },
+      {
+        "partition": "uefi_b",
+        "image": "uefi.elf"
+      },
+      {
+        "partition": "uefisecapp_a",
+        "image": "uefi_sec.mbn"
+      },
+      {
+        "partition": "uefisecapp_b",
+        "image": "uefi_sec.mbn"
+      },
+      {
+        "partition": "vm-bootsys_a",
+        "image": "vm-bootsys.img"
+      },
+      {
+        "partition": "vm-bootsys_b",
+        "image": "vm-bootsys.img"
+      },
+      {
+        "partition": "vm-persist",
+        "image": "vm-persist.img"
+      },
+      {
+        "partition": "xbl_a",
+        "image": "xbl_s.melf"
+      },
+      {
+        "partition": "xbl_b",
+        "image": "xbl_s.melf"
+      },
+      {
+        "partition": "xbl_config_a",
+        "image": "xbl_config.elf"
+      },
+      {
+        "partition": "xbl_config_b",
+        "image": "xbl_config.elf"
+      },
+      {
+        "partition": "xbl_ramdump_a",
+        "image": "XblRamdump.elf"
+      },
+      {
+        "partition": "xbl_ramdump_b",
+        "image": "XblRamdump.elf"
+      },
+      {
+        "partition": "boot_a",
+        "image": "boot.img"
+      },
+      {
+        "partition": "boot_b",
+        "image": "boot.img"
+      },
+      {
+        "partition": "dtbo_a",
+        "image": "dtbo.img"
+      },
+      {
+        "partition": "dtbo_b",
+        "image": "dtbo.img"
+      },
+      {
+        "partition": "init_boot_a",
+        "image": "init_boot.img"
+      },
+      {
+        "partition": "init_boot_b",
+        "image": "init_boot.img"
+      },
+      {
+        "partition": "recovery_a",
+        "image": "recovery.img"
+      },
+      {
+        "partition": "recovery_b",
+        "image": "recovery.img"
+      },
+      {
+        "partition": "super",
+        "image": "super.img"
+      },
+      {
+        "partition": "vbmeta_a",
+        "image": "vbmeta.img"
+      },
+      {
+        "partition": "vbmeta_b",
+        "image": "vbmeta.img"
+      },
+      {
+        "partition": "vbmeta_system_a",
+        "image": "vbmeta_system.img"
+      },
+      {
+        "partition": "vbmeta_system_b",
+        "image": "vbmeta_system.img"
+      },
+      {
+        "partition": "vendor_boot_a",
+        "image": "vendor_boot.img"
+      },
+      {
+        "partition": "vendor_boot_b",
+        "image": "vendor_boot.img"
+      },
+      {
+        "partition": "userdata",
+        "image": "userdata.img",
+        "condition": "DATA_WIPE=true"
+      },
+      {
+        "partition": "metadata",
+        "image": "metadata.img",
+        "condition": "DATA_WIPE=true"
+      },
+      {
+        "partition": "frp",
+        "image": "frp_for_factory.img",
+        "condition": "FRP_WIPE=true"
+      }
+    ],
+    "after_flashing": [
+      "erase misc",
+      "erase modemst1",
+      "erase modemst2",
+      "--set-active=a",
+      "oem reset-rollback"
+    ],
+    "defaults": {
+      "AUTO_REBOOT": "true",
+      "DATA_WIPE": "true",
+      "DRY_RUN": "false",
+      "FRP_WIPE": "true",
+      "INTEGRITY_CHECK": "true",
+      "REBOOT_TO_BOOTLOADER": "false"
+    }
+  },
+  "rollback": {
+    "avb_rollback_locations": {
+      "1": "recovery",
+      "2": "vbmeta_system",
+      "3": "boot",
+      "4": "init_boot"
+    },
+    "avb_rollback_index": {
+      "FP6.QREL.16.100.0": 1785888000,
+      "FP6.QREL.16.111.0": 1788566400,
+      "meaning": "security patch date as Unix time (2026-08-05 and 2026-09-05, 00:00 UTC)"
+    },
+    "qualcomm_anti_rollback_version": "OEM metadata anti-rollback version 1 in every signed firmware image of both builds; QTI metadata version 0 where present. Unchanged."
+  },
+  "releases": {
+    "FP6.QREL.16.111.0": {
+      "archive": {
+        "filename": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
+        "bytes": 3761633302,
+        "sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc"
+      },
+      "zip_crc": "PASS",
+      "embedded_sha256sums": "76/76 match",
+      "flash_script_sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
+      "images": {
+        "firmware": {
+          "BTFM.bin": {
+            "bytes": 864256,
+            "sha256": "274cc6812df59a7cd33b50d8bda117e2e55d639e0c4a891d5c8192ec5be3507f",
+            "fastboot_partitions": [
+              "bluetooth_a",
+              "bluetooth_b"
+            ],
+            "role": "Bluetooth controller firmware"
+          },
+          "NON-HLOS.bin": {
+            "bytes": 185954304,
+            "sha256": "8a329c305f42747f0b28b94a5bb49676d8a4cca2a559b2b9bb5120bada2dd072",
+            "fastboot_partitions": [
+              "modem_a",
+              "modem_b"
+            ],
+            "qc_image_version": [
+              "LPAIDSP.HT.1.0-01111-LANAI-1",
+              "CDSP.HT.3.0-00953-LANAI-1",
+              "MPSS.DE.3.1.4.c4-00192-MILOS_GEN_PACK-1",
+              "WLAN.MSL.3.0.1-00591-QCAMSLSWPLZ-1"
+            ],
+            "role": "modem partition: MPSS modem, ADSP, CDSP, WPSS Wi-Fi (qca6750), IPA and trusted apps"
+          },
+          "XblRamdump.elf": {
+            "bytes": 860056,
+            "sha256": "dc48b9e454fb72d163d40405e896f06f66dfd7ffccd02ba47c497eafac7ca88b",
+            "fastboot_partitions": [
+              "xbl_ramdump_a",
+              "xbl_ramdump_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "oem_build_stamp": "Q_SENTINEL_{00D1FA99-8CBB-408E-94E0-209236D76C0D}_20260831_1119",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x42",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "XBL crash-dump handler"
+          },
+          "abl.elf": {
+            "bytes": 245560,
+            "sha256": "1b7f1d522f9964b21136f68c686412712ff89ef62fe64759e6614c4735e768cd",
+            "fastboot_partitions": [
+              "abl_a",
+              "abl_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x1c",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "Android boot loader (fastboot, AVB)"
+          },
+          "aop.mbn": {
+            "bytes": 318528,
+            "sha256": "9fde68a4a92f71c8653bce8e81663a372ecf10d938b8f83bd681a5c432688e05",
+            "fastboot_partitions": [
+              "aop_a",
+              "aop_b"
+            ],
+            "qc_image_version": "AOP.HO.5.0-00813-LANAI_E-1",
+            "oem_build_stamp": "Q_SENTINEL_{3A4E11ED-51FC-4B02-BDFD-A651E4A7BBEF}_20250430_1132",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x21",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "always-on processor"
+          },
+          "aop_devcfg.mbn": {
+            "bytes": 20328,
+            "sha256": "0943192a73fbffd5a37ad0bdfc53155fd3e6bc9b5b3f140a82d9f67d588dbaa5",
+            "fastboot_partitions": [
+              "aop_config_a",
+              "aop_config_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x3d",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "AOP configuration"
+          },
+          "cpucp.elf": {
+            "bytes": 203936,
+            "sha256": "09e7770925610b200c82f4283f1d35f594c463218760bd15a671b880bb2350c2",
+            "fastboot_partitions": [
+              "cpucp_a",
+              "cpucp_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x31",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "CPU control processor"
+          },
+          "cpucp_dtbs.elf": {
+            "bytes": 12088,
+            "sha256": "89edcf66c16421635290db963f9c7a2585ffd3e224b558c83e168dcd30f1e0c3",
+            "fastboot_partitions": [
+              "cpucp_dtb_a",
+              "cpucp_dtb_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x64",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "CPUCP device trees"
+          },
+          "devcfg.mbn": {
+            "bytes": 49000,
+            "sha256": "e64e6d13c2514a8b1eb483bb50ba44b44df9c8a5664e40dfdbd90642b0e59680",
+            "fastboot_partitions": [
+              "devcfg_a",
+              "devcfg_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x5",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "TrustZone device configuration"
+          },
+          "dspso.bin": {
+            "bytes": 67108864,
+            "sha256": "c3808f6ed263e5f6c51d623e3a088e9f35397344f58e4ac1fb9851144c2f1944",
+            "fastboot_partitions": [
+              "dsp_a",
+              "dsp_b"
+            ],
+            "role": "DSP shared objects (sensors, audio)"
+          },
+          "featenabler.mbn": {
+            "bytes": 105440,
+            "sha256": "fafe24be0c747758e8581963a6286bc832e6174e31149928639575f60c7bb483",
+            "fastboot_partitions": [
+              "featenabler_a",
+              "featenabler_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "feature enabler trusted application"
+          },
+          "hypvm.mbn": {
+            "bytes": 1682304,
+            "sha256": "89358d8cbfe90d2c228a9c455476f7bb5efff246f5b2550ef43a6b767173fa01",
+            "fastboot_partitions": [
+              "hyp_a",
+              "hyp_b"
+            ],
+            "qc_image_version": "TZ.XF.5.28.0-00021-LANAIAAAAANAZT-1",
+            "oem_build_stamp": "BAFAANAAA_20250519_1207",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x15",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "hypervisor (Gunyah)"
+          },
+          "imagefv.elf": {
+            "bytes": 53048,
+            "sha256": "f923de6f9128bc15cb13f9e08da14704f2dbff346036ec2e81bd1de66742c352",
+            "fastboot_partitions": [
+              "imagefv_a",
+              "imagefv_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x27",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI image firmware volume"
+          },
+          "keymint.mbn": {
+            "bytes": 441312,
+            "sha256": "43668e2aaf279a9a41255cd08f0bd386f3e2f4b95b4b382c62e1fd2a3a371083",
+            "fastboot_partitions": [
+              "keymaster_a",
+              "keymaster_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "KeyMint trusted application"
+          },
+          "logfs_ufs_8mb.bin": {
+            "bytes": 16384,
+            "sha256": "cadf6d7179d79ad39cbead824e2aa5394dd6447058d7990a2e37a94bb22e9e55",
+            "fastboot_partitions": [
+              "logfs"
+            ],
+            "role": "boot log filesystem (empty)"
+          },
+          "multi_image.mbn": {
+            "bytes": 12088,
+            "sha256": "2e834254d1a45fdb9d67dfcc4f020bbd617eb76e15bc961c5af9edf65970b422",
+            "fastboot_partitions": [
+              "multiimgoem_a",
+              "multiimgoem_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x22",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "OEM multi-image signing metadata"
+          },
+          "pvmfw.img": {
+            "bytes": 1048576,
+            "sha256": "97ec93be6b7bfdcf09f189b4f619158dc9f471961914c6f8d8aeae3495bb0d05",
+            "fastboot_partitions": [
+              "pvmfw_a",
+              "pvmfw_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            },
+            "role": "protected VM firmware",
+            "diamaneos_source": "DiamaneOS builds pvmfw from source (PRODUCT_BUILD_PVMFW_IMAGE) and ships it in its own OTA"
+          },
+          "qupv3fw.elf": {
+            "bytes": 60576,
+            "sha256": "d82a5be22cb642728e73bfffcbf6d00a1457ab099b11c49a91a008e04c3a8abc",
+            "fastboot_partitions": [
+              "qupfw_a",
+              "qupfw_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x24",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "serial engine (QUP) firmware"
+          },
+          "shrm.elf": {
+            "bytes": 51952,
+            "sha256": "e5eac650f2e53dda9e1a2df75375172c95f0d94a25b4198bb4256dec8e798faa",
+            "fastboot_partitions": [
+              "shrm_a",
+              "shrm_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x20",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "shared-memory DDR controller firmware"
+          },
+          "storsec.mbn": {
+            "bytes": 32856,
+            "sha256": "b58787206ebe360218fb9ea798face7629a89db94eeabfd5ce270c824548b0c1",
+            "fastboot_partitions": [
+              "storsec"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UFS secure storage configuration"
+          },
+          "study.img": {
+            "bytes": 3350528,
+            "sha256": "886cc3ef05621cde4407ef8a12215312fbb1ec9513dfedffb736b4aaa3f36cd1",
+            "fastboot_partitions": [
+              "study",
+              "studybk_a",
+              "studybk_b"
+            ],
+            "role": "Fairphone study partition image"
+          },
+          "tools.fv": {
+            "bytes": 393216,
+            "sha256": "6aed20001af6ea1deceb50de83d3311a6d9e9d988ea19fe1c25939d647471b0f",
+            "fastboot_partitions": [
+              "toolsfv"
+            ],
+            "role": "UEFI tools firmware volume"
+          },
+          "tz.mbn": {
+            "bytes": 4031136,
+            "sha256": "99a1c105a4a8aad5cc6161efad8536537053f00ada26a2940cdbdad76dc59475",
+            "fastboot_partitions": [
+              "tz_a",
+              "tz_b"
+            ],
+            "qc_image_version": "TZ.XF.5.28.0-00021-LANAIAAAAANAZT-1",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x7",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "TrustZone (QTEE)"
+          },
+          "uefi.elf": {
+            "bytes": 2903864,
+            "sha256": "eed8edaecd5c32b2b476326964a77c28d4298d7fc69f9fb505a71f559ecc4ff8",
+            "fastboot_partitions": [
+              "uefi_a",
+              "uefi_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x9",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI core"
+          },
+          "uefi_sec.mbn": {
+            "bytes": 196696,
+            "sha256": "cb11c4f0c757961bbeb886a84f6a541c5af0afa8f5eb583a036842f38bf6d84c",
+            "fastboot_partitions": [
+              "uefisecapp_a",
+              "uefisecapp_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI secure application"
+          },
+          "vm-bootsys.img": {
+            "bytes": 515846748,
+            "sha256": "4c04bd9eb8f6caa96525302c4cefe6ba537eadd660a1367525b61dd64edff1d0",
+            "fastboot_partitions": [
+              "vm-bootsys_a",
+              "vm-bootsys_b"
+            ],
+            "role": "Qualcomm trusted VM system image"
+          },
+          "vm-persist.img": {
+            "bytes": 125218988,
+            "sha256": "b7a0bed51bf112bda03ae47c96e9d8333de37466c5c06aae5598c0167747dc5c",
+            "fastboot_partitions": [
+              "vm-persist"
+            ],
+            "role": "trusted VM persistent data (empty filesystem)"
+          },
+          "xbl_config.elf": {
+            "bytes": 307336,
+            "sha256": "af20f5d4bb9905a6492c3188da953e0f5a69e52f065656224e6a2d10baabcd50",
+            "fastboot_partitions": [
+              "xbl_config_a",
+              "xbl_config_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x25",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "XBL configuration"
+          },
+          "xbl_s.melf": {
+            "bytes": 1194832,
+            "sha256": "b465f03decdaf739753862972c50fd174bf1ed48b4ae722b8ee918e6e6e3d115",
+            "fastboot_partitions": [
+              "xbl_a",
+              "xbl_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "oem_build_stamp": "Q_SENTINEL_{D60FA30B-ADA4-492C-84A1-85353A30F70F}_20250731_1811",
+            "role": "primary boot loader (XBL, SBL)"
+          }
+        },
+        "os": {
+          "boot.img": {
+            "bytes": 100663296,
+            "sha256": "26274132e758899cec25accfff7f5be4df6732c8c5229b4ada8b651300834891",
+            "fastboot_partitions": [
+              "boot_a",
+              "boot_b"
+            ],
+            "avb": {
+              "rollback_index": 1788566400,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "dtbo.img": {
+            "bytes": 31457280,
+            "sha256": "a377e2569f583309f4c381313e4b1bd4326e7c5ef1c6feb2458062e2a8301e4d",
+            "fastboot_partitions": [
+              "dtbo_a",
+              "dtbo_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            }
+          },
+          "init_boot.img": {
+            "bytes": 8388608,
+            "sha256": "7d6549fecaa790039a785cf2e9e70add527415552b7ed535edb4604764f92796",
+            "fastboot_partitions": [
+              "init_boot_a",
+              "init_boot_b"
+            ],
+            "avb": {
+              "rollback_index": 1788566400,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "recovery.img": {
+            "bytes": 104857600,
+            "sha256": "a04d195e24dda4fd6c5de74ecb3c11b49863d75e698add7f1a6ee55855f3e15c",
+            "fastboot_partitions": [
+              "recovery_a",
+              "recovery_b"
+            ],
+            "avb": {
+              "rollback_index": 1,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "super.img": {
+            "bytes": 7037079576,
+            "sha256": "5c72fa443077f2752bac0835432f35d2a6b366254938ec90ca0a7786eb50788d",
+            "fastboot_partitions": [
+              "super"
+            ]
+          },
+          "vbmeta.img": {
+            "bytes": 12288,
+            "sha256": "05be9bad97533af0c0b717099f4fff927c1459ab6bb52982068d8eb89e952fc2",
+            "fastboot_partitions": [
+              "vbmeta_a",
+              "vbmeta_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 2,
+              "chained_partitions": {
+                "boot": 3,
+                "init_boot": 4,
+                "recovery": 1,
+                "vbmeta_system": 2
+              }
+            }
+          },
+          "vbmeta_system.img": {
+            "bytes": 4096,
+            "sha256": "6dd5b931c6928b857c1c92124705b3c6ed6cf186c8b3a718e2244bacf14e750e",
+            "fastboot_partitions": [
+              "vbmeta_system_a",
+              "vbmeta_system_b"
+            ],
+            "avb": {
+              "rollback_index": 1788566400,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "vendor_boot.img": {
+            "bytes": 100663296,
+            "sha256": "c6d2f88a7d14959bde72022cf32b381f253c79fb6fd57a06c5b38e99f72cec20",
+            "fastboot_partitions": [
+              "vendor_boot_a",
+              "vendor_boot_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            }
+          }
+        },
+        "wipe": {
+          "frp_for_factory.img": {
+            "bytes": 524288,
+            "sha256": "40f5b680536bd76753b2d919793e6366955fb4380efebfa541ded2d229a4f50f",
+            "fastboot_partitions": [
+              "frp"
+            ]
+          },
+          "metadata.img": {
+            "bytes": 2236644,
+            "sha256": "779b681124aa242bd67a9dd72b9a3a58e141b2faac8dd571e6fa08795120ddb9",
+            "fastboot_partitions": [
+              "metadata"
+            ]
+          },
+          "userdata.img": {
+            "bytes": 4194304,
+            "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "fastboot_partitions": [
+              "userdata"
+            ]
+          }
+        },
+        "edl-layout": {
+          "gpt_backup0.bin": {
+            "bytes": 20480,
+            "sha256": "0ed0d8ea7afddfc633912b3f19a7083418a0613e9a1f4efb8f821aef1411882a"
+          },
+          "gpt_backup1.bin": {
+            "bytes": 20480,
+            "sha256": "186e76ef103051cfd2b7c4c0464e859a9f7909eb3e60f27910ad2435f69e2cda"
+          },
+          "gpt_backup2.bin": {
+            "bytes": 20480,
+            "sha256": "7ac86c552531e5cf6a1ee20db4740398b92e8a856f2a551aea3818fe2f3d35f2"
+          },
+          "gpt_backup3.bin": {
+            "bytes": 20480,
+            "sha256": "b2b7b2e3a895f1ea5cc507d43f5117e809fea1cabff9ed5a3c5259187e35044d"
+          },
+          "gpt_backup4.bin": {
+            "bytes": 20480,
+            "sha256": "fd561c9bc857b699d95208862bf3fef233bd184b6048841b029ea4b0a81afc28"
+          },
+          "gpt_backup5.bin": {
+            "bytes": 20480,
+            "sha256": "4618beb41a8ea3f8b2837bd0d54da28911f55b0fd1216833fc2ddcd18dfe7b97"
+          },
+          "gpt_main0.bin": {
+            "bytes": 24576,
+            "sha256": "741ce2a83767d060dd889a603beb18ba2aff77d971f4e197df88b71b051598cf"
+          },
+          "gpt_main1.bin": {
+            "bytes": 24576,
+            "sha256": "399b601581f9ba91d22cc61387522f6d0ac6199f1a563ac62a50a63b826d1f8b"
+          },
+          "gpt_main2.bin": {
+            "bytes": 24576,
+            "sha256": "935d9ed31a77ca968fd6bb5154cf5b25c7fd5daf6d6eb749b8ac844aa212fe57"
+          },
+          "gpt_main3.bin": {
+            "bytes": 24576,
+            "sha256": "879b806e8a7cde345c8116aa381181f1c499f9383b9fee477a08222e74afff64"
+          },
+          "gpt_main4.bin": {
+            "bytes": 24576,
+            "sha256": "9cbee927f04002eaee0cd756c0fdc321ac7a319712d340379bf63ff69e433953"
+          },
+          "gpt_main5.bin": {
+            "bytes": 24576,
+            "sha256": "cc520b36ae3cced5999e2cd7db98cd573f1de0e77af6bed73516317056f74994"
+          },
+          "patch0.xml": {
+            "bytes": 6263,
+            "sha256": "5ab7feb857345f39a2c11bd53aa04023b22c0028fddb18295f762d91db4dcc50"
+          },
+          "patch1.xml": {
+            "bytes": 6263,
+            "sha256": "a877f0744b1260ef47b1ee9150e41ac51753867141383842ae8bcc49c4c084b1"
+          },
+          "patch2.xml": {
+            "bytes": 6263,
+            "sha256": "5b67c4a3d55f8a464ed40dbea3112440f398e20d540b9b4060e4fe1566316d37"
+          },
+          "patch3.xml": {
+            "bytes": 6263,
+            "sha256": "5295252212105205c6d0a0cd2468bb35f001965d7229f44a62cc0965fd213148"
+          },
+          "patch4.xml": {
+            "bytes": 6275,
+            "sha256": "daeaf6a68a6dd4e80af1d3569ee8751a20ff3e0aadc3fc0909465ecb5440a8e8"
+          },
+          "patch5.xml": {
+            "bytes": 6263,
+            "sha256": "2194f97d271944dc975f0b7deaf772ef535f62946157b5831899a249a43f27ec"
+          },
+          "rawprogram0.xml": {
+            "bytes": 6776,
+            "sha256": "d371e81aac6f130eca50c2971a2278f84ddb90d26e5bb1f063b9c324eb65a00d"
+          },
+          "rawprogram1.xml": {
+            "bytes": 2607,
+            "sha256": "31b17bd8fc7ed52d1cbf5c5fd3f3860b4f981968345cfb2a66740f21df5ae2c1"
+          },
+          "rawprogram2.xml": {
+            "bytes": 2598,
+            "sha256": "3af8d33ca282dc87e9c30ccf2f9e4c1e12c02c0a86f8d073e861d694e97d5325"
+          },
+          "rawprogram3.xml": {
+            "bytes": 1947,
+            "sha256": "e9f2fe54b1ee56c6a24c157d57f3e2297e4d447009707d2258252bfd531563a7"
+          },
+          "rawprogram4.xml": {
+            "bytes": 24193,
+            "sha256": "97bab16fcacba8a3f50f2d1c86c6c385a0878d2d54f5055e3ce631377c2c0d85"
+          },
+          "rawprogram5.xml": {
+            "bytes": 2881,
+            "sha256": "9d8e4f6c2de042b838b8576fe730d060bbd10067647e9951a795f1011cf3b579"
+          }
+        }
+      },
+      "wifi_wpss_firmware": {
+        "container": "NON-HLOS.bin (modem_a/modem_b), image/qca6750/",
+        "version": "WLAN.MSL.3.0.1-00591-QCAMSLSWPLZ-1",
+        "files": {
+          "wpss.b00": {
+            "bytes": 468,
+            "sha256": "0b27a7c1c3d486a863b316a3a5eb6bfb94b8850b15f98d98de8896b0afc3a572"
+          },
+          "wpss.b01": {
+            "bytes": 6440,
+            "sha256": "d7ad7ab299ab05e871e494529b7753926a052a73f42bb9648eca24737ab9fa3e"
+          },
+          "wpss.b02": {
+            "bytes": 461049,
+            "sha256": "c708131c9d12b6826a58f031fd2d8c6122e462283f15822a2ad3b27da40e3ece"
+          },
+          "wpss.b03": {
+            "bytes": 1104,
+            "sha256": "2a28ff9e7caab18fc9609aad4a54e9f00ecd928ba04ae6ed3126b6516f5333c2"
+          },
+          "wpss.b04": {
+            "bytes": 256,
+            "sha256": "9c56db2655f241b2d8544f2bad39da35206a142bf5f74122c169f5eb36b212e1"
+          },
+          "wpss.b05": {
+            "bytes": 4096,
+            "sha256": "3ce1105a389f246a6eed67eb4fe48686bfaf6bcb6f2ec6b2059fcf65507ee46a"
+          },
+          "wpss.b06": {
+            "bytes": 6074641,
+            "sha256": "d9fc20c5ff0e4dbd5803f34742cb00ebd3582fab094c2ad5c7e2ac97bfc7b55e"
+          },
+          "wpss.b07": {
+            "bytes": 139316,
+            "sha256": "68286a283c3498459b6b9734b355ca3e3e9db13fb92e1bdebf027d4ca28cd588"
+          },
+          "wpss.b08": {
+            "bytes": 275644,
+            "sha256": "9744c05dd2dd0c423fa58c17bb7be7b122c7babdcdbc119cd251d4354e8a3680"
+          },
+          "wpss.b09": {
+            "bytes": 360960,
+            "sha256": "e44e650643694871b6a5618f8158ec66a42b0b9d642b42ddd0927fcbbfd329c5"
+          },
+          "wpss.b10": {
+            "bytes": 909398,
+            "sha256": "9d88aba17b5f8feba423746793097f8d6174f7c3cb2428b3a09a36d4aadbb946"
+          },
+          "wpss.b12": {
+            "bytes": 4376,
+            "sha256": "57dbe03ba3c5a4580a32ce5fb0e931abb2f1f63fd87305283afc022517119130"
+          },
+          "wpss.mdt": {
+            "bytes": 4844,
+            "sha256": "1cac9753e166212480201d58d57d2b9794887c9147087b752ee412ebe6a0e4d2"
+          },
+          "wpss.qdb": {
+            "bytes": 528,
+            "sha256": "a09cd2ab04b6b8da4e95adc5c4e972fa10195425b538622432cf3a03635af54e"
+          }
+        }
+      }
+    },
+    "FP6.QREL.16.100.0": {
+      "archive": {
+        "filename": "FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip",
+        "bytes": 3755004133,
+        "sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d"
+      },
+      "zip_crc": "PASS",
+      "embedded_sha256sums": "76/76 match",
+      "flash_script_sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
+      "images": {
+        "firmware": {
+          "BTFM.bin": {
+            "bytes": 864256,
+            "sha256": "8d7b53053abab100f14c18253fd11617324f99371be6e667b66f9acacc618987",
+            "fastboot_partitions": [
+              "bluetooth_a",
+              "bluetooth_b"
+            ],
+            "role": "Bluetooth controller firmware"
+          },
+          "NON-HLOS.bin": {
+            "bytes": 185954304,
+            "sha256": "6c89057dac7e0aa73e371e055aeb188973b5672c3626fccafb07f62cb15d183c",
+            "fastboot_partitions": [
+              "modem_a",
+              "modem_b"
+            ],
+            "qc_image_version": [
+              "LPAIDSP.HT.1.0-01111-LANAI-1",
+              "CDSP.HT.3.0-00953-LANAI-1",
+              "MPSS.DE.3.1.4.c4-00192-MILOS_GEN_PACK-1",
+              "WLAN.MSL.3.0.1-00591-QCAMSLSWPLZ-1"
+            ],
+            "role": "modem partition: MPSS modem, ADSP, CDSP, WPSS Wi-Fi (qca6750), IPA and trusted apps"
+          },
+          "XblRamdump.elf": {
+            "bytes": 860056,
+            "sha256": "cfccc2dcaabea7a42e624ff3a9ea7018dd60edb4f0f1fdc5a3f218c20aa32f97",
+            "fastboot_partitions": [
+              "xbl_ramdump_a",
+              "xbl_ramdump_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "oem_build_stamp": "Q_SENTINEL_{952776FA-7697-4FEA-9923-EB004B811834}_20260728_1021",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x42",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "XBL crash-dump handler"
+          },
+          "abl.elf": {
+            "bytes": 245560,
+            "sha256": "a32214c83b9104757c5ffcca9df1a1728fff15867e4dfcffeb56d3bef09d7b4f",
+            "fastboot_partitions": [
+              "abl_a",
+              "abl_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x1c",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "Android boot loader (fastboot, AVB)"
+          },
+          "aop.mbn": {
+            "bytes": 318528,
+            "sha256": "6702a40625fd93c02e53da5ac11e0b73ad851dbd08cf2c63e9d7b996e6db6bd9",
+            "fastboot_partitions": [
+              "aop_a",
+              "aop_b"
+            ],
+            "qc_image_version": "AOP.HO.5.0-00813-LANAI_E-1",
+            "oem_build_stamp": "Q_SENTINEL_{3A4E11ED-51FC-4B02-BDFD-A651E4A7BBEF}_20250430_1132",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x21",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "always-on processor"
+          },
+          "aop_devcfg.mbn": {
+            "bytes": 20328,
+            "sha256": "7cb3cb07212a665bad97801dd25d1a8463cdc4661cf5a52265d64870efd510e3",
+            "fastboot_partitions": [
+              "aop_config_a",
+              "aop_config_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x3d",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "AOP configuration"
+          },
+          "cpucp.elf": {
+            "bytes": 203936,
+            "sha256": "e15f7f5eb06617330df940462bf523dc27563119784d9736d6544c3c8db88c80",
+            "fastboot_partitions": [
+              "cpucp_a",
+              "cpucp_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x31",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "CPU control processor"
+          },
+          "cpucp_dtbs.elf": {
+            "bytes": 12088,
+            "sha256": "75e6545a35c6ee267b2813123e541eab648cd2ce3152442ce09fc41a3124af24",
+            "fastboot_partitions": [
+              "cpucp_dtb_a",
+              "cpucp_dtb_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x64",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "CPUCP device trees"
+          },
+          "devcfg.mbn": {
+            "bytes": 49000,
+            "sha256": "3f9cbf5b9a7ebb5030897590a1c580c29251f7b3dff3bc1026ec6255649b88f1",
+            "fastboot_partitions": [
+              "devcfg_a",
+              "devcfg_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x5",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "TrustZone device configuration"
+          },
+          "dspso.bin": {
+            "bytes": 67108864,
+            "sha256": "7a6ae894d97d046717bdbe913cac568dc85adc1a87bf9e8a572a59852db74c27",
+            "fastboot_partitions": [
+              "dsp_a",
+              "dsp_b"
+            ],
+            "role": "DSP shared objects (sensors, audio)"
+          },
+          "featenabler.mbn": {
+            "bytes": 105440,
+            "sha256": "dd1908aa4df76bf471aec50a7b509963a80ae661a0d2e503317e151efc7509b1",
+            "fastboot_partitions": [
+              "featenabler_a",
+              "featenabler_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "feature enabler trusted application"
+          },
+          "hypvm.mbn": {
+            "bytes": 1682304,
+            "sha256": "17d472421991a453b69efb56c48a9b7ad440c46d931b11b6755c52ec9c13e4a2",
+            "fastboot_partitions": [
+              "hyp_a",
+              "hyp_b"
+            ],
+            "qc_image_version": "TZ.XF.5.28.0-00021-LANAIAAAAANAZT-1",
+            "oem_build_stamp": "BAFAANAAA_20250519_1207",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x15",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "hypervisor (Gunyah)"
+          },
+          "imagefv.elf": {
+            "bytes": 53048,
+            "sha256": "74ce12e7a3890961a3b2d409749d11d38a284b00420dcfc3318332396c18afcb",
+            "fastboot_partitions": [
+              "imagefv_a",
+              "imagefv_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x27",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI image firmware volume"
+          },
+          "keymint.mbn": {
+            "bytes": 441312,
+            "sha256": "61270c71326c3819dd1fca00b60142343b83a972f74cd1d439fe9794acc1b5f7",
+            "fastboot_partitions": [
+              "keymaster_a",
+              "keymaster_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "KeyMint trusted application"
+          },
+          "logfs_ufs_8mb.bin": {
+            "bytes": 16384,
+            "sha256": "cadf6d7179d79ad39cbead824e2aa5394dd6447058d7990a2e37a94bb22e9e55",
+            "fastboot_partitions": [
+              "logfs"
+            ],
+            "role": "boot log filesystem (empty)"
+          },
+          "multi_image.mbn": {
+            "bytes": 12088,
+            "sha256": "4abab3ba355bd757f108d19943bcb5218ea56b7137ec4bcc403edd4dd5251847",
+            "fastboot_partitions": [
+              "multiimgoem_a",
+              "multiimgoem_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x22",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "OEM multi-image signing metadata"
+          },
+          "pvmfw.img": {
+            "bytes": 1048576,
+            "sha256": "8abd5321627b047068bd0248fd89844febc8f8f188f3b5d62cded04b8b706d2e",
+            "fastboot_partitions": [
+              "pvmfw_a",
+              "pvmfw_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            },
+            "role": "protected VM firmware",
+            "diamaneos_source": "DiamaneOS builds pvmfw from source (PRODUCT_BUILD_PVMFW_IMAGE) and ships it in its own OTA"
+          },
+          "qupv3fw.elf": {
+            "bytes": 60576,
+            "sha256": "2b8cf5977c5796321b089a583b3728aae1c2d3d03657680820b84e6e39920481",
+            "fastboot_partitions": [
+              "qupfw_a",
+              "qupfw_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x24",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "serial engine (QUP) firmware"
+          },
+          "shrm.elf": {
+            "bytes": 51952,
+            "sha256": "7177ea83c9a8f98031a4474117b66b8c4f6937668104678d473d3b623addeda3",
+            "fastboot_partitions": [
+              "shrm_a",
+              "shrm_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x20",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "shared-memory DDR controller firmware"
+          },
+          "storsec.mbn": {
+            "bytes": 32856,
+            "sha256": "e98571065d57165d2c9b5d73b5ef580b700185b221e854adddd0126906b42e66",
+            "fastboot_partitions": [
+              "storsec"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UFS secure storage configuration"
+          },
+          "study.img": {
+            "bytes": 3350528,
+            "sha256": "14d44500f778fa564b3440eb831b476c4cc3441e4317af90177c8c21736580c9",
+            "fastboot_partitions": [
+              "study",
+              "studybk_a",
+              "studybk_b"
+            ],
+            "role": "Fairphone study partition image"
+          },
+          "tools.fv": {
+            "bytes": 393216,
+            "sha256": "2d6161cb79f0771b6950a2bc29de53ff4a5e8d30c7588de35332eecbdf676dc6",
+            "fastboot_partitions": [
+              "toolsfv"
+            ],
+            "role": "UEFI tools firmware volume"
+          },
+          "tz.mbn": {
+            "bytes": 4031136,
+            "sha256": "d5d661cd3b7d675da9d4204a3399ed4701c51e5c6715b558f2827580d6a37d31",
+            "fastboot_partitions": [
+              "tz_a",
+              "tz_b"
+            ],
+            "qc_image_version": "TZ.XF.5.28.0-00021-LANAIAAAAANAZT-1",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x7",
+              "qti_signed": true,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1,
+              "qti_anti_rollback_version": 0
+            },
+            "role": "TrustZone (QTEE)"
+          },
+          "uefi.elf": {
+            "bytes": 2903864,
+            "sha256": "6925e4061a2b72272c047141bd02d9eabbd28d272cc24f814e4467c0adce8627",
+            "fastboot_partitions": [
+              "uefi_a",
+              "uefi_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x9",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI core"
+          },
+          "uefi_sec.mbn": {
+            "bytes": 196696,
+            "sha256": "cee153547558cb7d5272da4e7b338bd00c2262b9b23e231e73287664f2998208",
+            "fastboot_partitions": [
+              "uefisecapp_a",
+              "uefisecapp_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0xc",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "UEFI secure application"
+          },
+          "vm-bootsys.img": {
+            "bytes": 515846748,
+            "sha256": "4c04bd9eb8f6caa96525302c4cefe6ba537eadd660a1367525b61dd64edff1d0",
+            "fastboot_partitions": [
+              "vm-bootsys_a",
+              "vm-bootsys_b"
+            ],
+            "role": "Qualcomm trusted VM system image"
+          },
+          "vm-persist.img": {
+            "bytes": 125218988,
+            "sha256": "b7a0bed51bf112bda03ae47c96e9d8333de37466c5c06aae5598c0167747dc5c",
+            "fastboot_partitions": [
+              "vm-persist"
+            ],
+            "role": "trusted VM persistent data (empty filesystem)"
+          },
+          "xbl_config.elf": {
+            "bytes": 307336,
+            "sha256": "63e8e2b8a35b2b077780708b244ddf165c0735791f3a56bf1205ab390cd2c622",
+            "fastboot_partitions": [
+              "xbl_config_a",
+              "xbl_config_b"
+            ],
+            "signing": {
+              "mbn_header": 7,
+              "sw_id": "0x25",
+              "qti_signed": false,
+              "oem_signed": true,
+              "oem_anti_rollback_version": 1
+            },
+            "role": "XBL configuration"
+          },
+          "xbl_s.melf": {
+            "bytes": 1194832,
+            "sha256": "420172a84f43f77064ab511a3c24f0df936d356084661a919a29b15e61bbdcc6",
+            "fastboot_partitions": [
+              "xbl_a",
+              "xbl_b"
+            ],
+            "qc_image_version": "BOOT.MXF.2.1-02027-LANAI-1",
+            "oem_build_stamp": "Q_SENTINEL_{D60FA30B-ADA4-492C-84A1-85353A30F70F}_20250731_1811",
+            "role": "primary boot loader (XBL, SBL)"
+          }
+        },
+        "os": {
+          "boot.img": {
+            "bytes": 100663296,
+            "sha256": "6d3428d5d41c37cf51ba9fa45dc16c1c5e7b354d0cbaa63e594d545a0cd576b7",
+            "fastboot_partitions": [
+              "boot_a",
+              "boot_b"
+            ],
+            "avb": {
+              "rollback_index": 1785888000,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "dtbo.img": {
+            "bytes": 31457280,
+            "sha256": "4f5dd779cc6941533581662e81e674a58208d95d4c1979c3b3ed77ac446f8664",
+            "fastboot_partitions": [
+              "dtbo_a",
+              "dtbo_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            }
+          },
+          "init_boot.img": {
+            "bytes": 8388608,
+            "sha256": "23dc3112c72c86c3d1643f9eea6c9f4999b824c27dc97fd4337c13db5a267208",
+            "fastboot_partitions": [
+              "init_boot_a",
+              "init_boot_b"
+            ],
+            "avb": {
+              "rollback_index": 1785888000,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "recovery.img": {
+            "bytes": 104857600,
+            "sha256": "e39852c96d37254b81cfcd6e7841c5724ba4e3ed48a6749cbdeab4fa68ff3996",
+            "fastboot_partitions": [
+              "recovery_a",
+              "recovery_b"
+            ],
+            "avb": {
+              "rollback_index": 1,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "super.img": {
+            "bytes": 7031324752,
+            "sha256": "5f939dddd04b9249fe1d562ea004496a53204bc965760d5cfe4eb582952ea386",
+            "fastboot_partitions": [
+              "super"
+            ]
+          },
+          "vbmeta.img": {
+            "bytes": 12288,
+            "sha256": "ef7f0322dcf2c4797a0b6655cd672abec10da960a1f7865e72c3d84a3e85b42e",
+            "fastboot_partitions": [
+              "vbmeta_a",
+              "vbmeta_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 2,
+              "chained_partitions": {
+                "boot": 3,
+                "init_boot": 4,
+                "recovery": 1,
+                "vbmeta_system": 2
+              }
+            }
+          },
+          "vbmeta_system.img": {
+            "bytes": 4096,
+            "sha256": "ec0dd7a4d61e72336e6cbb2be19218e4447e31c54939d7521e66c3ea60ebaa5f",
+            "fastboot_partitions": [
+              "vbmeta_system_a",
+              "vbmeta_system_b"
+            ],
+            "avb": {
+              "rollback_index": 1785888000,
+              "rollback_index_location": 0,
+              "algorithm_type": 2
+            }
+          },
+          "vendor_boot.img": {
+            "bytes": 100663296,
+            "sha256": "b99c41440285b1ac5cb36c75f6ce381585519a0f6606b4bc5bf594d205f029d1",
+            "fastboot_partitions": [
+              "vendor_boot_a",
+              "vendor_boot_b"
+            ],
+            "avb": {
+              "rollback_index": 0,
+              "rollback_index_location": 0,
+              "algorithm_type": 0
+            }
+          }
+        },
+        "wipe": {
+          "frp_for_factory.img": {
+            "bytes": 524288,
+            "sha256": "40f5b680536bd76753b2d919793e6366955fb4380efebfa541ded2d229a4f50f",
+            "fastboot_partitions": [
+              "frp"
+            ]
+          },
+          "metadata.img": {
+            "bytes": 2236644,
+            "sha256": "0090d812cef5001c1497d97912b01c694f4cd4df46eecfee7c4e31264590a726",
+            "fastboot_partitions": [
+              "metadata"
+            ]
+          },
+          "userdata.img": {
+            "bytes": 4194304,
+            "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "fastboot_partitions": [
+              "userdata"
+            ]
+          }
+        },
+        "edl-layout": {
+          "gpt_backup0.bin": {
+            "bytes": 20480,
+            "sha256": "9c80981aff6e3820080135d23d44be0b071c9ef1171d8cff20ccef4087292489"
+          },
+          "gpt_backup1.bin": {
+            "bytes": 20480,
+            "sha256": "edb96c6612d5b86756deb20b7cb598feb828a22360ab6babd19e353f6ce67ac3"
+          },
+          "gpt_backup2.bin": {
+            "bytes": 20480,
+            "sha256": "0f00c8a8d5c9019cc5261f820183ba8e3920c8b63f40fdd56418bb2cebb5cc91"
+          },
+          "gpt_backup3.bin": {
+            "bytes": 20480,
+            "sha256": "b816fa20dcf1a919ab2c816059525d57866e155f3acdb6e640f0adb376bd5eef"
+          },
+          "gpt_backup4.bin": {
+            "bytes": 20480,
+            "sha256": "c1875ff0e2ecd1373331aa6428ab0460d833322d833f2104a2d0d0c9c3be6d16"
+          },
+          "gpt_backup5.bin": {
+            "bytes": 20480,
+            "sha256": "151f87ec4837a2e68e6d4c9d3ca40f736ffd851689de497845871882f4d791e6"
+          },
+          "gpt_main0.bin": {
+            "bytes": 24576,
+            "sha256": "a445287e7914e15f4c1f1d09d034304fba8b0635a28a249dbed3497b4b362fcb"
+          },
+          "gpt_main1.bin": {
+            "bytes": 24576,
+            "sha256": "ff776afda88e9c7bdb3d0716f4095bdfafceb5ee4451bb83733f3de772aa62ca"
+          },
+          "gpt_main2.bin": {
+            "bytes": 24576,
+            "sha256": "71a135818c713c4af4d7642facee9b65829df0932ae3ce348ffce8b6fef81c87"
+          },
+          "gpt_main3.bin": {
+            "bytes": 24576,
+            "sha256": "13284d74368d584303681b389641c082e4d99a40309ad751f62d6566da48f1de"
+          },
+          "gpt_main4.bin": {
+            "bytes": 24576,
+            "sha256": "7706294416746ba40ba837a14769242099a10d0a1ac3b1744e72008ce4ba5564"
+          },
+          "gpt_main5.bin": {
+            "bytes": 24576,
+            "sha256": "435fa23b5e04d293d498793e062e96b364aab6988529c8faccf20b49039e5d86"
+          },
+          "patch0.xml": {
+            "bytes": 6263,
+            "sha256": "5ab7feb857345f39a2c11bd53aa04023b22c0028fddb18295f762d91db4dcc50"
+          },
+          "patch1.xml": {
+            "bytes": 6263,
+            "sha256": "a877f0744b1260ef47b1ee9150e41ac51753867141383842ae8bcc49c4c084b1"
+          },
+          "patch2.xml": {
+            "bytes": 6263,
+            "sha256": "5b67c4a3d55f8a464ed40dbea3112440f398e20d540b9b4060e4fe1566316d37"
+          },
+          "patch3.xml": {
+            "bytes": 6263,
+            "sha256": "5295252212105205c6d0a0cd2468bb35f001965d7229f44a62cc0965fd213148"
+          },
+          "patch4.xml": {
+            "bytes": 6275,
+            "sha256": "daeaf6a68a6dd4e80af1d3569ee8751a20ff3e0aadc3fc0909465ecb5440a8e8"
+          },
+          "patch5.xml": {
+            "bytes": 6263,
+            "sha256": "2194f97d271944dc975f0b7deaf772ef535f62946157b5831899a249a43f27ec"
+          },
+          "rawprogram0.xml": {
+            "bytes": 6776,
+            "sha256": "d371e81aac6f130eca50c2971a2278f84ddb90d26e5bb1f063b9c324eb65a00d"
+          },
+          "rawprogram1.xml": {
+            "bytes": 2607,
+            "sha256": "31b17bd8fc7ed52d1cbf5c5fd3f3860b4f981968345cfb2a66740f21df5ae2c1"
+          },
+          "rawprogram2.xml": {
+            "bytes": 2598,
+            "sha256": "3af8d33ca282dc87e9c30ccf2f9e4c1e12c02c0a86f8d073e861d694e97d5325"
+          },
+          "rawprogram3.xml": {
+            "bytes": 1947,
+            "sha256": "e9f2fe54b1ee56c6a24c157d57f3e2297e4d447009707d2258252bfd531563a7"
+          },
+          "rawprogram4.xml": {
+            "bytes": 24193,
+            "sha256": "d446872117bd5c39f74263129ca9e60fbb1b84ff11ac9fd6cd0ccd35b56781b3"
+          },
+          "rawprogram5.xml": {
+            "bytes": 2881,
+            "sha256": "9d8e4f6c2de042b838b8576fe730d060bbd10067647e9951a795f1011cf3b579"
+          }
+        }
+      },
+      "wifi_wpss_firmware": {
+        "container": "NON-HLOS.bin (modem_a/modem_b), image/qca6750/",
+        "version": "WLAN.MSL.3.0.1-00591-QCAMSLSWPLZ-1",
+        "files": {
+          "wpss.b00": {
+            "bytes": 468,
+            "sha256": "0b27a7c1c3d486a863b316a3a5eb6bfb94b8850b15f98d98de8896b0afc3a572"
+          },
+          "wpss.b01": {
+            "bytes": 6440,
+            "sha256": "d7ad7ab299ab05e871e494529b7753926a052a73f42bb9648eca24737ab9fa3e"
+          },
+          "wpss.b02": {
+            "bytes": 461049,
+            "sha256": "c708131c9d12b6826a58f031fd2d8c6122e462283f15822a2ad3b27da40e3ece"
+          },
+          "wpss.b03": {
+            "bytes": 1104,
+            "sha256": "2a28ff9e7caab18fc9609aad4a54e9f00ecd928ba04ae6ed3126b6516f5333c2"
+          },
+          "wpss.b04": {
+            "bytes": 256,
+            "sha256": "9c56db2655f241b2d8544f2bad39da35206a142bf5f74122c169f5eb36b212e1"
+          },
+          "wpss.b05": {
+            "bytes": 4096,
+            "sha256": "3ce1105a389f246a6eed67eb4fe48686bfaf6bcb6f2ec6b2059fcf65507ee46a"
+          },
+          "wpss.b06": {
+            "bytes": 6074641,
+            "sha256": "d9fc20c5ff0e4dbd5803f34742cb00ebd3582fab094c2ad5c7e2ac97bfc7b55e"
+          },
+          "wpss.b07": {
+            "bytes": 139316,
+            "sha256": "68286a283c3498459b6b9734b355ca3e3e9db13fb92e1bdebf027d4ca28cd588"
+          },
+          "wpss.b08": {
+            "bytes": 275644,
+            "sha256": "9744c05dd2dd0c423fa58c17bb7be7b122c7babdcdbc119cd251d4354e8a3680"
+          },
+          "wpss.b09": {
+            "bytes": 360960,
+            "sha256": "e44e650643694871b6a5618f8158ec66a42b0b9d642b42ddd0927fcbbfd329c5"
+          },
+          "wpss.b10": {
+            "bytes": 909398,
+            "sha256": "9d88aba17b5f8feba423746793097f8d6174f7c3cb2428b3a09a36d4aadbb946"
+          },
+          "wpss.b12": {
+            "bytes": 4376,
+            "sha256": "cf2645e790a6570e0a89d737a9a2cd09facbf6cb7167b5c08d373c5132b86f94"
+          },
+          "wpss.mdt": {
+            "bytes": 4844,
+            "sha256": "dd8ef58ccf046068aabcfe28f5576c3ae850b56dcb243c888f76eda82eb92450"
+          },
+          "wpss.qdb": {
+            "bytes": 528,
+            "sha256": "a09cd2ab04b6b8da4e95adc5c4e972fa10195425b538622432cf3a03635af54e"
+          }
+        }
+      }
+    }
+  },
+  "changes_from_previous": {
+    "BTFM.bin": "filesystem metadata only (all 11 contained files byte-identical)",
+    "NON-HLOS.bin": "contents changed: modem, ADSP and CDSP code/data segments differ with unchanged version strings; WPSS Wi-Fi, IPA and trusted apps re-signed only; 14 carrier MCFG profiles (1&1, Orange, Proximus, AT&T) and the 3 modem_pr/so images changed content; 152 other signed files re-signed only",
+    "XblRamdump.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
+    "abl.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
+    "aop.mbn": "re-signed only (hash/signature segment differs)",
+    "aop_devcfg.mbn": "re-signed only (hash/signature segment differs)",
+    "cpucp.elf": "re-signed only (hash/signature segment differs)",
+    "cpucp_dtbs.elf": "re-signed only (hash/signature segment differs)",
+    "devcfg.mbn": "rebuilt (code/data segments differ; same Qualcomm version string)",
+    "dspso.bin": "one contained file changed (adsp/sns_tppe.so) plus the filesystem journal",
+    "featenabler.mbn": "re-signed only (hash/signature segment differs)",
+    "hypvm.mbn": "re-signed only (hash/signature segment differs)",
+    "imagefv.elf": "re-signed only (hash/signature segment differs)",
+    "keymint.mbn": "re-signed only (hash/signature segment differs)",
+    "logfs_ufs_8mb.bin": "unchanged",
+    "multi_image.mbn": "rebuilt (code/data segments differ; same Qualcomm version string)",
+    "pvmfw.img": "rebuilt (not used: DiamaneOS builds its own pvmfw)",
+    "qupv3fw.elf": "re-signed only (hash/signature segment differs)",
+    "shrm.elf": "re-signed only (hash/signature segment differs)",
+    "storsec.mbn": "re-signed only (hash/signature segment differs)",
+    "study.img": "content timestamps",
+    "tools.fv": "rebuilt (compressed volume differs)",
+    "tz.mbn": "re-signed only (hash/signature segment differs)",
+    "uefi.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
+    "uefi_sec.mbn": "re-signed only (hash/signature segment differs)",
+    "vm-bootsys.img": "unchanged",
+    "vm-persist.img": "unchanged",
+    "xbl_config.elf": "re-signed only (hash/signature segment differs)",
+    "xbl_s.melf": "container bytes only (signing certificate timestamps; segments identical)"
+  }
+}

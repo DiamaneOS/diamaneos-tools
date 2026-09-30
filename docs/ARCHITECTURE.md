@@ -62,9 +62,11 @@ reproducible build entry point.
 
 Generated vendor content is derived from an exact, hash-pinned stock input.
 For the EU port, the primary extraction source is the verified
-`FP6.QREL.16.100.0` factory package; the phone running that build verifies
-runtime declarations and may supplement ordinary mounted files, but is not the
-sole extraction source. A stock production ADB session cannot provide every
+`FP6.QREL.16.111.0` factory package (selected on 2026-09-30; `FP6.QREL.16.100.0`
+before that); a phone running that build verifies runtime declarations and may
+supplement ordinary mounted files, but is not the sole extraction source. The
+firmware images of the selected package are hashed per image in
+`config/fp6-firmware-inventory.json`. A stock production ADB session cannot provide every
 partition, and a device also contains calibration, identity and provisioning
 state that must never enter a generated vendor tree.
 
@@ -89,8 +91,9 @@ those properties are established; replacing a hardware-backed service with a
 weaker software fallback is not accepted as attack-surface reduction.
 
 The intended regional architecture is one product when the evidence permits
-it. `FP6.QREL.16.100.0` is the EU baseline; `FP6.QREL.16.104.0` is a US
-comparison/validation input, not an EU restore input. Only byte-identical files
+it. `FP6.QREL.16.111.0` is the EU baseline (Fairphone released it as one build
+for all regions); `FP6.QREL.16.104.0` is a US comparison/validation input, not
+an EU restore input. Only byte-identical files
 may enter a common generated set without further adaptation. Any real regional
 delta must be isolated and selected using an observed trustworthy hardware or
 boot SKU property, never locale or mutable location. Boot-critical differences

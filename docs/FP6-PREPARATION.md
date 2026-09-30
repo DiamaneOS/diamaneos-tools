@@ -20,7 +20,7 @@ Run commands from the authenticated tools checkout. Set absolute paths:
 ```sh
 TOOLS_ROOT="$PWD"
 WORK_ROOT="/absolute/path/to/build-work"
-FACTORY_ZIP="/absolute/path/to/FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip"
+FACTORY_ZIP="/absolute/path/to/FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip"
 IMAGE_TOOLS="/absolute/path/to/extracted-otatools/bin"
 SOURCE_ROOT="/absolute/path/to/android-source"
 ```

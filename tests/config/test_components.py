@@ -45,7 +45,7 @@ class ComponentModelTest(unittest.TestCase):
         return {
             "schema_version": 1,
             "model_sha256": self.model_sha256,
-            "stock_build": "FP6.QREL.16.100.0",
+            "stock_build": "FP6.QREL.16.111.0",
             "region": "EU",
             "artifacts": [{
                 "path": camera_path,

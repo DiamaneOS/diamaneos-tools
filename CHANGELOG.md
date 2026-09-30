@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Move the stock input to Fairphone FP6.QREL.16.111.0 (2026-09-05 security
+  patch). 13 of the 729 selected files changed (camera, GPU and video
+  firmware, the QCRIL database, carrier configuration and APNs); none went
+  missing, and no changed library gained or lost a dependency or symbol. Add a
+  per-image inventory of the firmware in the 16.100.0 and 16.111.0 factory
+  packages.
+
 - Add `fonts check`: read a product `fonts_customization.xml` and its fonts
   as Android does at boot, so a file that would drop every system font, stop
   boot or draw the wrong weight fails before a build. It checks either the

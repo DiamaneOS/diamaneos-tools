@@ -1,50 +1,50 @@
 {
   "schema_version": 1,
-  "stock_build": "FP6.QREL.16.100.0",
+  "stock_build": "FP6.QREL.16.111.0",
   "region": "EU",
-  "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "archive_bytes": 3755004133,
+  "archive_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
+  "archive_bytes": 3761633302,
   "images": [
     {
       "partition": "boot",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/boot.img",
-      "sha256": "6d3428d5d41c37cf51ba9fa45dc16c1c5e7b354d0cbaa63e594d545a0cd576b7",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/boot.img",
+      "sha256": "26274132e758899cec25accfff7f5be4df6732c8c5229b4ada8b651300834891",
       "bytes": 100663296
     },
     {
       "partition": "dtbo",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/dtbo.img",
-      "sha256": "4f5dd779cc6941533581662e81e674a58208d95d4c1979c3b3ed77ac446f8664",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/dtbo.img",
+      "sha256": "a377e2569f583309f4c381313e4b1bd4326e7c5ef1c6feb2458062e2a8301e4d",
       "bytes": 31457280
     },
     {
       "partition": "init_boot",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/init_boot.img",
-      "sha256": "23dc3112c72c86c3d1643f9eea6c9f4999b824c27dc97fd4337c13db5a267208",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/init_boot.img",
+      "sha256": "7d6549fecaa790039a785cf2e9e70add527415552b7ed535edb4604764f92796",
       "bytes": 8388608
     },
     {
       "partition": "super",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/super.img",
-      "sha256": "5f939dddd04b9249fe1d562ea004496a53204bc965760d5cfe4eb582952ea386",
-      "bytes": 7031324752
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/super.img",
+      "sha256": "5c72fa443077f2752bac0835432f35d2a6b366254938ec90ca0a7786eb50788d",
+      "bytes": 7037079576
     },
     {
       "partition": "vbmeta",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vbmeta.img",
-      "sha256": "ef7f0322dcf2c4797a0b6655cd672abec10da960a1f7865e72c3d84a3e85b42e",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/vbmeta.img",
+      "sha256": "05be9bad97533af0c0b717099f4fff927c1459ab6bb52982068d8eb89e952fc2",
       "bytes": 12288
     },
     {
       "partition": "vbmeta_system",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vbmeta_system.img",
-      "sha256": "ec0dd7a4d61e72336e6cbb2be19218e4447e31c54939d7521e66c3ea60ebaa5f",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/vbmeta_system.img",
+      "sha256": "6dd5b931c6928b857c1c92124705b3c6ed6cf186c8b3a718e2244bacf14e750e",
       "bytes": 4096
     },
     {
       "partition": "vendor_boot",
-      "member": "FP6.QREL.16.100.0.20260727183253_WS1M-factory/images/vendor_boot.img",
-      "sha256": "b99c41440285b1ac5cb36c75f6ce381585519a0f6606b4bc5bf594d205f029d1",
+      "member": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory/images/vendor_boot.img",
+      "sha256": "c6d2f88a7d14959bde72022cf32b381f253c79fb6fd57a06c5b38e99f72cec20",
       "bytes": 100663296
     }
   ]

@@ -192,12 +192,12 @@
       "fp6_source_inventory": {
         "path": "config/fp6-sources.json",
         "schema_version": 1,
-        "sha256": "563f0615047ac9fa89c65920af819a3dee3e80ec85f79d70e88fb098c5f44063"
+        "sha256": "3c1ca6df00e6e6e7cfda60e6edac5791b817f994d0aa677bb408a4806f71097e"
       },
       "selected_stock": {
-        "build": "FP6.QREL.16.100.0",
+        "build": "FP6.QREL.16.111.0",
         "region": "EU",
-        "factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+        "factory_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
         "runtime_vintf_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577"
       },
       "fairphone_source_manifest": {

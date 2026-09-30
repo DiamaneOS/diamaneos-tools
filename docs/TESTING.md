@@ -63,6 +63,14 @@ supplied that separate evidence for the exact Android 16 EU archive: restore,
 AVB/rollback review, critical relock, normal relock, locked-green boot and final
 cold-boot hardware checks passed.
 
+On 2026-09-30 the generator input moved to `FP6.QREL.16.111.0` (released
+2026-09-28, 2026-09-05 security patch). Fairphone had not yet published a
+checksum for that package, so its entry records two agreeing local reads, the
+MD5 from the official host's object metadata, the full ZIP CRC and all 76
+embedded declared hashes instead. Compare it with Fairphone's value once
+published. It is not a tested restore input: the phone still runs
+`FP6.QREL.16.100.0`, which stays the restore selection.
+
 Recovery copies must be read from two independent private storage locations and
 match the recorded byte count and SHA-256 before destructive work. Two
 directories on one physical volume do not meet that requirement. Custody,

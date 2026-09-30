@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "stock_build": "FP6.QREL.16.100.0",
+  "stock_build": "FP6.QREL.16.111.0",
   "region": "EU",
-  "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-  "model_sha256": "4e459762047169d2397459f4edd7d118d09ea26fb99bf9ea9e881d3caa4d84a7",
+  "archive_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
+  "model_sha256": "0c79add1824ccf2ea786dee4d00a2d57bcb80953fb6155d8ffd728709e13f693",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
@@ -2286,7 +2286,7 @@
     },
     {
       "path": "vendor/firmware/gen80300_zap.mbn",
-      "sha256": "5ba0d93d3716a182405fba755f7ef1090b2107a40ab78c60b7c5da17491ad646",
+      "sha256": "347ccee9e663ab6ed6fe269894c336354225f5e875ff7ba84bb303d93875a384",
       "bytes": 12088,
       "input": "vendor/firmware/gen80300_zap.mbn",
       "component_id": "firmware-trusted-boot",
@@ -7264,7 +7264,7 @@
     {
       "input": "vendor/lib64/hw/camera.qcom.so",
       "path": "vendor/lib64/hw/camera.qcom.so",
-      "sha256": "27cc499c1a6a99b22553abb81c57a3689a1a0ec8aff059de95b95ca14cb6fe31",
+      "sha256": "ef6cbc71359ab49c545a3c2ffa2e7b0a37ae96742f58c08f3046ad4f5ea1f436",
       "bytes": 33358592,
       "component_id": "camera-stack",
       "inventory_ref": "userspace_hal_families:camera",
@@ -7414,7 +7414,7 @@
     {
       "input": "vendor/lib64/com.qti.chiusecaseselector.so",
       "path": "vendor/lib64/com.qti.chiusecaseselector.so",
-      "sha256": "b6ca621a95549d68cbcabd6e66ae3c3f894fc5febb437392e3b62a6f9957c5a2",
+      "sha256": "2e84becd7f493782eb1caaab73b005820004cb5a4c9c749511003adb3983ae63",
       "bytes": 662704,
       "component_id": "camera-stack",
       "inventory_ref": "userspace_hal_families:camera",
@@ -7507,7 +7507,7 @@
     {
       "input": "vendor/lib64/libipebpsstriping.so",
       "path": "vendor/lib64/libipebpsstriping.so",
-      "sha256": "5c8169f3755ed36208a0e425ff2b4385d184b2087ec4d0f94b1a769f8f6306b1",
+      "sha256": "9ea26f04755a8f61eda0e0c8b4258bf6ea704c5bba2dc7ea7a0b3bd8dba0c5e2",
       "bytes": 569224,
       "component_id": "camera-stack",
       "inventory_ref": "userspace_hal_families:camera",
@@ -7537,7 +7537,7 @@
     {
       "input": "vendor/lib64/libipebpsstriping170.so",
       "path": "vendor/lib64/libipebpsstriping170.so",
-      "sha256": "af2ea6e8cce00fae933a3c520d8b4d04bd7a3f0beb5d78f3aa7c692c5615a9ff",
+      "sha256": "aeb4449351a92d97bc73021110d34b7593b0e80c4df4472b4234e5dde295c920",
       "bytes": 577416,
       "component_id": "camera-stack",
       "inventory_ref": "userspace_hal_families:camera",
@@ -7567,7 +7567,7 @@
     {
       "input": "vendor/lib64/libipebpsstriping480.so",
       "path": "vendor/lib64/libipebpsstriping480.so",
-      "sha256": "1aec901cc022bc86f65c25779ed1a1a6d5e22de01fa8003de0cd394feeae3e5b",
+      "sha256": "453b3be5e6ab4405d2ba86cbf7c4c1d8a46ddd2c23b5db4c4831f18bd983b53d",
       "bytes": 577416,
       "component_id": "camera-stack",
       "inventory_ref": "userspace_hal_families:camera",
@@ -12769,7 +12769,7 @@
     {
       "input": "vendor/firmware/CAMERA_ICP.mbn",
       "path": "vendor/firmware/CAMERA_ICP.mbn",
-      "sha256": "b4d7721cf2c76f56d2746e4a36e843cc3196ab06db6fbec4227cc224751a9650",
+      "sha256": "5f7dc5f898b131bfe82b4f4507bcaf665abad38a2f2cbd50362633e0a89108a5",
       "bytes": 516760,
       "component_id": "firmware-trusted-boot",
       "inventory_ref": "firmware_families:vendor-peripheral-firmware",
@@ -16073,7 +16073,7 @@
     {
       "input": "vendor/etc/qcril_database/qcrilNr.db",
       "path": "vendor/etc/qcril_database/qcrilNr.db",
-      "sha256": "256d26428b62739d2f3d9f3d1fe75bc1a3db5d83732f48bdb9440e57c514054a",
+      "sha256": "02fe923c48da86a583c5017bc93f97fbcf05198d56ebf15626c014f84402d82c",
       "bytes": 167936,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
@@ -16153,8 +16153,8 @@
     {
       "input": "vendor/etc/qcril_database/upgrade/config/0006.0_config.sql",
       "path": "vendor/etc/qcril_database/upgrade/config/0006.0_config.sql",
-      "sha256": "85ddf74b830961b7c9f2ec3232c0bdfd2b0fc13f3152d77d90baef2520adfc3b",
-      "bytes": 19928,
+      "sha256": "667820477fa133985f09a18da28940d4b9baa6a2d7b8dbc52bcae17ee0c7819c",
+      "bytes": 19927,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
       "dependencies": [],
@@ -16353,8 +16353,8 @@
     {
       "input": "vendor/etc/qcril_database/upgrade/other/0000_initial_qcrilnr.sql",
       "path": "vendor/etc/qcril_database/upgrade/other/0000_initial_qcrilnr.sql",
-      "sha256": "cda976782f0d0b62301e5c0d7291acf4d62f9d84d26b07c1a78c08eff92e91b7",
-      "bytes": 65088,
+      "sha256": "295d6424a19a9fdd7d898ee6d2a90cbc5a6059d4165ee5cc967691b3cf703b2d",
+      "bytes": 65167,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
       "dependencies": [],
@@ -17355,7 +17355,7 @@
     {
       "input": "vendor/firmware/vpu20_2v.mbn",
       "path": "vendor/firmware/vpu20_2v.mbn",
-      "sha256": "675f4b657d444835cdaedcd913a3131869de57e7584a15522ce0c66e4e4366fe",
+      "sha256": "55fb10137f18d9b67559b2bd53204c99e0146608e6ac5bf3b3f3e04609283502",
       "bytes": 2036328,
       "component_id": "firmware-trusted-boot",
       "inventory_ref": "firmware_families:vendor-peripheral-firmware",
@@ -17501,7 +17501,7 @@
     {
       "input": "system_ext/priv-app/CustomerCarrierConfig/CustomerCarrierConfig.apk",
       "path": "system_ext/priv-app/CustomerCarrierConfig/CustomerCarrierConfig.apk",
-      "sha256": "a3ed4740b3edea50cf856d9652ca32dd17fb776be852c40b30cdd1de6e98ce97",
+      "sha256": "5c739e353a76d43010c38be4a82e9142fe50dd4bce8d2565f70cc91158ce94ea",
       "bytes": 453608,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
@@ -17543,8 +17543,8 @@
     {
       "input": "product/etc/apns-conf.xml",
       "path": "product/etc/apns-conf.xml",
-      "sha256": "ebb1cd75332dabb6a051a72f612d29014a6b2a804e833f25b5af4f9fbc3ee0d2",
-      "bytes": 1210000,
+      "sha256": "b731e618350589db665f85d95f1a7b4e5a211d801c6f800edbf9a59086161e5a",
+      "bytes": 1212672,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
       "dependencies": [],

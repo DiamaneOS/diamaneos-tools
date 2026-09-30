@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "inventory-complete-with-explicit-integration-gates",
   "observed_at": "2026-09-13",
-  "decision_updated_at": "2026-09-14",
+  "decision_updated_at": "2026-09-30",
   "scope": "Fairphone 6 (FP6), Fairphone Android 16 target source and the selected EU stock firmware",
   "claim_boundary": "A published repository and an observed branch commit establish source availability only. They do not establish compliance with the licences of consumed files, reproducibility, binary equivalence, ABI compatibility, load success or suitability of a Pixel-specific patch.",
   "inputs": {
@@ -43,12 +43,18 @@
       "stock_blob_note": "Its proprietary-files.txt says unpinned blobs are from FP6.QREL.16.104.0. Treat that list as a US-region reference and candidate allowlist only; re-derive every retained path and fixup against the selected EU stock input and GrapheneOS-derived framework."
     },
     "selected_stock": {
-      "build": "FP6.QREL.16.100.0",
-      "archive": "FP6.QREL.16.100.0.20260727183253_WS1M-factory.zip",
-      "archive_size_bytes": 3755004133,
-      "archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-      "installed_observation": "Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build",
+      "build": "FP6.QREL.16.111.0",
+      "archive": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
+      "archive_size_bytes": 3761633302,
+      "archive_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
+      "archive_hash_source": "Two complete local reads of the official download on 2026-09-30. Fairphone had not yet published a SHA-256 for this package; the download matched the MD5 in the official host's object metadata, the full ZIP CRC passed and all 76 embedded declared hashes matched.",
+      "previous_build": "FP6.QREL.16.100.0",
+      "previous_archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+      "installed_observation": "Not yet installed on the phone. The phone runs FP6.QREL.16.100.0, observed as Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build.",
       "runtime_interface_capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
+      "runtime_interface_capture_build": "FP6.QREL.16.100.0",
+      "runtime_interface_capture_note": "Captured on the phone running FP6.QREL.16.100.0. All 117 VINTF XML files it parsed are byte-identical in FP6.QREL.16.111.0; the capture has not been repeated on 16.111.0.",
+      "firmware_inventory": "config/fp6-firmware-inventory.json",
       "raw_partition_hashes": "not collected while the stock device remains locked",
       "generator_role": "Authoritative EU factory-package extraction input; a future OTA source requires its own exact verification. The matching phone is a runtime verifier and optional source only for ordinary readable mounted files."
     },
@@ -58,12 +64,12 @@
       "target_sha256": "53d1eaaa1e207549dff809bdcc7e75ecce0dbb2d6f7e65eeb92592312a6eda30",
       "selected_stock_match": false,
       "downloaded_or_terms_accepted_by_this_task": false,
-      "role": "Historical reference only; never substitute these QREL.16.61.0 files for the selected EU QREL.16.100.0 generator input."
+      "role": "Historical reference only; never substitute these QREL.16.61.0 files for the selected EU QREL.16.111.0 generator input."
     }
   },
   "proprietary_input_strategy": {
     "implementation_owner": "FP6-040",
-    "primary_eu_source": "Verified FP6.QREL.16.100.0 factory package",
+    "primary_eu_source": "Verified FP6.QREL.16.111.0 factory package",
     "supplemental_source": "Matching locked stock phone for runtime declarations and ordinary readable mounted files only",
     "manifest_required_fields": [
       "stock_build",
@@ -91,7 +97,7 @@
   },
   "regional_support_strategy": {
     "initial_supported_region": "EU",
-    "eu_stock_build": "FP6.QREL.16.100.0",
+    "eu_stock_build": "FP6.QREL.16.111.0",
     "us_stock_build": "FP6.QREL.16.104.0",
     "desired_shape": "One product only if stock comparison and device evidence establish a safe common set; otherwise isolate and bind regional variants.",
     "comparison_scope": [
@@ -108,7 +114,8 @@
     "validation_resource": "Second maintainer in the US plans to supply an actual US-region FP6 and independent device evidence.",
     "us_factory_expected_sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
     "us_input_status": "Official expected metadata recorded; archive not downloaded or independently verified by this project.",
-    "claim_boundary": "US remains unverified until the exact US stock comparison and candidate hardware/telephony matrix pass on that device."
+    "claim_boundary": "US remains unverified until the exact US stock comparison and candidate hardware/telephony matrix pass on that device.",
+    "eu_stock_note": "Fairphone released FP6.QREL.16.111.0 on 2026-09-28 as one build for the Gen. 6 and 6+ with no regional variant listed; the package names no region. It is used as the EU input. The US comparison input is unchanged."
   },
   "device_sources": [
     {
@@ -227,7 +234,8 @@
         "202504"
       ],
       "device_specific_framework_matrix": "/system/etc/vintf/compatibility_matrix.device.xml; schema 9.0",
-      "boundary": "The running stock system/vendor pair is compatible enough to boot. This does not establish compatibility with the selected newer GrapheneOS framework; checkvintf and VTS remain build/device gates."
+      "boundary": "The running stock system/vendor pair is compatible enough to boot. This does not establish compatibility with the selected newer GrapheneOS framework; checkvintf and VTS remain build/device gates.",
+      "note": "Observed on FP6.QREL.16.100.0. The selected input is now FP6.QREL.16.111.0; its 117 VINTF XML files are byte-identical, so this capture still describes its interfaces until it is repeated."
     }
   },
   "kernel_abi_contract": {
@@ -1010,8 +1018,8 @@
         "spunvm"
       ],
       "origin": "proprietary-prebuilt",
-      "revision": "FP6.QREL.16.100.0",
-      "hash": "bound only by the verified outer factory archive SHA-256 until extraction in FP6-040",
+      "revision": "FP6.QREL.16.111.0",
+      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive; not yet delivered by DiamaneOS",
       "abi_uapi": "boot image headers, AVB chain, SCM/QSEE/SPU protocols and rollback metadata",
       "load_path": "dedicated raw A/B partitions",
       "function": "boot chain, hypervisor, trusted execution, key services and power firmware",
@@ -1029,8 +1037,8 @@
         "shrm_a/b"
       ],
       "origin": "proprietary-prebuilt",
-      "revision": "FP6.QREL.16.100.0",
-      "hash": "bound only by the verified outer factory archive SHA-256 until extraction in FP6-040",
+      "revision": "FP6.QREL.16.111.0",
+      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive; not yet delivered by DiamaneOS",
       "abi_uapi": "modem/QMI/IMS, Bluetooth controller, DSP RPC and CPU-control protocols",
       "load_path": "dedicated raw A/B partitions and firmware mount points",
       "function": "cellular, Bluetooth, audio/compute DSP and supporting controllers",
@@ -1044,7 +1052,7 @@
         "vendor_dlkm"
       ],
       "origin": "mixed-proprietary-prebuilt-and-opaque-files-in-published-device-tree",
-      "revision": "device/fairphone/fps@51648f54c2a7d31fc24833adcae3758cb251966f plus selected stock FP6.QREL.16.100.0",
+      "revision": "device/fairphone/fps@51648f54c2a7d31fc24833adcae3758cb251966f plus selected stock FP6.QREL.16.111.0",
       "hash": "device-tree Git revision and outer stock archive SHA-256; per-file hashes bind in FP6-040",
       "abi_uapi": "controller-specific audio amplifier, haptics, touch, WLAN and other peripheral protocols",
       "load_path": "/vendor/firmware and /vendor/firmware_mnt/image",
@@ -1120,8 +1128,8 @@
       "rank": 1,
       "area": "boot/vendor input alignment",
       "status": "ready-for-generator-implementation",
-      "finding": "The verified EU QREL.16.100.0 factory archive is the selected exact extraction input. The public QREL.16.61.0 packages remain useful historical references but are not selected build inputs.",
-      "next_experiment": "Implement the manifest-driven generator against the verified QREL.16.100.0 factory package, verify every retained file and dependency, and fail closed on any missing, mismatched or unrelated component.",
+      "finding": "The verified QREL.16.111.0 factory archive is the selected exact extraction input (it replaced QREL.16.100.0 on 2026-09-30). The public QREL.16.61.0 packages remain useful historical references but are not selected build inputs.",
+      "next_experiment": "Implement the manifest-driven generator against the verified QREL.16.111.0 factory package, verify every retained file and dependency, and fail closed on any missing, mismatched or unrelated component.",
       "owner": "FP6-040"
     },
     {
@@ -1192,8 +1200,8 @@
       "rank": 9,
       "area": "EU and US regional compatibility",
       "status": "planned-external-device-validation",
-      "finding": "EU QREL.16.100.0 is the selected baseline. US QREL.16.104.0 is a comparison input, and the second maintainer plans to provide an actual US-region FP6, but no US stock delta or candidate-device result has been accepted.",
-      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against EU QREL.16.100.0, then run the candidate hardware and T-Mobile-oriented telephony matrix on the US device before claiming shared support.",
+      "finding": "EU QREL.16.111.0 is the selected baseline (QREL.16.100.0 before 2026-09-30). US QREL.16.104.0 is a comparison input, and the second maintainer plans to provide an actual US-region FP6, but no US stock delta or candidate-device result has been accepted.",
+      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against the selected EU input, then run the candidate hardware and T-Mobile-oriented telephony matrix on the US device before claiming shared support.",
       "owner": "FP6-040 and compatibility/device qualification"
     }
   ],

@@ -86,12 +86,12 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "563f0615047ac9fa89c65920af819a3dee3e80ec85f79d70e88fb098c5f44063"
+      "sha256": "3c1ca6df00e6e6e7cfda60e6edac5791b817f994d0aa677bb408a4806f71097e"
     },
     {
       "id": "stock-input-inventory",
       "repository_path": "config/stock-inputs.json",
-      "sha256": "eaa1e66c1e46e96eae96a64f8960c4a853d214178f89f2d84fbbf46c0193c2d2"
+      "sha256": "d159285f1d4ddb628d68cd1836b1d70a7e9bb82d34634ab4920e8f658f8b5835"
     },
     {
       "id": "patch-inventory",
@@ -101,17 +101,17 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "6bd92a34005a7d9583fe87557d4eabb1daabb28d5701d1822206872a65e5f9bb"
+      "sha256": "9079ae38c92f70ab0b11c2eebf4b9e967ab25d13d44be019e90fb11e5c4cb09e"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "ecfbaae69c2e11fca3ca7a8bf7e5fe6e805ceede6b35292189f328fc9bb122a4"
+      "sha256": "efefcf95cf046e4f5219635180bcf4968bd1dc11dbcca6b5ea1a4081d82d3c48"
     }
   ],
   "device_inputs": {
-    "selected_stock_build": "FP6.QREL.16.100.0",
-    "selected_stock_factory_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
+    "selected_stock_build": "FP6.QREL.16.111.0",
+    "selected_stock_factory_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
     "generated_input_manifest_required": true,
     "generated_input_manifest_status": "native-product-generator-available; exact generated provenance required",
     "device_unique_material_allowed": false

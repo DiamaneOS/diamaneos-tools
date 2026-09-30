@@ -162,8 +162,8 @@ def validate_sources(data):
         errors.append("selected stock runtime capture lacks a valid SHA-256")
 
     vendor_strategy = data.get("proprietary_input_strategy", {})
-    if "FP6.QREL.16.100.0" not in vendor_strategy.get("primary_eu_source", ""):
-        errors.append("EU vendor generator is not bound to QREL.16.100.0")
+    if "FP6.QREL.16.111.0" not in vendor_strategy.get("primary_eu_source", ""):
+        errors.append("EU vendor generator is not bound to QREL.16.111.0")
     missing_fields = REQUIRED_VENDOR_MANIFEST_FIELDS - set(
         vendor_strategy.get("manifest_required_fields", [])
     )
@@ -185,8 +185,8 @@ def validate_sources(data):
     regional = data.get("regional_support_strategy", {})
     if regional.get("initial_supported_region") != "EU":
         errors.append("EU is not bound as the initial supported target")
-    if regional.get("eu_stock_build") != "FP6.QREL.16.100.0":
-        errors.append("EU regional input is not QREL.16.100.0")
+    if regional.get("eu_stock_build") != "FP6.QREL.16.111.0":
+        errors.append("EU regional input is not QREL.16.111.0")
     if regional.get("us_stock_build") != "FP6.QREL.16.104.0":
         errors.append("US regional comparison input is not QREL.16.104.0")
     if not SHA256_RE.fullmatch(str(regional.get("us_factory_expected_sha256", ""))):
