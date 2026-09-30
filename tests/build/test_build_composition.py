@@ -57,3 +57,14 @@ class CompositionCheckoutTests(unittest.TestCase):
     def test_project_symlink_is_rejected(self):
         self.prepare();moved=self.root/'moved';self.project.rename(moved);self.project.symlink_to(moved)
         with self.assertRaisesRegex(build.BuildError,'redirected'):composition.checkout(self.config,self.source,self.base)
+    def test_replace_installs_a_newer_declared_overlay(self):
+        self.prepare();p=self.source/'.repo/local_manifests/diamaneos.xml';p.write_text('older overlay')
+        composition.prepare(self.config,self.source,self.overlay,self.base,replace=True)
+        self.assertEqual(self.data,p.read_bytes())
+    def test_derive_matches_the_declared_composition(self):
+        derived=composition.derive(self.base,self.data,self.config['composition']['overlay_revision'],
+                                   {'device/example':self.first},'https://example.invalid/manifest')
+        expected=dict(self.config['composition'],overlay_url='https://example.invalid/manifest')
+        self.assertEqual(expected,derived)
+        with self.assertRaisesRegex(build.BuildError,'lacks an exact'):
+            composition.derive(self.base,self.data,self.config['composition']['overlay_revision'],{})
