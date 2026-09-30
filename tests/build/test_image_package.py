@@ -107,6 +107,34 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'changed after the build'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
+    def test_misc_is_zeros_sized_from_the_stock_partition_table(self):
+        factory = self.root / 'factory.zip'
+        table = ('<data><zeroout start_sector="9544" num_partition_sectors="256" label="misc" SECTOR_SIZE_IN_BYTES="4096"/>'
+                 '<program start_sector="9544" num_partition_sectors="256" filename="" label="misc" SECTOR_SIZE_IN_BYTES="4096"/>'
+                 '<program num_partition_sectors="8" label="frp" SECTOR_SIZE_IN_BYTES="4096"/></data>')
+        with zipfile.ZipFile(factory, 'w') as archive:
+            archive.writestr('FP6-factory/images/rawprogram0.xml', table)
+        self.assertEqual(1048576, image_package.stock_partition_size(factory, 'misc'))
+        self.assertIsNone(image_package.stock_partition_size(factory, 'absent'))
+        self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
+                                                  'outputs': {'factory_zip': str(factory)}})
+        outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        directory = self.ctx.workspace.root / outputs['directory']
+        self.assertEqual(bytes(1048576), (directory / 'misc.img').read_bytes())
+        record = json.loads((directory / 'build.json').read_text())
+        self.assertEqual({'misc': True}, record['wipe']['partition_table_checked'])
+        self.assertIn('misc', record['wipe']['images'])
+
+    def test_misc_size_disagreeing_with_the_stock_table_is_refused(self):
+        factory = self.root / 'factory.zip'
+        with zipfile.ZipFile(factory, 'w') as archive:
+            archive.writestr('FP6-factory/images/rawprogram0.xml',
+                             '<data><program num_partition_sectors="512" label="misc" SECTOR_SIZE_IN_BYTES="4096"/></data>')
+        self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
+                                                  'outputs': {'factory_zip': str(factory)}})
+        with self.assertRaisesRegex(bw.BuildStepError, 'stock partition table says 2097152'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+
     def test_wipe_images_match_the_stock_frp_and_the_device_fstab(self):
         frp = self.root / 'frp.img'
         image_package.frp_image(frp, 524288)

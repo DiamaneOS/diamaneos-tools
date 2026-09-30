@@ -116,6 +116,13 @@
         "bytes": 524288,
         "sha256": "40f5b680536bd76753b2d919793e6366955fb4380efebfa541ded2d229a4f50f",
         "reason": "As Fairphone's frp_for_factory.img: zeros with the last byte set, which clears factory reset protection and keeps OEM unlocking allowed. Byte-identical to the stock image."
+      },
+      "misc": {
+        "image": "misc.img",
+        "kind": "zeros",
+        "bytes": 1048576,
+        "partition_label": "misc",
+        "reason": "As Fairphone's factory flash clears misc (the bootloader message, such as a pending recovery command), but by flashing zeros of the whole partition instead of fastboot erase. The size is the stock partition table's: 256 sectors of 4096 bytes in FP6.QREL.16.111.0; build package checks it against the factory package's partition table when that package is in the workspace."
       }
     }
   },
