@@ -64,8 +64,6 @@ class FlashStepTests(unittest.TestCase):
         failed = {'checks': [{'id': 'boot-header', 'status': 'FAIL'}]}
         with self.assertRaisesRegex(flash_steps.FlashError, 'boot-header'):
             flash_steps.steps(self.directory, self.record, report=failed)
-        text = '\n'.join(flash_steps.steps(self.directory, self.record, report=failed, accepted_failures=['boot-header']))
-        self.assertIn('accepted for this flash: boot-header', text)
 
     def test_full_super_fallback_lists_every_logical_partition(self):
         text = self.text()

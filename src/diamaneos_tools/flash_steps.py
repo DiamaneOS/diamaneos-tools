@@ -47,15 +47,14 @@ def changed(record: dict, previous: dict | None, names) -> list[str]:
 
 
 def steps(directory: Path, record: dict, previous: dict | None = None, wipe: bool = False,
-          accepted_failures=(), report: dict | None = None) -> list[str]:
+          report: dict | None = None) -> list[str]:
     if record.get('release') is not False or record.get('signing') != 'public-test-keys':
         raise FlashError('flash-steps only prints commands for test builds')
     failed = [c['id'] for c in (report or {}).get('checks', []) if c['status'] != 'PASS']
     if report is None:
         raise FlashError('this image set has not been verified; run "diamaneos build verify" first')
-    unaccepted = [c for c in failed if c not in accepted_failures]
-    if unaccepted:
-        raise FlashError('verification failed (' + ', '.join(unaccepted) + '); see the report before flashing')
+    if failed:
+        raise FlashError('verification failed (' + ', '.join(failed) + '); do not flash this build')
     slot = record['flash']['slot']
     bootloader = changed(record, previous, record['flash']['bootloader'])
     logical = changed(record, previous, record['flash']['logical'])
@@ -67,8 +66,6 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
            f'- Everything goes to slot {slot}. Do not flash the other slot.',
            f'- The phone\'s firmware must come from stock {record["stock_build"]}, the release this',
            '  build\'s vendor files come from.']
-    if failed:
-        out.append('- Checks that failed and were accepted for this flash: ' + ', '.join(failed) + '.')
     if not record.get('reproducible', False):
         out.append('- Built from a modified tools checkout: not reproducible.')
     out.append('- Never install firmware older than the phone already runs.')
@@ -124,7 +121,6 @@ def main(argv=None) -> int:
     parser.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE or ~/diamaneos-build)')
     parser.add_argument('--since', help='only images that differ from this earlier image directory')
     parser.add_argument('--wipe', action='store_true', help='also wipe all data (needed for a first install)')
-    parser.add_argument('--accept-failed', action='append', default=[], help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:
         workspace = Path(args.workspace).expanduser().absolute() if args.workspace else bw.default_workspace()
@@ -133,8 +129,7 @@ def main(argv=None) -> int:
         previous = load(Path(args.since).expanduser().absolute()) if args.since else None
         if previous is not None and previous['product'] != record['product']:
             raise FlashError('the earlier build is for another product')
-        print('\n'.join(steps(directory, record, previous, args.wipe, args.accept_failed,
-                              verification(directory, record))))
+        print('\n'.join(steps(directory, record, previous, args.wipe, verification(directory, record))))
         return 0
     except (FlashError, OSError, ValueError, KeyError) as error:
         print('ERROR: ' + str(error), file=sys.stderr)
