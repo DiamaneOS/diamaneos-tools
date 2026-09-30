@@ -14,7 +14,12 @@ dependencies in `requirements-dev.txt`.
 
 `diamaneos build all` runs six steps in one workspace directory
 (`~/diamaneos-build`, or `--workspace`, or `DIAMANEOS_WORKSPACE`). Each step
-can also run on its own, which always runs it again.
+can also run on its own; it then always runs again, and it refuses to start
+while an earlier step it consumes has not run or is out of date.
+
+The environment pins the current development line: the latest pushed
+`android17` commit of every DiamaneOS repository, composed on the signed
+GrapheneOS release. It is not a release and not phone-tested as a whole.
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
@@ -22,58 +27,91 @@ can also run on its own, which always runs it again.
 | `kernel` | `kernel prepare` (network) and `kernel build` (network off). | Everything `kernel build` checks (source pins, patch diffs, the kernel policy, module placement, the deny list, symbol rules, signatures). Records the kernel run. |
 | `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the pinned source; their hashes are recorded in the extraction identity. |
 | `android` | Installs the generated vendor and kernel trees, then `lunch FP6-cur-<variant>` and `m` with network off. | The full preflight before and after the build, including the generated-input descriptor. Records the target-files archive and the build identity. |
-| `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab and the stock FRP image. |
+| `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
 
 **State and resume.** Each step writes `state/<step>.json` with the digest of
-its inputs (the hashes of the configs and code it depends on and the outputs
-of earlier steps), its outputs and its log. `build all` skips a step whose
-input digest is unchanged and whose outputs still verify; a step that produces
-new outputs makes later steps run again. A second command on the same
-workspace fails at once (`.workspace.lock`). `--dry-run` prints every command
-and changes nothing.
+its inputs (the hashes of the configs, and only the parts of
+`config/fp6-build.json`, it reads, its code, and the outputs of earlier
+steps), its outputs and its log. `build all` skips a step whose input digest
+is unchanged and whose outputs still verify; a later step runs again only
+when an earlier step's outputs changed. Each step prints its log path when it
+starts. A second command on the same workspace fails at once
+(`.workspace.lock`). `--dry-run` prints every command and changes nothing.
+Any failure is recorded in the step's state with a plain message.
+
+**Shallow sync.** `build sync --shallow` fetches only the pinned commits. The
+workspace remembers the choice (`state/shallow`), so a later `build all` stays
+shallow; the tree and its preflight are the same, so the choice is not part of
+the digest.
+
+**Host check.** Before running, the command checks the host for the steps it
+will run: Linux on x86_64, Python 3.11 with `jsonschema` (vendor generation
+validates its recipes with it), the commands each step uses (`modinfo` and
+`modprobe` are also looked up in `/usr/sbin` and `/sbin`), RAM (the 32 GiB
+floor allows 2 GiB for what firmware and the kernel reserve), disk (only for
+steps whose output does not exist yet), a case-sensitive filesystem and, for
+compile steps, unprivileged user namespaces with util-linux 2.38 or newer.
+Differences from the reference builder's package versions are recorded, not
+fatal.
 
 **Network.** Only `repo`, `git fetch`, the kernel preparation and the two
-downloads use the network. Compilation (the kernel, the image tools and
-Android) runs inside `unshare --user --map-current-user --net`, so the build
-keeps its own user id and has no network. If the host has no unprivileged
-user namespaces the command stops; `--allow-network` builds anyway and records
-`network_isolation: off`. If `DIAMANEOS_THERMAL_CHECK` names a program, it runs
-before every compile, as on the reference builder.
+downloads use the network. Downloads use HTTPS only, stop at the expected
+size, and refuse redirects to another host or to plain HTTP. Compilation (the
+kernel, the image tools and Android) runs inside `unshare --user
+--map-current-user --net`, so the build keeps its own user id and has no
+network, and compile commands lose variables that lead to local agents and
+buses (`SSH_AUTH_SOCK`, `DBUS_*`, `XDG_RUNTIME_DIR`, `DOCKER_HOST` and
+similar). Unix sockets in the filesystem stay reachable; see the threat model.
+If the host has no unprivileged user namespaces the command stops;
+`--allow-network` builds anyway and records `network_isolation: off` for the
+kernel, vendor and Android steps. If `DIAMANEOS_THERMAL_CHECK` names a program,
+it runs before every compile, as on the reference builder. Temporary files go
+to the workspace (`TMPDIR`), never to `/tmp`.
 
-**Build identity.** The identity is a digest of the environment file, the
-source project map, the vendor and kernel inventories, the variant and
-`config/fp6-build.json`. `BUILD_NUMBER` is `test.` and the first 12 digits of
-the identity; `BUILD_DATETIME` is the newest committer time among the pinned
-sources; `BUILD_USERNAME` and `BUILD_HOSTNAME` are fixed. The image directory
-is `<date>-<variant>-<identity>`.
+**Build identity.** The source identity is a digest of the environment file,
+the source project map, the vendor and kernel inventories, the variant and the
+build parts of `config/fp6-build.json`. `BUILD_NUMBER` is `test.` and its
+first 12 digits; `BUILD_DATETIME` is the newest committer time among the
+pinned sources (the build stops if it cannot read them); `BUILD_USERNAME` and
+`BUILD_HOSTNAME` are fixed. The image set's build identity adds the build
+number, the network isolation, the tools commit and the target-files hash.
+The image directory is `<date>-<variant>-<build identity>`, and an existing
+directory is reused only when its record names the same target-files and
+identity.
 
 **Generated-input descriptor.** `build inputs` (called by the `android` step)
 writes `.repo/diamaneos-generated-inputs.json`. It binds
 `vendor/fairphone/FP6` and `device/fairphone/FP6-kernel` to the environment
-file's hash, the recipes that made them (stock image recipe, selected files,
-kernel sources, patches, packaging and policy) and their complete
-inventories. The full preflight accepts those two directories only while the
-descriptor matches; any other file outside the projects still fails it. A
-tree that no longer matches is replaced explicitly (the old one moves to
+file's hash, the recipe digests the generations recorded themselves (the
+vendor provenance, and the kernel run's preparation, packaging recipe and
+policy reports) and their complete inventories. Installation and the full
+preflight require those digests to equal this checkout's recipes, and accept
+the two directories only while every file matches its inventory; any other
+file outside the projects still fails the preflight. A tree that no longer
+matches is replaced explicitly (the old one moves to
 `.repo/diamaneos-previous-inputs/`); `sync` moves stale trees aside.
 
 **Packaging.** The target-files archive is the image authority: its `IMAGES/`
 were made together by the build, so the AVB descriptors match them, and
-`super.img` is built from the same archive. Nothing is repacked. Releasetools
-rebuilds the boot-family images with the platform's OS version and patch
-level in their headers, where the device configuration supplies zeros
-(upstream finding UP-012); `verify` reports that until the build system fixes
-it. The target-files archive is also the unsigned input for the offline
-signer ([SIGNING.md](SIGNING.md)).
+`super.img` is built from the same archive. Nothing is repacked. DiamaneOS
+builds with its own fork of GrapheneOS's `build/make`, which differs in one
+change: when the Android release tools rebuild boot, init_boot and recovery
+from target-files, they keep the device's zero OS version and patch level in
+the image headers, as the Make rules do (the versions live in the AVB
+properties). `verify` checks the headers. The target-files archive is also the
+unsigned input for the offline signer ([SIGNING.md](SIGNING.md)).
 
 **Wipe images.** `userdata.img` is 4 MiB of zeros, as in Fairphone's factory
 package: it destroys the old filesystem and first boot formats `/data` with the
 phone's own size and settings. `metadata.img` is an empty f2fs filesystem of
 the partition's size, made with the synced source's `make_f2fs` with a fixed
-UUID, time and seed. `frp.img` equals Fairphone's `frp_for_factory.img`. The
-wipe has not yet been tested on a phone (`wipe.validated` in
-`config/fp6-build.json`).
+UUID, time and seed. `frp.img` equals Fairphone's `frp_for_factory.img`.
+`misc.img` is zeros of the stock partition table's misc size, which clears
+misc as Fairphone's factory flash does; `build package` checks the size
+against the factory package's partition table when the package is in the
+workspace. Nothing is cleared with `fastboot erase`. The wipe has not yet been
+tested on a phone (`wipe.validated` in `config/fp6-build.json`).
 
 **Verify.** Generic checks: `SHA256SUMS`; the record (a test build that must
 never be locked, matching hashes); test-keys in every fingerprint; the AVB
@@ -81,21 +119,25 @@ chain with the test key and the published layout (recovery 1, vbmeta_system 2,
 boot 3, init_boot 4, flags 0, pvmfw in vbmeta_system); zero OS fields in the
 boot-family headers with the versions in AVB properties; `super.img` holding
 exactly the logical images; `validate_target_files` and
-`check_target_files_vintf`; the recorded kernel in boot, vendor_boot and dtbo;
-module placement and load lists against the kernel run, no denied or unsigned
-module; every selected stock file arriving with its generated bytes; no
-permissive domain beyond the variant's; the bootconfig; no pre-trusted adb
-key; the wipe images. Then every rule in `config/fp6-image-checks.json`: the
-device checks the private build scripts used to carry, each with the reason
-it exists and, where it matters, the variants it applies to.
+`check_target_files_vintf`; the kernel run named in `build.json` in boot,
+vendor_boot and dtbo; module placement and load lists against that run, no
+denied or unsigned module; every selected stock file arriving with its
+generated bytes; no permissive domain beyond the variant's; the bootconfig; no
+pre-trusted adb key; the wipe images. Then every rule in
+`config/fp6-image-checks.json`: the device checks the private build scripts
+used to carry, each with the reason it exists and, where it matters, the
+variants it applies to. The report carries the image set's `SHA256SUMS`
+digest.
 
 **Flash steps.** `diamaneos flash-steps` prints commands only for a test build
-whose set matches its `SHA256SUMS` and passed `verify`. The flash order, slot
-and wipe images come from `config/fp6-build.json`, which the future installer
-can read too.
+whose set matches its `SHA256SUMS` and whose verify report belongs to that set
+and passed. The flash order, slot and wipe images come from
+`config/fp6-build.json`, which the future installer can read too. The
+fastbootd fallback writes every logical partition, because a stalled `super`
+flash may already have written the new layout.
 
 **Reproducibility.** The same tools commit gives the same source map,
-generated inputs and build identity. Kernel images and modules differ between
+generated inputs and source identity. Kernel images and modules differ between
 builds, because each kernel build makes a new module-signing key: the kernel
 embeds its certificate and every module carries a signature, so boot,
 vendor_boot, the DLKM images and the vbmeta images that describe them differ
@@ -494,7 +536,7 @@ No command accesses a phone. A passing preparation does not establish a bootable
 ROM, production hardening or release acceptance.
 
 Use a Linux x86-64 host as described in [BUILDING.md](BUILDING.md).
-Install Python 3 with the repository's declared dependencies, Git, Make, Bash,
+Install Python 3 with `jsonschema` (Debian: `python3-jsonschema`), Git, Make, Bash,
 Perl, OpenSSL, binutils and kmod (`modinfo`, `modprobe`). Ensure these commands
 are on PATH; some distributions install kmod entrypoints under `/usr/sbin`. The kernel workspace
 provides its pinned compiler, Bazel, DTC and DT image tools. Keep its source and
