@@ -55,6 +55,22 @@ class ExtractionTests(unittest.TestCase):
         self.source.write_bytes(b'wrong');self.assertRaises(VendorError,self.extract);self.assertFalse(self.calls)
         self.source.write_bytes(b'authenticated sparse image');(self.bin/'lpunpack').write_bytes(b'wrong')
         self.assertRaises(VendorError,self.extract);self.assertFalse(self.calls)
+    def test_recorded_tools_are_accepted_and_bound(self):
+        (self.bin/'lpunpack').write_bytes(b'built from the pinned source')
+        with patch.object(subject.process,'run',side_effect=self.native):
+            result=subject.extract(self.source,self.bin,self.output,self.stock,self.selection,self.pins,'recorded')
+        self.assertEqual('recorded',result['image_tool_policy'])
+        self.assertEqual(subject.sha(self.bin/'lpunpack'),result['image_tools']['tools']['lpunpack'])
+        self.assertEqual(self.data,(self.output/'current/vendor/lib64/hal@1.0.so').read_bytes())
+        (self.bin/'lpunpack').unlink()
+        with self.assertRaises(VendorError):
+            subject.extract(self.source,self.bin,self.output,self.stock,self.selection,self.pins,'recorded')
+    def test_recorded_tools_still_check_every_extracted_file(self):
+        self.data=b'bad'
+        with patch.object(subject.process,'run',side_effect=self.native):
+            with self.assertRaises(VendorError):
+                subject.extract(self.source,self.bin,self.output,self.stock,self.selection,self.pins,'recorded')
+        self.assertFalse((self.output/'current').exists())
     def test_wrong_inode_and_content_do_not_publish(self):
         self.bad_inode=True;self.assertRaises(VendorError,self.extract);self.assertFalse((self.output/'current').exists())
         self.bad_inode=False;self.data=b'bad';self.assertRaises(VendorError,self.extract);self.assertFalse((self.output/'current').exists())
