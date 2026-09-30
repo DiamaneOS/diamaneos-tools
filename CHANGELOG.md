@@ -9,6 +9,10 @@
   per-image inventory of the firmware in the 16.100.0 and 16.111.0 factory
   packages.
 
+- Describe how DiamaneOS should deliver FP6 firmware: from the same stock
+  release as the vendor files, through the installer and A/B OTAs, with
+  single-component pins and anti-rollback rules (docs/FIRMWARE.md).
+
 - Add `fonts check`: read a product `fonts_customization.xml` and its fonts
   as Android does at boot, so a file that would drop every system font, stop
   boot or draw the wrong weight fails before a build. It checks either the
