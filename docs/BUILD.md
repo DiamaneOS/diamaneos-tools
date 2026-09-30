@@ -1,9 +1,115 @@
-# DiamaneOS host tooling
+# Build reference
+
+To build DiamaneOS, follow [BUILDING.md](BUILDING.md). This page explains how
+the build works and why: the build commands and their records, the pinned
+environment, the generated inputs, packaging and the reference builder. It also
+covers developing the host tools themselves.
 
 The host tools are Python 3 programs and do not require an Android source
 checkout or compilation. The device runner itself uses only the Python
 standard library. Schema conformance tests use the pinned development
 dependencies in `requirements-dev.txt`.
+
+## The build commands
+
+`diamaneos build all` runs six steps in one workspace directory
+(`~/diamaneos-build`, or `--workspace`, or `DIAMANEOS_WORKSPACE`). Each step
+can also run on its own, which always runs it again.
+
+| Step | What it does | What it checks and records |
+| --- | --- | --- |
+| `sync` | Downloads GrapheneOS's signer list, runs `repo init` at the signed release tag with the pinned `repo` tool, installs the DiamaneOS manifest overlay at its pinned revision, runs `repo sync` and detaches every DiamaneOS project at its pinned commit. | The signer list hash, the `repo` tool and release tag signatures before any source is fetched, then the full source preflight: the composed project map, clean trees, no undeclared files. Records the project map. |
+| `kernel` | `kernel prepare` (network) and `kernel build` (network off). | Everything `kernel build` checks (source pins, patch diffs, the kernel policy, module placement, the deny list, symbol rules, signatures). Records the kernel run. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the pinned source; their hashes are recorded in the extraction identity. |
+| `android` | Installs the generated vendor and kernel trees, then `lunch FP6-cur-<variant>` and `m` with network off. | The full preflight before and after the build, including the generated-input descriptor. Records the target-files archive and the build identity. |
+| `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab and the stock FRP image. |
+| `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
+
+**State and resume.** Each step writes `state/<step>.json` with the digest of
+its inputs (the hashes of the configs and code it depends on and the outputs
+of earlier steps), its outputs and its log. `build all` skips a step whose
+input digest is unchanged and whose outputs still verify; a step that produces
+new outputs makes later steps run again. A second command on the same
+workspace fails at once (`.workspace.lock`). `--dry-run` prints every command
+and changes nothing.
+
+**Network.** Only `repo`, `git fetch`, the kernel preparation and the two
+downloads use the network. Compilation (the kernel, the image tools and
+Android) runs inside `unshare --user --map-current-user --net`, so the build
+keeps its own user id and has no network. If the host has no unprivileged
+user namespaces the command stops; `--allow-network` builds anyway and records
+`network_isolation: off`. If `DIAMANEOS_THERMAL_CHECK` names a program, it runs
+before every compile, as on the reference builder.
+
+**Build identity.** The identity is a digest of the environment file, the
+source project map, the vendor and kernel inventories, the variant and
+`config/fp6-build.json`. `BUILD_NUMBER` is `test.` and the first 12 digits of
+the identity; `BUILD_DATETIME` is the newest committer time among the pinned
+sources; `BUILD_USERNAME` and `BUILD_HOSTNAME` are fixed. The image directory
+is `<date>-<variant>-<identity>`.
+
+**Generated-input descriptor.** `build inputs` (called by the `android` step)
+writes `.repo/diamaneos-generated-inputs.json`. It binds
+`vendor/fairphone/FP6` and `device/fairphone/FP6-kernel` to the environment
+file's hash, the recipes that made them (stock image recipe, selected files,
+kernel sources, patches, packaging and policy) and their complete
+inventories. The full preflight accepts those two directories only while the
+descriptor matches; any other file outside the projects still fails it. A
+tree that no longer matches is replaced explicitly (the old one moves to
+`.repo/diamaneos-previous-inputs/`); `sync` moves stale trees aside.
+
+**Packaging.** The target-files archive is the image authority: its `IMAGES/`
+were made together by the build, so the AVB descriptors match them, and
+`super.img` is built from the same archive. Nothing is repacked. Releasetools
+rebuilds the boot-family images with the platform's OS version and patch
+level in their headers, where the device configuration supplies zeros
+(upstream finding UP-012); `verify` reports that until the build system fixes
+it. The target-files archive is also the unsigned input for the offline
+signer ([SIGNING.md](SIGNING.md)).
+
+**Wipe images.** `userdata.img` is 4 MiB of zeros, as in Fairphone's factory
+package: it destroys the old filesystem and first boot formats `/data` with the
+phone's own size and settings. `metadata.img` is an empty f2fs filesystem of
+the partition's size, made with the synced source's `make_f2fs` with a fixed
+UUID, time and seed. `frp.img` equals Fairphone's `frp_for_factory.img`. The
+wipe has not yet been tested on a phone (`wipe.validated` in
+`config/fp6-build.json`).
+
+**Verify.** Generic checks: `SHA256SUMS`; the record (a test build that must
+never be locked, matching hashes); test-keys in every fingerprint; the AVB
+chain with the test key and the published layout (recovery 1, vbmeta_system 2,
+boot 3, init_boot 4, flags 0, pvmfw in vbmeta_system); zero OS fields in the
+boot-family headers with the versions in AVB properties; `super.img` holding
+exactly the logical images; `validate_target_files` and
+`check_target_files_vintf`; the recorded kernel in boot, vendor_boot and dtbo;
+module placement and load lists against the kernel run, no denied or unsigned
+module; every selected stock file arriving with its generated bytes; no
+permissive domain beyond the variant's; the bootconfig; no pre-trusted adb
+key; the wipe images. Then every rule in `config/fp6-image-checks.json`: the
+device checks the private build scripts used to carry, each with the reason
+it exists and, where it matters, the variants it applies to.
+
+**Flash steps.** `diamaneos flash-steps` prints commands only for a test build
+whose set matches its `SHA256SUMS` and passed `verify`. The flash order, slot
+and wipe images come from `config/fp6-build.json`, which the future installer
+can read too.
+
+**Reproducibility.** The same tools commit gives the same source map,
+generated inputs and build identity. Kernel images and modules differ between
+builds, because each kernel build makes a new module-signing key: the kernel
+embeds its certificate and every module carries a signature, so boot,
+vendor_boot, the DLKM images and the vbmeta images that describe them differ
+too. The other partitions are expected to be identical; a second host's build
+has to show it. A modified tools checkout is recorded as not reproducible.
+
+**Development lanes.** Private test builds use the same commands.
+`--environment FILE` selects a lane environment (a copy of the FP6 environment
+with the lane's resolved commits and project map). `--objects-from DIR` adds
+local commits before checkout: `DIR/objects.json` maps project paths, and
+`manifest` for the overlay, to git bundles in `DIR`. The pinned commits and
+the preflight still decide what is built. `DIAMANEOS_BUILD_NUMBER` overrides
+the build number and `DIAMANEOS_KERNEL_REFERENCE` lets `kernel prepare` borrow
+Git objects from another workspace.
 
 ## Prepare a development checkout
 
@@ -212,9 +318,9 @@ compilation.
 
 Before this or any later build, the full preflight and configured thermal-safety
 check must pass. A clean generic result does not authorize
-production signing material on the online builder. The FP6 release-purpose
-preflight remains fail-closed until the generated exact-stock device-input
-manifest and FP6 product target are verified.
+production signing material on the online builder. The FP6 preflight also
+requires the generated-input descriptor described under
+[the build commands](#the-build-commands).
 
 ## Downstream manifest overlay
 
@@ -376,11 +482,173 @@ VTS source discovery is not package qualification. The pinned VTS build target
 and launcher are documented in [compatibility preparation](COMPATIBILITY.md#source-bound-vts-preparation);
 retain a built archive hash and generated inventory before approving execution.
 
-## Reconstruct FP6 build inputs
+## Generated inputs step by step
 
-For the complete factory-image extraction, kernel/module/DT build and generated
-input installation commands, see [FP6 preparation](FP6-PREPARATION.md). The
-individual staging and generation interfaces below remain useful for inspection.
+The `kernel`, `vendor` and `android` steps run these commands for you. They
+stay available for inspection and for work on a single input.
+
+These commands reconstruct the selected factory-derived userspace files and
+source-built kernel, modules and device trees. The source repositories contain
+recipes and code; generated payloads live in caller-selected work directories.
+No command accesses a phone. A passing preparation does not establish a bootable
+ROM, production hardening or release acceptance.
+
+Use a Linux x86-64 host as described in [BUILDING.md](BUILDING.md).
+Install Python 3 with the repository's declared dependencies, Git, Make, Bash,
+Perl, OpenSSL, binutils and kmod (`modinfo`, `modprobe`). Ensure these commands
+are on PATH; some distributions install kmod entrypoints under `/usr/sbin`. The kernel workspace
+provides its pinned compiler, Bazel, DTC and DT image tools. Keep its source and
+outputs on a filesystem supporting case-sensitive names and symbolic links.
+Budget at least 100 GiB of free space for fresh kernel preparation and image
+extraction, in addition to the full Android checkout/build requirements.
+
+Run commands from the authenticated tools checkout. Set absolute paths:
+
+```sh
+TOOLS_ROOT="$PWD"
+WORK_ROOT="/absolute/path/to/build-work"
+FACTORY_ZIP="/absolute/path/to/FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip"
+IMAGE_TOOLS="/absolute/path/to/extracted-otatools/bin"
+SOURCE_ROOT="/absolute/path/to/android-source"
+```
+
+`FACTORY_ZIP` is the EU factory archive identified by
+`config/fp6-stock-image-recipe.json`. Obtain that exact archive through the
+source recorded in `config/fp6-sources.json`. Other regions/builds are not
+interchangeable. `IMAGE_TOOLS` is a `bin` directory holding `simg2img`,
+`lpunpack` and `debugfs_static` with their sibling `lib64` directory: either the
+otatools package of the reference builder's generic build, whose programs and
+libraries `config/fp6-image-tools.json` pins, or the synced source's own host
+output (`out/host/linux-x86/bin`, as the `vendor` step uses). Pass
+`--record-tools` to `vendor extract` for the latter: it records their hashes in
+the extraction identity instead of requiring the pins. Every extracted file is
+checked against the selected-file recipe either way.
+
+### Extract and generate the vendor product
+
+Set `AAPT2` to the absolute path of the selected Android SDK build-tools `aapt2`.
+It decodes the stock carrier configuration resources; its hash is recorded in
+the generated provenance. See [carrier integration](CARRIER-INTEGRATION.md).
+
+```sh
+"$TOOLS_ROOT/bin/diamaneos" vendor stage --archive "$FACTORY_ZIP" \
+  --output "$WORK_ROOT/stock-images"
+"$TOOLS_ROOT/bin/diamaneos" vendor extract \
+  --super "$WORK_ROOT/stock-images/current/super.img" \
+  --image-tools "$IMAGE_TOOLS" --output "$WORK_ROOT/stock-files" [--record-tools]
+"$TOOLS_ROOT/bin/diamaneos" vendor product \
+  --inputs "$(realpath "$WORK_ROOT/stock-files/current")" \
+  --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2"
+```
+
+`NOTICE_KIND` is the reviewed Android build-system licence classification for
+these inputs; the build commands take it from `notice_kind` in
+`config/fp6-build.json` (`legacy_proprietary`). It grants no redistribution
+right: each user extracts the files from Fairphone's own package.
+
+Staging authenticates the factory ZIP and selected image hashes. Extraction
+independently authenticates `super.img`, expands the sparse image, unpacks only
+the logical partitions the recipe reads (`vendor_a`, and `system_ext_a` or
+`product_a` when stock Java components are selected), and uses the pinned ext4
+reader to dump only declared regular files, each from its own partition image.
+It checks each file's size/hash, the alias inode/target (an absolute alias
+target must stay in its own partition) and the notice archives. It does not
+mount a filesystem, run factory scripts or copy device-unique state. The
+current extraction contract is specific to these ext4 stock images; it rejects
+an unexpected filesystem or another partition (system, odm) rather than
+guessing another decoder.
+
+`stock-files/current` contains the regular files, notice file and symlinks
+declared in
+[`config/fp6-minimal/vendor-files.json`](../config/fp6-minimal/vendor-files.json).
+Product generation applies the reviewed source replacements, activation and
+configuration derivation. Its complete output inventory is stored in
+`vendor-product/inventories/<generation>.json`. Generated provenance distinguishes
+original bytes from derived files and retained inputs from installed libraries.
+Identical inputs reproduce the same generation; changed or missing inputs fail
+before replacing `current`. Scratch raw images are removed after extraction.
+
+### Prepare sources and build the kernel set
+
+```sh
+"$TOOLS_ROOT/bin/diamaneos" kernel prepare \
+  --workspace "$WORK_ROOT/fp6-kernel"
+"$TOOLS_ROOT/bin/diamaneos" kernel build \
+  --workspace "$WORK_ROOT/fp6-kernel" --jobs 16 --timeout 7200
+```
+
+Preparation uses the source pins in
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json), the exact
+downstream revisions/diffs in [`config/patches.json`](../config/patches.json),
+and the declared link adaptations in
+[`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json). It verifies
+tracked and untracked source inputs and writes a resolved Kleaf manifest. It refuses edited
+sources or occupied unexpected link destinations. The two absent legacy shell
+entrypoints are explicitly excluded; source-directory links using `src="."`
+are preserved.
+
+An optional `--reference /absolute/path/to/existing-kernel-workspace` on
+`kernel prepare` borrows Git objects from another checkout. That source must
+remain available while the new repositories use it. Revision/diff verification
+still runs. It shares no generated kernel output, but is not evidence of an
+independent acquisition or a second builder. Omit it for a standalone checkout.
+
+The build command runs the non-consolidate GKI/vendor targets, strict common KMI
+and explicit common ABI comparison, all queried FP6 external modules (requiring
+WLAN and audio), all declared vendor DT projects, and the pinned DT merger. It
+packages the module selection and load lists from
+[`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json),
+which also declares the required merged DTB and DTBO entry counts.
+It preserves signed GKI modules, checks other modules' metadata/CRCs after
+stripping, verifies signatures against the built-in GKI certificate and checks
+selected providers, namespaces, dependencies and compiled GKI protection lists.
+It rejects any module on the packaging deny list. The effective GKI and vendor
+configurations must pass the production profile (`kernel-config.json`,
+`vendor-kernel-config.json`); `--config-profile development` only relaxes that
+check to the baseline and does not change the kernel configuration. See
+[FP6-KERNEL.md](FP6-KERNEL.md).
+
+Logs and terminal results are in `fp6-kernel/runs/<run>/`. `current` advances to
+that run's `candidate` only after all steps pass. Failed runs remain available.
+A retry creates a new run and reuses Bazel's completed work; there is no automatic
+retry loop. `--jobs` bounds the requested build parallelism. `--timeout` is a
+per-command limit, not a limit on the entire multi-step workflow. Bazel runs in
+batch mode so its JVM and workers remain in the owned command group; termination
+unwinds that group instead of leaving a detached build server. The workspace
+lock rejects a simultaneous preparation/build in the same workspace.
+
+This is source reconstruction and development packaging, not a claim of
+independent bit-identical release reproduction. Build-generated module signing
+material and host/environment differences need explicit comparison in release
+reproduction. No private retained evidence directory is an input to these commands.
+
+### Install the generated inputs
+
+Hold the Android workspace's operator/build lock and ensure no build or source
+sync is running. Then:
+
+```sh
+"$TOOLS_ROOT/bin/diamaneos" build inputs --source "$SOURCE_ROOT" \
+  --vendor "$WORK_ROOT/vendor-product" --kernel "$WORK_ROOT/fp6-kernel"
+```
+
+Add `--replace` to move differing installed trees aside instead of refusing
+them. This verifies inventories and installs complete trees at:
+
+- `vendor/fairphone/FP6`
+- `device/fairphone/FP6-kernel`
+
+Manifest synchronization alone does not populate those paths. Installation
+refuses symlink destinations and differing existing content. Each tree is
+published atomically; if interrupted between the two trees, rerun the command.
+It verifies an already installed matching tree and completes the missing one.
+It writes the generated-input descriptor `.repo/diamaneos-generated-inputs.json`
+(see [the build commands](#the-build-commands)), which the full preflight
+checks. Do not hand-edit either generated tree.
+
+The `android` step continues with the Android build, `package` with the image
+set and `verify` with its checks. A prepared kernel or vendor tree alone does
+not authorize flashing.
 
 ## Stage stock images for vendor discovery
 
