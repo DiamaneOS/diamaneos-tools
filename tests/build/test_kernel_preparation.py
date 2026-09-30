@@ -189,3 +189,40 @@ class KernelPackagingBlocklistTests(unittest.TestCase):
             self.assertIn('BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := '
                           '$(FP6_KERNEL_PATH)/vendor_dlkm-modules.blocklist\n', board)
             self.assertEqual((candidate / 'vendor_boot-modules.blocklist').read_text(), 'blocklist a\n')
+
+
+class KernelSymbolRuleTests(unittest.TestCase):
+    def setUp(self):
+        self.recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+
+    def test_committed_rules_parse(self):
+        self.assertEqual({'register_kretprobe': ['dwc3-msm.ko']}, kernel.import_allowlist(self.recipe))
+        self.assertEqual(['param_name_len'], kernel.forbidden_symbols(self.recipe))
+
+    def test_import_allowlist_requires_exact_importers(self):
+        undefined = {'dwc3-msm.ko': {'register_kretprobe', 'printk'}, 'other.ko': {'printk'}}
+        modules = {name: name for name in undefined}
+        kernel.check_module_imports(modules, {'register_kretprobe': ['dwc3-msm.ko']}, undefined.get)
+        undefined['other.ko'].add('register_kretprobe')
+        with self.assertRaisesRegex(kernel.KernelError, 'other.ko'):
+            kernel.check_module_imports(modules, {'register_kretprobe': ['dwc3-msm.ko']}, undefined.get)
+        with self.assertRaisesRegex(kernel.KernelError, 'none'):
+            kernel.check_module_imports(modules, {'missing_symbol': ['dwc3-msm.ko']}, undefined.get)
+
+    def test_nm_output_and_system_map_parsing(self):
+        self.assertEqual({'register_kretprobe', '__stack_chk_fail'},
+                         kernel.undefined_symbols('                 U register_kretprobe\n'
+                                                  '                 U __stack_chk_fail\n'))
+        kernel.check_forbidden_symbols('ffffffc080000000 T _text\n', ['param_name_len'])
+        with self.assertRaisesRegex(kernel.KernelError, 'param_name_len'):
+            kernel.check_forbidden_symbols('ffffffc080001000 t param_name_len\n', ['param_name_len'])
+
+    def test_rules_need_reasons_and_safe_names(self):
+        for rules in ({'register_kretprobe': {'modules': ['x.ko'], 'reason': ' '}},
+                      {'bad symbol': {'modules': ['x.ko'], 'reason': 'r'}},
+                      {'s': {'modules': ['../x.ko'], 'reason': 'r'}}):
+            with self.subTest(rules=rules):
+                self.assertRaises(kernel.KernelError, kernel.import_allowlist, {'module_import_allowlist': rules})
+        self.assertRaises(kernel.KernelError, kernel.forbidden_symbols,
+                          {'forbidden_symbols': [{'symbol': 'x', 'reason': ''}]})
+

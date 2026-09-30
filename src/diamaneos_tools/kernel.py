@@ -257,6 +257,51 @@ def denied_modules(recipe):
     return denied
 
 
+SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
+
+
+def import_allowlist(recipe):
+    """Symbols only the named modules may import, with the reason."""
+    rules = recipe.get('module_import_allowlist', {})
+    require(isinstance(rules, dict), 'invalid module import allowlist')
+    for symbol, rule in rules.items():
+        require(isinstance(symbol, str) and SYMBOL_NAME.fullmatch(symbol) and isinstance(rule, dict)
+                and set(rule) == {'modules', 'reason'} and isinstance(rule['reason'], str)
+                and rule['reason'].strip() and isinstance(rule['modules'], list)
+                and all(isinstance(m, str) and MODULE_NAME.fullmatch(m) for m in rule['modules']),
+                'invalid module import allowlist')
+    return {symbol: sorted(rule['modules']) for symbol, rule in rules.items()}
+
+
+def forbidden_symbols(recipe):
+    """Kernel symbols that must not exist in the built Image, with the reason."""
+    rules = recipe.get('forbidden_symbols', [])
+    require(isinstance(rules, list), 'invalid forbidden symbol list')
+    for rule in rules:
+        require(isinstance(rule, dict) and set(rule) == {'symbol', 'reason'}
+                and isinstance(rule['symbol'], str) and SYMBOL_NAME.fullmatch(rule['symbol'])
+                and isinstance(rule['reason'], str) and rule['reason'].strip(), 'invalid forbidden symbol')
+    return [rule['symbol'] for rule in rules]
+
+
+def undefined_symbols(nm_output):
+    """Names `nm -u` lists as undefined."""
+    return {line.split()[-1] for line in nm_output.splitlines() if line.split()[:1] == ['U']}
+
+
+def check_module_imports(modules, allowlist, undefined):
+    """Fail unless each allowlisted symbol is imported by exactly its modules."""
+    for symbol, allowed in allowlist.items():
+        importers = sorted(name for name, path in modules.items() if symbol in undefined(path))
+        require(importers == allowed, 'unexpected importers of ' + symbol + ': ' + (', '.join(importers) or 'none'))
+
+
+def check_forbidden_symbols(system_map, symbols):
+    present = {line.split()[2] for line in system_map.splitlines() if len(line.split()) >= 3}
+    found = sorted(set(symbols) & present)
+    require(not found, 'forbidden kernel symbol present: ' + ', '.join(found))
+
+
 def output_files(work, paths):
     execution = Path(call([work / 'tools/bazel', '--batch', 'info', 'execution_root'], cwd=work).strip()).resolve()
     require(execution.is_relative_to(work / 'out'), 'execution root outside workspace output')
@@ -364,6 +409,8 @@ def build(root, jobs, timeout, profile='production'):
     plan, changes, adaptation = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
     denied = denied_modules(recipe)
+    allowlist = import_allowlist(recipe)
+    forbidden = forbidden_symbols(recipe)
     with locked(root):
         rows = sources(root, plan, changes)
         links(root, rows, adaptation)
@@ -520,6 +567,14 @@ def build(root, jobs, timeout, profile='production'):
             verify_built(work, run, {name: candidate / 'modules' / name for name in selected},
                          core + external, one(core, 'vmlinux', '/common/kernel_aarch64/'),
                          module_metadata, call, require)
+            # Symbol rules moved from the per-build checks: which modules may
+            # import a symbol, and symbols that must not exist in the Image.
+            nm = work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin/llvm-nm'
+            check_module_imports({name: candidate / 'modules' / name for name in selected}, allowlist,
+                                 lambda path: undefined_symbols(call([nm, '-u', path], cwd=work)))
+            system_map = vmlinux.parent / 'System.map'
+            require(system_map.is_file(), 'System.map missing next to the packaged kernel')
+            check_forbidden_symbols(system_map.read_text(errors='replace'), forbidden)
             sources(root, plan, changes); verify_untracked(root, rows, adaptation)
             for p in candidate.rglob('*'):
                 if p.is_file(): p.chmod(0o640)
@@ -528,6 +583,7 @@ def build(root, jobs, timeout, profile='production'):
             (run / 'artifacts.json').write_bytes(encoded(inventory))
             result.update(status='PASS', module_count=len(selected), denied_module_count=len(denied),
                           dtb_count=len(dtbs), dtbo_count=len(dtbos),
+                          import_rules_checked=len(allowlist), forbidden_symbols_checked=len(forbidden),
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
                           layout_scan_sha256=sha(run / 'layout-scan.json'),

@@ -1394,5 +1394,19 @@
     }
   ],
   "dtb_count": 14,
-  "dtbo_count": 95
+  "dtbo_count": 95,
+  "module_import_allowlist": {
+    "register_kretprobe": {
+      "modules": [
+        "dwc3-msm.ko"
+      ],
+      "reason": "KPROBES stays on only for the dwc3-msm USB hooks (owner decision, finding -111); any other kretprobe user is new and needs review."
+    }
+  },
+  "forbidden_symbols": [
+    {
+      "symbol": "param_name_len",
+      "reason": "run_init_process runs after init memory is freed and calls this __init helper; it is safe only while inlined, so an out-of-line copy means init could call freed code (r9t kernel review)."
+    }
+  ]
 }
