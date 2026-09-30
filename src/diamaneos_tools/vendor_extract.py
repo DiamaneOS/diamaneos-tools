@@ -37,19 +37,42 @@ def relative(value):
     return Path(value)
 
 
-def extract(super_image, image_tools, output, stock, selection, tool_pins):
+TOOL_POLICIES = ('pinned', 'recorded')
+
+
+def tool_identity(image_tools, tool_pins, policy):
+    """Check the image tools against their pins, or record what is used.
+
+    ``recorded`` is for tools built from the pinned source on the build host:
+    their hashes enter the generation identity and the result, and every
+    extracted file is still checked against the selected-file recipe.
+    """
+    if policy not in TOOL_POLICIES:
+        raise VendorError('unknown image tool policy')
+    observed = {'tools': {}, 'libraries': {}}
+    for name, digest in tool_pins['tools'].items():
+        p = image_tools / name
+        if p.is_symlink() or not p.is_file() or (policy == 'pinned' and sha(p) != digest):
+            raise VendorError('image tool does not match the pinned tool identity')
+        observed['tools'][name] = sha(p)
+    for name, digest in tool_pins['libraries'].items():
+        p = image_tools.parent / 'lib64' / name
+        if policy == 'recorded' and not p.exists() and not p.is_symlink():
+            continue
+        if p.is_symlink() or not p.is_file() or (policy == 'pinned' and sha(p) != digest):
+            raise VendorError('image tool library does not match its pinned identity')
+        observed['libraries'][name] = sha(p)
+    return observed
+
+
+def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_policy='pinned'):
     if any(selection[k] != stock[k] for k in ('archive_sha256', 'stock_build', 'region')):
         raise VendorError('selected files and image recipe disagree')
     record = next(i for i in stock['images'] if i['partition'] == 'super')
     regular(super_image, record['bytes'], record['sha256'])
-    for name, digest in tool_pins['tools'].items():
-        p = image_tools / name
-        if p.is_symlink() or not p.is_file() or sha(p) != digest:
-            raise VendorError('image tool does not match the pinned tool identity')
-    for name, digest in tool_pins['libraries'].items():
-        p = image_tools.parent / 'lib64' / name
-        if p.is_symlink() or not p.is_file() or sha(p) != digest:
-            raise VendorError('image tool library does not match its pinned identity')
+    observed_tools = tool_identity(image_tools, tool_pins, tool_policy)
+    if tool_policy == 'recorded':
+        tool_pins = observed_tools
     rows = selection['files'] + selection['notices']
     links = selection.get('symlinks', [])
     paths = [relative(r['input']) for r in rows + links]
@@ -153,6 +176,7 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins):
                 os.replace(pointer, current)
     return {'status': 'PASS', 'operation': 'selected-stock-extraction', 'generation': identity,
             'file_count': len(rows), 'symlink_count': len(links), 'super_sha256': record['sha256'],
+            'image_tool_policy': tool_policy, 'image_tools': observed_tools,
             'device_commands_executed': 0}
 
 
@@ -161,13 +185,16 @@ def main(argv=None):
     parser.add_argument('--super', dest='super_image', type=Path, required=True)
     parser.add_argument('--image-tools', type=Path, required=True, help='pinned image-tool bin directory')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--record-tools', action='store_true',
+                        help='accept tools built from the pinned source and record their hashes')
     args = parser.parse_args(argv)
     try:
         with process.interrupt_on_termination():
             result = extract(args.super_image.resolve(), args.image_tools.resolve(), args.output.absolute(),
                          load_json(ROOT / 'config/fp6-stock-image-recipe.json'),
                          load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
-                         load_json(ROOT / 'config/fp6-image-tools.json'))
+                         load_json(ROOT / 'config/fp6-image-tools.json'),
+                         'recorded' if args.record_tools else 'pinned')
         print(json.dumps(result, indent=2))
         return 0
     except KeyboardInterrupt:
