@@ -622,7 +622,9 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
 
     Git status covers each project's files. This covers the gaps between those
     projects and authenticates the manifest's copy/link files, which the project
-    commit map alone does not describe.
+    commit map alone does not describe. ``generated`` names generated-input
+    trees whose complete contents the caller has already verified against the
+    bound generated-input descriptor; nothing else outside projects is accepted.
     """
     source = source.resolve(strict=True)
     signed_xml = compose_source_manifest(config, source, signed_xml)
@@ -646,9 +648,15 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
             raise BuildError("source and output roots must be distinct")
         excluded.add(relative_output.parts[0])
     exported = {entry[3] for entry in exports}
-    if any(Path(path).parts[0] in excluded for path in projects | exported):
+    generated = set(generated)
+    if any(not _source_relative_path(path) for path in generated):
+        raise BuildError("generated input path is unsafe")
+    if any(path == project or path.startswith(project + "/") or project.startswith(path + "/")
+           for path in generated for project in projects | exported):
+        raise BuildError("generated input overlaps a source project")
+    if any(Path(path).parts[0] in excluded for path in projects | exported | generated):
         raise BuildError("declared source overlaps metadata or build output")
-    containers = {parent.as_posix() for path in projects | exported
+    containers = {parent.as_posix() for path in projects | exported | generated
                   for parent in Path(path).parents if parent != Path(".")}
 
     for project in projects:
@@ -662,7 +670,7 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
         directory = pending.pop()
         for entry in directory.iterdir():
             relative = entry.relative_to(source).as_posix()
-            if relative in excluded or relative in projects:
+            if relative in excluded or relative in projects or relative in generated:
                 if entry.is_symlink() or not entry.is_dir():
                     raise BuildError("source directory is redirected or not a directory")
             elif relative in exported:
@@ -689,7 +697,8 @@ def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
             raise BuildError("manifest copyfile content mismatch")
 
 
-def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) -> dict:
+def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
+                             environment_sha256: str | None = None) -> dict:
     upstream = config["upstream"]
     if sha256_file(allowed_signers) != upstream["allowed_signers_sha256"]:
         raise BuildError("allowed-signers file hash mismatch")
@@ -766,7 +775,8 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
                                            for e in ET.fromstring(data).findall("remote"))
     if remote_attributes(composed) != remote_attributes(resolved):
         raise BuildError("resolved manifest remotes differ from declared sources")
-    verify_source_layout(config, source, rows, default_xml.stdout, resolved)
+    generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
+    verify_source_layout(config, source, rows, default_xml.stdout, resolved, generated)
 
     dirty = []
     for path, _name, _remote, revision in rows:
@@ -803,7 +813,27 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path) 
         "resolved_project_map_sha256": project_map_sha256,
         "source_clean": True,
         "source_layout_verified": True,
+        "generated_inputs": sorted(generated),
+        "generated_input_descriptor_sha256": descriptor_sha256,
     }
+
+
+def verify_generated_inputs(source: Path, environment_sha256: str | None) -> tuple[set, str | None]:
+    """Return the generated-input trees the bound descriptor accepts.
+
+    Without a descriptor no generated tree is accepted, so the layout check
+    rejects them as undeclared inputs. A descriptor must match the selected
+    environment and the current recipes, and every tree its inventory.
+    """
+    descriptor = source / ".repo" / "diamaneos-generated-inputs.json"
+    if not descriptor.exists() and not descriptor.is_symlink():
+        return set(), None
+    from . import product_inputs
+    try:
+        paths = product_inputs.verify_descriptor(source, environment_sha256)
+    except (product_inputs.KernelError, OSError, ValueError, KeyError, TypeError) as error:
+        raise BuildError("generated inputs do not match their descriptor: " + str(error)) from None
+    return paths, sha256_file(descriptor)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -877,7 +907,7 @@ def main(argv=None) -> int:
                 "generated_input_manifest_status"] != "verified":
             raise BuildError("FP6 generated device-input manifest is not verified")
         result["source"] = verify_manifest_checkout(
-            config, args.source_root, args.allowed_signers)
+            config, args.source_root, args.allowed_signers, sha256_bytes(raw))
         runtime_identity = {
             "declared": identity["declared_build_identity_sha256"],
             "host_packages": result["host"]["installed_package_set_sha256"],
