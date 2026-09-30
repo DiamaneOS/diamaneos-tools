@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,18 @@ GIB = 1024 ** 3
 # which refuses to run as root, sees an ordinary user without network access.
 ISOLATION = ['unshare', '--user', '--map-current-user', '--net', '--']
 LONG_TIMEOUT = 48 * 3600
+# kmod installs modinfo and modprobe under /usr/sbin on Debian.
+SBIN = ('/usr/sbin', '/sbin')
+# Third-party Python modules the build path imports (vendor product
+# generation validates its recipes with jsonschema).
+PYTHON_MODULES = {'jsonschema': 'python3-jsonschema'}
+# MemTotal reports less than the installed RAM (firmware and kernel reserve
+# some), so a 32 GB machine passes a 32 GiB floor with this margin.
+MEMORY_MARGIN = 2 * GIB
+# Variables that lead to local sockets or services (agents, desktop buses,
+# container daemons). A network-off build has no use for them.
+SCRUBBED = ('SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'GPG_AGENT_INFO', 'XDG_RUNTIME_DIR', 'WAYLAND_DISPLAY',
+            'DISPLAY', 'XAUTHORITY', 'DOCKER_HOST', 'CONTAINER_HOST', 'PULSE_SERVER', 'KRB5CCNAME')
 # Full build logs are large; keep the whole stream in the log, a tail in memory.
 MAX_LOG_BYTES = 64 * GIB
 
@@ -189,22 +202,51 @@ class Action:
         return f'{self.description}: {where}{prefix + " " if prefix else ""}{command}'
 
 
-def isolation_available() -> bool:
-    if platform.system() != 'Linux' or shutil.which('unshare') is None:
-        return False
+def tool_path(path: str | None = None) -> str:
+    """PATH plus the sbin directories, where some distributions put kmod."""
+    parts = [p for p in (path if path is not None else os.environ.get('PATH', '')).split(os.pathsep) if p]
+    return os.pathsep.join(parts + [d for d in SBIN if d not in parts])
+
+
+def which(command: str) -> str | None:
+    return shutil.which(command, path=tool_path())
+
+
+def isolation_problem() -> str | None:
+    """Why compilation cannot run in a network namespace here, or None."""
+    if platform.system() != 'Linux':
+        return 'network namespaces need Linux'
+    if which('unshare') is None:
+        return 'unshare (util-linux) is missing'
     try:
+        usage = subprocess.run(['unshare', '--help'], capture_output=True, text=True, timeout=30).stdout
+        if '--map-current-user' not in usage:
+            return 'unshare is older than util-linux 2.38 (it has no --map-current-user)'
         result = subprocess.run(ISOLATION + ['true'], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
-        return False
-    return result.returncode == 0
+        return 'unshare could not be run'
+    if result.returncode:
+        return 'unprivileged user namespaces are turned off on this host'
+    return None
+
+
+def isolation_available() -> bool:
+    return isolation_problem() is None
+
+
+def scrubbed_environment(env: dict) -> dict:
+    return {k: v for k, v in env.items()
+            if k not in SCRUBBED and not k.startswith('DBUS_') and not k.endswith('_SOCK')}
 
 
 class Runner:
     """Runs actions with logging; network-off for compile steps by default."""
 
-    def __init__(self, allow_network: bool = False, echo=print):
+    def __init__(self, allow_network: bool = False, echo=print, tmpdir: Path | None = None):
         self.allow_network = allow_network
         self.echo = echo
+        # Large temporary files belong in the workspace, not in /tmp.
+        self.tmpdir = tmpdir
 
     def isolated(self, action: Action) -> bool:
         """Compilation runs without network access unless the user allowed it."""
@@ -225,6 +267,12 @@ class Runner:
         if self.isolated(action):
             argv = ISOLATION + argv
         env = {k: v for k, v in os.environ.items() if k not in action.unset}
+        if action.compile:
+            env = scrubbed_environment(env)
+        env['PATH'] = tool_path(env.get('PATH'))
+        if self.tmpdir is not None:
+            self.tmpdir.mkdir(parents=True, exist_ok=True)
+            env['TMPDIR'] = str(self.tmpdir)
         env.update({k: str(v) for k, v in action.env.items()})
         partial = log.with_suffix('.part')
         partial.unlink(missing_ok=True)
@@ -294,11 +342,22 @@ STEP_COMMANDS = {
 }
 
 
+def module_available(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+def needed_space(build_config: dict, steps, present=()) -> int:
+    """Bytes the given steps still need; steps whose output already exists
+    (a resumed or repeated run) reuse most of their space."""
+    return sum(build_config['disk_estimate_gib'].get(step, 0) for step in steps if step not in present) * GIB
+
+
 def check_host(workspace: Workspace, steps, environment: dict, build_config: dict,
-               need_isolation: bool, probe=None) -> dict:
+               need_isolation: bool, probe=None, present=()) -> dict:
     """Stop early with every missing requirement; record the host for build.json.
 
-    ``probe`` replaces system queries in tests.
+    ``steps`` are the steps that will run; ``present`` those of them whose
+    output already exists. ``probe`` replaces system queries in tests.
     """
     probe = probe or {}
     problems, warnings = [], []
@@ -308,30 +367,36 @@ def check_host(workspace: Workspace, steps, environment: dict, build_config: dic
         problems.append(f'needs Linux on {environment["host"]["architecture"]} (found {system} {machine})')
     if probe.get('python', sys.version_info[:2]) < (3, 11):
         problems.append('needs Python 3.11 or newer')
-    which = probe.get('which', shutil.which)
-    missing = sorted({c for step in steps for c in STEP_COMMANDS.get(step, ()) if which(c) is None})
-    if need_isolation and which('unshare') is None:
+    find = probe.get('which', which)
+    missing = sorted({c for step in steps for c in STEP_COMMANDS.get(step, ()) if find(c) is None})
+    if need_isolation and find('unshare') is None:
         missing.append('unshare')
     if missing:
         problems.append('missing commands: ' + ', '.join(missing))
+    has_module = probe.get('modules', module_available)
+    modules = sorted(package for name, package in PYTHON_MODULES.items() if not has_module(name))
+    if modules:
+        problems.append('missing Python modules for ' + sys.executable + ': install ' + ', '.join(modules))
     memory = probe.get('memory', memory_bytes())
     minimum = environment['host']['minimum_memory_bytes']
-    if memory is not None and memory < minimum:
-        problems.append(f'needs at least {minimum // GIB} GiB of RAM (found {memory // GIB} GiB)')
-    elif memory is not None and memory < 2 * minimum:
-        warnings.append(f'{memory // GIB} GiB of RAM works but {2 * minimum // GIB} GiB is recommended')
+    if memory is not None and memory < minimum - MEMORY_MARGIN:
+        problems.append(f'needs at least {minimum // GIB} GB of RAM (found {memory // GIB} GiB)')
+    elif memory is not None and memory < 2 * minimum - MEMORY_MARGIN:
+        warnings.append(f'{memory // GIB} GiB of RAM works but {2 * minimum // GIB} GB is recommended')
     workspace.root.mkdir(parents=True, exist_ok=True)
-    needed = sum(build_config['disk_estimate_gib'].get(step, 0) for step in steps) * GIB
+    needed = needed_space(build_config, steps, present)
     free = probe.get('free', shutil.disk_usage(workspace.root).free)
     if free < needed:
         problems.append(f'needs about {needed // GIB} GiB free in {workspace.root} for these steps '
                         f'(found {free // GIB} GiB)')
     if not probe.get('case_sensitive', case_sensitive(workspace.root)):
         problems.append(f'{workspace.root} must be on a case-sensitive filesystem')
-    if need_isolation and not probe.get('isolation', isolation_available()):
-        problems.append('unprivileged user namespaces are not available, so the build cannot run '
-                        'with network access off. Enable them (see the build guide) or pass '
-                        '--allow-network to build with network access (recorded in build.json)')
+    if need_isolation:
+        reason = probe['isolation'] if 'isolation' in probe else isolation_problem()
+        if reason:
+            problems.append(f'the build cannot compile with network access off: {reason}. Fix that '
+                            '(see the build guide) or pass --allow-network to compile with network '
+                            'access (recorded in build.json)')
     release = probe.get('os_release', os_release())
     host = environment['host']
     if (release.get('ID'), release.get('VERSION_ID')) != (host['os_id'], host['os_version_id']):
