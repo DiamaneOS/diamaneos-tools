@@ -78,9 +78,13 @@ class KernelConfigTests(unittest.TestCase):
                 changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
                 result = kernel_config.check(changed, self.policy, 'production')
                 self.assertIn(symbol, [r['symbol'] for r in result['failures']])
-        changed = data.replace(b'CONFIG_DEBUG_FS_ALLOW_ALL=y', b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y')
+        # Choosing the debugfs mount refusal is the stricter kernel change (-114);
+        # the policy pins the current choice until that change lands.
+        changed = data.replace(b'CONFIG_DEBUG_FS_ALLOW_ALL=y', b'# CONFIG_DEBUG_FS_ALLOW_ALL is not set')
+        changed = changed.replace(b'# CONFIG_DEBUG_FS_DISALLOW_MOUNT is not set', b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y')
         result = kernel_config.check(changed, self.policy, 'development')
-        self.assertEqual([r['symbol'] for r in result['failures']], ['CONFIG_DEBUG_FS_ALLOW_ALL'])
+        self.assertEqual([r['symbol'] for r in result['failures']],
+                         ['CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'])
 
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')

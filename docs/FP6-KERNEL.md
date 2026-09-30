@@ -78,6 +78,13 @@ takes its extcon from it, `qcom_glink_spss` because `glink_probe` imports it,
 `wcd939x` and `wsa883x` because the audio machine driver imports them. Those
 need a configuration or device-tree change first.
 
+Two symbol rules in the same file run on every build. `module_import_allowlist`
+names the only modules that may import a symbol (today only `dwc3-msm.ko` may
+import `register_kretprobe`, the reason KPROBES stays on), and
+`forbidden_symbols` lists symbols that must not exist in the built kernel's
+`System.map` (an out-of-line `param_name_len` would let init call freed code).
+Each rule carries its reason.
+
 The hardened kernel enables `RANDSTRUCT_FULL`. Clang randomizes a structure of
 only function pointers only when every struct or enum its members name is
 already declared; if a callback's return type is the first mention of a tag,
