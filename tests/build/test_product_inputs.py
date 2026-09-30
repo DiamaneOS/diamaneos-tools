@@ -115,4 +115,14 @@ class ProductInputTests(unittest.TestCase):
         self.assertEqual(b'fixture',p.read_bytes())
         self.assertEqual(b'old tree',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
 
+    def test_stale_generated_trees_move_aside(self):
+        self.install()
+        self.assertEqual([],subject.retire_stale(self.source))
+        (self.source/'vendor/fairphone/FP6/input').write_bytes(b'edited!')
+        self.assertEqual(['vendor','kernel'],subject.retire_stale(self.source))
+        self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
+        self.assertFalse((self.source/'.repo/diamaneos-generated-inputs.json').exists())
+        self.assertEqual(b'edited!',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
+        self.assertEqual([],subject.retire_stale(self.source))
+
 if __name__=='__main__':unittest.main()

@@ -224,6 +224,33 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
     return accepted
 
 
+def retire_stale(source, environment_sha256=None, root=ROOT):
+    """Move generated trees aside when they no longer match their descriptor,
+    the environment or the recipes. Returns the labels that were moved."""
+    source = Path(source)
+    descriptor = source / DESCRIPTOR
+    if descriptor.exists() or descriptor.is_symlink():
+        try:
+            verify_descriptor(source, environment_sha256, root)
+            return []
+        except (ValueError, OSError):
+            pass
+    moved = []
+    for label, rel in DESTINATIONS.items():
+        destination = source / rel
+        if destination.exists() or destination.is_symlink():
+            require(not destination.is_symlink() and destination.is_dir(), 'generated destination is not a directory')
+            previous = source / PREVIOUS / label
+            previous.parent.mkdir(parents=True, exist_ok=True)
+            if previous.exists():
+                shutil.rmtree(previous)
+            destination.rename(previous)
+            moved.append(label)
+    if descriptor.exists() or descriptor.is_symlink():
+        descriptor.unlink()
+    return moved
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=Path,required=True)
