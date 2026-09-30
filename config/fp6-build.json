@@ -82,7 +82,7 @@
       "init_boot",
       "recovery"
     ],
-    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level; the versions live in the AVB properties (stock does the same). Regenerating boot-family images from target-files currently sets them (upstream finding UP-012)."
+    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level; the versions live in the AVB properties, as on stock. The device configuration asks mkbootimg for zeros; the Android release tools that rebuild the images from target-files must keep them."
   },
   "bootconfig": {
     "required": [

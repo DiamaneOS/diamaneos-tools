@@ -85,8 +85,15 @@ class TargetFiles:
 class Tools:
     """Host tools from the synced source's build output."""
 
-    def __init__(self, host_bin: Path, src: Path):
+    def __init__(self, host_bin: Path, src: Path, work: Path | None = None):
         self.host_bin, self.src = host_bin, src
+        # Temporary files (unpacked super, expanded images) can take several
+        # GB; they go to the workspace, never to /tmp.
+        self.work = work or Path(tempfile.gettempdir())
+
+    def scratch(self):
+        self.work.mkdir(parents=True, exist_ok=True)
+        return tempfile.TemporaryDirectory(dir=self.work, prefix='.verify-')
 
     def path(self, name: str) -> Path:
         if name == 'llvm-readelf':
@@ -108,6 +115,8 @@ class Tools:
             env['JAVA_HOME'] = str(jdks[-1])
             paths.append(str(jdks[-1] / 'bin'))
         env['PATH'] = os.pathsep.join(paths + [env.get('PATH', '')])
+        self.work.mkdir(parents=True, exist_ok=True)
+        env['TMPDIR'] = str(self.work)
         return env
 
     def run(self, name: str, args, cwd=None, check=True) -> str:
@@ -397,7 +406,7 @@ def rule_sepolicy_allows(rule, v):
 
 
 def rule_overlay(rule, v):
-    with tempfile.TemporaryDirectory() as temporary:
+    with v.tools.scratch() as temporary:
         apk = v.tf.extract(rule['apk'], Path(temporary))
         dump = v.tools.run('aapt2', ['dump', 'resources', apk])
         problems = [f'{name} is {aapt2_value(dump, name)!r} (want {want!r})'
@@ -416,7 +425,7 @@ def signer_digests(v, apk: Path) -> set:
 
 def rule_apk(rule, v):
     problems = []
-    with tempfile.TemporaryDirectory() as temporary:
+    with v.tools.scratch() as temporary:
         directory = Path(temporary)
         apk = v.tf.extract(rule['path'], directory)
         dump = v.tools.run('aapt2', ['dump', 'permissions', apk])
@@ -434,7 +443,7 @@ def rule_apk(rule, v):
 
 
 def rule_elf_exports(rule, v):
-    with tempfile.TemporaryDirectory() as temporary:
+    with v.tools.scratch() as temporary:
         path = v.tf.extract(rule['path'], Path(temporary))
         dump = v.tools.run('llvm-readelf', ['--dyn-syms', '-W', path])
     defined = set()
@@ -559,7 +568,7 @@ def rule_file_metadata(rule, v):
     want = f'{rule["path"]} {rule["uid"]} {rule["gid"]} {rule["mode"].lstrip("0")} capabilities=0x0'
     if want not in config:
         problems.append('owner or mode differ in the filesystem config')
-    with tempfile.TemporaryDirectory() as temporary:
+    with v.tools.scratch() as temporary:
         info, content = image_file(v, rule['image'], rule['path'], Path(temporary))
     if hashlib.sha256(content).hexdigest() != rule['sha256']:
         problems.append(f'bytes differ in {rule["image"]}.img')
@@ -677,7 +686,8 @@ def check_boot_headers(v):
         if f'com.android.build.{name}.os_version' not in info:
             problems.append(f'{name}.img lacks its AVB OS version property')
     if problems and any('header OS field' in p for p in problems):
-        problems.append('see upstream finding UP-012 (releasetools version arguments)')
+        problems.append('the Android release tools rebuilt the image with the platform version in its header, '
+                        'where the device configuration asks for zeros')
     return not problems, '; '.join(problems)
 
 
@@ -695,7 +705,7 @@ def misc_value(v, key: str) -> str | None:
 def check_super(v):
     size = misc_value(v, 'super_partition_size')
     problems = []
-    with tempfile.TemporaryDirectory() as temporary:
+    with v.tools.scratch() as temporary:
         directory = Path(temporary)
         raw = directory / 'super.raw'
         with (v.images / 'super.img').open('rb') as stream:
@@ -915,7 +925,10 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
         target_files.close()
     results = results_head + v.results
     failed = [r for r in results if r['status'] != 'PASS']
+    # The report belongs to exactly this image set: flash-steps compares the
+    # SHA256SUMS digest before it trusts the result.
     return {'schema_version': 1, 'build_id': record['build_id'], 'variant': record['variant'],
+            'sums_sha256': bw.sha_file(images / 'SHA256SUMS'), 'build_identity': record.get('build_identity'),
             'status': 'FAIL' if failed else 'PASS', 'checked': len(results), 'failed': len(failed),
             'checks': results}
 
@@ -932,12 +945,14 @@ def plan(ctx):
 
     def run():
         images = ws.root / package['outputs']['directory']
-        kernel = ws.passed('kernel')
-        vendor = ws.passed('vendor')
+        # The kernel run and vendor generation this set was made from, as its
+        # record names them (not whatever the workspace holds now).
+        inputs = json.loads((images / 'build.json').read_bytes()).get('generated_inputs') or {}
+        kernel, vendor = inputs.get('kernel') or {}, inputs.get('vendor') or {}
         packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_bytes())
-        kernel_dir = ws.kernel / kernel['outputs']['run'] if kernel else None
-        vendor_dir = ws.vendor / 'generations' / vendor['outputs']['generation'] if vendor else None
-        report = verify(images, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src), kernel_dir,
+        kernel_dir = ws.kernel / kernel['run'] if kernel.get('run') else None
+        vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
+        report = verify(images, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'), kernel_dir,
                         vendor_dir, packaging, ws.src)
         path = ws.images / (package['outputs']['build_id'] + '.verify.json')
         bw.write_atomic(path, bw.encoded(report))

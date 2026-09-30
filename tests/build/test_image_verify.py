@@ -64,6 +64,9 @@ class FakeTools:
         self.outputs = outputs or {}
         self.calls = []
 
+    def scratch(self):
+        return tempfile.TemporaryDirectory()
+
     def run(self, name, args, cwd=None, check=True):
         self.calls.append((name, [str(a) for a in args]))
         for key, value in self.outputs.items():
@@ -275,6 +278,14 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(4 * block, len(raw))
         self.assertEqual(body + bytes(2 * block) + b'B' * block, raw)
 
+    def test_tool_scratch_and_tmpdir_stay_in_the_workspace(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp) / 'ws/work/tmp'
+            tools = subject.Tools(Path(temp) / 'bin', Path(temp) / 'src', work)
+            with tools.scratch() as scratch:
+                self.assertTrue(Path(scratch).is_relative_to(work))
+            self.assertEqual(str(work), tools.environment()['TMPDIR'])
+
     def test_board_lists(self):
         text = 'BOARD_VENDOR_KERNEL_MODULES := a/x.ko b/y.ko\nBOARD_SYSTEM_KERNEL_MODULES := z.ko\n'
         self.assertEqual({'BOARD_VENDOR_KERNEL_MODULES': ['x.ko', 'y.ko'], 'BOARD_SYSTEM_KERNEL_MODULES': ['z.ko']},
@@ -323,7 +334,7 @@ class GenericCheckTests(unittest.TestCase):
         (self.root / 'boot.img').write_bytes(bytes(header))
         ok, detail = subject.check_boot_headers(v)
         self.assertFalse(ok)
-        self.assertIn('UP-012', detail)
+        self.assertIn('release tools', detail)
 
 
     def test_kernel_binding(self):
