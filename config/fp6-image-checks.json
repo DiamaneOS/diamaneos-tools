@@ -31,7 +31,7 @@
     },
     {
       "id": "sensors-labelled",
-      "why": "The sensor daemon has its own label.",
+      "why": "The sensor daemon (sscrpcd) and the audio DSP daemon (audioadsprpcd) have their own labels.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_file_contexts"
@@ -233,10 +233,10 @@
       "why": "The bridge is protected from disabling and runs in its own domain.",
       "type": "text",
       "files": [
-        "SYSTEM_EXT/etc/sysconfig/sysconfig-org.diamaneos.callaudio.xml"
+        "SYSTEM_EXT/etc/sysconfig/sysconfig-de.diamaneos.callaudio.xml"
       ],
       "contains": [
-        "prevent-disable package=\"org.diamaneos.callaudio\""
+        "prevent-disable package=\"de.diamaneos.callaudio\""
       ]
     },
     {
@@ -247,7 +247,7 @@
         "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts"
       ],
       "lines": [
-        "user=_app isPrivApp=true name=org.diamaneos.callaudio domain=fp6_callaudio_app type=app_data_file levelFrom=all"
+        "user=_app isPrivApp=true name=de.diamaneos.callaudio domain=fp6_callaudio_app type=app_data_file levelFrom=all"
       ]
     },
     {
