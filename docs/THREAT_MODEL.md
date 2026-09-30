@@ -546,6 +546,26 @@ rule in the supply-chain rows.
   tied to the caller's target or disabled at the pin). No permission or
   component change; the search index, its providers and their permissions are
   untouched, and results show what they showed.
+- Clock (step 7, DeskClock fork: 182 reviewed LineageOS lineage-24.0 commits and
+  19 of DiamaneOS's own, targetSdk 37): the exported surface goes from 7
+  components to 4 (the launcher entry, the SET_ALARM-guarded API activities and
+  the screensaver); the alarm init receiver and both widget providers are no
+  longer exported, the new widget set-up activity is not exported and accepts
+  only this app's digital-clock widget ids, widget intents are explicit, and every
+  runtime receiver is RECEIVER_NOT_EXPORTED; GrapheneOS's e16191c4 (no foreign
+  snooze or dismiss) and 9cde4084 stay; permissions are the approved set
+  (notifications, promoted notifications, USE_EXACT_ALARM, one foreground-service
+  type), DISABLE_KEYGUARD, READ_EXTERNAL_STORAGE and the legacy ones are dropped,
+  and POWER_OFF_ALARM and MODIFY_AUDIO_SETTINGS never come in; an expired timer no
+  longer asks to dismiss the keyguard; backup and device transfer stay off;
+  alarms rely on GrapheneOS's power-save allowlist as before. Residual: the
+  imported series was reviewed on its security paths (manifest, receivers,
+  services, the public intent API, widgets, notifications), not every UI line,
+  and two imported commits are marked as tool-assisted; the alarms database moves
+  from version 8 to 12, so going back to GrapheneOS's Clock needs its data
+  cleared. Timer and stopwatch are promoted MetricStyle notifications (status-bar
+  chips) and, being public, show on the always-on display under the lock-screen
+  notification filter; see -144 for chips over an occluded lock screen.
 - Calculator (step 7, ExactCalculator fork): styling (DayNight with dynamic
   colour, Tally keycaps from the token library, resources only), the AC and
   "( )" keys, edge-to-edge and key labels that grow with the text size. The
@@ -991,3 +1011,6 @@ Revision history:
   string literals only. Notification rows get themed app icons (vendor_diamaneos
   release config, the flag android.app.notifications_redesign_themed_app_icons,
   read only by SystemUI's notification icon provider).
+- 2026-09-30: the Clock fork (local tally branch, emulator-checked, in build 6)
+  and -144 (stock SystemUI: promoted chips show private content over an occluded
+  lock screen; open).
