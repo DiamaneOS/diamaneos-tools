@@ -19,7 +19,25 @@ def git(root, *args):
     return result.stdout
 
 
-def prepare(config, source, overlay_root, signed_xml):
+def derive(signed_xml, overlay, overlay_revision, resolved, overlay_url=None):
+    """Compute the composition record for an overlay and exact resolutions.
+
+    Maintainers use it to move pins; it performs the same checks as preflight.
+    """
+    if not build.SHA1_RE.fullmatch(overlay_revision or ''):
+        raise build.BuildError('overlay revision must be an exact commit')
+    composed = build.compose_overlay(signed_xml, overlay, resolved)
+    rows, digest = build.parse_project_map(composed)
+    result = {'overlay_revision': overlay_revision, 'overlay_sha256': build.sha256_bytes(overlay),
+              'project_count': len(rows), 'project_map_sha256': digest}
+    if resolved:
+        result['resolved_revisions'] = dict(sorted(resolved.items()))
+    if overlay_url:
+        result['overlay_url'] = overlay_url
+    return result
+
+
+def prepare(config, source, overlay_root, signed_xml, replace=False):
     composition = config.get('composition')
     if not composition:
         raise build.BuildError('environment has no source composition')
@@ -41,9 +59,12 @@ def prepare(config, source, overlay_root, signed_xml):
     path = directory / 'diamaneos.xml'
     entries = list(directory.iterdir())
     if entries:
-        if entries != [path] or path.is_symlink() or not path.is_file() or path.read_bytes() != data:
+        if entries != [path] or path.is_symlink() or not path.is_file():
             raise build.BuildError('existing local manifests differ from the declared overlay')
-        return
+        if path.read_bytes() == data:
+            return
+        if not replace:
+            raise build.BuildError('existing local manifests differ from the declared overlay')
     with tempfile.NamedTemporaryFile(dir=directory, prefix='.overlay-', delete=False) as f:
         temporary = Path(f.name)
         try:

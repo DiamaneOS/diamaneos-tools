@@ -104,6 +104,14 @@ def validate_config(config: dict) -> None:
                 if not _source_relative_path(path):
                     raise BuildError("invalid resolved overlay project path")
                 _require_sha(revision, "resolved overlay revision", SHA1_RE)
+        if "overlay_url" in composition:
+            # Where public builds obtain the overlay repository. The revision
+            # and content hash above still decide what is accepted.
+            composition_keys.add("overlay_url")
+            url = composition["overlay_url"]
+            if (not isinstance(url, str) or not url.startswith("https://")
+                    or len(url) > 512 or any(c.isspace() for c in url)):
+                raise BuildError("overlay URL must use HTTPS")
         _require_keys(composition, composition_keys, "composition")
         for key in ("overlay_sha256", "project_map_sha256"):
             if not isinstance(composition[key], str) or not SHA256_RE.fullmatch(composition[key]):
@@ -515,6 +523,20 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
         overlay = stream.read(MAX_MANIFEST_BYTES + 1)
     if len(overlay) > MAX_MANIFEST_BYTES or sha256_bytes(overlay) != composition["overlay_sha256"]:
         raise BuildError("declared overlay content mismatch")
+    composed = compose_overlay(signed_xml, overlay, composition.get("resolved_revisions", {}))
+    rows, digest = parse_project_map(composed)
+    if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
+        raise BuildError("composed manifest does not match its declared project map")
+    return composed
+
+
+def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes:
+    """Apply one reviewed overlay to the signed manifest with exact resolutions.
+
+    Pure function: callers bind the overlay bytes and the resulting project map.
+    """
+    if len(overlay) > MAX_MANIFEST_BYTES:
+        raise BuildError("declared overlay content mismatch")
     if b"<!DOCTYPE" in overlay.upper() or b"<!ENTITY" in overlay.upper():
         raise BuildError("overlay declarations are not supported")
     try:
@@ -526,7 +548,6 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
     remotes = {entry.get("name") for entry in base.findall("remote")}
     paths = {entry.get("path", entry.get("name")) for entry in base.findall("project")}
     names = {entry.get("name") for entry in base.findall("project")}
-    revisions = composition.get("resolved_revisions", {})
     used_revisions, remote_revisions = set(), {}
     upstream_projects = tuple(base.findall("project"))
     removed_paths, added_paths = set(), set()
@@ -592,15 +613,11 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
         raise BuildError("removed upstream project lacks a same-path replacement")
     if used_revisions != set(revisions):
         raise BuildError("unused resolved overlay revisions")
-    composed = ET.tostring(base, encoding="utf-8")
-    rows, digest = parse_project_map(composed)
-    if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
-        raise BuildError("composed manifest does not match its declared project map")
-    return composed
+    return ET.tostring(base, encoding="utf-8")
 
 
 def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
-                         resolved_xml: bytes) -> None:
+                         resolved_xml: bytes, generated=frozenset()) -> None:
     """Reject undeclared inputs outside projects without traversing build output.
 
     Git status covers each project's files. This covers the gaps between those
