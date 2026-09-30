@@ -433,13 +433,16 @@ class GenericCheckTests(unittest.TestCase):
         wipe = v.config['wipe']['images']
         (self.root / 'userdata.img').write_bytes(bytes(wipe['userdata']['bytes']))
         (self.root / 'frp.img').write_bytes(bytes(wipe['frp']['bytes'] - 1) + b'\1')
+        (self.root / 'misc.img').write_bytes(bytes(wipe['misc']['bytes']))
         raw = bytearray(8192)
         struct.pack_into('<I', raw, 1024, subject.F2FS_MAGIC)
         raw[1024 + 0x7c:1024 + 0x7c + 16] = 'metadata'.encode('utf-16le')
         (self.root / 'metadata.img').write_bytes(bytes(raw))
         self.assertEqual((True, ''), subject.check_wipe(v))
-        (self.root / 'userdata.img').write_bytes(b'\1' * wipe['userdata']['bytes'])
-        self.assertFalse(subject.check_wipe(v)[0])
+        (self.root / 'misc.img').write_bytes(b'\1' + bytes(wipe['misc']['bytes'] - 1))
+        ok, detail = subject.check_wipe(v)
+        self.assertFalse(ok)
+        self.assertIn('misc image is not the declared zeros', detail)
 
 
 class ConfigTests(unittest.TestCase):

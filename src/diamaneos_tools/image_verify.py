@@ -874,9 +874,11 @@ def check_adb_keys(v):
 def check_wipe(v):
     images = v.config['wipe']['images']
     problems = []
-    userdata = (v.images / images['userdata']['image']).read_bytes()
-    if len(userdata) != images['userdata']['bytes'] or userdata.count(0) != len(userdata):
-        problems.append('userdata image is not the declared zeros')
+    for name, image in images.items():
+        if image['kind'] == 'zeros':
+            data = (v.images / image['image']).read_bytes()
+            if len(data) != image['bytes'] or data.count(0) != len(data):
+                problems.append(f'{name} image is not the declared zeros')
     if bw.sha_file(v.images / images['frp']['image']) != images['frp']['sha256']:
         problems.append('FRP image differs from the stock factory image')
     raw = sparse_to_raw((v.images / images['metadata']['image']).read_bytes(), limit=4096)

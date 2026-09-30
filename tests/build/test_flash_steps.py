@@ -40,7 +40,7 @@ class FlashStepTests(unittest.TestCase):
     def test_wipe_flashes_empty_images_and_says_it_is_unvalidated(self):
         text = self.text(wipe=True)
         for line in ('fastboot flash userdata userdata.img', 'fastboot flash metadata metadata.img',
-                     'fastboot flash frp frp.img'):
+                     'fastboot flash frp frp.img', 'fastboot flash misc misc.img'):
             self.assertIn(line, text)
         self.assertIn('not yet tested on a phone', text)
         self.assertIn('factory package', text)

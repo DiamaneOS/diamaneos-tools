@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import zipfile
 
@@ -84,6 +84,23 @@ def frp_image(path: Path, size: int) -> None:
     data = bytearray(size)
     data[-1] = 1
     path.write_bytes(bytes(data))
+
+
+def stock_partition_size(factory_zip: Path, label: str) -> int | None:
+    """A partition's size in the factory package's partition table
+    (images/rawprogram*.xml), or None when the package does not list it."""
+    import xml.etree.ElementTree as ET
+    sizes = set()
+    with zipfile.ZipFile(factory_zip) as archive:
+        for name in archive.namelist():
+            if PurePosixPath(name).parent.name == 'images' and PurePosixPath(name).name.startswith('rawprogram') \
+                    and name.endswith('.xml'):
+                for entry in ET.fromstring(archive.read(name)):
+                    if entry.get('label') == label and entry.get('num_partition_sectors'):
+                        sizes.add(int(entry.get('num_partition_sectors')) * int(entry.get('SECTOR_SIZE_IN_BYTES', '4096')))
+    if len(sizes) > 1:
+        raise BuildStepError(f'the stock partition table gives {label} more than one size')
+    return sizes.pop() if sizes else None
 
 
 def fstab_entries(text: str) -> dict:
@@ -166,7 +183,20 @@ def plan(ctx):
         if state['reuse']:
             return
         images = wipe['images']
-        zeros(state['partial'] / images['userdata']['image'], images['userdata']['bytes'])
+        for name, image in images.items():
+            if image['kind'] == 'zeros':
+                zeros(state['partial'] / image['image'], image['bytes'])
+        vendor = ws.passed('vendor')
+        factory = Path(vendor['outputs'].get('factory_zip', '')) if vendor else None
+        checked = {}
+        for name, image in images.items():
+            if image.get('partition_label') and factory and factory.is_file():
+                size = stock_partition_size(factory, image['partition_label'])
+                if size != image['bytes']:
+                    raise BuildStepError(f'the {name} image is {image["bytes"]} bytes but the stock partition '
+                                         f'table says {size}')
+                checked[name] = True
+        state['partition_table_checked'] = checked
         frp = state['partial'] / images['frp']['image']
         frp_image(frp, images['frp']['bytes'])
         if bw.sha_file(frp) != images['frp']['sha256']:
@@ -204,6 +234,7 @@ def plan(ctx):
             'network_isolation': out['network_isolation'], 'host': ctx.host,
             'images': {name: bw.sha_file(state['partial'] / f'{name}.img') for name in names + ['super']},
             'wipe': {'validated': wipe['validated'],
+                     'partition_table_checked': state.get('partition_table_checked', {}),
                      'images': {k: {'file': v['image'], 'sha256': bw.sha_file(state['partial'] / v['image'])}
                                 for k, v in wipe['images'].items()}},
             'flash': {'slot': config['slot'], 'bootloader': config['images']['bootloader'],
@@ -226,7 +257,7 @@ def plan(ctx):
     actions = [Action('Check the target-files archive recorded by the build', func=prepare),
                Action('Export the partition images from target-files', func=export),
                Action('Build super.img', func=super_image),
-               Action('Make the wipe images (userdata, metadata, FRP)', func=wipe_images),
+               Action('Make the wipe images (userdata, metadata, FRP, misc)', func=wipe_images),
                Action('Write build.json and SHA256SUMS', func=record),
                Action('Publish the image directory', func=publish)]
 

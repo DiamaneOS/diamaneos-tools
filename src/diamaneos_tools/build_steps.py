@@ -474,7 +474,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     def outputs():
         product = ctx.cache['product']
-        return {'factory_sha256': recipe['archive_sha256'], 'stage': ctx.cache['stage']['recipe_sha256'],
+        return {'factory_sha256': recipe['archive_sha256'], 'factory_zip': str(zip_path),
+                'stage': ctx.cache['stage']['recipe_sha256'],
                 'extraction': ctx.cache['extract']['generation'],
                 'image_tools': ctx.cache['extract']['image_tools'],
                 'generation': product['generation_sha256'], 'inventory_sha256': product['inventory_sha256'],
