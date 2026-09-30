@@ -363,6 +363,16 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_opt_telephony"
     },
     {
+      "checkout_path": "WORK_ROOT/os/build/make",
+      "id": "build-make",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_build.git",
+      "revision": null,
+      "slug": "platform_build",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_build"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/frameworks/base",
       "id": "frameworks-base",
       "publication": "public-source",

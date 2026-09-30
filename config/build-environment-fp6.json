@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-published-20260930",
-  "scope": "Published FP6 line: the android17 heads of every DiamaneOS project on 2026-09-30, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here; private candidates use lane environments. Not yet built with the public build commands.",
+  "environment_id": "fp6-android17-grapheneos-2026091000-published-20260930-2",
+  "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-09-30, including the build/make fork, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here; private candidates use lane environments. The line is not phone-tested as a whole and not yet built with the public build commands.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -124,12 +124,13 @@
     "production_signing_material_allowed": false
   },
   "composition": {
-    "overlay_revision": "09b32ff5ef22baaaaeda831625d2cde8c1a3212e",
-    "overlay_sha256": "604164208521ec4f01da954bb616ec3e9a1325eb15d8f31d1f0d14257162b1e5",
+    "overlay_revision": "48cc669198ea830d198a48ce408a437eb72de4d2",
+    "overlay_sha256": "3411e874dbba9780c23ceb28ea88ef4d56bce9c6d8cd96f4b89ad692b1e692a9",
     "project_count": 1072,
-    "project_map_sha256": "4785b464b02f14427ada39a9cfaa61fff9dd359ec0d6246e354ab12897ff601d",
+    "project_map_sha256": "d57a3beb16adbd504ac915efda8e1b813ead5dfacd8e7397dbfd11f92080ac69",
     "resolved_revisions": {
       "bootable/recovery": "4b93765f922f7a561c2682fade373ab298a92a15",
+      "build/make": "400085679c4f417c94205637a97b7c17da526d3b",
       "device/fairphone/FP6": "05633227034dc3c771603f9de4282c2aa1c0d242",
       "frameworks/base": "f90d67cedb335cf81ed4ffa6c2180375a1daaa17",
       "frameworks/libs/systemui": "bc4366a6443c57294490800da57f457fe45c2cba",
