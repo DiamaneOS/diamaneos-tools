@@ -531,7 +531,12 @@ rule in the supply-chain rows.
   shade hides (a suspended app, Do Not Disturb's list suppression, with
   SystemUI's own exemptions), and the OS's own notices (the android and SystemUI
   packages, which only system-uid or SystemUI code can post as) give no tally or
-  LED. The row shows app names on the unlocked Home only;
+  LED. One narrow attribution exception: the preinstalled system Clock
+  (com.android.deskclock with FLAG_SYSTEM or FLAG_UPDATED_SYSTEM_APP, checked
+  on its ApplicationInfo, never the package name alone) shows "Timer" or
+  "Stopwatch" instead of its name while a count-down or count-up time shows,
+  decided from structure only; screen readers still name the app, and every
+  other app keeps its own name so no app can pose as the system timer. The row shows app names on the unlocked Home only;
   a work app shows its name and lamp but no readout, since a separately locked
   work profile is redacted in the shade and Launcher cannot see that lock
   without a new permission, and the private space never appears there. Sensors
