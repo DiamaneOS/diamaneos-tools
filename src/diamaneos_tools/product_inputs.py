@@ -27,18 +27,12 @@ DEFAULT_ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
 TARGET_PRODUCT = 'FP6'
 # Generated trees and where the device configuration expects them.
 DESTINATIONS = {'vendor': 'vendor/fairphone/FP6', 'kernel': 'device/fairphone/FP6-kernel'}
-# The recipes whose output the generated trees are. Changing any of them makes
-# an installed tree stale until the generated inputs are rebuilt.
-RECIPES = {
-    'stock_image_recipe': 'config/fp6-stock-image-recipe.json',
-    'vendor_files': 'config/fp6-minimal/vendor-files.json',
-    'vendor_elf': 'config/fp6-minimal/vendor-elf.json',
-    'kernel_sources': 'config/kernel-sources-fp6.json',
-    'kernel_patches': 'config/patches.json',
-    'kernel_workspace': 'config/kernel-workspace-fp6.json',
-    'kernel_packaging': 'config/fp6-kernel-packaging.json',
-    'kernel_policy': 'config/kernel-policy-fp6.json',
-}
+# The recipes each generated tree records about itself: the vendor product in
+# its provenance, the kernel run in its result, preparation and configuration
+# reports. Installation and the preflight require them to equal the recipes
+# in this checkout, so a tree made from other recipes is refused.
+RECIPE_KEYS = ('vendor_files', 'vendor_elf', 'kernel_sources', 'kernel_patches', 'kernel_packaging',
+               'kernel_policy')
 MAX_DESCRIPTOR_BYTES = 16 * 1024 * 1024
 
 
@@ -48,8 +42,46 @@ def read(path):
     return json.loads(path.read_bytes())
 
 
-def recipe_hashes(root=ROOT):
-    return {name: sha(root / path) for name, path in sorted(RECIPES.items())}
+def policy_sha256(policy):
+    """The kernel policy digest kernel_config.check records."""
+    return hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def current_recipes(root=ROOT):
+    """Recipe digests of this checkout, computed as the generators record them."""
+    from . import components
+    return {
+        'vendor_files': hashlib.sha256(encoded(components.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
+        'vendor_elf': hashlib.sha256(encoded(components.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
+        'kernel_sources': sha(root / 'config/kernel-sources-fp6.json'),
+        'kernel_patches': sha(root / 'config/patches.json'),
+        'kernel_packaging': sha(root / 'config/fp6-kernel-packaging.json'),
+        'kernel_policy': policy_sha256(json.loads((root / 'config/kernel-policy-fp6.json').read_bytes())),
+    }
+
+
+def generation_recipes(vendor_tree, kernel_root, run_dir):
+    """Recipe digests the vendor generation and the kernel run recorded."""
+    provenance = read(vendor_tree / 'provenance.json')
+    result = read(run_dir / 'result.json')
+    preparation_path = kernel_root / 'preparation.json'
+    require(sha(preparation_path) == result.get('preparation_sha256'),
+            'the kernel run no longer matches its preparation; run the kernel build again')
+    preparation = read(preparation_path)
+    policies = {read(run_dir / name).get('policy_sha256') for name in ('kernel-config.json', 'vendor-kernel-config.json')}
+    require(len(policies) == 1, 'the kernel run checked two different policies')
+    recipes = {'vendor_files': provenance.get('recipe_sha256'), 'vendor_elf': provenance.get('elf_selection_sha256'),
+               'kernel_sources': preparation.get('source_plan_sha256'), 'kernel_patches': preparation.get('patches_sha256'),
+               'kernel_packaging': result.get('packaging_recipe_sha256'), 'kernel_policy': policies.pop()}
+    missing = sorted(k for k, v in recipes.items() if not isinstance(v, str) or not re.fullmatch('[a-f0-9]{64}', v))
+    require(not missing, 'the generated inputs do not record their recipes: ' + ', '.join(missing))
+    return recipes
+
+
+def require_current(recipes, root=ROOT):
+    stale = sorted(k for k, v in current_recipes(root).items() if recipes.get(k) != v)
+    require(not stale, 'generated inputs were made with other recipes (' + ', '.join(stale) +
+            '); rebuild them with "diamaneos build all"')
 
 
 def tools_identity(root=ROOT):
@@ -143,6 +175,7 @@ def selected_inputs(vendor, kernel):
                    'inventory_sha256': sha(vinventory)},
         'kernel': {'tree': ktree, 'records': krecords, 'run': ktarget,
                    'result_sha256': sha(ktree.parent / 'result.json'), 'inventory_sha256': sha(kinventory)},
+        'recipes': generation_recipes(vtree, kernel, ktree.parent),
     }
 
 
@@ -151,6 +184,7 @@ def install(source, vendor, kernel, environment=DEFAULT_ENVIRONMENT, replace=Fal
     source = source.resolve()
     require((source / '.repo').is_dir() and not (source / '.repo').is_symlink(), 'expected an Android repo checkout')
     selected = selected_inputs(vendor, kernel)
+    require_current(selected['recipes'])
     environment = Path(environment)
     environment_bytes = environment.read_bytes()
     environment_id = json.loads(environment_bytes)['environment_id']
@@ -162,7 +196,7 @@ def install(source, vendor, kernel, environment=DEFAULT_ENVIRONMENT, replace=Fal
         'target_product': TARGET_PRODUCT, 'device_commands_executed': 0,
         'environment_id': environment_id,
         'environment_sha256': hashlib.sha256(environment_bytes).hexdigest(),
-        'tools': tools_identity(), 'recipes': recipe_hashes(), 'inputs': {},
+        'tools': tools_identity(), 'recipes': selected['recipes'], 'inputs': {},
     }
     with locked(source / '.repo'):
         for label in ('vendor', 'kernel'):
@@ -208,8 +242,9 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
     if environment_sha256 is not None:
         require(descriptor.get('environment_sha256') == environment_sha256,
                 'generated inputs were installed for another build environment')
-    require(descriptor.get('recipes') == recipe_hashes(root),
-            'generated inputs were made with other recipes; rebuild them')
+    recipes = descriptor.get('recipes')
+    require(isinstance(recipes, dict) and set(recipes) == set(RECIPE_KEYS), 'generated-input descriptor is incomplete')
+    require_current(recipes, root)
     inputs = descriptor.get('inputs')
     require(isinstance(inputs, dict) and set(inputs) == set(DESTINATIONS), 'generated-input descriptor is incomplete')
     accepted = set()

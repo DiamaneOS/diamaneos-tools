@@ -19,12 +19,27 @@ class ProductInputTests(unittest.TestCase):
         ktree=self.kernel/'runs/example/candidate';ktree.mkdir(parents=True)
         for tree in (vtree,ktree):
             (tree/'input').write_bytes(b'fixture');(tree/'input').chmod(0o640)
-        records={'input':{'bytes':7,'sha256':sha(vtree/'input')}}
+        # The generations record the recipes they were made from, as the real
+        # generators do; the fixture uses this checkout's recipes.
+        self.recipes=subject.current_recipes()
+        provenance=vtree/'provenance.json'
+        provenance.write_text(json.dumps({'recipe_sha256':self.recipes['vendor_files'],
+                                          'elf_selection_sha256':self.recipes['vendor_elf']}));provenance.chmod(0o640)
+        records={name:{'bytes':(vtree/name).stat().st_size,'sha256':sha(vtree/name)} for name in ('input','provenance.json')}
         (self.vendor/'inventories').mkdir();(self.vendor/'inventories'/('a'*64+'.json')).write_text(json.dumps(records))
         (self.vendor/'current').symlink_to('generations/'+'a'*64)
         inventory=ktree.parent/'artifacts.json';inventory.write_text(json.dumps([dict(path='input',**records['input'])]))
-        (ktree.parent/'result.json').write_text(json.dumps(dict(status='PASS',inventory_sha256=sha(inventory))))
+        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':self.recipes['kernel_sources'],
+                                                                 'patches_sha256':self.recipes['kernel_patches']}))
+        for name in ('kernel-config.json','vendor-kernel-config.json'):
+            (ktree.parent/name).write_text(json.dumps({'policy_sha256':self.recipes['kernel_policy']}))
+        self.write_result()
         (self.kernel/'current').symlink_to('runs/example/candidate')
+    def write_result(self,**changes):
+        run=self.kernel/'runs/example'
+        result=dict(status='PASS',inventory_sha256=sha(run/'artifacts.json'),preparation_sha256=sha(self.kernel/'preparation.json'),
+                    packaging_recipe_sha256=self.recipes['kernel_packaging'],**changes)
+        (run/'result.json').write_text(json.dumps(result))
     def install(self):return subject.install(self.source,self.vendor,self.kernel)
     def test_install_and_verify_existing(self):
         result=self.install();self.assertEqual('installed',result['vendor']);self.assertEqual('installed',result['kernel'])
@@ -74,7 +89,7 @@ class ProductInputTests(unittest.TestCase):
         descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
         self.assertEqual(2,descriptor['schema_version'])
         self.assertEqual(sha(subject.DEFAULT_ENVIRONMENT),descriptor['environment_sha256'])
-        self.assertEqual(subject.recipe_hashes(),descriptor['recipes'])
+        self.assertEqual(subject.current_recipes(),descriptor['recipes'])
         self.assertEqual({'vendor','kernel'},set(descriptor['inputs']))
         self.assertEqual('runs/example/candidate',descriptor['inputs']['kernel']['run'])
         accepted=subject.verify_descriptor(self.source,descriptor['environment_sha256'])
@@ -84,8 +99,9 @@ class ProductInputTests(unittest.TestCase):
         self.install()
         with self.assertRaisesRegex(ValueError,'another build environment'):
             subject.verify_descriptor(self.source,'0'*64)
-        with patch.object(subject,'recipe_hashes',return_value={'kernel_policy':'1'*64}):
-            with self.assertRaisesRegex(ValueError,'other recipes'):
+        changed=dict(self.recipes,kernel_policy='1'*64)
+        with patch.object(subject,'current_recipes',return_value=changed):
+            with self.assertRaisesRegex(ValueError,'other recipes .kernel_policy.'):
                 subject.verify_descriptor(self.source)
         (self.source/'device/fairphone/FP6-kernel/input').write_bytes(b'edited!')
         with self.assertRaises(ValueError):
@@ -107,6 +123,31 @@ class ProductInputTests(unittest.TestCase):
         (self.source/'vendor/fairphone/FP6').mkdir(parents=True)
         with self.assertRaises(ValueError):
             subject.verify_descriptor(self.source)
+
+    def test_install_refuses_generations_without_or_with_other_recipes(self):
+        # Review R4, through install(): a self-consistent tree whose generation
+        # does not record the current recipes is refused before anything is installed.
+        provenance=(self.vendor/'current').resolve()/'provenance.json'
+        provenance.write_text(json.dumps({'recipe_sha256':'0'*64,'elf_selection_sha256':self.recipes['vendor_elf']}))
+        inventory=self.vendor/'inventories'/('a'*64+'.json')
+        records=json.loads(inventory.read_text());records['provenance.json']={'bytes':provenance.stat().st_size,'sha256':sha(provenance)}
+        inventory.write_text(json.dumps(records))
+        with self.assertRaisesRegex(ValueError,'other recipes .vendor_files.'):
+            self.install()
+        self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
+        provenance.unlink();del records['provenance.json'];inventory.write_text(json.dumps(records))
+        with self.assertRaises(ValueError):
+            self.install()
+        self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
+
+    def test_install_refuses_a_kernel_run_from_another_preparation_or_policy(self):
+        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':'1'*64,'patches_sha256':'2'*64}))
+        with self.assertRaisesRegex(ValueError,'no longer matches its preparation'):
+            self.install()
+        self.write_result()
+        with self.assertRaisesRegex(ValueError,'other recipes .kernel_patches, kernel_sources.'):
+            self.install()
+        self.assertFalse((self.source/'device/fairphone/FP6-kernel').exists())
 
     def test_replace_moves_the_differing_tree_aside(self):
         self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'old tree')
