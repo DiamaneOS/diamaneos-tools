@@ -396,6 +396,27 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('differs VENDOR/firmware/touch.bin', detail)
 
+    def test_super_holds_exactly_the_logical_images(self):
+        logical = json.loads((ROOT / 'config/fp6-build.json').read_text())['images']['logical']
+        for name in logical:
+            (self.root / f'{name}.img').write_bytes(name.encode() * 10)
+        (self.root / 'super.img').write_bytes(b'raw super' + bytes(91))
+
+        def lpunpack(args):
+            out = Path(args[-1])
+            for name in logical:
+                (out / f'{name}_a.img').write_bytes(name.encode() * 10)
+                (out / f'{name}_b.img').write_bytes(b'')
+            return ''
+        tools = FakeTools({('lpunpack',): lpunpack})
+        v = self.harness({'META/dynamic_partitions_info.txt': b'super_partition_size=100\n'}, tools=tools)
+        self.assertEqual((True, ''), subject.check_super(v))
+        self.assertNotIn('simg2img', [c[0] for c in tools.calls])
+        (self.root / 'vendor.img').write_bytes(b'changed')
+        ok, detail = subject.check_super(v)
+        self.assertFalse(ok)
+        self.assertIn('vendor in super.img differs', detail)
+
     def test_wipe_images(self):
         v = self.harness({})
         wipe = v.config['wipe']['images']

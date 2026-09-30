@@ -140,7 +140,9 @@ def plan(ctx):
         runner = bw.Runner(ctx.allow_network, ctx.echo)
         runner.run(Action('Build super.img from the same target-files',
                           argv=[ctx.host_bin / 'build_super_image', state['target_files'],
-                                state['partial'] / 'super.img']), ctx.cache['log'])
+                                state['partial'] / 'super.img'],
+                          env={'PATH': os.pathsep.join([str(ctx.host_bin), os.environ.get('PATH', '')])}),
+                   ctx.cache['log'])
 
     def wipe_images():
         if state['reuse']:

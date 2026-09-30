@@ -99,9 +99,20 @@ class Tools:
             raise ToolMissing(name)
         return path
 
+    def environment(self) -> dict:
+        """releasetools finds avbtool, lpmake and java through PATH."""
+        env = dict(os.environ)
+        paths = [str(self.host_bin)]
+        jdks = sorted((self.src / 'prebuilts/jdk').glob('jdk*/linux-x86'))
+        if jdks:
+            env['JAVA_HOME'] = str(jdks[-1])
+            paths.append(str(jdks[-1] / 'bin'))
+        env['PATH'] = os.pathsep.join(paths + [env.get('PATH', '')])
+        return env
+
     def run(self, name: str, args, cwd=None, check=True) -> str:
         result = subprocess.run([str(self.path(name)), *map(str, args)], cwd=cwd, capture_output=True,
-                                timeout=3600)
+                                timeout=3600, env=self.environment())
         if check and result.returncode:
             raise CheckFailed(f'{name} failed: ' + (result.stdout + result.stderr).decode('utf-8', 'replace')[-2000:])
         return (result.stdout + result.stderr).decode('utf-8', 'replace')
@@ -687,7 +698,12 @@ def check_super(v):
     with tempfile.TemporaryDirectory() as temporary:
         directory = Path(temporary)
         raw = directory / 'super.raw'
-        v.tools.run('simg2img', [v.images / 'super.img', raw])
+        with (v.images / 'super.img').open('rb') as stream:
+            super_sparse = struct.unpack('<I', stream.read(4))[0] == SPARSE_MAGIC
+        if super_sparse:
+            v.tools.run('simg2img', [v.images / 'super.img', raw])
+        else:
+            raw.symlink_to(v.images / 'super.img')
         if size is None or raw.stat().st_size != int(size):
             problems.append(f'raw super is {raw.stat().st_size} bytes (partition {size})')
         parts = directory / 'parts'
