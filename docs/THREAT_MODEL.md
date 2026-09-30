@@ -1057,5 +1057,6 @@ Revision history:
 - 2026-09-30: -146 reproduced on the FP6 (build 8): over the emergency dialer on a
   locked phone, a priority conversation's status bar icon showed the contact's
   avatar while the lock screen showed the app's icon. A SystemUI fix makes the
-  status bar and chip icons follow the lock screen's redaction (for build 9, and
-  for GrapheneOS upstream).
+  status bar and chip icons follow the lock screen's redaction; verified on the
+  FP6 in build 9 (the chat icon over the dialer, the avatar again after unlock),
+  and ready for GrapheneOS upstream.
