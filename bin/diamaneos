@@ -13,6 +13,10 @@ from diamaneos_tools import baseline
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ['build'] and argv[1:2] and argv[1] in ('sync', 'kernel', 'vendor', 'android',
+                                                          'package', 'verify', 'all'):
+        from diamaneos_tools import build_steps
+        return build_steps.main(argv[1:])
     if argv[:2] == ['build', 'inputs']:
         from diamaneos_tools import product_inputs
         return product_inputs.main(argv[2:])
@@ -35,7 +39,10 @@ def main(argv=None):
         from diamaneos_tools import vendor_product
         return vendor_product.main(argv[2:])
     if not argv or argv[0] in ("-h", "--help"):
-        print("usage: diamaneos {baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("Build a test image: diamaneos build all [--variant userdebug].")
+        print("  build sync|kernel|vendor|android|package|verify -> the steps of build all, one at a time")
+        print("")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: baseline capture -> read-only collector")
         print("        baseline pilot -> target-bound connected stock-baseline pilot")
         print("        baseline boot -> staged declared stock restart-time measurement")
@@ -43,6 +50,7 @@ def main(argv=None):
         print("        baseline camera -> staged original-media camera measurements")
         print("        baseline idle -> staged or unattended verified-VBUS-off idle measurements")
         print("        baseline protocol validate -> strict no-device protocol validation")
+        print("        build all -> sync, kernel, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        carrier matrix validate -> strict no-device carrier-plan validation")
