@@ -1051,4 +1051,6 @@ Revision history:
   GrapheneOS's Clock again (-149, low); the keyboard's old device-encrypted
   word lists survive the update's first boot until the keyboard starts or the
   owner unlocks (-150, low). The Clock bullet and the keyboard and Files rows
-  are corrected. All three are fixed for build 8, phone tests pending.
+  are corrected. All three are fixed in build 8; -149 and -150 are verified on
+  the FP6 (the database went back to version 8 with its alarms; planted word
+  lists were deleted at the locked boot, before the first unlock).
