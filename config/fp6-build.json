@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "scope": "How the public build commands build, package and flash an FP6 test image. Identity pins live in build-environment-fp6.json; this file holds no host paths.",
+  "product": "FP6",
+  "release_config": "cur",
+  "default_variant": "user",
+  "variants": {
+    "user": {
+      "debuggable": false,
+      "permissive_domains": []
+    },
+    "userdebug": {
+      "debuggable": true,
+      "permissive_domains": [
+        "su"
+      ]
+    }
+  },
+  "out_dir": "out",
+  "host_tools": [
+    "aapt2",
+    "simg2img",
+    "lpunpack",
+    "debugfs_static"
+  ],
+  "make_targets": [
+    "droid",
+    "superimage",
+    "target-files-package",
+    "otatools-package",
+    "check_target_files_vintf",
+    "validate_target_files",
+    "make_f2fs",
+    "apksigner",
+    "fp6_fingerprint_session_test",
+    "fp6_fingerprint_module_factory_service_test"
+  ],
+  "notice_kind": "legacy_proprietary",
+  "notice_kind_reason": "Android's licence classification for the extracted stock files; users extract them from Fairphone's own package. It grants no redistribution right.",
+  "factory_host": "android-builds.fairphone.com",
+  "target_files": "obj/PACKAGING/target_files_intermediates/FP6-target_files*.zip",
+  "build_identity": {
+    "number_prefix": "test",
+    "username": "diamaneos",
+    "hostname": "diamaneos"
+  },
+  "images": {
+    "bootloader": [
+      "boot",
+      "init_boot",
+      "vendor_boot",
+      "recovery",
+      "dtbo",
+      "pvmfw",
+      "vbmeta_system",
+      "vbmeta"
+    ],
+    "logical": [
+      "system",
+      "system_ext",
+      "product",
+      "vendor",
+      "odm",
+      "vendor_dlkm",
+      "system_dlkm"
+    ],
+    "extra": [
+      "super_empty"
+    ]
+  },
+  "slot": "a",
+  "avb": {
+    "test_key": "external/avb/test/data/testkey_rsa4096.pem",
+    "chains": {
+      "recovery": 1,
+      "vbmeta_system": 2,
+      "boot": 3,
+      "init_boot": 4
+    },
+    "zero_header_os_fields": [
+      "boot",
+      "init_boot",
+      "recovery"
+    ],
+    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level; the versions live in the AVB properties (stock does the same). Regenerating boot-family images from target-files currently sets them (upstream finding UP-012)."
+  },
+  "bootconfig": {
+    "required": [
+      "androidboot.hardware=qcom"
+    ],
+    "forbidden_keys": [
+      "androidboot.selinux"
+    ]
+  },
+  "wipe": {
+    "validated": false,
+    "fstab": "VENDOR/etc/fstab.qcom",
+    "images": {
+      "userdata": {
+        "image": "userdata.img",
+        "kind": "zeros",
+        "bytes": 4194304,
+        "reason": "As Fairphone's factory package: 4 MiB of zeros destroy the old filesystem, and first boot formats /data (formattable) with the phone's own size, encryption, casefolding and quota settings. A pre-formatted image would fix the size and features at build time."
+      },
+      "metadata": {
+        "image": "metadata.img",
+        "kind": "f2fs",
+        "bytes": 67108864,
+        "label": "metadata",
+        "uuid": "edfbd922-2398-582a-bc24-062261d4ee5e",
+        "reason": "An empty f2fs filesystem of the metadata partition's size (stock metadata.img is the same size and type), made with the synced source's make_f2fs with a fixed UUID, time and seed so every build writes the same bytes."
+      },
+      "frp": {
+        "image": "frp.img",
+        "kind": "frp",
+        "bytes": 524288,
+        "sha256": "40f5b680536bd76753b2d919793e6366955fb4380efebfa541ded2d229a4f50f",
+        "reason": "As Fairphone's frp_for_factory.img: zeros with the last byte set, which clears factory reset protection and keeps OEM unlocking allowed. Byte-identical to the stock image."
+      }
+    }
+  },
+  "disk_estimate_gib": {
+    "sync": 220,
+    "kernel": 60,
+    "vendor": 25,
+    "android": 130,
+    "package": 15,
+    "verify": 12
+  }
+}
