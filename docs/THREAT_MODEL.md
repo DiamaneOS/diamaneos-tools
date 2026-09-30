@@ -946,6 +946,6 @@ Revision history:
   removable items' settings were read from credential-encrypted preferences
   through a real app context while the taskbar builds its device profile before
   the first unlock, which would crash-loop Launcher on every boot until then
-  (-139, open, never built; the fix reads them through Launcher's injected
-  preferences). Tally code in Launcher must not open credential-encrypted
-  storage on paths that run before the first unlock.
+  (-139, never built; fixed on tally-home f885161fcb, which reads them through
+  the device profile's own injected preferences). Tally code in Launcher must not
+  open credential-encrypted storage on paths that run before the first unlock.
