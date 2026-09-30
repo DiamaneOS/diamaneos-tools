@@ -1014,3 +1014,10 @@ Revision history:
 - 2026-09-30: the Clock fork (local tally branch, emulator-checked, in build 6)
   and -144 (stock SystemUI: promoted chips show private content over an occluded
   lock screen; open).
+- 2026-09-30: -144 reproduced on the FP6 with a test app (a Live Update's private
+  chip text shows over the emergency dialer on a locked phone; GrapheneOS's
+  chip code, not Tally's); a fix is being written as an upstream patch. Home's
+  tallies read Clock's MetricStyle time with plain Bundle getters only, and the
+  media-session read no longer throws on a malformed value (-145, fixed before
+  any build). Every value Home reads from notification extras is app-controlled
+  and must be read without a throwing path.
