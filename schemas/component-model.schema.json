@@ -76,7 +76,7 @@
               "additionalProperties": false,
               "required": ["build", "region", "factory_sha256", "runtime_vintf_sha256"],
               "properties": {
-                "build": {"const": "FP6.QREL.16.100.0", "type": "string"},
+                "build": {"const": "FP6.QREL.16.111.0", "type": "string"},
                 "region": {"const": "EU", "type": "string"},
                 "factory_sha256": {"$ref": "#/definitions/sha256"},
                 "runtime_vintf_sha256": {"$ref": "#/definitions/sha256"}

@@ -712,8 +712,8 @@ TELEPHONY_CONFIG_REWRITES = {
         'sha256': '03914a36e14990016b6bf72da90b95230c4e67381b0faadd2b82454dd30defaf',
         'reason': 'Turn off the persistent nicmd file log (/data/vendor/nicmd/nicmd.log)'},
     'vendor/etc/qcril_database/qcrilNr.db': {
-        'source_sha256': '256d26428b62739d2f3d9f3d1fe75bc1a3db5d83732f48bdb9440e57c514054a',
-        'sha256': '82454b7e786d858c36f88037a891419942275d661f9f3de57303f4755e67011b',
+        'source_sha256': '02fe923c48da86a583c5017bc93f97fbcf05198d56ebf15626c014f84402d82c',
+        'sha256': '355131cac7371611eb3518c03cff0e6728825e9be5f13e5d45f75bd27c652885',
         'reason': 'Turn off QCRIL power-up optimisation, which holds incoming SMS and USSD until an OEM-hook '
                   'UI-ready call we do not ship, and bump the version so an existing /data copy is upgraded'},
 }

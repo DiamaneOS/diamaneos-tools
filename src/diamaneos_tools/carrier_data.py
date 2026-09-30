@@ -15,7 +15,7 @@ ASSET_DIRECTORY = 'carrier-assets/device-carrier-config'
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 16 * 1024 * 1024
 _NAME = re.compile(r'carrier_config_(carrierid_[0-9]+_.+|(?:mccmnc_)?[0-9]{5,6}|no_sim)\.xml')
-# FP6.QREL.16.100.0 contains an empty no-SIM asset with an unclosed root.
+# FP6.QREL.16.100.0 and 16.111.0 contain the same empty no-SIM asset with an unclosed root.
 # Repair only those exact bytes, leaving every other malformed input an error.
 NO_SIM_REPAIR_SHA256 = 'fb9407aad050f2e8d250582788108a9574e9e8199096542628688cb447565047'
 
