@@ -225,6 +225,10 @@ do not belong on it until SELinux is enforcing.
   processor is assumed and unverified on FP6.
 - Firmware patch lag: firmware lags Android Security Bulletins, and DiamaneOS
   has no firmware update path yet.
+- Vendor horizon: the Android 14-level vendor (VINTF level 8) should still run
+  on Android 18, but Android 19 will very likely drop level 8, HIDL and kernel
+  6.1. Once Fairphone moves the FP6 to a newer vendor, fixes for the current
+  vendor code and firmware stop, so DiamaneOS has to follow that move.
 - Kernel: the kernel line is 6.1 (android14 KMI) with a recorded, intentional
   deviation for a 48-bit virtual address space.
 - TEE KeyMint, Gatekeeper and attestation behaviour, custom-key relock, A/B
