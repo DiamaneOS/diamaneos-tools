@@ -52,8 +52,11 @@ class FlashStepTests(unittest.TestCase):
         previous['images']['vendor_boot'] = '0' * 64
         previous['images']['vendor'] = '0' * 64
         commands = [l.strip() for l in self.text(previous=previous).splitlines() if l.strip().startswith('fastboot flash')]
-        self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot flash super super.img',
-                          'fastboot flash vendor_a vendor.img'], commands)
+        # A stalled super flash may have written the new layout already, so the
+        # fastbootd fallback lists every logical partition, not only vendor.
+        logical = [f'fastboot flash {n}_a {n}.img' for n in self.record['flash']['logical']]
+        self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot flash super super.img'] + logical,
+                         commands)
 
     def test_unverified_or_failed_sets_are_refused(self):
         with self.assertRaisesRegex(flash_steps.FlashError, 'not been verified'):
@@ -63,6 +66,26 @@ class FlashStepTests(unittest.TestCase):
             flash_steps.steps(self.directory, self.record, report=failed)
         text = '\n'.join(flash_steps.steps(self.directory, self.record, report=failed, accepted_failures=['boot-header']))
         self.assertIn('accepted for this flash: boot-header', text)
+
+    def test_full_super_fallback_lists_every_logical_partition(self):
+        text = self.text()
+        fallback = text[text.index('fastboot reboot fastboot'):]
+        for name in self.record['flash']['logical']:
+            self.assertIn(f'fastboot flash {name}_a {name}.img', fallback)
+
+    def test_stale_verification_report_is_refused(self):
+        report = self.directory.parent / (self.record['build_id'] + '.verify.json')
+        report.write_text(json.dumps({'build_id': self.record['build_id'], 'sums_sha256': '0' * 64, 'checks': []}))
+        with self.assertRaisesRegex(flash_steps.FlashError, 'another image set'):
+            flash_steps.verification(self.directory, self.record)
+        current = image_package.bw.sha_file(self.directory / 'SHA256SUMS')
+        report.write_text(json.dumps({'build_id': self.record['build_id'], 'sums_sha256': current, 'checks': []}))
+        self.assertEqual(current, flash_steps.verification(self.directory, self.record)['sums_sha256'])
+
+    def test_first_install_unlocks_before_the_factory_package(self):
+        text = self.text(wipe=True)
+        self.assertLess(text.index('unlock_critical'), text.index('factory package with'))
+        self.assertIn('Never install firmware older', text)
 
     def test_altered_image_directory_is_refused(self):
         boot = self.directory / 'boot.img'

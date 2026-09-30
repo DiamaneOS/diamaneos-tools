@@ -30,10 +30,14 @@ def load(directory: Path) -> dict:
 
 
 def verification(directory: Path, record: dict) -> dict | None:
+    """The verify report for exactly this image set, or None."""
     report = directory.parent / (record['build_id'] + '.verify.json')
     if not report.is_file():
         return None
-    return json.loads(report.read_bytes())
+    value = json.loads(report.read_bytes())
+    if value.get('sums_sha256') != bw.sha_file(directory / 'SHA256SUMS') or value.get('build_id') != record['build_id']:
+        raise FlashError('the verification report belongs to another image set; run "diamaneos build verify" again')
+    return value
 
 
 def changed(record: dict, previous: dict | None, names) -> list[str]:
@@ -67,16 +71,19 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
         out.append('- Checks that failed and were accepted for this flash: ' + ', '.join(failed) + '.')
     if not record.get('reproducible', False):
         out.append('- Built from a modified tools checkout: not reproducible.')
+    out.append('- Never install firmware older than the phone already runs.')
     if wipe:
         out += ['- This wipes all data on the phone.']
         if not record['wipe']['validated']:
             out += ['- The wipe by flashing empty images is not yet tested on a phone.']
-        out += ['', 'First install (from stock or another OS): install Fairphone\'s',
-                f'{record["stock_build"]} factory package with Fairphone\'s instructions first (it writes',
-                'the firmware), unlock the bootloader as Fairphone describes, then continue here.']
+        out += ['', 'First install (from stock or another OS): unlock the bootloader as Fairphone',
+                'describes, including "fastboot flashing unlock_critical", because the firmware is',
+                f'written next. Then install Fairphone\'s {record["stock_build"]} factory package with',
+                'Fairphone\'s instructions (it writes the firmware), and continue here.']
     if previous is None or bootloader or logical or wipe:
-        out += ['', 'Check the files, then put the phone in fastboot mode (hold Volume down while it',
-                'starts, or run "adb reboot bootloader"):', '',
+        out += ['', 'Copy the whole image directory if you flash from another computer. Check the files,',
+                'then put the phone in fastboot mode (hold Volume down while it starts, or run',
+                '"adb reboot bootloader"):', '',
                 f'  cd {shlex.quote(str(directory))}', '  sha256sum -c SHA256SUMS']
         for name in bootloader:
             out.append(f'  fastboot flash {name}_{slot} {name}.img')
@@ -87,9 +94,11 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                 out.append(f'  fastboot flash {name} {image["file"]}')
         out += [f'  fastboot --set-active={slot}', '  fastboot reboot']
         if logical:
-            out += ['', 'If flashing super stops after its first part, flash the changed logical partitions',
+            # A stalled super flash may already have written the new partition
+            # layout, so the fallback writes every logical partition.
+            out += ['', 'If flashing super stops after its first part, flash every logical partition',
                     'through fastbootd instead, then set the slot and reboot:', '', '  fastboot reboot fastboot']
-            out += [f'  fastboot flash {name}_{slot} {name}.img' for name in logical]
+            out += [f'  fastboot flash {name}_{slot} {name}.img' for name in record['flash']['logical']]
             out += ['  fastboot reboot bootloader']
             if wipe:
                 out += [f'  fastboot flash {name} {image["file"]}' for name, image in record['wipe']['images'].items()]
