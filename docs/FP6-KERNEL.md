@@ -1,7 +1,7 @@
 # FP6 kernel build and capability contract
 
 Use the public `kernel prepare`, `kernel build` and `build inputs` workflow in
-[FP6 preparation](FP6-PREPARATION.md) to reconstruct and install the entire set.
+[the build reference](BUILD.md#generated-inputs-step-by-step) to reconstruct and install the entire set.
 The native entrypoints and compatibility boundaries below explain that workflow.
 
 The development kernel follows Qualcomm's CodeLinaro release for this chip
