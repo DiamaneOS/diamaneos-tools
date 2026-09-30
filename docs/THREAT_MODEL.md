@@ -1054,3 +1054,8 @@ Revision history:
   are corrected. All three are fixed in build 8; -149 and -150 are verified on
   the FP6 (the database went back to version 8 with its alarms; planted word
   lists were deleted at the locked boot, before the first unlock).
+- 2026-09-30: -146 reproduced on the FP6 (build 8): over the emergency dialer on a
+  locked phone, a priority conversation's status bar icon showed the contact's
+  avatar while the lock screen showed the app's icon. A SystemUI fix makes the
+  status bar and chip icons follow the lock screen's redaction (for build 9, and
+  for GrapheneOS upstream).
