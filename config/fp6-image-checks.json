@@ -1,0 +1,1146 @@
+{
+  "schema_version": 1,
+  "scope": "Device checks moved from the private r9s/r9t build scripts. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
+  "rules": [
+    {
+      "id": "sensors-stack",
+      "why": "Sensors work on stock and on DiamaneOS since r9p: the multi-HAL, the Qualcomm sensor listener and its policy.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.sensors-service.multihal",
+        "VENDOR/bin/sscrpcd",
+        "VENDOR/lib64/sensors.qsh.so",
+        "VENDOR/lib64/libssc_default_listener.so",
+        "VENDOR/lib64/libadsp_default_listener.so",
+        "VENDOR/etc/sensors/hals.conf",
+        "VENDOR/etc/init/vendor.sensors.sscrpcd.rc",
+        "VENDOR/etc/permissions/android.hardware.sensor.light.xml"
+      ]
+    },
+    {
+      "id": "sensors-declared",
+      "why": "The sensors HAL is declared and its daemon is labelled.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/vintf/manifest/*.xml"
+      ],
+      "match": "any",
+      "contains": [
+        "android.hardware.sensors"
+      ]
+    },
+    {
+      "id": "sensors-labelled",
+      "why": "The sensor daemon has its own label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "contains": [
+        "sscrpcd",
+        "audioadsprpcd"
+      ]
+    },
+    {
+      "id": "fingerprint-hal",
+      "why": "The source fingerprint HAL is installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.biometrics.fingerprint-service.fp6"
+      ]
+    },
+    {
+      "id": "device-overlays",
+      "why": "The FP6 framework, Settings, SystemUI and tethering overlays are installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/overlay/FP6FrameworksOverlay.apk",
+        "VENDOR/overlay/FP6SettingsOverlay.apk",
+        "VENDOR/overlay/FP6SystemUIOverlay.apk",
+        "VENDOR/overlay/FP6TetheringOverlay.apk"
+      ]
+    },
+    {
+      "id": "audio-stack",
+      "why": "Stock audio user space with the AOSP service and adapters (r9q); no placeholder HAL.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/hw/audio.primary.volcano.so",
+        "VENDOR/lib64/libar-pal.so",
+        "VENDOR/lib64/libagm.so",
+        "VENDOR/lib64/libar-gsl.so",
+        "VENDOR/lib64/libagm_pcm_plugin.so",
+        "VENDOR/lib64/soundfx/libqcompostprocbundle.so",
+        "VENDOR/bin/audioadsprpcd",
+        "VENDOR/bin/hw/android.hardware.audio.service",
+        "VENDOR/lib64/hw/android.hardware.audio@7.1-impl.so",
+        "VENDOR/lib64/hw/android.hardware.audio.effect@7.0-impl.so",
+        "VENDOR/etc/usecaseKvManager_fps.xml",
+        "VENDOR/etc/card-defs.xml",
+        "VENDOR/etc/audio/sku_volcano/audio_policy_configuration.xml",
+        "VENDOR/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml",
+        "VENDOR/etc/acdbdata/volcano_mtp_fps/MTP_acdb_cal.acdb",
+        "VENDOR/firmware/aw882xx_acf.bin",
+        "VENDOR/etc/init/init.fp6.audio.rc",
+        "VENDOR/etc/init/vendor.qti.audio-adsprpc-service.rc"
+      ]
+    },
+    {
+      "id": "audio-no-apex",
+      "why": "The AOSP audio APEX would shadow the stock HAL.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/apex/com.android.hardware.audio.apex"
+      ]
+    },
+    {
+      "id": "audio-declared",
+      "why": "PAL and AGM are declared in the vendor manifest.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/vintf/manifest.xml"
+      ],
+      "contains": [
+        "vendor.qti.hardware.pal",
+        "vendor.qti.hardware.AGMIPC",
+        "android.hardware.bluetooth"
+      ]
+    },
+    {
+      "id": "hardware-bringup",
+      "why": "r9p hardware bring-up: Bluetooth, NFC, radio, modem, camera, GNSS, display, haptics and their activation files.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service-qti",
+        "VENDOR/bin/hw/android.hardware.nfc-service.sec",
+        "VENDOR/bin/hw/qcrilNrd",
+        "VENDOR/bin/nicmd",
+        "VENDOR/bin/ssr_setup",
+        "VENDOR/bin/hw/vendor.qti.camera.provider-service_64",
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/libsdmextension.so",
+        "VENDOR/lib64/libdisplayqos.so",
+        "VENDOR/lib64/hw/camera.qcom.so",
+        "VENDOR/firmware/haptic_ram.bin",
+        "VENDOR/etc/gps.conf",
+        "VENDOR/etc/izat.conf",
+        "VENDOR/etc/libnfc-sec-vendor.conf",
+        "VENDOR/etc/displayconfig/display_id_4630947039571902850.xml",
+        "VENDOR/etc/init/init.fp6.perf.rc",
+        "VENDOR/etc/init/init.fp6.modem.rc",
+        "VENDOR/etc/init/init.fp6.bluetooth.rc",
+        "VENDOR/etc/permissions/android.hardware.bluetooth.xml",
+        "VENDOR/etc/permissions/android.hardware.nfc.xml",
+        "VENDOR/etc/permissions/android.hardware.location.gps.xml",
+        "VENDOR/etc/permissions/android.hardware.camera.flash-autofocus.xml",
+        "VENDOR/lib64/android.hardware.graphics.allocator-V1-ndk.so",
+        "VENDOR/lib64/android.hardware.graphics.allocator-V2-ndk.so"
+      ]
+    },
+    {
+      "id": "display-port-config",
+      "why": "The built-in display config is also reachable by port.",
+      "type": "symlink",
+      "path": "VENDOR/etc/displayconfig/display_port_130.xml",
+      "target": "display_id_4630947039571902850.xml"
+    },
+    {
+      "id": "sdm-extension-libraries",
+      "why": "Libraries the SDM extension loads by name (r9p first-boot composer crash).",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/libsdm-colormgr-algo.so",
+        "VENDOR/lib64/libqseed3.so",
+        "VENDOR/lib64/librcmask.so",
+        "VENDOR/lib64/libclstc_tm.so",
+        "VENDOR/lib64/libhdr_tm.so",
+        "VENDOR/lib64/libhdr_backlight_adapter.so"
+      ]
+    },
+    {
+      "id": "no-hearing-aid-policy",
+      "why": "The unused hearing-aid audio policy stays out.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml"
+      ]
+    },
+    {
+      "id": "telephony-features",
+      "why": "prebuilt_etc installs the telephony feature files under their module names.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/etc/permissions/android.hardware.telephony.gsm.prebuilt.xml",
+        "VENDOR/etc/permissions/android.hardware.telephony.ims.prebuilt.xml",
+        "VENDOR/etc/permissions/android.hardware.telephony.euicc.prebuilt.xml",
+        "SYSTEM_EXT/priv-app/ims/ims.apk",
+        "PRODUCT/priv-app/uimlpaservice/uimlpaservice.apk"
+      ]
+    },
+    {
+      "id": "policy-labels",
+      "why": "Bluetooth, SSR and GNSS domains exist in the vendor policy.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "match": "any",
+      "contains": [
+        "hal_bluetooth_default",
+        "vendor_ssr_setup_exec",
+        "hal_gnss_qti"
+      ]
+    },
+    {
+      "id": "zram",
+      "why": "zram swap stays configured.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/fstab.qcom"
+      ],
+      "contains": [
+        "zram0"
+      ]
+    },
+    {
+      "id": "no-forced-colour-mode",
+      "why": "The forced colour mode is gone (r9p).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "absent": [
+        "persist.sys.sf.color_mode"
+      ]
+    },
+    {
+      "id": "call-audio-bridge",
+      "why": "Our own call-audio bridge replaces QtiTelephonyService: one normal permission, our key, its own domain (r9s).",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM_EXT/priv-app/FP6CallAudio/FP6CallAudio.apk"
+      ]
+    },
+    {
+      "id": "call-audio-bridge-no-stock",
+      "why": "The stock QtiTelephonyService is gone.",
+      "type": "files_absent",
+      "paths": [
+        "SYSTEM_EXT/priv-app/QtiTelephonyService"
+      ]
+    },
+    {
+      "id": "call-audio-bridge-policy",
+      "why": "The bridge is protected from disabling and runs in its own domain.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/sysconfig/sysconfig-org.diamaneos.callaudio.xml"
+      ],
+      "contains": [
+        "prevent-disable package=\"org.diamaneos.callaudio\""
+      ]
+    },
+    {
+      "id": "call-audio-bridge-domain",
+      "why": "The bridge has its seapp domain.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts"
+      ],
+      "lines": [
+        "user=_app isPrivApp=true name=org.diamaneos.callaudio domain=fp6_callaudio_app type=app_data_file levelFrom=all"
+      ]
+    },
+    {
+      "id": "call-audio-bridge-rules",
+      "why": "The bridge reaches only the QCRIL audio service and rild.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow fp6_callaudio_app(_[0-9]+)? fp6_hal_qcrilaudio_service \\(service_manager \\(find\\)\\)\\)",
+        "^\\(allow fp6_callaudio_app(_[0-9]+)? rild(_[0-9]+)? \\(binder \\(call transfer\\)\\)\\)",
+        "^\\(allow rild(_[0-9]+)? fp6_callaudio_app(_[0-9]+)? \\(binder \\(call transfer\\)\\)\\)"
+      ]
+    },
+    {
+      "id": "call-audio-old-domain-gone",
+      "why": "The old stock-app domain is gone.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "absent": [
+        "fp6_qcril_audio_app"
+      ]
+    },
+    {
+      "id": "call-audio-bridge-apk",
+      "why": "The bridge asks for one normal permission and is not platform-signed.",
+      "type": "apk",
+      "path": "SYSTEM_EXT/priv-app/FP6CallAudio/FP6CallAudio.apk",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk"
+    },
+    {
+      "id": "telephony-fixes",
+      "why": "r9q telephony fixes from the r9p phone test.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/etc/qcril_database/upgrade/config/0016.0_config.sql"
+      ]
+    },
+    {
+      "id": "telephony-properties",
+      "why": "Default network mode, codec settings and the network-state poll window.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "ro.telephony.default_network=26,26",
+        "debug.stagefright.c2inputsurface=-1",
+        "debug.c2.use_dmabufheaps=1",
+        "ro.telephony.network_state_poll_window_ms=5000"
+      ]
+    },
+    {
+      "id": "no-audio-routing-grant",
+      "why": "The stock QCRIL audio messenger no longer gets MODIFY_AUDIO_ROUTING (r9q).",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/permissions/privapp-permissions-fp6-telephony.xml"
+      ],
+      "absent": [
+        "<permission name=\"android.permission.MODIFY_AUDIO_ROUTING\"/>"
+      ]
+    },
+    {
+      "id": "tipc-module",
+      "why": "TIPC as a module without the diag module (r9q).",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM_DLKM/lib/modules/tipc.ko"
+      ]
+    },
+    {
+      "id": "tipc-loaded",
+      "why": "TIPC is in the system_dlkm load list.",
+      "type": "text",
+      "files": [
+        "SYSTEM_DLKM/lib/modules/modules.load"
+      ],
+      "lines": [
+        "tipc.ko"
+      ]
+    },
+    {
+      "id": "no-diag-module",
+      "why": "The diag module stays out.",
+      "type": "files_absent",
+      "paths": [
+        "SYSTEM_DLKM/lib/modules/diag.ko"
+      ]
+    },
+    {
+      "id": "tipc-policy",
+      "why": "TIPC sockets have policy.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "contains": [
+        "tipc_socket"
+      ]
+    },
+    {
+      "id": "adb-authorization",
+      "why": "adb asks before trusting a computer (r9s).",
+      "type": "properties",
+      "file": "SYSTEM/build.prop",
+      "equals": [
+        "ro.adb.secure=1"
+      ]
+    },
+    {
+      "id": "no-init-driven-adb",
+      "why": "No init trigger starts adb on debuggable builds.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/**"
+      ],
+      "match": "all",
+      "absent": [
+        "zygote-start && property:ro.debuggable=1"
+      ]
+    },
+    {
+      "id": "oem-unlocking",
+      "why": "OEM unlocking managed by the OS, as stock (r9s).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "ro.frp.pst=/dev/block/bootdevice/by-name/frp",
+        "ro.oem_unlock_supported=1"
+      ]
+    },
+    {
+      "id": "vendor-init-properties",
+      "why": "vendor_init may set our audio, radio and SSR properties under enforcing (register -105).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow vendor_init(_[0-9]+)? vendor_audio_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init(_[0-9]+)? vendor_radio_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init(_[0-9]+)? vendor_ssr_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init(_[0-9]+)? vendor_dataqdp_prop \\(property_service \\(set\\)\\)\\)"
+      ]
+    },
+    {
+      "id": "display-colour-transforms",
+      "why": "Night Light, Extra dim, grayscale and tap to wake (r9s).",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "values": {
+        "bool/config_setColorTransformAccelerated": "true",
+        "bool/config_nightDisplayAvailable": "true",
+        "bool/config_reduceBrightColorsAvailable": "true",
+        "bool/config_supportDoubleTapWake": "true"
+      }
+    },
+    {
+      "id": "poll-window-policy",
+      "why": "The poll window property is labelled and read by the telephony framework fork.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_property_contexts"
+      ],
+      "contains": [
+        "ro.telephony.network_state_poll_window_ms"
+      ]
+    },
+    {
+      "id": "poll-window-framework",
+      "why": "The telephony framework reads the poll window.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/telephony-common.jar",
+      "text": "network_state_poll_window_ms"
+    },
+    {
+      "id": "vibrator",
+      "why": "The vibrator HAL with real effects, its sysfs label, no RTP node for system, not in the input group (r9s).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "contains": [
+        "vendor_sysfs_aw_vibrator"
+      ]
+    },
+    {
+      "id": "vibrator-rtp",
+      "why": "The RTP node is not handed to system.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/hw/init.qcom.rc"
+      ],
+      "absent": [
+        "aw_vibrator/rtp"
+      ]
+    },
+    {
+      "id": "vibrator-group",
+      "why": "The vibrator HAL is not in the input group.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/vendor.qti.hardware.vibrator.service.rc"
+      ],
+      "absent_regex": [
+        "^ *group .*\\binput\\b"
+      ]
+    },
+    {
+      "id": "time-daemon",
+      "why": "Our own time daemon and no Qualcomm time_daemon policy (r9s).",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/timekeepd"
+      ]
+    },
+    {
+      "id": "time-daemon-policy",
+      "why": "Time daemon policy.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "contains": [
+        "vendor_timekeepd_restore"
+      ],
+      "absent": [
+        "vendor_time_daemon"
+      ]
+    },
+    {
+      "id": "no-wlan-mac-link",
+      "why": "No wlan_mac.bin link into persist; the kernel may not read it (r9s).",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/firmware/wlan/qca_cld/qca6750/wlan_mac.bin"
+      ]
+    },
+    {
+      "id": "keymaster-messages-on-odm",
+      "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path (r9s).",
+      "type": "files_present",
+      "paths": [
+        "ODM/lib64/libkeymaster_messages.so"
+      ]
+    },
+    {
+      "id": "keymaster-messages-not-vendor",
+      "why": "No stock libkeymaster_messages on vendor.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/libkeymaster_messages.so"
+      ]
+    },
+    {
+      "id": "product-identity",
+      "why": "Fairphone stock product identity, as GrapheneOS keeps Google's (owner decision 2026-09-26).",
+      "type": "properties",
+      "file": "PRODUCT/etc/build.prop",
+      "equals": [
+        "ro.product.product.brand=Fairphone",
+        "ro.product.product.name=FP6",
+        "ro.product.product.device=FP6",
+        "ro.product.product.model=The Fairphone (Gen. 6)"
+      ]
+    },
+    {
+      "id": "fingerprint-identity",
+      "why": "Every partition fingerprint carries the Fairphone identity.",
+      "type": "property_prefix",
+      "files": [
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "VENDOR/build.prop",
+        "ODM/etc/build.prop"
+      ],
+      "key": "build.fingerprint",
+      "prefix": "Fairphone/FP6/FP6:"
+    },
+    {
+      "id": "casefolded-storage",
+      "why": "Casefolded, project-quota shared storage (takes effect at the next wipe).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "external_storage.casefold.enabled=1",
+        "external_storage.projid.enabled=1",
+        "external_storage.sdcardfs.enabled=0"
+      ]
+    },
+    {
+      "id": "no-info-app",
+      "why": "GrapheneOS's Info app is not installed (owner 2026-09-26).",
+      "type": "files_absent",
+      "paths": [
+        "PRODUCT/app/InfoApp"
+      ]
+    },
+    {
+      "id": "tap-to-wake",
+      "why": "Double-tap to wake: node permissions, label and power HAL access.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/sys/bus/spi/devices/spi0\\.0 +gesture_wakeup +0660 +system +system$"
+      ]
+    },
+    {
+      "id": "tap-to-wake-label",
+      "why": "The gesture node has its label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "contains": [
+        "u:object_r:vendor_sysfs_touch_gesture:s0"
+      ]
+    },
+    {
+      "id": "tap-to-wake-policy",
+      "why": "The power HAL may write the gesture node and search the touch device.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow hal_power_default vendor_sysfs_touch_gesture \\(file \\([^)]*\\bwrite\\b",
+        "^\\(allow hal_power_default fp_mmitest_sysfs \\(dir \\([^)]*\\bsearch\\b"
+      ]
+    },
+    {
+      "id": "tap-to-wake-hal",
+      "why": "The power HAL knows the gesture node.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/hw/android.hardware.power-service"
+      ],
+      "contains": [
+        "/sys/bus/spi/devices/spi0.0/gesture_wakeup"
+      ]
+    },
+    {
+      "id": "aod-brightness",
+      "why": "Factory AOD idle brightness in every panel timing of the DTBO; no D2 at power-on (display device tree d94b9d8).",
+      "type": "binary_count",
+      "file": "kernel:dtbo.img",
+      "patterns": [
+        {
+          "hex": "390000400000035109d9",
+          "count": 0
+        },
+        {
+          "hex": "39000040000003d20000",
+          "count": 0
+        },
+        {
+          "hex": "390000400000026f0439000040000003510003",
+          "count": 40
+        }
+      ]
+    },
+    {
+      "id": "stock-properties",
+      "why": "Stock key, telephony and audio properties, each set once (stock property review, r9s).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "remote_provisioning.hostname=remoteprovisioning.googleapis.com",
+        "remote_provisioning.tee.rkp_only=true",
+        "ro.crypto.metadata_init_delete_all_keys.enabled=true",
+        "ro.hardware.keystore_desede=true",
+        "ro.product.brand_for_attestation=Fairphone",
+        "ro.product.name_for_attestation=FP6",
+        "ro.product.model_for_attestation=Fairphone 6",
+        "ro.product.device_for_attestation=FP6",
+        "ro.product.manufacturer_for_attestation=Fairphone",
+        "keyguard.no_require_sim=true",
+        "persist.vendor.data.profile_update=true",
+        "audio.timecheck.timeout_duration_ms=8000",
+        "ro.product.debugfs_restrictions.enabled=true"
+      ]
+    },
+    {
+      "id": "stock-properties-settable",
+      "why": "vendor_init may set those properties under the platform policy.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow vendor_init remote_prov_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init vold_config_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init exported_default_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init build_attestation_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init keyguard_config_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init audio_config_prop \\(property_service \\(set\\)\\)\\)",
+        "^\\(allow vendor_init virtual_ab_prop \\(property_service \\(set\\)\\)\\)"
+      ]
+    },
+    {
+      "id": "data-profile-label",
+      "why": "The data profile property has its label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "lines": [
+        "persist.vendor.data.profile_update u:object_r:vendor_dataqdp_prop:s0"
+      ]
+    },
+    {
+      "id": "virtual-ab",
+      "why": "Compressed Virtual A/B (lz4) with snapuserd in the first-stage ramdisk and recovery; a property may repeat but only as true.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "mode": "all",
+      "equals": [
+        "ro.virtual_ab.enabled=true",
+        "ro.virtual_ab.compression.enabled=true",
+        "ro.virtual_ab.userspace.snapshots.enabled=true",
+        "ro.virtual_ab.io_uring.enabled=true",
+        "ro.virtual_ab.compression.xor.enabled=true",
+        "ro.virtual_ab.batch_writes=true",
+        "ro.virtual_ab.compression.threads=true"
+      ]
+    },
+    {
+      "id": "virtual-ab-packaging",
+      "why": "Virtual A/B compression is in the packaging metadata.",
+      "type": "text",
+      "files": [
+        "META/misc_info.txt"
+      ],
+      "lines": [
+        "virtual_ab=true",
+        "virtual_ab_compression=true",
+        "virtual_ab_compression_method=lz4"
+      ]
+    },
+    {
+      "id": "snapuserd",
+      "why": "snapuserd in recovery and the first-stage ramdisk.",
+      "type": "files_present",
+      "paths": [
+        "RECOVERY/RAMDISK/system/bin/snapuserd",
+        "INIT_BOOT/RAMDISK/system/bin/snapuserd_ramdisk"
+      ]
+    },
+    {
+      "id": "ncm-tethering",
+      "why": "USB tethering over NCM; the kernel has no RNDIS gadget function (r9s).",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6TetheringOverlay.apk",
+      "values": {
+        "integer/config_tether_usb_functions": "1"
+      },
+      "target": "com.android.networkstack.tethering"
+    },
+    {
+      "id": "ncm-gadget",
+      "why": "The NCM gadget function and compositions exist.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.qcom.usb.rc"
+      ],
+      "regex": [
+        "^ *mkdir /config/usb_gadget/g1/functions/ncm\\.gs6 "
+      ]
+    },
+    {
+      "id": "ncm-compositions",
+      "why": "NCM compositions are listed.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/usb_compositions.conf"
+      ],
+      "regex": [
+        "^ncm\\s",
+        "^ncm,adb\\s"
+      ]
+    },
+    {
+      "id": "no-qseecom-proxy",
+      "why": "No QSEECom AIDL proxy; nothing looked it up (r9s). qseecomd and the kernel proxy stay.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
+        "VENDOR/lib64/hw/vendor.qti.hardware.qseecom@1.0-impl.so",
+        "VENDOR/lib64/vendor.qti.hardware.qseecom-V1-ndk.so",
+        "VENDOR/etc/init/vendor.qti.hardware.qseecom@1.0-service.rc",
+        "VENDOR/etc/vintf/manifest/vendor.qti.hardware.qseecom@1.0-service.xml"
+      ]
+    },
+    {
+      "id": "no-qseecom-proxy-declared",
+      "why": "The proxy is not declared anywhere.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_service_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "VENDOR/etc/vintf/manifest.xml",
+        "SYSTEM/etc/vintf/compatibility_matrix.device.xml"
+      ],
+      "match": "all",
+      "absent": [
+        "IQSEECom",
+        "qseecom@1"
+      ]
+    },
+    {
+      "id": "no-qseecom-proxy-domain",
+      "why": "The proxy domain is gone.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "absent": [
+        "(allow vendor_hal_qseecom_default "
+      ]
+    },
+    {
+      "id": "qseecomd",
+      "why": "qseecomd and the kernel qseecom proxy stay.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/qseecomd"
+      ]
+    },
+    {
+      "id": "qseecom-module",
+      "why": "The kernel qseecom proxy is loaded.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.load"
+      ],
+      "lines": [
+        "qseecom_proxy.ko"
+      ]
+    },
+    {
+      "id": "pal-agm-private",
+      "why": "Only the audio HAL may register and look up its PAL and AGM services (r9s).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_hwservice_contexts"
+      ],
+      "regex": [
+        "^vendor\\.qti\\.hardware\\.pal::IPAL\\s+u:object_r:vendor_hal_audio_internal_hwservice:s0$",
+        "^vendor\\.qti\\.hardware\\.AGMIPC::IAGM\\s+u:object_r:vendor_hal_audio_internal_hwservice:s0$"
+      ]
+    },
+    {
+      "id": "pal-agm-registration",
+      "why": "The audio HAL can register them.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(allow hal_audio_default vendor_hal_audio_internal_hwservice (hwservice_manager (add find)))"
+      ]
+    },
+    {
+      "id": "pal-agm-exclusive",
+      "why": "No other domain may reach them.",
+      "type": "sepolicy_exclusive",
+      "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
+      "target": "vendor_hal_audio_internal_hwservice",
+      "cls": "hwservice_manager",
+      "allowed": [
+        "hal_audio_default"
+      ]
+    },
+    {
+      "id": "frp-node",
+      "why": "system_server can open the frp partition, and ueventd loads the firmware the kernel may not read itself (r9s attempt 4).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "lines": [
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/frp   0600   system   system",
+        "firmware_directories /vendor/firmware_mnt/image/"
+      ]
+    },
+    {
+      "id": "firmware-fallback",
+      "why": "The sysfs firmware fallback is on, as stock.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/hw/init.qcom.rc"
+      ],
+      "lines": [
+        "    write /proc/sys/kernel/firmware_config/force_sysfs_fallback 1"
+      ]
+    },
+    {
+      "id": "fingerprint-factory-service",
+      "why": "The fingerprint HAL answers the module's factory service registration in-process; nothing labels it (finding -16).",
+      "type": "elf_exports",
+      "path": "VENDOR/bin/hw/android.hardware.biometrics.fingerprint-service.fp6",
+      "symbols": [
+        "AServiceManager_addService"
+      ]
+    },
+    {
+      "id": "fingerprint-factory-service-unlabelled",
+      "why": "FocalFingerprintService has no policy label.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/selinux/**",
+        "SYSTEM_EXT/etc/selinux/**",
+        "PRODUCT/etc/selinux/**",
+        "VENDOR/etc/selinux/**",
+        "ODM/etc/selinux/**"
+      ],
+      "match": "all",
+      "absent": [
+        "FocalFingerprintService"
+      ]
+    },
+    {
+      "id": "touch-firmware",
+      "why": "The stock touch firmware in /vendor/firmware: exact stock bytes, root 0644, vendor_firmware_file; the kernel reads it directly (r9t).",
+      "type": "file_metadata",
+      "path": "vendor/firmware/EPH86XX_fw.bin",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_firmware_file:s0",
+      "sha256": "b819b8196dec7b60a96df9bec7efe439bc12644ef442393d5075e1984e2d1368"
+    },
+    {
+      "id": "touch-firmware-label-rule",
+      "why": "The vendor firmware label rule exists.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/firmware\\(/\\.\\*\\)\\?\\s+u:object_r:vendor_firmware_file:s0$"
+      ]
+    },
+    {
+      "id": "touch-firmware-search-path",
+      "why": "ueventd also searches /vendor/firmware.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^firmware_directories .*/vendor/firmware/( |$)"
+      ]
+    },
+    {
+      "id": "touch-driver",
+      "why": "The touch module that requests the firmware is installed and loaded.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR_DLKM/lib/modules/eswin_ts.ko"
+      ]
+    },
+    {
+      "id": "touch-driver-loaded",
+      "why": "The touch module is in the load list.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.load"
+      ],
+      "lines": [
+        "eswin_ts.ko"
+      ]
+    },
+    {
+      "id": "touch-firmware-path",
+      "why": "The kernel firmware path lists /vendor/firmware.",
+      "type": "devicetree",
+      "file": "kernel:dtbs/fp6.dtb",
+      "checks": [
+        {
+          "node": "/chosen",
+          "property": "bootargs",
+          "word": "firmware_class.path",
+          "list_includes": "/vendor/firmware"
+        }
+      ]
+    },
+    {
+      "id": "lpa-services-off",
+      "why": "The stock LPA stays installed with both services off by default, without its JNI library (r9t, OP-ESIM).",
+      "type": "component_override",
+      "file": "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml",
+      "package": "com.qualcomm.qti.lpa",
+      "components": {
+        "com.qualcomm.qti.lpa.QtiEuiccServiceImpl": "false",
+        "com.qualcomm.qti.lpa.UimLpaService": "false"
+      },
+      "scan": [
+        "SYSTEM",
+        "SYSTEM_EXT",
+        "PRODUCT",
+        "VENDOR",
+        "ODM"
+      ],
+      "allowed_files": [
+        "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml",
+        "PRODUCT/etc/permissions/privapp-permissions-fp6-lpa.xml",
+        "PRODUCT/etc/permissions/lpa.xml"
+      ]
+    },
+    {
+      "id": "lpa-no-jni",
+      "why": "The LPA's JNI library is gone.",
+      "type": "files_absent",
+      "paths": [
+        "PRODUCT/lib64/libjni_aidl_service.so"
+      ]
+    },
+    {
+      "id": "pmsg-release-rule",
+      "why": "Release builds make /dev/pmsg0 unwritable; debuggable builds keep the platform default (r9t).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/hw/init.qcom.rc"
+      ],
+      "contains": [
+        "\non init && property:ro.debuggable=0\n    chmod 0000 /dev/pmsg0\n"
+      ]
+    },
+    {
+      "id": "pmsg-settable",
+      "why": "vendor_init may change the mode of /dev/pmsg0.",
+      "type": "sepolicy_allows",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil"
+      ],
+      "source": "vendor_init",
+      "target": "pmsg_device",
+      "cls": "chr_file",
+      "perm": "setattr"
+    },
+    {
+      "id": "pmsg-platform-rule",
+      "why": "The platform /dev/pmsg0 rule is unchanged.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/pmsg0 +0222 +root +log$"
+      ]
+    },
+    {
+      "id": "pmsg-recovery",
+      "why": "Recovery init does not name pmsg0.",
+      "type": "text",
+      "files": [
+        "RECOVERY/RAMDISK/init.recovery.qcom.rc"
+      ],
+      "absent": [
+        "pmsg0"
+      ],
+      "optional": true
+    },
+    {
+      "id": "ramoops",
+      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone (r9t, -112).",
+      "type": "devicetree",
+      "file": "kernel:dtbs/fp6.dtb",
+      "checks": [
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "compatible",
+          "string": "ramoops"
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "size",
+          "cells": [
+            0,
+            4194304
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "alignment",
+          "cells": [
+            0,
+            4194304
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "console-size",
+          "cells": [
+            2097152
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "pmsg-size",
+          "cells": [
+            2097152
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "record-size",
+          "cells": [
+            0
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "ftrace-size",
+          "cells": [
+            0
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "mem-type",
+          "cells": [
+            0
+          ]
+        },
+        {
+          "node": "/reserved-memory/ramoops_region",
+          "property": "no-map",
+          "present": true
+        },
+        {
+          "node": "/soc",
+          "child_absent": "ramoops_region"
+        }
+      ]
+    },
+    {
+      "id": "wifi-mac-print",
+      "why": "Boot parameters handed to user space are logged by name only, in all three prints that carried the Wi-Fi MAC (r9t).",
+      "type": "binary_count",
+      "file": "kernel:Image",
+      "patterns": [
+        {
+          "text": "\u00017    %s\n",
+          "count": 0
+        },
+        {
+          "text": "\u00017    %.*s\n",
+          "min": 1
+        },
+        {
+          "text": "print_kernel_cmdline_names",
+          "min": 1
+        },
+        {
+          "text": "Unknown kernel command line parameters",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "debuggable-property",
+      "why": "ro.debuggable follows the variant.",
+      "type": "properties",
+      "file": "SYSTEM/build.prop",
+      "equals": [
+        "ro.debuggable=1"
+      ],
+      "variants": [
+        "userdebug"
+      ]
+    },
+    {
+      "id": "not-debuggable",
+      "why": "User builds are not debuggable.",
+      "type": "properties",
+      "file": "SYSTEM/build.prop",
+      "equals": [
+        "ro.debuggable=0"
+      ],
+      "variants": [
+        "user"
+      ]
+    }
+  ]
+}
