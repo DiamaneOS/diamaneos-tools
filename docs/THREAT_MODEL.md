@@ -519,7 +519,9 @@ rule in the supply-chain rows.
   notification) or failed (an error notification) and respects the app's dot
   setting; the Notification dots switch turns both off. Nothing shows that the
   shade hides (a suspended app, Do Not Disturb's list suppression, with
-  SystemUI's own exemptions). The row shows app names on the unlocked Home only;
+  SystemUI's own exemptions), and the OS's own notices (the android and SystemUI
+  packages, which only system-uid or SystemUI code can post as) give no tally or
+  LED. The row shows app names on the unlocked Home only;
   a work app shows its name and lamp but no readout, since a separately locked
   work profile is redacted in the shade and Launcher cannot see that lock
   without a new permission, and the private space never appears there. Sensors
@@ -945,7 +947,13 @@ Revision history:
   recording its capture chip. Their security review (paused) found that the
   removable items' settings were read from credential-encrypted preferences
   through a real app context while the taskbar builds its device profile before
-  the first unlock, which would crash-loop Launcher on every boot until then
-  (-139, never built; fixed on tally-home f885161fcb, which reads them through
-  the device profile's own injected preferences). Tally code in Launcher must not
-  open credential-encrypted storage on paths that run before the first unlock.
+  the first unlock, which would crash-loop Launcher on every boot until then and,
+  since Launcher's taskbar is the phone's navigation bar in this build, leave no
+  Home or Recents before the first unlock, even from the emergency dialer (-139,
+  high if shipped, never built; fixed on tally-home f885161fcb and Launcher3
+  android17 240e56d46f, which read them through the device profile's own injected
+  preferences). The rest of the review found no issue: no path reaches the model,
+  the database, uninstall or app info; nothing new is exported; no manifest or
+  permission change; only system-uid or SystemUI code can post as the android or
+  SystemUI packages. Tally code in Launcher must not open credential-encrypted
+  storage on paths that run before the first unlock.
