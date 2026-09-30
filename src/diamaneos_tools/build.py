@@ -551,6 +551,12 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
     used_revisions, remote_revisions = set(), {}
     upstream_projects = tuple(base.findall("project"))
     removed_paths, added_paths = set(), set()
+    # A replaced upstream project's copy/link files, which its replacement
+    # must reproduce exactly (the signed exports stay bound).
+    removed_exports, added_exports = {}, {}
+
+    def exports_of(project):
+        return [(child.tag, sorted(child.attrib.items())) for child in project]
     for entry in addition:
         if entry.tag == "remove-project":
             # A fork replaces exactly one signed upstream project at the same
@@ -558,9 +564,11 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
             # stale root exports. The final project map still binds every SHA.
             matches = [p for p in upstream_projects if p.get("name") == entry.get("name")]
             if (set(entry.attrib) != {"name"} or len(entry) or len(matches) != 1
-                    or matches[0] not in list(base) or len(matches[0])):
-                raise BuildError("replacement must remove one unexported upstream project")
+                    or matches[0] not in list(base)
+                    or any(child.tag not in ("copyfile", "linkfile") for child in matches[0])):
+                raise BuildError("replacement must remove one upstream project with at most copy and link files")
             original = matches[0]
+            removed_exports[original.get("path", original.get("name"))] = exports_of(original)
             original_path = original.get("path", original.get("name"))
             base.remove(original)
             paths.remove(original_path)
@@ -581,8 +589,12 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
         elif entry.tag == "project":
             attributes = set(entry.attrib) - {"groups"}
             if attributes not in ({"name", "path", "remote", "revision"},
-                                  {"name", "path", "remote"}) or len(entry):
+                                  {"name", "path", "remote"}):
                 raise BuildError("overlay projects must be explicit and contain no exports")
+            if len(entry) and exports_of(entry) != removed_exports.get(entry.get("path")):
+                raise BuildError("overlay projects may carry only the exact copy and link files "
+                                 "of the upstream project they replace")
+            added_exports[entry.get("path")] = exports_of(entry)
             if "groups" in entry.attrib and not re.fullmatch(
                     r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:,[A-Za-z0-9][A-Za-z0-9_.-]*)*",
                     entry.get("groups", "")):
@@ -611,6 +623,8 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
         base.append(entry)
     if not removed_paths <= added_paths:
         raise BuildError("removed upstream project lacks a same-path replacement")
+    if any(added_exports.get(path) != exports for path, exports in removed_exports.items()):
+        raise BuildError("a replaced upstream project's copy and link files must be kept exactly")
     if used_revisions != set(revisions):
         raise BuildError("unused resolved overlay revisions")
     return ET.tostring(base, encoding="utf-8")

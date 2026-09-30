@@ -214,5 +214,23 @@ class CompositionTests(unittest.TestCase):
                     build.compose_source_manifest(self.config, self.source, self.base)
         self.replacement_overlay()
         exported = self.base.replace(b'/></manifest>', b'><copyfile src="x" dest="x"/></project></manifest>')
-        with self.assertRaisesRegex(build.BuildError, 'unexported upstream'):
+        with self.assertRaisesRegex(build.BuildError, 'must be kept exactly'):
             build.compose_source_manifest(self.config, self.source, exported)
+
+    def test_replacement_keeps_exactly_the_upstream_link_files(self):
+        links = b'<linkfile src="core" dest="build/core"/><linkfile src="envsetup.sh" dest="build/envsetup.sh"/>'
+        base = self.base.replace(b'/></manifest>', b'>' + links + b'</project></manifest>')
+        overlay = ('<manifest><remote name="fork" fetch="https://example.invalid/forks/"/>'
+                   '<remove-project name="base"/>'
+                   '<project name="base" path="build/make" remote="fork" revision="' + 'b'*40 + '">').encode() + links + b'</project></manifest>'
+        composed = build.compose_overlay(base, overlay, {})
+        self.assertEqual(build._manifest_exports(base), build._manifest_exports(composed))
+        for changed in (overlay.replace(b'dest="build/core"', b'dest="build/other"'),
+                        overlay.replace(b'<linkfile src="core" dest="build/core"/>', b''),
+                        overlay.replace(b'linkfile src="core"', b'copyfile src="core"')):
+            with self.subTest(overlay=changed):
+                with self.assertRaises(build.BuildError):
+                    build.compose_overlay(base, changed, {})
+        added = self.overlay.replace(b'/></manifest>', b'><linkfile src="a" dest="b"/></project></manifest>')
+        with self.assertRaisesRegex(build.BuildError, 'only the exact copy and link files'):
+            build.compose_overlay(self.base, added, {})
