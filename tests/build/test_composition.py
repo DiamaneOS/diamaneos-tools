@@ -47,6 +47,29 @@ class CompositionTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, 'undeclared input'):
             build.verify_source_layout(self.config, self.source, rows, self.base, self.combined)
 
+    def test_generated_trees_need_explicit_acceptance(self):
+        rows, _ = build.parse_project_map(self.combined)
+        for path, *_ in rows:
+            (self.source/path).mkdir(parents=True)
+        (self.source/'vendor/fairphone/FP6').mkdir(parents=True)
+        with self.assertRaisesRegex(build.BuildError, 'undeclared input'):
+            build.verify_source_layout(self.config, self.source, rows, self.base, self.combined)
+        build.verify_source_layout(self.config, self.source, rows, self.base, self.combined,
+                                   {'vendor/fairphone/FP6'})
+        with self.assertRaisesRegex(build.BuildError, 'overlaps a source project'):
+            build.verify_source_layout(self.config, self.source, rows, self.base, self.combined,
+                                       {'device/example'})
+
+    def test_no_descriptor_accepts_no_generated_tree(self):
+        self.assertEqual((set(), None), build.verify_generated_inputs(self.source, None))
+
+    def test_overlay_url_must_be_https(self):
+        self.config['composition']['overlay_url'] = 'https://example.invalid/manifest'
+        build.validate_config(self.config)
+        self.config['composition']['overlay_url'] = 'http://example.invalid/manifest'
+        with self.assertRaisesRegex(build.BuildError, 'HTTPS'):
+            build.validate_config(self.config)
+
     def test_legacy_environment_still_rejects_overlay(self):
         del self.config['composition']
         with self.assertRaisesRegex(build.BuildError, 'not declared'):

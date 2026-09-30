@@ -69,4 +69,50 @@ class ProductInputTests(unittest.TestCase):
                     subject.install_one((self.vendor/'current').resolve(),records,self.root/'destination')
                 self.assertFalse((self.root/'destination').exists())
 
+    def test_descriptor_binds_environment_recipes_and_trees(self):
+        self.install()
+        descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
+        self.assertEqual(2,descriptor['schema_version'])
+        self.assertEqual(sha(subject.DEFAULT_ENVIRONMENT),descriptor['environment_sha256'])
+        self.assertEqual(subject.recipe_hashes(),descriptor['recipes'])
+        self.assertEqual({'vendor','kernel'},set(descriptor['inputs']))
+        self.assertEqual('runs/example/candidate',descriptor['inputs']['kernel']['run'])
+        accepted=subject.verify_descriptor(self.source,descriptor['environment_sha256'])
+        self.assertEqual({'vendor/fairphone/FP6','device/fairphone/FP6-kernel'},accepted)
+
+    def test_descriptor_rejects_other_environment_stale_recipes_and_edits(self):
+        self.install()
+        with self.assertRaisesRegex(ValueError,'another build environment'):
+            subject.verify_descriptor(self.source,'0'*64)
+        with patch.object(subject,'recipe_hashes',return_value={'kernel_policy':'1'*64}):
+            with self.assertRaisesRegex(ValueError,'other recipes'):
+                subject.verify_descriptor(self.source)
+        (self.source/'device/fairphone/FP6-kernel/input').write_bytes(b'edited!')
+        with self.assertRaises(ValueError):
+            subject.verify_descriptor(self.source)
+
+    def test_descriptor_rejects_extra_file_and_legacy_record(self):
+        self.install()
+        extra=self.source/'vendor/fairphone/FP6/extra';extra.write_bytes(b'x');extra.chmod(0o640)
+        with self.assertRaisesRegex(ValueError,'inventory mismatch'):
+            subject.verify_descriptor(self.source)
+        extra.unlink()
+        (self.source/'.repo/diamaneos-generated-inputs.json').write_text(json.dumps({'status':'PASS'}))
+        with self.assertRaisesRegex(ValueError,'predates'):
+            subject.verify_descriptor(self.source)
+
+    def test_self_consistent_unbound_tree_is_not_accepted(self):
+        # Review R4: a single-file tree with a matching inventory must not pass
+        # without the descriptor that binds it to the environment and recipes.
+        (self.source/'vendor/fairphone/FP6').mkdir(parents=True)
+        with self.assertRaises(ValueError):
+            subject.verify_descriptor(self.source)
+
+    def test_replace_moves_the_differing_tree_aside(self):
+        self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'old tree')
+        result=subject.install(self.source,self.vendor,self.kernel,replace=True)
+        self.assertEqual('replaced',result['vendor']);self.assertEqual('verified-existing',result['kernel'])
+        self.assertEqual(b'fixture',p.read_bytes())
+        self.assertEqual(b'old tree',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
+
 if __name__=='__main__':unittest.main()
