@@ -17363,7 +17363,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Signed Iris video core firmware; msm_video.ko requests vpu20_2v.mbn for every volcano SKU (r9p boot 1 kernel log: \"Direct firmware load for vpu20_2v.mbn failed with error -2\").",
+      "purpose": "Signed Iris video core firmware; msm_video.ko requests vpu20_2v.mbn for every volcano SKU (first-boot kernel log: \"Direct firmware load for vpu20_2v.mbn failed with error -2\").",
       "metadata": {
         "uid": 0,
         "gid": 0,

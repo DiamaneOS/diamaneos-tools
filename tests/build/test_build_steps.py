@@ -142,8 +142,8 @@ class PlanTests(unittest.TestCase):
     def test_build_number_override_is_validated(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertEqual('test.0123456789ab', steps.build_number('0123456789abcdef', config))
-        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'ims.r9t.20261003.10'}):
-            self.assertEqual('ims.r9t.20261003.10', steps.build_number('0' * 64, config))
+        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.20261003.10'}):
+            self.assertEqual('lane.20261003.10', steps.build_number('0' * 64, config))
         with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'a b'}):
             with self.assertRaises(bw.UsageError):
                 steps.build_number('0' * 64, config)

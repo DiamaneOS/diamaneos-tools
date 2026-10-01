@@ -163,7 +163,7 @@ ACTIVATION={
  'android.hardware.gnss-aidl-service-qti':('android.hardware.gnss-aidl-service-qti.rc','android.hardware.gnss-aidl-service-qti.xml'),
  # The stock CamX/CHI camera provider (AIDL ICameraProvider/vendor_qti/0).
  'vendor.qti.camera.provider-service_64':('vendor.qti.camera.provider-service_64.rc','vendor.qti.camera.provider.xml'),
- # The QCRIL radio daemon declares only the services r9p uses: the AOSP radio
+ # The QCRIL radio daemon declares only the services the device uses: the AOSP radio
  # HAL and the Qualcomm IMS, radio-config, call-audio (IQcRilAudio, served to
  # the device's own bridge) and LPA services.
  'qcrilNrd':('qcrilNrd.rc',('android.hardware.radio.config.xml','android.hardware.radio.data.xml',

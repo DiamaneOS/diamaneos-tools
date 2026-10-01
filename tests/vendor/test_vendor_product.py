@@ -62,7 +62,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_touch_controller_firmware_copied_to_vendor_firmware(self):
         # eswin_ts.ko requests EPH86XX_fw.bin at probe; without it ueventd's
-        # firmware fallback waits out the kernel's 60 s timeout (r9s boot).
+        # firmware fallback waits out the kernel's 60 s timeout.
         path = 'vendor/firmware/EPH86XX_fw.bin'
         make = self.render()['device-vendor.mk'].decode()
         self.assertIn('vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/firmware/EPH86XX_fw.bin', make)
