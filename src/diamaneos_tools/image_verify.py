@@ -867,6 +867,9 @@ def check_vendor(v):
         if vendor_product.STOCK_APPS.get(rel, (None, False))[1] and rest.startswith('app/'):
             # The renderer installs privileged stock apps under priv-app.
             candidates = [PARTITION_DIRS[partition] + '/priv-' + rest]
+        if rel.startswith(vendor_product.DSP_DIRECTORIES):
+            # DSP libraries install with prebuilt_rfsa into lib/rfsa/adsp.
+            candidates = ['VENDOR/lib/rfsa/adsp/' + PurePosixPath(rel).name]
         member = next((c for c in candidates if c in v.tf.infos), None)
         if member is None:
             problems.append('missing ' + candidates[0])
