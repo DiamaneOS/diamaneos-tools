@@ -53,6 +53,11 @@ DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'k
            'package': ('sync', 'kernel', 'vendor', 'android'),
            'verify': ('sync', 'kernel', 'vendor', 'android', 'package')}
 MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
+# Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
+# body are still expected"), and repo then retries the project with every
+# branch, which for the large prebuilt repositories never finishes. HTTP/1.1
+# and a few retries of the pinned fetch get through.
+GIT_HTTP = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'http.version', 'GIT_CONFIG_VALUE_0': 'HTTP/1.1'}
 
 
 def code_hashes(names):
@@ -331,15 +336,16 @@ def plan_sync(ctx: Context) -> StepPlan:
                argv=['repo', 'init', '-u', upstream['manifest_url'], '-b', 'refs/tags/' + upstream['release_tag'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]
                     + (['--depth=1'] if ctx.shallow else []),
-               cwd=ws.src, network=True),
+               cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Check the repo tool and the release manifest signatures', func=ctx.signed_manifest),
     ]
     if composition:
         actions += [Action('Get the DiamaneOS manifest overlay at its pinned revision', func=get_overlay, network=True),
                     Action('Install the overlay', func=install_overlay)]
     actions += [
-        Action('Download the source', argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}']
-               + (['-c', '--no-tags'] if ctx.shallow else []), cwd=ws.src, network=True),
+        Action('Download the source', argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}',
+                                            '--retry-fetches=4']
+               + (['-c', '--no-tags'] if ctx.shallow else []), cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Move stale generated inputs aside', func=retire),
     ]
     if objects:
