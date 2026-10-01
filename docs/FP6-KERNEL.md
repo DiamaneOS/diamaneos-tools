@@ -128,6 +128,17 @@ effective device-tree boot arguments need production review, as the pinned
 source includes `kpti=0` and debugging/tuning options that configuration checks
 do not see.
 
+KMI deviation: the hardened kernel uses a 48-bit virtual address space
+(`CONFIG_ARM64_VA_BITS_48`, as in the GrapheneOS release), where the GKI
+defconfig in Qualcomm's android14-6.1 vendor tree defaults to 39 bits. The
+platform's hardened memory allocator needs it
+([build reference](BUILD.md#native-fp6-product-integration)). The address-space
+layout and page-table depth (four levels instead of three) are compiled into
+the kernel and every module, so modules built for a standard GKI kernel,
+Fairphone's stock modules among them, do not fit it: every module is built from
+the pinned trees with this kernel. The kernel policy requires 48 bits in both
+configurations.
+
 Right after the core build, before any module, `kernel build` checks both the
 GKI configuration (the Image) and the vendor tree's (the modules) against
 [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
