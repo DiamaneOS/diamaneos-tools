@@ -191,8 +191,8 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   the Tally card colour was read through the posting app's context (-135, high
   if shipped; fixed on frameworks_base tally-build de8a9edb4265). This set the
   context rule under [Rules learned from
-  findings](THREAT_MODEL-TALLY.md#rules-learned-from-findings); a review of that rule
-  across the Tally code follows.
+  findings](THREAT_MODEL-TALLY.md#rules-learned-from-findings); a review of that
+  rule across the Tally code follows.
 - **2026-09-29:** with lock-screen notifications off (off unless set),
   GrapheneOS's smartspace line shows nothing; the Tally lock strip now drops its
   alarm and the always-on strip everything (frameworks_base tally-build
@@ -265,8 +265,8 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   recovery and vendor_diamaneos are clean, and the keyboard's password and
   no-learning handling holds. Three findings, fixes being written: -148 (medium
   if shipped) and -149 (low) in the Clock fork (see
-  [Clock](THREAT_MODEL-TALLY.md#clock-step-7)), and -150 (low) in the keyboard (see
-  [Typed text and personal
+  [Clock](THREAT_MODEL-TALLY.md#clock-step-7)), and -150 (low) in the keyboard
+  (see [Typed text and personal
   words](THREAT_MODEL.md#typed-text-and-personal-words)). The Clock bullet and
   the keyboard and Files rows are corrected. All three are fixed in a later
   2026-09-30 test build; -149 and -150 are verified on the FP6 (the database
@@ -279,6 +279,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   icons follow the lock screen's redaction; verified on the FP6 in the next test
   build (the chat icon over the dialer, the avatar again after unlock), and
   ready for GrapheneOS upstream.
+- **2026-09-30:** public build commands: what they enforce and their limits.
 - **2026-09-30:** rewritten for readability, with no change in substance: each
   threat row became a section with fixed points, and summaries of the biggest
   risks and of every asset's status, an IMS integration notes section and a list

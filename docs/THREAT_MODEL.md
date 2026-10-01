@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -882,10 +882,17 @@ or "no owning task yet") and status.
 - **Protection:** locked bootloader on a custom AVB root, vbmeta flags 0;
   SHA-256 hashtrees; rollback indexes set only by signed releases; signed full
   and incremental OTAs from one pipeline; recovery accepts release keys only;
-  relock locks both lock states.
+  relock locks both lock states. Public test builds are signed with the public
+  AOSP/AVB test keys, carry test-keys in the fingerprint and a never-lock
+  record, and `flash-steps` prints the never-lock rule first.
 - **Remaining:** yellow boot (never green); downgrade-brick risk; Fairphone
   unlock service dependency; firmware not in OTAs; refusal of slot changes while
-  locked untested.
+  locked untested. A test-key build must stay unlocked, since anyone can sign
+  images with the public test keys. The `flash-steps` wipe writes Fairphone's
+  factory FRP image (clearing factory reset protection and keeping OEM unlocking
+  allowed) and zeros misc, as Fairphone's own factory flash does; `flash-steps`
+  prints commands only for an image set whose verify report matches it and
+  passed.
 - **Validation:** custom-key relock (FP6-050), OTA install and
   interrupted-update tests, signing verifier (FP6-035).
 - **Status:** Observed gap (bring-up images): SHA-1 hashtrees, release-style
@@ -937,25 +944,56 @@ or "no owning task yet") and status.
 #### Source and build outputs
 
 - **Threat:** compromised upstream host or project, build dependency or build
-  host, via source fetch, prebuilt toolchains and the build account.
-- **Protection:** signed GrapheneOS tags; immutable commit pins; signed
-  downstream commits verified before build; network-denied compilation; two
-  independent builds with final-content comparison.
-- **Remaining:** Qualcomm/CodeLinaro and Fairphone sources and toolchains carry
-  no upstream signatures; common inputs are common-mode.
+  host, via source fetch, prebuilt toolchains, the build account and the image
+  tools built from source.
+- **Protection:**
+  - Signed GrapheneOS tags checked before sync; immutable commit pins; signed
+    downstream commits verified before build (in the private builds); a full
+    source preflight before and after every Android build.
+  - Generated vendor and kernel trees are installed only when the recipe digests
+    their generations recorded (vendor provenance; the kernel run's preparation,
+    packaging recipe and policy reports) equal the checkout's recipes, and the
+    preflight accepts them only while a descriptor binds them to the environment
+    file and those digests and every file matches its inventory.
+  - Network-denied compilation: the public build commands compile in an
+    unprivileged network namespace, with agent and bus socket variables removed
+    from the compile environment.
+  - Image tools built from the pinned source with their hashes recorded; one
+    build/make fork, whose single change keeps the device's boot header fields
+    when images are rebuilt, pinned like the other forks; every build recorded
+    in `build.json`; two independent builds with final-content comparison.
+- **Remaining:**
+  - Qualcomm/CodeLinaro and Fairphone sources and toolchains carry no upstream
+    signatures; common inputs are common-mode.
+  - The public build runs as an ordinary user on an unmanaged host, without the
+    separate build account, root-owned tools checkout or service sandbox the
+    reference builder keeps.
+  - The network namespace blocks IP networking only: Unix sockets in the
+    filesystem stay reachable, so a socket to a service with network access (a
+    container daemon, for example) is a way out, and the build can read whatever
+    the user can.
+  - Host packages are recorded, not pinned; a build with `--allow-network`
+    compiles with network access (recorded for the kernel, vendor and Android
+    steps); the kernel workspace link adaptation is not among the recorded
+    recipe digests; a modified tools checkout is recorded as not reproducible.
+  - The tools checkout is only as trustworthy as the maintainer keys used to
+    check it, which are not published yet.
 - **Validation:** reproducible environment, dual build, release comparison.
-- **Status:** Observed gap (FP6 path): compiled with network available, on one
-  host, with private scripts; build identity not yet separated from its own
-  verification inputs; only a few projects re-verified per build. Recorded
-  (generic target): a network-denied build path.
+- **Status:** Observed gap (FP6 path): every FP6 build so far compiled with
+  network available, on one host, with private scripts. Designed and
+  unit-tested, not yet run on a build: the public build commands with
+  network-off compilation, the full preflight and bound generated inputs (an
+  open project review item). Recorded (generic target): a network-denied build
+  path.
 
 #### Closed vendor inputs
 
 - **Threat:** compromised vendor download or support page, or a network attacker
   at first download, via the stock factory package.
-- **Protection:** exact archive hash pinned everywhere; per-file hash, component
-  and purpose; fail-closed extraction; every name-loaded library declared
-  (required; no build check yet).
+- **Protection:** exact archive hash pinned everywhere; the public build
+  downloads it only over HTTPS from Fairphone's official host and uses it only
+  if size and SHA-256 match; per-file hash, component and purpose; fail-closed
+  extraction; every name-loaded library declared (required; no build check yet).
 - **Remaining:** the archive and its published hash come from the same vendor
   web estate, and a new package can be selected before Fairphone publishes its
   hash (FP6.QREL.16.111.0 was); no vendor signature check yet; per-file purpose
@@ -1397,8 +1435,9 @@ USB, EDL and lock screen, reboot to BFU and duress).
 9. Firmware inventory with per-partition hashes and an update path; stock AVB
    key verification.
 10. FP6 signing profile and presigned-app inventory; second independent FP6
-    build; binding of generated inputs to the public environment; network-denied
-    FP6 compilation.
+    build; the public build commands on a real host: network-denied FP6
+    compilation, the bound generated inputs passing the full preflight, and the
+    image checks on a real image set.
 11. TEE KeyMint, attestation and reported security levels on the EU candidate;
     fingerprint spoof testing and the declared biometric class; regional matrix
     on an actual US candidate before claiming US support.
