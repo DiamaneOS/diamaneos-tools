@@ -1,20 +1,24 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (current state only: version names, product-boundary text, step labels, unbuilt features, release gates and the next-validation list removed); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
 ## How to read this document
 
-What DiamaneOS protects on the Fairphone 6 (FP6), against whom, how, and what is
-missing. DiamaneOS is under development: each protection is a requirement unless
-its status says otherwise, nothing is qualified on a release candidate yet, and
-no hardware claim is a demonstrated protection until its validation passes.
+What DiamaneOS protects on the Fairphone 6 (FP6) today, against whom, how, and
+what is missing. It shows only what current development builds contain: each
+asset lists the protections that are built, and a missing protection is stated
+as a gap. Nothing is qualified yet, and no hardware claim is a demonstrated
+protection until it is verified. "GrapheneOS-derived" describes source lineage,
+not equal security: the FP6 lacks several hardware features GrapheneOS relies on
+([hardware limits](#hardware-limits-and-evidence)).
+
 Start with the risks below, then the [asset table](#threats-by-asset). Status
 words are defined in [Evidence states](#evidence-states), other terms in
 [Terms](#terms). Development builds are named by date: the 2026-09-26 build is
 the first SELinux-enforcing one, the 2026-09-27 build the next. `FP6-nnn` is a
-plan task; -nnn (for example -144) is a finding in the private findings
+project task; -nnn (for example -144) is a finding in the private findings
 register. Companion files: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md)
 (history) and [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md) (Tally shell
 rules).
@@ -28,109 +32,55 @@ rules).
    current Pixels; the 720 closed files (about 369 MB) include large parsers of
    untrusted input, and the closed GPU driver and shader compilers run in every
    app ([details](#camera-microphone-sensor-streams-device-integrity)).
-3. **Unpatchable firmware** that lags Android Security Bulletins, with no update
-   path yet ([details](#firmware-security)).
+3. **Unpatchable firmware** that lags Android Security Bulletins: no firmware
+   update path exists, and firmware stays at the last flashed stock release
+   ([details](#firmware-security)).
 4. **Credentials rest on the TEE:** no StrongBox or Weaver; throttling
-   unverified; passphrase not implemented; fingerprint class not measured
+   unverified; no passphrase policy; fingerprint class not measured
    ([details](#bfu-user-data)).
 5. **The modem is outside Android's control:** isolation assumed; its traffic
    bypasses network controls; no fake-base-station detection; the 2G and
    LTE-only controls fail silently
    ([details](#call-and-sms-content-subscriber-identity-coarse-location)).
 6. **No USB-C port control** ([details](#locked-device-data-kernel-integrity)).
-7. **Attestation fails; verified boot shows yellow**
-   ([details](#hardware-limits-and-evidence)).
-8. **Supply chain:** one signing authority and one-person review; FP6 builds not
-   yet network-denied or built twice; vendor inputs checked only against the
-   vendor's own published hash ([details](#source-and-build-outputs)).
+7. **Attestation fails** ([details](#hardware-limits-and-evidence)).
+8. **Supply chain:** one-person review; every FP6 build so far compiled with
+   network access on one host; no FP6 release signing; vendor inputs checked
+   only against the vendor's own published hash
+   ([details](#source-and-build-outputs)).
 9. **Keyboard words readable before first unlock** in builds without the
    keyboard fork (in the manifest since 2026-09-27)
    ([details](#typed-text-and-personal-words)).
-
-## Current product scope
-
-Daily use by privacy- and security-focused users, on one device and variant: the
-GrapheneOS-based FP6 port. A release needs a locked bootloader on a custom AVB
-root and monthly releases; the launch scope must pass qualification first. No
-root, microG, signature spoofing, Magisk accommodation, unlocked-bootloader
-daily use or bundled cloud account. A clear, expressive UI with measured
-maintenance; accessibility and localization are acceptance criteria, not polish.
-No global security score, stock-parity promise, or superiority claim without
-dated like-for-like evidence.
-
-"GrapheneOS-derived" describes source lineage, not equal security: the FP6 lacks
-several hardware features GrapheneOS relies on ([hardware
-limits](#hardware-limits-and-evidence)).
-
-Passphrase-first is mandatory (passphrase onboarding and credential-policy
-enforcement); PIN-optional is not in v1. A PIN-optional-with-warning change
-would need an explicit scope decision and a renewed compatibility review; it is
-recorded only as a revisit condition.
-
-### v1 scope (standalone summary)
-
-Public launch needs the release gates (cadence, beta, qualification) and, on the
-final candidate: DE/EU carrier configs; eSIM LPA; LineageOS-parity camera;
-passphrase-first setup enforced for all users; on-device security status;
-encrypted microSD; tracker alerts; cellular alerts or an honest "unsupported"
-(on the current Qualcomm radio software: "unsupported"); offline SD OTA;
-UnifiedPush recommendation; WebUSB and CLI installers.
-
-On 2026-09-26 the owner moved after public v1: install-time privacy presets, the
-battery suite (ceiling, health, cycle/export), DNS filtering, the privacy
-dashboard, per-app routing and filtering, panic reboot to BFU, scheduled reboot,
-hardware diagnostics, share-time metadata stripping. Until they land, inherited
-GrapheneOS protections cover their safety role (inactivity auto-reboot,
-lockdown, VPN lockdown, the per-app Network permission). Post-release ideas and
-conditional kernel or repair research are not v1. Planned features that parse
-untrusted input or need privilege are threats themselves ([added
-features](#device-integrity-and-the-data-each-feature-handles)).
 
 ## Current development state
 
 Every build so far is a private bring-up build on a development device; none was
 distributed. Bring-up builds deliberately trade away protections to make
-hardware work. A release candidate failing any gate below is not released.
-Bring-up builds are never handed out or used as anyone else's daily phone; their
-signing and SELinux state gives no verified-boot, signature-permission or
-SELinux protection, and personal accounts and sensitive data stay off them until
-SELinux is enforcing.
+hardware work. Bring-up builds are never handed out or used as anyone else's
+daily phone; their signing and SELinux state gives no verified-boot,
+signature-permission or SELinux protection, and personal accounts and sensitive
+data stay off them until SELinux is enforcing.
 
-- **Build type.** Today: `userdebug`, ADB on by default, `adb root`; since the
+- **Build type:** `userdebug`, ADB on by default, `adb root`; since the
   2026-09-26 build, ADB asks on the phone before trusting a computer and no
   developer key is pre-trusted (earlier builds accepted any computer); recovery
-  accepts ADB unasked on unlocked or debuggable phones (AOSP design). Release:
-  `user`, `ro.debuggable=0`, ADB off and authenticated, no pre-trusted keys, no
-  network ADB. Gate: production-form user candidate (FP6-047), debug exposure
-  audit (FP6-060).
-- **SELinux.** Today: earlier builds fully permissive; since the 2026-09-26
-  build, debuggable builds boot enforcing with a per-domain policy from the
-  denials captured on the last permissive build (narrow rules only, generic proc
-  and sysfs nodes relabelled before any write grant, no dontaudit rules, nothing
-  new for apps or shell); the 2026-09-26 build passed the owner's feature tests
-  enforcing, and every build since runs enforcing. Release: enforcing, no
-  permissive domains. Gate: enforcing runs per subsystem (no owning task yet),
-  user candidate (FP6-047).
-- **Bootloader and keys.** Today: unlocked, public AOSP test keys; no OEM
-  unlocking control in the OS, so the unlock-ability flag stays as stock left
-  it. Release: locked on a DiamaneOS AVB key, release keys only, relock never
-  enrols a public test key; the OS shows and manages OEM unlocking (off after
-  relock, on before unlock). Gate: custom-key relock (FP6-050), signing roles
-  and equipment (FP6-035, FP6-036).
-- **Network endpoints.** Today: inherited GrapheneOS services (connectivity,
-  time, CT list, provisioning proxies, app catalog, SUPL proxy). Release:
-  DiamaneOS EU endpoints with visible standard-server choices. Gate: endpoint
-  contracts (FP6-100), implementations (FP6-102 to FP6-112).
-- **Closed vendor code.** Today: 720 stock Qualcomm/Fairphone files (about 369
-  MB), stock-first, all hash-pinned, purpose partly generic. Release: each file
-  justified, source builds where possible. Gate: component removal and closure
-  gate (FP6-060, FP6-061, FP6-208), per-component source replacement (FP6-200 to
-  FP6-207).
-- **Debug interfaces.** Today: userspace Qualcomm diag removed; debug USB
-  functions remain. Release: no debug USB functions, diag or trace sinks in user
-  builds. Gate: debug exposure audit (FP6-060).
-- **Firmware.** Today: the last flashed stock release. Release: dated firmware
-  patch level shown, update path defined. Gate: firmware review (FP6-206).
+  accepts ADB unasked on unlocked or debuggable phones (AOSP design).
+- **SELinux:** earlier builds fully permissive; since the 2026-09-26 build,
+  debuggable builds boot enforcing with a per-domain policy from the denials
+  captured on the last permissive build (narrow rules only, generic proc and
+  sysfs nodes relabelled before any write grant, no dontaudit rules, nothing new
+  for apps or shell); the 2026-09-26 build passed the owner's feature tests
+  enforcing, and every build since runs enforcing. Enforcing runs per subsystem
+  are unverified (no owning task yet).
+- **Bootloader and keys:** unlocked, public AOSP test keys; no OEM unlocking
+  control in the OS, so the unlock-ability flag stays as stock left it.
+- **Network endpoints:** inherited GrapheneOS services (connectivity, time, CT
+  list, provisioning proxies, app catalog, SUPL proxy).
+- **Closed vendor code:** 720 stock Qualcomm/Fairphone files (about 369 MB),
+  stock-first, all hash-pinned, purpose partly generic.
+- **Debug interfaces:** userspace Qualcomm diag removed; debug USB functions
+  remain.
+- **Firmware:** the last flashed stock release.
 
 ### IMS status (2026-09-28)
 
@@ -138,36 +88,33 @@ IMS (carrier voice, SMS and Wi-Fi calling over IP) on the enforcing development
 image: ordinary voice, SMS and mobile data work on the tested subscriptions,
 including basic Wi-Fi calling and coexistence with VPN lockdown. Reconnection
 can leave IMS unavailable for about ten minutes; a second-network
-observer/address discrepancy is under investigation. The passing simulated
-telephony tests do not validate emergency calls or carrier location delivery.
-The new `de.diamaneos` app and interface identities need separate build and
-device validation; earlier image results are not acceptance of the namespace
-migration. The [IMS integration
-notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) record how the containment
-evolved.
+observer/address discrepancy is under investigation. The new `de.diamaneos` app
+and interface identities need separate build and device validation; earlier
+image results are not acceptance of the namespace migration. The [IMS
+integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) record how the
+containment evolved.
 
-## What DiamaneOS aims to defend against
+## What DiamaneOS defends against today
 
 - Remote and proximity attack surface (network including IP over cellular,
   Bluetooth, NFC, USB, media parsing): inherited GrapheneOS hardening and a
   reduced vendor surface; without hardware memory tagging, memory-safety bugs
   are not contained as on current Pixels.
 - Malicious or over-permissioned apps: sandboxing, Network and Sensors
-  permissions, Storage and Contact Scopes, install-time presets.
-- Persistence after compromise: verified boot with rollback protection on a
-  locked bootloader.
+  permissions, Storage and Contact Scopes (inherited).
 - Opportunistic physical access to a powered-off (BFU) device: file-based
-  encryption with hardware-wrapped keys and a strong generated passphrase.
-- Data exfiltration by the OS vendor: no telemetry or Google Mobile Services;
-  self-hosted or user-selectable endpoints (documented EU endpoints with visible
-  alternatives).
+  encryption with hardware-wrapped keys; no passphrase policy.
+- Data exfiltration by the OS vendor: no telemetry or Google Mobile Services.
 
 ## What DiamaneOS does not defend against
 
+- Persistence after compromise: development builds run unlocked with public test
+  keys, so verified boot does not hold ([OS
+  integrity](#os-integrity-on-a-released-locked-build)).
 - Offline brute force of a weak credential: Gatekeeper backoff in the Qualcomm
-  TEE is expected but unverified, with no discrete secure element exposed to
-  Android ([BFU user data](#bfu-user-data)); the required 6 to 8 word generated
-  passphrase (not implemented yet) makes guessing much harder.
+  TEE is expected but unverified, no discrete secure element is exposed to
+  Android, and no passphrase policy is implemented ([BFU user
+  data](#bfu-user-data)).
 - Sophisticated forensic extraction from an unlocked or powered-on locked (AFU)
   device.
 - Firmware compromise: boot, TrustZone, hypervisor, modem, DSP, Wi-Fi and
@@ -196,14 +143,14 @@ evolved.
   chip has one is unknown. Accurate: "stock exposes no StrongBox or Weaver", not
   "the phone has no secure hardware". The eUICC, NFC controller and TEE are
   separate boundaries.
-- **Attestation is TEE-only:** a locked custom-key build reports yellow, never
-  green; GrapheneOS's Auditor does not support the FP6. Earlier builds did not
-  enable remote key provisioning, so attestation was expected to fail. Since the
-  2026-09-26 build, the device sets stock's provisioning properties (requests
-  via the inherited GrapheneOS proxy until DiamaneOS runs its own) and reports
-  the factory attestation IDs. On the 2026-09-27 build provisioning reaches the
-  server but the TEE's certificate request always fails, so no attestation keys
-  are provisioned and attestation still fails (cause open).
+- **Attestation is TEE-only:** with a custom key, a locked FP6 reports yellow,
+  never green; GrapheneOS's Auditor does not support the FP6. Earlier builds did
+  not enable remote key provisioning, so attestation was expected to fail. Since
+  the 2026-09-26 build, the device sets stock's provisioning properties
+  (requests via the inherited GrapheneOS proxy) and reports the factory
+  attestation IDs. On the 2026-09-27 build provisioning reaches the server but
+  the TEE's certificate request always fails, so no attestation keys are
+  provisioned and attestation still fails (cause open).
 - **No pKVM:** on current firmware the kernel runs under Qualcomm's Gunyah
   hypervisor, not KVM, so Android protected VMs are unavailable (observed on a
   bring-up build).
@@ -216,80 +163,76 @@ evolved.
 - **Vendor horizon:** the Android 14-level vendor (VINTF level 8) should still
   run on Android 18; Android 19 will very likely drop level 8, HIDL and kernel
   6.1. Once Fairphone moves the FP6 to a newer vendor, fixes for the current
-  vendor code and firmware stop, so DiamaneOS has to follow.
+  vendor code and firmware stop.
 - **Kernel:** 6.1 (android14 KMI), with a recorded, intentional deviation for a
   48-bit virtual address space.
-- **Still needing candidate tests:** TEE KeyMint, Gatekeeper and attestation
-  behaviour, custom-key relock, A/B failure recovery, rollback behaviour.
+- **Unverified:** TEE KeyMint, Gatekeeper and attestation behaviour, A/B failure
+  recovery, rollback behaviour.
 
 ## Evidence states
 
 A state changes only with new evidence. An asset's state is the weakest among
-its mitigations; its status names it first, stronger items after.
+its protections; its status names it first, stronger items after, then what is
+still unverified with its owning project task.
 
-- **Assumption:** plan text; no design or device evidence.
-- **Designed:** design or configuration reviewed; not running on a device.
-- **Bring-up (not qualified):** in a private bring-up build; the security
-  property is untested and SELinux not enforcing.
-- **Observed (bring-up):** a narrow behaviour seen on a bring-up build.
-- **Recorded:** stated in a project record, not rechecked this revision.
+- **Not implemented:** not in current builds.
+- **Bring-up (not qualified):** in current development builds; the security
+  property is untested.
+- **Observed (bring-up):** a narrow behaviour seen on a development build.
 - **Observed gap:** confirmed missing or not working today.
-- **Accepted limitation:** a documented limit the project does not plan to
-  remove.
-- **Qualified:** the named validation passed on a release candidate (none yet).
+- **Recorded:** stated in a project record, not rechecked this revision.
+- **Accepted limitation:** a documented limit that stays.
+- **Qualified:** verified on a production (`user`) build; none yet.
 
 ## Threats by asset
 
 Assets are grouped by attacker position. Each lists the threat (attacker and
-entry point), intended protection, what remains, validation (owning plan task,
-or "no owning task yet") and status.
+entry point), the protections in current builds, what remains, and the status.
 
 | Group | Asset | Status (weakest first) |
 | --- | --- | --- |
-| Remote | [Service metadata and OS identity](#service-metadata-and-os-identity) | Assumption |
-| Remote | [DNS privacy](#dns-privacy) | Assumption |
-| Remote | [App data from remote exploit](#app-data-from-remote-exploit) | Assumption |
+| Remote | [Service metadata and OS identity](#service-metadata-and-os-identity) | Not implemented (DiamaneOS endpoints); Observed (static) |
+| Remote | [DNS privacy](#dns-privacy) | Not implemented |
+| Remote | [App data from remote exploit](#app-data-from-remote-exploit) | Bring-up (not qualified) |
 | Remote | [Traffic outside Android network policy](#traffic-outside-android-network-policy) | Accepted limitation |
 | Remote | [Certificate validity checks at boot](#certificate-validity-checks-at-boot) | Bring-up (not qualified) |
 | Cellular | [Call and SMS content, subscriber identity, coarse location](#call-and-sms-content-subscriber-identity-coarse-location) | Observed gap (bring-up) |
 | Cellular | [SMS, SIM applets, broadcast alerts, carrier configuration](#sms-sim-applets-broadcast-alerts-carrier-configuration) | Accepted limitation (inherited) |
-| Cellular | [Application processor and user data](#application-processor-and-user-data) | Assumption |
+| Cellular | [Application processor and user data](#application-processor-and-user-data) | Bring-up (not qualified) |
 | Cellular | [Telephony control and subscriber data](#telephony-control-and-subscriber-data) | Bring-up (not qualified) |
 | Cellular | [eSIM profiles and download sessions](#esim-profiles-and-download-sessions) | Bring-up (not qualified) |
-| Cellular | [Radio-off expectation, location privacy](#radio-off-expectation-location-privacy) | Assumption |
-| Location | [Location history](#location-history) | Assumption |
-| Apps | [App and user data](#app-and-user-data) | Assumption |
-| Apps | [Per-app destination history (dashboard)](#per-app-destination-history-dashboard) | Assumption |
+| Cellular | [Radio-off expectation, location privacy](#radio-off-expectation-location-privacy) | Bring-up (not qualified) |
+| Location | [Location history](#location-history) | Bring-up (not qualified) |
+| Apps | [App and user data](#app-and-user-data) | Bring-up (not qualified) |
 | Apps | [Kernel integrity and all data](#kernel-integrity-and-all-data) | Observed (bring-up) |
 | Apps | [Camera, microphone, sensor streams, device integrity](#camera-microphone-sensor-streams-device-integrity) | Bring-up (not qualified) |
 | Apps | [Persistent hardware identifiers](#persistent-hardware-identifiers) | Observed gap (bring-up, permissive) |
-| Apps | [Secondary-profile data](#secondary-profile-data) | Assumption |
-| Added features | [Device integrity and the data each feature handles](#device-integrity-and-the-data-each-feature-handles) | Assumption |
+| Apps | [Secondary-profile data](#secondary-profile-data) | Bring-up (not qualified) |
 | Proximity | [Device integrity, paired-device data, Bluetooth address](#device-integrity-paired-device-data-bluetooth-address) | Bring-up (not qualified) |
 | Proximity | [SIM applets, presence, NFC services](#sim-applets-presence-nfc-services) | Bring-up (not qualified) |
-| Proximity | [Wi-Fi MAC (tracking), device integrity](#wi-fi-mac-tracking-device-integrity) | Assumption |
+| Proximity | [Wi-Fi MAC (tracking), device integrity](#wi-fi-mac-tracking-device-integrity) | Bring-up (not qualified) |
 | Proximity | [Locked-device data, kernel integrity](#locked-device-data-kernel-integrity) | Observed gap |
 | AFU | [AFU user data](#afu-user-data) | Observed gap |
 | AFU | [Previous boot's kernel log and event logs](#previous-boots-kernel-log-and-event-logs) | Observed (bring-up) |
 | AFU | [AFU unlock, auth-bound keys](#afu-unlock-auth-bound-keys) | Observed gap |
-| AFU | [AFU data under coercion or seizure](#afu-data-under-coercion-or-seizure) | Assumption |
+| AFU | [AFU data under coercion or seizure](#afu-data-under-coercion-or-seizure) | Bring-up (not qualified) |
 | BFU | [BFU user data](#bfu-user-data) | Observed gap |
 | BFU | [Device-persistent data outside userdata](#device-persistent-data-outside-userdata) | Observed gap |
-| BFU | [Removable media](#removable-media) | Assumption |
+| BFU | [Removable media](#removable-media) | Not implemented |
 | Boot and firmware | [OS integrity on a released, locked build](#os-integrity-on-a-released-locked-build) | Observed gap (bring-up images) |
 | Boot and firmware | [Firmware security](#firmware-security) | Observed gap |
 | Boot and firmware | [Keys, Gatekeeper throttling, fingerprint templates](#keys-gatekeeper-throttling-fingerprint-templates) | Observed gap (builds before the 2026-09-26 build) |
 | Supply chain | [Source and build outputs](#source-and-build-outputs) | Observed gap (FP6 path) |
 | Supply chain | [Closed vendor inputs](#closed-vendor-inputs) | Observed gap |
-| Supply chain | [Release signing keys](#release-signing-keys) | Designed |
-| Supply chain | [Repositories, domain, install page](#repositories-domain-install-page) | Assumption |
+| Supply chain | [Release signing keys](#release-signing-keys) | Not implemented |
+| Supply chain | [Repositories, domain, install page](#repositories-domain-install-page) | Recorded |
 | Supply chain | [Exposure window for known bugs](#exposure-window-for-known-bugs) | Observed gap |
-| Supply chain | [Shell fork rebase lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell) | Assumption |
-| Supply chain | [Install-time trust](#install-time-trust) | Assumption |
-| Everyday use | [Correct user decisions](#correct-user-decisions) | Assumption |
+| Supply chain | [Shell fork rebase lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell) | Bring-up (not qualified) |
+| Supply chain | [Install-time trust](#install-time-trust) | Not implemented |
+| Everyday use | [Correct user decisions](#correct-user-decisions) | Not implemented |
 | Everyday use | [Typed text and personal words](#typed-text-and-personal-words) | Bring-up (not qualified) |
-| Everyday use | [Privacy indicators and disclosures under the Tally shell](#privacy-indicators-and-disclosures-under-the-tally-shell) | Assumption |
-| Everyday use | [Files archive handling (browse, extract, create)](#files-archive-handling-browse-extract-create) | Designed, fuzzed on the host |
+| Everyday use | [Privacy indicators and disclosures under the Tally shell](#privacy-indicators-and-disclosures-under-the-tally-shell) | Bring-up (not qualified) |
+| Everyday use | [Files archive handling (browse, extract, create)](#files-archive-handling-browse-extract-create) | Bring-up (not qualified) |
 
 ### Remote attackers (network and content)
 
@@ -302,16 +245,10 @@ or "no owning task yet") and status.
   phone-side eSIM (SM-DP+/SM-DS) and carrier entitlement connections.
 - **Protection:** no telemetry or GMS; since the 2026-09-26 build, the build
   properties keep Fairphone's stock product identity (brand, product, device,
-  model), as GrapheneOS keeps Google's; EU-primary DiamaneOS endpoints with
-  documented upstreams, each with a visible standard-server alternative. Network
-  location is off by default, never silently enabled by the setup wizard; opt-in
-  choices: a DiamaneOS EU relay to Apple (no cache, no per-request logs, device
-  IP hidden from Apple), Apple directly or Apple China directly. No DiamaneOS
-  geocoder: geocoding off by default, opt-in directly to OpenStreetMap's public
-  Nominatim under a DiamaneOS user agent. eSIM and carrier hosts are listed as
-  non-project endpoints (ordinary app traffic, visible to Android's network
-  controls).
+  model), as GrapheneOS keeps Google's.
 - **Remaining:**
+  - DiamaneOS endpoints are not implemented: builds use the inherited GrapheneOS
+    services ([development state](#current-development-state)).
   - Small-user-base hostnames are a fingerprint; the HTTPS time bootstrap
     resolves outside Private DNS.
   - The DNS resolver and browser send GrapheneOS probe names even with
@@ -320,70 +257,50 @@ or "no owning task yet") and status.
   - With network location on (the setup wizard's location switch turns it on),
     nearby Wi-Fi and cell identifiers go to GrapheneOS's relay for Apple's
     location service, geocoding queries to GrapheneOS's server under a
-    GrapheneOS user agent. Direct choices show Apple the device IP with the
-    Wi-Fi and cell list, OpenStreetMap the IP with the searched text or
-    coordinates.
+    GrapheneOS user agent.
   - Auditor's opt-in remote features use GrapheneOS's attestation service;
     sample submission sends the full system property list.
-  - Non-EU upstreams are disclosed per endpoint.
   - CT enforcement fails open once the CT list is over 70 days old, so mirror
     freshness is a security dependency.
   - "No telemetry" in closed vendor files rests on a static scan; runtime egress
     is unmeasured.
-- **Validation:** endpoint contracts (FP6-100); time, connectivity,
-  provisioning, CT and catalog endpoints (FP6-102 to FP6-112); network location
-  and geocoding (FP6-103); attestation (FP6-106); runtime egress capture with
-  SELinux enforcing (no owning task yet).
-- **Status:** Assumption: 13 of 16 endpoint contracts unspecified (the Info
-  release feed retired on 2026-09-26 with the Info app); eSIM and carrier egress
-  not in the contract. Designed: 3 of 16 specified, none deployed; network
-  location and geocoding choices decided, both contracts blocked. Observed
-  (static): no contacted host in the selected closed files except GNSS cloud
-  hosts removed by pinned configuration.
+- **Status:** Not implemented: DiamaneOS endpoints (FP6-100, FP6-102 to FP6-112,
+  FP6-103, FP6-106). Observed (static): no contacted host in the selected closed
+  files except GNSS cloud hosts removed by pinned configuration. Unverified:
+  runtime egress with SELinux enforcing (no owning task yet).
 
 #### DNS privacy
 
 - **Threat:** network observer or on-path resolver, via DNS queries.
-- **Protection:** visible encrypted-DNS default (DoT), no silent plaintext
-  fallback.
-- **Remaining:** the time bootstrap, apps with their own DoH/DoT and modem
-  traffic bypass it.
-- **Validation:** encrypted-DNS default and DNS filter (FP6-079).
-- **Status:** Assumption: not implemented; the inherited Android default
-  applies.
+- **Protection:** the inherited Android default only.
+- **Remaining:** no encrypted-DNS default; the time bootstrap, apps with their
+  own DoH/DoT and modem traffic bypass Private DNS.
+- **Status:** Not implemented (FP6-079); the inherited Android default applies.
 
 #### App data from remote exploit
 
 - **Threat:** remote network, media or web content, via carrier and Wi-Fi data,
-  media files and streams, browser and WebView, captive portals, web content
-  reaching the GPU shader compiler, hardware video decode (planned).
+  media files and streams, browser and WebView, captive portals, and web content
+  reaching the GPU shader compiler.
 - **Protection:** inherited sandbox, hardened_malloc, exec spawning; Vanadium
-  browser and WebView as mirrored unmodified APKs; the hardware codec service to
-  keep the stock seccomp sandbox and platform codec domain; codec device nodes
-  to be separated from camera nodes and display configuration.
+  browser and WebView as mirrored unmodified APKs.
 - **Remaining:** no MTE; closed GPU driver and shader compilers in every app
-  process; closed codec and video firmware (not integrated yet); codec seccomp
-  installation unverified and can fail open; inherited captive-portal WebView;
-  browser component updates still point upstream.
-- **Validation:** inherited hardening (FP6-046), debug exposure and component
-  removal (FP6-060, FP6-061), hardware media integration (no owning task yet),
-  DRM limits (FP6-065), browser delivery (FP6-105, FP6-111).
-- **Status:** Assumption: exec spawning, sandbox permissions, codec sandbox and
+  process; hardware video decode is not integrated; inherited captive-portal
+  WebView; browser component updates still point upstream.
+- **Status:** Bring-up (not qualified): exec spawning, sandbox permissions and
   browser delivery unvalidated on the FP6. Observed (bring-up): hardened_malloc
-  active (48-bit VA kernel).
+  active (48-bit VA kernel). Unverified: inherited hardening (FP6-046), debug
+  exposure and component removal (FP6-060, FP6-061), DRM limits (FP6-065),
+  browser delivery (FP6-105, FP6-111).
 
 #### Traffic outside Android network policy
 
 - **Threat:** carrier or network observer, via modem IMS signalling and media,
   SUPL, and control-plane and network-initiated location.
-- **Protection:** documented; carrier hosts listed as non-project endpoints; the
-  privacy dashboard and per-app routing say they do not cover it.
-- **Remaining:** invisible to the Network permission, VPN, Private DNS, DNS
-  filter and dashboard.
-- **Validation:** endpoint contracts (FP6-100), assisted GNSS (FP6-103),
-  per-carrier configuration review (FP6-090).
-- **Status:** Accepted limitation; carrier egress not yet in the endpoint
-  contract.
+- **Protection:** none; this document records the traffic.
+- **Remaining:** invisible to the Network permission, VPN and Private DNS.
+- **Status:** Accepted limitation. Unverified: per-carrier configuration review
+  (FP6-090).
 
 #### Certificate validity checks at boot
 
@@ -403,11 +320,10 @@ or "no owning task yet") and status.
   time: up to about an hour before the phone's last wake, plus the time off.
   Until network time arrives, certificates expired since then still validate,
   longer if time sources are blocked. RTC drift between saves (1 s resolution).
-- **Validation:** clock across reboot, suspend, manual and network time changes
-  and battery removal, SELinux enforcing (no owning task yet).
 - **Status:** Bring-up (not qualified): on the 2026-09-26 build the clock was
-  right after an offline reboot (owner test 2026-09-27); suspend, time changes
-  and battery removal untested.
+  right after an offline reboot (owner test 2026-09-27). Unverified: suspend,
+  manual and network time changes and battery removal, with SELinux enforcing
+  (no owning task yet).
 
 ### Cellular and baseband
 
@@ -416,22 +332,18 @@ or "no owning task yet") and status.
 - **Threat:** fake base station, IMSI catcher, downgrading or null-cipher
   network, via 2G fallback, pre-authentication identity requests and radio
   security events.
-- **Protection:** opt-in "2G network protection" and LTE-only; planned: the
-  security status view shows cellular alerts as unsupported.
+- **Protection:** opt-in "2G network protection" and LTE-only controls, which do
+  not work today (see Remaining).
 - **Remaining:** 2G stays allowed by default ([decision](#decision-record)), so
   a downgrade works unless the user opts in. The opt-in controls are visible but
-  fail open silently: the mode never reaches the modem; the planned default-mode
-  fix covers new subscriptions only, so stored settings need a reset step and a
-  regression check. No detection: null-cipher/integrity control and security
-  notifications are reported unsupported by the radio software. LTE/NR identity
-  exposure remains.
-- **Validation:** telephony bring-up (FP6-044), cellular security notifications
-  (FP6-084), security status view (FP6-073), radio-policy regression check (no
-  owning task yet).
+  fail open silently: the mode never reaches the modem. No detection:
+  null-cipher/integrity control and security notifications are reported
+  unsupported by the radio software. LTE/NR identity exposure remains.
 - **Status:** Observed gap (bring-up): controls visible and silently
-  ineffective; fix or hide them before any build leaves development. Null-cipher
-  control reported unsupported (bring-up notes; radio daemon response not
-  captured).
+  ineffective. Null-cipher control reported unsupported (bring-up notes; radio
+  daemon response not captured). Unverified: telephony bring-up (FP6-044),
+  cellular security notifications (FP6-084), a radio-policy regression check (no
+  owning task yet).
 
 #### SMS, SIM applets, broadcast alerts, carrier configuration
 
@@ -443,8 +355,8 @@ or "no owning task yet") and status.
   are acknowledged without display (3GPP rules); SMS are parsed in modem and
   framework; apps given carrier privileges by the SIM can change carrier
   configuration.
-- **Validation:** telephony bring-up (FP6-044).
-- **Status:** Accepted limitation (inherited).
+- **Status:** Accepted limitation (inherited). Unverified: telephony bring-up
+  (FP6-044).
 
 #### Application processor and user data
 
@@ -457,10 +369,9 @@ or "no owning task yet") and status.
 - **Remaining:** modem firmware unpatchable by the project and behind ASB; SoC
   isolation (SMMU, memory protection) assumed, not verified; silent modem
   restarts hide crash-and-retry attacks; modem state survives factory reset.
-- **Validation:** modem and telephony bring-up (FP6-042, FP6-044), debug
-  exposure and component removal (FP6-060, FP6-061).
-- **Status:** Assumption; bring-up runs the modem and its AP services
-  permissive, so no protection claim.
+- **Status:** Bring-up (not qualified): no protection claim. Unverified: modem
+  and telephony bring-up (FP6-042, FP6-044), debug exposure and component
+  removal (FP6-060, FP6-061).
 
 #### Telephony control and subscriber data
 
@@ -473,15 +384,12 @@ or "no owning task yet") and status.
   holds only the normal audio-settings permission (no audio-routing or capture
   permission, no network); its domain reaches only the radio daemon's call-audio
   service and the audio server.
-- **Remaining:** closed code parses untrusted input; locking presigned vendor
-  apps' update path planned, not implemented; VoLTE work is expected to add
-  closed, network-capable daemons and a presigned privileged app, so the closed
-  surface still grows; enforcing untested.
-- **Validation:** telephony bring-up (FP6-044), eSIM selection and delivery
-  (FP6-207, FP6-089), enforcing runs (no owning task yet).
+- **Remaining:** closed code parses untrusted input; the update path of
+  presigned vendor apps is not locked; enforcing untested.
 - **Status:** Bring-up (not qualified): allowlists and domains reviewed; runtime
   and enforcing unverified; call-audio bridge implemented for the 2026-09-26
-  build, untested on the phone.
+  build, untested on the phone. Unverified: telephony bring-up (FP6-044),
+  enforcing runs (no owning task yet).
 
 #### eSIM profiles and download sessions
 
@@ -490,18 +398,14 @@ or "no owning task yet") and status.
 - **Protection:** installed profiles work as SIMs without an LPA (GrapheneOS
   baseline). Since the 2026-09-27 build, the stock Qualcomm LPA stays installed
   with services off by default (stock leaves its eSIM service on), its JNI
-  library unshipped. Planned: our own source LPA (list, enable, disable, delete
-  over the platform's logical channels; download later) behind an off-by-default
-  "eSIM support" switch (owner decision 2026-09-27). OpenEUICC excluded
-  (GrapheneOS os-issue-tracker #6275 and #2631). GSMA SGP.22 mutual
-  authentication.
+  library unshipped. OpenEUICC is not included (GrapheneOS os-issue-tracker
+  #6275 and #2631). GSMA SGP.22 mutual authentication.
 - **Remaining:** the stock LPA cannot list profiles on the FP6 (the stock radio
   daemon cannot decode the modem's reply), so Android treats an eSIM as a
   physical SIM: none can be added, switched or deleted from Android, and factory
   reset and duress cannot reach the eUICC. The stock LPA's TLS trust
   configuration fails the production trust rule, relevant only if it is turned
   on again.
-- **Validation:** eSIM selection and delivery (FP6-207, FP6-089).
 - **Status:** Bring-up (not qualified): on the 2026-09-26 build the service was
   on and could not list profiles (phone test 2026-09-27); from the 2026-09-27
   build it is off again (phone check 2026-09-27: no eSIM service registered).
@@ -513,8 +417,8 @@ or "no owning task yet") and status.
 - **Protection:** airplane mode puts the modem in low-power mode.
 - **Remaining:** modem silence in airplane mode or without the radio daemon is
   unverified; a device setting keeps the SIM powered in airplane mode.
-- **Validation:** telephony bring-up (FP6-044).
-- **Status:** Assumption.
+- **Status:** Bring-up (not qualified). Unverified: telephony bring-up
+  (FP6-044).
 
 ### Location
 
@@ -524,19 +428,19 @@ or "no owning task yet") and status.
   reader, via GNSS HAL configuration, SUPL, PSDS, control-plane positioning and
   logs.
 - **Protection:** Qualcomm cloud, XTRA and crowdsourcing paths excluded by
-  pinned configuration; PSDS off until an endpoint is bound; SUPL
-  user-selectable (Off, proxy, standard); network location and geocoder off by
-  default; IMS geolocation has no network geocoder.
-- **Remaining:** SUPL defaults to the GrapheneOS proxy until the DiamaneOS SUPL
-  endpoint exists; "standard" SUPL goes straight to the carrier-configured
-  server (Google's, on the carrier tested so far); SUPL requests carry cell
-  information; control-plane positioning runs in the modem; GNSS engine state on
-  persist survives reset; location logging still verbose; the radio log records
-  the serving-cell identity on every registration poll (today about twice a
-  second on one SIM), readable over adb and in bug reports.
-- **Validation:** assisted GNSS (FP6-103), GNSS bring-up tests (FP6-045).
-- **Status:** Assumption: SUPL default undecided; no GNSS fix recorded. Bring-up
-  (not qualified): cloud paths absent and pinned.
+  pinned configuration; PSDS off; SUPL user-selectable (Off, proxy, standard);
+  network location and geocoder off by default; IMS geolocation has no network
+  geocoder.
+- **Remaining:** SUPL defaults to the GrapheneOS proxy; "standard" SUPL goes
+  straight to the carrier-configured server (Google's, on the carrier tested so
+  far); SUPL requests carry cell information; control-plane positioning runs in
+  the modem; GNSS engine state on persist survives reset; location logging still
+  verbose; the radio log records the serving-cell identity on every registration
+  poll (today about twice a second on one SIM), readable over adb and in bug
+  reports.
+- **Status:** Bring-up (not qualified): cloud paths absent and pinned; no GNSS
+  fix recorded. Unverified: assisted GNSS (FP6-103), GNSS bring-up tests
+  (FP6-045).
 
 ### Malicious and over-permissioned apps
 
@@ -545,26 +449,10 @@ or "no owning task yet") and status.
 - **Threat:** malicious or over-permissioned app, via permissions, background
   listeners, IPC/URI grants and sensors.
 - **Protection:** per-app Network and Sensors permissions, Storage and Contact
-  Scopes (inherited); install presets (Untrusted/Standard/Trusted); per-app
-  routing and filtering; privacy dashboard with CE-only bounded history.
-- **Remaining:** "Trusted" is user-chosen policy, never an audit; routing
-  attribution limits (shared UIDs, own DoH/DoT, system and modem traffic); v1
-  features not implemented.
-- **Validation:** inherited hardening (FP6-046), privacy presets (FP6-072), DNS
-  architecture and filter (FP6-078, FP6-079), per-app network controls
-  (FP6-080), privacy dashboard (FP6-081).
-- **Status:** Assumption: inherited controls in source, unvalidated on the FP6;
-  v1 features not implemented.
-
-#### Per-app destination history (dashboard)
-
-- **Threat:** AFU forensic examiner or malicious app, via dashboard storage,
-  backups and bug reports.
-- **Protection:** CE-only storage, aggregate by default, 7-day default, cleared
-  on reboot by default, no backup, not in bug reports.
-- **Remaining:** the dashboard is itself the most sensitive log on the device.
-- **Validation:** privacy dashboard (FP6-081).
-- **Status:** Assumption: plan rules only.
+  Scopes (inherited).
+- **Remaining:** no DiamaneOS-specific app controls are implemented.
+- **Status:** Bring-up (not qualified): inherited controls in the build,
+  unvalidated on the FP6. Unverified: inherited hardening (FP6-046).
 
 #### Kernel integrity and all data
 
@@ -593,22 +481,21 @@ or "no owning task yet") and status.
     capability, including the network stack module).
   - Confidentiality lockdown also disables kernel tracing and kernel-memory
     reads by BPF programs, so Android's per-app CPU time accounting (per-app CPU
-    use in Battery usage) and the memory-event OOM listener do not start. The
-    lockdown level (confidentiality or integrity) is open.
+    use in Battery usage) and the memory-event OOM listener do not start.
   - Every app reaches the kernel's userfaultfd code (ART's garbage collector
     needs it), but apps are forced into user-mode-only mode
     (`vm.unprivileged_userfaultfd=0`, `/dev/userfaultfd` root-only and
     SELinux-denied), so they cannot freeze the kernel mid-copy to widen race
     windows; bugs there remain ordinary kernel surface, fixed through 6.1 LTS
     updates.
-- **Validation:** kernel build (FP6-041), debug exposure and component removal
-  (FP6-060, FP6-061), enforcing runs (no owning task yet).
-- **Status:** Observed (bring-up): module reduction and production
-  configuration run on the phone since the 2026-09-27 build (kernel check: the
-  configuration matches policy, no shipped module depends on a removed one;
-  phone check 2026-09-27: no removed module loaded, no symbol errors,
-  configuration values as planned); debuggable builds run enforcing since the
-  2026-09-26 build; lockdown confidentiality active; tracing empty.
+- **Status:** Observed (bring-up): module reduction and production configuration
+  run on the phone since the 2026-09-27 build (kernel check: the configuration
+  matches policy, no shipped module depends on a removed one; phone check
+  2026-09-27: no removed module loaded, no symbol errors, configuration values
+  as specified); debuggable builds run enforcing since the 2026-09-26 build;
+  lockdown confidentiality active; tracing empty. Unverified: kernel build
+  (FP6-041), debug exposure and component removal (FP6-060, FP6-061), enforcing
+  runs (no owning task yet).
 
 #### Camera, microphone, sensor streams, device integrity
 
@@ -620,74 +507,51 @@ or "no owning task yet") and status.
   grants bound to each service domain; a closed HAL's internal endpoints
   reachable only from its own process (audio since the 2026-09-26 build); fewer
   service users, groups and capabilities; tight device-node permissions;
-  Qualcomm diagnostics, telemetry and factory services excluded; layers replaced
-  by source builds over time.
+  Qualcomm diagnostics, telemetry and factory services excluded.
 - **Remaining:** large closed parsers (camera about 185 MB) without MTE and
   mostly without seccomp; closed performance and thermal daemons as root;
   Android 14 ABI vendor code on Android 17; per-file purpose partly generic;
   closed code updated only through Fairphone stock releases.
-- **Validation:** debug exposure and component removal (FP6-060, FP6-061),
-  closure gate (FP6-208), camera (FP6-045, FP6-203), audio (FP6-044, FP6-205),
-  hardware media integration and enforcing runs (no owning task yet).
-- **Status:** Bring-up (not qualified): selection reviewed per subsystem,
-  running permissive; enforcing untested.
+- **Status:** Bring-up (not qualified): selection reviewed per subsystem;
+  enforcing per subsystem untested. Unverified: debug exposure and component
+  removal (FP6-060, FP6-061), closure gate (FP6-208), camera (FP6-045, FP6-203),
+  audio (FP6-044, FP6-205), enforcing runs (no owning task yet).
 
 #### Persistent hardware identifiers
 
 - **Threat:** any app, via system properties, persist files, sysfs and logs.
 - **Protection:** vendor-internal property types with no read grant; narrowed
-  sysfs labels; random Bluetooth address per install (intended); Wi-Fi MAC
-  randomization; traceability services excluded; boot parameters handed to user
-  space logged by name only (since the 2026-09-27 build; on the phone the Wi-Fi
-  MAC appeared in no log, pstore or DropBox entry); enforcing
-  SELinux.
-- **Remaining:** readable on any permissive build; the Bluetooth address path in
-  use is unrecorded (the HAL tries a factory address first) and the address
-  appears in logs and bug reports; the stock camera HAL logs camera module
-  serial numbers at every start; the SoC serial (sysfs `soc0/serial_number`) is
-  readable by 16 system and vendor domains through platform sysfs read grants
-  and imported Qualcomm rules (no app domain; the 2026-09-26 build's policy
-  gives the camera HAL and nicmd only the public SoC id); the factory Wi-Fi MAC
-  in persist is not read under enforcing, so the driver falls back to the chip's
-  own MAC or one derived from its serial; Wi-Fi MAC randomization unverified; a
-  flash dump reveals persist data.
-- **Validation:** enforcing runs and an identifier probe test (no owning task
-  yet), Wi-Fi and Bluetooth bring-up (FP6-043).
+  sysfs labels; Wi-Fi MAC randomization; traceability services excluded; boot
+  parameters handed to user space logged by name only (since the 2026-09-27
+  build; on the phone the Wi-Fi MAC appeared in no log, pstore or DropBox
+  entry); enforcing SELinux.
+- **Remaining:** readable on any permissive build; a random per-install
+  Bluetooth address is unverified: the address path in use is unrecorded (the
+  HAL tries a factory address first) and the address appears in logs and bug
+  reports; the stock camera HAL logs camera module serial numbers at every
+  start; the SoC serial (sysfs `soc0/serial_number`) is readable by 16 system
+  and vendor domains through platform sysfs read grants and imported Qualcomm
+  rules (no app domain; the 2026-09-26 build's policy gives the camera HAL and
+  nicmd only the public SoC id); the factory Wi-Fi MAC in persist is not read
+  under enforcing, so the driver falls back to the chip's own MAC or one derived
+  from its serial; Wi-Fi MAC randomization unverified; a flash dump reveals
+  persist data.
 - **Status:** Observed gap (bring-up, permissive): some hardware serials exposed
-  as system properties; enforcing denial not yet shown.
+  as system properties; enforcing denial not yet shown. Unverified: enforcing
+  runs and an identifier probe test (no owning task yet), Wi-Fi and Bluetooth
+  bring-up (FP6-043).
 
 #### Secondary-profile data
 
 - **Threat:** another user or profile, via user switch, stopped and running
   profiles, unified vs separate challenge.
-- **Protection:** the same credential policy on every independent challenge
-  through a real service boundary; CE/DE separation; session end is not
-  deletion.
-- **Remaining:** unified-challenge profiles follow platform semantics, no
-  invented independent key; a stopped session holds data until deleted.
-- **Validation:** encryption and hardening validation (FP6-046),
+- **Protection:** CE/DE separation (inherited).
+- **Remaining:** no credential policy is enforced across independent challenges;
+  unified-challenge profiles follow platform semantics, no invented independent
+  key; a stopped session holds data until deleted (session end is not deletion).
+- **Status:** Bring-up (not qualified): inherited behaviour, unvalidated.
+  Unverified: encryption and hardening validation (FP6-046). Not implemented:
   credential-policy enforcement (FP6-071).
-- **Status:** Assumption.
-
-### DiamaneOS-added features
-
-#### Device integrity and the data each feature handles
-
-- **Threat:** remote content, malicious list or network source, nearby BLE
-  device or malicious update file, via the DNS filter (network bytes, downloaded
-  lists), share-time metadata stripping (image parsers), tracker alerts (BLE
-  payloads), offline SD OTA (file input), per-app routing and battery controls
-  (privileged hooks).
-- **Protection:** unprivileged, isolated, resource-bounded parsing workers;
-  scoped URI grants; signed simple list formats; offline OTA uses the online
-  update signature checks; least-privilege hooks; optional features off by
-  default where the plan says so.
-- **Remaining:** each feature adds code and privilege; platform image APIs can
-  invoke native parsers; none is implemented yet.
-- **Validation:** DNS filter (FP6-078, FP6-079), per-app controls (FP6-080),
-  dashboard (FP6-081), tracker alerts (FP6-083), offline SD OTA (FP6-086),
-  metadata stripping (FP6-087), battery (FP6-074, FP6-075).
-- **Status:** Assumption.
 
 ### Proximity attackers
 
@@ -696,16 +560,14 @@ or "no owning task yet") and status.
 - **Threat:** BR/EDR or LE attacker, or tracker, via closed controller firmware,
   the closed stock Bluetooth HCI HAL and the GrapheneOS host stack.
 - **Protection:** GrapheneOS host stack; Bluetooth off by default; consent-gated
-  profiles; SIM access profile off; random per-install address (intended);
-  closed HAL confined (no network, persist write or diag); unknown-tracker
-  alerts (v1).
+  profiles; SIM access profile off; closed HAL confined (no network, persist
+  write or diag).
 - **Remaining:** controller firmware and HAL unpatchable by the project; no MTE;
-  live address path unverified and the address appears in logs; classic address
-  stable per install; tracker alerts not built.
-- **Validation:** Bluetooth and audio bring-up (FP6-043, FP6-044), debug
-  exposure and component removal (FP6-060, FP6-061).
+  a random per-install address is unverified (live address path unknown) and the
+  address appears in logs; classic address stable per install.
 - **Status:** Bring-up (not qualified): pairing and audio work; security
-  properties and enforcing untested.
+  properties and enforcing untested. Unverified: Bluetooth and audio bring-up
+  (FP6-043, FP6-044), debug exposure and component removal (FP6-060, FP6-061).
 
 #### SIM applets, presence, NFC services
 
@@ -714,45 +576,42 @@ or "no owning task yet") and status.
   controller-to-SIM routing.
 - **Protection:** default route pinned to the host (no SIM routing unless an app
   registers it); no UICC or embedded secure element features declared;
-  controller firmware file under verified boot once locked.
-- **Remaining:** NFC on by default (decision pending); registered SIM routes
-  reachable while locked or off; secure-NFC support unverified; closed
-  controller firmware, which the HAL can also update.
-- **Validation:** NFC bring-up tests (FP6-045), eSIM/SIM (FP6-089).
+  controller firmware file is an exact, hash-pinned stock file.
+- **Remaining:** NFC on by default; registered SIM routes reachable while locked
+  or off; secure-NFC support unverified; closed controller firmware, which the
+  HAL can also update.
 - **Status:** Bring-up (not qualified): reader works; routing tests not run.
+  Unverified: NFC bring-up tests (FP6-045), eSIM/SIM (FP6-089).
 
 #### Wi-Fi MAC (tracking), device integrity
 
 - **Threat:** passive Wi-Fi observer, malicious access point or LAN peer, via
   probe requests, association, Wi-Fi driver and firmware, and wake-on-LAN.
 - **Protection:** station-only features exposed to Android (no hotspot, since
-  hostapd is not shipped until station mode is validated; no Wi-Fi Direct or
-  Aware); source-built Wi-Fi HAL and driver; MAC randomization.
+  hostapd is not shipped; no Wi-Fi Direct or Aware); source-built Wi-Fi HAL and
+  driver; MAC randomization.
 - **Remaining:** MAC randomization unverified on this HAL and firmware; closed
   Wi-Fi firmware on the over-the-air path; a LAN peer can wake the device with a
   magic packet; on Wi-Fi networks used for Android Auto the device sends a DHCP
   hostname derived from the device name (inherited default).
-- **Validation:** connectivity bring-up (FP6-043).
-- **Status:** Assumption: unverified.
+- **Status:** Bring-up (not qualified): unverified. Unverified: connectivity
+  bring-up (FP6-043).
 
 #### Locked-device data, kernel integrity
 
 - **Threat:** malicious USB device or host, forensic tool or malicious charger,
   via USB-C data lines (host and gadget roles), USB descriptors, USB PD and
   charger firmware.
-- **Protection (intended):** GrapheneOS USB-C port control (charging-only when
-  locked, deny new USB devices); standard gadget functions only; debug USB
-  functions removed from user builds; reduced USB driver set.
-- **Remaining:** port control not wired up on the FP6; the deny-new-USB hook is
-  in the merged kernel source, but whether the built kernel exposes it is
-  unchecked; no evidence of a hardware USB data-line cutoff; broad USB host
-  drivers loaded; the USB descriptor carries the device serial; closed charger
-  firmware.
-- **Validation:** debug exposure audit (FP6-060), USB modes (FP6-045), hardware
-  USB data disable (no owning task yet).
+- **Protection:** not implemented: GrapheneOS USB-C port control is not wired up
+  on the FP6.
+- **Remaining:** the deny-new-USB hook is in the merged kernel source, but
+  whether the built kernel exposes it is unchecked; no evidence of a hardware
+  USB data-line cutoff; debug USB functions present; broad USB host drivers
+  loaded; the USB descriptor carries the device serial; closed charger firmware.
 - **Status:** Observed gap: port control absent. Bring-up (not qualified):
-  userspace gadget configuration reviewed; debug USB functions still to be
-  removed from user builds.
+  userspace gadget configuration reviewed. Unverified: debug exposure audit
+  (FP6-060), USB modes (FP6-045), hardware USB data disable (no owning task
+  yet).
 
 ### Physical access to a powered-on, locked device (AFU)
 
@@ -760,17 +619,15 @@ or "no owning task yet") and status.
 
 - **Threat:** forensic tools, via USB, the lock screen, and firmware download
   and dump modes.
-- **Protection:** inactivity auto-reboot (inherited); USB port control; the OS
-  refuses firmware-download and dump reboots; panic RAM dumps off.
-- **Remaining:** port control not wired up; download-reboot refusal not
-  implemented; the kernel keeps a minidump on panic, retrieval path unverified;
-  the early-boot setting that also turns dump mode off needs a policy grant
-  before enforcing; EDL stays reachable with physical access and a signed
+- **Protection:** inactivity auto-reboot (inherited); panic RAM dumps off.
+- **Remaining:** no USB-C port control; the OS does not refuse firmware-download
+  or dump reboots; the kernel keeps a minidump on panic, retrieval path
+  unverified; the early-boot setting that also turns dump mode off needs a
+  policy grant; EDL stays reachable with physical access and a signed
   programmer; no forensic-proof claim.
-- **Validation:** debug exposure audit (FP6-060), credential policy (FP6-071),
-  scheduled reboot (FP6-085).
 - **Status:** Observed gap: port control absent; download-reboot refusal not
   implemented. Observed (bring-up): panic dump mode off by kernel default.
+  Unverified: debug exposure audit (FP6-060).
 
 #### Previous boot's kernel log and event logs
 
@@ -785,58 +642,52 @@ or "no owning task yet") and status.
   event-log device, so only DAC-override holders could write it (debuggable
   builds keep it writable).
 - **Remaining:** the next boot copies the kernel part to device-encrypted
-  storage, readable by the system before first unlock (moving it to
-  credential-encrypted storage at first unlock and clearing the RAM copy is
-  open); the RAM copy stays until overwritten; Qualcomm's minidump driver
-  registers the log areas, so a collected minidump carries them. Reboots and
-  kernel crashes reset cold, powering RAM off, so in practice nothing survives;
-  a one-off warm reboot on the 2026-09-27 build kept both logs (the bootloader
-  does not clear RAM); cold reboots stay the default (owner decision
-  2026-09-27). Every domain holds the platform's write grant on the event-log
-  device, so its file mode is the only control.
-- **Validation:** debug exposure audit (FP6-060).
+  storage, readable by the system before first unlock; the RAM copy stays until
+  overwritten; Qualcomm's minidump driver registers the log areas, so a
+  collected minidump carries them. Reboots and kernel crashes reset cold,
+  powering RAM off, so in practice nothing survives; a one-off warm reboot on
+  the 2026-09-27 build kept both logs (the bootloader does not clear RAM); cold
+  reboots stay the default (owner decision 2026-09-27). Every domain holds the
+  platform's write grant on the event-log device, so its file mode is the only
+  control.
 - **Status:** Observed (bring-up): the region, with GrapheneOS's Pixel layout,
   registered on every boot of the 2026-09-27 build; the release-build rule is
   built but untested (that build is debuggable, so the rule is inactive); no
-  earlier build registered the region. Kernel check (2026-09-27): placed at boot without a fixed address; the
-  saved console keeps only notice-level and more severe messages (the console
-  log level), not the full log. Observed on the 2026-09-27 build: same address
-  every boot; pstore empty after a normal reboot; after a warm reboot both logs
-  present, readable by the shell user by exact name (directory listing denied),
-  the system's copy only after first unlock; the boot-parameter value in none of
-  them.
+  earlier build registered the region. Kernel check (2026-09-27): placed at boot
+  without a fixed address; the saved console keeps only notice-level and more
+  severe messages (the console log level), not the full log. Observed on the
+  2026-09-27 build: same address every boot; pstore empty after a normal reboot;
+  after a warm reboot both logs present, readable by the shell user by exact
+  name (directory listing denied), the system's copy only after first unlock;
+  the boot-parameter value in none of them. Unverified: debug exposure audit
+  (FP6-060).
 
 #### AFU unlock, auth-bound keys
 
 - **Threat:** lifted or spoofed fingerprint, via the side fingerprint sensor.
 - **Protection:** strong authentication after reboot and timeouts; lockout in
   the trusted app; the vendor debug service never registered (kept inside the
-  HAL process) and unreachable by policy; biometric class never claimed above
-  what testing shows.
+  HAL process) and unreachable by policy.
 - **Remaining:** the DiamaneOS fingerprint HAL declares Class 3 (strong) before
-  any spoof testing: a declaration, not a measurement. A release must measure
-  spoof resistance or declare a lower class; until spoof testing passes, the
-  fingerprint is not treated as strong authentication.
-- **Validation:** fingerprint bring-up (FP6-045), credential validation
-  (FP6-046), spoof testing (no owning task yet).
+  any spoof testing: a declaration, not a measurement; until spoof testing
+  passes, the fingerprint is not treated as strong authentication.
 - **Status:** Observed gap: class declared, not measured. Bring-up (not
   qualified): unlock works; the first enforcing boot showed the module needs its
   debug service registered, which the HAL now answers in-process (in the source;
-  not yet in a tested build).
+  not yet in a tested build). Unverified: fingerprint bring-up (FP6-045),
+  credential validation (FP6-046), spoof testing (no owning task yet).
 
 #### AFU data under coercion or seizure
 
 - **Threat:** coercer, or seizure then extraction, via the lock screen and
   buttons.
-- **Protection:** duress credential and wipe (inherited), panic reboot to BFU,
-  scheduled reboot.
+- **Protection:** duress credential and wipe (inherited).
 - **Remaining:** duress key destruction relies on TEE key deletion and flash
   erase, not a secure element; eSIM erase depends on the LPA; eSIM profiles may
   survive.
-- **Validation:** duress test with synthetic data (FP6-046), eSIM erase
-  (FP6-089), panic-to-BFU (FP6-082), scheduled reboot (FP6-085).
-- **Status:** Assumption: inherited code present, untested on the FP6; panic and
-  scheduled reboot not implemented.
+- **Status:** Bring-up (not qualified): inherited code present, untested on the
+  FP6. Unverified: duress test with synthetic data (FP6-046), eSIM erase
+  (FP6-089).
 
 ### Physical access to a powered-off device (BFU) and data outside userdata
 
@@ -844,39 +695,34 @@ or "no owning task yet") and status.
 
 - **Threat:** opportunistic access or flash readout (EDL, chip-off), via flash
   contents and the TEE.
-- **Protection:** FBE with metadata encryption and hardware-wrapped keys;
-  mandatory 6 to 8 word CSPRNG passphrase for the owner and every independent
-  user or profile; no weak-credential path; TEE Gatekeeper backoff (expected).
-- **Remaining:** no StrongBox or Weaver, so throttling rests on the TEE, a
-  larger surface with a public history of key-extraction attacks; backoff timing
-  and survival across reboot and image restore unverified; passphrase policy not
-  implemented. The passphrase replaces no secure element and fixes no TEE,
-  firmware, AFU or credential-capture weakness.
-- **Validation:** encryption and hardening validation (FP6-046), passphrase
-  onboarding (FP6-070), credential policy (FP6-071).
-- **Status:** Observed gap: passphrase not implemented (the development device
-  uses a PIN); throttling unverified. Observed (bring-up): FBE v2 with wrapped
-  keys and metadata encryption running.
+- **Protection:** FBE with metadata encryption and hardware-wrapped keys; TEE
+  Gatekeeper backoff (expected).
+- **Remaining:** no passphrase policy (the development device uses a PIN); no
+  StrongBox or Weaver, so throttling rests on the TEE, a larger surface with a
+  public history of key-extraction attacks; backoff timing and survival across
+  reboot and image restore unverified.
+- **Status:** Observed gap: passphrase policy not implemented (FP6-070,
+  FP6-071); throttling unverified. Observed (bring-up): FBE (policy version 2)
+  with wrapped keys and metadata encryption running. Unverified: encryption and
+  hardening validation (FP6-046).
 
 #### Device-persistent data outside userdata
 
 - **Threat:** physical attacker with flash access, or an app on a permissive
   build, via the persist partition, modem file systems, eUICC and hypervisor VM
   storage.
-- **Protection:** SELinux labels; unsafe stock permissions closed; reset residue
-  documented.
+- **Protection:** SELinux labels; unsafe stock permissions closed.
 - **Remaining:** factory reset clears none of these; hardware identifiers and
   calibration readable from a flash dump; modem and GNSS state persists.
-- **Validation:** debug exposure audit (FP6-060), eSIM erase (FP6-089).
-- **Status:** Observed gap: residue inventory not written; some stock
-  permissions still to be tightened.
+- **Status:** Observed gap: no reset-residue inventory; some stock permissions
+  still to be tightened. Unverified: debug exposure audit (FP6-060), eSIM erase
+  (FP6-089).
 
 #### Removable media
 
 - **Threat:** anyone who takes the microSD card or USB storage.
-- **Protection:** encrypted microSD (v1). **Remaining:** not encrypted today.
-- **Validation:** encrypted microSD design and workflow (FP6-076, FP6-077).
-- **Status:** Assumption.
+- **Protection:** none; removable media are not encrypted.
+- **Status:** Not implemented (FP6-076, FP6-077).
 
 ### Boot chain, firmware and trusted execution
 
@@ -884,26 +730,19 @@ or "no owning task yet") and status.
 
 - **Threat:** write access to partitions, via the boot chain, OTA, recovery,
   sideload and the inactive A/B slot.
-- **Protection:** locked bootloader on a custom AVB root, vbmeta flags 0;
-  SHA-256 hashtrees; rollback indexes set only by signed releases; signed full
-  and incremental OTAs from one pipeline; recovery accepts release keys only;
-  relock locks both lock states. Public test builds are signed with the public
-  AOSP/AVB test keys, carry test-keys in the fingerprint and a never-lock
-  record, and `flash-steps` prints the never-lock rule first.
-- **Remaining:** yellow boot (never green); downgrade-brick risk; Fairphone
-  unlock service dependency; firmware not in OTAs; refusal of slot changes while
-  locked untested. A test-key build must stay unlocked, since anyone can sign
-  images with the public test keys. The `flash-steps` wipe writes Fairphone's
-  factory FRP image (clearing factory reset protection and keeping OEM unlocking
-  allowed) and zeros misc, as Fairphone's own factory flash does; `flash-steps`
-  prints commands only for an image set whose verify report matches it and
-  passed.
-- **Validation:** custom-key relock (FP6-050), OTA install and
-  interrupted-update tests, signing verifier (FP6-035).
+- **Protection:** public test builds are signed with the public AOSP/AVB test
+  keys, carry test-keys in the fingerprint and a never-lock record, and
+  `flash-steps` prints the never-lock rule first and prints commands only for an
+  image set whose verify report matches it and passed.
+- **Remaining:** no locked configuration exists: development images run
+  unlocked. A test-key build must stay unlocked, since anyone can sign images
+  with the public test keys. The `flash-steps` wipe writes Fairphone's factory
+  FRP image (clearing factory reset protection and keeping OEM unlocking
+  allowed) and zeros misc, as Fairphone's own factory flash does. Installing and
+  recovering depend on Fairphone's unlock service.
 - **Status:** Observed gap (bring-up images): SHA-1 hashtrees, release-style
-  rollback indexes and a public test key contradict three listed mitigations.
-  Assumption: locked behaviour untested. Observed (bring-up): AVB chain built
-  and parsed.
+  rollback indexes and a public test key. Observed (bring-up): AVB chain built
+  and parsed. Unverified: signing verifier (FP6-035).
 
 #### Firmware security
 
@@ -912,19 +751,15 @@ or "no owning task yet") and status.
   files in `/vendor/firmware`.
 - **Protection:** per-image firmware inventory with hashes
   ([`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json));
-  firmware in OTAs from verified Fairphone releases (designed in
-  [FIRMWARE.md](FIRMWARE.md), not implemented); separate dated patch levels for
-  platform, kernel, vendor and firmware; controller firmware files are exact,
-  hash-pinned stock files under verified boot once locked.
-- **Remaining:** the project cannot build or sign firmware; no update path yet;
-  firmware lags ASB; Gunyah and its trusted VMs are closed. As on stock, the NFC
-  HAL may update its controller from its firmware file. Since the 2026-09-27
-  build, the touch driver writes its file to the touch controller whenever
-  versions differ or the controller's version is unreadable, checking only the
-  header, so verified boot is what keeps that file authentic.
-- **Validation:** firmware review and update path (FP6-206), stock input
-  verification (FP6-040).
+  controller firmware files are exact, hash-pinned stock files.
+- **Remaining:** the project cannot build or sign firmware; no firmware update
+  path; firmware lags ASB; Gunyah and its trusted VMs are closed. As on stock,
+  the NFC HAL may update its controller from its firmware file. Since the
+  2026-09-27 build, the touch driver writes its file to the touch controller
+  whenever versions differ or the controller's version is unreadable, checking
+  only the header, so verified boot is what keeps that file authentic.
 - **Status:** Observed gap: firmware stays at the last flashed stock release.
+  Unverified: firmware review (FP6-206), stock input verification (FP6-040).
 
 #### Keys, Gatekeeper throttling, fingerprint templates
 
@@ -937,12 +772,11 @@ or "no owning task yet") and status.
 - **Remaining:** closed TEE with a public history of key-extraction bugs; no
   StrongBox or Weaver; KeyMint key deletion on wipe (rollback resistance) set
   since the 2026-09-26 build, unverified.
-- **Validation:** TEE and credential validation (FP6-046, FP6-050), attestation
-  limits (FP6-065, FP6-106), security status reporting (FP6-073).
 - **Status:** Observed gap (builds before the 2026-09-26 build): an unused
   userspace TEE proxy ran; removed in the source, not yet in a tested build.
   Bring-up (not qualified): services run; enforcing and throttling persistence
-  unverified.
+  unverified. Unverified: TEE and credential validation (FP6-046, FP6-050),
+  attestation limits (FP6-065, FP6-106).
 
 ### Supply chain, signing and development process
 
@@ -966,7 +800,7 @@ or "no owning task yet") and status.
   - Image tools built from the pinned source with their hashes recorded; one
     build/make fork, whose single change keeps the device's boot header fields
     when images are rebuilt, pinned like the other forks; every build recorded
-    in `build.json`; two independent builds with final-content comparison.
+    in `build.json`.
 - **Remaining:**
   - Qualcomm/CodeLinaro and Fairphone sources and toolchains carry no upstream
     signatures; common inputs are common-mode.
@@ -982,14 +816,14 @@ or "no owning task yet") and status.
     steps); the kernel workspace link adaptation is not among the recorded
     recipe digests; a modified tools checkout is recorded as not reproducible.
   - The tools checkout is only as trustworthy as the maintainer keys used to
-    check it, which are not published yet.
-- **Validation:** reproducible environment, dual build, release comparison.
+    check it, which are not published.
 - **Status:** Observed gap (FP6 path): every FP6 build so far compiled with
-  network available, on one host, with private scripts. Designed and
-  unit-tested, not yet run on a build: the public build commands with
-  network-off compilation, the full preflight and bound generated inputs (an
-  open project review item). Recorded (generic target): a network-denied build
-  path.
+  network available, on one host, with private scripts; no second independent
+  build. Bring-up (not qualified): the public build commands with network-off
+  compilation, the full preflight and bound generated inputs are implemented and
+  unit-tested, not yet run on a build (an open project review item). Recorded
+  (generic target): a network-denied build path. Unverified: reproducible
+  environment.
 
 #### Closed vendor inputs
 
@@ -998,29 +832,24 @@ or "no owning task yet") and status.
 - **Protection:** exact archive hash pinned everywhere; the public build
   downloads it only over HTTPS from Fairphone's official host and uses it only
   if size and SHA-256 match; per-file hash, component and purpose; fail-closed
-  extraction; every name-loaded library declared (required; no build check yet).
+  extraction.
 - **Remaining:** the archive and its published hash come from the same vendor
   web estate, and a new package can be selected before Fairphone publishes its
-  hash (FP6.QREL.16.111.0 was); no vendor signature check yet; per-file purpose
-  partly generic; name-loaded libraries declared for few files (a missing one
-  broke a bring-up boot).
-- **Validation:** stock input verification (FP6-040), firmware review (FP6-206),
-  closure gate (FP6-208).
+  hash (FP6.QREL.16.111.0 was); no vendor signature check; per-file purpose
+  partly generic; name-loaded libraries declared for few files, with no build
+  check (a missing one broke a bring-up boot).
 - **Status:** Observed gap: per-file necessity and name-loaded dependencies
   incomplete. Bring-up (not qualified): extraction fail-closed and hash-bound.
+  Unverified: stock input verification (FP6-040), firmware review (FP6-206),
+  closure gate (FP6-208).
 
 #### Release signing keys
 
 - **Threat:** key theft or misuse, or a targeted signed build, via the signer
   host, hardware tokens, signing media and maintainers.
-- **Protection:** offline signer, token roles, 3-of-5 recovery, public release
-  log before distribution.
-- **Remaining:** single signing authority; the AVB root cannot be revoked
-  without unlock and wipe; log inclusion does not mean benign; no signing role
-  for kernel modules yet.
-- **Validation:** signing qualification (FP6-035, FP6-036).
-- **Status:** Designed: generic dummy-key qualification only; no FP6 signing
-  profile yet.
+- **Protection:** none for the FP6: development images use public test keys; the
+  signing tooling is qualified only with generic dummy keys.
+- **Status:** Not implemented for the FP6 (FP6-035, FP6-036).
 
 #### Repositories, domain, install page
 
@@ -1029,68 +858,58 @@ or "no owning task yet") and status.
   keys.
 - **Protection:** hardware MFA; separate signing and authentication keys;
   protected branches; human review of security-relevant changes; least-privilege
-  assistant access; no untrusted code on release hosts.
+  assistant access.
 - **Remaining:** one-person review capacity.
-- **Validation:** account and workstation hardening, branch protection.
-- **Status:** Assumption: not yet qualified.
+- **Status:** Recorded. Unverified: account and workstation hardening, branch
+  protection.
 
 #### Exposure window for known bugs
 
 - **Threat:** n-day exploitation of platform, kernel, vendor code, firmware or
   browser.
-- **Protection:** monthly releases within 7 days of GrapheneOS; urgent fixes
-  within 48 hours; per-layer patch levels shown.
+- **Protection:** none; nothing is released.
 - **Remaining:** vendor and firmware fixes depend on Fairphone and Qualcomm and
   lag; open-source libraries bundled in closed vendor files miss platform fixes.
-- **Validation:** update cadence, patch dashboard.
 - **Status:** Observed gap: bring-up platform and vendor patch levels lag
-  available upstream releases; no automated upstream intake yet.
+  available upstream releases; no automated upstream intake.
 
 #### Shell fork rebase lag: timely GrapheneOS security fixes under the Tally shell
 
 - **Threat:** n-day exploitation of a fix not yet shipped or lost while
-  rebasing, via DiamaneOS's Tally changes to frameworks/base (SystemUI first; WM
-  Shell, SettingsLib and core resources later) carried onto each GrapheneOS
-  release.
+  rebasing, via DiamaneOS's Tally changes to frameworks/base (SystemUI, WM
+  Shell, SettingsLib and core resources) carried onto each GrapheneOS release.
 - **Protection:** per-area commit series, mostly new files wired in through
   SystemUI's dependency injection, so upstream files change little; Tally code
   behind one build-time flag (fixed read-only, on in DiamaneOS's release
-  config), so an area can be dropped or the flag turned off to ship a GrapheneOS
-  security release on time; the planned release gate requires the shipped fork
-  revision to contain the adopted GrapheneOS release's frameworks/base revision.
+  config), so an area can be dropped or the flag turned off to take a GrapheneOS
+  security release without delay.
 - **Remaining:** the flag helps only while Tally code still builds on the new
   release, and switches a resource off only where the resource names it
-  (SystemUI, WM Shell (step 5) and the shared clock library read it). If a later
+  (SystemUI, WM Shell and the shared clock library read it). If a later
   GrapheneOS release moves WM Shell's activity transitions to its new transition
   planner, Tally's page motion falls back to stock until hooked there. Keyguard,
   privacy-indicator and biometric conflicts need careful manual merges;
-  frameworks/base is not in the tools' fork tracker yet; one-person review
-  capacity. The bouncer reads Tally token resources when built, so broken tokens
-  would break PIN and password entry: every build is tested by unlocking with a
-  PIN and a password, flag on. The foundation's colour fixes (SystemUI's
-  "already applied" check, the Sodium fallback) also apply with the flag off;
-  they change colours only, so the flag-off build is GrapheneOS's in behaviour,
-  not byte for byte.
-- **Validation:** rebase and build of each GrapheneOS release with the flag on
-  and off (FP6-211); update cadence, patch dashboard.
-- **Status:** Assumption: the flag and its release-config value are on local
-  branches, not built.
+  frameworks/base is not in the tools' fork tracker; one-person review capacity.
+  The bouncer reads Tally token resources when built, so broken tokens would
+  break PIN and password entry: every build is tested by unlocking with a PIN
+  and a password, flag on. The foundation's colour fixes (SystemUI's "already
+  applied" check, the Sodium fallback) also apply with the flag off; they change
+  colours only, so the flag-off build is GrapheneOS's in behaviour, not byte for
+  byte.
+- **Status:** Bring-up (not qualified): the Tally code and its flag run in the
+  2026-09-29 and 2026-09-30 Tally test builds. Unverified: rebase and build of
+  each GrapheneOS release with the flag on and off (FP6-211).
 
 #### Install-time trust
 
-- **Threat:** impersonating site or mirror, or malicious installer, via browser
-  download, WebUSB and CLI installers and the first AVB key enrolment.
-- **Protection:** out-of-band key fingerprint in 3 independent places, compared
-  with the bootloader-displayed fingerprint before lock; the
-  `get_unlock_ability=1` gate refuses on 0; downloads verified before flash;
-  relock never enrols a public test key.
-- **Remaining:** first install has no prior key; a page-controlled checkbox is
-  not evidence; a compromised origin can substitute installer and key; stock
-  restore inputs are authenticated by the vendor's published hash, not a
-  signature.
-- **Validation:** recovery preflight, unlock and stock restoration, CLI and
-  WebUSB installers, independent verification guidance.
-- **Status:** Assumption.
+- **Threat:** impersonating site or mirror, or a tampered image set, via image
+  downloads and the flashing commands.
+- **Protection:** `flash-steps` prints commands only for an image set whose
+  verify report matches it and passed, and prints the never-lock rule first for
+  test-key builds ([OS integrity](#os-integrity-on-a-released-locked-build)).
+- **Remaining:** no installer and no key enrolment exist; stock restore inputs
+  are authenticated by the vendor's published hash, not a signature.
+- **Status:** Not implemented: installers and key enrolment.
 
 ### Everyday use
 
@@ -1098,16 +917,8 @@ or "no owning task yet") and status.
 
 - **Threat:** user error, confusing warnings or inaccessible flows, in setup,
   permissions, updates, backup and restore, and recovery.
-- **Protection:** plain outcomes, progressive disclosure, scoped grants,
-  explicit destructive confirmations; a first-boot assistive path before setup
-  needs it; fluent review of critical wording or a disclosed source-language
-  fallback; honest "unsupported" states instead of hidden gaps; a shown control
-  must work.
-- **Remaining:** bootloader and firmware screens may stay inaccessible; English
-  fallback alone is not usability proof.
-- **Validation:** interface design, localization and accessibility, passphrase
-  onboarding, accessible journey validation.
-- **Status:** Assumption.
+- **Protection:** inherited GrapheneOS flows only.
+- **Status:** Not implemented: no DiamaneOS-specific measures.
 
 #### Typed text and personal words
 
@@ -1119,23 +930,22 @@ or "no owning task yet") and status.
   only in credential-encrypted storage, loaded after unlock; old
   device-encrypted copies deleted at the first locked boot after the update
   (LOCKED_BOOT_COMPLETED), or at first dictionary setup or first unlock if those
-  come first (an update never sends MY_PACKAGE_REPLACED); backups off; no-learning and password
-  fields never learned from or shown learned words; no typed or personal data in
-  logs; unused network, account and sync permissions and dormant entry points
-  removed; no network permission (already true).
+  come first (an update never sends MY_PACKAGE_REPLACED); backups off;
+  no-learning and password fields never learned from or shown learned words; no
+  typed or personal data in logs; unused network, account and sync permissions
+  and dormant entry points removed; no network permission (already true).
 - **Remaining:** the recent-emoji list stays readable before first unlock.
   Builds without the fork (the inherited keyboard) keep these words in storage
   available before first unlock, allow them in backups and ignore the
   no-learning flag.
-- **Validation:** keyboard fork tests and phone checks before merge (no owning
-  task yet).
-- **Status:** Bring-up (not qualified): the keyboard fork is in the manifest
-  and the test builds. On two 2026-09-30 test builds old copies stayed on the
-  update's first boot until the keyboard started or the owner unlocked (-150);
-  a later one deletes them at the locked boot, verified on the FP6 (planted word
+- **Status:** Bring-up (not qualified): the keyboard fork is in the manifest and
+  the test builds. On two 2026-09-30 test builds old copies stayed on the
+  update's first boot until the keyboard started or the owner unlocked (-150); a
+  later one deletes them at the locked boot, verified on the FP6 (planted word
   lists gone before the first unlock). The rest of the phone check was
   inconclusive (learned words are off by default, password fields never
-  compose).
+  compose). Unverified: keyboard fork tests and phone checks (no owning task
+  yet).
 
 #### Privacy indicators and disclosures under the Tally shell
 
@@ -1146,7 +956,7 @@ VPN, and what a locked phone shows.
 - **Threat:** an app using a sensor or capturing the screen while the user reads
   its interface or while fullscreen; an app asking for a biometric or
   credential; someone looking at a locked phone. Surfaces, all restyled by the
-  Tally shell (plan FP6-211): status bar privacy chip and lamps, capture chips,
+  Tally shell (FP6-211): status bar privacy chip and lamps, capture chips,
   fullscreen dots, lens ring, lock strip, indication line, Quick Settings'
   security footer, notification rows, toasts, biometric prompt.
 - **Protection:**
@@ -1236,13 +1046,12 @@ VPN, and what a locked phone shows.
   white edge; the status bar and capture chips sit in the status bar window,
   under the shade, lock screen and SystemUI dialogs, while the dot, lens ring
   and lamp stay above everything.
-- **Validation:** shell security review at roadmap steps 3.1 and 3.3 (FP6-211);
-  prototype privacy checks at 100, 150 and 200 % text; phone test of every
-  listed state before merge.
-- **Status:** Assumption: step 3.1's SystemUI indicators and step 3.3's lock
-  screen are on the local tally-status and tally-lock branches, compiled only
-  against stubs of the pinned signatures with resources linked by aapt2; not
-  built, not run on the phone.
+- **Status:** Bring-up (not qualified): the SystemUI indicators and lock screen
+  run in the 2026-09-29 and 2026-09-30 Tally test builds, after security reviews
+  and prototype privacy checks at 100, 150 and 200 % text; phone tests of those
+  builds found and fixed findings listed in the
+  [history](THREAT_MODEL-HISTORY.md). Unverified: a phone test of every listed
+  state (FP6-211).
 
 #### Files archive handling (browse, extract, create)
 
@@ -1262,13 +1071,11 @@ VPN, and what a locked phone shows.
   NullPointerException); browsing parses archives with or without zip_ng; a
   large honest archive that fits the free space still takes time to extract
   (cancellable); no recursive extraction.
-- **Validation:** host review and fuzzing, 2026-09-30 (20 million path inputs,
-  about 154 million mutated archives: no crash, hang or escape); phone
-  extraction and picker tests with the next build.
-- **Status:** Designed and fuzzed on the host with the pinned library; zip_ng on
-  in vendor_diamaneos local `tally` (merge 770d976 of `files-flags`), in two
-  2026-09-30 test builds. Files trash stays off until its wording (-140) and
-  phone tests.
+- **Status:** Bring-up (not qualified): host review and fuzzing with the pinned
+  library, 2026-09-30 (20 million path inputs, about 154 million mutated
+  archives: no crash, hang or escape); zip_ng on in vendor_diamaneos local
+  `tally` (merge 770d976 of `files-flags`), in two 2026-09-30 test builds. Files
+  trash is off (-140). Unverified: phone extraction and picker tests.
 
 ## FP6 source and firmware boundary
 
@@ -1283,14 +1090,15 @@ VPN, and what a locked phone shows.
   firmware. The bring-up selection holds 720 closed stock files (about 369 MB):
   camera 213, radio and IMS 150, sensors 84, display and GPU 82, audio 41,
   credentials 36, power and thermal 29, remote-processor services 28, plus
-  smaller Bluetooth, NFC, GNSS and fingerprint sets. Each closed layer is to be
-  replaced by a source build where one exists.
+  smaller Bluetooth, NFC, GNSS and fingerprint sets.
 - **Stock input:** `FP6.QREL.16.111.0` for the EU (`FP6.QREL.16.100.0` until
   2026-09-30); its verified factory package is the authoritative extraction
   input. Vendor generation uses an explicit per-file recipe (partition, path,
   hash, component, purpose); purposes are partly generic and consumer bindings
   partial. The generator excludes per-device identity, modem NV/EFS,
   calibration, provisioning, DRM, attestation, keystore and userdata material.
+  `FP6.QREL.16.104.0` (US region) is a comparison and validation input, not an
+  EU restore input; US-region devices are unverified.
 - **Removals and replacements:** a removal must remove the complete reachable
   service and declaration path and pass subsystem tests; an open-source
   replacement needs exact licence compliance and must preserve security and
@@ -1298,18 +1106,12 @@ VPN, and what a locked phone shows.
   hardware-backed code).
 - **Firmware:** hashed per image in
   [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json),
-  not yet delivered by DiamaneOS.
+  not delivered by DiamaneOS.
 - **Licences and records:** imported or modified open-source code stays
   fail-closed on per-file licence, notice, attribution and corresponding-source
   obligations. Exact source revisions, interfaces and experiments are in
   [`config/fp6-sources.json`](../config/fp6-sources.json) and
   [`config/fp6-capabilities.json`](../config/fp6-capabilities.json).
-- **Regions:** the intended US path needs a real US-region FP6 run by a second
-  maintainer (availability not evidenced); `FP6.QREL.16.104.0` is a comparison
-  and validation input, not an EU restore input. A shared release needs the
-  EU/US partition, AVB, firmware, VINTF, init/policy and carrier-configuration
-  delta recorded and the US device passing candidate hardware and telephony
-  tests; until then EU is the supported target and US unverified.
 - **Vendor compatibility:** the stock vendor declares VINTF target level 8 with
   vendor API 34; bring-up builds combine it with the Android 17 framework.
   Product assembly must pass `checkvintf` and applicable VTS checks without
@@ -1321,13 +1123,11 @@ VPN, and what a locked phone shows.
   update, backup, network and content-processing authorities stay separate.
 - Each nontrivial Settings, launcher or SystemUI change needs demonstrated
   benefit, an owner, measured rebase cost and regression checks.
-- The owner approved a substantial shell rework on 2026-09-26 (lock screen,
-  shade and Quick Settings, Home, Recents and app transitions, through
-  Launcher3, SystemUI and WM Shell). Framework authorities are not replaced; no
-  shared visual controller gains platform authority.
+- Framework authorities are not replaced; no shared visual controller gains
+  platform authority.
 
-Every Tally shell commit (roadmap step 3, FP6-211) also keeps the indicator and
-disclosure rules under [Privacy
+Every Tally shell commit (FP6-211) also keeps the indicator and disclosure rules
+under [Privacy
 indicators](#privacy-indicators-and-disclosures-under-the-tally-shell), the
 rebase rule under [Shell fork rebase
 lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell),
@@ -1339,25 +1139,14 @@ learned from findings.
 
 ## Decision record
 
-- **Scope:** daily use by privacy- and security-focused users; v1 scope as
-  decided on 2026-09-26 (ten original entries after public v1).
-- **Passphrase:** passphrase-first is mandatory now; PIN-optional only via a
-  later explicit decision.
-- **Claims:** no scores or unsupported parity claims; keep upstream attribution
-  and a clear, separate project identity.
+Decisions that define current behaviour:
+
 - **2G (2026-09-25):** 2G stays allowed by default (AOSP/GrapheneOS default);
   "2G network protection" and LTE-only are offered as opt-in hardening.
-- **Cellular alerts (2026-09-25):** the plan's v1 item allows an honest
-  "unsupported" state, which is the outcome on the current radio software; the
-  limitation is recorded as known.
-- **eSIM:** 2026-09-25: a maintained hardware-layer LPA with least privilege and
-  hardening; OpenEUICC not used; candidate: the Qualcomm LPA. 2026-09-26:
-  reasons in GrapheneOS os-issue-tracker #6275 and #2631; from the 2026-09-26
-  build, the LPA's eSIM service is on by default. 2026-09-27: it cannot list
-  profiles on the FP6, so its service is off again from the 2026-09-27 build
-  (stock leaves it on); eSIM follows GrapheneOS (installed profiles keep
-  working); our own source LPA behind an off-by-default "eSIM support" switch is
-  planned for its own build.
+- **eSIM (2026-09-27):** OpenEUICC is not used (GrapheneOS os-issue-tracker
+  #6275 and #2631). The stock LPA cannot list profiles on the FP6, so its
+  service is off from the 2026-09-27 build (stock leaves it on); eSIM follows
+  GrapheneOS (installed profiles keep working).
 - **Build identity (2026-09-26):** build properties and fingerprint keep
   Fairphone's stock product identity, as GrapheneOS keeps Google's, after Google
   blocked the DiamaneOS-branded identity as an uncertified device; DiamaneOS
@@ -1370,93 +1159,44 @@ learned from findings.
   turned off over adb; the camera HAL's display-configuration hint stays denied.
 - **userfaultfd and KPROBES:** 2026-09-26: the production kernel keeps
   CONFIG_USERFAULTFD for ART's garbage collector, as GKI, Pixel and GrapheneOS
-  do, with the user-mode-only restriction, and turns KPROBES off (back only if
-  something needs it). 2026-09-27: something does: the USB controller glue
-  implements its controller hooks with kretprobes, so KPROBES stays on until
-  those hooks are explicit calls; lockdown blocks probes from user space; the
-  owner accepted this.
+  do, with the user-mode-only restriction. 2026-09-27: KPROBES stays on, since
+  the USB controller glue implements its controller hooks with kretprobes;
+  lockdown blocks probes from user space; the owner accepted this.
 - **debugfs (2026-09-27):** stays as in the 2026-09-26 build, built in and
   mountable: user builds never mount it, debuggable builds until boot completes,
   SELinux governs access. In this kernel, turning mounts off also removes the
-  in-kernel interface the display driver and recovery need; a kernel change
-  keeping the interface but refusing mounts is the stricter, open option.
+  in-kernel interface the display driver and recovery need.
 - **pstore/ramoops (2026-09-27):** on for bring-up builds with GrapheneOS's
   Pixel layout; reboots stay cold (the kernel default). A warm reboot would keep
   the saved logs but also all of RAM; not switching, since few kernel changes
   are still expected. Details under [Previous boot's kernel log and event
   logs](#previous-boots-kernel-log-and-event-logs).
-- **VoLTE:** 2026-09-25: required, with the closed Qualcomm IMS stack under an
-  explicit permission allowlist. 2026-09-26: the IMS data connection is to be
-  brought up by DiamaneOS's own code (a small modem-facing service and a
-  one-permission app) instead of Qualcomm's connectivity engine; closed code
-  there is a fallback only. Replacing the IMS stack itself with source is plan
-  direction, not a dated decision.
-- **Call audio (2026-09-26):** the call-audio messenger keeps the one
-  audio-routing permission it needs; replacing it with our own app is open. Then
-  (also 2026-09-26): replaced, from the 2026-09-26 build, by DiamaneOS's own
-  call-audio bridge with only the normal audio-settings permission; the
-  audio-routing grant is gone.
-
-Requirements added by the 2026-09-25 review (not separate decisions): a cellular
-hardening control is offered only once verified to reach the modem, and a shown
-one must not fail silently; the candidate LPA must meet the production TLS trust
-rule before it ships.
+- **IMS:** 2026-09-25: the closed Qualcomm IMS stack runs under an explicit
+  permission allowlist. 2026-09-26: the IMS data connection is brought up by
+  DiamaneOS's own code (a small modem-facing service and a one-permission app)
+  instead of Qualcomm's connectivity engine.
+- **Call audio (2026-09-26):** since the 2026-09-26 build, DiamaneOS's own
+  call-audio bridge, with only the normal audio-settings permission, replaces
+  the call-audio messenger; the audio-routing grant is gone.
 
 ## Architecture and verification review
 
-Intended protections; device-dependent claims stay unverified until their named
-validation produces evidence. Paths reviewed: remote (network observer, DNS and
-captive portal, EU endpoint policy, in no build yet); remote media (remote
-media, hardware codec service, video device nodes); malicious app (permission
-and background listener, presets plus per-app routing and filtering; camera
-permission, camera service and closed camera provider, with grants bound to its
-domain, reduced groups and no network once SELinux is enforcing; flashlight
-controls reach the closed provider without the camera permission, with simple
-on/off and strength values only, as AOSP designs it); cellular (fake base
-station, 2G fallback, the user's hardening choice, the modem; on a bring-up
-build the choice did not reach the modem and the interface did not show the
-failure); cross-profile and physical (secondary user or profile, user-switch
-challenge, real service-boundary enforcement (FP6-046, FP6-071); AFU and BFU,
-USB, EDL and lock screen, reboot to BFU and duress).
-
-## Next validation
-
-1. Enforcing SELinux runs per subsystem (camera, audio, telephony, sensors,
-   Bluetooth, NFC, GNSS, fingerprint, media), denials recorded by domain.
-2. User-build gate: `user` variant, not debuggable, ADB authenticated and off,
-   no pre-trusted ADB keys, no ADB over the network, enforcing, no debug USB
-   functions, trace sinks or debug modules, release keys only, no inherited
-   GrapheneOS endpoint defaults, no test apps.
-3. Cellular: the selected network mode reaches the modem on every subscription,
-   including stored settings, and a failure is surfaced; null-cipher support
-   state from the radio daemon; airplane-mode modem state.
-4. USB port-control matrix: locked and unlocked, host and gadget roles, charging
-   kept; the built kernel exposes deny-new-USB.
-5. Firmware-download and dump reboots refused on a user build; a forced panic
-   gives no download device; minidump retention checked.
-6. Relock with a project dummy key (both lock states), rollback-index policy,
-   SHA-256 hashtrees, inactive-slot downgrade check.
-7. Gatekeeper backoff and its persistence across reboot and image restore;
-   KeyMint key deletion; duress on synthetic data; eSIM erase.
-8. NFC routing, Bluetooth address path, Wi-Fi MAC randomization, a GNSS fix with
-   SUPL settings, runtime egress capture with SELinux enforcing.
-9. Firmware inventory with per-partition hashes and an update path; stock AVB
-   key verification.
-10. FP6 signing profile and presigned-app inventory; second independent FP6
-    build; the public build commands on a real host: network-denied FP6
-    compilation, the bound generated inputs passing the full preflight, and the
-    image checks on a real image set.
-11. TEE KeyMint, attestation and reported security levels on the EU candidate;
-    fingerprint spoof testing and the declared biometric class; regional matrix
-    on an actual US candidate before claiming US support.
-12. Hardware media: codec seccomp installs (no fail-open), codec nodes separate
-    from camera nodes, no display-configuration access.
-13. Kernel: modules reduced to product use; lockdown kept in user builds.
-14. Name-loaded library check for every selected closed file; specific per-file
-    purposes.
+Paths reviewed: remote (network observer, DNS and captive portal); remote media
+(remote media, video device nodes); malicious app (permission and background
+listener; camera permission, camera service and closed camera provider, with
+grants bound to its domain, reduced groups and no network under enforcing
+SELinux; flashlight controls reach the closed provider without the camera
+permission, with simple on/off and strength values only, as AOSP designs it);
+cellular (fake base station, 2G fallback, the user's hardening choice, the
+modem; on a bring-up build the choice did not reach the modem and the interface
+did not show the failure); cross-profile and physical (secondary user or
+profile, user-switch challenge (FP6-046, FP6-071); AFU and BFU, USB, EDL and
+lock screen, duress). Device-dependent claims stay unverified until checked.
 
 ## How this document is maintained
 
+- This document shows only the current state. Every feature that is built
+  updates it in the same change.
 - Every security or privacy finding updates this document and the private
   findings register together with the work that found it (different
   repositories, so not one commit).
@@ -1508,7 +1248,6 @@ USB, EDL and lock screen, reboot to BFU and duress).
 - **userdebug / user:** debuggable / production build.
 - **n-day:** an attack on a publicly fixed bug.
 - **Tally:** DiamaneOS's interface; the **Tally flag** turns its code on at
-  build time; **roadmap steps** (3.1, 7 and so on) are stages of plan task
-  FP6-211.
+  build time.
 - **Bring-up:** early work to make the hardware function; bring-up and test
   builds are private development images, named here by date.
