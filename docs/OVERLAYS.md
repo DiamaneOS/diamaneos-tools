@@ -10,16 +10,16 @@ a private cache outside this repository. It reads sources only (no build,
 install, signing or push) and uses the network only in fetch mode; tests are in
 [TESTING.md](TESTING.md#other-checks).
 
-It implements rules 1 to 5 of the agreed overlay spec (the "All Tally overlays"
-section of the private fork review; Tally is the DiamaneOS interface): every
-overlaid name exists in the target (1); a product overlay covers every target
-qualifier (2); product overlays stay within an allowlist of types and reviewed
-names (3) and off a denylist (4); no brand overlay defines what an FP6 overlay
-defines (5, the `overlap` error). Rule 6, idmap2 against built targets, stays a
-phone and builder check. Product (Tally) overlays fail on rules 1 to 5 without
-`--strict`, which also fails warnings (mostly the FP6 hardware overlays' own
-qualifier gaps). A pass means names, qualifiers, allowlist and overlayable
-policies agree with the sources, nothing more.
+It implements rules 1 to 5 of the DiamaneOS overlay rules (Tally is the
+DiamaneOS interface): every overlaid name exists in the target (1); a product
+overlay covers every target qualifier (2); product overlays stay within an
+allowlist of types and reviewed names (3) and off a denylist (4); no brand
+overlay defines what an FP6 overlay defines (5, the `overlap` error). Rule 6,
+idmap2 against built targets, stays a check on the phone and the build host.
+Product (Tally) overlays fail on rules 1 to 5 without `--strict`, which also
+fails warnings (mostly the FP6 hardware overlays' own qualifier gaps). A pass
+means names, qualifiers, allowlist and overlayable policies agree with the
+sources, nothing more.
 
 ```sh
 # Against the pinned release, fetching target sources into a private cache:

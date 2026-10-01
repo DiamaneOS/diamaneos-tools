@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (current state only: version names, product-boundary text, step labels, unbuilt features, release gates and the next-validation list removed); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -69,7 +69,7 @@ personal accounts and sensitive data stay off them.
   debuggable builds boot enforcing with a per-domain policy from the denials
   captured on the last permissive build (narrow rules only, generic proc and
   sysfs nodes relabelled before any write grant, no dontaudit rules, nothing new
-  for apps or shell); the 2026-09-26 build passed the owner's feature tests
+  for apps or shell); the 2026-09-26 build passed the phone feature tests
   enforcing, and every build since runs enforcing. Enforcing runs per subsystem
   are unverified (no owning task yet).
 - **Bootloader and keys:** unlocked, public AOSP test keys; no OEM unlocking
@@ -321,7 +321,7 @@ entry point), the protections in current builds, what remains, and the status.
   Until network time arrives, certificates expired since then still validate,
   longer if time sources are blocked. RTC drift between saves (1 s resolution).
 - **Status:** Bring-up (not qualified): on the 2026-09-26 build the clock was
-  right after an offline reboot (owner test 2026-09-27). Unverified: suspend,
+  right after an offline reboot (phone test 2026-09-27). Unverified: suspend,
   manual and network time changes and battery removal, with SELinux enforcing
   (no owning task yet).
 
@@ -471,9 +471,9 @@ entry point), the protections in current builds, what remains, and the status.
 - **Remaining:**
   - No MTE; large vendor driver surface; hardening hand-merged into a vendor
     kernel with an intentional KMI deviation.
-  - debugfs built in and mountable as in the 2026-09-26 build; KPROBES on,
-    owner-accepted, as the USB controller glue's hooks use kretprobes (both
-    under [Decision record](#decision-record)).
+  - debugfs built in and mountable as in the 2026-09-26 build; KPROBES on, as
+    the USB controller glue's hooks use kretprobes (both under [Decision
+    record](#decision-record)).
   - USB host-class, debug and trace drivers still load.
   - TIPC re-enabled (GrapheneOS disables it) for Qualcomm's mobile-data stack,
     as a module without network bearers or crypto; under enforcing SELinux no
@@ -648,10 +648,9 @@ entry point), the protections in current builds, what remains, and the status.
   overwritten; Qualcomm's minidump driver registers the log areas, so a
   collected minidump carries them. Reboots and kernel crashes reset cold,
   powering RAM off, so in practice nothing survives; a one-off warm reboot on
-  the 2026-09-27 build kept both logs (the bootloader does not clear RAM); cold
-  reboots stay the default (owner decision 2026-09-27). Every domain holds the
-  platform's write grant on the event-log device, so its file mode is the only
-  control.
+  the 2026-09-27 build kept both logs (the bootloader does not clear RAM);
+  reboots stay cold. Every domain holds the platform's write grant on the
+  event-log device, so its file mode is the only control.
 - **Status:** Observed (bring-up): the region, with GrapheneOS's Pixel layout,
   registered on every boot of the 2026-09-27 build; the release-build rule is
   built but untested (that build is debuggable, so the rule is inactive); no
@@ -676,8 +675,9 @@ entry point), the protections in current builds, what remains, and the status.
 - **Status:** Observed gap: class declared, not measured. Bring-up (not
   qualified): unlock works; the first enforcing boot showed the module needs its
   debug service registered, which the HAL answers in-process since the
-  2026-09-26 build (enrolment and unlock work, owner test 2026-09-27). Unverified: fingerprint bring-up (FP6-045),
-  credential validation (FP6-046), spoof testing (no owning task yet).
+  2026-09-26 build (enrolment and unlock work, phone test 2026-09-27).
+  Unverified: fingerprint bring-up (FP6-045), credential validation (FP6-046),
+  spoof testing (no owning task yet).
 
 #### AFU data under coercion or seizure
 
@@ -789,8 +789,9 @@ entry point), the protections in current builds, what remains, and the status.
   tools built from source.
 - **Protection:**
   - Signed GrapheneOS tags checked before sync; immutable commit pins; signed
-    downstream commits verified before build (in the private builds); a full
-    source preflight before and after every Android build.
+    downstream commits (verified before build by the earlier build scripts, not
+    yet by the public build commands); a full source preflight before and after
+    every Android build.
   - Generated vendor and kernel trees are installed only when the recipe digests
     their generations recorded (vendor provenance; the kernel run's preparation,
     packaging recipe and policy reports) equal the checkout's recipes, and the
@@ -819,12 +820,11 @@ entry point), the protections in current builds, what remains, and the status.
   - The tools checkout is only as trustworthy as the maintainer keys used to
     check it, which are not published.
 - **Status:** Observed gap (FP6 path): every FP6 build so far compiled with
-  network available, on one host, with private scripts; no second independent
-  build. Bring-up (not qualified): the public build commands with network-off
-  compilation, the full preflight and bound generated inputs are implemented and
-  unit-tested, not yet run on a build (an open project review item). Recorded
-  (generic target): a network-denied build path. Unverified: reproducible
-  environment.
+  network available, on one host, with the earlier build scripts; no second
+  independent build. Bring-up (not qualified): the public build commands with
+  network-off compilation, the full preflight and bound generated inputs are
+  implemented and unit-tested, not yet run on a build. Recorded (generic
+  target): a network-denied build path. Unverified: reproducible environment.
 
 #### Closed vendor inputs
 
@@ -941,10 +941,10 @@ entry point), the protections in current builds, what remains, and the status.
   no-learning flag.
 - **Status:** Bring-up (not qualified): the keyboard fork is in the manifest and
   the test builds. On two 2026-09-30 test builds old copies stayed on the
-  update's first boot until the keyboard started or the owner unlocked (-150); a
-  later one deletes them at the locked boot, verified on the FP6 (planted word
-  lists gone before the first unlock). The rest of the phone check was
-  inconclusive (learned words are off by default, password fields never
+  update's first boot until the keyboard started or the phone was unlocked
+  (-150); a later one deletes them at the locked boot, verified on the FP6
+  (planted word lists gone before the first unlock). The rest of the phone check
+  was inconclusive (learned words are off by default, password fields never
   compose). Unverified: keyboard fork tests and phone checks (no owning task
   yet).
 
@@ -1082,9 +1082,9 @@ VPN, and what a locked phone shows.
   (cancellable); no recursive extraction.
 - **Status:** Bring-up (not qualified): host review and fuzzing with the pinned
   library, 2026-09-30 (20 million path inputs, about 154 million mutated
-  archives: no crash, hang or escape); zip_ng on in vendor_diamaneos local
-  `tally` (merge 770d976 of `files-flags`), in two 2026-09-30 test builds. Files
-  trash is off (-140). Unverified: phone extraction and picker tests.
+  archives: no crash, hang or escape); zip_ng on in vendor_diamaneos android17
+  (770d976), in two 2026-09-30 test builds. Files trash is off (-140).
+  Unverified: phone extraction and picker tests.
 
 ## FP6 source and firmware boundary
 
@@ -1176,16 +1176,15 @@ Decisions that define current behaviour:
   CONFIG_USERFAULTFD for ART's garbage collector, as GKI, Pixel and GrapheneOS
   do, with the user-mode-only restriction. 2026-09-27: KPROBES stays on, since
   the USB controller glue implements its controller hooks with kretprobes;
-  lockdown blocks probes from user space; the owner accepted this.
+  lockdown blocks probes from user space.
 - **debugfs (2026-09-27):** stays as in the 2026-09-26 build, built in and
   mountable: user builds never mount it, debuggable builds until boot completes,
   SELinux governs access. In this kernel, turning mounts off also removes the
   in-kernel interface the display driver and recovery need.
 - **pstore/ramoops (2026-09-27):** on for bring-up builds with GrapheneOS's
   Pixel layout; reboots stay cold (the kernel default). A warm reboot would keep
-  the saved logs but also all of RAM; not switching, since few kernel changes
-  are still expected. Details under [Previous boot's kernel log and event
-  logs](#previous-boots-kernel-log-and-event-logs).
+  the saved logs but also all of RAM. Details under [Previous boot's kernel log
+  and event logs](#previous-boots-kernel-log-and-event-logs).
 - **IMS:** 2026-09-25: the closed Qualcomm IMS stack runs under an explicit
   permission allowlist. 2026-09-26: the IMS data connection is brought up by
   DiamaneOS's own code (a small modem-facing service and a one-permission app)
@@ -1220,9 +1219,6 @@ lock screen, duress). Device-dependent claims stay unverified until checked.
   integration notes) in the same commit, and
   [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md) when a Tally shell rule
   changes.
-- Register IDs have the form `TM-YYYYMMDD-NN`, with evidence, severity for a
-  released build, status, next step, a public-safety marking and the public
-  wording it maps to.
 - A finding is described here once fixed, or once safe to state without giving
   an attacker a working path; until then the affected asset names the gap in
   general terms.

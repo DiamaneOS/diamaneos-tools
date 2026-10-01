@@ -142,8 +142,8 @@ class PlanTests(unittest.TestCase):
     def test_build_number_override_is_validated(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertEqual('test.0123456789ab', steps.build_number('0123456789abcdef', config))
-        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.20261003.10'}):
-            self.assertEqual('lane.20261003.10', steps.build_number('0' * 64, config))
+        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'test.20261003.10'}):
+            self.assertEqual('test.20261003.10', steps.build_number('0' * 64, config))
         with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'a b'}):
             with self.assertRaises(bw.UsageError):
                 steps.build_number('0' * 64, config)
@@ -182,13 +182,13 @@ class PlanTests(unittest.TestCase):
     def test_a_prerequisite_keeps_the_options_it_was_built_with(self):
         ctx = self.context()
         ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
-            'variant': 'userdebug', 'network_isolation': False, 'build_number': 'lane.7'}})
+            'variant': 'userdebug', 'network_isolation': False, 'build_number': 'test.7'}})
         recorded = steps.recorded_context(ctx, 'android')
-        self.assertEqual(('userdebug', True, 'lane.7'),
+        self.assertEqual(('userdebug', True, 'test.7'),
                          (recorded.variant, recorded.allow_network, recorded.build_number))
         named = steps.recorded_context(self.context(variant='user'), 'android')
         self.assertEqual(('user', True), (named.variant, named.allow_network))
-        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.8'}):
+        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'test.8'}):
             self.assertIsNone(steps.recorded_context(ctx, 'android').build_number)
 
     def test_android_uses_a_given_build_number(self):
@@ -198,8 +198,8 @@ class PlanTests(unittest.TestCase):
                                              'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'android_identity', return_value='a' * 64), \
                 patch.object(steps, 'newest_commit_time', return_value='1'):
-            plan = steps.plan_android(replace(ctx, build_number='lane.7'))
-        self.assertEqual('lane.7', plan.inputs['build_number'])
+            plan = steps.plan_android(replace(ctx, build_number='test.7'))
+        self.assertEqual('test.7', plan.inputs['build_number'])
 
     def test_objects_from_needs_an_index_of_existing_bundles(self):
         directory = self.root / 'objects'
@@ -290,7 +290,7 @@ class RunnerTests(unittest.TestCase):
                                build_number=number)
             return plan
         with patch.dict(steps.PLANS, dict({n: self.fake(n) for n in bw.STEPS}, android=android)):
-            with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.7'}):
+            with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'test.7'}):
                 steps.run_steps(replace(self.ctx, variant='userdebug', allow_network=True), bw.STEPS)
             self.calls.clear()
             steps.run_steps(self.ctx, ('verify',), force=('verify',))

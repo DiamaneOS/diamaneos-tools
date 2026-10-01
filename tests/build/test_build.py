@@ -68,7 +68,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual("INPUTS_IDENTIFIED", report["status"])
         self.assertEqual("required-for-full-preflight",
                          report["required_runtime_inputs"]["source_checkout"])
-        self.assertNotIn("/var/lib/diamaneos-build", result.stdout)
+        self.assertNotIn("/var/lib/", result.stdout)
 
     def test_moving_manifest_revision_is_rejected(self):
         xml = b"""<manifest><remote name='aosp' fetch='https://example.invalid'/>

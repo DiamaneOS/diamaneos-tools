@@ -86,17 +86,17 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "92fccb8e42acc2564c8c209e1024e191aa249dc26be6a116e92cc030868d3610"
+      "sha256": "6e8213b943303170de6b5907cfa48f654616deaa9aadb5886925f55b726634c7"
     },
     {
       "id": "stock-input-inventory",
       "repository_path": "config/stock-inputs.json",
-      "sha256": "d159285f1d4ddb628d68cd1836b1d70a7e9bb82d34634ab4920e8f658f8b5835"
+      "sha256": "dc33bc41d6f0e53fa48d84e20bdef33fdcfe04aae54e78df90405ad47a0250a9"
     },
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "66bfcb3784b1ec440eb6a12843bd29f0ffa2eb53501941c657151c7ff4632674"
+      "sha256": "cc5a733d427e790e7fbb3976935e0f5736541d8478bb0a4804f4595d708bd261"
     },
     {
       "id": "fp6-selected-native-files",

@@ -1,57 +1,43 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26, with the owner's network location and geocoder choices recorded the same day. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
+  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26, with the network location and geocoder choices recorded the same day. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
   "canonical_domain": "diamaneos.de",
   "providers": [
     {
       "layer": "registrar",
-      "candidate": "INWX",
+      "candidate": "Registrar in Germany",
       "jurisdiction": "DE",
       "status": "existing",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
-      "evidence_urls": [
-        "https://www.inwx.de/en/"
-      ]
+      "evidence_urls": []
     },
     {
       "layer": "authoritative-dns",
-      "candidate": "INWX DNS",
+      "candidate": "The registrar's authoritative DNS, with DNSSEC and global Anycast",
       "jurisdiction": "DE",
       "status": "existing",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
-      "evidence_urls": [
-        "https://kb.inwx.com/en-us/3-nameserver/104-can-i-use-dnssec",
-        "https://www.inwx.de/de/hosting/anycast-dns"
-      ]
+      "evidence_urls": []
     },
     {
       "layer": "vps-primary",
-      "candidate": "Hetzner Cloud, Germany",
+      "candidate": "VPS provider in Germany",
       "jurisdiction": "DE",
       "status": "selected-candidate",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
-      "evidence_urls": [
-        "https://www.hetzner.com/cloud/cost-optimized/",
-        "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
-        "https://www.hetzner.com/legal/terms-and-conditions/",
-        "https://docs.hetzner.com/general/security-and-identify/two-factor-authentication/"
-      ]
+      "evidence_urls": []
     },
     {
       "layer": "artifact-mirror-non-eu",
-      "candidate": "1984 Hosting, Iceland",
+      "candidate": "VPS provider in Iceland, independent of the primary",
       "jurisdiction": "IS",
       "status": "selected-candidate",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
-      "evidence_urls": [
-        "https://management.1984.hosting/product/pricelist/",
-        "https://1984.hosting/tos/",
-        "https://management.1984.hosting/knowledge-base/dashboard/"
-      ]
+      "evidence_urls": []
     },
     {
       "layer": "git-primary",
@@ -89,14 +75,12 @@
     },
     {
       "layer": "email",
-      "candidate": "mailbox.org",
+      "candidate": "Mailbox provider in Germany",
       "jurisdiction": "DE",
       "status": "existing",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
-      "evidence_urls": [
-        "https://mailbox.org/en/"
-      ]
+      "evidence_urls": []
     },
     {
       "layer": "monitoring",
@@ -129,17 +113,17 @@
     }
   ],
   "topology": {
-    "eu_primary": "Project HTTP/TCP delivery uses the selected German primary with TLS on own servers and no CDN. INWX authoritative DNS is separately administered and uses global Anycast; the chosen recursive DNS default and upstream acquisition jurisdictions are disclosed separately.",
-    "non_eu_mirror": "Independent 1984 Iceland candidate serves identical verified release objects, proof bundles and recovery/site copy. Separate provider account and SSH identities; no private signing keys. Canonical selector publication and mirror freshness are checked separately; a first installer still needs an independently obtained verification root.",
+    "eu_primary": "Project HTTP/TCP delivery uses the primary in Germany with TLS on own servers and no CDN. Authoritative DNS is separately administered and uses global Anycast; the chosen recursive DNS default and upstream acquisition jurisdictions are disclosed separately.",
+    "non_eu_mirror": "The independent mirror in Iceland serves identical verified release objects, proof bundles and recovery/site copy. Separate provider account and SSH identities; no private signing keys. Canonical selector publication and mirror freshness are checked separately; a first installer still needs an independently obtained verification root.",
     "community_separation": "Community/federation hosts and credentials are separate from release/update infrastructure . A community-host compromise cannot administer release infrastructure: distinct hosts, distinct credentials, no shared admin path, no release secrets on community hosts.",
-    "management_path": "Owner workstation -> distinct host-scoped SSH identities over protected management VPN; provider console is an independent recovery path. Community accounts, federation login, git tokens and serving processes cannot use either path. infrastructure staging proves denied access and recovery; no addresses or secret values in public configuration."
+    "management_path": "Operator workstation -> distinct host-scoped SSH identities over protected management VPN; provider console is an independent recovery path. Community accounts, federation login, git tokens and serving processes cannot use either path. infrastructure staging proves denied access and recovery; no addresses or secret values in public configuration."
   },
   "client_defaults": [
     {
       "name": "private-dns",
       "default": "Quad9 Private DNS/DoT: dns.quad9.net",
       "jurisdiction": "non-eu-direct-exception",
-      "disclosure": "Swiss operator; the device connects directly to its chosen resolver. INWX authoritative DNS is a separate layer. dns0.eu is not selected: availability was not established during this review. Publish active resolver and supported alternatives; do not silently fall back to plaintext.",
+      "disclosure": "Swiss operator; the device connects directly to its chosen resolver. The project's authoritative DNS is a separate layer. dns0.eu is not selected: availability was not established during this review. Publish active resolver and supported alternatives; do not silently fall back to plaintext.",
       "owner_task": "FP6-079"
     },
     {
@@ -151,16 +135,16 @@
     },
     {
       "name": "network-location",
-      "default": "Off. Opt-in choices: the DiamaneOS EU relay to Apple's location service (location.diamaneos.de), Apple's service directly (gs-loc.apple.com) or Apple's China service directly (gs-loc-cn.apple.com). Owner decision 2026-09-26, the same choices as GrapheneOS with its proxy replaced by the DiamaneOS relay.",
+      "default": "Off. Opt-in choices: the DiamaneOS EU relay to Apple's location service (location.diamaneos.de), Apple's service directly (gs-loc.apple.com) or Apple's China service directly (gs-loc-cn.apple.com): the same choices as GrapheneOS, with its proxy replaced by the DiamaneOS relay.",
       "jurisdiction": "non-eu-direct-exception",
-      "disclosure": "Apple is a US operator; the China choice goes to Apple's separate service for China (gs-loc-cn.apple.com), whose operator and data location were not checked. Every choice sends nearby Wi-Fi access points and cells, which reveal approximate location, to Apple. The EU relay keeps no cache and no per-request logs and hides the device IP from Apple; the direct choices also give Apple the device IP. The setup wizard's location switch must not turn any of them on silently. The network position seeds the GNSS engine: in an indoor owner test on the FP6 (2026-09-26), GPS alone gave no fix within several minutes; with Apple directly the first network fix arrived about 35 s after the app's request and GPS locked about 1 s later.",
+      "disclosure": "Apple is a US operator; the China choice goes to Apple's separate service for China (gs-loc-cn.apple.com), whose operator and data location were not checked. Every choice sends nearby Wi-Fi access points and cells, which reveal approximate location, to Apple. The EU relay keeps no cache and no per-request logs and hides the device IP from Apple; the direct choices also give Apple the device IP. The setup wizard's location switch must not turn any of them on silently. The network position seeds the GNSS engine: in an indoor test on the FP6 (2026-09-26), GPS alone gave no fix within several minutes; with Apple directly the first network fix arrived about 35 s after the app's request and GPS locked about 1 s later.",
       "owner_task": "FP6-103"
     },
     {
       "name": "geocoder",
-      "default": "Off. DiamaneOS hosts no geocoder for now (owner decision 2026-09-26); users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly, with a DiamaneOS User-Agent.",
+      "default": "Off. DiamaneOS hosts no geocoder; users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly, with a DiamaneOS User-Agent.",
       "jurisdiction": "non-eu-direct-exception",
-      "disclosure": "Run by the OpenStreetMap Foundation, registered in England and Wales (UK). When the user opts in, OpenStreetMap sees the device IP, the searched text or the queried coordinates (usually the user's own location), the language and the User-Agent; no DiamaneOS server is in the path. Use stays within OpenStreetMap's Nominatim usage policy (identify the app, low request rate, attribution). Ask the OpenStreetMap Foundation before it becomes anything more than an opt-in. Self-hosting can be revisited if people use it.",
+      "disclosure": "Run by the OpenStreetMap Foundation, registered in England and Wales (UK). When the user opts in, OpenStreetMap sees the device IP, the searched text or the queried coordinates (usually the user's own location), the language and the User-Agent; no DiamaneOS server is in the path. Use stays within OpenStreetMap's Nominatim usage policy (identify the app, low request rate, attribution). Ask the OpenStreetMap Foundation before it becomes anything more than an opt-in.",
       "owner_task": "FP6-103"
     }
   ],
@@ -1705,7 +1689,7 @@
       "timeout_retry": "Native resolver scheduling remains independent of web probes. Query/answer staging ceiling 512 bytes; selected service checks 10 s. Authoritative provider rate/latency policy is external, not enforced by our VPS.",
       "cache_freshness": "Authoritative TTL 3600; recursive caches may keep records. Never mistake cached DNS answers for live connectivity.",
       "failure_fallback": "Authoritative/resolver outage: DNS failure and native Private DNS validation/backoff; no HTTP fallback service. Preserve explicit standard-resolver setting. Non-answer acceptance in inherited validator is documented, not claimed cryptographic positive-answer proof.",
-      "exposed_data": "Configured recursive resolver sees device IP and query. INWX authority normally sees recursive resolver IP and query; authoritative query metadata may still reveal OS use. Quad9 is a Swiss direct-device default exception, not an EU proxy. INWX uses global Anycast: German operator jurisdiction does not mean all DNS query processing occurs in Germany. The resolver sends this probe name to the user's Private DNS provider even when connectivity checks are turned off, because the probe suffix falls back to the default.",
+      "exposed_data": "Configured recursive resolver sees device IP and query. The authoritative DNS normally sees recursive resolver IP and query; authoritative query metadata may still reveal OS use. Quad9 is a Swiss direct-device default exception, not an EU proxy. The authoritative DNS uses global Anycast: German operator jurisdiction does not mean all DNS query processing occurs in Germany. The resolver sends this probe name to the user's Private DNS provider even when connectivity checks are turned off, because the probe suffix falls back to the default.",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-102",
@@ -1753,7 +1737,7 @@
       "verification_root": "HTTPS with system trust (the client uses a modern-TLS socket factory). Positions are a location hint, not a trust decision; nothing beyond TLS authenticates them.",
       "timeout_retry": "Client connect and read timeouts are 10 s each; one request per lookup, with client-side throttling and caches deciding re-requests. The proxy answers within the client deadline with one upstream attempt and no server retries.",
       "cache_freshness": "No proxy cache: cached queries would keep location history. The client keeps its own time-limited cache.",
-      "failure_fallback": "Proxy or upstream outage: pass an error status through (5xx) and never synthesize positions. The client falls back to satellite positioning or no network location. The inherited setting also offers Apple directly, Apple China and off; DiamaneOS keeps all of them and offers this relay in place of GrapheneOS's proxy, off by default (owner decision 2026-09-26).",
+      "failure_fallback": "Proxy or upstream outage: pass an error status through (5xx) and never synthesize positions. The client falls back to satellite positioning or no network location. The inherited setting also offers Apple directly, Apple China and off; DiamaneOS keeps all of them and offers this relay in place of GrapheneOS's proxy, off by default.",
       "exposed_data": "The EU proxy sees the device IP and the list of nearby Wi-Fi access points and cells, which reveals the user's approximate location. Apple receives the same query with the proxy's IP instead of the device's. If the user chooses Apple directly or Apple China directly instead, Apple (or its service for China) also sees the device IP and no DiamaneOS server is in the path. Network location is off by default, but the inherited setup wizard's location switch turns it on (to confirm on the device); the DiamaneOS setup wizard must not turn it on silently.",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
@@ -1777,7 +1761,7 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "Scope decided 2026-09-26 (owner): network location offers the DiamaneOS EU relay, Apple directly and Apple China directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
+          "description": "Scope decided 2026-09-26: network location offers the DiamaneOS EU relay, Apple directly and Apple China directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
         }
       ],
       "example": {
@@ -1793,7 +1777,7 @@
       "replacement_host": "geocoder.diamaneos.de",
       "consumer": "NetworkLocation NominatimGeocoder (the Android Geocoder provider), selected by the geocoder setting",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Turns place names into coordinates and coordinates into addresses for apps that use Android's Geocoder, only when the user turns geocoding on. DiamaneOS hosts no geocoder for now (owner decision 2026-09-26): the opt-in goes directly to OpenStreetMap's public Nominatim, and geocoder.diamaneos.de is only reserved in case self-hosting is revisited.",
+      "purpose": "Turns place names into coordinates and coordinates into addresses for apps that use Android's Geocoder, only when the user turns geocoding on. DiamaneOS hosts no geocoder: the opt-in goes directly to OpenStreetMap's public Nominatim, and geocoder.diamaneos.de is only reserved.",
       "protocol": "HTTPS GET of the Nominatim API with format=geocodejson: /search for place names (optionally bounded to a box) and /reverse for coordinates at zoom 18, with addressdetails and extratags. The client sends Accept-Language from the requested locale and the User-Agent 'GrapheneOS geocoder 1', which a DiamaneOS fork must change.",
       "protocol_status": "blocked",
       "path_method": "GET /search?format=geocodejson&q=...&limit=...&addressdetails=1&extratags=1[&viewbox=...&bounded=1]; GET /reverse?format=geocodejson&lat=...&lon=...&zoom=18&addressdetails=1&extratags=1",
@@ -1804,7 +1788,7 @@
         "GeocodeJSON FeatureCollection with geometry and address fields. The literal body {\"error\":\"Unable to geocode\"} means no result; any non-200 status is a failure."
       ],
       "verification_root": "HTTPS with system trust (modern-TLS socket factory). Results are map data, not a security decision.",
-      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per call. No DiamaneOS server: the geocode limits profile applies only if self-hosting is revisited. OpenStreetMap's usage policy caps an app at 1 request per second across all its users.",
+      "timeout_retry": "Client connect and read timeouts are 10 s each; one request per call. No DiamaneOS server: the geocode limits profile applies only to a self-hosted geocoder. OpenStreetMap's usage policy caps an app at 1 request per second across all its users.",
       "cache_freshness": "No DiamaneOS server, so no DiamaneOS cache of queries or answers, which reveal places a user looks up. Map data freshness is OpenStreetMap's.",
       "failure_fallback": "OpenStreetMap outage, overload or refusal: an error status, so apps get no result rather than invented addresses. The DiamaneOS setting offers only off (the default) and OpenStreetMap's public Nominatim.",
       "exposed_data": "When the user opts in, OpenStreetMap's public Nominatim (the OpenStreetMap Foundation, UK) sees the device IP, the searched text or the queried coordinates, the user's language and the client User-Agent; no DiamaneOS server is in the path. Reverse-geocoded coordinates are usually the user's own location. Geocoding is off by default.",
@@ -1822,12 +1806,12 @@
         {
           "id": "NETLOC-SCOPE",
           "owner_task": "FP6-103",
-          "description": "Scope decided 2026-09-26 (owner): network location offers the DiamaneOS EU relay, Apple directly and Apple China directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
+          "description": "Scope decided 2026-09-26: network location offers the DiamaneOS EU relay, Apple directly and Apple China directly as user choices, off by default, as GrapheneOS does; DiamaneOS hosts no geocoder, and geocoding is off by default with OpenStreetMap's public Nominatim directly as the opt-in (see GEOCODER-HOSTING). FP6-103 owns both. Remaining before activation: the server URLs are literals in the NetworkLocation app (ApplePositioningService.getServerUrl, NominatimGeocoder.getServerBaseUrl), so a NetworkLocation fork repoints the relay, leaves no option that reaches GrapheneOS's servers and sends a DiamaneOS User-Agent to Nominatim (the Apple request keeps its locationd headers); its package ID stays unchanged. Confirm on FP6 what the inherited setup wizard's location switch selects; the SetupWizard2 fork (with FP6-070) must select the chosen service or off and never turn network location on silently. Bind the relay's request/response ceilings from captured native traffic."
         },
         {
           "id": "GEOCODER-HOSTING",
           "owner_task": "FP6-103",
-          "description": "Decided 2026-09-26 (owner): DiamaneOS hosts no geocoder for now. Geocoding stays off by default; users may opt in to OpenStreetMap's public Nominatim directly. Self-hosting can be revisited if people use it. Before enabling the opt-in: the NetworkLocation fork sends a User-Agent that names DiamaneOS, and use stays within OpenStreetMap's Nominatim usage policy: identify the app, keep a low request rate (the policy's absolute maximum is 1 request per second, counted across all users of an app) and show OpenStreetMap attribution for the ODbL data. The policy also requires results to be cached and the service to be switchable at OpenStreetMap's request without a software update; meet both or agree an alternative with the OpenStreetMap Foundation, and ask the Foundation before the option becomes anything more than an opt-in."
+          "description": "Decided 2026-09-26: DiamaneOS hosts no geocoder. Geocoding stays off by default; users may opt in to OpenStreetMap's public Nominatim directly. Before enabling the opt-in: the NetworkLocation fork sends a User-Agent that names DiamaneOS, and use stays within OpenStreetMap's Nominatim usage policy: identify the app, keep a low request rate (the policy's absolute maximum is 1 request per second, counted across all users of an app) and show OpenStreetMap attribution for the ODbL data. The policy also requires results to be cached and the service to be switchable at OpenStreetMap's request without a software update; meet both or agree an alternative with the OpenStreetMap Foundation, and ask the Foundation before the option becomes anything more than an opt-in."
         }
       ],
       "example": {
@@ -1874,7 +1858,7 @@
         {
           "id": "ATTEST-SERVER",
           "owner_task": "FP6-106",
-          "description": "Fork Auditor with DiamaneOS key pins, FP6 support and the DiamaneOS server (the domain is a literal in RemoteVerifyJob); its package ID stays unchanged (owner decision 2026-09-26). Run an attestation server built from source. Until then DiamaneOS builds must not offer remote verification or sample submission against GrapheneOS's server. Set history retention and sample handling before activation. Unlike every other contract this service keeps state (paired accounts, history), so it must not run on the read-only release host; the services model needs a separate host role and credentials for it before activation."
+          "description": "Remote verification needs an Auditor client with DiamaneOS key pins, FP6 support and the DiamaneOS server (the domain is a literal in RemoteVerifyJob), keeping its package ID, and an attestation server built from source. Until both exist DiamaneOS builds must not offer remote verification or sample submission against GrapheneOS's server. Set history retention and sample handling before activation. Unlike every other contract this service keeps state (paired accounts, history), so it must not run on the read-only release host; the services model needs a separate host role and credentials for it before activation."
         }
       ],
       "example": {

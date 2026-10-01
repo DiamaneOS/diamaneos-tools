@@ -1400,7 +1400,7 @@
       "modules": [
         "dwc3-msm.ko"
       ],
-      "reason": "KPROBES stays on only for the dwc3-msm USB hooks (owner decision, finding -111); any other kretprobe user is new and needs review."
+      "reason": "KPROBES stays on only for the dwc3-msm USB hooks (finding -111); any other kretprobe user is new and needs review."
     }
   },
   "forbidden_symbols": [

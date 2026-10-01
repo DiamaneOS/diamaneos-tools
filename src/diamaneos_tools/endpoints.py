@@ -42,7 +42,7 @@ PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary',
                    'artifact-mirror-non-eu', 'git-primary', 'git-backup',
                    'git-mirror', 'email', 'monitoring', 'cdn', 'object-storage'}
 PUBLIC_MIRRORS = {'os-updates', 'apps-catalog'}
-# Reviewed exception (owner decision 2026-09-26): DiamaneOS hosts no geocoder.
+# Reviewed exception (decision 2026-09-26): DiamaneOS hosts no geocoder.
 # The contract stays for coverage; its opt-in goes directly from the device to a
 # disclosed non-EU service, so it has no relay upstream and no service entry.
 UNHOSTED = {'geocoder'}

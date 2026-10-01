@@ -162,19 +162,18 @@ first-stage module loading. User builds never mount debugfs; debuggable builds
 mount it only until boot completes (AOSP `init-debug.rc`, with
 `ro.product.debugfs_restrictions.enabled=true`), under SELinux.
 
-KPROBES stays on (owner decision, 2026-09-27). The USB glue (`dwc3-msm`)
-implements twelve controller hooks (pull-up, connection-done, GSI event
-buffers, stop handling and others) as kretprobes on the built-in dwc3 core and
-ignores registration failures, so without kprobes they silently vanish;
-turning KPROBES off first needs them as explicit calls in both trees. Lockdown
-blocks user-space kprobes (tracefs, perf) and BPF kernel reads, so only signed
-kernel code places probes; confidentiality level also empties tracefs (no
-perfetto or atrace) and denies BPF kernel-memory reads, so per-UID CPU time
-(per-app CPU in Battery usage) and the memevents OOM listener do not start.
-Integrity level would restore both but let root probe through tracefs; the
-level is an open decision. Enforcing USER policy replaces none of these
-settings. Current artifacts use development AVB identities, not release, relock
-or production-signing inputs.
+KPROBES stays on. The USB glue (`dwc3-msm`) implements twelve controller hooks
+(pull-up, connection-done, GSI event buffers, stop handling and others) as
+kretprobes on the built-in dwc3 core and ignores registration failures, so
+without kprobes they silently vanish; turning KPROBES off first needs them as
+explicit calls in both trees. Lockdown blocks user-space kprobes (tracefs, perf)
+and BPF kernel reads, so only signed kernel code places probes; confidentiality
+level also empties tracefs (no perfetto or atrace) and denies BPF kernel-memory
+reads, so per-UID CPU time (per-app CPU in Battery usage) and the memevents OOM
+listener do not start. Integrity level would restore both but let root probe
+through tracefs; the level is an open decision. Enforcing USER policy replaces
+none of these settings. Current artifacts use development AVB identities, not
+release, relock or production-signing inputs.
 
 ## Boot logs
 
@@ -190,8 +189,7 @@ fork of Fairphone's SoC device-tree project. Reboots and kernel crashes are cold
 by default (`/sys/kernel/reboot/mode` is `cold`, Qualcomm download mode off):
 the PMIC's hard reset clears RAM and the region. A one-off warm reboot on the
 2026-09-27 development build kept both zones, so the bootloader does not clear
-RAM; cold reboots stay the default (owner decision, 2026-09-27). Device-tree
-bootargs set loglevel=6, so the console zone holds notice-level and worse
-(warnings, errors, panic output), not info lines. ramoops finds the dynamically
-placed region via the reserved-memory lookup; it stays put while the device tree
-and memory map are unchanged.
+RAM; reboots stay cold. Device-tree bootargs set loglevel=6, so the console zone
+holds notice-level and worse (warnings, errors, panic output), not info lines.
+ramoops finds the dynamically placed region via the reserved-memory lookup; it
+stays put while the device tree and memory map are unchanged.

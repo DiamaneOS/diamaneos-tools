@@ -12,10 +12,10 @@ targets Fairphone 6 and uses GrapheneOS as its upstream OS base.
 ## Licence
 
 Original DiamaneOS code, documentation and artwork in this repository are
-licensed under [Apache-2.0](LICENSE), except where another licence is identified.
-Third-party design assets moved with the interface design and branding to the
-separate diamaneos-design repository, which carries their licence notices; see
-[NOTICE](NOTICE).
+licensed under [Apache-2.0](LICENSE), except where another licence is
+identified. Third-party design assets moved out of this repository with the
+interface design and branding, whose sources carry their licence notices and are
+not public; see [NOTICE](NOTICE).
 
 The copyright licence is separate from use of the DiamaneOS name and logo as
 trademarks; see section 6 of the Apache licence. Referenced upstream projects
@@ -47,7 +47,6 @@ fastboot --version
   recorded by the build or release manifest that consumes them.
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
-- Interface design and branding live in the separate, private
-  `diamaneos-design` repository.
+- Interface design and branding sources are not public.
 
 Only implemented commands can be run; unresolved evidence is identified in the component contracts.

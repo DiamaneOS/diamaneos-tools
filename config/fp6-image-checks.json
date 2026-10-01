@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Device checks moved from the private build scripts. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
+  "scope": "Per-build device checks. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
   "rules": [
     {
       "id": "sensors-stack",
@@ -510,7 +510,7 @@
     },
     {
       "id": "product-identity",
-      "why": "Fairphone stock product identity, as GrapheneOS keeps Google's (owner decision 2026-09-26).",
+      "why": "Fairphone stock product identity, as GrapheneOS keeps Google's.",
       "type": "properties",
       "file": "PRODUCT/etc/build.prop",
       "equals": [
@@ -546,7 +546,7 @@
     },
     {
       "id": "no-info-app",
-      "why": "GrapheneOS's Info app is not installed (owner 2026-09-26).",
+      "why": "GrapheneOS's Info app is not installed.",
       "type": "files_absent",
       "paths": [
         "PRODUCT/app/InfoApp"

@@ -6,8 +6,8 @@ contracts (format: `schemas/endpoint-contract.schema.json`); the infrastructure
 repository's `config/services.json` (validated by
 `schemas/services.schema.json`) assigns each contract DiamaneOS hosts to an
 authority role. The geocoder has no service entry because DiamaneOS hosts none
-(below). The Info release feed was retired on 2026-09-26, when the owner removed
-GrapheneOS's Info app from every build.
+(below). The Info release feed was retired on 2026-09-26, when GrapheneOS's Info
+app was removed from every build.
 
 Validate as in [TESTING.md](TESTING.md#endpoint-contracts). A valid result
 means schema and reference/authority checks pass, not that a server, native
@@ -56,17 +56,17 @@ directly; this claims no search of every upstream file.
   with network location on. Requests list nearby access points and cells, so a
   relay sees approximate location and must keep no cache or per-request logs;
   `client_defaults` discloses direct (unrelayed) choices. The network position
-  seeds GNSS: in an indoor owner test on the FP6 on 2026-09-26, GPS alone had no
-  fix for several minutes, while with Apple directly the first network fix came
+  seeds GNSS: in an indoor test on the FP6 on 2026-09-26, GPS alone had no fix
+  for several minutes, while with Apple directly the first network fix came
   about 35 s after the request and GPS locked about 1 s later.
 - `nominatim.grapheneos.org` answers Android Geocoder queries. DiamaneOS hosts
-  no geocoder (owner decision 2026-09-26). `client_defaults` discloses direct
-  use of OpenStreetMap's public Nominatim, which sees the device IP and searched
-  text or coordinates, as a non-EU direct exception like the Swiss Private DNS
-  default; the validator requires that entry and rejects a geocoder relay or
-  service entry. Direct use must stay within OpenStreetMap's
-  [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/)
-  (identify the app, low request rate, attribution).
+  no geocoder. `client_defaults` discloses direct use of OpenStreetMap's public
+  Nominatim, which sees the device IP and searched text or coordinates, as a
+  non-EU direct exception like the Swiss Private DNS default; the validator
+  requires that entry and rejects a geocoder relay or service entry. Direct use
+  must stay within OpenStreetMap's [Nominatim usage
+  policy](https://operations.osmfoundation.org/policies/nominatim/) (identify
+  the app, low request rate, attribution).
 - `attestation.app` serves Auditor's opt-in remote verification and sample
   submission: the only stateful contract (paired accounts and history), needing
   DiamaneOS key pins and FP6 support GrapheneOS's server lacks.
@@ -100,8 +100,8 @@ an implementation accepted.
   and no per-IP history. Host-level aggregate caps follow the infrastructure
   runbook. These initial ceilings need NAT/mobile burst and upstream payload
   qualification before activation. DNS provider policy is external: the DNS
-  profile's 512-byte/10-second values bound our synthetic health probe, not
-  INWX's global DNS service or every native response.
+  profile's 512-byte/10-second values bound our synthetic health probe, not the
+  DNS provider's global service or every native response.
 - `max_verified_age_seconds` counts from the last successful check of the
   **authoritative current publication or upstream state**, not a local copy,
   cache hit or signed build date. An unchanged conditional response refreshes it
@@ -147,8 +147,7 @@ authorized automatic resolution.
 ## Maintenance
 
 Monitoring uses endpoint ID, host, owner, limits profile, refresh age and
-failure behaviour. Run schema and cross-repository validation on every
-inventory or service change; a changed consumer pin requires rechecking cited
-paths, byte bounds, trust and jurisdiction. Provider capabilities and prices
-are dated observations that infrastructure staging rechecks before the owner
-orders anything.
+failure behaviour. Run schema and cross-repository validation on every inventory
+or service change; a changed consumer pin requires rechecking cited paths, byte
+bounds, trust and jurisdiction. Provider capabilities and prices are dated
+observations, rechecked before anything is ordered.

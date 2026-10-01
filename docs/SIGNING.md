@@ -13,7 +13,7 @@ delta, metadata and key-generation scripts; changing any bound revision,
 script, algorithm, target-files inventory or approved presigned package
 invalidates the qualification result.
 
-The online builder produces unsigned target-files and an otatools package and
+The online build host produces unsigned target-files and an otatools package and
 never holds production private keys. Online packaging may build the outer
 factory container only from approved signed target-files, without a release
 private key.

@@ -2,21 +2,13 @@
 
 ## Unreleased
 
-- Move files with no public use out of the public tools: the early
-  planning records (compatibility target, localisation glossary, examples
-  and locales, the translation-unit schema and tests/requirements), the
-  carrier test plan with `diamaneos carrier matrix validate`, the Dell
-  builder fan guard and resource qualification scripts, the builder's
-  signing-role discovery and disposable-key qualification runners with
-  their services and tests, the device test stack (baseline collectors, USB
-  rig control, staged device runner, compatibility-suite harness, test-host
-  deployment and docs/COMPATIBILITY.md), and the reference builder
-  deployment (deploy/builder, config/tool-acquisition.json and
-  docs/REPRODUCIBILITY.md) with its generic qualification build, the stock
-  phone hardware report and config/upstreams.json.
-  `diamaneos baseline`, `rig`, `test run` and `test compatibility` are gone;
-  BUILDING.md is the public build path. The signing contract and
-  `diamaneos signing` stay public.
+- Move files with no public use out of the public tools: early planning records,
+  the carrier test plan with `diamaneos carrier matrix validate`, host-specific
+  scripts, the device test stack, the reference build-host deployment with its
+  qualification build, the stock phone hardware report and
+  config/upstreams.json. `diamaneos baseline`, `rig`, `test run` and
+  `test compatibility` are gone; BUILDING.md is the public build path. The
+  signing contract and `diamaneos signing` stay public.
 - Move the FP6 component decision model (config/components.json, its schemas,
   check, tests and docs/COMPONENTS.md) out of the public tools. The vendor step
   now checks the selected files against the stock image recipe and no longer
@@ -32,9 +24,9 @@
   fastboot commands for a verified test build. New guide docs/BUILDING.md;
   docs/BUILD.md becomes the reference and absorbs FP6-PREPARATION.md.
 
-- Bind the generated vendor and kernel inputs to the build environment and
-  the recipes that made them. The full preflight accepts the two generated
-  directories only while that descriptor matches (review finding R4).
+- Bind the generated vendor and kernel inputs to the build environment and the
+  recipes that made them. The full preflight accepts the two generated
+  directories only while that descriptor matches.
 
 - The FP6 build environment now pins the published development line only:
   the public manifest overlay and the android17 head of every DiamaneOS
@@ -46,11 +38,10 @@
   flashing images, as Fairphone's factory package does, never with
   `fastboot -w` or `fastboot erase`.
 
-- Move the per-build device checks of the private build scripts into
-  config/fp6-image-checks.json, the PSTORE and debugfs lines into kernel
-  policy v7, and the kretprobe and param_name_len checks into the kernel
-  build. `vendor extract --record-tools` accepts image tools built from the
-  pinned source and records their hashes.
+- Move the earlier per-build device checks into config/fp6-image-checks.json,
+  the PSTORE and debugfs lines into kernel policy v7, and the kretprobe and
+  param_name_len checks into the kernel build. `vendor extract --record-tools`
+  accepts image tools built from the pinned source and records their hashes.
 
 - Move the stock input to Fairphone FP6.QREL.16.111.0 (2026-09-05 security
   patch). 13 of the 729 selected files changed (camera, GPU and video
@@ -93,8 +84,8 @@
   settings that hardware support depends on, and correct the docs: the
   development profile only relaxes the configuration check.
 
-- Move the interface design, branding and their bundled assets to the separate
-  diamaneos-design repository.
+- Move the interface design, branding and their bundled assets out of this
+  repository.
 
 - Bind explicit FP6 recovery setup and narrower UFS policy in a new product
   environment. Reject missing kernel verification tools before compilation.
@@ -142,14 +133,8 @@
   service as the recorded restart completion signal used by stock FP6 builds.
 - Give the bounded declared connected report enough space for its full thermal
   observation series while retaining a strict report-size limit.
-- Add an identity-bound switched-USB rig controller, persistent operation
-  inhibitors, service-owned boot ADB, battery-policy scaffolding and automated
-  verified-port idle disconnect/reconnect support.
 - Add declared FP6 connected and camera measurement modes with exact protocol
   repetitions, series identity, staged original-media registration and explicit
   non-comparable outcomes.
 - Add declared FP6 idle measurements with two series-bound eight-hour
   repetitions and an observed reconnect-before-capture flow.
-- Add the target-bound staged device runner, initial read-only smoke suite,
-  private role mapping, checkpointed evidence, explicit retry selection and
-  destructive-stage interlocks.

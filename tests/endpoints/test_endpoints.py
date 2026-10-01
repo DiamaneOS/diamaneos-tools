@@ -223,7 +223,7 @@ class ContractsTest(unittest.TestCase):
         self.bad_services()
 
     def test_unhosted_geocoder_has_no_project_host(self):
-        # Owner decision 2026-09-26: no DiamaneOS geocoder; opt-in goes direct.
+        # Decision 2026-09-26: no DiamaneOS geocoder; opt-in goes direct.
         message='unhosted endpoint must not be assigned to a project host'
         self.services['services'].append({'id':'geocoder','endpoints':['geocoder'],'host':'release-primary','mirror':None,'owner_task':'FP6-103','status':'planned','activation':'blocked-pending-implementation','credentials':'none-read-only-serving'})
         self.assertIn(message,api.validate_services(self.inv,self.services))

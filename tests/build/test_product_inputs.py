@@ -118,14 +118,14 @@ class ProductInputTests(unittest.TestCase):
             subject.verify_descriptor(self.source)
 
     def test_self_consistent_unbound_tree_is_not_accepted(self):
-        # Review R4: a single-file tree with a matching inventory must not pass
+        # A single-file tree with a matching inventory must not pass
         # without the descriptor that binds it to the environment and recipes.
         (self.source/'vendor/fairphone/FP6').mkdir(parents=True)
         with self.assertRaises(ValueError):
             subject.verify_descriptor(self.source)
 
     def test_install_refuses_generations_without_or_with_other_recipes(self):
-        # Review R4, through install(): a self-consistent tree whose generation
+        # Through install(): a self-consistent tree whose generation
         # does not record the current recipes is refused before anything is installed.
         provenance=(self.vendor/'current').resolve()/'provenance.json'
         provenance.write_text(json.dumps({'recipe_sha256':'0'*64,'elf_selection_sha256':self.recipes['vendor_elf']}))

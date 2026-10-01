@@ -19,7 +19,7 @@ rules](THREAT_MODEL.md#how-this-document-is-maintained).
 - Input, keyboard, key order, GrapheneOS's PIN scrambling, lockout, throttling,
   the duress and wipe counters, and protection from screenshots and screen
   recording stay GrapheneOS's. No custom keyboard or show-passphrase key without
-  an owner decision and a review.
+  a reviewed decision.
 - The biometric prompt keeps the credential fallback, confirm-required, cancel
   on back and outside tap, and obscured-touch protection. The power menu keeps
   Lockdown and its lock-screen filtering. The lock-screen camera key opens only
@@ -181,15 +181,14 @@ DiamaneOS's own (the original authors stay in the fork's history); targetSdk 37.
   imported commits are marked tool-assisted (notification styling, a channel ID,
   the promoted-notification permission, icons; no security effect).
 - A security review of the forks found two issues, both fixed in a later
-  2026-09-30 test build: -148 (medium if shipped, in two earlier 2026-09-30 test
-  builds): the fork treated audio modes that any app with the normal
-  MODIFY_AUDIO_SETTINGS can set as a phone call, so another app could stop a
-  ringing alarm or turn alarms and timers down to the in-call tone; now only
-  modes needing MODIFY_PHONE_STATE count, so a call that only rings no longer
-  silences an alarm. -149: the alarms database moved from version 8 to 12, which
-  GrapheneOS's Clock cannot open again, so going back would silently stop
-  alarms; it now stays at version 8, and earlier builds' databases go back to it
-  with their alarms.
+  2026-09-30 test build: -148 (medium): the fork treated audio modes that any
+  app with the normal MODIFY_AUDIO_SETTINGS can set as a phone call, so another
+  app could stop a ringing alarm or turn alarms and timers down to the in-call
+  tone; now only modes needing MODIFY_PHONE_STATE count, so a call that only
+  rings no longer silences an alarm. -149: the alarms database moved from
+  version 8 to 12, which GrapheneOS's Clock cannot open again, so going back
+  would silently stop alarms; it now stays at version 8, and earlier builds'
+  databases go back to it with their alarms.
 
 ## Calculator
 

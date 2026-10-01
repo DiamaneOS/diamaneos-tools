@@ -103,7 +103,7 @@
       "modem profiles and carrier/regulatory configuration"
     ],
     "selection_rule": "A regional delta may use only an observed trustworthy hardware or boot SKU property, never locale, language, timezone or location.",
-    "validation_resource": "Second maintainer in the US plans to supply an actual US-region FP6 and independent device evidence.",
+    "validation_resource": "An actual US-region FP6 and independent device evidence; US stays unverified until both are available.",
     "us_factory_expected_sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
     "us_input_status": "Official expected metadata recorded; archive not downloaded or independently verified by this project.",
     "claim_boundary": "US remains unverified until the exact US stock comparison and candidate hardware/telephony matrix pass on that device.",
@@ -1160,9 +1160,9 @@
       "id": "FP6-SRC-009",
       "rank": 9,
       "area": "EU and US regional compatibility",
-      "status": "planned-external-device-validation",
-      "finding": "EU QREL.16.111.0 is the selected baseline (QREL.16.100.0 before 2026-09-30). US QREL.16.104.0 is a comparison input, and the second maintainer plans to provide an actual US-region FP6, but no US stock delta or candidate-device result has been accepted.",
-      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against the selected EU input, then run the candidate hardware and T-Mobile-oriented telephony matrix on the US device before claiming shared support.",
+      "status": "unverified",
+      "finding": "EU QREL.16.111.0 is the selected baseline (QREL.16.100.0 before 2026-09-30). US QREL.16.104.0 is a comparison input; no US stock delta or candidate-device result has been accepted.",
+      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against the selected EU input, then run the candidate hardware and telephony matrix on a US-region device before claiming shared support.",
       "owner": "FP6-040 and compatibility/device qualification"
     }
   ],

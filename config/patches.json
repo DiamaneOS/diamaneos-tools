@@ -70,7 +70,7 @@
         "tests/host/stubs/cutils/properties.h"
       ],
       "purpose": "Build the published Volcano power implementation through Soong, retaining source and notices, and release hint-session boosts on pause and close (upstream-equivalent fix with a host lifecycle test). Support Mode::DOUBLE_TAP_TO_WAKE through the FP6 touch controller's gesture_wakeup node.",
-      "validation": "At 6683dc9: native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Double-tap to wake (f59bd8b, Power.cpp): not yet compiled (the host test does not build Power.cpp); a device build and the tap-to-wake owner test pending. Runtime performance backend and device behavior remain unqualified."
+      "validation": "At 6683dc9: native compilation and actual product graph pass; host hint-session lifecycle test (tests/host/run.sh) passes on the fix and fails on the original. Double-tap to wake (f59bd8b, Power.cpp): not yet compiled (the host test does not build Power.cpp); a device build and a tap-to-wake phone test pending. Runtime performance backend and device behavior remain unqualified."
     },
     {
       "id": "vibrator-awinic-effects",
@@ -85,8 +85,8 @@
         "aidl/include/Vibrator.h",
         "aidl/vendor.qti.hardware.vibrator.service.rc"
       ],
-      "purpose": "Play the Awinic chip's RAM waveforms as real effects (tick, click, heavy click, double click, pop, thud) with a gain per strength, amplitude control and three composition primitives, mapped by the owner's feel test; no RTP streaming, and no input-device access when the Awinic chip is present.",
-      "validation": "Vibrator.cpp compiles with the platform flags on the builder; a host test with ThreadSanitizer (fake driver) checks write order, play lengths, single callbacks, input rejection and that the motor always ends stopped; the vendor policy with the new labels compiles and passes neverallows. Mapping retuned after that test; device build and phone test pending."
+      "purpose": "Play the Awinic chip's RAM waveforms as real effects (tick, click, heavy click, double click, pop, thud) with a gain per strength, amplitude control and three composition primitives, mapped by a feel test on the FP6; no RTP streaming, and no input-device access when the Awinic chip is present.",
+      "validation": "Vibrator.cpp compiles with the platform flags on the build host; a host test with ThreadSanitizer (fake driver) checks write order, play lengths, single callbacks, input rejection and that the motor always ends stopped; the vendor policy with the new labels compiles and passes neverallows. Mapping retuned after that test; device build and phone test pending."
     },
     {
       "id": "telephony-poll-coalescing",
@@ -417,7 +417,7 @@
         "display/dsi-panel-nt37705-boe-amoled-cmd.dtsi"
       ],
       "purpose": "Restore the FP6 factory image's always-on display settings for the NT37705 panel: idle brightness 0x0003 instead of 0x09D9 in the five low-power command sets, and no D2 command at power-on. Fairphone's published tree brightens AOD four seconds after locking.",
-      "validation": "Exact inverse of Fairphone's 4492d50 (FPS-3248): the panel file returns to the pre-4492d50 and Android 15 branch content, and all panel command arrays match the FP6.QREL.15.178.0 factory dtbo. The FP6.QREL.16.100.0 dtbo matches too except its two DBV-1290 brightness-mode command sets, which append a normal brightness write. Kernel build with this change: only dtbo.img differs from the build before it. AOD owner test (brightness after locking, daylight readability, no flash or black frame) pending."
+      "validation": "Exact inverse of Fairphone's 4492d50 (FPS-3248): the panel file returns to the pre-4492d50 and Android 15 branch content, and all panel command arrays match the FP6.QREL.15.178.0 factory dtbo. The FP6.QREL.16.100.0 dtbo matches too except its two DBV-1290 brightness-mode command sets, which append a normal brightness write. Kernel build with this change: only dtbo.img differs from the build before it. AOD phone test (brightness after locking, daylight readability, no flash or black frame) pending."
     },
     {
       "id": "kernel-devicetree-ramoops",

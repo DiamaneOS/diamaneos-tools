@@ -662,7 +662,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_iris_video_firmware_copied_to_vendor_firmware(self):
         # msm_video.ko requests vpu20_2v.mbn for every volcano SKU; without it
-        # the video core fails "sys init" at probe (media stage A).
+        # the video core fails "sys init" at probe.
         make = self.render()['device-vendor.mk'].decode()
         self.assertIn('vendor/firmware/vpu20_2v.mbn:$(TARGET_COPY_OUT_VENDOR)/firmware/vpu20_2v.mbn', make)
         self.assertNotIn('vpu20_2v_unsigned', make)

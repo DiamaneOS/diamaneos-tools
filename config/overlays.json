@@ -55,7 +55,7 @@
         "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL"
       },
       "com.android.documentsui": {
-        "force_material3": "Material 3 Files (owner decision 4, 26 September 2026); the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review, tests and threat-model row"
+        "force_material3": "Material 3 Files; the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review, tests and threat-model row"
       },
       "com.android.customization.themes": {
         "color_bundles": "the five DiamaneOS colour presets (Sodium, Phosphor, Signal violet, Rose, Lichen) instead of the 17 AOSP ones; an overlay cannot add names, so they reuse the stub keys rainbow1 to rainbow5",
@@ -70,17 +70,17 @@
       "com.android.settings": {
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_consent_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
-        "duress_pwd_description": "rebrand (UI-02): \"DiamaneOS will remain installed\" instead of GrapheneOS; otherwise unchanged",
-        "aep_compat_mode_summary": "rebrand (UI-04): \"DiamaneOS exploit protections\" instead of GrapheneOS; otherwise unchanged",
-        "app_play_integrity_top_intro": "rebrand (UI-03): DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (approved by the owner, 28 September 2026)"
+        "duress_pwd_description": "rebrand: \"DiamaneOS will remain installed\" instead of GrapheneOS; otherwise unchanged",
+        "aep_compat_mode_summary": "rebrand: \"DiamaneOS exploit protections\" instead of GrapheneOS; otherwise unchanged",
+        "app_play_integrity_top_intro": "rebrand: DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (reviewed wording)"
       },
       "android": {
-        "deprecated_abi_message_grapheneos": "rebrand (UI-08): the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
+        "deprecated_abi_message_grapheneos": "rebrand: the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
       },
       "app.grapheneos.setupwizard": {
-        "welcome_to_grapheneos": "rebrand (SW-01): \"Welcome to DiamaneOS\"",
-        "grapheneos_desc": "rebrand (SW-01): the DiamaneOS tagline instead of GrapheneOS's (approved by the owner, 28 September 2026)",
-        "grapheneos_icon": "rebrand (SW-02): the logo's content description, \"DiamaneOS\""
+        "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
+        "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording)",
+        "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\""
       },
       "com.android.customization.themes": {
         "bundle_name_rainbow1": "name of the Sodium colour preset",
