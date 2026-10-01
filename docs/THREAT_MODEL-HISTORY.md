@@ -305,6 +305,19 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   files; one dontaudit for the sensors HAL's denied writes of a factory
   proximity value; the source-built health service filters kernel uevents to
   power-supply events.
+- **2026-10-01:** -153 (open): the closed Qualcomm sensors sub-HAL lists a
+  vendor-private ambient colour (RGB) sensor, wake-up and non-wake-up, with no
+  required permission. GrapheneOS gives the Sensors permission to every sensor
+  but lets a HAL-supplied permission replace it for vendor types, and an empty
+  one means no permission, so any app can read the sensor. Nothing in the build
+  uses it: no vendor file but the sub-HAL names it, the camera reads the
+  ambient light sensor, not the colour sensor, and the framework does not know
+  the type. The sub-HAL has no switch for single sensor types, the multi-HAL
+  and sensor service have no filter, and removing the sensor's registry
+  configuration would most likely still publish it with default values. The
+  fix is the owner's decision: a source wrapper around the sub-HAL that
+  withholds vendor types without a permission, or a platform change that keeps
+  the Sensors permission when a HAL leaves it empty.
 
 ## IMS integration notes
 
