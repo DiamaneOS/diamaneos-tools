@@ -111,8 +111,8 @@ replaces that.
 isolation. Fixture and dry-run checks touch no hardware:
 
 ```sh
-python3 -m unittest discover -s tests/baseline -t .
-python3 src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/baseline -t .
+.venv/bin/python src/diamaneos_tools/baseline.py --fixture tests/baseline/fixtures/valid.json
 bin/diamaneos baseline capture --dry-run
 ```
 
@@ -510,7 +510,7 @@ module whenever the file or a font changes, with the weights the text styles
 use, and on a built image before flashing:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/fonts -t .
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/fonts -t .
 ```
 
 ```sh
