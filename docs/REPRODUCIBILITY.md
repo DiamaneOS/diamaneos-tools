@@ -1,8 +1,9 @@
 # Reproduce the current generic build
 
-Reproduces the selected generic x86_64 Android build and its input evidence; it
-does not build or qualify a Fairphone 6 image, create a release, or authorize
-production signing.
+This reproduces the selected generic x86_64 Android build and its input
+evidence on the reference builder's managed setup. It does not build or
+qualify a Fairphone 6 image, create a release, or authorize production
+signing. To build a Fairphone 6 test image, follow [BUILDING.md](BUILDING.md).
 
 [`config/build-environment.json`](../config/build-environment.json) is the
 authority: its tags, commits, package and tool versions, hashes, workspace names

@@ -2,8 +2,8 @@
 
 The native entry points, checks and deliberate settings behind the
 `kernel prepare`, `kernel build` and `build inputs` workflow in
-[FP6 preparation](FP6-PREPARATION.md), which reconstructs and installs the
-whole set. Terms are explained in the [threat model](THREAT_MODEL.md#terms).
+[the build reference](BUILD.md#generated-inputs-step-by-step), which
+reconstructs and installs the whole set. Terms are explained in the [threat model](THREAT_MODEL.md#terms).
 
 ## Sources and workspace
 
@@ -81,9 +81,15 @@ enforced by the build's dependency check (`module-interfaces.json`), since
 libmodprobe loads dependencies a list omits. Device-tree references count too:
 `eud` stays because the USB controller node takes its extcon from it,
 `qcom_glink_spss` because `glink_probe` imports it, `coresight` because KGSL is
-built with CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the
-audio machine driver imports them; those need a configuration or device-tree
-change first.
+built with CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the audio machine driver imports them; those need a
+configuration or device-tree change first.
+
+Two symbol rules in the same file run on every build. `module_import_allowlist`
+names the only modules that may import a symbol (today only `dwc3-msm.ko` may
+import `register_kretprobe`, the reason KPROBES stays on), and
+`forbidden_symbols` lists symbols that must not exist in the built kernel's
+`System.map` (an out-of-line `param_name_len` would let init call freed code).
+Each rule carries its reason.
 
 ## Structure layout checks
 
