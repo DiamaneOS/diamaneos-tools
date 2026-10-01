@@ -3,7 +3,7 @@
   "stock_build": "FP6.QREL.16.111.0",
   "region": "EU",
   "archive_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
-  "model_sha256": "ffc10dbfce70aa4a3e47bf620b5596ed315dc1d43a2625f16554e72d16d4c38d",
+  "model_sha256": "461715979dd29b899b2282bbebcdb67c73f14737f020ab8e669c8a43b2e5216b",
   "files": [
     {
       "input": "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
