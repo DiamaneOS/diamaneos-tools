@@ -147,7 +147,7 @@ def text_result(result):
 
 
 def run_bounded(argv, timeout_seconds, max_output_bytes=262_144):
-    """Text-result adapter retaining the device runner's interruption contract."""
+    """Text-result adapter that raises CommandInterrupted on interruption."""
     from .errors import CommandInterrupted
     result = text_result(run(argv, timeout_seconds, max_output_bytes))
     if result["transport"] == "interrupted":

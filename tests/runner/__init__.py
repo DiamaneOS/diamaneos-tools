@@ -1,1 +1,1 @@
-"""Tests for the staged device runner."""
+"""Tests for the bounded process helpers."""

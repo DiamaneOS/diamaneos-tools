@@ -6,10 +6,13 @@
   planning records (compatibility target, localisation glossary, examples
   and locales, the translation-unit schema and tests/requirements), the
   carrier test plan with `diamaneos carrier matrix validate`, the Dell
-  builder fan guard and resource qualification scripts, and the builder's
+  builder fan guard and resource qualification scripts, the builder's
   signing-role discovery and disposable-key qualification runners with
-  their services and tests. The signing contract and `diamaneos signing`
-  stay public.
+  their services and tests, and the device test stack (baseline collectors,
+  USB rig control, staged device runner, compatibility-suite harness,
+  test-host deployment and docs/COMPATIBILITY.md). `diamaneos baseline`,
+  `rig`, `test run` and `test compatibility` are gone. The signing contract
+  and `diamaneos signing` stay public.
 - Move the FP6 component decision model (config/components.json, its schemas,
   check, tests and docs/COMPONENTS.md) out of the public tools. The vendor step
   now checks the selected files against the stock image recipe and no longer
