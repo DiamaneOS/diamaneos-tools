@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261001-2",
+  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261001-3",
   "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-10-01, including the build/make fork and the Tally forks, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here. The line is not phone-tested as a whole and not yet built with the public build commands.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -127,11 +127,11 @@
     "overlay_revision": "ec5f2d487d69cc6035b2bdb37137ba3bcfcbb707",
     "overlay_sha256": "90c1cb1a1494f1f7bdacfa94c015412eea6344ff71f21ac90b5030ed52288843",
     "project_count": 1072,
-    "project_map_sha256": "f1e28760ff1cb2e353ed0d73db2f5850c7ef4b7ea7b5144ebb0acc21eea2c785",
+    "project_map_sha256": "16585009c4da977aae5e12b3f892a64afdf5e1a75f7c53ee599bf932c87842e5",
     "resolved_revisions": {
       "bootable/recovery": "4b93765f922f7a561c2682fade373ab298a92a15",
       "build/make": "400085679c4f417c94205637a97b7c17da526d3b",
-      "device/fairphone/FP6": "d56fd58e8f09932dc6beb36ceb7ab5446594c995",
+      "device/fairphone/FP6": "ead81072de21ac1d1f380b34982d361aa28110ef",
       "frameworks/base": "4b805c253532d1c51f2d3d3914c1513cd00fb49e",
       "frameworks/libs/systemui": "bc4366a6443c57294490800da57f457fe45c2cba",
       "frameworks/opt/telephony": "1b0271e4b64a2946461c3ca8b8a291056a8099a3",
