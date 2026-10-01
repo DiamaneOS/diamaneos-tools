@@ -1,34 +1,25 @@
 # FP6 firmware: inventory and update path
 
-What firmware the Fairphone 6 (FP6) runs, where it comes from, what changed
-between the last two stock releases, and how DiamaneOS should deliver it. For
-anyone working on the installer, OTA updates or stock inputs. This is a design,
-not an implemented feature, and nothing in it was read from a phone.
-
-Firmware here means the closed code that runs outside Android: the boot chain,
-TrustZone, the modem and the signal processors. OTA means an over-the-air
-update; A/B means the two copies (slots) of a partition that updates switch
-between.
+The Fairphone 6's closed firmware (boot chain, TrustZone, modem, signal
+processors), its recent changes and a delivery design, not yet implemented;
+nothing here was read from a phone.
 
 ## Current state
 
-DiamaneOS builds and flashes the OS partitions only (boot, init_boot,
-vendor_boot, dtbo, recovery, vbmeta, vbmeta_system, super, pvmfw). The firmware
-partitions keep whatever the last stock factory flash or stock OTA wrote, so a
-phone's firmware can lag, or differ from, the stock release that the DiamaneOS
-vendor files come from.
+DiamaneOS flashes only the OS partitions (boot, init_boot, vendor_boot, dtbo,
+recovery, vbmeta, vbmeta_system, super, pvmfw); firmware keeps whatever the last
+stock factory flash or OTA wrote, so it can lag the stock release the vendor
+files come from.
+[`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json)
+lists every image of the selected `FP6.QREL.16.111.0` and previous
+`FP6.QREL.16.100.0` factory packages with size and SHA-256, plus Qualcomm
+version strings, signing metadata, AVB rollback data, the Wi-Fi firmware files
+and the stock flash order.
 
-The selected stock release is `FP6.QREL.16.111.0`; the previous one is
-`FP6.QREL.16.100.0`. Both are inventoried in
-[`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json):
-every image in each factory package with its size and SHA-256, plus readable
-Qualcomm version strings, signing metadata, AVB (Android Verified Boot)
-rollback data, the Wi-Fi firmware files and the stock flash order.
+## Partitions and sources
 
-## Firmware partitions and their sources
-
-All firmware is closed. Qualcomm and Fairphone build and sign it; DiamaneOS
-cannot rebuild or re-sign it and must ship the exact stock bytes.
+Qualcomm and Fairphone build and sign all firmware; DiamaneOS must ship the
+exact stock bytes. A/B partitions have two slots that updates switch between.
 
 | Group | Partitions (image) | Slots |
 | --- | --- | --- |
@@ -40,201 +31,150 @@ cannot rebuild or re-sign it and must ship the exact stock bytes.
 | Trusted VM data, logs | `vm-persist`, `logfs` | single |
 | Fairphone | `study` and `studybk_a/b` (study.img) | single + A/B |
 
-`modem` holds more than the modem. It is a FAT filesystem with the modem
-(MPSS), audio DSP (ADSP), compute DSP (CDSP), the Wi-Fi processor firmware
-(WPSS, `image/qca6750/`), IPA firmware, carrier modem profiles (MCFG) and
-several TrustZone applications. Its `verinfo/ver_info.txt` is stale (it names
-older modem and Wi-Fi builds than the images carry); use the version strings
-inside the images.
+`modem` is a FAT filesystem with the modem (MPSS), audio and compute DSPs (ADSP,
+CDSP), Wi-Fi processor firmware (WPSS, `image/qca6750/`), IPA firmware, carrier
+modem profiles (MCFG) and TrustZone applications; its stale
+`verinfo/ver_info.txt` names older builds, so use the images' own version
+strings.
 
-In the package but not firmware:
-
-- the OS images DiamaneOS replaces;
-- the wipe images (`userdata`, `metadata`, `frp`);
-- the GPT (partition table) and EDL (Qualcomm emergency download mode) layout
-  files (`gpt_*`, `rawprogram*`, `patch*`), which the fastboot script never
-  writes.
-
-`pvmfw` is built from source by DiamaneOS. Peripheral firmware under
-`/vendor/firmware` (GPU, camera, video, touch, amplifiers) ships in the vendor
-image through `config/fp6-minimal/vendor-files.json` and is covered by verified
-boot.
+Not firmware: the replaced OS images, the wipe images (`userdata`,
+`metadata`, `frp`) and the GPT/EDL layout files (`gpt_*`, `rawprogram*`,
+`patch*`), which fastboot never writes. `pvmfw` is built from source.
+Peripheral firmware under `/vendor/firmware` (GPU, camera, video, touch,
+amplifiers) ships in the vendor image via
+`config/fp6-minimal/vendor-files.json`, covered by verified boot.
 
 ## The stock flash script
 
 `flash_fp6_factory.command` is byte-identical in 16.100.0 and 16.111.0. It:
 
 1. refuses to run unless `fastboot oem device-info` reports both
-   `Device unlocked: true` and `Device critical unlocked: true`; it never locks
+   `Device unlocked: true` and `Device critical unlocked: true`, and never locks
    or unlocks;
-2. writes the firmware partitions, both `_a` and `_b` of each A/B partition,
-   in alphabetical order of partition name, from `abl` to `xbl_ramdump`
-   (the exact order is in the inventory);
+2. writes the firmware partitions, `_a` and `_b` of each A/B one, in
+   alphabetical order from `abl` to `xbl_ramdump` (exact order in the
+   inventory);
 3. writes the OS partitions boot, dtbo, init_boot, recovery, super, vbmeta,
    vbmeta_system and vendor_boot (both slots, except the single super);
-4. with its default settings, writes userdata, metadata and frp (a full wipe);
-5. erases `misc`, `modemst1` and `modemst2` (the modem's runtime settings copy;
-   the modem restores it from its backup);
+4. by default writes userdata, metadata and frp (a full wipe);
+5. erases `misc`, `modemst1` and `modemst2` (the modem's runtime settings copy,
+   restored from its backup);
 6. selects slot a, then tries `fastboot oem reset-rollback` and accepts failure.
 
-## What changed from 16.100.0 to 16.111.0
+## Changes from 16.100.0 to 16.111.0
 
-- Every readable Qualcomm version string is unchanged: boot
+- All readable Qualcomm version strings are unchanged: boot
   `BOOT.MXF.2.1-02027`, TrustZone and hypervisor `TZ.XF.5.28.0-00021`, AOP
   `AOP.HO.5.0-00813`, modem `MPSS.DE.3.1.4.c4-00192`, ADSP
   `LPAIDSP.HT.1.0-01111`, CDSP `CDSP.HT.3.0-00953`, Wi-Fi
   `WLAN.MSL.3.0.1-00591`, Bluetooth `BTFW.MOSELLE.1.1.2-00064` and
   `1.2.0-00380`.
-- 26 of 29 firmware images have new hashes.
-  - Only re-signed (new signature segment, identical code): tz, hyp, keymint,
-    aop, aop_devcfg, cpucp, cpucp_dtbs, qupv3fw, shrm, featenabler, storsec,
-    uefi_sec, imagefv, xbl_config. xbl_s.melf differs only in signing
-    certificate timestamps.
-  - Rebuilt with new code or data but the same version string: abl, uefi,
-    devcfg, multi_image, XblRamdump and tools.fv.
+- 26 of 29 firmware images have new hashes. Only re-signed (new signature
+  segment, same code): tz, hyp, keymint, aop, aop_devcfg, cpucp, cpucp_dtbs,
+  qupv3fw, shrm, featenabler, storsec, uefi_sec, imagefv, xbl_config;
+  xbl_s.melf differs only in certificate timestamps. New code or data under the
+  same version: abl, uefi, devcfg, multi_image, XblRamdump, tools.fv.
 - `modem`: modem, ADSP and CDSP code changed without a new version string; 14
-  carrier profiles changed (1&1, Orange, Proximus, AT&T). The Wi-Fi firmware,
-  IPA and TrustZone apps were only re-signed.
-- `bluetooth`: all 11 files are identical; only filesystem metadata changed.
-  `dsp`: one sensor library (`adsp/sns_tppe.so`) changed.
-- Unchanged: `vm-bootsys`, `vm-persist`, `logfs`. The GPT layout is identical
-  (only unique GUIDs differ).
+  carrier profiles changed (1&1, Orange, Proximus, AT&T); Wi-Fi firmware, IPA
+  and TrustZone apps were only re-signed. `bluetooth`: all 11 files identical,
+  only filesystem metadata changed. `dsp`: one sensor library
+  (`adsp/sns_tppe.so`) changed.
+- Unchanged: `vm-bootsys`, `vm-persist`, `logfs`; the GPT layout (only unique
+  GUIDs differ).
 - The Qualcomm anti-rollback version in the OEM signing metadata is 1 in every
   signed image of both releases.
 - The AVB rollback index of boot, init_boot and vbmeta_system rose from
-  1785888000 to 1788566400 (the security patch dates 2026-08-05 and 2026-09-05
-  as Unix time).
+  1785888000 to 1788566400 (the 2026-08-05 and 2026-09-05 patch dates as Unix
+  time).
 
-### Wi-Fi
+**Wi-Fi.** The firmware is `image/qca6750/wpss.mdt` and `wpss.b00`-`b12` in
+`NON-HLOS.bin`, beside board data (`bdwlan.*`) and `regdb.bin`:
+`WLAN.MSL.3.0.1-00591` in both releases with identical code segments (Android
+15, 15.176.0 and 15.178.0, shipped `WLAN.MSL.3.0.1-00328.3`). Fairphone's
+16.111.0 fix for apps not loading on Wi-Fi is in the WLAN host driver
+(`qca_cld3_qca6750.ko` in vendor_dlkm): the dynamic IPv6 neighbour solicitation
+offload handling of CodeLinaro qcacld-3.0 commit `ec35705b4e` ("Avoid caching
+NS offload when dynamically disabled"). DiamaneOS's source-built driver is
+pinned to a revision that has it; a phone test is pending.
 
-The Wi-Fi processor firmware is `image/qca6750/wpss.mdt` and `wpss.b00`-`b12`
-inside `NON-HLOS.bin` (the `modem` partition), with the board data (`bdwlan.*`)
-and regulatory database (`regdb.bin`) beside it. Its version is
-`WLAN.MSL.3.0.1-00591` in both releases, and all its code segments are
-identical; only the signature segment changed. Android 15 (15.176.0 and
-15.178.0) shipped `WLAN.MSL.3.0.1-00328.3`.
+## Delivery design
 
-Fairphone's 16.111.0 fix for apps not loading on Wi-Fi is not in the firmware.
-It is in the WLAN host driver (`qca_cld3_qca6750.ko` in vendor_dlkm), which
-gained the dynamic IPv6 neighbour solicitation (NS) offload handling of
-CodeLinaro qcacld-3.0 commit `ec35705b4e` ("Avoid caching NS offload when
-dynamically disabled"). DiamaneOS builds this driver from source, and its
-pinned qcacld-3.0 revision already contains that commit, so DiamaneOS gets the
-fix from its own kernel build. That still needs a phone test.
+**One release.** The inventory's `selected_build` must equal the `stock_build`
+of `vendor-files.json` and `fp6-stock-image-recipe.json`: Fairphone releases
+and tests vendor blobs, DSP and modem images and their kernel-module interfaces
+together. Mixing releases needs a recorded single-component pin.
 
-## How DiamaneOS should deliver firmware
+**Installer.** Stage images from the verified factory package by hash, like
+`vendor stage`, rejecting any SHA-256 outside the inventory. Write firmware to
+the target slot in stock order before the OS images; write single-copy
+`toolsfv`, `storsec` and `study` only when the pinned image differs from the
+last shipped release, and `vm-persist`, `logfs` and the `modemst1`/`modemst2`
+erase only on a full wipe; then select that slot. The inactive slot has no OS
+after install (a fastboot-written super fills slot a only), so it gets firmware
+with the next A/B update; writing both slots is harmless but unnecessary.
 
-### One release for vendor files and firmware
+**OTA.** Each update carries its release's A/B firmware as prebuilt radio
+images in the target files and in `AB_OTA_PARTITIONS`
+(abl, aop, aop_config, bluetooth, cpucp, cpucp_dtb, devcfg, dsp, featenabler,
+hyp, imagefv, keymaster, modem, multiimgoem, qupfw, shrm, tz, uefi, uefisecapp,
+vm-bootsys, xbl, xbl_config, xbl_ramdump); update_engine writes them to the
+inactive slot, so a failed boot falls back with the old firmware. Single-copy
+partitions cannot update atomically and stay out. Check the list against a
+Fairphone OTA payload first.
 
-Take the firmware from the same stock release as the vendor files: the
-inventory's `selected_build` must equal the `stock_build` of
-`vendor-files.json` and `fp6-stock-image-recipe.json`. Fairphone releases and
-tests the vendor blobs, the DSP and modem images and the kernel-module
-interfaces they use together. Mixing releases is allowed only as a recorded
-single-component pin (below).
-
-### Installer and flash script
-
-Stage the firmware images from the verified factory package by hash, as
-`vendor stage` does for the OS images, and reject any image whose SHA-256 is not
-in the inventory. The installer then:
-
-1. writes the firmware to the slot it is installing, in the stock script's
-   order, before the OS images;
-2. writes the single-copy partitions (`toolsfv`, `storsec`, `study`) only when
-   their pinned image differs from the last release DiamaneOS shipped, and
-   `vm-persist` and `logfs` only on a full wipe, as the stock script does;
-3. erases `modemst1`/`modemst2` only on a full wipe;
-4. selects that slot.
-
-After an install the inactive slot has no OS (a super image written by fastboot
-fills slot a only), so it gets its firmware with the next A/B update. Writing
-both slots, as stock does, is harmless on a full reinstall but not needed.
-
-### OTA updates
-
-Put the A/B firmware images into the OTA so every update carries the firmware of
-its stock release: add them to the target files (the build output that OTAs are
-made from) as prebuilt radio images and to `AB_OTA_PARTITIONS` (abl, aop,
-aop_config, bluetooth, cpucp, cpucp_dtb, devcfg, dsp, featenabler, hyp,
-imagefv, keymaster, modem, multiimgoem, qupfw, shrm, tz, uefi, uefisecapp,
-vm-bootsys, xbl, xbl_config, xbl_ramdump). update_engine (Android's A/B update
-installer) writes them to the inactive slot with the rest of the update, so a
-failed boot falls back to the old slot with its old firmware. Single-copy
-partitions cannot be updated atomically and stay out of the OTA. Compare this
-list with the partitions in one of Fairphone's own OTA payloads before relying
-on it.
-
-### Pinning a single component
-
-If a stock release regresses one component, keep the rest of the release and
-pin that component to the last good release. LineageOS did this for the FP6
-Wi-Fi firmware in July 2026 (commit `c167aaa` in ArianK16a's FP6 device tree,
-discussed in the Fairphone forum): it copied the Android 15 (15.176.0)
-`wpss.*`, `bdwlan.elf` and `regdb.bin` into `/vendor/firmware/qca6750/` and put
-`/vendor/firmware` ahead of the modem partition in the kernel's firmware search
-path, so the older, still validly signed files load instead of the ones in
-`modem`. The partition itself was not changed or re-signed.
-
-DiamaneOS already loads remote-processor firmware through ueventd, whose default
-search list puts `/vendor/firmware/` ahead of the `/vendor/firmware_mnt/image/`
-directory the device tree adds. A pin would therefore be exact stock files from
-the named release in `vendor-files.json`, each with its hash and a recorded
-reason, probably with no search-path change; that needs a build and phone test.
-
-- This works only for firmware loaded by name from a filesystem (WPSS, ADSP,
-  CDSP, modem, GPU). Boot-chain images (xbl, abl, tz, hyp, aop, ...) are loaded
-  from their raw partitions, so pinning one means shipping that whole partition
-  image from the older release.
-- A pin must never have a lower anti-rollback version than what the phone has
-  run, and is dropped once stock fixes the regression.
+**Single-component pin.** If a release regresses one component, pin just that
+component to the last good release. LineageOS did so for FP6 Wi-Fi in July 2026
+(commit `c167aaa` in ArianK16a's FP6 device tree, discussed in the Fairphone
+forum), copying Android 15 (15.176.0) `wpss.*`, `bdwlan.elf` and `regdb.bin`
+into `/vendor/firmware/qca6750/` and putting `/vendor/firmware` first in the
+kernel firmware search path, leaving the partition unchanged. DiamaneOS's
+ueventd already searches `/vendor/firmware/` before the device tree's
+`/vendor/firmware_mnt/image/`, so a pin would be exact stock files from the
+named release in `vendor-files.json` with hash and reason, probably without a
+search-path change (build and phone test needed). This works only for firmware
+loaded by name from a filesystem (WPSS, ADSP, CDSP, modem, GPU); a boot-chain
+image (xbl, abl, tz, hyp, aop, ...) means shipping the whole older partition. A
+pin never goes below the anti-rollback version the phone has run, and is
+dropped once stock fixes the regression.
 
 ## Rollback rules
 
-- **AVB rollback indices** are stored by the bootloader at locations 1
-  (recovery), 2 (vbmeta_system), 3 (boot) and 4 (init_boot) and enforced while
-  locked. Once a locked phone boots stock 16.111.0, locations 2-4 hold
-  1788566400 and 16.100.0 images no longer boot locked. A DiamaneOS build
-  relocked with its own key must use rollback indices at or above the stored
-  values. The stock script's `oem reset-rollback` (unlocked only) resets them;
-  Fairphone warns that locking on older software than before may brick the
-  phone.
-- **Qualcomm anti-rollback.** Qualcomm firmware carries its own anti-rollback
-  version in the signing metadata, which the boot chain can enforce from fuses
-  or protected storage. It is 1 in both releases. Never ship or flash a
-  firmware image with a lower version than the highest DiamaneOS has shipped;
-  the tools should check this from the inventory.
-- **No downgrades.** Do not downgrade firmware in general. A downgrade is
-  untested even at an equal anti-rollback version, and the stock flash script is
-  the only supported way back to stock.
+- The bootloader stores AVB rollback indices at locations 1 (recovery), 2
+  (vbmeta_system), 3 (boot) and 4 (init_boot) and enforces them while locked.
+  Once a locked phone boots stock 16.111.0, locations 2-4 hold 1788566400 and
+  16.100.0 images no longer boot locked. A DiamaneOS build relocked with its own
+  key must use indices at or above the stored values. The stock script's
+  `oem reset-rollback` (unlocked only) resets them; Fairphone warns that locking
+  on older software than before may brick the phone.
+- Qualcomm's own anti-rollback version (signing metadata, enforceable from
+  fuses or protected storage) is 1 in both releases. Never ship or flash
+  firmware below the highest version DiamaneOS has shipped; the tools should
+  check this from the inventory.
+- Never downgrade firmware: it is untested even at equal anti-rollback version,
+  and the stock flash script is the only supported way back to stock.
 
 ## Verification
 
-- The factory package matches its pinned SHA-256 (and Fairphone's published
-  value; for 16.111.0 that was not published yet on 2026-09-30), and the
-  package's own checksum list matches.
-- Each staged image matches the inventory hash; the flash script matches its
+- The factory package matches its pinned SHA-256 and Fairphone's published value
+  (for 16.111.0 not yet published on 2026-09-30), and its own checksum list.
+- Each staged image matches the inventory hash, and the flash script its
   recorded hash, so a changed order is noticed.
-- Each signed image parses as a Qualcomm MBN v7 image (Qualcomm's signed
-  firmware format), is OEM-signed, and its anti-rollback version is not lower
-  than the last shipped one.
-- On the phone, the Qualcomm secure boot chain checks each firmware image's
-  signature against the OEM key the SoC trusts before running it. AVB covers
-  only the OS partitions and pvmfw, none of the firmware partitions, so
-  byte-exact stock images are what keeps them authentic; an OTA adds the
-  DiamaneOS payload signature for transport.
+- Each signed image parses as a Qualcomm MBN v7 image, is OEM-signed and has an
+  anti-rollback version no lower than the last shipped one.
+- On the phone, Qualcomm secure boot checks each image against the SoC's OEM
+  key; AVB covers only the OS partitions and pvmfw, so byte-exact stock images
+  keep firmware authentic, and an OTA adds the DiamaneOS payload signature for
+  transport.
 
 ## Needs a build or phone test
 
 - 16.111.0 vendor files on a phone whose firmware is still 16.100.0 (the state
-  right after moving the stock input, until firmware is updated).
+  after moving the stock input, until firmware is updated).
 - Writing each firmware partition with fastboot from the installer, including
-  which partitions need critical unlock, and then relocking with the DiamaneOS
-  key.
-- An OTA carrying firmware: the payload lists the partitions, the update
-  installs to the inactive slot, the phone boots it, and a forced failure falls
-  back cleanly.
+  which need critical unlock, then relocking with the DiamaneOS key.
+- An OTA carrying firmware: the payload lists the partitions, it installs to the
+  inactive slot, the phone boots it and a forced failure falls back cleanly.
 - The Wi-Fi fix in the source-built WLAN driver (IPv6 on a network where the
   stall was seen, before and after suspend).
-- A single-component pin through `/vendor/firmware`, if one is ever needed.
-- The anti-rollback check in the tools, against a real MBN image.
+- A single-component pin through `/vendor/firmware`, if ever needed.
+- The tools' anti-rollback check against a real MBN image.
