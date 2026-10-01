@@ -52,7 +52,7 @@ class DummySigningDeploymentTest(unittest.TestCase):
         self.assertIn('environment["upstream"]["release_tag"]', script)
         self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
         self.assertIn("explicit thermal-safety preflight path is missing", script)
-        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertNotIn("/usr/local/sbin/", script)
         self.assertNotIn("grapheneos-allowed-signers-2026091000", script)
         self.assertNotIn("/opt/nodejs/v24.21.0/bin", script)
         planner = (ROOT / "src/diamaneos_tools/signing_qualification.py").read_text(

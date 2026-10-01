@@ -168,64 +168,7 @@ cooling response are safe for a build. Configure its path with
 The executable may validate a firmware-controlled curve, a BMC policy or a
 host-specific Linux controller. Missing, stale or uncertain state must exit
 non-zero. This small interface is the portable dependency; no public build
-entry point may assume Dell fan names.
-
-## Dell Precision reference adapter
-
-On the qualified Dell builder, the firmware automatic curve approached the
-CPU thermal limit under the intended all-core workload. The bounded
-`diamaneos-builder-fan-guard` therefore controls only the two physically
-installed and qualified channels, `dell-smm-fan3` and `dell-smm-fan4`. It
-uses the verified low state only while the CPU package is cool, requests
-maximum cooling at 45 C, and requires 60 continuous seconds at or below 38 C
-before returning low. Sensor, state or tachometer uncertainty requests
-maximum cooling and fails the guard.
-
-The service checks the controller every second, publishes current health in
-`/run/diamaneos-builder-fan-guard/status`, restarts on failure, and leaves
-maximum cooling requested on exit. Do not generalize its fan names, RPM
-limits or temperature boundaries to different hardware. Every build entry
-point must require a fresh healthy status and acceptable fan tachometers
-before starting work. A failed guard or low-RPM result blocks the build; it
-is not an advisory warning.
-
-On this qualified adapter, invoke `diamaneos-builder-fan-check` immediately
-before accepting a build lease or starting a build process. It validates service activity, status
-freshness, package temperature, selected mode and the mode-specific fan RPM
-floor. A build-job wrapper must call this same executable rather than
-reimplementing or bypassing the policy.
-
-## Reference-hardware resource qualification
-
-`qualify-builder` records the acceptance profile of the current high-capacity
-Dell reference host; it is not the portable minimum and must not be copied to
-different hardware as though fan channels, worker count or storage controller
-names were universal. Run it only after the Dell fan guard, build identity,
-time service and any required Wake-on-LAN profile are installed. It records
-CPU, ECC-memory and NVMe
-inventory; verifies at least 90 GiB RAM and one decimal terabyte of free build
-workspace; exercises 48 CPU workers and an 80 GiB verified memory workload;
-checks EDAC counters; runs an NVMe short self-test; and measures a disposable
-4 GiB direct-I/O file as the build identity. The benchmark file is removed on
-success and interruption.
-
-The report deliberately distinguishes CPU-package power reported by
-`turbostat` from whole-system AC input. If no plug-in power meter is available,
-retain `NOT_MEASURED_NO_METER`; package power must not be relabelled as wall
-power. Likewise, an operator observation without a sound meter is qualitative
-and must not be expressed as a dBA measurement.
-
-Run the qualification as a transient service so a terminal disconnect does
-not interrupt the memory or storage tests:
-
-```sh
-sudo systemd-run --unit=diamaneos-builder-resource-qualification \
-  --collect /usr/local/sbin/diamaneos-builder-qualify-resources
-```
-
-An accepted report ends with `BUILDER_RESOURCE_QUALIFICATION=PASS`. Preserve
-the complete report privately with its SHA-256; a successful exit alone is not
-the evidence.
+entry point may assume host-specific fan names.
 
 ## Generic build qualification
 
@@ -251,7 +194,7 @@ Install the source-sync and build units from the same exact checkout. Copy
 you install, replace its placeholders with the reviewed commit and the host's
 qualified thermal check, then keep every copy root-owned and mode `0644`. The
 known consumers are source sync, generic qualification, signing discovery and
-dummy signing; no service falls back to the Dell reference adapter.
+dummy signing; no service has a default thermal check.
 
 ```sh
 sudo install -o root -g root -m 0644 \
@@ -315,12 +258,11 @@ host.
 
 When Wake-on-LAN is required by a deployment, it is a real powered-off test,
 not only an `nmcli` configuration check. Record the boot ID, power the host off
-while leaving Ethernet and AC
-connected, send a magic packet from an authorized host on the LAN, and wait up
-to three minutes for SSH. On this class of workstation, a timeout shorter than
-the observed firmware and boot interval can produce a false failure. After SSH
-returns, require a changed boot ID, zero failed units, active SSH/time sync,
-a passing thermal-safety check, and the expected toolchain.
+while leaving Ethernet and AC connected, send a magic packet from an authorized
+host on the LAN, and wait up to three minutes for SSH. A timeout shorter than
+the firmware and boot interval can produce a false failure. After SSH returns,
+require a changed boot ID, zero failed units, active SSH/time sync, a passing
+thermal-safety check, and the expected toolchain.
 
 If packets were sent from more than one source before the host became
 reachable, record Wake-on-LAN as successful without claiming which path caused

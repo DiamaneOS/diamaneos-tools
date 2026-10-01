@@ -25,7 +25,7 @@ class SigningDiscoveryDeploymentTest(unittest.TestCase):
         script = RUNNER.read_text(encoding="utf-8")
         self.assertIn("DIAMANEOS_EXPECTED_TOOLS_COMMIT", script)
         self.assertIn("must name an explicit absolute path", script)
-        self.assertNotIn("/usr/local/sbin/diamaneos-builder-fan-check", script)
+        self.assertNotIn("/usr/local/sbin/", script)
         self.assertIn('environment["upstream"]["release_tag"]', script)
         self.assertIn('environment["host"]["external_tools"]["node"]["version"]', script)
         self.assertNotIn("grapheneos-allowed-signers-2026091000", script)

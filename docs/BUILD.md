@@ -175,13 +175,6 @@ keys never enter that host. Host acceptance requires an actual clean build in
 addition to hardware, capacity and thermal checks. Remote-power features are
 deployment-specific.
 
-The builder's resource qualification is intentionally narrower than a clean
-build. Its passing report establishes the observed host resources, bounded
-load behavior, ECC counters, storage health and management configuration. It
-does not establish source compatibility, reproducibility or release
-eligibility. Whole-system AC power and acoustic results also remain unmeasured
-unless their dedicated external meters were actually used.
-
 ## FP6 native integration
 
 The FP6 product resolves against the selected Android 17 framework with source

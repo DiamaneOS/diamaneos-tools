@@ -1,4 +1,4 @@
-"""Portable builder contract and reference-adapter boundaries."""
+"""Portable builder contract."""
 
 from pathlib import Path
 import subprocess
@@ -28,17 +28,7 @@ class BuilderPortabilityTests(unittest.TestCase):
                 text = (DEPLOY / name).read_text(encoding="utf-8")
                 self.assertIn("DIAMANEOS_THERMAL_CHECK", text)
                 self.assertIn('--thermal-check "$thermal_check"', text)
-        generic_unit = (DEPLOY /
-                        "diamaneos-builder-generic-qualification.service").read_text(
-                            encoding="utf-8")
-        self.assertNotIn("diamaneos-builder-fan-guard.service", generic_unit)
-
-    def test_reference_specific_qualification_is_disclosed(self):
-        readme = (DEPLOY / "README.md").read_text(encoding="utf-8")
-        self.assertIn("Portable thermal-safety interface", readme)
-        self.assertIn("Dell Precision reference adapter", readme)
-        self.assertIn("Reference-hardware resource qualification", readme)
-        self.assertIn("not the portable minimum", readme)
+                self.assertNotIn("/usr/local/sbin/", text)
 
 
 if __name__ == "__main__":
