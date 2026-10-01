@@ -1,8 +1,7 @@
-# FP6 firmware: inventory and update path
+# FP6 firmware inventory
 
 The Fairphone 6's closed firmware (boot chain, TrustZone, modem, signal
-processors), its recent changes and a delivery design, not yet implemented;
-nothing here was read from a phone.
+processors) and its recent changes; nothing here was read from a phone.
 
 ## Current state
 
@@ -95,47 +94,7 @@ amplifiers) ships in the vendor image via
 (`qca_cld3_qca6750.ko` in vendor_dlkm): the dynamic IPv6 neighbour solicitation
 offload handling of CodeLinaro qcacld-3.0 commit `ec35705b4e` ("Avoid caching
 NS offload when dynamically disabled"). DiamaneOS's source-built driver is
-pinned to a revision that has it; a phone test is pending.
-
-## Delivery design
-
-**One release.** The inventory's `selected_build` must equal the `stock_build`
-of `vendor-files.json` and `fp6-stock-image-recipe.json`: Fairphone releases
-and tests vendor blobs, DSP and modem images and their kernel-module interfaces
-together. Mixing releases needs a recorded single-component pin.
-
-**Installer.** Stage images from the verified factory package by hash, like
-`vendor stage`, rejecting any SHA-256 outside the inventory. Write firmware to
-the target slot in stock order before the OS images; write single-copy
-`toolsfv`, `storsec` and `study` only when the pinned image differs from the
-last shipped release, and `vm-persist`, `logfs` and the `modemst1`/`modemst2`
-erase only on a full wipe; then select that slot. The inactive slot has no OS
-after install (a fastboot-written super fills slot a only), so it gets firmware
-with the next A/B update; writing both slots is harmless but unnecessary.
-
-**OTA.** Each update carries its release's A/B firmware as prebuilt radio
-images in the target files and in `AB_OTA_PARTITIONS`
-(abl, aop, aop_config, bluetooth, cpucp, cpucp_dtb, devcfg, dsp, featenabler,
-hyp, imagefv, keymaster, modem, multiimgoem, qupfw, shrm, tz, uefi, uefisecapp,
-vm-bootsys, xbl, xbl_config, xbl_ramdump); update_engine writes them to the
-inactive slot, so a failed boot falls back with the old firmware. Single-copy
-partitions cannot update atomically and stay out. Check the list against a
-Fairphone OTA payload first.
-
-**Single-component pin.** If a release regresses one component, pin just that
-component to the last good release. LineageOS did so for FP6 Wi-Fi in July 2026
-(commit `c167aaa` in ArianK16a's FP6 device tree, discussed in the Fairphone
-forum), copying Android 15 (15.176.0) `wpss.*`, `bdwlan.elf` and `regdb.bin`
-into `/vendor/firmware/qca6750/` and putting `/vendor/firmware` first in the
-kernel firmware search path, leaving the partition unchanged. DiamaneOS's
-ueventd already searches `/vendor/firmware/` before the device tree's
-`/vendor/firmware_mnt/image/`, so a pin would be exact stock files from the
-named release in `vendor-files.json` with hash and reason, probably without a
-search-path change (build and phone test needed). This works only for firmware
-loaded by name from a filesystem (WPSS, ADSP, CDSP, modem, GPU); a boot-chain
-image (xbl, abl, tz, hyp, aop, ...) means shipping the whole older partition. A
-pin never goes below the anti-rollback version the phone has run, and is
-dropped once stock fixes the regression.
+pinned to a revision that has it, not yet tested on a phone.
 
 ## Rollback rules
 
@@ -147,9 +106,7 @@ dropped once stock fixes the regression.
   `oem reset-rollback` (unlocked only) resets them; Fairphone warns that locking
   on older software than before may brick the phone.
 - Qualcomm's own anti-rollback version (signing metadata, enforceable from
-  fuses or protected storage) is 1 in both releases. Never ship or flash
-  firmware below the highest version DiamaneOS has shipped; the tools should
-  check this from the inventory.
+  fuses or protected storage) is 1 in both releases.
 - Never downgrade firmware: it is untested even at equal anti-rollback version,
   and the stock flash script is the only supported way back to stock.
 
@@ -157,24 +114,6 @@ dropped once stock fixes the regression.
 
 - The factory package matches its pinned SHA-256 and Fairphone's published value
   (for 16.111.0 not yet published on 2026-09-30), and its own checksum list.
-- Each staged image matches the inventory hash, and the flash script its
-  recorded hash, so a changed order is noticed.
-- Each signed image parses as a Qualcomm MBN v7 image, is OEM-signed and has an
-  anti-rollback version no lower than the last shipped one.
 - On the phone, Qualcomm secure boot checks each image against the SoC's OEM
   key; AVB covers only the OS partitions and pvmfw, so byte-exact stock images
-  keep firmware authentic, and an OTA adds the DiamaneOS payload signature for
-  transport.
-
-## Needs a build or phone test
-
-- 16.111.0 vendor files on a phone whose firmware is still 16.100.0 (the state
-  after moving the stock input, until firmware is updated).
-- Writing each firmware partition with fastboot from the installer, including
-  which need critical unlock, then relocking with the DiamaneOS key.
-- An OTA carrying firmware: the payload lists the partitions, it installs to the
-  inactive slot, the phone boots it and a forced failure falls back cleanly.
-- The Wi-Fi fix in the source-built WLAN driver (IPv6 on a network where the
-  stall was seen, before and after suspend).
-- A single-component pin through `/vendor/firmware`, if ever needed.
-- The tools' anti-rollback check against a real MBN image.
+  keep firmware authentic.

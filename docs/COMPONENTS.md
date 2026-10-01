@@ -53,13 +53,12 @@ exact ownership of source records and blockers, the dependency graph and each
 state's evidence. It validates the model only, not that an FP6 image builds,
 boots or qualifies.
 
-The later FP6 pipeline produces an artifact closure (every generated or
-included file, tied to its component) matching
-`schemas/component-closure.schema.json`: each artifact has a relative path,
-SHA-256, component owner, source/prebuilt class, source-inventory reference and
-artifact dependencies, and every model component has one result, absent ones
-included. Validate it for private development, and with `--public` before
-public promotion:
+An artifact closure (every generated or included file, tied to its component)
+matches `schemas/component-closure.schema.json`: each artifact has a relative
+path, SHA-256, component owner, source/prebuilt class, source-inventory
+reference and artifact dependencies, and every model component has one result,
+absent ones included. Validate it for private development, and with `--public`
+before public promotion:
 
 ```sh
 .venv/bin/python bin/diamaneos components validate \

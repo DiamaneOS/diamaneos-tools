@@ -1,7 +1,7 @@
 # DiamaneOS test host
 
 This recipe prepares a dedicated, always-available Linux host for read-only
-device capture and later regression harness work. Host-specific addresses,
+device capture and regression harness work. Host-specific addresses,
 hardware identities, ADB serials, raw diagnostics and power measurements stay
 in protected operational state outside Git.
 
@@ -174,7 +174,7 @@ report `mdns_enabled: false` while the approved USB device remains available.
 Use one labelled, repeatable chassis port and cable. Record its physical label,
 `lsusb -t` path, negotiated speed, device-node owner/group/mode and applicable
 udev rule privately. USB 2.0 at 480 Mbit/s is sufficient for ordinary ADB
-capture; performance traces may justify a faster path later.
+capture.
 
 Start ADB as the runner and connect one approved disposable test device. Before
 the operator accepts the phone prompt, `adb devices -l` must report

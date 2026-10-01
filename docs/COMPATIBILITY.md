@@ -265,14 +265,9 @@ that cannot prove locked-user properties
 ## Other suites
 
 [CTS-on-GSI](https://source.android.com/docs/core/tests/vts/gsi) checks the
-vendor implementation with a generic system and stays a separate diagnostic
-gate. Select MTS (Mainline modules) from the candidate's shipped modules and
-the [official MTS source](https://android.googlesource.com/platform/test/mts/).
-Available matching STS,
-[Security AutoRepro](https://source.android.com/docs/security/test/autorepro)
-and public CVE regressions belong to the pre-release gate; record inaccessible
-partner suites as unavailable, never as run. None replaces final user-build CTS
-and manual evidence. Sources: the official Android
+vendor implementation with a generic system and is a diagnostic gate only.
+Record inaccessible partner suites as unavailable, never as run. Sources: the
+official Android
 [CTS downloads](https://source.android.com/docs/compatibility/cts/downloads),
 [CTS setup guide](https://source.android.com/docs/compatibility/cts/setup),
 [CTS Verifier guide](https://source.android.com/docs/compatibility/cts/verifier)

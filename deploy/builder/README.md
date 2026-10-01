@@ -46,9 +46,9 @@ as universal build requirements.
 
 The pinned environment record declares Debian 13 as a project-selected
 compatibility deviation. It therefore requires an actual clean-build result
-before host acceptance. Exact package versions are verified by preflight; a
-future long-term rebuild also needs an independently retained Debian package
-source or snapshot, which is not yet supplied by this repository.
+before host acceptance. Exact package versions are verified by preflight; this
+repository does not supply the independently retained Debian package source or
+snapshot that a long-term rebuild needs.
 
 ## Bootstrap
 
@@ -192,7 +192,7 @@ is not an advisory warning.
 On this qualified adapter, invoke `diamaneos-builder-fan-check` immediately
 before accepting a build lease or starting a build process. It validates service activity, status
 freshness, package temperature, selected mode and the mode-specific fan RPM
-floor. The later build-job wrapper must call this same executable rather than
+floor. A build-job wrapper must call this same executable rather than
 reimplementing or bypassing the policy.
 
 ## Reference-hardware resource qualification

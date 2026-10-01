@@ -14,19 +14,9 @@ script, algorithm, target-files inventory or approved presigned package
 invalidates the qualification result.
 
 The online builder produces unsigned target-files and an otatools package and
-never holds production private keys. A separate offline signer turns approved
-target-files into: target-files with the reviewed APK and APEX certificate
-mapping; APEX payloads and AVB metadata signed by the declared AVB role; a full
-OTA and, given an approved old target-files input, an incremental OTA;
-release/channel metadata derived from the internally signed OTA; and an
-externally signed factory archive and append-only release record. It returns
-only signed outputs, public certificates, hashes and the verification record.
-Online packaging may build the outer factory container only from approved
-signed target-files, without a release private key. Production storage and
-token assignments wait until the real offline equipment proves every intended
-provider/algorithm/tool combination ("the token supports RSA" is no end-to-end
-Android signing result); a role that cannot use its provider gets a reviewed
-offline software-held alternative or stays a blocker.
+never holds production private keys. Online packaging may build the outer
+factory container only from approved signed target-files, without a release
+private key.
 
 ## Pinned roles
 
@@ -172,10 +162,9 @@ parses, recording status and results in `key-generation.json`.
 
 The incremental proof deliberately uses the same Cuttlefish archive as old and
 new (a no-op delta): it exercises generation and package/payload signing, not
-changed-build update semantics, which belong to an FP6 old/new release-pair
-qualification. The generic image archive proves the Ed25519 `factory images`
-role, not an FP6 factory package's structure or installability; FP6 packaging
-must be requalified on real output.
+changed-build update semantics. The generic image archive proves the Ed25519
+`factory images` role, not an FP6 factory package's structure or installability;
+FP6 packaging must be requalified on real output.
 
 The release manifest hashes every artifact and is signed in the
 `diamaneos-dummy-release-record` namespace. Verification re-hashes, accepts the
@@ -192,21 +181,6 @@ proof/artifact identifiers, altered hashes, incomplete proofs,
 production-material claims and a mismatched source binding. A PASS covers only
 that disposable run.
 
-## Offline signer qualification
-
-The signer is prepared while no production secret exists. Before production
-custody, repeat the full disposable flow on the offline host and prove: no
-active or unexpected network interface or required download; tools and input
-media match reviewed hashes; inbound and outbound media have distinct, enforced
-purposes; unrecognized media stops the procedure; the real token model,
-firmware, quantity, origin, algorithm, slot and touch behaviour are
-inventoried; every token-backed operation works through the real Android tool
-adapter, including cancellation and restart; and unsupported operations stay
-visible blockers or use a reviewed offline software-held role. PINs, recovery
-material, device identifiers, custody locations and raw offline logs never
-enter this repository; public records hold only role, algorithm, public
-fingerprint, tool binding and sanitized result.
-
 ## Change and recovery rules
 
 Key reuse and rotation are per role: APK shared-user/privileged permissions,
@@ -217,7 +191,10 @@ key set, wrapping/backup procedure, replacement-token path and restoration
 rehearsal have their own approved ceremony. Keep the unsigned input, signed
 target-files, full/incremental OTAs, public identities and verification record
 needed to reproduce a transformation; never keep a private key in build logs,
-result JSON or public evidence.
+result JSON or public evidence. PINs, recovery material, device identifiers,
+custody locations and raw offline logs never enter this repository; public
+records hold only role, algorithm, public fingerprint, tool binding and
+sanitized result.
 
 ## Diagnose retained outputs before another signing run
 

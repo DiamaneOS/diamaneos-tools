@@ -132,9 +132,9 @@ digest.
 **Flash steps.** `diamaneos flash-steps` prints commands only for a test build
 whose set matches its `SHA256SUMS` and whose verify report belongs to that set
 and passed. The flash order, slot and wipe images come from
-`config/fp6-build.json`, which the future installer can read too. The
-fastbootd fallback writes every logical partition, because a stalled `super`
-flash may already have written the new layout.
+`config/fp6-build.json`. The fastbootd fallback writes every logical
+partition, because a stalled `super` flash may already have written the new
+layout.
 
 **Reproducibility.** The same tools commit gives the same source map,
 generated inputs and source identity. Kernel images and modules differ between
@@ -187,9 +187,8 @@ unless their dedicated external meters were actually used.
 The FP6 component model and generated artifact-closure gate are documented in
 [`COMPONENTS.md`](COMPONENTS.md). The model assigns every known source family
 and blocker to one component owner, keeps investigation states separate from
-accepted public dispositions, and rejects unmapped build outputs. It is a
-prerequisite record for later device-input generation, not evidence that a
-device build exists or works.
+accepted public dispositions, and rejects unmapped build outputs. It is not
+evidence that a device build exists or works.
 
 ## FP6 native integration
 
@@ -268,8 +267,7 @@ symlinked source directories cannot supply optional Make includes. Manifest
 the manifest checkout itself must be at that release commit. The declared
 output container and `.repo` metadata are outside this source-layout traversal;
 individual project content is still checked separately with Git. The current
-flat-manifest environment does not permit local-manifest overlays. A future
-composed environment must bind its exports as well as its project commits.
+flat-manifest environment does not permit local-manifest overlays.
 
 The portable cold-environment check requires no source tree or private cache:
 
@@ -371,11 +369,10 @@ directly and contains no DiamaneOS overlay projects. The separate
 `platform_manifest` repository is a minimal local-manifest overlay; it does not
 copy the upstream `default.xml` or repeat upstream project revisions.
 
-When the first real DiamaneOS repository or fork is ready, create a new build
-environment that binds the reviewed overlay commit and file digest, installs
-that overlay under `.repo/local_manifests` before `repo sync`, and records the
-new resolved project-map digest. Re-run the affected source and build
-qualification. Do not modify this accepted environment in place, add planned
+An environment that uses the overlay binds the reviewed overlay commit and file
+digest, installs that overlay under `.repo/local_manifests` before `repo sync`,
+and records the new resolved project-map digest; re-run the affected source
+and build qualification. Do not modify an accepted environment in place, add
 empty repositories or use the overlay to freeze revisions already supplied by
 the signed GrapheneOS release.
 
@@ -388,7 +385,7 @@ DiamaneOS changes the code; each follows the CodeLinaro release branch of the
 selected Qualcomm release. A fork that stops carrying a needed change leaves
 both files, its project is pinned unmodified in the source plan, and
 `config/repositories.json` marks it `retired` while it is still published.
-Before release a retired fork may be deleted; its entry then goes, and builds
+A retired fork may be deleted; its entry then goes, and builds
 whose manifests pinned it can no longer be synced from GitHub (the five kernel forks
 retired on 2026-09-27 were deleted that day). A `follow_note` says why a fork that ships nothing
 is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
@@ -422,13 +419,12 @@ target-files inventory validation and the disposable qualification path are
 defined in [`SIGNING.md`](SIGNING.md). Never copy a production key or signer
 token to the builder to make a release command convenient. Full and
 incremental OTA generation are signing operations because they sign both the
-payload and package; they run in the reviewed offline signing workflow.
+payload and package.
 
-The accepted generic build may be extended to produce a generic target-files
-package for disposable role qualification. That downstream run must preserve
+A generic target-files package for disposable role qualification must preserve
 the existing pinned source identity, use only newly generated dummy keys and
 state explicitly that it proves neither FP6 support nor release eligibility.
-Its package inventory cannot substitute for the future FP6 `user` target-files
+Its package inventory cannot substitute for an FP6 `user` target-files
 inventory.
 
 ## Device-suite interface
@@ -460,7 +456,7 @@ Its host-side input is retained as raw evidence; its device copy is test data
 and must not remain. The committed `smoke` suite does not select this mutating
 adapter.
 
-Destructive entries use the `installer-runbook` adapter. The v1 runner enforces
+Destructive entries use the `installer-runbook` adapter. The runner enforces
 explicit destructive mode and a disposable target but deliberately does not
 execute that adapter. Flash and wipe recipes remain owned by the reviewed
 installer/runbook.
@@ -660,9 +656,8 @@ unwinds that group instead of leaving a detached build server. The workspace
 lock rejects a simultaneous preparation/build in the same workspace.
 
 This is source reconstruction and development packaging, not a claim of
-independent bit-identical release reproduction. Build-generated module signing
-material and host/environment differences need explicit comparison in release
-reproduction. No private retained evidence directory is an input to these commands.
+independent bit-identical release reproduction. No private retained evidence
+directory is an input to these commands.
 
 ### Install the generated inputs
 
@@ -1045,6 +1040,4 @@ A moving development branch in the manifest is resolved to exact commits in the
 consuming build environment. Source composition authenticates the overlay bytes,
 overlay revision and resolved project map, rejects undeclared overlays and
 verifies actual checkout contents. A previous native integration probe is not a
-clean build of a later environment. Independent publication/authentication of
-the trust anchor, an authenticated host-package dependency snapshot and an
-independent second-builder comparison remain separate release requirements.
+clean build of a later environment.

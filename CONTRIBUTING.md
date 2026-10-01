@@ -83,11 +83,10 @@ corresponding-source, relinking or Installation Information obligation.
 
 Use DiamaneOS as the product identity. General repository descriptions explain
 the component's purpose without making the current upstream base or device
-target part of the permanent product name or tagline. Record the current base,
-development status and device scope in the project overview and relevant
-source, build, compatibility and device documentation. A future change updates
-those current-scope records; historical attribution remains accurate for the
-work it describes.
+target part of the permanent product name or tagline. Record the current base
+and development status in the project overview and relevant source, build,
+compatibility and device documentation, and update them when they change;
+historical attribution remains accurate for the work it describes.
 
 Follow the [GrapheneOS branding guidance](https://grapheneos.org/faq#trademarks):
 do not present DiamaneOS as GrapheneOS itself, an official GrapheneOS port or
@@ -123,10 +122,9 @@ preserving the parent acceptance criteria. Source/format-only changes use review
 ## Roles and access
 
 - Release signing authority: designated release maintainer. Second maintainer:
-  independent builder/reviewer in the US (own build server and a planned
-  US-region FP6), no signing authority. A US support claim requires evidence
-  from the actual regional device once available; an EU-device result or
-  matching version label is not a substitute.
+  independent builder/reviewer in the US (own build server), no signing
+  authority. A US support claim requires evidence from a US-region device; an
+  EU-device result or matching version label is not a substitute.
 - Routine administration uses individually assigned credentials
   and MFA; production signing tokens never attach to a development workstation
   after the ceremony and never serve as routine MFA.
@@ -135,9 +133,9 @@ preserving the parent acceptance criteria. Source/format-only changes use review
 
 ## Translations and accessibility
 
-- Source locale English (complete); German first priority — advertised only
-  after critical flows are reviewed. Other locales AI-assisted, never
-  advertised as fully reviewed. Low-risk AI drafts allowed after structural
+- Source locale English (complete). A locale is advertised only after critical
+  flows are reviewed; AI-assisted locales are never advertised as fully
+  reviewed. Low-risk AI drafts allowed after structural
   checks; critical wording (credentials, permissions, erase, updates,
   recovery, installation) ships only after fluent review, else disclosed
   source-language fallback for that flow.

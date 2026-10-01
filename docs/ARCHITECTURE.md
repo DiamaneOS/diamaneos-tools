@@ -1,8 +1,8 @@
 # DiamaneOS architecture
 
 Component ownership, allowed dependencies and the main source decisions. The
-proposed GrapheneOS 17 base is not yet proven compatible with the Fairphone 6
-(FP6) vendor input; layout and source selection follow integration evidence.
+GrapheneOS 17 base is not yet proven compatible with the Fairphone 6 (FP6)
+vendor input; layout and source selection follow integration evidence.
 
 ## Ownership and allowed dependencies
 
@@ -42,14 +42,6 @@ evidence contracts before a suite may use them. Only an explicitly labelled
 real-device run proves a physical result; unit fixtures prove parsing and
 failure paths. Usage: [TESTING.md](TESTING.md#staged-device-runner).
 
-## Release path (planned)
-
-A pinned manifest and endpoint contract feed a reproducible build, which
-produces unsigned target-files; the isolated release signer creates full and
-incremental OTAs ([SIGNING.md](SIGNING.md)), an independent final-content
-comparison checks the result, and the device verifies it through the existing
-trusted update pipeline.
-
 ## Sources and generated vendor content
 
 The accepted build authenticates the upstream release and resolved project map
@@ -65,8 +57,7 @@ The FP6 port uses QSSI (Qualcomm's common system side) and the Fairphone target
 tree (device, kernel, modules, vendor side). `config/fp6-sources.json` maps
 sources, prebuilts and partitions; `config/fp6-capabilities.json` records what
 may be inherited, must be adapted, is unsupported or unverified. Published
-module repositories are not flattened into one invented project; the kernel
-checkout may keep those boundaries behind one build entry point.
+module repositories are not flattened into one invented project.
 
 Generated vendor content comes from an exact, hash-pinned stock input: for the
 EU port, the verified `FP6.QREL.16.111.0` factory package (selected 2026-09-30;
@@ -94,10 +85,9 @@ and hardware tests; an open-source substitute wins only once its exact licence
 and those properties are established, and a weaker software fallback for a
 hardware-backed service is no attack-surface reduction.
 
-One product for all regions is intended where evidence permits:
 `FP6.QREL.16.111.0` is the EU baseline (Fairphone released it as one build for
-all regions) and `FP6.QREL.16.104.0` a US comparison/validation input, not an EU
-restore input. Regional delta rules and the `UNVERIFIED` US status are in
+all regions) and `FP6.QREL.16.104.0` a US comparison input, not an EU restore
+input. Regional rules and the `UNVERIFIED` US status are in
 [TESTING.md](TESTING.md#regional-fp6-qualification).
 
 ## Kernel and vendor compatibility

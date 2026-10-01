@@ -53,7 +53,7 @@ members were present and all 76 embedded checksum-list files matched.
 | `FP6.QREL.15.176.0` (Android 15) | Arrival build; the official OTA came later. |
 | `FP6.QREL.16.100.0` (Android 16 EU, 2026-08-05 patch) | Accepted locked, green-verified stock checkpoint and EU restore selection; the Android 15 archive stays a historical verified input. |
 | `FP6.QREL.16.111.0` (released 2026-09-28, 2026-09-05 patch) | Vendor-file input since 2026-09-30, not a tested restore input. Fairphone had not published its checksum, so the entry has two agreeing local reads, the MD5 from the official host's object metadata, the full ZIP CRC and all 76 embedded hashes; compare with Fairphone's value once published. |
-| `FP6.QREL.16.104.0` (US) | Excluded as this EU phone's restore or flash input (it offered 16.100.0); still a planned comparison input for the separately controlled US FP6. |
+| `FP6.QREL.16.104.0` (US) | Excluded as this EU phone's restore or flash input (it offered 16.100.0). |
 
 Archive checks prove no restore, rollback eligibility, AVB/relock safety or
 bootloader operation; FP6-025 proved those for the exact Android 16 EU archive
@@ -88,21 +88,16 @@ boot, final cold-boot hardware checks).
 
 ## Regional FP6 qualification
 
-EU is the first target. US stays `UNVERIFIED` until both steps pass on the
-second maintainer's planned US-region FP6 (availability and state not yet
-evidenced); no EU result, version-label similarity or reference-ROM support
-replaces that.
-
-1. Before claiming one image for both regions, compare the exact EU and US
-   stock partition/super layout, AVB chain and rollback locations, boot and
-   vendor images, firmware, VINTF, init/SELinux policy, feature/permission
-   files, SKU properties, modem profiles and carrier/regulatory configuration.
-   Only byte-identical files enter the common set unadapted, recorded apart from
-   the regional delta. Select a runtime delta by an observed trustworthy
-   hardware/boot SKU property, never locale, language, timezone or location; a
-   boot-critical delta needs separately bound variants.
-2. Run the applicable hardware matrix and the declared T-Mobile-oriented voice,
-   SMS, data, 5G, VoLTE and VoWiFi tests on the US phone.
+US is `UNVERIFIED` until a US stock comparison and a run on a US-region FP6 are
+accepted; no EU result, version-label similarity or reference-ROM support
+replaces them. Before claiming one image for both regions, compare the exact EU
+and US stock partition/super layout, AVB chain and rollback locations, boot and
+vendor images, firmware, VINTF, init/SELinux policy, feature/permission files,
+SKU properties, modem profiles and carrier/regulatory configuration. Only
+byte-identical files enter the common set unadapted, recorded apart from the
+regional delta. Select a runtime delta by an observed trustworthy hardware/boot
+SKU property, never locale, language, timezone or location; a boot-critical
+delta needs separately bound variants.
 
 ## Baseline collector
 
@@ -396,7 +391,7 @@ bin/diamaneos test run \
 ```
 
 Destructive suites also need `--destructive` and a map entry with
-`disposable: true`; the v1 runner cannot flash or wipe, so an
+`disposable: true`; the runner cannot flash or wipe, so an
 `installer-runbook` case stays `BLOCKED` for the reviewed operator action and
 is never marked `PASS` for passing the gate. Synthetic contract tests cover
 multiple-device binding, wrong target, unavailable capability, timeout, device
@@ -488,10 +483,7 @@ requirements, fixtures, interlocks and result parser. A stock Android 16 trial
 proves only the harness and collection path; no custom-OS pass or inaccessible
 partner-suite completion is claimed, and a selected-test PASS is not full-suite
 coverage. Keep trial/parent identity and manual XML exports
-([manual report collection](COMPATIBILITY.md#manual-report-collection)). The
-original early-risk ledger stays an input to final case selection; complete
-CDD coverage and all applicable CTS, CTS Verifier, VTS and modular suite
-results are release-gate work on the actual FP6 `user` candidate.
+([manual report collection](COMPATIBILITY.md#manual-report-collection)).
 
 **Overlays.** [OVERLAYS.md](OVERLAYS.md) explains
 `bin/diamaneos overlays check`; its tests use fixture trees and local Git

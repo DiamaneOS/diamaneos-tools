@@ -52,8 +52,8 @@ cd diamaneos-tools
 ```
 
 Check that the commit you build is signed by a DiamaneOS maintainer. The
-maintainer keys are not published yet; they will be listed at
-`<to be published>`. Once they are:
+maintainer keys are not published; with an allowed-signers file that lists
+them:
 
 ```sh
 git -c gpg.ssh.allowedSignersFile=/path/to/diamaneos-allowed-signers verify-commit HEAD
@@ -147,7 +147,7 @@ If you flash from another computer, copy the whole image directory there.
 The wipe erases everything on the phone. It flashes empty userdata, metadata
 and misc images and Fairphone's factory FRP image, so factory reset protection
 is cleared and OEM unlocking stays allowed. The wipe is not yet tested on a
-phone; the printed steps say so until it is.
+phone, and the printed steps say so.
 
 **Updating** a phone that already runs a DiamaneOS test build:
 
