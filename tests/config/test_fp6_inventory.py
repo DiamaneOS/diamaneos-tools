@@ -204,15 +204,11 @@ def validate_sources(data):
 
     paths = data.get("resolved_integration_paths", {})
     official = paths.get("official_fairphone_device_configuration", {})
-    reference = paths.get("lineage_reference_only", {})
     for field in ("product_entry_points", "kernel_entry_points", "fstab_candidates"):
         if not official.get(field):
             errors.append(f"official integration paths lack {field}")
     if "not present" not in official.get("vintf_and_device_init_status", ""):
         errors.append("missing public VINTF/init boundary is not explicit")
-    for field in ("vintf", "fstab_and_init", "module_lists"):
-        if not reference.get(field):
-            errors.append(f"reference integration paths lack {field}")
     stock_runtime = paths.get("selected_stock_runtime", {})
     if stock_runtime.get("parsed_xml_files", 0) < 1 or stock_runtime.get("parse_errors") != 0:
         errors.append("selected stock VINTF was not parsed completely")

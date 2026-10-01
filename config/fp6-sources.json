@@ -34,14 +34,6 @@
         "kernel/qcom": "80da648332ffb13f3415224058d286e47429eca7"
       }
     },
-    "lineage_reference": {
-      "repository": "https://github.com/LineageOS/android_device_fairphone_FP6",
-      "branch": "lineage-23.2",
-      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
-      "archive_sha256": "483a2672da81ef2722568a6b7a50c111ef775c6a47c90b871827a1a9d02abcdb",
-      "role": "Reference-only source for module ordering, extraction categories, init/fstab and candidate VINTF declarations; it is not a DiamaneOS base and does not prove stock or GrapheneOS compatibility.",
-      "stock_blob_note": "Its proprietary-files.txt says unpinned blobs are from FP6.QREL.16.104.0. Treat that list as a US-region reference and candidate allowlist only; re-derive every retained path and fixup against the selected EU stock input and GrapheneOS-derived framework."
-    },
     "selected_stock": {
       "build": "FP6.QREL.16.111.0",
       "archive": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
@@ -163,11 +155,6 @@
       "evidence": "The exact public source revision is recorded. Some roots contain NOTICE/LICENSE files and others do not; repository publication alone does not establish the applicable obligations for the files actually consumed.",
       "distribution_decision": "Open-source obligations must be resolved for the files actually consumed before import or release.",
       "owner": "FP6-006 and the component's integration task"
-    },
-    "lineage-reference": {
-      "status": "reference-only-mixed",
-      "evidence": "The reference device tree uses per-file SPDX declarations; any imported open-source code retains those exact obligations.",
-      "distribution_decision": "Audit the exact open-source files consumed from this reference."
     }
   },
   "resolved_integration_paths": {
@@ -190,32 +177,6 @@
         "device/fairphone/fps/fstab_non_AB.qcom"
       ],
       "vintf_and_device_init_status": "not present in the inspected public device-configuration archive; bind the generated matching target package and compare it with the read-only stock runtime capture before product assembly"
-    },
-    "lineage_reference_only": {
-      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
-      "vintf": [
-        "vintf/manifest.xml",
-        "vintf/framework_manifest.xml",
-        "vintf/framework_compatibility_matrix.xml"
-      ],
-      "fstab_and_init": [
-        "rootdir/etc/fstab.default",
-        "rootdir/etc/recovery.fstab",
-        "rootdir/etc/init.qcom.rc",
-        "rootdir/etc/init.target.rc",
-        "rootdir/etc/init.recovery.qcom.rc",
-        "rootdir/bin/init.class_main.sh",
-        "rootdir/bin/init.qcom.early_boot.sh",
-        "rootdir/bin/init.qcom.post_boot.sh",
-        "rootdir/bin/init.qcom.sh"
-      ],
-      "module_lists": [
-        "modules/modules.list.first_stage",
-        "modules/modules.list.second_stage",
-        "modules/modules.list.system_dlkm",
-        "modules/modules.list.vendor_dlkm"
-      ],
-      "use_rule": "These paths are discovery references only. Import no file until it is compared with the matching Fairphone target input and every Lineage-specific dependency is removed or justified."
     },
     "selected_stock_runtime": {
       "build": "FP6.QREL.16.100.0",

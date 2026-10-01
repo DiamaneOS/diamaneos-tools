@@ -137,7 +137,9 @@ class ComponentModelTest(unittest.TestCase):
     def test_mismatched_reference_cannot_be_qualified(self):
         optional = next(entry for entry in self.model["fp6_components"]
                         if entry["id"] == "optional-vendor-services")
-        optional["source_candidates"][0]["assessment"] = "qualified"
+        optional["source_candidates"] = [{
+            "id": "mismatched-reference", "kind": "reference", "reference": "A reference for another stock release",
+            "revision": None, "compatibility": "mismatched", "assessment": "qualified", "rationale": "Test."}]
         self.assert_bad("mismatched source candidate is called qualified")
 
     def test_source_built_requires_exact_qualified_evidence(self):
