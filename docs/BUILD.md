@@ -182,14 +182,6 @@ does not establish source compatibility, reproducibility or release
 eligibility. Whole-system AC power and acoustic results also remain unmeasured
 unless their dedicated external meters were actually used.
 
-## FP6 component decisions
-
-The FP6 component model and generated artifact-closure gate are documented in
-[`COMPONENTS.md`](COMPONENTS.md). The model assigns every known source family
-and blocker to one component owner, keeps investigation states separate from
-accepted public dispositions, and rejects unmapped build outputs. It is not
-evidence that a device build exists or works.
-
 ## FP6 native integration
 
 The FP6 product resolves against the selected Android 17 framework with source
@@ -714,7 +706,7 @@ notices and actual product-graph verification must follow before accepting one.
 
 ## Materialize selected stock files
 
-After filesystem extraction and component review, use a recipe conforming to
+After filesystem extraction, use a recipe conforming to
 `schemas/vendor-files.schema.json`:
 
 ```sh
@@ -725,23 +717,21 @@ bin/diamaneos vendor generate --recipe /absolute/path/to/selected-files.json \
 
 The input directory contains partition directories named `vendor`, `odm`,
 `system`, `system_ext` or `product`. Each selected regular file has an exact
-hash, length, stock origin, component owner, inventory reference, dependency
-list, purpose and hash-bound notices. The recipe binds the component-model hash
-and its selected factory identity. Recipe creation must use the authenticated
+hash, length, stock origin, component label, inventory reference, dependency
+list, purpose and hash-bound notices. The recipe names its stock build, region
+and factory archive hash, which must match `config/fp6-stock-image-recipe.json`
+(`--stock` selects another). Recipe creation must use the authenticated
 stock discovery: this command checks selected bytes, not the origin of an
 arbitrary extraction directory or whether the declared dependency list is
 complete. Review runtime, linker-namespace, init, VINTF and firmware dependencies
 before accepting a product closure.
 
-Generation validates the source/environment-bound component model and the
-complete declared artifact mapping before publication. Missing or undeclared
-dependencies, wrong bytes and unclassified outputs fail without replacing the
-previous `current` generation. `--public` requires accepted public component
-dispositions; private-bringup allowances cannot satisfy it. The optional
-`--model`, `--sources` and `--environment` arguments select reviewed input files.
+Generation checks the stock identity and every declared file before
+publication. Dependencies that are not other selected files, wrong bytes and
+unknown notices fail without replacing the previous `current` generation.
 
-The generation contains `files/`, content-addressed `notices/`, `manifest.json`
-and `component-closure.json`. Original UID/GID, mode, SELinux label and file
+The generation contains `files/`, content-addressed `notices/` and
+`manifest.json`. Original UID/GID, mode, SELinux label and file
 capabilities remain image metadata in the manifest; host files are ordinary
 non-executable files. The command does not apply privileged host ownership or
 capabilities. Symlink traversal, symlink inputs and special files are rejected.

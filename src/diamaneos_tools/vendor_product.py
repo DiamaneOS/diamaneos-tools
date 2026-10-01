@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from . import carrier_data, components, vendor_files
+from . import carrier_data, safe_json, vendor_files
 from .vendor import VendorError, encoded
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -846,8 +846,8 @@ def gnss_config(path, data):
         raise VendorError('derived GNSS configuration differs from reviewed result')
     return derived
 
-def generate(recipe, selection, inputs, output, *, notice_kind, aapt2=None, **policy):
-    closure = vendor_files.selection(recipe, public=False, **policy)
+def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=None):
+    vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
     provenance = {'operation': 'fp6-native-product-generation',
                   'scope': 'private-bringup',
@@ -967,8 +967,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, aapt2=None, **po
                 provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
                     'sha256': rewrite['sha256'],
                     'reason': 'Use the Android 14 tinyxml2 ABI (' + rewrite['module'] + ') instead of ' + rewrite['needed']})
-            rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe),
-                             'component-closure.json': encoded(closure)})
+            rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe)})
             for name, content in rendered.items():
                 (tree / name).write_bytes(content)
             records = {}
@@ -1020,16 +1019,11 @@ def main(argv=None):
     parser.add_argument('--aapt2', type=Path, help='aapt2 for selected stock carrier data extraction')
     args = parser.parse_args(argv)
     try:
-        model_data = (ROOT / 'config/components.json').read_bytes()
-        source_data = (ROOT / 'config/fp6-sources.json').read_bytes()
-        result = generate(components.load_json(args.recipe), components.load_json(args.selection),
+        result = generate(safe_json.load_json(args.recipe), safe_json.load_json(args.selection),
             args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2,
-            model=components.loads(model_data), sources=components.loads(source_data),
-            environment=components.load_json(ROOT / 'config/build-environment.json'),
-            model_sha256=hashlib.sha256(model_data).hexdigest(),
-            source_sha256=hashlib.sha256(source_data).hexdigest())
+            stock=safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json'))
         print(json.dumps(result, indent=2))
         return 0
-    except (ValueError, KeyError, TypeError, OSError, EOFError, components.ComponentError):
+    except (ValueError, KeyError, TypeError, OSError, EOFError, safe_json.JsonError):
         print('ERROR: unable to authenticate or publish native product inputs')
         return 2

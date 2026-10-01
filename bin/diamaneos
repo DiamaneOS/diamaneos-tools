@@ -46,7 +46,7 @@ def main(argv=None):
         print("  build sync|kernel|vendor|android|package|verify -> the steps of build all, one at a time")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|components validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|carrier matrix validate|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: baseline capture -> read-only collector")
         print("        baseline pilot -> target-bound connected stock-baseline pilot")
         print("        baseline boot -> staged declared stock restart-time measurement")
@@ -58,7 +58,6 @@ def main(argv=None):
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        carrier matrix validate -> strict no-device carrier-plan validation")
-        print("        components validate -> strict no-device component/closure validation")
         print("        endpoints validate -> read-only contract checks")
         print("        fonts check -> product font customization as Android reads it")
         print("        overlays check -> resource overlays against their targets at a release")
@@ -92,9 +91,6 @@ def main(argv=None):
     if argv[:3] == ["carrier", "matrix", "validate"]:
         from diamaneos_tools import carrier_matrix
         return carrier_matrix.main(argv[3:])
-    if argv[:2] == ["components", "validate"]:
-        from diamaneos_tools import components
-        return components.main(argv[2:])
     if argv[:2] == ["build", "kernel-config"]:
         from diamaneos_tools import kernel_config
         return kernel_config.main(argv[2:])

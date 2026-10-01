@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from . import components
+from . import safe_json
 
 MAX_CONFIG_BYTES = 2 * 1024 * 1024
 SYMBOL = re.compile(r'CONFIG_[A-Za-z0-9_]+')
@@ -87,7 +87,7 @@ def main(argv=None):
     try:
         with args.config.open('rb') as stream:
             data = stream.read(MAX_CONFIG_BYTES + 1)
-        result = check(data, components.load_json(args.policy), args.profile)
+        result = check(data, safe_json.load_json(args.policy), args.profile)
     except (OSError, ValueError) as error:
         message = 'unable to read kernel configuration or policy' if isinstance(error, OSError) else str(error)
         print(json.dumps({'operation': 'kernel-config-check', 'status': 'FAIL', 'error': message}))

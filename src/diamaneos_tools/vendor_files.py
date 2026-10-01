@@ -1,7 +1,7 @@
 """Materialize reviewed regular stock files without trusting extraction directories.
 
 The recipe owns selection and dependency decisions. This module authenticates
-bytes, validates component policy, retains image metadata and publishes a
+bytes, checks the stock identity, retains image metadata and publishes a
 complete generation atomically. It does not infer runtime dependencies or
 claim the Android product graph has been validated.
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 import stat
 import tempfile
 
-from . import components
+from . import safe_json
 from .vendor import VendorError, encoded
 
 MAX_TOTAL_BYTES = 32 * 1024**3
@@ -93,15 +93,12 @@ def copy_verified(root, item, destination):
             raise VendorError('selected input digest mismatch')
 
 
-def selection(recipe, model, sources, environment, model_sha256, source_sha256, public):
-    if components._schema_errors(recipe, 'vendor-files.schema.json'):
+def selection(recipe, stock):
+    """Check the selected-file recipe; stock is the stock image recipe."""
+    if safe_json.schema_errors(recipe, 'vendor-files.schema.json'):
         raise VendorError('invalid selected-file recipe')
-    if components.validate_model(model, sources, environment, source_sha256=source_sha256):
-        raise VendorError('component model validation failed')
-    stock = model['fp6_model']['inputs']['selected_stock']
-    if (recipe['model_sha256'] != model_sha256
-            or recipe['stock_build'] != stock['build'] or recipe['region'] != stock['region']
-            or recipe['archive_sha256'] != stock['factory_sha256']):
+    if (recipe['stock_build'] != stock['stock_build'] or recipe['region'] != stock['region']
+            or recipe['archive_sha256'] != stock['archive_sha256']):
         raise VendorError('selected-file recipe input identity mismatch')
     paths, inputs = set(), set()
     notice_hashes = {n['sha256'] for n in recipe['notices']}
@@ -140,22 +137,10 @@ def selection(recipe, model, sources, environment, model_sha256, source_sha256, 
         safe_path(notice['input'])
     if sum(i['bytes'] for i in recipe['files'] + recipe['notices']) > MAX_TOTAL_BYTES:
         raise VendorError('selected files exceed total size bound')
-    fields = ('path', 'sha256', 'component_id', 'inventory_ref')
-    closure = {'schema_version': 1, 'model_sha256': model_sha256,
-               'stock_build': recipe['stock_build'], 'region': recipe['region'],
-               'artifacts': [dict({k: i[k] for k in fields}, source_or_prebuilt='prebuilt',
-                                  dependencies=[link_destination(i)] if 'target' in i else
-                                  i['dependencies'] + [r['path'] for r in i.get('runtime_dependencies', [])])
-                             for i in sorted(selected, key=lambda i: i['path'])],
-               'component_results': []}
-    for component in model['fp6_components']:
-        owned = sorted(i['path'] for i in selected if i['component_id'] == component['id'])
-        closure['component_results'].append({'component_id': component['id'],
-                                            'presence': 'present' if owned else 'absent',
-                                            'artifact_paths': owned})
-    if components.validate_closure(model, closure, model_sha256=model_sha256, public=public):
-        raise VendorError('selected-file component closure validation failed')
-    return closure
+    for item in selected:
+        for dependency in item.get('dependencies', []):
+            if dependency not in paths or dependency == item['path']:
+                raise VendorError('selected file dependency is not another selected file')
 
 
 def verify_tree(root, records):
@@ -184,9 +169,8 @@ def verify_tree(root, records):
                 raise VendorError('generated file digest mismatch')
 
 
-def generate(recipe, inputs, output, *, model, sources, environment,
-             model_sha256, source_sha256, public=False):
-    closure = selection(recipe, model, sources, environment, model_sha256, source_sha256, public)
+def generate(recipe, inputs, output, *, stock):
+    selection(recipe, stock)
     recipe = dict(recipe, files=sorted(recipe['files'], key=lambda i: i['path']),
                   notices=sorted(recipe['notices'], key=lambda i: i['sha256']))
     if 'symlinks' in recipe:
@@ -194,7 +178,7 @@ def generate(recipe, inputs, output, *, model, sources, environment,
     identity = hashlib.sha256(encoded(recipe)).hexdigest()
     manifest = {'operation': 'selected-stock-files', 'recipe_sha256': identity,
                 'recipe': recipe, 'product_graph_validated': False}
-    metadata = {'manifest.json': encoded(manifest), 'component-closure.json': encoded(closure)}
+    metadata = {'manifest.json': encoded(manifest)}
     if recipe.get('symlinks'):
         metadata['symlinks.json'] = encoded({'schema_version': 1, 'symlinks': recipe['symlinks']})
     records = {name: {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
@@ -245,5 +229,4 @@ def generate(recipe, inputs, output, *, model, sources, environment,
     return {'operation': 'selected-stock-files', 'status': 'PASS',
             'recipe_sha256': identity, 'file_count': len(recipe['files']),
             'notice_count': len(recipe['notices']), 'symlink_count': len(recipe.get('symlinks', [])),
-            'product_graph_validated': False,
-            'scope': 'public-component-policy' if public else 'private-bringup'}
+            'product_graph_validated': False}

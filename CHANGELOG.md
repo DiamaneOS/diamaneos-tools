@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Move the FP6 component decision model (config/components.json, its schemas,
+  check, tests and docs/COMPONENTS.md) out of the public tools. The vendor step
+  now checks the selected files against the stock image recipe and no longer
+  writes component-closure.json; `diamaneos components validate` is gone.
+  Generic strict JSON loading moves to safe_json.py.
 - Add the public build commands. `diamaneos build all` builds a Fairphone 6
   test image in one workspace as an ordinary user: it syncs the source at the
   pinned commits, builds the kernel, extracts the stock files from Fairphone's

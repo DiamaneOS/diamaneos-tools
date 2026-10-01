@@ -40,7 +40,6 @@ fastboot --version
 - [Build reference](docs/BUILD.md)
 - [Reproduce the current generic build](docs/REPRODUCIBILITY.md)
 - [Testing and command setup](docs/TESTING.md)
-- [FP6 component decisions and artifact closure](docs/COMPONENTS.md)
 - [FP6 firmware inventory](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
