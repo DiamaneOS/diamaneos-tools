@@ -418,23 +418,18 @@ public Git.
 
 ### Carrier and telephony
 
-`config/carrier-matrix.json` is the identifier-free plan for the two FP6
-carrier profiles and the isolated peer:
+The `telephony` suite covers the two FP6 carrier profiles and the isolated
+peer:
 
 ```sh
-bin/diamaneos carrier matrix validate
 bin/diamaneos test run --suite telephony --dry-run
 ```
 
-`plan_eligibility` (what a carrier page can show) is separate from
-`observation_status` (provisioning, registration and FP6 behaviour): `PASS` or
-`FAIL` needs build- and arrangement-bound evidence, an unavailable SIM or
-unknown tariff stays `BLOCKED` or `NOT_RUN`, and unobserved firmware, APN or IMS
-context is `UNRECORDED`. The `telephony` suite makes four allowlisted read-only
-captures (`dumpsys carrier_config`, `dumpsys telephony.registry`, the private
-raw `dumpsys phone` IMS/MMTEL context, the optional legacy
-`dumpsys imsservice`), keeps raw streams private and only bounded, redacted
-fields in `result.json`, and nothing from the phone dump. A reviewed case may
+It makes four allowlisted read-only captures (`dumpsys carrier_config`,
+`dumpsys telephony.registry`, the private raw `dumpsys phone` IMS/MMTEL
+context, the optional legacy `dumpsys imsservice`), keeps raw streams private
+and only bounded, redacted fields in `result.json`, and nothing from the phone
+dump. A reviewed case may
 raise the 256 KiB stream default to the hard 1 MiB ceiling, as the stock
 telephony-registry snapshot does; overflow stays a fail-stop harness error.
 Success means capture, not working voice,
