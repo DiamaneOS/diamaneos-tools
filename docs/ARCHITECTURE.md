@@ -116,9 +116,9 @@ path.
   inhibitor under its existing lock before release. Domain workflows keep their
   own state and acceptance rules and do not call another workflow's private
   IO/device helpers.
-- Source sync, generic build, signing discovery and dummy qualification share
-  `$WORK_ROOT/.workspace.lock` for the whole operation, including evidence
-  finalization; a competing operation fails immediately. It is independent of
-  physical-device locks. Never delete a lock file to clear a busy operation.
+- Source sync and the generic build share `$WORK_ROOT/.workspace.lock` for the
+  whole operation, including evidence finalization; a competing operation fails
+  immediately. It is independent of physical-device locks. Never delete a lock
+  file to clear a busy operation.
 - Compatibility packages have separate generated results/logs; the rest must
   match the approved ZIP ([suite packages](COMPATIBILITY.md#suite-packages)).
