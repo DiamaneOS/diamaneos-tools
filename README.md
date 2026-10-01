@@ -23,9 +23,9 @@ and externally installed dependencies retain their own licences.
 
 ## Workspace and tools
 
-Clone into any directory. Commands in this repository are run from its root unless stated otherwise. `WORK_ROOT` in repository maps is a configurable parent of related checkouts, not a required path on a maintainer's computer. `TOOLS_ROOT` is this checkout; `PRIVATE_ROOT` is a caller-selected directory outside public repositories for raw device evidence. `OFFLINE_ROOT` refers to isolated release-signing storage and is not a development checkout.
+Clone into any directory. Commands in this repository are run from its root unless stated otherwise. `WORK_ROOT` in repository maps is a configurable parent of related checkouts, not a required path on a maintainer's computer. `TOOLS_ROOT` is this checkout; `PRIVATE_ROOT` is a caller-selected directory outside public repositories for private records. `OFFLINE_ROOT` refers to isolated release-signing storage and is not a development checkout.
 
-Use Git, Python 3 and the official Android platform tools (`adb` and `fastboot`) for host capture. Put tools on `PATH` or supply the documented executable option. Full Android builds run on Linux with `bin/diamaneos build all` ([BUILDING.md](docs/BUILDING.md)); running host-side fixtures does not require a full OS checkout or device.
+Use Git, Python 3 and the official Android platform tools (`adb` and `fastboot`). Put tools on `PATH` or supply the documented executable option. Full Android builds run on Linux with `bin/diamaneos build all` ([BUILDING.md](docs/BUILDING.md)); running host-side fixtures does not require a full OS checkout or device.
 
 ```sh
 git --version

@@ -8,7 +8,7 @@ vendor input; layout and source selection follow integration evidence.
 
 | Component (repository ID) | Responsible role | Inputs | Owned state | Authority boundary |
 | --- | --- | --- | --- | --- |
-| tools | Host-tooling maintainer | Pinned manifests, reviewed suites and immutable inputs | Private target maps, per-target locks and bounded run evidence | No signing or release-promotion credentials; destructive recipes remain in the installer/runbook |
+| tools | Host-tooling maintainer | Pinned manifests and immutable inputs | Build workspaces and their bounded records | No signing or release-promotion credentials; destructive recipes remain in the installer/runbook |
 | manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Authenticate upstream; bind downstream composition when present |
 | device/product | Device-integration maintainer | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
 | vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
@@ -23,24 +23,6 @@ Platform code owns credential, permission, update and hardware enforcement;
 shared visual components only coordinate presentation. Dependencies run one
 way: tools and manifests define source inputs, generated/device integration
 feeds builds, release evidence derives from the candidate.
-
-## Hardware-runner boundary
-
-The host-tooling maintainer owns the suite parser, adapter allowlist and run
-schema; the private deployment owns device-role mappings and raw output; public
-reports use non-identifying roles. Suites cannot add arbitrary commands, select
-unmapped targets or grant destructive authority. Each physical role has one
-lock owner; the run directory owns checkpoint state until atomic finalization,
-so interruption yields an explicit rerun set, never a resumed unverified
-command, and retries first verify suite/candidate identity, installed build and
-raw-file hashes. Inspect, smoke and security stages use a narrow read-only
-adapter over the official ADB command-line interface on the accepted USB path.
-Destructive cases cross the installer/runbook boundary (an explicit flag and
-disposable role are necessary, not sufficient; the runner never flashes).
-Fastboot and UI-automation adapters need reviewed target, timeout, cleanup and
-evidence contracts before a suite may use them. Only an explicitly labelled
-real-device run proves a physical result; unit fixtures prove parsing and
-failure paths. Usage: [TESTING.md](TESTING.md#staged-device-runner).
 
 ## Sources and generated vendor content
 
@@ -110,15 +92,6 @@ path.
   tail, and limits are explicit at the call site. A child starting a new
   session escapes the process group, so deployed services also own a systemd
   cgroup; these tools are no sandbox for hostile executables.
-- `evidence` owns bounded JSON input, atomic report writes and referenced-file
-  hashes; `device` owns ADB enumeration and identity capture; `rig` owns
-  physical-role locks and persistent leases, and a start guard can create an
-  inhibitor under its existing lock before release. Domain workflows keep their
-  own state and acceptance rules and do not call another workflow's private
-  IO/device helpers.
 - Source sync and the generic build share `$WORK_ROOT/.workspace.lock` for the
   whole operation, including evidence finalization; a competing operation fails
-  immediately. It is independent of physical-device locks. Never delete a lock
-  file to clear a busy operation.
-- Compatibility packages have separate generated results/logs; the rest must
-  match the approved ZIP ([suite packages](COMPATIBILITY.md#suite-packages)).
+  immediately. Never delete a lock file to clear a busy operation.

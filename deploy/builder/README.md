@@ -5,30 +5,6 @@ untrusted OS compilation. It is not a release signer: never place production
 private keys, signing tokens, recovery material or offline-signer credentials
 on it.
 
-## Compatibility-suite host role
-
-The accepted builder may also run official CTS, CTS Verifier and VTS work
-because it satisfies the recorded x86-64, memory and free-storage minimums.
-This is a non-secret testing role; it does not make the builder a signer and
-does not permit release keys on the host. See
-[`docs/COMPATIBILITY.md`](../../docs/COMPATIBILITY.md) for the version-bound
-package, target and result contract.
-
-Install `diamaneos-builder-adb.service` and the non-recurring
-`diamaneos-builder-compatibility@.service` only after the exact public tools
-commit and official suite archives are reviewed. The builder identity must be
-in `plugdev`, and current platform-tools, `aapt2`, FFmpeg and an English locale
-must pass the live host gate. Compatibility state belongs under
-`/var/lib/diamaneos-build/compatibility`; private serials, setup attestations
-and raw reports never enter public Git.
-
-The powered rig normally remains on the test host. Before a compatibility
-session, disable test-host maintenance through its fixed operator control,
-move the rig physically, and create a builder-specific device map and rig
-configuration from live topology. Never reuse a tester USB path by assumption.
-After the final report and teardown are exported, stop builder ADB, move the
-rig back, verify both tester roles and explicitly restore battery maintenance.
-
 ## Portable contract and reference environment
 
 - x86_64 Debian 13 installed in UEFI mode

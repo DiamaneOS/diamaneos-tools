@@ -8,7 +8,6 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "src"))
-from diamaneos_tools import baseline
 
 
 def main(argv=None):
@@ -46,47 +45,17 @@ def main(argv=None):
         print("  build sync|kernel|vendor|android|package|verify -> the steps of build all, one at a time")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|baseline capture|baseline pilot|baseline boot|baseline connected|baseline camera|baseline idle|baseline protocol validate|build preflight|build kernel-config|endpoints validate|rig|signing|test compatibility|test run|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
-        print("routes: baseline capture -> read-only collector")
-        print("        baseline pilot -> target-bound connected stock-baseline pilot")
-        print("        baseline boot -> staged declared stock restart-time measurement")
-        print("        baseline connected -> staged declared connected stock measurement")
-        print("        baseline camera -> staged original-media camera measurements")
-        print("        baseline idle -> staged or unattended verified-VBUS-off idle measurements")
-        print("        baseline protocol validate -> strict no-device protocol validation")
-        print("        build all -> sync, kernel, vendor, android, package and verify in one workspace")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|endpoints validate|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel manifest|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("routes: build all -> sync, kernel, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        endpoints validate -> read-only contract checks")
         print("        fonts check -> product font customization as Android reads it")
         print("        overlays check -> resource overlays against their targets at a release")
-        print("        rig -> identity-bound USB power and battery controller")
         print("        signing -> signing-role, target-files and dummy-proof verification")
-        print("        test compatibility -> version-bound official-suite harness")
-        print("        test run -> target-bound staged device tests")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
         print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        kernel manifest -> render or check the kernel repo manifest\n        build inputs -> install verified generated Android inputs")
         return 0
-    if argv[:2] == ["baseline", "capture"]:
-        return baseline.main(argv[2:])
-    if argv[:2] == ["baseline", "pilot"]:
-        from diamaneos_tools import baseline_pilot
-        return baseline_pilot.main(argv[2:])
-    if argv[:2] == ["baseline", "boot"]:
-        from diamaneos_tools import baseline_boot
-        return baseline_boot.main(argv[2:])
-    if argv[:2] == ["baseline", "connected"]:
-        from diamaneos_tools import baseline_connected
-        return baseline_connected.main(argv[2:])
-    if argv[:2] == ["baseline", "camera"]:
-        from diamaneos_tools import baseline_camera
-        return baseline_camera.main(argv[2:])
-    if argv[:2] == ["baseline", "idle"]:
-        from diamaneos_tools import baseline_idle
-        return baseline_idle.main(argv[2:])
-    if argv[:3] == ["baseline", "protocol", "validate"]:
-        from diamaneos_tools import baseline_protocol
-        return baseline_protocol.main(argv[3:])
     if argv[:2] == ["build", "kernel-config"]:
         from diamaneos_tools import kernel_config
         return kernel_config.main(argv[2:])
@@ -99,18 +68,9 @@ def main(argv=None):
     if argv[:1] == ["vendor"]:
         from diamaneos_tools import vendor
         return vendor.main(argv[1:])
-    if argv[:1] == ["rig"]:
-        from diamaneos_tools import rig
-        return rig.main(argv[1:])
     if argv[:1] == ["signing"]:
         from diamaneos_tools import signing_verify
         return signing_verify.main(argv[1:])
-    if argv[:2] == ["test", "compatibility"]:
-        from diamaneos_tools import compatibility
-        return compatibility.main(argv[2:])
-    if argv[:2] == ["test", "run"]:
-        from diamaneos_tools import test_runner
-        return test_runner.main(argv[2:])
     print("unknown command: " + " ".join(argv), file=sys.stderr)
     return 2
 
