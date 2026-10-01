@@ -296,6 +296,15 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   root (-114; both kernel forks fix the upstream mount-refusal mode and kernel
   policy v8 requires it); the Wi-Fi platform driver no longer logs MAC
   addresses the modem or the device supplies (-112).
+- **2026-10-01:** SELinux triage of the remaining enforcing denials,
+  implemented, not yet built: system_server reads the DisplayPort and audio
+  codec extcon cable names (sysfs_extcon, replacing per-index labels that
+  followed probe order); the camera and media services read the gralloc
+  properties the buffer mapper rereads per buffer; the sensors HAL reads only
+  its own sensor-list file in persist, no longer the registry and calibration
+  files; one dontaudit for the sensors HAL's denied writes of a factory
+  proximity value; the source-built health service filters kernel uevents to
+  power-supply events.
 
 ## IMS integration notes
 
