@@ -489,5 +489,32 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(wipe['userdata.img']['bytes'], config['wipe']['images']['userdata']['bytes'])
 
 
+class VintfAndJdkTests(unittest.TestCase):
+    STOCK = (b'<!-- Copyright -->\n<manifest version="1.0" type="device">\n'
+             b'  <hal format="aidl">\n    <name>android.hardware.nfc</name>\n    <version>1</version>\n'
+             b'    <interface>\n      <name>INfc</name>\n      <instance>default</instance>\n    </interface>\n'
+             b'  </hal>\n</manifest>\n')
+    ASSEMBLED = (b'<!--\n    Input:\n        files/nfc.xml\n-->\n<manifest version="9.0" type="device">\n'
+                 b'    <hal format="aidl">\n        <name>android.hardware.nfc</name>\n'
+                 b'        <fqname>INfc/default</fqname>\n    </hal>\n</manifest>\n')
+
+    def test_assembled_fragment_declares_the_same(self):
+        self.assertEqual(subject.vintf_declarations(self.STOCK), subject.vintf_declarations(self.ASSEMBLED))
+
+    def test_changed_instance_or_version_differs(self):
+        self.assertNotEqual(subject.vintf_declarations(self.STOCK),
+                            subject.vintf_declarations(self.ASSEMBLED.replace(b'INfc/default', b'INfc/other')))
+        self.assertNotEqual(subject.vintf_declarations(self.STOCK),
+                            subject.vintf_declarations(self.STOCK.replace(b'<version>1</version>', b'<version>2</version>')))
+
+    def test_newest_jdk_is_chosen_numerically(self):
+        with tempfile.TemporaryDirectory() as temp:
+            src = Path(temp)
+            for name in ('jdk8', 'jdk21', 'jdk11'):
+                (src / 'prebuilts/jdk' / name / 'linux-x86/bin').mkdir(parents=True)
+            env = subject.Tools(src / 'out/host', src, src / 'work').environment()
+            self.assertTrue(env['JAVA_HOME'].endswith('jdk21/linux-x86'))
+
+
 if __name__ == '__main__':
     unittest.main()
