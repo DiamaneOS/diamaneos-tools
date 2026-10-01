@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Move files with no public use out of the public tools: the early
+  planning records (compatibility target, localisation glossary, examples
+  and locales, the translation-unit schema and tests/requirements).
 - Move the FP6 component decision model (config/components.json, its schemas,
   check, tests and docs/COMPONENTS.md) out of the public tools. The vendor step
   now checks the selected files against the stock image recipe and no longer
