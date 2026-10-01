@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Pin kernel fork revisions that keep the debugfs interface for kernel code
+  while refusing every debugfs mount (kernel policy v8 requires
+  `CONFIG_DEBUG_FS_DISALLOW_MOUNT`), stop the Wi-Fi platform driver logging
+  MAC addresses, give camera.ko a fixed build banner instead of the build user,
+  host and time, and drop a 10 s sleep from the touch driver's probe.
+
 - Move files with no public use out of the public tools: early planning records,
   the carrier test plan with `diamaneos carrier matrix validate`, host-specific
   scripts, the device test stack, the reference build-host deployment with its

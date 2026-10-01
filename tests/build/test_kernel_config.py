@@ -73,15 +73,15 @@ class KernelConfigTests(unittest.TestCase):
         # the debugfs API that the display driver and a recovery module need.
         data = self.config(False)
         for symbol in ('CONFIG_KPROBES', 'CONFIG_KRETPROBES', 'CONFIG_FW_LOADER_USER_HELPER',
-                       'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_ALLOW_ALL'):
+                       'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'):
             with self.subTest(symbol=symbol):
                 changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
                 result = kernel_config.check(changed, self.policy, 'production')
                 self.assertIn(symbol, [r['symbol'] for r in result['failures']])
-        # Choosing the debugfs mount refusal is the stricter kernel change (-114);
-        # the policy pins the current choice until that change lands.
-        changed = data.replace(b'CONFIG_DEBUG_FS_ALLOW_ALL=y', b'# CONFIG_DEBUG_FS_ALLOW_ALL is not set')
-        changed = changed.replace(b'# CONFIG_DEBUG_FS_DISALLOW_MOUNT is not set', b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y')
+        # debugfs keeps its in-kernel API but refuses mounts (-114, the forks fix
+        # that mode); going back to a mountable debugfs fails the check.
+        changed = data.replace(b'# CONFIG_DEBUG_FS_ALLOW_ALL is not set', b'CONFIG_DEBUG_FS_ALLOW_ALL=y')
+        changed = changed.replace(b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y', b'# CONFIG_DEBUG_FS_DISALLOW_MOUNT is not set')
         result = kernel_config.check(changed, self.policy, 'development')
         self.assertEqual([r['symbol'] for r in result['failures']],
                          ['CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'])

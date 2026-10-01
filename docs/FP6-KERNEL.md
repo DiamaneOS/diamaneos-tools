@@ -123,8 +123,7 @@ equivalence). None proves module insertion, firmware execution or boot.
 
 ## Configuration policy
 
-Known gaps: the baseline is Linux 6.1.129 while stock reports 6.1.138; and the
-effective device-tree boot arguments need production review, as the pinned
+Known gap: the effective device-tree boot arguments need production review, as the pinned
 source includes `kpti=0` and debugging/tuning options that configuration checks
 do not see.
 
@@ -149,9 +148,10 @@ garbage collector; unprivileged users get user-mode-only descriptors), io_uring
 confidentiality mode, and pins settings hardware support needs without failing
 loudly: kprobes and kretprobes, the firmware loader's user-helper fallback (the
 device init sets `force_sysfs_fallback`, so ueventd loads firmware) and the
-debugfs API. The settings live in `arch/arm64/configs/gki_defconfig`,
-identical in the common and vendor forks and kept in `savedefconfig` form
-because the GKI build runs `check_defconfig`.
+debugfs API, which kernel code keeps while mounts are refused. The settings
+live in `arch/arm64/configs/gki_defconfig`, identical in the common and vendor
+forks and kept in `savedefconfig` form because the GKI build runs
+`check_defconfig`.
 
 `--config-profile development` checks only the baseline and records the
 profile; the configuration itself always comes from the pinned fork commits.
@@ -164,16 +164,19 @@ from different
 sources (the defconfig commit reverted, other derived revisions in
 `config/patches.json` and a regenerated kernel manifest).
 
-debugfs stays as in the 2026-09-26 development build
-(`CONFIG_DEBUG_FS_ALLOW_ALL`): in this tree
-`CONFIG_DEBUG_FS_DISALLOW_MOUNT` also disables the in-kernel API, so every
-`debugfs_create_*` fails, the display driver fails to bind (no display, boot
-never completes) and a recovery module's init fails, stopping recovery's
-first-stage module loading. User builds never mount debugfs; debuggable builds
-mount it only until boot completes (AOSP `init-debug.rc`, with
-`ro.product.debugfs_restrictions.enabled=true`), under SELinux.
+debugfs keeps its in-kernel API but cannot be mounted
+(`CONFIG_DEBUG_FS_DISALLOW_MOUNT`): the filesystem is never registered and
+`/sys/kernel/debug` does not exist, so not even root can mount it. Upstream
+broke this mode in Linux 5.12: `debugfs_init()` returned before marking debugfs
+ready, so every `debugfs_create_*` failed, the display driver failed to bind
+(no display, boot never completed) and a recovery module's init failed,
+stopping recovery's first-stage module loading. Both forks carry the fix in
+`fs/debugfs/inode.c`. No vendor or recovery init script mounts debugfs and the
+device policy gives no service access to debugfs files; user builds never
+mounted it, and on debuggable builds AOSP's `init-debug.rc` mount at early-init
+and dumpstate's mount for the dumpstate HAL now fail harmlessly.
 
-KPROBES stays on. The USB glue (`dwc3-msm`) implements twelve controller hooks
+KPROBES stays on. The USB glue (`dwc3-msm`) implements thirteen controller hooks
 (pull-up, connection-done, GSI event buffers, stop handling and others) as
 kretprobes on the built-in dwc3 core and ignores registration failures, so
 without kprobes they silently vanish; turning KPROBES off first needs them as

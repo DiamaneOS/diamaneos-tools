@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-kernel-policy-v7",
+  "id": "fp6-android14-6-1-kernel-policy-v8",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -33,8 +33,8 @@
     "CONFIG_KRETPROBES": "y",
     "CONFIG_FW_LOADER_USER_HELPER": "y",
     "CONFIG_DEBUG_FS": "y",
-    "CONFIG_DEBUG_FS_ALLOW_ALL": "y",
-    "CONFIG_DEBUG_FS_DISALLOW_MOUNT": "n",
+    "CONFIG_DEBUG_FS_ALLOW_ALL": "n",
+    "CONFIG_DEBUG_FS_DISALLOW_MOUNT": "y",
     "CONFIG_PSTORE": "y",
     "CONFIG_PSTORE_RAM": "y",
     "CONFIG_PSTORE_CONSOLE": "y",

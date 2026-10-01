@@ -114,10 +114,11 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
-      "derived_revision": "cc4d2290c01caa79a47ce575def9f487fa53d18b",
-      "canonical_diff_sha256": "cc079fdab5f40ddd623c2850126e60372ff14a5465eb4b79b9ec04c861b78cca",
+      "derived_revision": "20ac0b1fe82d6050018c8041e6c284b7f72f8c56",
+      "canonical_diff_sha256": "d8b4397eee9cc014bd9f0190c8872cb1973b62356d627effc80d2812e6927719",
       "changed_files": [
         "arch/arm64/configs/gki_defconfig",
+        "fs/debugfs/inode.c",
         "include/drm/drm_mode_config.h",
         "init/main.c",
         "modules.bzl",
@@ -129,8 +130,8 @@
         "net/tipc/node.c",
         "net/tipc/socket.c"
       ],
-      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes). Turn off SELinux development mode and restrict dmesg to root from boot. Log boot parameters that are handed to user space by name only, since the bootloader's can carry device identifiers.",
-      "validation": "The first full-hardening build and its FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs with the TIPC module, before and with this revision (the 6.1.178 fixes), both SELinux permissive; the enforcing data test is pending. Production configuration and parameter logging: signatures verified, kconfig and savedefconfig checked (only the two intended symbols change), init/main.o compiled with the build's clang and the logging checked in a user-space harness; kernel build and phone test pending."
+      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes). Turn off SELinux development mode and restrict dmesg to root from boot. Log boot parameters that are handed to user space by name only, since the bootloader's can carry device identifiers. Keep the debugfs API for kernel code but refuse debugfs mounts (DEBUG_FS_DISALLOW_MOUNT, broken upstream since Linux 5.12, made to work again).",
+      "validation": "The first full-hardening build and its FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs with the TIPC module, before and with this revision (the 6.1.178 fixes), both SELinux permissive; the enforcing data test is pending. Production configuration and parameter logging: signatures verified, kconfig and savedefconfig checked (only the two intended symbols change), init/main.o compiled with the build's clang and the logging checked in a user-space harness; kernel build and phone test pending. debugfs mount refusal: fs/debugfs/inode.o compiled with the build's clang and the GKI configuration; savedefconfig checked (only DEBUG_FS_DISALLOW_MOUNT changes); a user-mode Linux run of the patched tree created debugfs files with no registered debugfs filesystem and no /sys/kernel/debug, where the unpatched tree fails with -ENOENT; kernel build and phone test pending."
     },
     {
       "id": "kernel-qcom-grapheneos",
@@ -138,11 +139,11 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
-      "derived_revision": "315d9e06e0b35526c2c1d4a8fcb88486a65814da",
-      "canonical_diff_sha256": "39bce5a8386cb6724019327884c6a148da7f0f78f0a3a8c9c2ac82d761b88167",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel. The same production configuration and boot-parameter logging change as the common kernel.",
-      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The first full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains. Production configuration and parameter logging: the same two commits as the common kernel with identical file contents; signatures verified, vendor configuration and init/main.o checked the same way; kernel build and phone test pending.",
-      "changed_files_sha256": "bad4a2b01aa89a4fa47267ede1f776a8dec0a1b71bc0113b336eb0f95f0d790b",
+      "derived_revision": "7141cd79c8a9dc43d9389c959680c0e2e5d0be97",
+      "canonical_diff_sha256": "26bf031f6b0f2db27deb2812c9d588243cbbd6a713649d2720f9b093d82b43f4",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel. The same production configuration and boot-parameter logging change as the common kernel. The same debugfs mount refusal as the common kernel.",
+      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The first full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains. Production configuration and parameter logging: the same two commits as the common kernel with identical file contents; signatures verified, vendor configuration and init/main.o checked the same way; kernel build and phone test pending. debugfs mount refusal: the same change as the common kernel with identical file contents; kernel build and phone test pending.",
+      "changed_files_sha256": "6adcf3ae4f23e5f2ee61c6ab51f7331ecb8cdfb03dba9a76a28a956c39a23975",
       "merged_upstream": {
         "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
         "tag": "2026091900",
@@ -334,12 +335,15 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/camera-kernel",
       "base_revision": "db93e61705f7a8a20d9b4896307f80fb904ca767",
-      "derived_revision": "4739adbc3c6e81c6ab4e991e6414e90224b4e2b3",
-      "canonical_diff_sha256": "33b660ec50c858a17db989e2c8deb623147bf04e12db961bf4a042b9d6e62f9c",
+      "derived_revision": "4107baa171b6def00094b4c3858b1bf5f5b40ac4",
+      "canonical_diff_sha256": "029de7f4697505a46eb776d390496f0e1715b35e7cdc22566ac3122553d8d1cc",
       "changed_files": [
+        ".gitignore",
         "Android.mk",
+        "BUILD.bazel",
         "Kbuild",
         "Kconfig",
+        "Makefile",
         "camera_modules.bzl",
         "config/fps.mk",
         "config/volcano.mk",
@@ -357,8 +361,8 @@
         "fps_defconfig",
         "volcano_defconfig"
       ],
-      "purpose": "Use designated initializers for the camera submodule tables. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
-      "validation": "External module builds with the FP6 kernel; device qualification remains."
+      "purpose": "Use designated initializers for the camera submodule tables. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers). Use a fixed build banner instead of the build user, host name and time, so camera.ko is reproducible and names no build machine.",
+      "validation": "External module builds with the FP6 kernel; device qualification remains. Fixed banner: drivers/camera_main.o compiled against the FP6 vendor kernel configuration; Bazel build and phone test pending."
     },
     {
       "id": "kernel-dataipa-hardened",
@@ -469,8 +473,8 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/touch-drivers",
       "base_revision": "167825dc915600f14e045829a0bffc8981224a81",
-      "derived_revision": "91bc2babbb8db80c64000baa91df5be49c5e3c1c",
-      "canonical_diff_sha256": "9f7bf6a3aa4ee3d40ba8e03b34adf1582dfa02e42f6f907cb0e5b1563f7bdd46",
+      "derived_revision": "a5db5be96a4f963d15920dc8bd5e788ff00f4830",
+      "canonical_diff_sha256": "e5b2013c8812397b81aa9da40d043a3ead707be0f3e62b9546cb8557fb1eb999",
       "changed_files": [
         "Android.mk",
         "BUILD.bazel",
@@ -513,8 +517,8 @@
         "touch_driver_product.mk",
         "touch_modules.bzl"
       ],
-      "purpose": "Use the kernel MAX() helper in the Goodix driver. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers).",
-      "validation": "External module builds with the FP6 kernel; device qualification remains."
+      "purpose": "Use the kernel MAX() helper in the Goodix driver. Needed to build against the GrapheneOS 6.1.177 kernel (struct randomization, -Werror, newer minmax helpers). Drop the 10 s sleep at the start of the ESWIN probe, a bring-up leftover that held module loading on every boot.",
+      "validation": "External module builds with the FP6 kernel; device qualification remains. Probe sleep: eswin_eph861x.o compiled against the FP6 vendor kernel configuration; on a development boot the panel and backlight were ready 20 ms before the probe started; phone test pending."
     },
     {
       "id": "kernel-video-hardened",
@@ -712,15 +716,17 @@
       "workspace": "kernel",
       "path": "vendor/qcom/opensource/wlan/platform",
       "base_revision": "8cf79ed25f2d9eae20b1873f22e1f187d58fc39f",
-      "derived_revision": "720665f5f67cd705f829258c642ecc27d875ef84",
-      "canonical_diff_sha256": "b75d997d9047767598190bd7b80850c6f1d1fef4d88b2d2792e5bfaedc900b09",
+      "derived_revision": "253e2664daba376aa18857f7b91a75a04dae69b9",
+      "canonical_diff_sha256": "b1307713e329e1007126d4aa83eb34fd1e7b6074a052c7ef73b77f6fcbf9734b",
       "changed_files": [
         "cnss2/fps_consolidate_defconfig",
         "cnss2/fps_gki_defconfig",
+        "cnss2/qmi.c",
         "cnss_genl/fps_consolidate_defconfig",
         "cnss_genl/fps_gki_defconfig",
         "cnss_prealloc/fps_consolidate_defconfig",
         "cnss_prealloc/fps_gki_defconfig",
+        "cnss_utils/cnss_utils.c",
         "cnss_utils/fps_consolidate_defconfig",
         "cnss_utils/fps_gki_defconfig",
         "icnss2/fps_consolidate_defconfig",
@@ -730,8 +736,8 @@
         "icnss2/qmi.c",
         "wlan_platform_modules.bzl"
       ],
-      "purpose": "Carry the device build target and regional Wi-Fi parameter selection on the CodeLinaro Wi-Fi platform release.",
-      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending."
+      "purpose": "Carry the device build target and regional Wi-Fi parameter selection on the CodeLinaro Wi-Fi platform release. Log no Wi-Fi MAC address: icnss2 and cnss2 log that a MAC address was received from the modem or sent to the firmware, without the value, and cnss_utils no longer prints the addresses it is given.",
+      "validation": "Rebased Fairphone FP6 commits onto the CodeLinaro release without conflicts; kernel build and device qualification pending. MAC logging: icnss2/qmi.o, cnss2/qmi.o and cnss_utils/cnss_utils.o compiled against the FP6 vendor kernel configuration without warnings; phone test pending."
     },
     {
       "id": "kernel-qcom-qcacld",

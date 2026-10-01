@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -475,9 +475,9 @@ entry point), the protections in current builds, what remains, and the status.
 - **Remaining:**
   - No MTE; large vendor driver surface; hardening hand-merged into a vendor
     kernel with an intentional KMI deviation.
-  - debugfs built in and mountable as in the 2026-09-26 build; KPROBES on, as
-    the USB controller glue's hooks use kretprobes (both under [Decision
-    record](#decision-record)).
+  - KPROBES on, as the USB controller glue's hooks use kretprobes; debugfs
+    built in for kernel code and, until the 2026-10-01 kernel change reaches a
+    build, mountable (both under [Decision record](#decision-record)).
   - USB host-class, debug and trace drivers still load.
   - TIPC re-enabled (GrapheneOS disables it) for Qualcomm's mobile-data stack,
     as a module without network bearers or crypto; under enforcing SELinux no
@@ -529,7 +529,9 @@ entry point), the protections in current builds, what remains, and the status.
   sysfs labels; Wi-Fi MAC randomization; traceability services excluded; boot
   parameters handed to user space logged by name only (since the 2026-09-27
   build; on the phone the Wi-Fi MAC appeared in no log, pstore or DropBox
-  entry); enforcing SELinux.
+  entry); with the 2026-10-01 kernel change (not yet built) the Wi-Fi platform
+  driver logs no MAC address the modem or the device supplies; enforcing
+  SELinux.
 - **Remaining:** readable on any permissive build; a random per-install
   Bluetooth address is unverified: the address path in use is unrecorded (the
   HAL tries a factory address first) and the address appears in logs and bug
@@ -1184,7 +1186,10 @@ Decisions that define current behaviour:
 - **debugfs (2026-09-27):** stays as in the 2026-09-26 build, built in and
   mountable: user builds never mount it, debuggable builds until boot completes,
   SELinux governs access. In this kernel, turning mounts off also removes the
-  in-kernel interface the display driver and recovery need.
+  in-kernel interface the display driver and recovery need. 2026-10-01: both
+  kernel forks fix that mode, so kernel code keeps the interface while debugfs
+  cannot be mounted at all, not even by root; the kernel policy requires it
+  (not yet tested on the phone).
 - **pstore/ramoops (2026-09-27):** on for bring-up builds with GrapheneOS's
   Pixel layout; reboots stay cold (the kernel default). A warm reboot would keep
   the saved logs but also all of RAM. Details under [Previous boot's kernel log

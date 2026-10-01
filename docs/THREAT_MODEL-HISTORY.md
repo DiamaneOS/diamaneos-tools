@@ -291,6 +291,11 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   registration results with the serving cell redacted as the framework's other
   cell logs are. The physical cell ID and channel stay in the radio log, as in
   AOSP.
+- **2026-10-01:** kernel changes, implemented, not yet built: debugfs keeps its
+  in-kernel interface for kernel code but can no longer be mounted, not even by
+  root (-114; both kernel forks fix the upstream mount-refusal mode and kernel
+  policy v8 requires it); the Wi-Fi platform driver no longer logs MAC
+  addresses the modem or the device supplies (-112).
 
 ## IMS integration notes
 
