@@ -95,12 +95,10 @@ Install a root-owned, non-writable detached checkout at
 `/opt/diamaneos/tools-$REVIEWED_TOOLS_COMMIT` and point `/opt/diamaneos/tools`
 at it (commands and ownership checks are in the builder README). Copy
 `deploy/builder/builder-service.env.example` separately to
-`/etc/diamaneos/builder-source-sync.env`,
-`/etc/diamaneos/builder-generic-qualification.env`,
-`/etc/diamaneos/builder-signing-discovery.env` and, when exercising signing,
-`/etc/diamaneos/builder-dummy-signing.env`. Replace both placeholders in each;
-keep them root-owned, mode `0644` (no secrets). Install only the services the
-current operation needs and never enable build or signing units at boot.
+`/etc/diamaneos/builder-source-sync.env` and
+`/etc/diamaneos/builder-generic-qualification.env`. Replace both placeholders in
+each; keep them root-owned, mode `0644` (no secrets). Install only the services
+the current operation needs and never enable build units at boot.
 
 ## 4. Sync and verify source
 

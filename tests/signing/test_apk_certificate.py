@@ -1,8 +1,6 @@
 """Certificate pinning against actual apksigner output shapes."""
 from pathlib import Path
-import runpy
 import sys
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,18 +35,3 @@ class ApkCertificateTest(unittest.TestCase):
     def test_matching_public_key_digest_does_not_replace_certificate_pin(self):
         with self.assertRaises(SigningError):
             apk_certificate_digests(self.output(), "b" * 64)
-
-    def test_real_runner_requires_tool_success_before_accepting_certificate(self):
-        runner = runpy.run_path(str(ROOT / "deploy/builder/run-dummy-signing-qualification"))
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            tool = root / "apksigner"
-            for code in (0, 7):
-                tool.write_text("#!" + sys.executable + "\nprint(" + repr(self.output()) + ")\nraise SystemExit(" + str(code) + ")\n")
-                tool.chmod(0o750)
-                if code:
-                    with self.assertRaises(runner["Failure"]):
-                        runner["apk_certificate_check"](tool, root / "fixture.apk", "a" * 64, root / "failed.log", env={})
-                else:
-                    self.assertEqual(["a" * 64], runner["apk_certificate_check"](
-                        tool, root / "fixture.apk", "a" * 64, root / "valid.log", env={}))

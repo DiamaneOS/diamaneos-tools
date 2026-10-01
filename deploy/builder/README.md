@@ -193,8 +193,8 @@ Install the source-sync and build units from the same exact checkout. Copy
 `builder-service.env.example` separately to each environment file for a service
 you install, replace its placeholders with the reviewed commit and the host's
 qualified thermal check, then keep every copy root-owned and mode `0644`. The
-known consumers are source sync, generic qualification, signing discovery and
-dummy signing; no service has a default thermal check.
+known consumers are source sync and generic qualification; neither has a
+default thermal check.
 
 ```sh
 sudo install -o root -g root -m 0644 \
@@ -211,32 +211,6 @@ sudo systemctl start diamaneos-builder-generic-qualification.service
 Neither unit is intended to start a build automatically at boot. Source sync
 has network access; the build unit requires its successful result and denies
 network access during compilation.
-
-## Disposable signing-role discovery
-
-FP6-035 uses the accepted generic build only to discover the concrete signing
-inventory before its disposable-key proof. Install `python3-jsonschema`, the
-`diamaneos-builder-signing-discovery.service` unit and a third copy of the
-same reviewed environment file at
-`/etc/diamaneos/builder-signing-discovery.env`. The service runs as
-`diamaneos-build`, denies IP access, rebuilds only the target-files and
-otatools packages, and records their hashes and parsed inventory beneath
-`evidence/dummy-signing`.
-
-Run the pinned source-sync service successfully during initial provisioning.
-The discovery unit is ordered after that unit but does not start it again:
-source sync deliberately requires an empty output root, while discovery reuses
-the accepted build output. The discovery runner independently verifies the
-signed manifest, exact resolved project map, clean source projects, reviewed
-tools revision and allowed-signers file before it invokes the build.
-
-An unreviewed input produces `NEEDS_REVIEW` with the exact presigned metadata
-names. `NEEDS_REVIEW` is not a failure and is not approval: each listed package
-must be classified as an exact archive artifact or metadata-only entry and
-committed to the exact profile. A reviewed rerun must produce `PASS`, including
-the unsigned target-files hash and all presence/absence and artifact-identity
-bindings. The discovery job creates no key, performs no signature, does not use
-a token and is never enabled at boot.
 
 The build unit's systemd sandbox is deliberately composed with Android's
 pinned nsjail rather than layered blindly on top of it. It keeps the strongest

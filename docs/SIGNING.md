@@ -103,17 +103,9 @@ regenerate its own coverage. Roles, profile pair and metadata-only exceptions
 come only from `config/signing-roles.json`; an upstream role missing there is
 an inventory error, never auto-enrolled.
 
-A package in a discovery report is not allowlisted: review why it stays
-presigned, bind its archive identity or reviewed metadata-only absence and
-update the exact profile first. On the accepted builder,
-`deploy/builder/run-signing-discovery` does this as the unprivileged build
-identity without network, building only `target-files-package` and
-`otatools-package` with no key or signing; the default service uses the
-generic SDK profile and `diamaneos-builder-ota-signing-discovery.service` a
-fixed Cuttlefish Virtual A/B profile, rejecting any other. The immutable result
-is `NEEDS_REVIEW` when the only discrepancy is an exact unlisted `PRESIGNED`
-package; other inventory errors fail. Presigned entries are never
-auto-approved.
+A presigned package found in an inventory is not allowlisted: review why it
+stays presigned, bind its archive identity or reviewed metadata-only absence
+and update the exact profile first. Presigned entries are never auto-approved.
 
 The generic SDK x86_64 profile qualifies APK, APEX and AVB transformations
 (with no A/B partition inventory or recovery image it cannot generate OTAs);
@@ -121,12 +113,7 @@ the Cuttlefish x86_64 phone profile, a real Virtual A/B target, qualifies the
 full and incremental OTA path, so a relabelled SDK archive cannot pose as OTA
 evidence. Neither is FP6 compatibility, release, update-semantics or hardware
 evidence; the FP6 profile must be regenerated and reviewed from the actual FP6
-`user` target-files. The SDK target publishes target-files and otatools via
-legacy product output paths, Android 17 Cuttlefish via Soong module
-intermediates; discovery accepts one regular artifact per exact module root,
-never searches the tree or falls back to an older package, and resolves Soong
-paths from the declared top-level output root, not `$OUT` (the product
-directory after `lunch`).
+`user` target-files.
 
 ## Disposable-key qualification
 
@@ -137,28 +124,6 @@ payload and every AVB chain; full and incremental OTAs with ZIP and payload
 verification; factory-archive and release-record signatures; a wrong-key
 rejection per verifier class; and interruption/restart recovery proving an
 incomplete run cannot be promoted.
-
-`deploy/builder/run-dummy-signing-qualification` takes no arguments and no
-operator-selected artifact or key path. APK/APEX/AVB proofs bind the accepted
-SDK target-files and OTA proofs the Virtual A/B target-files; it requires the
-reviewed tools checkout, source-project revisions, source-file hashes, both
-unsigned target-files hashes and the otatools hash, maps every package to a role
-explicitly and avoids the global APK/APEX key overrides. The Cuttlefish
-inventory has custom chained-vbmeta images `vbmeta_system_dlkm` and
-`vbmeta_vendor_dlkm` that releasetools cannot override, so the runner requires
-the exact reviewed `system_dlkm` and `vendor_dlkm` custom-vbmeta set and makes
-a transient copy replacing only those two key-path and algorithm pairs with the
-disposable AVB key and `SHA256_RSA4096` (not adding them to the
-custom-data-image list). All other ZIP members stay unchanged, both archive
-hashes and the four changed field names are recorded, the transient input is
-removed before evidence promotion, a missing, duplicate or extra field fails
-closed, and the signed images must still pass AVB verification.
-
-Private material lives under `/dev/shm`, is removed before independent
-verification and never enters evidence. `make_key`'s cleanup trap can return 1
-after success, so the runner accepts 0 or 1 from that exact helper, then
-requires non-empty, non-symlink certificate and PKCS#8 outputs that OpenSSL
-parses, recording status and results in `key-generation.json`.
 
 The incremental proof deliberately uses the same Cuttlefish archive as old and
 new (a no-op delta): it exercises generation and package/payload signing, not
@@ -196,48 +161,9 @@ custody locations and raw offline logs never enter this repository; public
 records hold only role, algorithm, public fingerprint, tool binding and
 sanitized result.
 
-## Diagnose retained outputs before another signing run
+## APK certificate pinning
 
 APK certificate pinning accepts legacy `Signer #1 certificate` and
 `V3.0 Signer: certificate` output, but verification must exit zero, declare one
 signer and give exactly the expected certificate SHA-256 (public-key
-fingerprints, missing output or extra certificates fail). The full
-qualification first signs and verifies one small APK with the same JDK and
-verifier, catching tool, runtime and output-format failures early.
-
-If a failed run kept its signed outputs and public keys, replay only
-independent verification, as the build identity, from a clean reviewed
-checkout into a new directory on the same filesystem:
-
-```sh
-export DIAMANEOS_EXPECTED_TOOLS_COMMIT=REVIEWED_40_HEX_COMMIT
-"$TOOLS_ROOT/deploy/builder/recheck-dummy-signing" \
-  --workspace "$WORK_ROOT" \
-  --run "$WORK_ROOT/evidence/dummy-signing/RETAINED_RUN.failed" \
-  --output "$WORK_ROOT/evidence/dummy-signing/NEW_DIAGNOSTIC_DIRECTORY"
-```
-
-It takes the workspace lock, checks kept artifact hashes and certificate
-fingerprints, hardlinks large signed outputs (immutable) into a fresh
-diagnostic tree for new logs and samples, and copies only named public inputs,
-never old results, logs or secrets; the failure record stays unchanged. It uses
-the qualified otatools, pinned JDK and the full run's APK/APEX, AVB, OTA and
-OpenSSH verification but creates no keys, signs nothing and repeats no
-transformation or OTA generation (hashing and extraction still take time and
-disk). Every diagnostic report says `qualification_accepted: false`. Replay
-cannot replace failed signing, cleanup, a missing output or any incomplete
-proof, which need a new complete qualification; there is no resumable signing
-state or persistent disposable secret. If a complete run failed only because
-its final result schema rejected the runner's own metadata, a separate reviewed
-acceptance record may bind the unchanged result hash, execution revision,
-corrected validator revision and all proof checks; keep the failure record,
-and never treat a passing diagnostic as that record.
-
-AVB verification uses the images each archive emits. A `no_boot=true` product
-may keep boot key metadata without `IMAGES/boot.img`; that role is
-metadata-only and must be exercised by an emitted boot image in the other
-profile, and any other missing declared image fails. `avb-image-coverage.json`
-records this apart from the signing inventories. Sibling images are extracted
-together so hash and hashtree descriptors can be checked; chain descriptors
-must match the declared rollback index location and the kept disposable AVB
-public key, and each signed image gets its own valid-key and wrong-key check.
+fingerprints, missing output or extra certificates fail).
