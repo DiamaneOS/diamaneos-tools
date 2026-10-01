@@ -109,7 +109,8 @@ bouncer windows keep stock or shorter enter animations.
   the flag off SystemUI is unchanged.
 - Step 6b: the thumb moves at the tap; the lamp lights only while the switch is
   checked and the setting's own state reports on (Wi-Fi, Bluetooth, hotspot and
-  tethering, NFC, Battery Saver, from state their controllers already read), so
+  tethering, NFC, Battery Saver, from state their controllers already read; the
+  FP6 has no Wi-Fi hotspot yet, so that lamp stays dark there), so
   no lamp shows on for something off. Turning off darkens it at once; a failed
   change goes back unlit and accessibility reports the checked state, both as
   stock.
