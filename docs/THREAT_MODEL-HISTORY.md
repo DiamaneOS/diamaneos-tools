@@ -296,6 +296,17 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   removal are in tested builds, telephony runs enforcing with both SIMs in
   service, and the development-build rule no longer depends on SELinux mode.
 
+- **2026-10-01:** location's own privacy chip (the stock flag GrapheneOS leaves
+  off is on: each app's first location use in 10 minutes runs the chip, then the
+  dot). -151 (medium, a Tally regression: a camera or microphone start while
+  location alone showed the dot changed nothing in Tally's status bar, where
+  stock turns its blue dot green) and -152 (low, stock: a sensor joining during
+  a chip left the dot with the chip's old items) are fixed; both verified on the
+  FP6 or in replay of the scheduler.
+- **2026-10-01:** the system font is Sofia Sans Tally for every app (owner,
+  2026-09-30), built from the pinned upstream font and checked with OTS and
+  fontTools; WebView keeps the platform fonts.
+
 ## IMS integration notes
 
 These notes record how the IMS containment evolved. The current state is in [IMS
