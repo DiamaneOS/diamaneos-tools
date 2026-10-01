@@ -1,140 +1,184 @@
-# DiamaneOS Testing
+# DiamaneOS testing
 
-## Signing-role verification
+How to run the DiamaneOS tool tests and the Fairphone 6 (FP6) test workflows,
+and what they have shown so far on stock (Fairphone's own) software. For anyone
+running, adding or changing a test.
 
-`bin/diamaneos signing roles` validates the complete pinned signing contract
-without contacting a device or creating a key. `signing inventory` derives APK,
-APEX and AVB roles from a caller-supplied target-files archive and fails closed
-on missing metadata, duplicate/unsafe ZIP members, unlisted signed-output roles
-or an unlisted presigned package. Qualified profiles additionally enforce the
-reviewed unsigned input hash and exact presence, path, size and digest—or
-reviewed absence—of every presigned archive artifact. `signing verify`
-independently re-hashes a
-retained disposable-key run, verifies its release-record signature with the
-declared public key and requires wrong-key rejection.
+| Term | Meaning |
+| --- | --- |
+| ADB | Android Debug Bridge: the USB command channel to a phone. |
+| Role | A non-identifying name for one test phone, such as `harness`. The private device map ([BUILD.md](BUILD.md)) binds it to one ADB serial. |
+| `<PRIVATE_ROOT>` | A private directory outside public Git for device maps, rig configuration and raw results. |
+| Fail closed | Stop with an error when something is missing or unexpected. |
+| AVB | Android Verified Boot: checks the OS partitions at boot and blocks rollback to older images. |
 
-Unit fixtures cover malformed archives, development-key versus signed-output
-separation, presigned-package refusal, source/role drift, incomplete proofs,
-path escape and artifact tampering. They do not claim that Android artifacts
-were signed. The builder/offline qualification described in
-[`SIGNING.md`](SIGNING.md) supplies the real APK/APEX/AVB/full-OTA/delta-OTA
-tool evidence.
+## Run the tool tests
 
-## Stock hardware observations
+Install the pinned development dependencies once, then run the full suite and
+the endpoint check:
 
-The [stock hardware report](../reports-public/stock-capabilities.json) records
-observed component results for one Fairphone 6 on the stated stock build.
-It combines operator-observed stock diagnostics and ordinary app use with
-selected ADB identity, charging and disposable-file transfer checks. Each
-component has its own result. A separately dated Android 16 stock follow-up
-formatted a disposable 128 GB microSD as portable storage and completed a
-4 MiB create/read/hash/delete round trip. The report-level software and boot
-state still describe the original Android 15 arrival inspection; the microSD
-row identifies its later build explicitly.
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
+.venv/bin/python bin/diamaneos endpoints validate
+```
 
-During the original arrival inspection, the stock build remained unchanged
-and the bootloader remained locked. The removable-storage follow-up occurred
-after the separately verified official Android 16 OTA; it does not imply that
-the arrival build remained installed. Performance/battery measurements and
-custom-OS qualification require their own evidence. Stock restoration and
-unlock/relock were subsequently validated by FP6-025 and are summarized in the
-installer recovery runbook; they are not claims made by the original hardware
-report. The stock-input inventory remains the immutable, hash-bound pre-restore
-selection snapshot used by build environment v4. This report also does not
-establish acceptance of the baseline collector CLI described below.
+The suite includes the baseline, CLI and endpoint validation tests. The baseline
+collector itself uses only the Python standard library; endpoint schema
+validation needs the development dependencies. Device runs are separate hardware
+evidence. Test counts are recorded in the acceptance evidence for the exact
+tree.
 
-## Stock recovery inputs
+## Signing checks
 
-The [stock-input inventory](../config/stock-inputs.json) binds the observed FP6
-product/build to official factory-package URLs, exact byte sizes and published
-SHA-256 values. The final Android 15 package and the EU Android 16 package
-originally offered by the phone are verified recovery inputs: for each, two
-complete reads reproduced Fairphone's outer hash, the full ZIP CRC passed,
-required recovery members were present and all 76 files declared by the
-embedded checksum list matched. The arrival snapshot was the received Android
-15 build `FP6.QREL.15.176.0`. The official OTA was subsequently installed, and
-the current accepted stock checkpoint is the locked, green-verified Android 16
-EU build `FP6.QREL.16.100.0` with the 2026-08-05 security patch. The matching
-Android 16 archive is therefore the current EU restore-selection input; the
-Android 15 archive is retained as historical verified input. Archive
-verification and selection alone are not proof of a successful restore,
-rollback eligibility, AVB/relock safety or bootloader operation. FP6-025 later
-supplied that separate evidence for the exact Android 16 EU archive: restore,
+`bin/diamaneos signing roles`, `signing inventory` and `signing verify` check
+the pinned signing contract, a target-files archive and a retained
+disposable-key run; [SIGNING.md](SIGNING.md) explains them. Their unit fixtures
+cover malformed archives, keeping development keys apart from signed output,
+refusing presigned packages, source or role drift, incomplete proofs, path
+escape and artifact tampering. They do not claim any Android artifact was
+signed: the real APK, APEX, AVB, full-OTA and delta-OTA tool evidence comes
+from the builder and offline qualification in SIGNING.md.
+
+## Stock phone records
+
+### Hardware report
+
+The [stock hardware report](../reports-public/stock-capabilities.json) gives a
+separate result per component for one FP6 on the stated stock build. It
+combines operator-observed stock diagnostics and ordinary app use with selected
+ADB checks of identity, charging and throwaway-file transfer.
+
+- Its software and boot state describe the original Android 15 arrival
+  inspection, during which the stock build stayed unchanged and the bootloader
+  stayed locked.
+- One later row, after the separately verified official Android 16 OTA
+  (over-the-air update), formatted a throwaway 128 GB microSD card as portable
+  storage and passed a 4 MiB create/read/hash/delete round trip. The row names
+  its later build; it does not mean the arrival build was still installed.
+
+The report does not cover performance or battery measurements or custom-OS
+qualification (these need their own evidence), stock restore and unlock/relock
+(validated later by FP6-025 and summarised in the installer recovery runbook),
+or acceptance of the [baseline collector](#baseline-collector) CLI. The
+stock-input inventory stays the immutable, hash-bound pre-restore selection
+snapshot used by build environment v4.
+
+### Stock recovery inputs
+
+The [stock-input inventory](../config/stock-inputs.json) ties the observed FP6
+product and build to Fairphone's official factory-package URLs (a factory
+package is the full stock image set its flash script writes), exact byte sizes
+and published SHA-256 values.
+
+The final Android 15 package and the EU Android 16 package first offered by the
+phone are verified recovery inputs. For each, two complete reads reproduced
+Fairphone's outer hash, the full ZIP CRC passed, the required recovery files
+were present and all 76 files in the embedded checksum list matched.
+
+- The phone arrived with Android 15 build `FP6.QREL.15.176.0` (the arrival
+  snapshot); the official OTA was installed later.
+- The current accepted stock checkpoint is the locked, green-verified Android 16
+  EU build `FP6.QREL.16.100.0` (2026-08-05 security patch). Its archive is the
+  current EU restore selection; the Android 15 archive stays a historical
+  verified input.
+- On 2026-09-30 the input for generating DiamaneOS's vendor files moved to
+  `FP6.QREL.16.111.0` (released 2026-09-28, 2026-09-05 security patch).
+  Fairphone had not yet published its checksum, so the entry records two
+  agreeing local reads, the MD5 from the official host's object metadata, the
+  full ZIP CRC and all 76 embedded declared hashes instead; compare it with
+  Fairphone's value once published. It is not a tested restore input: the phone
+  still runs `FP6.QREL.16.100.0`, which stays the restore selection.
+
+Verifying and selecting an archive does not prove a successful restore,
+rollback eligibility, AVB/relock safety or bootloader operation. FP6-025
+supplied that evidence separately for the exact Android 16 EU archive: restore,
 AVB/rollback review, critical relock, normal relock, locked-green boot and final
-cold-boot hardware checks passed.
+cold-boot hardware checks passed. (The FP6 bootloader has a normal lock and a
+separate critical lock for the bootloader partitions.)
 
-On 2026-09-30 the generator input moved to `FP6.QREL.16.111.0` (released
-2026-09-28, 2026-09-05 security patch). Fairphone had not yet published a
-checksum for that package, so its entry records two agreeing local reads, the
-MD5 from the official host's object metadata, the full ZIP CRC and all 76
-embedded declared hashes instead. Compare it with Fairphone's value once
-published. It is not a tested restore input: the phone still runs
-`FP6.QREL.16.100.0`, which stays the restore selection.
+#### Rules for using a recovery copy
 
-Recovery copies must be read from two independent private storage locations and
-match the recorded byte count and SHA-256 before destructive work. Two
-directories on one physical volume do not meet that requirement. Custody,
-provider and account evidence remain in the operator's private record; the
-public inventory records the content identity and policy only. A path or
-filename never substitutes for content verification.
+- Before destructive work, read the copy from two independent private storage
+  locations; both must match the recorded byte count and SHA-256. Two
+  directories on one physical volume do not count.
+- The public inventory records only content identity and policy; custody,
+  provider and account evidence stay in the operator's private record. A path or
+  filename never replaces content verification.
+- Fairphone's factory script wipes user data by default and needs both normal
+  and critical bootloader unlock. Its fallback that continues when no checksum
+  tool is found is forbidden by the project recovery procedure. Before running
+  it, verify the complete archive against the independently read official hash
+  and verify its embedded declared files.
+- The regional Android 16 package must match the build the phone itself offers;
+  do not infer EU or US from a maintainer's location. This EU phone offered
+  `FP6.QREL.16.100.0`, so the US `FP6.QREL.16.104.0` package is excluded as a
+  restore or flash input for it. It stays a planned comparison input for the
+  separately controlled US FP6: "excluded here" does not mean excluded from
+  regional qualification.
 
-The official factory script wipes user data by default and requires both normal
-and critical bootloader unlock. It also contains a fallback that continues when
-no checksum utility is found; that fallback is prohibited by the project
-recovery procedure. Verify the complete archive against the independently read
-official hash and verify its embedded declared files before execution. The
-regional Android 16 package must match the build explicitly offered by the
-phone; do not infer EU/US selection from a maintainer's location. For this
-EU device the observed offer is `FP6.QREL.16.100.0`, so the US
-`FP6.QREL.16.104.0` package is excluded as a restore or flash input for this
-device. It remains a planned comparison input for the separately controlled US
-FP6; “excluded here” does not mean excluded from regional qualification.
+#### What the package and the phone showed
 
-The validated factory `super.img` has checksummed liblp 10.2 metadata with all
-seven slot-A logical partitions populated and every slot-B counterpart at zero
-bytes/zero extents. The script deliberately selects A; do not select, boot or
-fabricate B as a repair. Post-relock bootloader rollback locations 0–4 matched
-the authenticated target values `0,1,1785888000,1785888000,1785888000`, with
-locations 5–31 zero. Raw partition bodies and per-partition device hashes were
-not collected from the phone. Package-derived topology remains identified as a
-derived input rather than being misreported as a device dump.
+- The validated factory `super.img` (the image of the super partition, which
+  holds logical partitions such as system and vendor) has checksummed liblp 10.2
+  metadata: all seven slot-A logical partitions are populated and every slot-B
+  counterpart has zero bytes and zero extents. (A and B are the two partition
+  copies that updates switch between.) The script deliberately selects A; do not
+  select, boot or fabricate B as a repair.
+- After relocking, bootloader rollback locations 0–4 matched the authenticated
+  target values `0,1,1785888000,1785888000,1785888000`; locations 5–31 were
+  zero.
+- Raw partition bodies and per-partition device hashes were not collected from
+  the phone. The layout taken from the package stays labelled a derived input,
+  not a device dump.
 
-The default factory-script boot exposed a reproducible relock trap: first boot
-while unlocked set `get_unlock_ability` to `0` and left the Android OEM control
-greyed as already unlocked. No lock was attempted at zero. The accepted path
-used a same-directory copy with only the script's declared
-`REBOOT_TO_BOOTLOADER` toggle enabled, repeated the verified wipe/flash, required
-ability `1` before critical lock and again before normal lock, then proved the
-final ability `0`, both lock domains closed and green Verified Boot. See the
+#### The relock trap
+
+Booting with the factory script's defaults showed a reproducible relock trap:
+the first boot while unlocked set `get_unlock_ability` to `0` and left the
+Android OEM control greyed out as already unlocked. No lock was attempted at
+zero. The accepted path:
+
+1. Use a same-directory copy of the script with only its declared
+   `REBOOT_TO_BOOTLOADER` toggle enabled.
+2. Repeat the verified wipe and flash.
+3. Require ability `1` before the critical lock, and again before the normal
+   lock.
+4. Prove the final ability is `0`, both lock domains are closed and Verified
+   Boot is green.
+
+See the
 [installer recovery runbook](../../installer/docs/recovery-preflight.md).
 
 ## Regional FP6 qualification
 
-EU is the initial supported hardware target. The second maintainer's planned
-US-region FP6 will supply the independent US stock and candidate evidence once
-available; no EU result, version-label similarity or reference-ROM support
-substitutes for that device run.
+EU is the first supported hardware target. Report US as `UNVERIFIED`, not
+supported or assumed compatible, until both steps below are accepted on the
+second maintainer's planned US-region FP6 (its availability and state are not
+yet evidenced). No EU result, similar version label or reference-ROM support
+replaces that device run.
 
-Before one image is claimed for both regions, compare the exact EU and US stock
-inputs for partition/super layout, AVB chain and rollback locations, boot and
-vendor images, firmware, VINTF, init/SELinux policy, feature/permission files,
-SKU properties, modem profiles and carrier/regulatory configuration. Record
-byte-identical common inputs separately from the regional delta. If a delta is
-selected at runtime, bind it to an observed trustworthy hardware/boot SKU
-property rather than locale, language, timezone or location. A boot-critical
-delta requires separately bound variants.
-
-The US candidate must then pass the applicable hardware matrix on the US phone
-and the declared T-Mobile-oriented voice, SMS, data, 5G, VoLTE and VoWiFi
-tests. Until both stock comparison and candidate runs are accepted, report US
-as `UNVERIFIED`, not supported or assumed compatible.
+1. **Compare stock inputs.** Before claiming one image for both regions,
+   compare the exact EU and US stock inputs: partition and super layout, AVB
+   chain and rollback locations, boot and vendor images, firmware, VINTF (the
+   vendor's declared hardware interfaces), init and SELinux policy, feature and
+   permission files, SKU (hardware variant) properties, modem profiles and
+   carrier/regulatory configuration. Only byte-identical files may enter the
+   common generated set without further adaptation; record them separately
+   from the regional delta. Bind a delta chosen at runtime to an observed,
+   trustworthy hardware or boot SKU property, never to locale, language,
+   timezone or location. A boot-critical delta needs separately bound variants.
+2. **Test the US candidate** on the US phone: the applicable hardware matrix
+   and the declared T-Mobile-oriented voice, SMS, data, 5G, VoLTE (voice over
+   LTE) and VoWiFi (voice over Wi-Fi) tests.
 
 ## Baseline collector
 
-The reusable test-host setup and isolation boundary are documented in the
-[test-host deployment recipe](../deploy/test-host/README.md).
-
-Fixture and dry-run checks do not touch hardware:
+`bin/diamaneos baseline capture` makes a bounded, read-only capture of a phone
+over ADB. The [test-host deployment recipe](../deploy/test-host/README.md)
+documents the test-host setup and isolation boundary. Fixture and dry-run
+checks do not touch hardware:
 
 ```sh
 python3 -m unittest discover -s tests/baseline -t .
@@ -153,103 +197,119 @@ bin/diamaneos baseline capture --target <serial> \
   --raw-dir <PRIVATE_ROOT>/runs/<run-id>/ --output report.json
 ```
 
-Raw storage: per-run subdirectory, reuse refused, per-file sha256 in
-evidence refs; without --raw-dir the run is ephemeral (not accepted
-evidence). On a controlled rig, the three role/map/rig arguments hold the
-selected role lock for the complete live capture; supply all three or none.
-Public reports carry a device alias only; serials stay private.
-Graphics capture is fixed to `dumpsys gfxinfo com.android.systemui`. An
-unscoped `gfxinfo` query can enumerate enough installed-package state to
-exceed the bounded collector output, while SystemUI provides a stable,
-non-personal host-readiness target. The 256 KiB per-command cap still applies.
-The full-suite command below includes baseline, CLI and endpoint validation
-tests; device runs remain separate hardware evidence.
+- `--raw-dir` stores raw output in a per-run subdirectory (reuse refused), with
+  each file's sha256 in the evidence references. Without it the run is
+  ephemeral and not accepted evidence.
+- On a controlled rig, `--device-role`, `--device-map` and `--rig-config` hold
+  the role lock for the whole capture; give all three or none.
+- Public reports carry a device alias only; serials stay private.
+- Graphics capture is fixed to `dumpsys gfxinfo com.android.systemui`: an
+  unscoped `gfxinfo` can list enough installed-package state to exceed the
+  output limit, while SystemUI is a stable, non-personal host-readiness target.
+- Host limits: 20 s per adb call and a 256 KiB streaming byte cap per command
+  (byte-exact; invalid UTF-8 stays visible). Large traces and samples stay
+  outside Git, recorded by hash.
 
-5 fixtures + fake-adb live-path tests prove the contract: valid→ok,
-truncated/timeout/overflow→error (never averaged as zero),
-missing-service→unsupported while bare-`unknown` operator values stay ok,
-sensitive→IMEI/IMSI/ICCID/EID/phone/account/MAC/serial redacted with context
-preserved (full-report checked, not just case fields); ambiguous target
-refuses before any adb command. Over-producers are killed at the byte
-cap (termination proven, not just detected); failed captures keep partial
-stdout+stderr evidence with hashes; device-gone stays error/partial, never
-unsupported-complete. At collector revision
-`73452925347dba523cf22b86df58789527b177dc`, one stock Android 15 FP6 host
-acceptance run produced five `ok` cases, one explicit `unsupported` service and
-zero errors; its raw bundle and device identity remain private. That proves the
-bounded read-only capture path, not custom-OS compatibility or comparative
-performance. Standalone ADB checks do not establish collector acceptance. Host
-bounds: 20s per adb call plus 256KB streaming byte cap
-(byte-exact, invalid UTF-8 kept visible). Large traces/samples stay outside
-git with hashes. Use the current full-suite command below; test counts are recorded in the acceptance evidence for the exact tree.
+Five fixtures plus fake-adb live-path tests prove the contract: valid output is
+`ok`; truncation, timeout or overflow is `error` (never averaged as zero); a
+missing service is `unsupported`, while bare `unknown` operator values stay
+`ok`; IMEI, IMSI, ICCID, EID, phone, account, MAC and serial values are redacted
+with context kept, checked across the full report and not just the case
+fields; an ambiguous target is
+refused before any adb command; output past the byte cap kills the command
+(termination proven, not just detected); failed captures keep partial stdout
+and stderr with hashes; a lost device stays `error`/partial, never
+`unsupported`-complete.
+
+At collector revision `73452925347dba523cf22b86df58789527b177dc`, one host
+acceptance run on a stock Android 15 FP6 gave five `ok` cases, one explicit
+`unsupported` service and zero errors; its raw bundle and device identity stay
+private. This proves the bounded read-only capture path, not custom-OS
+compatibility or comparative performance. Standalone ADB checks do not
+establish collector acceptance.
 
 ## Controlled USB rig
 
-`bin/diamaneos rig` provides identity-bound status, explicit port power and
-battery-maintenance operations for an independently qualified switchable hub.
-The private configuration binds each role to an exact ADB map entry, logical
-port and USB topology path. The controller refuses `cycle`, checks the USB2 and
-USB3 companion port states agree, verifies the selected role after power-on,
-and checks that every other present mapped role remains on its original path.
+`bin/diamaneos rig` gives identity-bound status, explicit port power and
+battery maintenance for an independently qualified switchable USB hub. The
+private configuration binds each role to an exact ADB map entry, logical port
+and USB topology path.
 
-Configuration validation and planning contact no device:
+- The controller refuses `cycle`, checks that USB2 and USB3 companion port
+  states agree, verifies the selected role after power-on and checks that every
+  other mapped role present stays on its original path.
+- An active or unreadable `.partial` run in any configured private output root
+  blocks maintenance and ordinary power changes.
+- The start guard rejects persistent operation leases and restores a
+  maintenance-held role to its verified powered path before partial test state
+  is created.
+
+Validation and planning contact no device:
 
 ```sh
 bin/diamaneos rig validate --config <PRIVATE_ROOT>/rig.json
 bin/diamaneos rig dry-run --config <PRIVATE_ROOT>/rig.json
 ```
 
-An active or unreadable `.partial` run in any configured private output root
-inhibits maintenance and ordinary power changes. The scheduled maintenance
-unit remains disabled until all deployed test starters have a race-free
-role-lock-to-partial-state handoff and the operator has accepted each battery
-policy. Hub qualification, least-privilege device-node access, service-owned
-ADB and reboot recovery are deployment requirements, not results of unit
-tests. See the [test-host deployment recipe](../deploy/test-host/README.md).
-The start guard also rejects persistent operation leases and automatically
-restores a maintenance-held role to its verified powered path before partial
-test state is created.
+The scheduled maintenance unit stays disabled until every deployed test starter
+has a race-free handoff from role lock to partial state and the operator has
+accepted each battery policy. Hub qualification, least-privilege device-node
+access, service-owned ADB and reboot recovery are deployment requirements (see
+the test-host deployment recipe), not unit-test results.
 
-## Stock performance protocol and pilot
+## Stock performance baseline
 
-`config/baseline.json` is the consumed FP6 stock-performance and camera
-protocol. Validate it without contacting a device or creating output:
+`config/baseline.json` is the stock FP6 performance and camera protocol the
+tools use. Validate it without contacting a device or creating output:
 
 ```sh
 bin/diamaneos baseline protocol validate
 bin/diamaneos baseline pilot --dry-run
 ```
 
-The connected pilot is shorter than the declared series and is always labelled
-`PILOT_ONLY_NOT_BASELINE_EVIDENCE`. It checks an exact private device-role
+| Workflow | Commands | Declared run needs |
+| --- | --- | --- |
+| [Connected](#connected-pilot-and-run) | `baseline pilot`, `baseline connected` | two whole runs |
+| [Boot timing](#boot-timing) | `baseline boot` | two whole repetitions |
+| [Cold power-on](#cold-power-on) | — | three recorded repetitions |
+| [Idle](#idle) | `baseline idle` | two eight-hour repetitions |
+| [Camera](#camera) | `baseline camera` | 24 originals |
+
+### Connected pilot and run
+
+The connected pilot is shorter than the declared series and always labelled
+`PILOT_ONLY_NOT_BASELINE_EVIDENCE`. It checks the exact private device-role
 mapping before ADB, requires the operator to confirm an unlocked phone and a
-visible 50% brightness setting, and independently verifies the remaining
-display, radio, SIM, battery and build controls. The live power-service reading
-must also report an awake display; an earlier operator confirmation is not
-treated as current state. A mismatch stops before the launch, frame or thermal
-workload.
+visible 50% brightness setting, and verifies the remaining display, radio, SIM,
+battery and build controls itself. The live power-service reading must also
+report an awake display; an earlier operator confirmation does not count as
+current state. A mismatch stops before the launch, frame or thermal workload.
 
-The live pilot records one cold and one warm launch for each bound stock app.
-Cold requires a force-stopped package and Android's `COLD` launch state; warm
-finishes the cold activity with BACK, verifies that its process remains
-resident, and requires Android's `WARM` state. Both require a positive reported
-time. The 10-second package-scoped Settings frame sample must record at least
-one rendered frame per completed swipe. The remaining connected sequence is a
-bounded 30-second four-worker CPU load plus 30-second cooldown, before/after
-memory signals, and an ending battery/charging snapshot. It force-stops only
-the named packages, never clears app data, and uses Android's existing thermal
-policy. Current HAL battery/skin values enforce conservative stop thresholds;
-read-only sysfs thermal-zone type/temp pairs are retained as additional raw
-observations.
+The pilot then measures:
 
-On the locked stock user build, `/proc/pressure/memory` is not readable by the
-shell user. The pilot retains that permission failure as `UNSUPPORTED` and uses
-bounded `dumpsys meminfo`, selected `/proc/vmstat` deltas, and run-bounded LMKD
-and ActivityManager event logs. Activity kill events are not called LMKD kills
-without corroborating evidence. Unsupported and failed measurements are never
-converted to numeric zero.
+- **Launches**: one cold and one warm launch per bound stock app. Cold needs a
+  force-stopped package and Android's `COLD` launch state; warm finishes the
+  cold activity with BACK, checks its process stays resident and needs `WARM`.
+  Both need a positive reported time.
+- **Frames**: a 10-second package-scoped Settings sample with at least one
+  rendered frame per completed swipe.
+- **Load**: a bounded 30-second four-worker CPU load and 30-second cooldown,
+  memory signals before and after, and an ending battery/charging snapshot.
 
-Live connected-pilot shape (private values substituted by the operator):
+It force-stops only the named packages, never clears app data and uses
+Android's existing thermal policy. Current HAL (hardware abstraction layer)
+battery/skin values enforce conservative stop thresholds; read-only sysfs
+thermal-zone type/temp pairs are kept as extra raw observations.
+
+On the locked stock user build the shell user cannot read
+`/proc/pressure/memory`. The pilot keeps that permission failure as
+`UNSUPPORTED` and uses bounded `dumpsys meminfo`, selected `/proc/vmstat`
+deltas and run-bounded LMKD (low-memory killer daemon) and ActivityManager
+event logs. Activity kill events are not called LMKD kills without
+corroborating evidence. Unsupported and failed measurements never become a
+numeric zero.
+
+Live pilot (the operator fills in private values):
 
 ```sh
 bin/diamaneos baseline pilot \
@@ -264,61 +324,20 @@ bin/diamaneos baseline pilot \
   --conditions "<stock build, USB path and controlled setup>"
 ```
 
-The command produces immutable private raw files with SHA-256 references and a
-serial-redacted result. It covers only the connected pilot. The fixed-scene
-camera pilot and physical-disconnect idle pilot remain explicit `NOT_RUN`
-phases until their supervised operator steps are completed; a connected-pilot
-pass does not complete FP6-022 or authorize an Android-version comparison.
+It writes immutable private raw files with SHA-256 references and a
+serial-redacted result, for the connected pilot only. The fixed-scene camera
+pilot and physical-disconnect idle pilot stay explicit `NOT_RUN` phases until
+their supervised operator steps are done. A connected-pilot pass does not
+complete FP6-022 or authorize an Android-version comparison.
 
-After that harness pilot succeeds, inspect the declared connected plan with
-`bin/diamaneos baseline connected dry-run`. The declared `run` action consumes
-the protocol's three cold and three warm launches per app, three independent
-60-second Settings frame runs, and the 15-minute load plus 10-minute cooldown.
-It requires a shared series ID and repeat index 1 or 2 so two whole runs cannot
-be mistaken for unrelated samples. A successful workload verifies all evidence
-hashes and the unchanged protocol before atomically publishing its immutable
-result. Both whole-run repetitions are required for the declared connected
-baseline.
-
-Boot timing is a separate declared workflow because rebooting in the middle of
-the connected sequence would change app residency, thermal state and run
-order. Inspect it without touching a device using `bin/diamaneos baseline boot
-dry-run`. One `restart` repetition issues exactly three explicitly authorized
-ordinary `adb reboot` operations. For each, the host monotonic clock reports
-ADB unavailability, authorized-ADB return, `sys.boot_completed=1`, and boot
-animation completion separately. The latter accepts either
-`service.bootanim.exit=1` or `init.svc.bootanim=stopped` and records which
-property supplied the signal; the ready value is the later of boot completion
-and boot-animation completion. The raw observer record and reboot stdout/stderr
-are hash-bound, while the private ADB serial is excluded from the structured
-result. This follows the AOSP boot-completion boundary while preserving the
-limits of host-side polling. A passed run verifies its evidence and publishes
-its immutable result immediately. Two whole repetitions share one series ID.
-
-```sh
-bin/diamaneos baseline boot restart \
-  --target "$TEST_DEVICE_TARGET" \
-  --device-role harness \
-  --device-map <PRIVATE_ROOT>/devices/test-host.json \
-  --rig-config <PRIVATE_ROOT>/rig.json \
-  --run-id <unique-run-id> \
-  --series-id <shared-series-id> \
-  --repeat-index 1 \
-  --expected-build FP6.QREL.16.100.0 \
-  --output <PRIVATE_ROOT>/baseline-runs \
-  --operator-authorized-reboots \
-  --operator-confirmed-permanent-state \
-  --conditions "<stock build, permanent SIM/Wi-Fi state and controlled rig>"
-```
-
-Do not call that result a physical cold-boot time. Cold power-on has a
-different declared method: three repetitions from a verified powered-off
-state, timed from the visible physical power-button press to the first visibly
-usable stock UI using continuous fixed-frame-rate source media or an
-equivalently reviewable recording. USB enumeration, `adb reboot`, a stopwatch
-started after the button press, and restart timing are not substitutes. Keep
-that source media private and retain failed attempts rather than silently
-discarding them.
+After the harness pilot succeeds, inspect the declared plan with
+`bin/diamaneos baseline connected dry-run`. The declared `run` uses the
+protocol's three cold and three warm launches per app, three independent
+60-second Settings frame runs, and a 15-minute load plus 10-minute cooldown. It
+needs a shared series ID and repeat index 1 or 2, so two whole runs cannot pass
+as unrelated samples. A successful workload verifies all evidence hashes and the
+unchanged protocol before atomically publishing its immutable result. The
+declared connected baseline needs both repetitions.
 
 ```sh
 bin/diamaneos baseline connected run \
@@ -336,115 +355,169 @@ bin/diamaneos baseline connected run \
   --conditions "<stock build, USB path and controlled setup>"
 ```
 
-The idle pilot is a staged five-minute harness check. `baseline idle start`
-captures the build, app versions, display, connected Wi-Fi/SIM and battery
-state before performing an explicitly authorized `dumpsys batterystats
---reset`; it then sends `KEYCODE_SLEEP` and verifies that Android is Asleep or
-Dozing while the authoritative built-in panel state is `OFF`. Stock Android 15
-on the FP6 reports `Dozing` with the panel off, so wakefulness alone is not the
-screen-off oracle.
-The sleep transition is asynchronous: the harness polls for at most five
-seconds and requires two consecutive non-awake/`OFF` observations rather than
-sampling immediately after the key event.
-`baseline idle observe-disconnect` supports two explicitly distinguished
-methods. The default `physical-unplug` method records stable ADB loss, but
-physical VBUS removal remains an operator attestation. Keep the cable
-physically unplugged, the screen off and the phone untouched until `baseline
-idle status` reports that the interval is complete. Then run `baseline idle
-finish --wait-for-reconnect`. Reconnect only after it prints
-`READY_TO_RECONNECT`; the command records two consecutive authorized-ADB
-observations and begins the ending capture immediately.
+### Boot timing
 
-For a qualified controlled hub, pass `--disconnect-method
-verified-rig-port-off` and `--rig-config <PRIVATE_ROOT>/rig.json` to `start`,
-then pass the same rig config to `observe-disconnect` and `finish`. The observer
-verifies screen-off state, selects the configured role and port, switches only
-that port off, verifies USB2/USB3 power-off state plus ADB absence and records
-the redacted controller result. Leave the cable attached. At the threshold,
-`finish` switches the same port on, verifies the mapped role returns on the
-same path, checks the other mapped phone was not disturbed, records stable ADB
-presence and immediately captures the ending state. This method requires no
-physical-disconnect attestation and never represents hub power-off as a cable
-unplug. If disconnect observation fails, it attempts to restore the port.
+Boot timing is a separate workflow, because rebooting mid-sequence would change
+app residency, thermal state and run order. Inspect it without a device using
+`bin/diamaneos baseline boot dry-run`.
 
-The legacy physical finish path accepts a target that is already connected,
-but its invocation time is the reconnect time and therefore remains subject
-to the 60-second finish tolerance. After the pilot passes, select the declared
-eight-hour state machine by supplying both `--declared-repeat-index` (`1` or
-`2`) and one shared, valid `--series-id` to `dry-run` and `start`. The command
-then binds the immutable report to `DECLARED_STOCK_BASELINE_EVIDENCE`, the
-eight-hour protocol duration, the series, and its exact repeat. Omitting either
-declared argument fails closed; omitting both remains the five-minute pilot.
-The declared baseline requires both eight-hour repetitions. Wi-Fi and
-telephony service output is reduced to
-connection/registration booleans in memory: SSID, BSSID, subscriber and cell
-identifiers are not persisted.
+One `restart` repetition issues exactly three explicitly authorized ordinary
+`adb reboot` operations. For each, the host monotonic clock records separately
+ADB loss, authorized-ADB return, `sys.boot_completed=1` and boot animation
+completion (from `service.bootanim.exit=1` or `init.svc.bootanim=stopped`,
+recording which property gave the signal). The ready value is the later of
+boot completion and boot-animation completion. This follows the AOSP
+boot-completion boundary within the limits of host-side polling. The raw
+observer record and reboot stdout/stderr are hash-bound; the private ADB serial
+is left out of the structured result. A passed run verifies its evidence and
+publishes its immutable result at once. Two whole repetitions share one series
+ID.
 
-For the final controlled-hub series, `baseline idle series launch` may own both
-repetitions on the tester without retaining SSH or another computer. Launch is
-fail-closed unless scheduled rig maintenance is disabled, the mapped role is
-currently authorized, the operator separately authorizes the repeat-1 and
-repeat-2 batterystats resets, and the operator confirms the unchanged display,
-unlock, no-interaction and no-planned-outage conditions. The detached worker
-wakes the no-lock phone, runs repeat 1, restores the exact port at the eight-hour
-boundary, waits up to four hours for a verified 100%/full state, then repeats
-the same process for repeat 2. Thus the two measurement intervals are
-back-to-back in one owned workflow but are separated by a controlled recharge;
-wall-clock completion is longer than 16 hours.
+```sh
+bin/diamaneos baseline boot restart \
+  --target "$TEST_DEVICE_TARGET" \
+  --device-role harness \
+  --device-map <PRIVATE_ROOT>/devices/test-host.json \
+  --rig-config <PRIVATE_ROOT>/rig.json \
+  --run-id <unique-run-id> \
+  --series-id <shared-series-id> \
+  --repeat-index 1 \
+  --expected-build FP6.QREL.16.100.0 \
+  --output <PRIVATE_ROOT>/baseline-runs \
+  --operator-authorized-reboots \
+  --operator-confirmed-permanent-state \
+  --conditions "<stock build, permanent SIM/Wi-Fi state and controlled rig>"
+```
 
-The worker waits for the explicit `ready_to_reconnect` flag from the same
-boot-relative duration check used by `finish`. The rounded `remaining_seconds`
-countdown is for display and polling only: `0.0` can still mean the finish gate
-is closed. Missing or invalid interval state fails the series rather than
-allowing an early finish. The declared duration and finish tolerance are unchanged.
+### Cold power-on
 
-`baseline idle series status --series-id <shared-series-id>` is read-only and
-reports progress from tester-owned state. Each reset authorization is recorded
-and consumed independently. A tester reboot, rejected preflight, late or
-non-comparable finish, recharge timeout, identity/path mismatch, or unexpected
-rig state fails the series and attempts to restore the mapped port. The
-unattended path records that phone connectivity is observed at start and finish
-only; it does not manufacture a claim of continuous phone-side network
-observation. Re-enable ordinary battery maintenance only after the series is
-terminal and its result paths have been reviewed.
+The restart result is not a physical cold-boot time. Cold power-on has its own
+declared method: three repetitions from a verified powered-off state, timed from
+the visible press of the power button to the first visibly usable stock UI,
+using continuous fixed-frame-rate source media or an equally reviewable
+recording. USB enumeration, `adb reboot`, a stopwatch started after the press
+and restart timing are not substitutes. Keep the source media private and keep
+failed attempts rather than silently discarding them.
 
-The camera fixture is a closed cardboard enclosure with fixed green-timer and
-Johnson's Buds-box subjects, one marked phone-stand position, a secured USB lamp
-and a 21.25 cm ±0.25 cm nominal phone-to-focus-target distance. The MacBook
-powers the lamp and controls the phone over ADB from outside. Align the stand
-and timer from the fixture marks and reference photographs; millimetre-scale
-repositioning variation is accepted rather than claimed as exact registration.
-Close the room blinds and door, switch off the room light, then close the box.
-Use the unambiguous rear-facing orientation for the main/ultrawide captures and
-reverse the phone 180 degrees in the same stand position for the front camera.
-The lamp controls are recorded by their physical cyclic position (colour mode
-1, 2 or 3) and discrete brightness level (1 through 10). The operator labels
-the modes neutral white, cool white and warm, respectively; these labels are
-not measured colour temperatures. Record the camera/mode/zoom and
-tap-focus action with every original; do not edit or transcode source media.
-Use `bin/diamaneos baseline camera dry-run` to inspect the exact pilot order
-without contacting a device or creating output. Add `--declared` to `dry-run`
-and `start` only after the pilot succeeds; that repeats the nine standard
-matrix captures twice while retaining the six advertised-mode survey captures
-once, for 24 originals total. The staged `start`, `capture` and `finalize`
-actions keep one immutable private run open across manual lamp changes. Each
-`capture` snapshots the camera media directory, triggers one
-tap-focus and shutter action, requires exactly one new original, compares the
-device and pulled SHA-256 values, and records the pre-capture UI hierarchy.
-The advertised still-mode survey also retains rear-main 1x originals for
-Portrait, Pro and Super Night, the exposed 2x and Super Macro controls, and the
-front multi-person field of view. The standard front capture explicitly selects
-the single-person view, and Face Beauty remains disabled. Pano and motion modes
-remain inventoried but not applicable to this fixed-still fixture. If a physical
-condition was wrong, preserve the partial run with
+### Idle
+
+The idle pilot is a staged five-minute harness check.
+
+1. `baseline idle start` records the build, app versions, display, connected
+   Wi-Fi/SIM and battery state, then performs an explicitly authorized
+   `dumpsys batterystats --reset`. It sends `KEYCODE_SLEEP` and checks that
+   Android is Asleep or Dozing while the authoritative built-in panel state is
+   `OFF` (stock Android 15 on the FP6 reports `Dozing` with the panel off, so
+   wakefulness alone does not prove screen-off). Sleep is asynchronous: the
+   harness polls for at most five seconds and needs two consecutive
+   non-awake/`OFF` observations rather than sampling right after the key event.
+2. `baseline idle observe-disconnect` uses one of two distinct methods (below).
+3. `baseline idle finish` captures the ending state.
+
+**Physical unplug (default, `physical-unplug`).** The tool records stable ADB
+loss; removal of USB power (VBUS) stays an operator attestation. Keep the cable
+unplugged, the screen off and the phone untouched until `baseline idle status`
+reports the interval complete. Then run
+`baseline idle finish --wait-for-reconnect` and reconnect only after it prints
+`READY_TO_RECONNECT`; it records two consecutive authorized-ADB observations and
+starts the ending capture at once. The legacy physical finish path accepts an
+already connected target, but its invocation time counts as the reconnect time,
+so the 60-second finish tolerance still applies.
+
+**Rig port off (qualified controlled hub).** Pass
+`--disconnect-method verified-rig-port-off` and
+`--rig-config <PRIVATE_ROOT>/rig.json` to `start`, and the same rig config to
+`observe-disconnect` and `finish`. Leave the cable attached. The observer
+verifies screen-off, selects the configured role and port, switches only that
+port off, verifies USB2/USB3 power-off and ADB absence, and records the redacted
+controller result. At the threshold, `finish` switches the same port on,
+verifies the mapped role returns on the same path and the other mapped phone was
+not disturbed, records stable ADB presence and captures the ending state at
+once. No physical-disconnect attestation is needed, and hub power-off is never
+presented as a cable unplug. If disconnect observation fails, it tries to
+restore the port.
+
+**Declared eight-hour run.** After the pilot passes, give both
+`--declared-repeat-index` (`1` or `2`) and one shared, valid `--series-id` to
+`dry-run` and `start`. The immutable report is then bound to
+`DECLARED_STOCK_BASELINE_EVIDENCE`, the eight-hour protocol duration, the series
+and its exact repeat. Giving only one fails closed; giving neither runs the
+five-minute pilot. The declared baseline needs both eight-hour repetitions.
+Wi-Fi and telephony output is reduced in memory to connection/registration
+booleans; SSID, BSSID, subscriber and cell identifiers are not stored.
+
+**Unattended series.** For the final controlled-hub series,
+`baseline idle series launch` can run both repetitions on the tester without
+keeping SSH or another computer attached. Launch fails closed unless scheduled
+rig maintenance is disabled, the mapped role is currently authorized, the
+operator separately authorizes the repeat-1 and repeat-2 batterystats resets,
+and the operator confirms the unchanged display, unlock, no-interaction and
+no-planned-outage conditions. The detached worker wakes the phone
+(which has no screen lock), runs repeat 1, restores the exact port at the
+eight-hour boundary, waits up to four hours for a verified 100%/full state, then
+repeats for repeat 2. The two intervals are back to back in one owned workflow
+but separated by a controlled recharge, so the series takes more than 16 hours.
+
+- The worker waits for the explicit `ready_to_reconnect` flag from the same
+  boot-relative duration check `finish` uses. The rounded `remaining_seconds`
+  countdown is for display and polling only; `0.0` can still mean the finish
+  gate is closed. Missing or invalid interval state fails the series rather
+  than allowing an early finish. The declared duration and finish tolerance are
+  unchanged.
+- `baseline idle series status --series-id <shared-series-id>` is read-only and
+  reports progress from tester-owned state. Each reset authorization is
+  recorded and consumed on its own.
+- A tester reboot, rejected preflight, late or non-comparable finish, recharge
+  timeout, identity or path mismatch, or unexpected rig state fails the series,
+  and the worker tries to restore the mapped port.
+- Phone connectivity is recorded as observed at start and finish only; no
+  continuous phone-side network observation is claimed.
+
+Re-enable ordinary battery maintenance only after the series has ended and its
+result paths have been reviewed.
+
+### Camera
+
+The fixture is a closed cardboard box with fixed green-timer and Johnson's
+Buds-box subjects, one marked phone-stand position, a secured USB lamp and a
+nominal phone-to-focus-target distance of 21.25 cm ±0.25 cm. The MacBook powers
+the lamp and controls the phone over ADB from outside.
+
+- Align the stand and timer from the fixture marks and reference photographs;
+  millimetre-scale repositioning variation is accepted, not claimed as exact
+  registration.
+- Close the room blinds and door, switch off the room light, then close the box.
+- Use the unambiguous rear-facing orientation for main and ultrawide captures;
+  turn the phone 180 degrees in the same stand position for the front camera.
+- Record the lamp by physical cyclic position (colour mode 1, 2 or 3) and
+  discrete brightness level (1 to 10). The operator's labels neutral white,
+  cool white and warm are not measured colour temperatures.
+- Record the camera, mode, zoom and tap-focus action with every original; do
+  not edit or transcode source media.
+
+`bin/diamaneos baseline camera dry-run` shows the exact pilot order without
+contacting a device or creating output. Add `--declared` to `dry-run` and
+`start` only after the pilot succeeds: it repeats the nine standard matrix
+captures twice and keeps the six advertised-mode survey captures once, 24
+originals in total. The staged `start`, `capture` and `finalize` actions keep
+one immutable private run open across manual lamp changes. Each `capture`
+snapshots the camera media directory, triggers one tap-focus and shutter
+action, requires exactly one new original, compares the device and pulled
+SHA-256 values and records the pre-capture UI hierarchy.
+
+The advertised still-mode survey keeps rear-main 1x originals for Portrait, Pro
+and Super Night, the exposed 2x and Super Macro controls, and the front
+multi-person field of view. The standard front capture explicitly selects the
+single-person view, with Face Beauty disabled. Pano and motion modes are
+inventoried but do not apply to this fixed-still fixture. If a physical
+condition was wrong, keep the partial run with
 `quarantine --status NON_COMPARABLE` and state the exact exclusion reason.
 
 ## Staged device runner
 
-The hardware runner consumes reviewed suites, requires an exact target plus a
-private target-role map, and produces a checkpointed, schema-versioned run.
-First validate the committed smoke plan without contacting ADB or writing an
-output directory:
+The hardware runner runs reviewed suites on an exact target with a private
+target-role map, and writes a checkpointed, schema-versioned run. First
+validate the committed smoke plan without contacting ADB or writing output:
 
 ```sh
 bin/diamaneos test run --suite smoke --dry-run
@@ -466,18 +539,35 @@ bin/diamaneos test run \
   --output <PRIVATE_ROOT>/test-runs
 ```
 
-`--stage` is repeatable when an intentional subset is needed. A subset can
-exit successfully but is labelled `SELECTED`, with the full expected inventory
-still present as `NOT_RUN`; it is not a complete-suite claim. Every case names
-its stage, preconditions, oracle, installed build/firmware, duration, evidence
-kind, status and redacted/raw references. Optional capabilities are `SKIP` with
-a declared reason when genuinely unavailable; a missing required case is never
-converted to a pass.
+### Results
 
-The runner is fail-stop. A timeout or output overflow is `HARNESS_ERROR`, a
-device loss is `BLOCKED`, an oracle mismatch is `FAIL`, and later selected
-cases remain `NOT_RUN`. On interruption, completed results and partial streams
-survive. Repeat only the unresolved cases under a new immutable run ID:
+Every case names its stage, preconditions, oracle (the check that decides it),
+installed build/firmware, duration, evidence kind, status and redacted/raw
+references.
+
+- `--stage` (repeatable) runs an intentional subset. It can exit successfully
+  but is labelled `SELECTED`, with the rest of the expected inventory listed as
+  `NOT_RUN`; it is not a complete-suite claim.
+- A genuinely unavailable optional capability is `SKIP` with a declared reason;
+  a missing required case never becomes a pass.
+- The runner is fail-stop: timeout or output overflow is `HARNESS_ERROR`,
+  device loss is `BLOCKED`, an oracle mismatch is `FAIL`, and later selected
+  cases stay `NOT_RUN`. After an interruption, completed results and partial
+  streams survive.
+
+Exit codes do not replace per-case completeness:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | complete, or explicit selected success |
+| `2` | invalid arguments or data |
+| `3` | blocked by a prerequisite, the target or a lock |
+| `4` | test rejection |
+| `5` | execution failure, timeout or interruption |
+
+### Rerun unresolved cases
+
+Repeat only unresolved cases under a new immutable run ID:
 
 ```sh
 bin/diamaneos test run \
@@ -492,18 +582,18 @@ bin/diamaneos test run \
   --output <PRIVATE_ROOT>/test-runs
 ```
 
-Retry input and raw hashes, the exact suite, role, and installed build identity
-must still agree. Exit codes are `0` complete/explicit selected success, `2`
-invalid arguments or data, `3` prerequisite/target/lock blocked, `4` test
-rejection and `5` execution failure, timeout or interruption. The exit code
-does not replace per-case completeness.
+Retry input and raw hashes, the exact suite, role and installed build identity
+must still agree.
 
-Destructive suites are a separate stage and additionally require
-`--destructive` plus a private map entry with `disposable: true`. The v1 runner
-contains no flash/wipe implementation: after enforcing those gates, an
-`installer-runbook` case remains explicitly `BLOCKED` for the separate reviewed
-operator action. Never change such a case to `PASS` merely because the gate was
-accepted.
+### Destructive suites
+
+Destructive suites are a separate stage that also needs `--destructive` and a
+private map entry with `disposable: true`. The v1 runner has no flash or wipe
+code: after those gates, an `installer-runbook` case stays explicitly `BLOCKED`
+for the separate reviewed operator action. Never mark it `PASS` just because
+the gate was accepted.
+
+### Runner tests
 
 Runner contract tests are synthetic evidence, not hardware results:
 
@@ -516,6 +606,22 @@ They cover multiple-device binding, wrong target, unavailable capability,
 timeout, device loss, interruption/checkpoint, verified rerun selection,
 immutable collisions and the destructive boundary.
 
+### Runner acceptance (FP6-034)
+
+FP6-034 accepted the hardware harness at signed implementation commit
+`089432fd6d82e10cce384747d4b0438120e60086` on the accepted test host. The
+read-only `smoke` suite ran on the locked stock Android 15 FP6 build
+`FP6.QREL.15.176.0` (`VS21`, user build) as
+`fp6-034-stock15-20260911T234004Z`. The schema-valid, complete report selected
+and completed all six expected cases: five `PASS`, one reasoned `SKIP` for the
+optional IMS dumpsys service, and no failure, harness error or unresolved
+check. The sanitized report SHA-256 is
+`c300c05ca6fcf787a2590aba19844a7d00cf53e397d35ff7a7b40733a56bb4e9`; all 19
+referenced private raw artifacts reproduced their hashes. This accepts the
+runner and this stock read-only evidence only, not a custom-OS, compatibility,
+recovery, destructive-operation, release or signer qualification. Raw
+diagnostics and device identifiers stay outside public Git.
+
 ### Carrier and telephony evidence
 
 `config/carrier-matrix.json` is the public, identifier-free plan for the two
@@ -527,98 +633,32 @@ bin/diamaneos carrier matrix validate
 bin/diamaneos test run --suite telephony --dry-run
 ```
 
-The matrix deliberately separates `plan_eligibility` from
-`observation_status`. A carrier page can establish that a tariff is eligible,
-but it cannot establish provisioning, registration or behavior on an FP6. A
-`PASS` or `FAIL` row therefore requires build- and arrangement-bound evidence;
-an unavailable SIM or unknown exact tariff remains `BLOCKED` or `NOT_RUN`.
-Each FP6 profile also keeps its firmware, APN and IMS context explicit;
-unobserved context is `UNRECORDED`, never inferred from a carrier page.
+The matrix keeps `plan_eligibility` apart from `observation_status`: a carrier
+page can show a tariff is eligible, not provisioning, registration or
+behaviour on an FP6. A `PASS` or `FAIL` row needs build- and
+arrangement-bound evidence; an unavailable SIM or unknown exact tariff stays
+`BLOCKED` or `NOT_RUN`. Each FP6 profile keeps its firmware, APN (mobile data
+access point) and IMS (the carrier's IP voice and messaging service) context
+explicit; unobserved context is `UNRECORDED`, never inferred from a carrier
+page.
 
-The `telephony` device suite performs only four allowlisted read-only captures:
+#### The telephony suite
+
+The `telephony` suite makes only four allowlisted read-only captures:
 `dumpsys carrier_config`, `dumpsys telephony.registry`, the private raw
 `dumpsys phone` IMS/MMTEL context and the optional legacy `dumpsys imsservice`
-interface. It writes complete raw streams only under the private output root
-and keeps only bounded, redacted fields in `result.json`. The phone-service
-dump has no public-safe field allowlist, so its contents never enter the
-structured report.
-A reviewed case may raise the default 256 KiB stream limit up to the runner's
-hard 1 MiB ceiling; the stock FP6 telephony-registry snapshot uses that ceiling
-because its measured output exceeded the default. Other cases retain the
-smaller default, and an overflow remains a fail-stop harness error.
-A successful suite means those observations were captured; it does not prove
-voice, SMS, mobile data, VoLTE, WiFi Calling, 5G or emergency behavior.
+interface. Complete raw streams go only under the private output root;
+`result.json` keeps only bounded, redacted fields. The phone-service dump has
+no public-safe field allowlist, so none of it enters the structured report. A
+reviewed case may raise the default 256 KiB stream limit up to the runner's
+hard 1 MiB ceiling; the stock FP6 telephony-registry snapshot does, because its
+measured output exceeded the default. Other cases keep the default, and an
+overflow is still a fail-stop harness error. A successful suite means those
+observations were captured, not that voice, SMS, mobile data, VoLTE, WiFi
+Calling, 5G or emergency behaviour works.
 
-The locked EU stock FP6 Vodafone eSIM check recorded mobile data and a local
-5G display-state observation separately from that read-only context capture.
-With Wi-Fi initially providing the default route and mobile data already
-enabled, the bounded operator-authorized check disabled Wi-Fi, verified a
-cellular default route, received HTTP 200 with a 559-byte HTTPS body, observed
-the stock telephony display state as LTE with an NR-NSA override, then restored
-and verified the original Wi-Fi route. The identifier-free result has SHA-256
-`1e3572527e15ec1ea6f02b8c3ac86a80ed59f9854ef8ae74409e4f6b9fc41200`.
-This establishes the two corresponding matrix rows only for the observed
-stock build, carrier profile, place and time. It does not show that every
-transferred byte used NR, establish coverage elsewhere, or prove voice, SMS,
-VoLTE, WiFi Calling, dual-SIM defaults or eSIM lifecycle behavior.
-
-The same retained Vodafone eSIM profile was then disabled and re-enabled
-through Android Settings with explicit operator authorization. The observer
-recorded registered service before the action, no registered voice or data
-service while disabled, and registered service again after re-enable. Android
-did not require activation credentials. The identifier-free result has
-SHA-256
-`3be986ec32c64b6d70a20f6cb634a752de5c2fce69fc661bdf9b947ea7edbab0`.
-This closes only the retained-profile disable/re-enable lifecycle row on the
-observed stock build. The profile was never deleted, downloaded, transferred
-or reprovisioned, and those operations are not implied by the result.
-
-The locked stock FP6 was subsequently observed with that Vodafone eSIM and an
-active Blau 9 Cent physical SIM enabled together. The bounded read-only suite
-again completed with three required captures passing and the unavailable
-legacy `imsservice` interface explicitly skipped. All 15 raw and identity
-evidence references verified; the identifier-free result has SHA-256
-`f982b30ea14ab141bc2dc787b01ea05114db742a2bf5f303b45e00e46ba32908`.
-The operator then observed Vodafone selected as the Android default for voice,
-SMS and mobile data without changing any selection. This closes only the
-dual-SIM context and default-subscription observation.
-
-The operator later authorized a bounded Blau mobile-data check. The runner
-temporarily selected Blau for mobile data, disabled Wi-Fi, verified a cellular
-default route and received HTTP 200 with a 559-byte HTTPS body. It then
-restored and verified both Wi-Fi and the original Vodafone mobile-data
-default. All 15 referenced evidence files verified, and the identifier-free
-result has SHA-256
-`c9e4c12e61d5ea5f23521175d9e06a2bbc5512e352e57978b4022bf29e7f12d4`.
-This closes only the Blau data row. It does not establish Blau voice, SMS,
-VoLTE, WiFi Calling or 5G behavior by itself.
-
-The final locked-stock campaign used the active Vodafone physical-SIM Pixel 2
-as the permanent peer. Both FP6 profiles passed ordinary inbound and outbound
-voice calls and synthetic, non-personal SMS in both directions. Connected-call
-captures recorded active call state, LTE voice service and IMS registration;
-the operator confirmed earpiece and speaker audio plus concurrent mobile-data
-use during each profile's outbound LTE call. Both profiles also passed an
-ordinary WiFi Calling call with airplane mode enabled and the approved Wi-Fi
-connection active: the stock indicator, two-way audio, IMS registration and
-IWLAN/WLAN transport evidence agreed. After an FP6 reboot, both subscriptions,
-Wi-Fi and the Vodafone voice/SMS/data defaults recovered. Emergency calling
-was not exercised.
-
-The identifier-free final behavior summary has SHA-256
-`27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e`.
-The private evidence archive has SHA-256
-`e0ab9551aab1648ce5e7477fa99b480d9b9e5f498e99f94974753a36ff052726`;
-all nine constituent result hashes and all 139 unique referenced evidence
-files were reverified before export. These results close the Vodafone and Blau
-voice, SMS, VoLTE and WiFi Calling rows for the observed stock build and
-arrangement. The active no-package Blau 9 Cent tariff remains `BLOCKED` for
-5G because the reviewed official material does not consistently establish its
-5G eligibility. That limitation is neither an FP6 nor an OS failure. Retest
-that row only after activating an option with unambiguous 5G eligibility.
-
-Run it for one explicitly confirmed carrier/SIM arrangement at a time, using
-the same private role map and target-binding rules as the smoke suite:
+Run it for one explicitly confirmed carrier/SIM arrangement at a time, with the
+smoke suite's private role map and target-binding rules:
 
 ```sh
 bin/diamaneos test run \
@@ -632,86 +672,127 @@ bin/diamaneos test run \
   --output <PRIVATE_ROOT>/runs/<run-id>/telephony
 ```
 
-Ordinary call and SMS checks remain human-led and use only private allowlisted
+#### Manual call and SMS checks
+
+Ordinary call and SMS checks stay human-led, using only private allowlisted
 test destinations and synthetic message text. Record inbound and outbound
 voice/SMS, mobile-data transitions, VoLTE data continuity, provisioned WiFi
-Calling, locally observed 5G, audio routes, reboot/reconnect behavior and the
+Calling, locally observed 5G, audio routes, reboot/reconnect behaviour and the
 selected voice/data/SMS defaults. Restore the starting connectivity state after
-each case. Never dial a live emergency number. eSIM deletion or reprovisioning
-requires a separate explicit operator authorization; the read-only suite never
-changes a subscription.
+each case. **Never dial a live emergency number.** eSIM deletion or
+reprovisioning needs separate explicit operator authorization; the read-only
+suite never changes a subscription.
 
-FP6-034 hardware-harness acceptance used signed implementation commit
-`089432fd6d82e10cce384747d4b0438120e60086` on the accepted test host. The
-read-only `smoke` suite ran on the locked stock Android 15 FP6 build
-`FP6.QREL.15.176.0` (`VS21`, user build) as
-`fp6-034-stock15-20260911T234004Z`. The schema-valid, complete report selected
-and completed all six expected cases: five `PASS`, one reasoned `SKIP` for the
-optional IMS dumpsys service, and no failure, harness error or unresolved
-check. The sanitized report SHA-256 is
-`c300c05ca6fcf787a2590aba19844a7d00cf53e397d35ff7a7b40733a56bb4e9`;
-all 19 referenced private raw artifacts reproduced their recorded hashes.
-This accepts the runner and this stock read-only evidence only. It is not a
-custom-OS, compatibility, recovery, destructive-operation, release or signer
-qualification, and raw diagnostics/device identifiers remain outside public
-Git.
+#### Results on the locked stock FP6
+
+Each result below is identifier-free.
+
+**Vodafone eSIM mobile data and 5G display** (EU stock, operator-authorized,
+recorded separately from the read-only context capture). With Wi-Fi as the
+default route and mobile data already on, the bounded check turned Wi-Fi off,
+verified a cellular default route, received HTTP 200 with a 559-byte HTTPS
+body, saw the stock telephony display state as LTE with an NR-NSA override (5G
+alongside LTE), then restored and verified the original Wi-Fi route. SHA-256
+`1e3572527e15ec1ea6f02b8c3ac86a80ed59f9854ef8ae74409e4f6b9fc41200`. This
+establishes the two matching rows only for the observed stock build, carrier
+profile, place and time. It does not show that every transferred byte used NR
+(5G), coverage elsewhere, or voice, SMS, VoLTE, WiFi Calling, dual-SIM defaults
+or eSIM lifecycle behaviour.
+
+**Vodafone eSIM disable and re-enable** (explicitly operator-authorized, in
+Android Settings). The observer recorded registered service before, no
+registered voice or data service while disabled, and registered service again
+after re-enabling; Android did not ask for activation credentials. SHA-256
+`3be986ec32c64b6d70a20f6cb634a752de5c2fce69fc661bdf9b947ea7edbab0`. This closes
+only the retained-profile disable/re-enable lifecycle row on the observed stock
+build. The profile was never deleted, downloaded, transferred or reprovisioned,
+and the result implies none of those.
+
+**Dual SIM.** With the Vodafone eSIM and an active Blau 9 Cent physical SIM
+enabled together, the read-only suite passed its three required captures and
+explicitly skipped the unavailable legacy `imsservice` interface. All 15 raw
+and identity evidence references verified; SHA-256
+`f982b30ea14ab141bc2dc787b01ea05114db742a2bf5f303b45e00e46ba32908`. The
+operator then saw Vodafone as Android's default for voice, SMS and mobile data,
+without changing any selection. This closes only the dual-SIM context and
+default-subscription observation.
+
+**Blau mobile data** (operator-authorized). The runner temporarily selected
+Blau for mobile data, turned Wi-Fi off, verified a cellular default route and
+received HTTP 200 with a 559-byte HTTPS body, then restored and verified Wi-Fi
+and the original Vodafone mobile-data default. All 15 referenced evidence files
+verified; SHA-256
+`c9e4c12e61d5ea5f23521175d9e06a2bbc5512e352e57978b4022bf29e7f12d4`. This closes
+only the Blau data row, not Blau voice, SMS, VoLTE, WiFi Calling or 5G.
+
+**Final campaign.** The permanent peer was a Pixel 2 with an active Vodafone
+physical SIM.
+
+- Both FP6 profiles passed ordinary inbound and outbound voice calls and
+  synthetic, non-personal SMS both ways.
+- Connected-call captures recorded active call state, LTE voice service and IMS
+  registration; the operator confirmed earpiece and speaker audio plus
+  concurrent mobile-data use during each profile's outbound LTE call.
+- Both profiles passed an ordinary WiFi Calling call with airplane mode on and
+  the approved Wi-Fi connection active: the stock indicator, two-way audio, IMS
+  registration and IWLAN/WLAN transport evidence agreed.
+- After an FP6 reboot, both subscriptions, Wi-Fi and the Vodafone
+  voice/SMS/data defaults recovered.
+- Emergency calling was not exercised.
+
+The final behaviour summary has SHA-256
+`27c27091a26675d0e5cfec879e2c3fa42dd15a8f868bbf73f58a60cf2ad35f5e`; the private
+evidence archive has SHA-256
+`e0ab9551aab1648ce5e7477fa99b480d9b9e5f498e99f94974753a36ff052726`. All nine
+constituent result hashes and all 139 unique referenced evidence files were
+rechecked before export. These results close the Vodafone and Blau voice, SMS,
+VoLTE and WiFi Calling rows for the observed stock build and arrangement.
+
+The active no-package Blau 9 Cent tariff stays `BLOCKED` for 5G, because the
+reviewed official material does not consistently establish its 5G eligibility.
+That is neither an FP6 nor an OS failure. Retest that row only after
+activating an option with unambiguous 5G eligibility.
 
 ## Official compatibility harness
 
-The selected Android 17/API 37 suite revisions, official source URLs, minimum
-host requirements, fixture ledger, target interlocks and fail-closed Tradefed
-result parser are documented in
-[`COMPATIBILITY.md`](COMPATIBILITY.md) and represented by
-`config/test-suites.json`. A separately versioned stock Android 16 trial can
-prove the harness and collection path only. It is not a DiamaneOS
-compatibility result. No custom-OS compatibility pass or inaccessible
-partner-suite completion is claimed.
+[COMPATIBILITY.md](COMPATIBILITY.md) (data in `config/test-suites.json`)
+documents the official Android suites (CTS, CTS Verifier, VTS): the selected
+Android 17/API 37 suite revisions, official source URLs, minimum host
+requirements, fixture ledger, target interlocks and fail-closed Tradefed result
+parser.
 
-The original early-risk ledger remains an input to final case selection.
-Complete CDD coverage and all applicable CTS, CTS Verifier, VTS and modular
-suite results remain release-gate work on the actual FP6 `user` candidate.
+- A separately versioned stock Android 16 trial proves only the harness and
+  collection path; it is not a DiamaneOS compatibility result. No custom-OS
+  compatibility pass or inaccessible partner-suite completion is claimed.
+- Harness trials are scoped separately from release qualification. Keep the
+  automated trial/parent identity and manual XML exports; a selected test PASS
+  does not imply full-suite coverage. See
+  [manual report collection](COMPATIBILITY.md#manual-report-collection) for
+  export and cleanup.
+- The original early-risk ledger stays an input to final case selection.
+  Complete CDD (Android Compatibility Definition Document) coverage and all
+  applicable CTS, CTS Verifier, VTS and modular suite results stay release-gate
+  work on the actual FP6 `user` candidate.
 
 ## Resource overlay check
 
 `bin/diamaneos overlays check` compares every DiamaneOS resource overlay with
-its target's resources at a GrapheneOS release; see [OVERLAYS.md](OVERLAYS.md)
-for the rules, sources and report. Its tests use small fixture trees and local
+its target's resources at a GrapheneOS release; [OVERLAYS.md](OVERLAYS.md)
+explains when and how to run it. Its tests use small fixture trees and local
 Git remotes, so they need no network:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlays -t .
 ```
 
-Run the real check on each new release tag and whenever an overlay changes,
-with target sources fetched into a private cache outside this repository. For
-the pinned release:
-
-```sh
-bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR>
-```
-
-For a new tag, either update `config/build-environment.json` to it first, or
-verify the tag's signature with the pinned GrapheneOS allowed-signers file:
-
-```sh
-bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR> \
-    --tag <TAG> --allowed-signers <GRAPHENEOS_ALLOWED_SIGNERS>
-```
-
-Product (Tally) overlays fail on rules 1 to 5 without `--strict`; `--strict`
-also fails on the warnings, which are mostly the FP6 hardware overlays' own
-qualifier gaps. A passing check means the overlaid names, qualifiers, allowlist
-and overlayable policies agree with the sources. It is not idmap2 on the built
-targets or a phone check.
-
 ## Font customization check
 
 `bin/diamaneos fonts check` reads a product `fonts_customization.xml` and its
-fonts the way Android does while it loads the system fonts (FontCustomizationParser,
-FontListParser and SystemFonts at the pinned release). A mistake in that file
-is not local to the added fonts: it can make Android drop every system font or
-stop boot. `--help` lists the errors and warnings. The tests build small
-synthetic fonts, so they need no network:
+fonts the way Android does while loading the system fonts
+(FontCustomizationParser, FontListParser and SystemFonts at the pinned release).
+A mistake in that file is not local to the added fonts: it can make Android drop
+every system font or stop boot. `--help` lists the errors and warnings. The
+tests build small synthetic fonts, so they need no network:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/fonts -t .
@@ -731,74 +812,42 @@ bin/diamaneos fonts check --xml <PRODUCT_OUT>/product/etc/fonts_customization.xm
     --font-dir <PRODUCT_OUT>/product/fonts --weights <WEIGHTS> --strict
 ```
 
-The check reads the fonts' tables but does not rasterise them, and it does not
-see the system font list, so it cannot tell whether a named family replaces a
-system one or whether an alias points at a system family. It is stricter than
+The check reads the fonts' tables but does not rasterise (draw) them. It does
+not see the system font list, so it cannot tell whether a named family replaces
+a system one or an alias points at a system family. It is stricter than
 Android's XML parser, which accepts a DTD and repeated attributes. A passing
 check is not a boot: `cmd font dump` and logcat stay part of the phone test.
 
 ## Endpoint contracts
 
-The baseline collector remains stdlib-only. Endpoint schema validation uses the
-pinned development dependencies; install them once in an isolated environment:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
-.venv/bin/python bin/diamaneos endpoints validate
-```
-
-Ordinary tests use `tests/endpoints/fixtures/services.json` and work in a standalone
-clone of tools. They never search for a neighbouring infrastructure checkout.
-For acceptance of a real service selection, also run this separate integration
-gate with its actual explicit path (substitute your checkout location):
+[ENDPOINTS.md](ENDPOINTS.md) explains the endpoint contracts (the network
+services DiamaneOS inherits). Set up and run `endpoints validate` as in
+[Run the tool tests](#run-the-tool-tests); without `--services` it reports
+inventory-only scope. Ordinary tests use
+`tests/endpoints/fixtures/services.json`, work in a standalone clone of tools
+and never search for a neighbouring infrastructure checkout. To accept a real
+service selection, also run this separate integration gate with its actual path
+(substitute your checkout location); it validates the actual two-repository
+design:
 
 ```sh
 .venv/bin/python bin/diamaneos endpoints validate \
   --services /absolute/path/to/infrastructure/config/services.json
 ```
 
-The first command reports inventory-only scope; the second validates the actual
-two-repository design. The tests exercise the same schema validator as the CLI:
-required fields, null/wrong types, reference/ownership/isolation errors, bounded
-input, duplicate JSON keys, Unicode byte limits and non-echoing privacy failures.
-Wire-shape examples check 204/body/time-unit conventions; they do not simulate
-native cryptography or prove device compatibility. Valid schema data still has
-owned implementation gates and cannot be called an active deployment. See
-[ENDPOINTS.md](ENDPOINTS.md) for their interpretation and maintenance rules.
+The tests exercise the same schema validator as the CLI: required fields, null
+or wrong types, reference/ownership/isolation errors, bounded input, duplicate
+JSON keys, Unicode byte limits and non-echoing privacy failures. Wire-shape
+examples check 204/body/time-unit conventions; they do not simulate native
+cryptography or prove device compatibility. Valid schema data still has owned
+implementation gates and cannot be called an active deployment.
 
-Compatibility harness trials are scoped separately from release qualification.
-Retain automated trial/parent identity and manual XML exports; a selected test
-PASS does not imply full-suite coverage. See [manual collection and VTS source
-binding](COMPATIBILITY.md#manual-report-collection) for export and cleanup.
+## Vendor file generation tests
 
-### Source-built suite packages
-
-A source-built suite uses the same archive and extracted-tree verification as
-an official download, but retains `delivery: pinned-source-build` in every
-package proof. A verified registry entry must bind its build environment,
-resolved project-map hash, recipe hash and reviewed evidence archive hash.
-Record each source change with its project, base and derived commits and patch
-hash. These fields record the maintainer's reviewed build provenance; they do
-not independently attest to a build or turn a modified suite into an unchanged
-official distribution. Candidate device results remain separate.
-
-For the pinned Android 17 VTS packaging module, `m vts` produces both
-`android-vts.zip` and `android-vts-tests_list.zip`. Select the named suite archive
-and reconcile its configuration inventory with the generated test list;
-requiring exactly one ZIP in the output directory rejects this valid layout.
-
-Suite configuration parsing permits bounded literal internal entities used by
-VTS LTP/kselftest configurations. External resources, parameter entities,
-nested entity references and excessive expansion fail before an extracted
-package is published. This allowance applies to authenticated suite inputs;
-result XML retains its separate stricter parser.
-
-Selected regular-file generation is covered by `tests/vendor/test_vendor_files.py`.
-These composed tests use the real component validator and filesystem publication:
-repeat generation, retained image metadata, altered input/output, missing notices,
-wrong stock identity, absent dependency, unknown owner, traversal, special files,
-concurrent publication, interrupted copying and private/public policy separation.
-They establish the generator boundary with synthetic bytes, not an FP6 product
-closure or hardware compatibility result.
+`tests/vendor/test_vendor_files.py` covers selected regular-file generation
+with the real component validator and filesystem publication: repeat
+generation, retained image metadata, altered input/output, missing notices,
+wrong stock identity, absent dependency, unknown owner, traversal, special
+files, concurrent publication, interrupted copying and private/public policy
+separation. It establishes the generator boundary with synthetic bytes, not an
+FP6 product closure or hardware compatibility result.
