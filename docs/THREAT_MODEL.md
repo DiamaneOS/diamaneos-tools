@@ -96,14 +96,14 @@ SELinux protection, and personal accounts and sensitive data stay off them until
 SELinux is enforcing.
 
 - **Build type.** Today: `userdebug`, ADB on by default, `adb root`; since the
-  2026-09-26 build ADB asks on the phone before trusting a computer and no
+  2026-09-26 build, ADB asks on the phone before trusting a computer and no
   developer key is pre-trusted (earlier builds accepted any computer); recovery
   accepts ADB unasked on unlocked or debuggable phones (AOSP design). Release:
   `user`, `ro.debuggable=0`, ADB off and authenticated, no pre-trusted keys, no
   network ADB. Gate: production-form user candidate (FP6-047), debug exposure
   audit (FP6-060).
 - **SELinux.** Today: earlier builds fully permissive; since the 2026-09-26
-  build debuggable builds boot enforcing with a per-domain policy from the
+  build, debuggable builds boot enforcing with a per-domain policy from the
   denials captured on the last permissive build (narrow rules only, generic proc
   and sysfs nodes relabelled before any write grant, no dontaudit rules, nothing
   new for apps or shell), untested on the phone. Release: enforcing, no
@@ -197,9 +197,9 @@ evolved.
 - **Attestation is TEE-only:** a locked custom-key build reports yellow, never
   green; GrapheneOS's Auditor does not support the FP6. Earlier builds did not
   enable remote key provisioning, so attestation was expected to fail. Since the
-  2026-09-26 build the device sets stock's provisioning properties (requests via
-  the inherited GrapheneOS proxy until DiamaneOS runs its own) and reports the
-  factory attestation IDs. On the 2026-09-27 build provisioning reaches the
+  2026-09-26 build, the device sets stock's provisioning properties (requests
+  via the inherited GrapheneOS proxy until DiamaneOS runs its own) and reports
+  the factory attestation IDs. On the 2026-09-27 build provisioning reaches the
   server but the TEE's certificate request always fails, so no attestation keys
   are provisioned and attestation still fails (cause open).
 - **No pKVM:** on current firmware the kernel runs under Qualcomm's Gunyah
@@ -298,7 +298,7 @@ or "no owning task yet") and status.
   provisioning, app and browser updates, network location and geocoding (when
   on), Auditor remote verification and sample submission (opt-in), and
   phone-side eSIM (SM-DP+/SM-DS) and carrier entitlement connections.
-- **Protection:** no telemetry or GMS; since the 2026-09-26 build the build
+- **Protection:** no telemetry or GMS; since the 2026-09-26 build, the build
   properties keep Fairphone's stock product identity (brand, product, device,
   model), as GrapheneOS keeps Google's; EU-primary DiamaneOS endpoints with
   documented upstreams, each with a visible standard-server alternative. Network
@@ -485,7 +485,7 @@ or "no owning task yet") and status.
 - **Threat:** TLS interceptor, thief or examiner after reset, or coercer, via
   LPA connections to eSIM servers and profiles retained in the eUICC.
 - **Protection:** installed profiles work as SIMs without an LPA (GrapheneOS
-  baseline). Since the 2026-09-27 build the stock Qualcomm LPA stays installed
+  baseline). Since the 2026-09-27 build, the stock Qualcomm LPA stays installed
   with services off by default (stock leaves its eSIM service on), its JNI
   library unshipped. Planned: our own source LPA (list, enable, disable, delete
   over the platform's logical channels; download later) behind an off-by-default
@@ -914,7 +914,7 @@ or "no owning task yet") and status.
 - **Remaining:** the project cannot build or sign firmware; no update path yet;
   firmware lags ASB; Gunyah and its trusted VMs are closed. As on stock, the NFC
   HAL may update its controller from its firmware file. Since the 2026-09-27
-  build the touch driver writes its file to the touch controller whenever
+  build, the touch driver writes its file to the touch controller whenever
   versions differ or the controller's version is unreadable, checking only the
   header, so verified boot is what keeps that file authentic.
 - **Validation:** firmware review and update path (FP6-206), stock input
@@ -1345,7 +1345,7 @@ learned from findings.
 - **eSIM:** 2026-09-25: a maintained hardware-layer LPA with least privilege and
   hardening; OpenEUICC not used; candidate: the Qualcomm LPA. 2026-09-26:
   reasons in GrapheneOS os-issue-tracker #6275 and #2631; from the 2026-09-26
-  build the LPA's eSIM service is on by default. 2026-09-27: it cannot list
+  build, the LPA's eSIM service is on by default. 2026-09-27: it cannot list
   profiles on the FP6, so its service is off again from the 2026-09-27 build
   (stock leaves it on); eSIM follows GrapheneOS (installed profiles keep
   working); our own source LPA behind an off-by-default "eSIM support" switch is
