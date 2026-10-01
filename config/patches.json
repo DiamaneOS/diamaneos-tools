@@ -78,8 +78,8 @@
       "workspace": "android",
       "path": "vendor/qcom/opensource/vibrator",
       "base_revision": "ee288ad6ab45e39069aedb5122f7fa198050f533",
-      "derived_revision": "ffecf5cc1cbc2244495dcbbff6acde93467da458",
-      "canonical_diff_sha256": "a0faff16a913b7c72af1a469ad7dd4b47af92336ff94b555285a5b258b0df918",
+      "derived_revision": "13c68c585852798afece3b823ac0160c8e580c73",
+      "canonical_diff_sha256": "ca7906895e426fa39cab408a57649c807752a6f982b2c1ae0abf01856948cce0",
       "changed_files": [
         "aidl/Vibrator.cpp",
         "aidl/include/Vibrator.h",

@@ -96,7 +96,7 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "cc5a733d427e790e7fbb3976935e0f5736541d8478bb0a4804f4595d708bd261"
+      "sha256": "5bee4c2e866078eb8cbf39da2e36631b46ac29985615e4ab80cd147ff55814c6"
     },
     {
       "id": "fp6-selected-native-files",
