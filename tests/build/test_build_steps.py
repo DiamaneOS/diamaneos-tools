@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+from dataclasses import replace
 import hashlib
 import io
 import json
@@ -178,6 +179,28 @@ class PlanTests(unittest.TestCase):
             plan = steps.plan_android(ctx)
         self.assertIn('<newest pinned commit time>', plan.actions[2].env['BUILD_DATETIME'])
 
+    def test_a_prerequisite_keeps_the_options_it_was_built_with(self):
+        ctx = self.context()
+        ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
+            'variant': 'userdebug', 'network_isolation': False, 'build_number': 'lane.7'}})
+        recorded = steps.recorded_context(ctx, 'android')
+        self.assertEqual(('userdebug', True, 'lane.7'),
+                         (recorded.variant, recorded.allow_network, recorded.build_number))
+        named = steps.recorded_context(self.context(variant='user'), 'android')
+        self.assertEqual(('user', True), (named.variant, named.allow_network))
+        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.8'}):
+            self.assertIsNone(steps.recorded_context(ctx, 'android').build_number)
+
+    def test_android_uses_a_given_build_number(self):
+        ctx = self.context()
+        for name in ('sync', 'kernel', 'vendor'):
+            ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
+                                             'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                patch.object(steps, 'newest_commit_time', return_value='1'):
+            plan = steps.plan_android(replace(ctx, build_number='lane.7'))
+        self.assertEqual('lane.7', plan.inputs['build_number'])
+
     def test_objects_from_needs_an_index_of_existing_bundles(self):
         directory = self.root / 'objects'
         directory.mkdir()
@@ -258,6 +281,24 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(bw.UsageError, 'kernel is out of date'):
                 steps.run_steps(self.ctx, ('android',), force=('android',))
             steps.run_steps(self.ctx, ('vendor',), force=('vendor',))
+
+    def test_single_step_after_a_userdebug_build_checks_that_build(self):
+        def android(ctx):
+            plan = self.fake('android')(ctx)
+            number = ctx.build_number or os.environ.get('DIAMANEOS_BUILD_NUMBER') or 'derived'
+            plan.inputs = dict(plan.inputs, variant=ctx.variant, network_isolation=not ctx.allow_network,
+                               build_number=number)
+            return plan
+        with patch.dict(steps.PLANS, dict({n: self.fake(n) for n in bw.STEPS}, android=android)):
+            with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'lane.7'}):
+                steps.run_steps(replace(self.ctx, variant='userdebug', allow_network=True), bw.STEPS)
+            self.calls.clear()
+            steps.run_steps(self.ctx, ('verify',), force=('verify',))
+            self.assertEqual(['verify'], self.calls)
+            named = replace(self.ctx, variant_given=True)
+            with self.assertRaisesRegex(bw.UsageError, 'android was built as userdebug, not user; '
+                                                       'run "diamaneos build android" or'):
+                steps.run_steps(named, ('verify',), force=('verify',))
 
     def test_failure_is_recorded_and_the_next_run_resumes(self):
         self.fail = 'android'

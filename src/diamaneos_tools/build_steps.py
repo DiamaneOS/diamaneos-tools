@@ -7,7 +7,7 @@ what it consumes and records what it produced. --dry-run prints the plan.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import os
@@ -85,6 +85,10 @@ class Context:
     echo: object = print
     dry_run: bool = False
     host: dict | None = None
+    # False when the variant is the default because the command named none.
+    variant_given: bool = True
+    # Set only to check a prerequisite with the build number it was built with.
+    build_number: str | None = None
     cache: dict = field(default_factory=dict)
 
     @property
@@ -517,7 +521,7 @@ def plan_android(ctx: Context) -> StepPlan:
     inputs = identity = number = datetime = None
     if waiting is None:
         identity = android_identity(ctx, sync)
-        number = build_number(identity, config)
+        number = ctx.build_number or build_number(identity, config)
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': sync['outputs']['project_map_sha256'],
                   'kernel': kernel['outputs'], 'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
@@ -606,16 +610,40 @@ def step_status(ctx: Context, name: str, plan: StepPlan | None = None) -> str:
     return 'current' if passed.get('inputs_sha256') == bw.digest(plan.inputs) and plan.valid(passed) else 'stale'
 
 
+def recorded_context(ctx: Context, name: str) -> Context:
+    """The options a passed step was built with: network isolation always, the
+    variant and build number unless this command sets them. So "build verify"
+    after "build all --variant userdebug" checks the userdebug build."""
+    inputs = (ctx.workspace.passed(name) or {}).get('inputs') or {}
+    changes = {}
+    if isinstance(inputs.get('network_isolation'), bool):
+        changes['allow_network'] = not inputs['network_isolation']
+    if not ctx.variant_given and inputs.get('variant') in ctx.config['variants']:
+        changes['variant'] = inputs['variant']
+    if not os.environ.get('DIAMANEOS_BUILD_NUMBER') and isinstance(inputs.get('build_number'), str):
+        changes['build_number'] = inputs['build_number']
+    return replace(ctx, **changes) if changes else ctx
+
+
 def check_prerequisites(ctx: Context, name: str, steps) -> None:
     """A step run on its own needs every earlier step it consumes to be current."""
     for dependency in DEPENDS[name]:
         if dependency in steps:
             continue
-        status = step_status(ctx, dependency)
+        recorded = recorded_context(ctx, dependency)
+        status = step_status(recorded, dependency)
         if status == 'current':
             continue
-        reason = 'has not run' if status in ('missing', 'waiting') else 'is out of date (its inputs changed)'
-        raise UsageError(f'{dependency} {reason}; run "diamaneos build {dependency}" or "diamaneos build all"')
+        built = ((ctx.workspace.passed(dependency) or {}).get('inputs') or {}).get('variant')
+        if status in ('missing', 'waiting'):
+            reason = 'has not run'
+        elif built and built != recorded.variant:
+            reason = f'was built as {built}, not {recorded.variant}'
+        else:
+            reason = 'is out of date (its inputs changed)'
+        option = '' if recorded.variant == ctx.config['default_variant'] else ' --variant ' + recorded.variant
+        raise UsageError(f'{dependency} {reason}; run "diamaneos build {dependency}{option}" '
+                         f'or "diamaneos build all{option}"')
 
 
 def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
@@ -716,7 +744,8 @@ def make_context(args, echo=print) -> Context:
     shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
     return Context(workspace=workspace,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
-                   config=config, config_raw=config_raw, variant=variant, jobs=args.jobs,
+                   config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
+                   jobs=args.jobs,
                    allow_network=args.allow_network,
                    objects_from=Path(args.objects_from).absolute() if args.objects_from else None,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,

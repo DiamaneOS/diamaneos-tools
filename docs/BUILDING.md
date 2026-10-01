@@ -93,10 +93,14 @@ bin/diamaneos build all --variant userdebug
 
 `build all` builds the kernel, downloads Fairphone's factory package and takes
 the files DiamaneOS needs from it, builds Android, packages the images and
-checks them. The first build takes many hours. Each step prints the path of
-its log, so you can follow it with `tail -f`. If the build stops, run the same
-command again: finished steps are skipped. To see what is left without
-changing anything, add `--dry-run`.
+checks them. The first build takes many hours. Each long command prints a
+`live output` file that you can follow with `tail -f`. If the build stops, run
+the same command again: finished steps are skipped. To see what is left
+without changing anything, add `--dry-run`.
+
+Give `build all` the same `--variant` each time; a different one rebuilds
+Android. A single step, such as `build verify`, uses the variant Android was
+built with.
 
 At the end it prints where the images are, for example
 `~/diamaneos-build/images/20261003-user-3f9a1c2b7d`. The directory also holds
