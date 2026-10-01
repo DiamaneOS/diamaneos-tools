@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -43,7 +43,8 @@ rules).
 8. **Supply chain:** one signing authority and one-person review; FP6 builds not
    yet network-denied or built twice; vendor inputs checked only against the
    vendor's own published hash ([details](#source-and-build-outputs)).
-9. **Keyboard words readable before first unlock** until the keyboard fork ships
+9. **Keyboard words readable before first unlock** in builds without the
+   keyboard fork (in the manifest since 2026-09-27)
    ([details](#typed-text-and-personal-words)).
 
 ## Current product scope
@@ -106,7 +107,8 @@ SELinux is enforcing.
   build, debuggable builds boot enforcing with a per-domain policy from the
   denials captured on the last permissive build (narrow rules only, generic proc
   and sysfs nodes relabelled before any write grant, no dontaudit rules, nothing
-  new for apps or shell), untested on the phone. Release: enforcing, no
+  new for apps or shell); the 2026-09-26 build passed the owner's feature tests
+  enforcing, and every build since runs enforcing. Release: enforcing, no
   permissive domains. Gate: enforcing runs per subsystem (no owning task yet),
   user candidate (FP6-047).
 - **Bootloader and keys.** Today: unlocked, public AOSP test keys; no OEM
@@ -258,7 +260,7 @@ or "no owning task yet") and status.
 | Location | [Location history](#location-history) | Assumption |
 | Apps | [App and user data](#app-and-user-data) | Assumption |
 | Apps | [Per-app destination history (dashboard)](#per-app-destination-history-dashboard) | Assumption |
-| Apps | [Kernel integrity and all data](#kernel-integrity-and-all-data) | Built for the 2026-09-27 build, not phone-tested; Observed (bring-up) |
+| Apps | [Kernel integrity and all data](#kernel-integrity-and-all-data) | Observed (bring-up) |
 | Apps | [Camera, microphone, sensor streams, device integrity](#camera-microphone-sensor-streams-device-integrity) | Bring-up (not qualified) |
 | Apps | [Persistent hardware identifiers](#persistent-hardware-identifiers) | Observed gap (bring-up, permissive) |
 | Apps | [Secondary-profile data](#secondary-profile-data) | Assumption |
@@ -268,7 +270,7 @@ or "no owning task yet") and status.
 | Proximity | [Wi-Fi MAC (tracking), device integrity](#wi-fi-mac-tracking-device-integrity) | Assumption |
 | Proximity | [Locked-device data, kernel integrity](#locked-device-data-kernel-integrity) | Observed gap |
 | AFU | [AFU user data](#afu-user-data) | Observed gap |
-| AFU | [Previous boot's kernel log and event logs](#previous-boots-kernel-log-and-event-logs) | Assumption |
+| AFU | [Previous boot's kernel log and event logs](#previous-boots-kernel-log-and-event-logs) | Observed (bring-up) |
 | AFU | [AFU unlock, auth-bound keys](#afu-unlock-auth-bound-keys) | Observed gap |
 | AFU | [AFU data under coercion or seizure](#afu-data-under-coercion-or-seizure) | Assumption |
 | BFU | [BFU user data](#bfu-user-data) | Observed gap |
@@ -285,7 +287,7 @@ or "no owning task yet") and status.
 | Supply chain | [Shell fork rebase lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell) | Assumption |
 | Supply chain | [Install-time trust](#install-time-trust) | Assumption |
 | Everyday use | [Correct user decisions](#correct-user-decisions) | Assumption |
-| Everyday use | [Typed text and personal words](#typed-text-and-personal-words) | Designed |
+| Everyday use | [Typed text and personal words](#typed-text-and-personal-words) | Bring-up (not qualified) |
 | Everyday use | [Privacy indicators and disclosures under the Tally shell](#privacy-indicators-and-disclosures-under-the-tally-shell) | Assumption |
 | Everyday use | [Files archive handling (browse, extract, create)](#files-archive-handling-browse-extract-create) | Designed, fuzzed on the host |
 
@@ -403,8 +405,9 @@ or "no owning task yet") and status.
   longer if time sources are blocked. RTC drift between saves (1 s resolution).
 - **Validation:** clock across reboot, suspend, manual and network time changes
   and battery removal, SELinux enforcing (no owning task yet).
-- **Status:** Bring-up (not qualified): implemented for the 2026-09-26 build;
-  untested on the phone.
+- **Status:** Bring-up (not qualified): on the 2026-09-26 build the clock was
+  right after an offline reboot (owner test 2026-09-27); suspend, time changes
+  and battery removal untested.
 
 ### Cellular and baseband
 
@@ -500,8 +503,8 @@ or "no owning task yet") and status.
   on again.
 - **Validation:** eSIM selection and delivery (FP6-207, FP6-089).
 - **Status:** Bring-up (not qualified): on the 2026-09-26 build the service was
-  on and could not list profiles (phone test 2026-09-27); the 2026-09-27 build
-  turns it off again, not yet built.
+  on and could not list profiles (phone test 2026-09-27); from the 2026-09-27
+  build it is off again (phone check 2026-09-27: no eSIM service registered).
 
 #### Radio-off expectation, location privacy
 
@@ -571,15 +574,14 @@ or "no owning task yet") and status.
   (named groups only).
 - **Protection:** GrapheneOS kernel hardening configuration merged into the
   vendor kernel; lockdown (confidentiality); SELinux socket and device
-  restrictions; modules reduced to product use. Profiling work must never weaken
-  lockdown or tracing restrictions in user builds.
+  restrictions; modules reduced to product use (since the 2026-09-27 build no
+  protocol modules without product use: CAN, 802.15.4/6LoWPAN, the kernel NFC
+  socket family, PPTP/L2TP, the in-kernel Bluetooth stack); no SELinux
+  development mode; dmesg root-only. Profiling work must never weaken lockdown
+  or tracing restrictions in user builds.
 - **Remaining:**
   - No MTE; large vendor driver surface; hardening hand-merged into a vendor
     kernel with an intentional KMI deviation.
-  - For the 2026-09-27 build (prepared, not yet built): no protocol modules
-    without product use (CAN, 802.15.4/6LoWPAN, the kernel NFC socket family,
-    PPTP/L2TP, the in-kernel Bluetooth stack); no SELinux development mode;
-    dmesg root-only.
   - debugfs built in and mountable as in the 2026-09-26 build; KPROBES on,
     owner-accepted, as the USB controller glue's hooks use kretprobes (both
     under [Decision record](#decision-record)).
@@ -601,11 +603,12 @@ or "no owning task yet") and status.
     updates.
 - **Validation:** kernel build (FP6-041), debug exposure and component removal
   (FP6-060, FP6-061), enforcing runs (no owning task yet).
-- **Status:** module reduction and production configuration built for the
-  2026-09-27 build (kernel check 2026-09-27: configuration matches policy, no
-  loaded module depends on a removed one), not phone-tested; the 2026-09-26
-  build runs enforcing. Observed (bring-up): lockdown confidentiality active;
-  tracing empty.
+- **Status:** Observed (bring-up): module reduction and production
+  configuration run on the phone since the 2026-09-27 build (kernel check: the
+  configuration matches policy, no shipped module depends on a removed one;
+  phone check 2026-09-27: no removed module loaded, no symbol errors,
+  configuration values as planned); debuggable builds run enforcing since the
+  2026-09-26 build; lockdown confidentiality active; tracing empty.
 
 #### Camera, microphone, sensor streams, device integrity
 
@@ -635,7 +638,8 @@ or "no owning task yet") and status.
 - **Protection:** vendor-internal property types with no read grant; narrowed
   sysfs labels; random Bluetooth address per install (intended); Wi-Fi MAC
   randomization; traceability services excluded; boot parameters handed to user
-  space logged by name only (for the 2026-09-27 build, not yet built); enforcing
+  space logged by name only (since the 2026-09-27 build; on the phone the Wi-Fi
+  MAC appeared in no log, pstore or DropBox entry); enforcing
   SELinux.
 - **Remaining:** readable on any permissive build; the Bluetooth address path in
   use is unrecorded (the HAL tries a factory address first) and the address
@@ -721,8 +725,9 @@ or "no owning task yet") and status.
 
 - **Threat:** passive Wi-Fi observer, malicious access point or LAN peer, via
   probe requests, association, Wi-Fi driver and firmware, and wake-on-LAN.
-- **Protection:** station-only features exposed to Android (no hotspot, Wi-Fi
-  Direct or Aware); source-built Wi-Fi HAL and driver; MAC randomization.
+- **Protection:** station-only features exposed to Android (no hotspot, since
+  hostapd is not shipped until station mode is validated; no Wi-Fi Direct or
+  Aware); source-built Wi-Fi HAL and driver; MAC randomization.
 - **Remaining:** MAC randomization unverified on this HAL and firmware; closed
   Wi-Fi firmware on the over-the-air path; a LAN peer can wake the device with a
   magic packet; on Wi-Fi networks used for Android Auto the device sends a DHCP
@@ -790,10 +795,10 @@ or "no owning task yet") and status.
   2026-09-27). Every domain holds the platform's write grant on the event-log
   device, so its file mode is the only control.
 - **Validation:** debug exposure audit (FP6-060).
-- **Status:** Assumption: region and release-build rule built for the 2026-09-27
-  build with GrapheneOS's Pixel layout, not phone-tested (that build is
-  debuggable, so the release rule is inactive); no earlier build registered the
-  region. Kernel check (2026-09-27): placed at boot without a fixed address; the
+- **Status:** Observed (bring-up): the region, with GrapheneOS's Pixel layout,
+  registered on every boot of the 2026-09-27 build; the release-build rule is
+  built but untested (that build is debuggable, so the rule is inactive); no
+  earlier build registered the region. Kernel check (2026-09-27): placed at boot without a fixed address; the
   saved console keeps only notice-level and more severe messages (the console
   log level), not the full log. Observed on the 2026-09-27 build: same address
   every boot; pstore empty after a normal reboot; after a warm reboot both logs
@@ -1112,22 +1117,25 @@ or "no owning task yet") and status.
   (incognito).
 - **Protection (DiamaneOS keyboard fork):** learned, personal and contact words
   only in credential-encrypted storage, loaded after unlock; old
-  device-encrypted copies deleted at first dictionary setup or first unlock (an
-  update never sends MY_PACKAGE_REPLACED); backups off; no-learning and password
+  device-encrypted copies deleted at the first locked boot after the update
+  (LOCKED_BOOT_COMPLETED), or at first dictionary setup or first unlock if those
+  come first (an update never sends MY_PACKAGE_REPLACED); backups off; no-learning and password
   fields never learned from or shown learned words; no typed or personal data in
   logs; unused network, account and sync permissions and dormant entry points
   removed; no network permission (already true).
-- **Remaining:** until the fork ships, the inherited keyboard keeps these words
-  in storage available before first unlock, allows them in backups and ignores
-  the no-learning flag. After it, the recent-emoji list stays readable before
-  first unlock; on two 2026-09-30 test builds old copies stayed on the update's
-  first boot until the keyboard started or the owner unlocked (-150, fixed in a
-  later 2026-09-30 test build by deleting them at LOCKED_BOOT_COMPLETED).
+- **Remaining:** the recent-emoji list stays readable before first unlock.
+  Builds without the fork (the inherited keyboard) keep these words in storage
+  available before first unlock, allow them in backups and ignore the
+  no-learning flag.
 - **Validation:** keyboard fork tests and phone checks before merge (no owning
   task yet).
-- **Status:** Designed; the fix is on a local keyboard branch in two 2026-09-30
-  test builds; its phone check was inconclusive (learned words are off by
-  default, password fields never compose).
+- **Status:** Bring-up (not qualified): the keyboard fork is in the manifest
+  and the test builds. On two 2026-09-30 test builds old copies stayed on the
+  update's first boot until the keyboard started or the owner unlocked (-150);
+  a later one deletes them at the locked boot, verified on the FP6 (planted word
+  lists gone before the first unlock). The rest of the phone check was
+  inconclusive (learned words are off by default, password fields never
+  compose).
 
 #### Privacy indicators and disclosures under the Tally shell
 

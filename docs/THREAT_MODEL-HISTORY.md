@@ -23,7 +23,8 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
 - **2026-09-26:** from the GrapheneOS branding inventory, added network
   location, geocoding and attestation services, the browser's own connectivity
   checks, probe names sent while checks are off, and the Android Auto DHCP
-  hostname; endpoint contracts now number 17. Later the same day the plan gave
+  hostname; endpoint contracts now number 17 (16 once the Info release feed
+  retired with the Info app later that day). Later the same day the plan gave
   network location and geocoding to FP6-103, and the Fresh-UI boundary recorded
   the owner-approved shell rework. The owner then chose network location with a
   DiamaneOS EU relay to Apple, Apple directly or Apple China directly, all
@@ -289,6 +290,16 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   moved to this file, the Tally shell's per-component rules to
   [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md), and internal build names were
   replaced by dates; no change in substance.
+- **2026-10-01:** contradictions resolved with current facts. The 2026-09-27
+  build's kernel changes, log-name printing, ramoops region and eSIM service
+  switch are no longer "not yet built": that build was flashed and checked on the
+  phone on 2026-09-27 (no removed module loaded, the Wi-Fi MAC in no log, the
+  region registered on every boot, no eSIM service). The 2026-09-26 build's
+  enforcing policy and clock daemon passed the owner's tests on 2026-09-27. The
+  keyboard fork's -150 fix (deletion at LOCKED_BOOT_COMPLETED) is verified on the
+  FP6, and the fork is in the manifest. The Tally switch lamps note that the FP6
+  has no Wi-Fi hotspot yet. The 17 endpoint contracts of 2026-09-26 became 16
+  when the Info release feed retired the same day.
 
 ## IMS integration notes
 
