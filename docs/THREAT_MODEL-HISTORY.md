@@ -285,6 +285,12 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
 - **2026-10-01:** the system font is Sofia Sans Tally for every app, built from
   the pinned upstream font and checked with OTS and fontTools; WebView keeps the
   platform fonts.
+- **2026-10-01:** location logging (-95), implemented, not yet built: the
+  vendor step sets the GNSS engine to warnings and errors only, the level its
+  library already uses on user builds, and the telephony fork logs the modem's
+  registration results with the serving cell redacted as the framework's other
+  cell logs are. The physical cell ID and channel stay in the radio log, as in
+  AOSP.
 
 ## IMS integration notes
 

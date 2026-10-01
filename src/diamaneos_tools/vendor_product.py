@@ -797,8 +797,8 @@ GNSS_CONFIG_REWRITES = {
         'reason': 'Disable Qualcomm cloud positioning, Wi-Fi scan injection and the uninstalled location daemons'},
     'vendor/etc/gps.conf': {
         'source_sha256': 'a89ca530acfa96685d87160ecf61ac49f3a26128dfa24372c4eb917ec7ccdd57',
-        'sha256': 'b7c87609084cc1b65fa7f9a32bfe38100fddea9a6e2f2f248d287e9dfe55002f',
-        'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface'},
+        'sha256': '29dee8ed4ebde298418da8bd31669eaa2bb162f2085a698e8de767dd6114fbb8',
+        'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface; log warnings and errors only'},
     'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': {
         'source_sha256': 'c26a05a20d168de2ff460b6493029368e7ae7fe774c65c794c11e635d3856d1f',
         'sha256': 'e497937eefe98b5127ceca4331fa271067ef7bd1eb66b794db1aea5728c3f555',
@@ -806,7 +806,8 @@ GNSS_CONFIG_REWRITES = {
 }
 IZAT_DISABLED_PROCESSES = ('lowi-server', 'xtwifi-client', 'slim_daemon', 'xtra-daemon', 'edgnss-daemon', 'blpsvc')
 GNSS_REQUIRED = {
-    'vendor/etc/gps.conf': (b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n'),
+    'vendor/etc/gps.conf': (b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n',
+                            b'\nDEBUG_LEVEL = 2\n'),
     'vendor/etc/izat.conf': (b'\nGTP_MODE=DISABLED\n', b'\nFREE_WIFI_SCAN_INJECT=DISABLED\n',
                              b'\nSUPL_WIFI=DISABLED\n', b'\nWIFI_SUPPLICANT_INFO=DISABLED\n'),
     'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': (b'\n    interface aidl android.hardware.gnss.IGnss/default\n',
@@ -836,6 +837,8 @@ def gnss_config(path, data):
     elif path.endswith('/gps.conf'):
         derived = data.replace(b'#NTP server\nNTP_SERVER=time.xtracloud.net\n', b'')
         derived = derived.replace(b'\nLOC_DIAGIFACE_ENABLED = 1\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n')
+        # Warnings and errors only, the level the engine library itself uses on user builds.
+        derived = derived.replace(b'\nDEBUG_LEVEL = 3\n', b'\nDEBUG_LEVEL = 2\n')
     else:
         derived = data.replace(b'    interface aidl vendor.qti.gnss.ILocAidlGnss/default\n', b'')
         derived = derived.replace(b'    group system gps radio vendor_qti_diag vendor_ssgtzd\n', b'    group system gps\n')

@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -435,13 +435,17 @@ entry point), the protections in current builds, what remains, and the status.
 - **Remaining:** SUPL defaults to the GrapheneOS proxy; "standard" SUPL goes
   straight to the carrier-configured server (Google's, on the carrier tested so
   far); SUPL requests carry cell information; control-plane positioning runs in
-  the modem; GNSS engine state on persist survives reset; location logging still
-  verbose; the radio log records the serving-cell identity on every registration
-  poll (today about twice a second on one SIM), readable over adb and in bug
-  reports.
+  the modem; GNSS engine state on persist survives reset. Builds so far log the
+  GNSS engine at info level and write the serving-cell identity to the radio log
+  on every registration poll (about twice a second on one SIM), readable over
+  adb and in bug reports. With the redaction, the radio log still shows the
+  physical cell ID and channel, as AOSP does, and development builds show the
+  redacted fields as unsalted hashes (AOSP behaviour; user builds hide them).
 - **Status:** Bring-up (not qualified): cloud paths absent and pinned; no GNSS
-  fix recorded. Unverified: assisted GNSS (FP6-103), GNSS bring-up tests
-  (FP6-045).
+  fix recorded; warning-level GNSS engine logs and a radio log that redacts the
+  serving-cell identity like the framework's other cell logs are implemented,
+  not yet run on a build. Unverified: assisted GNSS (FP6-103), GNSS bring-up
+  tests (FP6-045).
 
 ### Malicious and over-permissioned apps
 
