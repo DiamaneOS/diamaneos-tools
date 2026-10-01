@@ -154,11 +154,11 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   re-run on every Stop.
 - **2026-09-28:** the shade and Quick Settings of roadmap step 3.2 (local branch
   tally-shade, not built) join the shell rules (see [Quick Settings and the
-  shade](THREAT_MODEL.md#quick-settings-and-the-shade)).
+  shade](THREAT_MODEL-TALLY.md#quick-settings-and-the-shade)).
 - **2026-09-29:** the security reviews of roadmap steps 4b and 6a (local
   Launcher3 tally-recents and Settings tally-home, not built) found no issue
-  (see [Recents' Stop](THREAT_MODEL.md#recents-stop-steps-36-and-4b) and
-  [Settings homepage](THREAT_MODEL.md#settings-homepage-step-6a)).
+  (see [Recents' Stop](THREAT_MODEL-TALLY.md#recents-stop-steps-36-and-4b) and
+  [Settings homepage](THREAT_MODEL-TALLY.md#settings-homepage-step-6a)).
 - **2026-09-29:** the security review of roadmap step 4a (local Launcher3
   tally-home, not built) found three low issues, fixed on the branch before any
   build: the tallies row showed a work app's progress or timer while a
@@ -170,14 +170,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   37 adds platform protections and changes nothing the app can do.
 - **2026-09-29:** the security review of roadmap step 6b (local frameworks_base
   tally-build and Settings tally-switches, not built) found no issue (see
-  [Settings switches](THREAT_MODEL.md#settings-switches)).
+  [Settings switches](THREAT_MODEL-TALLY.md#settings-switches)).
 - **2026-09-29:** the security review of roadmap step 5's WM Shell half (local
   frameworks_base tally-build, not built) found no issue (see [Motion: WM
-  Shell](THREAT_MODEL.md#motion-wm-shell-step-5)).
+  Shell](THREAT_MODEL-TALLY.md#motion-wm-shell-step-5)).
 - **2026-09-29:** the security review of roadmap step 5's Launcher half (local
   Launcher3 tally-motion, not built) found no issue: motion only, with no
   permission, manifest or allow-list change (see [Motion:
-  Launcher](THREAT_MODEL.md#motion-launcher-step-5)).
+  Launcher](THREAT_MODEL-TALLY.md#motion-launcher-step-5)).
 - **2026-09-29:** after the phone test of a 2026-09-29 Tally test build (local
   frameworks_base tally-build, not built): the Tally lock strip and always-on
   strip now show beside GrapheneOS's built-in smartspace, which hides its one
@@ -191,7 +191,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   the Tally card colour was read through the posting app's context (-135, high
   if shipped; fixed on frameworks_base tally-build de8a9edb4265). This set the
   context rule under [Rules learned from
-  findings](THREAT_MODEL.md#rules-learned-from-findings); a review of that rule
+  findings](THREAT_MODEL-TALLY.md#rules-learned-from-findings); a review of that rule
   across the Tally code follows.
 - **2026-09-29:** with lock-screen notifications off (off unless set),
   GrapheneOS's smartspace line shows nothing; the Tally lock strip now drops its
@@ -231,7 +231,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   manifest or permission change; only system-uid or SystemUI code can post as
   the android or SystemUI packages. This set the credential-encrypted storage
   rule under [Rules learned from
-  findings](THREAT_MODEL.md#rules-learned-from-findings).
+  findings](THREAT_MODEL-TALLY.md#rules-learned-from-findings).
 - **2026-09-30:** the Files review (step 7) fuzzed the archive code and reviewed
   trash (-140 to -143): the new archive code goes on (vendor_diamaneos local
   files-flags); trash stays off until DiamaneOS can say at trash time that files
@@ -252,7 +252,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   patch. Home's tallies read Clock's MetricStyle time with plain Bundle getters
   only, and the media-session read no longer throws on a malformed value (-145,
   fixed before any build). This set the notification-extras rule under [Rules
-  learned from findings](THREAT_MODEL.md#rules-learned-from-findings).
+  learned from findings](THREAT_MODEL-TALLY.md#rules-learned-from-findings).
 - **2026-09-30:** -144 fixed (frameworks_base tally-build 7ea6b864d39e; the same
   change on the owner's fork, branch chip_leak, for GrapheneOS): a promoted chip
   whose notification the lock screen redacts shows only the public version's
@@ -265,7 +265,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   recovery and vendor_diamaneos are clean, and the keyboard's password and
   no-learning handling holds. Three findings, fixes being written: -148 (medium
   if shipped) and -149 (low) in the Clock fork (see
-  [Clock](THREAT_MODEL.md#clock-step-7)), and -150 (low) in the keyboard (see
+  [Clock](THREAT_MODEL-TALLY.md#clock-step-7)), and -150 (low) in the keyboard (see
   [Typed text and personal
   words](THREAT_MODEL.md#typed-text-and-personal-words)). The Clock bullet and
   the keyboard and Files rows are corrected. All three are fixed in a later
@@ -285,8 +285,9 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   of terms were added. The rules learned from -135, -139 and -145 moved from
   these entries to the Fresh-UI boundary.
 - **2026-10-01:** shortened: the revision history and the IMS integration notes
-  moved to this file, and internal build names were replaced by dates; no change
-  in substance.
+  moved to this file, the Tally shell's per-component rules to
+  [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md), and internal build names were
+  replaced by dates; no change in substance.
 
 ## IMS integration notes
 
