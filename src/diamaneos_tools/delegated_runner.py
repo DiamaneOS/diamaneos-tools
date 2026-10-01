@@ -23,7 +23,6 @@ PRIVATE_ROOT = Path("/var/lib/diamaneos-test")
 DEVICE_MAP = PRIVATE_ROOT / "devices/test-host.json"
 RIG_CONFIG = Path("/etc/diamaneos/rig.json")
 BASELINE_CONFIG = DEPLOY_ROOT / "config/baseline.json"
-CARRIER_MATRIX = DEPLOY_ROOT / "config/carrier-matrix.json"
 ENDPOINT_INVENTORY = DEPLOY_ROOT / "config/endpoints.json"
 
 MAX_ARGUMENTS = 128
@@ -54,7 +53,6 @@ ROUTES = {
         ("series", "status"),
     },
     ("baseline", "protocol", "validate"): {()},
-    ("carrier", "matrix", "validate"): {()},
     ("endpoints", "validate"): {()},
     ("test", "run"): {()},
     ("rig",): {
@@ -130,7 +128,6 @@ FIXED_PATH_OPTIONS = {
     "--device-map": {DEVICE_MAP},
     "--rig-config": {RIG_CONFIG},
     "--config": {BASELINE_CONFIG, RIG_CONFIG},
-    "--matrix": {CARRIER_MATRIX},
     "--inventory": {ENDPOINT_INVENTORY},
 }
 
