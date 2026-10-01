@@ -291,6 +291,10 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   labels, unbuilt and deferred features, release gates and the next-validation
   list were removed; the threat model now shows only what is built, and every
   built feature updates it in the same change.
+- **2026-10-01:** statuses brought up to date from the 2026-09-26 build's phone
+  tests: the fingerprint HAL fix (enrolment and unlock work) and the TEE proxy
+  removal are in tested builds, telephony runs enforcing with both SIMs in
+  service, and the development-build rule no longer depends on SELinux mode.
 
 ## IMS integration notes
 

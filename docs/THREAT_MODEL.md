@@ -57,9 +57,9 @@ rules).
 Every build so far is a private bring-up build on a development device; none was
 distributed. Bring-up builds deliberately trade away protections to make
 hardware work. Bring-up builds are never handed out or used as anyone else's
-daily phone; their signing and SELinux state gives no verified-boot,
-signature-permission or SELinux protection, and personal accounts and sensitive
-data stay off them until SELinux is enforcing.
+daily phone; their test-key signing gives no verified-boot or
+signature-permission protection and their SELinux policy is not qualified, so
+personal accounts and sensitive data stay off them.
 
 - **Build type:** `userdebug`, ADB on by default, `adb root`; since the
   2026-09-26 build, ADB asks on the phone before trusting a computer and no
@@ -206,7 +206,7 @@ entry point), the protections in current builds, what remains, and the status.
 | Apps | [App and user data](#app-and-user-data) | Bring-up (not qualified) |
 | Apps | [Kernel integrity and all data](#kernel-integrity-and-all-data) | Observed (bring-up) |
 | Apps | [Camera, microphone, sensor streams, device integrity](#camera-microphone-sensor-streams-device-integrity) | Bring-up (not qualified) |
-| Apps | [Persistent hardware identifiers](#persistent-hardware-identifiers) | Observed gap (bring-up, permissive) |
+| Apps | [Persistent hardware identifiers](#persistent-hardware-identifiers) | Observed gap (bring-up) |
 | Apps | [Secondary-profile data](#secondary-profile-data) | Bring-up (not qualified) |
 | Proximity | [Device integrity, paired-device data, Bluetooth address](#device-integrity-paired-device-data-bluetooth-address) | Bring-up (not qualified) |
 | Proximity | [SIM applets, presence, NFC services](#sim-applets-presence-nfc-services) | Bring-up (not qualified) |
@@ -385,7 +385,8 @@ entry point), the protections in current builds, what remains, and the status.
   permission, no network); its domain reaches only the radio daemon's call-audio
   service and the audio server.
 - **Remaining:** closed code parses untrusted input; the update path of
-  presigned vendor apps is not locked; enforcing untested.
+  presigned vendor apps is not locked; enforcing since the 2026-09-26 build
+  (both SIMs in service), not qualified per subsystem.
 - **Status:** Bring-up (not qualified): allowlists and domains reviewed; runtime
   and enforcing unverified; call-audio bridge implemented for the 2026-09-26
   build, untested on the phone. Unverified: telephony bring-up (FP6-044),
@@ -536,8 +537,9 @@ entry point), the protections in current builds, what remains, and the status.
   under enforcing, so the driver falls back to the chip's own MAC or one derived
   from its serial; Wi-Fi MAC randomization unverified; a flash dump reveals
   persist data.
-- **Status:** Observed gap (bring-up, permissive): some hardware serials exposed
-  as system properties; enforcing denial not yet shown. Unverified: enforcing
+- **Status:** Observed gap (bring-up): some hardware serials exposed as system
+  properties on permissive builds; whether enforcing builds deny the read is not
+  yet shown. Unverified: enforcing
   runs and an identifier probe test (no owning task yet), Wi-Fi and Bluetooth
   bring-up (FP6-043).
 
@@ -673,8 +675,8 @@ entry point), the protections in current builds, what remains, and the status.
   passes, the fingerprint is not treated as strong authentication.
 - **Status:** Observed gap: class declared, not measured. Bring-up (not
   qualified): unlock works; the first enforcing boot showed the module needs its
-  debug service registered, which the HAL now answers in-process (in the source;
-  not yet in a tested build). Unverified: fingerprint bring-up (FP6-045),
+  debug service registered, which the HAL answers in-process since the
+  2026-09-26 build (enrolment and unlock work, owner test 2026-09-27). Unverified: fingerprint bring-up (FP6-045),
   credential validation (FP6-046), spoof testing (no owning task yet).
 
 #### AFU data under coercion or seizure
@@ -773,7 +775,7 @@ entry point), the protections in current builds, what remains, and the status.
   StrongBox or Weaver; KeyMint key deletion on wipe (rollback resistance) set
   since the 2026-09-26 build, unverified.
 - **Status:** Observed gap (builds before the 2026-09-26 build): an unused
-  userspace TEE proxy ran; removed in the source, not yet in a tested build.
+  userspace TEE proxy ran; removed from the 2026-09-26 build on.
   Bring-up (not qualified): services run; enforcing and throttling persistence
   unverified. Unverified: TEE and credential validation (FP6-046, FP6-050),
   attestation limits (FP6-065, FP6-106).
