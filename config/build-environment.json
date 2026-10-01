@@ -96,12 +96,12 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches.json",
-      "sha256": "897b185ce1c12c5a3dbed2651a0ba6bd1fe111a1d16e38018147d2abaab7cc6c"
+      "sha256": "6a451425c585b96111a98d41ccf3fd648554713a714b2b5146dfa72137f078e6"
     },
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "5ab7189d2326774ef52ee67b511feb66090ac728d3a1d77c5be84c9f8c28b335"
+      "sha256": "152289dee1029816c31eea59f24e85a33ccf93b0948070645a2c1be5ec23ed19"
     },
     {
       "id": "fp6-native-dependencies",

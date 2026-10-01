@@ -389,8 +389,8 @@ selected Qualcomm release. A fork that stops carrying a needed change leaves
 both files, its project is pinned unmodified in the source plan, and
 `config/repositories.json` marks it `retired` while it is still published.
 Before release a retired fork may be deleted; its entry then goes, and builds
-whose manifests pinned it can no longer be synced from GitHub (the five forks
-retired in r9t were deleted on 2026-09-27). A `follow_note` says why a fork that ships nothing
+whose manifests pinned it can no longer be synced from GitHub (the five kernel forks
+retired on 2026-09-27 were deleted that day). A `follow_note` says why a fork that ships nothing
 is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
 GrapheneOS release, the repo launcher, Fairphone's source manifest, the
 Qualcomm SELinux policy, the stock factory image and the platform repositories

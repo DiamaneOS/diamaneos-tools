@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "scope": "Device checks moved from the private r9s/r9t build scripts. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
+  "scope": "Device checks moved from the private build scripts. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
   "rules": [
     {
       "id": "sensors-stack",
-      "why": "Sensors work on stock and on DiamaneOS since r9p: the multi-HAL, the Qualcomm sensor listener and its policy.",
+      "why": "Sensors work on stock and on DiamaneOS: the multi-HAL, the Qualcomm sensor listener and its policy.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.sensors-service.multihal",
@@ -62,7 +62,7 @@
     },
     {
       "id": "audio-stack",
-      "why": "Stock audio user space with the AOSP service and adapters (r9q); no placeholder HAL.",
+      "why": "Stock audio user space with the AOSP service and adapters; no placeholder HAL.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/hw/audio.primary.volcano.so",
@@ -108,7 +108,7 @@
     },
     {
       "id": "hardware-bringup",
-      "why": "r9p hardware bring-up: Bluetooth, NFC, radio, modem, camera, GNSS, display, haptics and their activation files.",
+      "why": "Hardware bring-up: Bluetooth, NFC, radio, modem, camera, GNSS, display, haptics and their activation files.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service-qti",
@@ -146,7 +146,7 @@
     },
     {
       "id": "sdm-extension-libraries",
-      "why": "Libraries the SDM extension loads by name (r9p first-boot composer crash).",
+      "why": "Libraries the SDM extension loads by name (a first-boot composer crash).",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/libsdm-colormgr-algo.so",
@@ -205,7 +205,7 @@
     },
     {
       "id": "no-forced-colour-mode",
-      "why": "The forced colour mode is gone (r9p).",
+      "why": "The forced colour mode is gone.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "absent": [
@@ -214,7 +214,7 @@
     },
     {
       "id": "call-audio-bridge",
-      "why": "Our own call-audio bridge replaces QtiTelephonyService: one normal permission, our key, its own domain (r9s).",
+      "why": "Our own call-audio bridge replaces QtiTelephonyService: one normal permission, our key, its own domain.",
       "type": "files_present",
       "paths": [
         "SYSTEM_EXT/priv-app/FP6CallAudio/FP6CallAudio.apk"
@@ -287,7 +287,7 @@
     },
     {
       "id": "telephony-fixes",
-      "why": "r9q telephony fixes from the r9p phone test.",
+      "why": "Telephony fixes from the first phone test.",
       "type": "files_present",
       "paths": [
         "VENDOR/etc/qcril_database/upgrade/config/0016.0_config.sql"
@@ -307,7 +307,7 @@
     },
     {
       "id": "no-audio-routing-grant",
-      "why": "The stock QCRIL audio messenger no longer gets MODIFY_AUDIO_ROUTING (r9q).",
+      "why": "The stock QCRIL audio messenger no longer gets MODIFY_AUDIO_ROUTING.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/permissions/privapp-permissions-fp6-telephony.xml"
@@ -318,7 +318,7 @@
     },
     {
       "id": "tipc-module",
-      "why": "TIPC as a module without the diag module (r9q).",
+      "why": "TIPC as a module without the diag module.",
       "type": "files_present",
       "paths": [
         "SYSTEM_DLKM/lib/modules/tipc.ko"
@@ -356,7 +356,7 @@
     },
     {
       "id": "adb-authorization",
-      "why": "adb asks before trusting a computer (r9s).",
+      "why": "adb asks before trusting a computer.",
       "type": "properties",
       "file": "SYSTEM/build.prop",
       "equals": [
@@ -377,7 +377,7 @@
     },
     {
       "id": "oem-unlocking",
-      "why": "OEM unlocking managed by the OS, as stock (r9s).",
+      "why": "OEM unlocking managed by the OS, as stock.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -401,7 +401,7 @@
     },
     {
       "id": "display-colour-transforms",
-      "why": "Night Light, Extra dim, grayscale and tap to wake (r9s).",
+      "why": "Night Light, Extra dim, grayscale and tap to wake.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
       "values": {
@@ -431,7 +431,7 @@
     },
     {
       "id": "vibrator",
-      "why": "The vibrator HAL with real effects, its sysfs label, no RTP node for system, not in the input group (r9s).",
+      "why": "The vibrator HAL with real effects, its sysfs label, no RTP node for system, not in the input group.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -464,7 +464,7 @@
     },
     {
       "id": "time-daemon",
-      "why": "Our own time daemon and no Qualcomm time_daemon policy (r9s).",
+      "why": "Our own time daemon and no Qualcomm time_daemon policy.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/timekeepd"
@@ -486,7 +486,7 @@
     },
     {
       "id": "no-wlan-mac-link",
-      "why": "No wlan_mac.bin link into persist; the kernel may not read it (r9s).",
+      "why": "No wlan_mac.bin link into persist; the kernel may not read it.",
       "type": "files_absent",
       "paths": [
         "VENDOR/firmware/wlan/qca_cld/qca6750/wlan_mac.bin"
@@ -494,7 +494,7 @@
     },
     {
       "id": "keymaster-messages-on-odm",
-      "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path (r9s).",
+      "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path.",
       "type": "files_present",
       "paths": [
         "ODM/lib64/libkeymaster_messages.so"
@@ -619,7 +619,7 @@
     },
     {
       "id": "stock-properties",
-      "why": "Stock key, telephony and audio properties, each set once (stock property review, r9s).",
+      "why": "Stock key, telephony and audio properties, each set once (stock property review).",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -706,7 +706,7 @@
     },
     {
       "id": "ncm-tethering",
-      "why": "USB tethering over NCM; the kernel has no RNDIS gadget function (r9s).",
+      "why": "USB tethering over NCM; the kernel has no RNDIS gadget function.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6TetheringOverlay.apk",
       "values": {
@@ -739,7 +739,7 @@
     },
     {
       "id": "no-qseecom-proxy",
-      "why": "No QSEECom AIDL proxy; nothing looked it up (r9s). qseecomd and the kernel proxy stay.",
+      "why": "No QSEECom AIDL proxy; nothing looked it up. qseecomd and the kernel proxy stay.",
       "type": "files_absent",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
@@ -797,7 +797,7 @@
     },
     {
       "id": "pal-agm-private",
-      "why": "Only the audio HAL may register and look up its PAL and AGM services (r9s).",
+      "why": "Only the audio HAL may register and look up its PAL and AGM services.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_hwservice_contexts"
@@ -831,7 +831,7 @@
     },
     {
       "id": "frp-node",
-      "why": "system_server can open the frp partition, and ueventd loads the firmware the kernel may not read itself (r9s attempt 4).",
+      "why": "system_server can open the frp partition, and ueventd loads the firmware the kernel may not read itself.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -879,7 +879,7 @@
     },
     {
       "id": "touch-firmware",
-      "why": "The stock touch firmware in /vendor/firmware: exact stock bytes, root 0644, vendor_firmware_file; the kernel reads it directly (r9t).",
+      "why": "The stock touch firmware in /vendor/firmware: exact stock bytes, root 0644, vendor_firmware_file; the kernel reads it directly.",
       "type": "file_metadata",
       "path": "vendor/firmware/EPH86XX_fw.bin",
       "image": "vendor",
@@ -946,7 +946,7 @@
     },
     {
       "id": "lpa-services-off",
-      "why": "The stock LPA stays installed with both services off by default, without its JNI library (r9t, OP-ESIM).",
+      "why": "The stock LPA stays installed with both services off by default, without its JNI library.",
       "type": "component_override",
       "file": "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml",
       "package": "com.qualcomm.qti.lpa",
@@ -977,7 +977,7 @@
     },
     {
       "id": "pmsg-release-rule",
-      "why": "Release builds make /dev/pmsg0 unwritable; debuggable builds keep the platform default (r9t).",
+      "why": "Release builds make /dev/pmsg0 unwritable; debuggable builds keep the platform default.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/hw/init.qcom.rc"
@@ -1023,7 +1023,7 @@
     },
     {
       "id": "ramoops",
-      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone (r9t, -112).",
+      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone (finding -112).",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -1096,7 +1096,7 @@
     },
     {
       "id": "wifi-mac-print",
-      "why": "Boot parameters handed to user space are logged by name only, in all three prints that carried the Wi-Fi MAC (r9t).",
+      "why": "Boot parameters handed to user space are logged by name only, in all three prints that carried the Wi-Fi MAC.",
       "type": "binary_count",
       "file": "kernel:Image",
       "patterns": [

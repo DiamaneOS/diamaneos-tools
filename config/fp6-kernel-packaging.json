@@ -1330,7 +1330,7 @@
         "hidp.ko",
         "rfcomm.ko"
       ],
-      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; on r9s the RFCOMM kernel thread was already denied its socket bind (finding -35)."
+      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; on a development build the RFCOMM kernel thread was already denied its socket bind (finding -35)."
     },
     {
       "modules": [
@@ -1352,7 +1352,7 @@
         "qca_cld3_peach_v2.ko",
         "qca_cld3_wcn6450.ko"
       ],
-      "reason": "WLAN host drivers for other chips: the FP6 runs its QCA6750 through icnss2 and qca_cld3_qca6750; the device tree has no cnss2 (PCIe) node, cnss2's only user is peach_v2, and on r9s wcn6450 failed with \"Driver already registered\"."
+      "reason": "WLAN host drivers for other chips: the FP6 runs its QCA6750 through icnss2 and qca_cld3_qca6750; the device tree has no cnss2 (PCIe) node, cnss2's only user is peach_v2, and on a development build wcn6450 failed with \"Driver already registered\"."
     },
     {
       "modules": [
@@ -1390,7 +1390,7 @@
       "modules": [
         "f_fs_ipc_log.ko"
       ],
-      "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on r9s. Debug only, imported by nothing (finding -18)."
+      "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on a development build. Debug only, imported by nothing (finding -18)."
     }
   ],
   "dtb_count": 14,
@@ -1406,7 +1406,7 @@
   "forbidden_symbols": [
     {
       "symbol": "param_name_len",
-      "reason": "run_init_process runs after init memory is freed and calls this __init helper; it is safe only while inlined, so an out-of-line copy means init could call freed code (r9t kernel review)."
+      "reason": "run_init_process runs after init memory is freed and calls this __init helper; it is safe only while inlined, so an out-of-line copy means init could call freed code (kernel review, 2026-09-27)."
     }
   ]
 }
