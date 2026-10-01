@@ -1,8 +1,8 @@
 # DiamaneOS Threat Model: Tally Shell Rules
 
 Per-component rules for the Tally shell, part of the [threat model's Fresh-UI
-boundary](THREAT_MODEL.md#fresh-ui-boundary). Every Tally shell commit (roadmap
-step 3, FP6-211) keeps them, together with the [privacy indicator
+boundary](THREAT_MODEL.md#fresh-ui-boundary). Every Tally shell commit (FP6-211)
+keeps them, together with the [privacy indicator
 rules](THREAT_MODEL.md#privacy-indicators-and-disclosures-under-the-tally-shell)
 and the [rebase
 rule](THREAT_MODEL.md#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell).
@@ -56,27 +56,26 @@ bouncer windows keep stock or shorter enter animations.
 - Visual-only side effect: Quick Settings dialogs, the privacy dialog included,
   get a 20 dp corner radius.
 
-## Recents' Stop (steps 3.6 and 4b)
+## Recents' Stop
 
-- SystemUI (step 3.6) tells only the current user's recents app, checked by uid,
-  which apps the Active apps dialog would let the user stop (package and user,
-  current user and its profiles, in memory only); Launcher3 gets no new
-  permission. Every Stop re-runs the dialog's checks at that moment: lock screen
-  dismissed, foreground service running, user in the current profiles, and no
-  platform exemption hiding the dialog's Stop button (system uid, system
-  allow-list, device and profile owners, protected and device-admin packages,
-  persistent processes, default dialer, system modules; the platform's list of
-  stoppable system apps is the exception). Only then does SystemUI ask the
-  platform to stop the app, as the dialog does. The two new SystemUI-proxy
-  methods accept calls only from the recents app's uid in the current user and
-  do nothing with the Tally flag off.
-- Launcher3 (step 4b) sets SystemUI's listener only while Recents is open and
-  removes it on close, keeps the list in memory only, offers Stop only for a
-  card the user swiped away, named by that card's own task (package and user),
-  and never stops an app itself; its manifests, permissions and privileged-app
-  allow-list stay upstream. The Stop key and row refuse touches through another
-  window over them and ignore taps within 0.5 s of the row appearing or
-  changing.
+- SystemUI tells only the current user's recents app, checked by uid, which apps
+  the Active apps dialog would let the user stop (package and user, current user
+  and its profiles, in memory only); Launcher3 gets no new permission. Every
+  Stop re-runs the dialog's checks at that moment: lock screen dismissed,
+  foreground service running, user in the current profiles, and no platform
+  exemption hiding the dialog's Stop button (system uid, system allow-list,
+  device and profile owners, protected and device-admin packages, persistent
+  processes, default dialer, system modules; the platform's list of stoppable
+  system apps is the exception). Only then does SystemUI ask the platform to
+  stop the app, as the dialog does. The two new SystemUI-proxy methods accept
+  calls only from the recents app's uid in the current user and do nothing with
+  the Tally flag off.
+- Launcher3 sets SystemUI's listener only while Recents is open and removes it
+  on close, keeps the list in memory only, offers Stop only for a card the user
+  swiped away, named by that card's own task (package and user), and never stops
+  an app itself; its manifests, permissions and privileged-app allow-list stay
+  upstream. The Stop key and row refuse touches through another window over them
+  and ignore taps within 0.5 s of the row appearing or changing.
 - Limits: SystemUI cannot tell whether, or on which app, the user tapped Stop
   and trusts the recents app for that. The recents app can already stop apps in
   its own user with its own permission; through SystemUI it can also stop
@@ -107,18 +106,18 @@ bouncer windows keep stock or shorter enter animations.
   Tally switch only through flagged layout twins and, on Compose screens,
   flagged calls with Material's arguments and accessibility semantics, so with
   the flag off SystemUI is unchanged.
-- Step 6b: the thumb moves at the tap; the lamp lights only while the switch is
-  checked and the setting's own state reports on (Wi-Fi, Bluetooth, hotspot and
-  tethering, NFC, Battery Saver, from state their controllers already read; the
-  FP6 has no Wi-Fi hotspot yet, so that lamp stays dark there), so
-  no lamp shows on for something off. Turning off darkens it at once; a failed
-  change goes back unlit and accessibility reports the checked state, both as
-  stock.
+- Switches wait for the system: the thumb moves at the tap; the lamp lights only
+  while the switch is checked and the setting's own state reports on (Wi-Fi,
+  Bluetooth, hotspot and tethering, NFC, Battery Saver, from state their
+  controllers already read; the FP6 has no Wi-Fi hotspot, so that lamp stays
+  dark there), so no lamp shows on for something off. Turning off darkens it at
+  once; a failed change goes back unlit and accessibility reports the checked
+  state, both as stock.
 - Switch rows lose their own ripple and focus highlight (the switch shows both).
   Restricted switches keep their code, including window-wide obscured-touch
   filtering.
 
-## Home and All apps (step 4a)
+## Home and All apps
 
 - Keycap LEDs and the tallies row come only from Launcher's existing
   notification listener (behind notification dots), in memory: flags, category,
@@ -148,7 +147,7 @@ bouncer windows keep stock or shorter enter animations.
 - The All apps letter rail uses stock's sections, so a hidden private space gets
   no slot. No permission, manifest or allow-list change.
 
-## Settings search (step 6c)
+## Settings search
 
 SettingsIntelligence's panel is restyled and its target SDK goes from 31 to 37
 with predictive back. Every platform behaviour change in between was checked
@@ -157,7 +156,7 @@ explicit-intent filter checks are not tied to the caller's target or are
 disabled at the pin). No permission or component change; the search index, its
 providers and permissions are untouched; results are unchanged.
 
-## Clock (step 7)
+## Clock
 
 DeskClock fork: 182 reviewed LineageOS lineage-24.0 commits plus 19 of
 DiamaneOS's own; targetSdk 37.
@@ -181,17 +180,18 @@ DiamaneOS's own; targetSdk 37.
   services, public intent API, widgets, notifications), not every UI line; four
   imported commits are marked tool-assisted (notification styling, a channel ID,
   the promoted-notification permission, icons; no security effect).
-- Step 8 review, both fixed in a later 2026-09-30 test build: -148 (medium if
-  shipped, in two earlier 2026-09-30 test builds): the fork treated audio modes
-  that any app with the normal MODIFY_AUDIO_SETTINGS can set as a phone call, so
-  another app could stop a ringing alarm or turn alarms and timers down to the
-  in-call tone; now only modes needing MODIFY_PHONE_STATE count, so a call that
-  only rings no longer silences an alarm. -149: the alarms database moved from
-  version 8 to 12, which GrapheneOS's Clock cannot open again, so going back
-  would silently stop alarms; it now stays at version 8, and earlier builds'
-  databases go back to it with their alarms.
+- A security review of the forks found two issues, both fixed in a later
+  2026-09-30 test build: -148 (medium if shipped, in two earlier 2026-09-30 test
+  builds): the fork treated audio modes that any app with the normal
+  MODIFY_AUDIO_SETTINGS can set as a phone call, so another app could stop a
+  ringing alarm or turn alarms and timers down to the in-call tone; now only
+  modes needing MODIFY_PHONE_STATE count, so a call that only rings no longer
+  silences an alarm. -149: the alarms database moved from version 8 to 12, which
+  GrapheneOS's Clock cannot open again, so going back would silently stop
+  alarms; it now stays at version 8, and earlier builds' databases go back to it
+  with their alarms.
 
-## Calculator (step 7)
+## Calculator
 
 ExactCalculator fork: styling (DayNight with dynamic colour, Tally keycaps from
 the token library, resources only), AC and "( )" keys, edge-to-edge, key labels
@@ -199,17 +199,17 @@ that grow with text size. Manifest unchanged: no permission, component, backup
 (allowBackup stays false) or storage change. The keycap drawable is inflated by
 class name only from the app's own resources.
 
-## Recovery and fastbootd titles (step 7)
+## Recovery and fastbootd titles
 
-The bootable_recovery fork (option A) changes exactly two title literals
-("DiamaneOS Recovery", "DiamaneOS Fastboot"); compiled code otherwise matches
-the pin. Recovery runs as root and wipes, sideloads and verifies packages, so
-every GrapheneOS rebase of the fork is reviewed as a diff that must stay those
-two literals. Signature checks against otacerts and GrapheneOS's recovery
+The bootable_recovery fork changes exactly two title literals ("DiamaneOS
+Recovery", "DiamaneOS Fastboot"); compiled code otherwise matches the pin.
+Recovery runs as root and wipes, sideloads and verifies packages, so every
+GrapheneOS rebase of the fork is reviewed as a diff that must stay those two
+literals. Signature checks against otacerts and GrapheneOS's recovery
 restrictions (no SD-card entry, serialno-constrained updates rejected, no serial
 number shown) are unchanged.
 
-## Motion: WM Shell (step 5)
+## Motion: WM Shell
 
 - Behind the Tally flag, pages opening and closing inside and between apps,
   predictive Back between activities and tasks, and the cold-start splash change
@@ -230,7 +230,7 @@ number shown) are unchanged.
 - Page transitions are jank-monitor interactions: an event-log line with the
   interaction type, times and a constant tag, no app identity, as stock's.
 
-## Motion: Launcher (step 5)
+## Motion: Launcher
 
 - Launching from a key, the return to Home and Back to Home change how the
   window moves (grows out of its key and flies back on the Tally springs; Home
@@ -244,7 +244,7 @@ number shown) are unchanged.
   launcher intent (never the notification's), so it is logged like any Home
   launch (Launcher's standard launch event); no new log or permission.
 
-## Settings homepage (step 6a)
+## Settings homepage
 
 Regrouped and restyled only. Every top-level entry keeps page, controller,
 conditions and restrictions (the pin's 30 entries, compared by key and
