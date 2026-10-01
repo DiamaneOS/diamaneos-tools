@@ -12,7 +12,8 @@
   rig control, staged device runner, compatibility-suite harness, test-host
   deployment and docs/COMPATIBILITY.md), and the reference builder
   deployment (deploy/builder, config/tool-acquisition.json and
-  docs/REPRODUCIBILITY.md) with its generic qualification build.
+  docs/REPRODUCIBILITY.md) with its generic qualification build, the stock
+  phone hardware report and config/upstreams.json.
   `diamaneos baseline`, `rig`, `test run` and `test compatibility` are gone;
   BUILDING.md is the public build path. The signing contract and
   `diamaneos signing` stay public.

@@ -806,9 +806,8 @@ entry point), the protections in current builds, what remains, and the status.
 - **Remaining:**
   - Qualcomm/CodeLinaro and Fairphone sources and toolchains carry no upstream
     signatures; common inputs are common-mode.
-  - The public build runs as an ordinary user on an unmanaged host, without the
-    separate build account, root-owned tools checkout or service sandbox the
-    reference builder keeps.
+  - The public build runs as an ordinary user on an unmanaged host, without a
+    separate build account, root-owned tools checkout or service sandbox.
   - The network namespace blocks IP networking only: Unix sockets in the
     filesystem stay reachable, so a socket to a service with network access (a
     container daemon, for example) is a way out, and the build can read whatever
