@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission, open); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -519,18 +519,16 @@ entry point), the protections in current builds, what remains, and the status.
   mostly without seccomp; closed performance and thermal daemons as root;
   Android 14 ABI vendor code on Android 17; per-file purpose partly generic;
   closed code updated only through Fairphone stock releases. The closed
-  Qualcomm sensors sub-HAL also lists a vendor-private ambient colour (RGB)
-  sensor with no required permission (-153, open). GrapheneOS's Sensors
-  permission covers the standard sensor types and takes a vendor type's
-  permission from the HAL, so any app can read colour and light levels from it
-  without the Sensors permission. Nothing in the build uses this sensor, but
-  neither the sub-HAL, the sensor core's configuration nor the platform has a
-  setting that withholds it or adds the permission; the remaining fixes are a
-  small source wrapper around the sub-HAL or a platform change (owner's
-  decision).
+  Qualcomm sensors sub-HAL lists a vendor-private ambient colour (RGB) sensor
+  with no required permission (-153). GrapheneOS's Sensors permission covers the
+  standard sensor types and takes a vendor type's permission from the HAL, and
+  an empty one meant none, so any app could read the sensor with the Sensors
+  permission off (shown on the FP6, 2026-10-01). The frameworks/native fork
+  keeps the Sensors permission when the HAL names none (implemented, not yet
+  built).
 - **Status:** Bring-up (not qualified): selection reviewed per subsystem;
-  enforcing per subsystem untested. Observed gap: on the FP6 (2026-10-01) the
-  colour sensor is listed with no required permission (-153). Unverified: debug
+  enforcing per subsystem untested. Observed gap until the frameworks/native
+  fix is built: the colour sensor needs no permission (-153). Unverified: debug
   exposure and component removal (FP6-060, FP6-061), closure gate (FP6-208),
   camera (FP6-045, FP6-203), audio (FP6-044, FP6-205), enforcing runs (no
   owning task yet).

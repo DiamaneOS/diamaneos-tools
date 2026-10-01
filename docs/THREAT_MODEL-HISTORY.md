@@ -300,12 +300,12 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   implemented, not yet built: system_server reads the DisplayPort and audio
   codec extcon cable names (sysfs_extcon, replacing per-index labels that
   followed probe order); the camera and media services read the gralloc
-  properties the buffer mapper rereads per buffer; the sensors HAL reads only
-  its own sensor-list file in persist, no longer the registry and calibration
-  files; one dontaudit for the sensors HAL's denied writes of a factory
+  properties the buffer mapper rereads per buffer; the sensors HAL's start-up
+  list gets its own label, written by init with the stock types minus the hall
+  sensor and only readable by the HAL; one dontaudit for the sensors HAL's denied writes of a factory
   proximity value; the source-built health service filters kernel uevents to
   power-supply events.
-- **2026-10-01:** -153 (open): the closed Qualcomm sensors sub-HAL lists a
+- **2026-10-01:** -153: the closed Qualcomm sensors sub-HAL lists a
   vendor-private ambient colour (RGB) sensor, wake-up and non-wake-up, with no
   required permission. GrapheneOS gives the Sensors permission to every sensor
   but lets a HAL-supplied permission replace it for vendor types, and an empty
@@ -318,6 +318,10 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   fix is the owner's decision: a source wrapper around the sub-HAL that
   withholds vendor types without a permission, or a platform change that keeps
   the Sensors permission when a HAL leaves it empty.
+- **2026-10-01:** -153 fix implemented, not yet built: the DiamaneOS
+  frameworks/native fork keeps the Sensors permission for a custom sensor whose
+  HAL permission is empty, so the colour sensor needs the Sensors permission like
+  every standard sensor.
 
 ## IMS integration notes
 

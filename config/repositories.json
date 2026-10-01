@@ -293,6 +293,16 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_build"
     },
     {
+      "checkout_path": "WORK_ROOT/os/frameworks/native",
+      "id": "frameworks-native",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_native.git",
+      "revision": null,
+      "slug": "platform_frameworks_native",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_native"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/frameworks/base",
       "id": "frameworks-base",
       "publication": "public-source",

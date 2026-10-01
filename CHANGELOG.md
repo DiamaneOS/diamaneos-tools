@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Carry a frameworks/native fork (`84fc898`): a custom sensor whose HAL names
+  no permission keeps the Sensors permission, so the FP6's colour sensor can no
+  longer be read with the Sensors permission off (-153).
 - Keep `param_name_len` out of init memory in both kernel trees (common
   `4774098`, msm-6.1 `9793cb3`): `run_init_process` calls it after init memory
   is freed. The `forbidden_symbols` rule that guarded the inlined copy goes.
