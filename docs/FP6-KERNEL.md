@@ -88,8 +88,9 @@ Two symbol rules in the same file run on every build. `module_import_allowlist`
 names the only modules that may import a symbol (today only `dwc3-msm.ko` may
 import `register_kretprobe`, the reason KPROBES stays on), and
 `forbidden_symbols` lists symbols that must not exist in the built kernel's
-`System.map` (an out-of-line `param_name_len` would let init call freed code).
-Each rule carries its reason.
+`System.map` (empty today: `param_name_len`, which `run_init_process` calls
+after init memory is freed, is no longer an `__init` function). Each rule
+carries its reason.
 
 ## Structure layout checks
 

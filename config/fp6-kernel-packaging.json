@@ -1403,10 +1403,5 @@
       "reason": "KPROBES stays on only for the dwc3-msm USB hooks (finding -111); any other kretprobe user is new and needs review."
     }
   },
-  "forbidden_symbols": [
-    {
-      "symbol": "param_name_len",
-      "reason": "run_init_process runs after init memory is freed and calls this __init helper; it is safe only while inlined, so an out-of-line copy means init could call freed code (kernel review, 2026-09-27)."
-    }
-  ]
+  "forbidden_symbols": []
 }

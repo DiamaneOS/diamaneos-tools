@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep `param_name_len` out of init memory in both kernel trees (common
+  `4774098`, msm-6.1 `9793cb3`): `run_init_process` calls it after init memory
+  is freed. The `forbidden_symbols` rule that guarded the inlined copy goes.
 - Pin kernel fork revisions that keep the debugfs interface for kernel code
   while refusing every debugfs mount (kernel policy v8 requires
   `CONFIG_DEBUG_FS_DISALLOW_MOUNT`), stop the Wi-Fi platform driver logging
