@@ -282,9 +282,9 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   stock turns its blue dot green) and -152 (low, stock: a sensor joining during
   a chip left the dot with the chip's old items) are fixed; both verified on the
   FP6 or in replay of the scheduler.
-- **2026-10-01:** the system font is Sofia Sans Tally for every app (owner,
-  2026-09-30), built from the pinned upstream font and checked with OTS and
-  fontTools; WebView keeps the platform fonts.
+- **2026-10-01:** the system font is Sofia Sans Tally for every app, built from
+  the pinned upstream font and checked with OTS and fontTools; WebView keeps the
+  platform fonts.
 
 ## IMS integration notes
 
