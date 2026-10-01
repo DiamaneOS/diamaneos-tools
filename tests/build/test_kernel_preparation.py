@@ -83,6 +83,29 @@ class KernelPreparationTests(unittest.TestCase):
         alternates=(self.workspace/'kernel_platform/common/.git/objects/info/alternates').read_text()
         self.assertIn(str(self.repo/'.git/objects'),alternates)
 
+    def test_shallow_reference_keeps_its_shallow_commits(self):
+        # A reference prepared with depth-1 fetches is shallow: its oldest commits name
+        # parents it does not have. The new workspace borrows its objects and must also
+        # know where its history is cut off.
+        self.git('checkout', '-q', '--detach')
+        older = self.repo.parent / 'older'
+        subprocess.check_call(['git', 'init', '-q', str(older)])
+        subprocess.check_call(['git', '-C', str(older), '-c', 'user.name=F', '-c', 'user.email=f@example.invalid',
+                               'commit', '-q', '--allow-empty', '-m', 'older', '--no-gpg-sign'])
+        self.git('fetch', '-q', str(older), 'HEAD')
+        self.git('rebase', '-q', '--onto', 'FETCH_HEAD', '--root', '--committer-date-is-author-date')
+        derived = self.git('rev-parse', 'HEAD'); base = self.git('rev-parse', 'HEAD~1')
+        diff = kernel.canonical_diff(subprocess.check_output(['git', '-C', str(self.repo), 'diff', '--full-index', base, derived]))
+        self.plan['projects'][0]['revision'] = base
+        self.changes[0].update(base_revision=base, derived_revision=derived,
+                               canonical_diff_sha256=hashlib.sha256(diff).hexdigest())
+        shallow_ref = self.root / 'shallow-reference' / 'kernel_platform/common'
+        subprocess.check_call(['git', 'clone', '-q', '--depth=2', 'file://' + str(self.repo), str(shallow_ref)])
+        self.reference = self.root / 'shallow-reference'
+        result = self.prepare()
+        self.assertEqual('PASS', result['status'])
+        self.assertIn(base, (self.workspace / 'kernel_platform/common/.git/shallow').read_text())
+
     def test_standalone_fetch_without_reference(self):
         self.changes[0]['repository'] = str(self.repo)
         with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):

@@ -62,8 +62,11 @@ def call(argv, *, cwd, env=None, timeout=600, log=None):
     result = process.run(list(map(str, argv)), timeout, max_output_bytes=128*1024*1024,
                          cwd=cwd, env=env, log_path=log,
                          capture_bytes=16384 if log else None)
-    require(result['transport'] == 'ok', 'command failed: ' + str(argv[0]) +
-            ' (' + result['transport'] + '); inspect the command log')
+    if result['transport'] != 'ok':
+        output = b''.join(result.get(k) or b'' for k in ('stdout', 'stderr'))
+        tail = output.decode('utf-8', 'replace').strip()[-2000:] if isinstance(output, bytes) else ''
+        raise KernelError('command failed: ' + ' '.join(map(str, argv[:4])) + ' (' + result['transport'] + ')'
+                          + (': ' + tail if tail else '; inspect the command log'))
     return result['stdout'].decode()
 
 
@@ -121,6 +124,11 @@ def sources(root, plan, changes, *, prepare=False, reference=None):
                 alternates = dest / '.git/objects/info/alternates'
                 alternates.parent.mkdir(parents=True, exist_ok=True)
                 alternates.write_text(str(objects) + '\n')
+                # A reference prepared with depth-1 fetches is shallow; without its list of
+                # cut-off commits, history walks look for parents that were never fetched.
+                shallow = Path(git(reference / row['path'], 'rev-parse', '--path-format=absolute', '--git-path', 'shallow'))
+                if shallow.is_file():
+                    (dest / '.git/shallow').write_bytes(shallow.read_bytes())
         require((dest / '.git').exists(), 'source project missing: ' + row['path'])
         require(created or (not git(dest, 'diff', '--name-only') and not git(dest, 'diff', '--cached', '--name-only')),
                 'tracked source changes: ' + row['path'])
