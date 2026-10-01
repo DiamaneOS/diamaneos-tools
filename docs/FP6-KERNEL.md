@@ -1,54 +1,35 @@
 # FP6 kernel build and capability contract
 
-Where the Fairphone 6 (FP6) development kernel comes from, how it is built and
-checked, and which kernel settings are deliberate decisions. For kernel
-maintainers. To reconstruct and install the whole set, use the `kernel
-prepare`, `kernel build` and `build inputs` workflow in
-[FP6 preparation](FP6-PREPARATION.md); this document explains its native entry
-points and compatibility limits.
+The native entry points, checks and deliberate settings behind the
+`kernel prepare`, `kernel build` and `build inputs` workflow in
+[FP6 preparation](FP6-PREPARATION.md), which reconstructs and installs the
+whole set. Terms are explained in the [threat model](THREAT_MODEL.md#terms).
 
-| Term | Meaning |
-| --- | --- |
-| GKI | Generic Kernel Image: Android's common kernel core (the Image), shared across devices. |
-| KMI | Kernel Module Interface: the stable symbol interface between GKI and vendor modules. |
-| DLKM | Dynamically loaded kernel modules; system_dlkm and vendor_dlkm are their partitions. |
-| DT | Device tree: the hardware description the kernel boots with. |
-| Kleaf | The Bazel-based kernel build (`tools/bazel`). |
-| r9s, r9t | Earlier bring-up builds. |
+## Sources and workspace
 
-## Sources
-
-- The kernel follows Qualcomm's CodeLinaro release for this chip
-  (`LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0` and the kernel-platform and
-  techpack releases it names), with the GrapheneOS `kernel_common-6.1` release
-  merged into the vendor kernel.
-- Fairphone's FP6 hardware changes (the `fps` target, panel, touch, camera and
-  sensor drivers) are carried as DiamaneOS patches. Only the FP6 device trees,
-  which Qualcomm does not publish for this chip, still come from Fairphone.
-- The source set is separate from the platform checkout.
-  `config/fp6-sources.json` identifies the upstream families;
-  [`config/patches.json`](../config/patches.json) binds the downstream changes,
-  including the matched devfreq header exported to the graphics package and the
-  common/vendor kernel configuration and ABI changes.
-- Do not substitute Pixel kernel sources or disable strict KMI, module
-  protection or sandbox checks.
-
-## Workspace
+The kernel follows Qualcomm's CodeLinaro release for this chip
+(`LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0` and the kernel-platform and
+techpack releases it names), with the GrapheneOS `kernel_common-6.1` release
+merged into the vendor kernel. Fairphone's FP6 changes (the `fps` target,
+panel, touch, camera and sensor drivers) are DiamaneOS patches; only the device
+trees, which Qualcomm does not publish for this chip, come from Fairphone. The
+source set is separate from the platform checkout: `config/fp6-sources.json`
+names upstream families and [`config/patches.json`](../config/patches.json)
+binds downstream changes, including the matched devfreq header exported to the
+graphics package and the common/vendor configuration and ABI changes. Never
+substitute Pixel kernel sources or disable strict KMI, module protection or
+sandbox checks.
 
 [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) records
-the resolved kernel-workspace projects and link exports.
-
-1. Fetch each project from its declared source URL and check out its exact
-   revision.
-2. Apply only the downstream revisions in `config/patches.json`.
-3. Keep the resulting resolved manifest before building.
-
-Preserve the link exports, except the two absent legacy `kernel/build` entry
-points `build.sh` and `build_abi.sh` at
-`f19534bc201764082056c886279fb69aeb423641`; use the actual Bazel entry point.
-The workspace's `vendor` link must resolve to the pinned sibling vendor tree,
-and `build/msm_kernel_extensions.bzl` and `build/abl_extensions.bzl` to the
-matching source projects. A missing source or mismatched revision is an error.
+the resolved workspace projects and link exports. Fetch each project from its
+declared URL at its exact revision, apply only the downstream revisions in
+`config/patches.json`, and keep the resolved manifest before building.
+Preserve link exports except the two absent legacy `kernel/build` entry points
+`build.sh` and `build_abi.sh` at `f19534bc201764082056c886279fb69aeb423641`;
+use the actual Bazel entry point. The `vendor` link must resolve to the pinned
+sibling vendor tree, and `build/msm_kernel_extensions.bzl` and
+`build/abl_extensions.bzl` to their matching projects. A missing source or
+wrong revision is an error.
 
 ## Build
 
@@ -65,188 +46,147 @@ tools/bazel query --output=label \
   'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
 ```
 
-Keep the queried target list, require the audio and qcacld WLAN targets, and
-build that exact list with the same symbol-list flag. Bound concurrency and
-wall time, hold the workspace lock, and record commands, source revisions and
-exit status.
-
-**ABI.** The vendor ABI rule has no STG baseline at this pin, so an empty vendor
-diff is not an ABI comparison. The explicit common GKI ABI comparison and the
-selected vendor symbol/CRC/namespace checks are required separately.
-
-**Outputs.** Collect the top-level configured outputs and the declared implicit
-config/module targets. Bazel output sets may include source files and report
-directories: do not assume every returned path is a generated regular file, and
-do not read stale transition outputs. Merge DTs with the pinned vendor rules
-and reconcile bootloader selectors against stock. Keep the effective common and
-vendor configurations, built-in module lists, Module.symvers, the public
-certificate and all module signatures.
+Keep the queried list, require the audio and qcacld WLAN targets, and build
+exactly that list with the same flag, bounded concurrency and wall time, the
+workspace lock held and commands, revisions and exit status recorded. The
+vendor ABI rule has no STG baseline at this pin, so an empty vendor diff is no
+ABI comparison; the common GKI ABI comparison and selected vendor
+symbol/CRC/namespace checks are required separately. Collect top-level
+configured outputs and declared implicit config/module targets (Bazel output
+sets may include source files and report directories; never read stale
+transition outputs), merge DTs with the pinned vendor rules, reconcile
+bootloader selectors against stock, and keep effective common and vendor
+configurations, built-in module lists, Module.symvers, the public certificate
+and all module signatures.
 
 ## Module packaging
 
 [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json)
-defines the reviewed development module selection, partition placement and
-load lists.
+defines the reviewed development module selection, partition placement and load
+lists. Overlaps between system DLKM, vendor DLKM and the vendor ramdisk are
+intentional (normal/recovery availability); each placement is hash-bound.
+Stripping debug sections from unsigned modules must keep module metadata and
+symbol versions; signed GKI modules stay byte for byte. Compare final image
+contents, not just intermediate directories.
 
-- Overlaps between system DLKM, vendor DLKM and the vendor ramdisk are
-  intentional, for normal/recovery availability. Each placement is hash-bound.
-- Stripping debug sections from unsigned modules must preserve module metadata
-  and symbol versions. Preserve signed GKI modules byte for byte.
-- Compare the final image contents, not only intermediate directories.
-
-### Denied modules
-
-The same file's `denied_modules` lists the modules FP6 never ships, each group
-with its reason: the CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and
-kheaders GKI modules, the in-kernel Bluetooth stack, the HDMI bridge and codecs,
-other chips' WLAN drivers, the WCD938x codec, FM radio, the TrustZone log
-reader, the SPSS loader and bridge, the FocalTech touch driver and the
-kretprobe-based FunctionFS logger.
-
-- The partition and load lists come from Fairphone's lists; the deny list
-  survives their regeneration.
-- `kernel build` fails when a denied module is back in any list (`-` and `_`
-  spellings match) or is no longer built (renamed or dropped: review the entry).
-- A cut is allowed only when no remaining module imports it. The build's own
-  dependency check (`module-interfaces.json`) enforces that, because libmodprobe
-  loads a dependency even when a list leaves it out.
-- Device-tree references count too. `eud` stays because the USB controller node
-  takes its extcon from it, `qcom_glink_spss` because `glink_probe` imports it,
-  `coresight` because KGSL is built with its CoreSight support, and `wcd937x`,
-  `wcd939x` and `wsa883x` because the audio machine driver imports them. Those
-  need a configuration or device-tree change first.
+Its `denied_modules` lists, with reasons, what FP6 never ships: the CAN,
+802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and kheaders GKI modules, the
+in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN
+drivers, the WCD938x codec, FM radio, the TrustZone log reader, the SPSS loader
+and bridge, the FocalTech touch driver and the kretprobe-based FunctionFS
+logger. It survives regeneration of the Fairphone-derived lists. `kernel build`
+fails when a denied module is back in any list (`-` and `_` match) or no longer
+built (renamed or dropped: review the entry). A cut needs no remaining importer,
+enforced by the build's dependency check (`module-interfaces.json`), since
+libmodprobe loads dependencies a list omits. Device-tree references count too:
+`eud` stays because the USB controller node takes its extcon from it,
+`qcom_glink_spss` because `glink_probe` imports it, `coresight` because KGSL is
+built with CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the
+audio machine driver imports them; those need a configuration or device-tree
+change first.
 
 ## Structure layout checks
 
-The hardened kernel enables `RANDSTRUCT_FULL` (randomized structure layout).
-Clang randomizes a structure made only of function pointers only when every
-struct or enum its members name is already declared. If a callback's return
-type is the first mention of a tag, that compilation unit silently keeps
-declaration order. The same callback table then has two layouts depending on
-include order, and a call through it lands on the wrong callback (a CFI panic at
-boot; CFI is the kernel's control-flow integrity check). Clang reports the
-parameter-list case as `-Wvisibility`, never the return-type case. So
-`kernel build`:
+The hardened kernel enables `RANDSTRUCT_FULL`. Clang randomizes a
+function-pointer-only structure only if every struct or enum its members name
+is already declared; a tag first mentioned in a callback's return type silently
+keeps declaration order in that unit, so one callback table gets two layouts
+and calls land on the wrong callback (a CFI panic at boot). Clang warns
+(`-Wvisibility`) only for the parameter-list case. So `kernel build`:
 
 - fails on any `-Wvisibility` warning in the core or external-module build log
-  (a cached Bazel action does not repeat its warnings; a clean build does);
+  (cached Bazel actions do not repeat warnings; a clean build does);
 - scans every DWARF definition of every function-pointer-only structure in both
   kernels' `vmlinux` and every unstripped module
-  (`src/diamaneos_tools/kernel_layout.py`), writes `layout-scan.json` into the
-  run and fails if one structure has more than one member order;
-- with `kernel prepare`, requires the DRM headers that both the common and the
-  vendor kernel tree carry (`shared_headers` in
+  (`src/diamaneos_tools/kernel_layout.py`), writes `layout-scan.json` and fails
+  if a structure has more than one member order;
+- with `kernel prepare`, requires the DRM headers in both the common and vendor
+  trees (`shared_headers` in
   [`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json)) to
-  be byte-identical, since their structures cross the Image/module boundary.
+  be byte-identical, as their structures cross the Image/module boundary.
 
-Fix a reported split at its source by declaring the tag before the structure
-(an include or a forward declaration), never by disabling RANDSTRUCT. Any
-upstream kernel, GrapheneOS or Qualcomm merge can reintroduce one.
+Fix a split at its source by declaring the tag first (include or forward
+declaration), never by disabling RANDSTRUCT; any upstream kernel, GrapheneOS or
+Qualcomm merge can reintroduce one.
 
-## What the checks prove
-
-Native checks establish strict common KMI/ABI, selected provider CRC/namespace
-coverage, stage dependency planning, GKI certificate/signature binding and image
-payload preservation. The consumed UFS BSG layout agrees with the kernel;
-zero/nonzero reply handling does not establish general signed-type equivalence.
-No check here proves actual module insertion, firmware execution or device
-boot.
+These native checks establish strict common KMI/ABI, selected provider
+CRC/namespace coverage, stage dependency planning, GKI certificate/signature
+binding and image payload preservation; the consumed UFS BSG layout agrees with
+the kernel (zero/nonzero reply handling is not general signed-type
+equivalence). None proves module insertion, firmware execution or boot.
 
 ## Configuration policy
 
-**Open review items.** The development baseline is Linux 6.1.129, while the
-selected stock reports 6.1.138; this gap stays a maintenance and
-device-compatibility obligation. Effective device-tree boot arguments also need
-production review: the pinned source includes `kpti=0` and debugging/tuning
-options, and configuration-file checks do not validate the resulting command
-line.
+Open items: the baseline is Linux 6.1.129 while stock reports 6.1.138; and the
+effective device-tree boot arguments need production review, as the pinned
+source includes `kpti=0` and debugging/tuning options that configuration checks
+do not see.
 
-**Policy check.** Right after the core build, before any module is built,
-`kernel build` checks both the GKI configuration (the Image) and the vendor
-tree's configuration (the modules) against
+Right after the core build, before any module, `kernel build` checks both the
+GKI configuration (the Image) and the vendor tree's (the modules) against
 [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
 with the production profile: no SELinux development mode and dmesg restricted
-from boot, plus the baseline hardening. The baseline also:
+from boot, plus the baseline hardening. The baseline keeps userfaultfd (ART's
+garbage collector; unprivileged users get user-mode-only descriptors), io_uring
+(compressed OTA updates), Unicode casefolding for f2fs and forced lockdown in
+confidentiality mode, and pins settings hardware support needs without failing
+loudly: kprobes and kretprobes, the firmware loader's user-helper fallback (the
+device init sets `force_sysfs_fallback`, so ueventd loads firmware) and the
+debugfs API. The settings live in `arch/arm64/configs/gki_defconfig`,
+identical in the common and vendor forks and kept in `savedefconfig` form
+because the GKI build runs `check_defconfig`.
 
-- keeps userfaultfd (ART's garbage collector; unprivileged users get
-  user-mode-only descriptors), io_uring (compressed OTA updates), Unicode
-  casefolding for f2fs and forced lockdown in confidentiality mode;
-- pins settings that hardware support depends on without failing loudly:
-  kprobes and kretprobes (below), the firmware loader's user-helper fallback
-  (the device init turns on `force_sysfs_fallback`, so ueventd loads the
-  firmware) and the debugfs API.
-
-The settings themselves live in `arch/arm64/configs/gki_defconfig`, identical
-in the common and vendor kernel forks. That file must stay in `savedefconfig`
-form, because the GKI build runs `check_defconfig`.
-
-**Profiles.** The profile only selects which policy the tools check.
-`--config-profile development` checks the baseline alone and records the
-profile in the run; it does not change the kernel configuration, which always
-comes from the pinned fork commits.
-
-**No permissive SELinux.** A kernel built from these sources has no SELinux
-development mode in either profile, so it cannot be switched to permissive:
-`setenforce 0` fails, and on a userdebug build a permissive request
-(`androidboot.selinux=permissive`) makes init stop with a fatal error. So the
-permissive diagnostic vendor_boot images made for r9s must not be combined with
-it. The only fallbacks are reflashing the r9s images, or building a kernel from
-different sources (the defconfig commit reverted, other derived revisions in
+`--config-profile development` checks only the baseline and records the
+profile; the configuration itself always comes from the pinned fork commits.
+Neither profile has SELinux development mode, so the kernel cannot go
+permissive: `setenforce 0` fails, and on userdebug
+`androidboot.selinux=permissive` makes init stop fatally. Never combine it with
+the permissive diagnostic vendor_boot images made for the 2026-09-26
+development build. The only fallbacks are reflashing those images or building
+from different
+sources (the defconfig commit reverted, other derived revisions in
 `config/patches.json` and a regenerated kernel manifest).
 
-**debugfs** stays as it was on r9s (`CONFIG_DEBUG_FS_ALLOW_ALL`). In this tree
-`CONFIG_DEBUG_FS_DISALLOW_MOUNT` also turns off the in-kernel debugfs API: every
-`debugfs_create_*` call fails, the display driver then fails to bind (no
-display, Android never finishes booting), and a recovery module's init fails,
-which stops recovery's first-stage module loading. User builds never mount
-debugfs; debuggable builds mount it early in boot and unmount it once boot
-completes (AOSP `init-debug.rc`, with
-`ro.product.debugfs_restrictions.enabled=true`), and SELinux governs access
-while it is mounted. A kernel change that keeps the API but refuses mounts is
-the stricter option and an open item.
+debugfs stays as in the 2026-09-26 development build
+(`CONFIG_DEBUG_FS_ALLOW_ALL`): in this tree
+`CONFIG_DEBUG_FS_DISALLOW_MOUNT` also disables the in-kernel API, so every
+`debugfs_create_*` fails, the display driver fails to bind (no display, boot
+never completes) and a recovery module's init fails, stopping recovery's
+first-stage module loading. User builds never mount debugfs; debuggable builds
+mount it only until boot completes (AOSP `init-debug.rc`, with
+`ro.product.debugfs_restrictions.enabled=true`), under SELinux. Keeping the API
+but refusing mounts is a stricter open option.
 
-**KPROBES stays on** (owner decision, 2026-09-27).
-
-- The USB controller glue (`dwc3-msm`) implements twelve controller hooks
-  (pull-up, connection-done, GSI event buffers, stop handling and others) as
-  kretprobes on the built-in dwc3 core and ignores registration failures, so
-  without kprobes those hooks silently disappear. Turning KPROBES off first
-  needs those hooks as explicit calls in both kernel trees.
-- Lockdown blocks every kprobe created from user space (tracefs and perf) and
-  BPF kernel reads, so only signed kernel code can place probes.
-- The same confidentiality level turns tracing off (tracefs stays empty, so
-  perfetto and atrace cannot trace) and withholds kernel-memory reads from every
-  BPF program. So Android's per-UID CPU time tracking (per-app CPU use in
-  Battery usage) and the memevents OOM listener do not start. Integrity level
-  would restore both but let root place probes through tracefs; the level is an
-  open decision.
-
-Enforcing USER policy does not replace any of these kernel settings. The
-current artifacts use development AVB (verified boot) identities and are not
-release, relock or production-signing inputs.
+KPROBES stays on (owner decision, 2026-09-27). The USB glue (`dwc3-msm`)
+implements twelve controller hooks (pull-up, connection-done, GSI event
+buffers, stop handling and others) as kretprobes on the built-in dwc3 core and
+ignores registration failures, so without kprobes they silently vanish;
+turning KPROBES off first needs them as explicit calls in both trees. Lockdown
+blocks user-space kprobes (tracefs, perf) and BPF kernel reads, so only signed
+kernel code places probes; confidentiality level also empties tracefs (no
+perfetto or atrace) and denies BPF kernel-memory reads, so per-UID CPU time
+(per-app CPU in Battery usage) and the memevents OOM listener do not start.
+Integrity level would restore both but let root probe through tracefs; the
+level is an open decision. Enforcing USER policy replaces none of these
+settings. Current artifacts use development AVB identities, not release, relock
+or production-signing inputs.
 
 ## Boot logs
 
-**Parameters.** Boot parameters that the kernel does not use are handed to
-init, and the bootloader's can carry device identifiers. So both kernel trees
-log such parameters by name only (in the command line, the unknown-parameter
-line and init's environment listing); kernel parameters keep their values in
-the log.
+Boot parameters the kernel does not use pass to init, and the bootloader's can
+carry device identifiers, so both trees log them by name only (command line,
+unknown-parameter line and init's environment listing); kernel parameters keep
+their values.
 
-**pstore/ramoops** (a RAM area that keeps logs across a reboot) has a 4 MiB
-region placed at boot in `/reserved-memory` of the FP6 device tree (2 MiB
-console, 2 MiB pmsg, no dump records, no ftrace), from the DiamaneOS fork of
-Fairphone's SoC device-tree project. It keeps the previous boot's kernel
-console and pmsg in RAM across a warm reboot.
-
-- The kernel reboots cold by default (`/sys/kernel/reboot/mode` is `cold`, and
-  Qualcomm download mode is off), and so does a kernel crash. The PMIC then does
-  a hard reset that powers the RAM off, and the region comes back empty.
-- A one-off warm reboot on r9t kept both zones, so the bootloader itself does
-  not clear RAM. Cold reboots stay the default (owner decision, 2026-09-27).
-- The console zone gets only what reaches a console. The device tree's
-  bootargs set loglevel=6, so it holds notice-level and more severe messages
-  (warnings, errors, panic output), not info lines.
-- The region has no fixed address. The ramoops driver finds the dynamically
-  placed region through its reserved-memory lookup, and it lands at the same
-  place on every boot while the device tree and memory map stay the same.
+pstore/ramoops keeps the previous boot's kernel console and pmsg across a warm
+reboot in a 4 MiB region placed at boot in `/reserved-memory` of the FP6 device
+tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), from the DiamaneOS
+fork of Fairphone's SoC device-tree project. Reboots and kernel crashes are cold
+by default (`/sys/kernel/reboot/mode` is `cold`, Qualcomm download mode off):
+the PMIC's hard reset clears RAM and the region. A one-off warm reboot on the
+2026-09-27 development build kept both zones, so the bootloader does not clear
+RAM; cold reboots stay the default (owner decision, 2026-09-27). Device-tree
+bootargs set loglevel=6, so the console zone holds notice-level and worse
+(warnings, errors, panic output), not info lines. ramoops finds the dynamically
+placed region via the reserved-memory lookup; it stays put while the device tree
+and memory map are unchanged.
