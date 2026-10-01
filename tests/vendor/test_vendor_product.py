@@ -436,7 +436,8 @@ class NativeProductTests(unittest.TestCase):
 
     def test_gnss_rewrites_keep_logging_and_cloud_invariants(self):
         required = vendor_product.GNSS_REQUIRED['vendor/etc/gps.conf']
-        for line in [b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n']:
+        for line in [b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n',
+                     b'\nDEBUG_LEVEL = 2\n']:
             self.assertIn(line, required)
         self.assertIn(b'\nPROCESS_STATE=ENABLED', vendor_product.GNSS_FORBIDDEN['vendor/etc/izat.conf'])
         self.assertIn(b'ILocAidlGnss', vendor_product.GNSS_FORBIDDEN['vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc'])
