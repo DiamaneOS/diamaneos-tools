@@ -158,8 +158,8 @@ providers and permissions are untouched; results are unchanged.
 
 ## Clock
 
-DeskClock fork: 182 reviewed LineageOS lineage-24.0 commits plus 19 of
-DiamaneOS's own; targetSdk 37.
+DeskClock fork: GrapheneOS's Clock plus 201 reviewed commits, 19 of them
+DiamaneOS's own (the original authors stay in the fork's history); targetSdk 37.
 
 - Exported components go from 7 to 4 (launcher entry, SET_ALARM-guarded API
   activities, screensaver); the alarm init receiver and both widget providers
