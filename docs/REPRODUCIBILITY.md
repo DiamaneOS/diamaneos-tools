@@ -86,8 +86,7 @@ test -x "$DIAMANEOS_THERMAL_CHECK"
 "$DIAMANEOS_THERMAL_CHECK"
 ```
 
-The Dell files in `deploy/builder/` are a reference adapter, not a prerequisite;
-other hosts may use a validated firmware curve, BMC policy or other controller
+A host may use a validated firmware curve, a BMC policy or its own controller
 with the same exit-status contract.
 
 ## 3. Install the reviewed tools revision

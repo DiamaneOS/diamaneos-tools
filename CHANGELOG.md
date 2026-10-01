@@ -4,8 +4,9 @@
 
 - Move files with no public use out of the public tools: the early
   planning records (compatibility target, localisation glossary, examples
-  and locales, the translation-unit schema and tests/requirements) and the
-  carrier test plan with `diamaneos carrier matrix validate`.
+  and locales, the translation-unit schema and tests/requirements), the
+  carrier test plan with `diamaneos carrier matrix validate`, and the Dell
+  builder fan guard and resource qualification scripts.
 - Move the FP6 component decision model (config/components.json, its schemas,
   check, tests and docs/COMPONENTS.md) out of the public tools. The vendor step
   now checks the selected files against the stock image recipe and no longer
