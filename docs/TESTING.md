@@ -22,7 +22,7 @@ tree.
 archives, development-key versus signed-output separation, presigned-package
 refusal, source/role drift, incomplete proofs, path escape and artifact
 tampering, and sign nothing; real APK, APEX, AVB, full-OTA and delta-OTA
-evidence comes from the builder and offline qualification there.
+evidence comes from the build host and offline qualification there.
 
 ## Regional FP6 qualification
 

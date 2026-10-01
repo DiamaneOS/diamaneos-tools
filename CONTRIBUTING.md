@@ -1,8 +1,8 @@
 # Contributing to diamaneos-tools
 
-GitHub is the authoritative source, issue and pull-request host. Remote is `https://github.com/DiamaneOS/<slug>.git`.
-Do not create empty repos to match the map; do not set public until the
-rights/identity gate for that repo passes. Full plan stays out of git.
+GitHub is the authoritative source, issue and pull-request host. Remote is
+`https://github.com/DiamaneOS/<slug>.git`. Do not create empty repos to match
+the map; do not set public until the rights/identity gate for that repo passes.
 
 ## Privacy
 
@@ -36,8 +36,8 @@ reject duplicated authorities that drift.
 
 Use the smallest permanent mechanism that satisfies a named requirement or
 threat. It needs a clear owner, failure mode, verification and reusable
-boundary. Keep one-off diagnosis, deployment glue and raw evidence in the
-private runbook rather than turning them into public framework code. Security
+boundary. Keep one-off diagnosis, deployment glue and raw evidence outside this
+repository rather than turning them into public framework code. Security
 boundaries and reproducibility checks are not optional simplification targets.
 
 ## Device security policy
@@ -121,10 +121,10 @@ preserving the parent acceptance criteria. Source/format-only changes use review
 
 ## Roles and access
 
-- Release signing authority: designated release maintainer. Second maintainer:
-  independent builder/reviewer in the US (own build server), no signing
-  authority. A US support claim requires evidence from a US-region device; an
-  EU-device result or matching version label is not a substitute.
+- Release signing authority: designated release maintainer. A second maintainer
+  builds and reviews independently, with no signing authority. A US support
+  claim requires evidence from a US-region device; an EU-device result or
+  matching version label is not a substitute.
 - Routine administration uses individually assigned credentials
   and MFA; production signing tokens never attach to a development workstation
   after the ceremony and never serve as routine MFA.

@@ -33,26 +33,6 @@
       "upstream_url": null
     },
     {
-      "checkout_path": "WORK_ROOT/os/vendor/fairphone/FP6",
-      "id": "vendor",
-      "publication": "generated",
-      "remote_url": "https://github.com/DiamaneOS/android_vendor_fairphone_FP6.git",
-      "revision": null,
-      "slug": "android_vendor_fairphone_FP6",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/os/vendor/fairphone/firmware",
-      "id": "firmware",
-      "publication": "generated",
-      "remote_url": "https://github.com/DiamaneOS/android_vendor_fairphone_firmware.git",
-      "revision": null,
-      "slug": "android_vendor_fairphone_firmware",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel",
       "id": "kernel",
       "publication": "public-source",
@@ -83,26 +63,6 @@
       "upstream_url": null
     },
     {
-      "checkout_path": "WORK_ROOT/os/vendor/diamaneos/apps",
-      "id": "apps",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/vendor_diamaneos_apps.git",
-      "revision": null,
-      "slug": "vendor_diamaneos_apps",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/os/vendor/diamaneos/build",
-      "id": "build",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/vendor_diamaneos_build.git",
-      "revision": null,
-      "slug": "vendor_diamaneos_build",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
       "checkout_path": "WORK_ROOT/infrastructure",
       "id": "infra",
       "publication": "public-source",
@@ -130,46 +90,6 @@
       "revision": null,
       "slug": "installer",
       "state": "active",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/apps-repository",
-      "id": "app-repository",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/apps-repository.git",
-      "revision": null,
-      "slug": "apps-repository",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/Apps",
-      "id": "Apps",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/Apps.git",
-      "revision": null,
-      "slug": "Apps",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/Auditor",
-      "id": "Auditor",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/Auditor.git",
-      "revision": null,
-      "slug": "Auditor",
-      "state": "planned",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/attestation-server",
-      "id": "attestation-server",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/attestation-server.git",
-      "revision": null,
-      "slug": "attestation-server",
-      "state": "planned",
       "upstream_url": null
     },
     {

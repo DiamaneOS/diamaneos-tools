@@ -1,6 +1,5 @@
 # Private and generated state — never commit
 /private/
-/diamaneos-private/
 *.log
 *.orig
 *.rej

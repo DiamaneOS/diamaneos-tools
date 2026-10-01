@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Device checks moved from the private build scripts. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
+  "scope": "Per-build device checks. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
   "rules": [
     {
       "id": "sensors-stack",

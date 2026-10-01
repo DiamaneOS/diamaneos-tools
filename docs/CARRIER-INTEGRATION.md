@@ -2,7 +2,7 @@
 
 The FP6 build binds stock carrier data and the necessary Qualcomm IWLAN (IMS
 over Wi-Fi) inputs to the same authenticated factory release as the radio
-stack: a private integration candidate, not evidence of carrier compatibility.
+stack: an integration candidate, not evidence of carrier compatibility.
 
 ## Carrier configuration
 

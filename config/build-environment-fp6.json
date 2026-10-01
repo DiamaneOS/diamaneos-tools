@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "environment_id": "fp6-android17-grapheneos-2026091000-published-20260930-2",
-  "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-09-30, including the build/make fork, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here; private candidates use lane environments. The line is not phone-tested as a whole and not yet built with the public build commands.",
+  "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-09-30, including the build/make fork, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here. The line is not phone-tested as a whole and not yet built with the public build commands.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
     "release_tag": "2026091000",
@@ -86,12 +86,12 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "92fccb8e42acc2564c8c209e1024e191aa249dc26be6a116e92cc030868d3610"
+      "sha256": "6e8213b943303170de6b5907cfa48f654616deaa9aadb5886925f55b726634c7"
     },
     {
       "id": "stock-input-inventory",
       "repository_path": "config/stock-inputs.json",
-      "sha256": "d159285f1d4ddb628d68cd1836b1d70a7e9bb82d34634ab4920e8f658f8b5835"
+      "sha256": "dc33bc41d6f0e53fa48d84e20bdef33fdcfe04aae54e78df90405ad47a0250a9"
     },
     {
       "id": "patch-inventory",

@@ -16,8 +16,6 @@ vendor input; layout and source selection follow integration evidence.
 | apps/build | Owning feature maintainer | Supported platform APIs | Feature-specific state | No umbrella privileged application |
 | infrastructure | Service maintainer | Endpoint contracts | Bounded serving, staging and monitoring | Privately injected credentials; no release signing keys |
 | site/installer | Documentation and installer maintainers | Verified release metadata and recovery requirements | Public guidance and installer flow | Independent verification before destructive operations |
-| app-repository/Apps | App-delivery maintainer | Signed catalog and package contracts | Catalog, acquisition and delivery | Preserve package identity and signer validation |
-| Auditor/attestation | Attestation maintainer | Reviewed upstream client/protocol/server | Verification policy and authenticated reports | No invented hardware guarantees |
 
 Platform code owns credential, permission, update and hardware enforcement;
 shared visual components only coordinate presentation. Dependencies run one

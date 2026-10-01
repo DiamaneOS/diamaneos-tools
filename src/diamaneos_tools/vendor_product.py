@@ -183,7 +183,7 @@ ACTIVATION={
  'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),
 }
 
-# Reviewed stock Java components outside vendor (private bring-up). They keep
+# Reviewed stock Java components outside vendor (bring-up). They keep
 # the stock signature (presigned); their privileges come only from the device's
 # privileged-permission allowlist, never from our platform key.
 # path -> (module name = install directory, privileged). Every privileged app

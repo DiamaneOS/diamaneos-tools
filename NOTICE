@@ -6,5 +6,5 @@ Apache License, Version 2.0. The full text is in LICENSE. Separately identified
 third-party material retains its own copyright and licence notices.
 
 The interface design, branding and their bundled third-party assets (Lucide,
-Instrument Sans) moved to the separate diamaneos-design repository, which
-carries their licence notices.
+Instrument Sans) moved out of this repository; their sources, which are not
+public, carry their licence notices.

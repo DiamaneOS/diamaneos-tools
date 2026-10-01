@@ -886,7 +886,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--thermal-check", "--fan-check", dest="thermal_check", type=Path,
         default=None,
-        help=("absolute executable which exits zero only when the builder's "
+        help=("absolute executable which exits zero only when the build host's "
               "current thermal and cooling state is safe; required for host "
               "and full preflight; --fan-check is a backwards-compatible alias"),
     )
