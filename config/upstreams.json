@@ -80,17 +80,6 @@
       "verification_method": "FAIRPHONE COMMITS OBSERVED; ACK ancestry/tag verification NOT YET RUN at builder sync"
     },
     {
-      "applicability": "Reference only. Inherited deps reviewed in device source inventory; Pixel/GOS assumptions not portable by default.",
-      "authoritative_url": "https://github.com/LineageOS/android_device_fairphone_FP6",
-      "current_revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5 (lineage-23.2 HEAD observed 2026-09-10 via GitHub API; 2026-09-02; message references FP6.QREL.16.104.0)",
-      "discovery_method": "GitHub + wiki + downloads fetch 2026-09-10",
-      "id": "lineage-fp6-ref",
-      "public_verifier_ref": "LineageOS git + signed nightly hashes",
-      "release_channel": "lineage-23.2 nightly",
-      "support_evidence_ref": "Wiki maintainers ArianK16a/mikeioannina; OS patch Aug 2026 observed",
-      "verification_method": "WEAKER (justified): HTTPS API observation; commit carries a valid SSH signature per GitHub API. Detection only; pin at consumption."
-    },
-    {
       "id": "linux-stable-6_1",
       "authoritative_url": "https://www.kernel.org/category/releases.html",
       "discovery_method": "kernel.org releases feed consulted 2026-09-10",

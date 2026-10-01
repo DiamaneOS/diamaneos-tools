@@ -141,20 +141,6 @@
       "status": "licence-audit-required-at-consumption"
     },
     {
-      "component": "LineageOS FP6 device reference",
-      "decision_owner": "designated project maintainer",
-      "distribution_form": "Read-only source reference",
-      "evidence": "lineage-23.2 revision 4512f510190c931c2ca6a11fac1ba10bae2275b5 inspected for module lists, VINTF, init/fstab and blob categories; its unpinned blob list names FP6.QREL.16.104.0",
-      "id": "lineage-fp6-reference",
-      "licence": "Per-file SPDX in the source tree; comply with the exact licences of any imported open-source code.",
-      "modifications": "None; reference decisions must be re-derived against Fairphone and GrapheneOS pins",
-      "notices_obligation": "Preserve licences and attribution for open-source code actually imported later; use the reference extraction list only as a candidate allowlist and re-derive it against the selected stock/framework inputs",
-      "owner_task": "FP6-024 and FP6-040",
-      "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
-      "source_url": "https://github.com/LineageOS/android_device_fairphone_FP6",
-      "status": "licence-audit-required-at-consumption"
-    },
-    {
       "component": "Lucide prototype icon runtime",
       "decision_owner": "designated project maintainer",
       "distribution_form": "Unmodified bundled JavaScript runtime and complete upstream licence text",
@@ -192,7 +178,7 @@
       "fp6_source_inventory": {
         "path": "config/fp6-sources.json",
         "schema_version": 1,
-        "sha256": "3c1ca6df00e6e6e7cfda60e6edac5791b817f994d0aa677bb408a4806f71097e"
+        "sha256": "92fccb8e42acc2564c8c209e1024e191aa249dc26be6a116e92cc030868d3610"
       },
       "selected_stock": {
         "build": "FP6.QREL.16.111.0",
@@ -967,13 +953,13 @@
       ],
       "source_candidates": [
         {
-          "id": "lineage-fp6-package-reference",
-          "kind": "reference",
-          "reference": "LineageOS FP6 device reference at 4512f510190c931c2ca6a11fac1ba10bae2275b5",
-          "revision": "4512f510190c931c2ca6a11fac1ba10bae2275b5",
-          "compatibility": "mismatched",
-          "assessment": "reference-only",
-          "rationale": "The reference names QREL.16.104 inputs and cannot establish the selected EU stock closure, GrapheneOS-framework compatibility or a shipping decision."
+          "id": "optional-vendor-package-review",
+          "kind": "none-identified",
+          "reference": "Optional vendor packages are judged from the selected stock image, package by package",
+          "revision": null,
+          "compatibility": "unknown",
+          "assessment": "not-identified",
+          "rationale": "No source replacement applies: each optional package is either kept as stock or removed with its whole activation path."
         }
       ],
       "decision_state": "candidate",
