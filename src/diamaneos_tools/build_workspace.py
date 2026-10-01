@@ -276,6 +276,8 @@ class Runner:
         env.update({k: str(v) for k, v in action.env.items()})
         partial = log.with_suffix('.part')
         partial.unlink(missing_ok=True)
+        # The output joins the step log when the command ends.
+        self.echo(f'    live output: {partial}')
         result = process.run(argv, LONG_TIMEOUT, MAX_LOG_BYTES, cwd=action.cwd, env=env,
                              log_path=partial, capture_bytes=32768)
         with log.open('ab') as stream, partial.open('rb') as source:

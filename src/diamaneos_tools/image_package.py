@@ -196,6 +196,10 @@ def plan(ctx):
                     raise BuildStepError(f'the {name} image is {image["bytes"]} bytes but the stock partition '
                                          f'table says {size}')
                 checked[name] = True
+        unchecked = sorted(n for n, i in images.items() if i.get('partition_label') and n not in checked)
+        if unchecked:
+            ctx.echo('  note: the factory package is gone, so the size of the ' + ', '.join(unchecked)
+                     + ' image was not checked against the stock partition table')
         state['partition_table_checked'] = checked
         frp = state['partial'] / images['frp']['image']
         frp_image(frp, images['frp']['bytes'])
