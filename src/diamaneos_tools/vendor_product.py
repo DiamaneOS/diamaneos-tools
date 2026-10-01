@@ -30,7 +30,7 @@ SOURCE_INTERFACES = {
     'android.hardware.security.rkp-V3-ndk',
     'android.hardware.security.secureclock-V1-ndk',
     'android.hardware.security.sharedsecret-V1-ndk',
-    # Qualcomm display stack built from source (OP-DISPLAY-HAL-SOURCE). The stock
+    # Qualcomm display stack built from source. The stock
     # Android 14 composer failed to present under Android 17 when tried without
     # libsdmextension and is untested with it; source is kept so we can patch
     # and harden the code that handles every app's buffers.
@@ -116,7 +116,7 @@ SOURCE_INTERFACES = {
 # Stable AIDL libraries a selected blob links that are built from the pinned
 # Android tree instead of taken from the factory image (no stock row exists).
 SOURCE_MODULE_DEPENDENCIES = {
-    # Camera (OP-HW-BRINGUP camera): AOSP camera AIDL interfaces, the HIDL
+    # Camera: AOSP camera AIDL interfaces, the HIDL
     # shims and the Qualcomm interface libraries the stock CamX/CHI link.
     'android.hardware.camera.common-V1-ndk',
     'android.hardware.camera.device-V2-ndk',
@@ -128,7 +128,7 @@ SOURCE_MODULE_DEPENDENCIES = {
     'vendor.qti.hardware.camera.postproc@1.0',
     'vendor.qti.hardware.display.allocator@4.0',
     'vendor.qti.hardware.display.config-V2-ndk',
-    # Display (OP-UI-LAG): thermal interfaces linked by the stock SDM
+    # Display: thermal interfaces linked by the stock SDM
     # composition-strategy extension; the tree builds all three.
     'android.hardware.thermal-V1-ndk',
     'android.hardware.thermal@1.0',
