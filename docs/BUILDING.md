@@ -172,6 +172,7 @@ the installer's
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can; otherwise add `--allow-network`, and `build.json` records that the build had network access. |
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what this checkout pins. |
 | `not our ref` or `resolved project commit is unavailable` during sync | The pinned commit is not published yet. Use an older tools commit or wait for the push. |
+| `bytes of body are still expected` during sync | A long download broke off. Run the same command again; sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
 | `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause; finished steps are skipped. |

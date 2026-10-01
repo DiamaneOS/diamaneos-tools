@@ -125,6 +125,9 @@ class PlanTests(unittest.TestCase):
         self.assertIn('--depth=1', commands[0])
         self.assertIn('-c', commands[1])
         self.assertTrue(all(a.network for a in plan.actions if a.argv))
+        sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
+        self.assertIn('--retry-fetches=4', sync.argv)
+        self.assertEqual('HTTP/1.1', sync.env['GIT_CONFIG_VALUE_0'])
 
     def test_allow_network_is_recorded_as_an_input(self):
         ctx = self.context(allow_network=True)
