@@ -951,17 +951,7 @@
         "SELinux domains and feature declarations",
         "network, telemetry, diagnostic and delayed activation paths"
       ],
-      "source_candidates": [
-        {
-          "id": "optional-vendor-package-review",
-          "kind": "none-identified",
-          "reference": "Optional vendor packages are judged from the selected stock image, package by package",
-          "revision": null,
-          "compatibility": "unknown",
-          "assessment": "not-identified",
-          "rationale": "No source replacement applies: each optional package is either kept as stock or removed with its whole activation path."
-        }
-      ],
+      "source_candidates": [],
       "decision_state": "candidate",
       "public_disposition": null,
       "private_bringup": {

@@ -182,7 +182,7 @@
         "blocker_refs": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"pattern": "^FP6-SRC-[0-9]{3}$", "type": "string"}},
         "dependencies": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/definitions/id"}},
         "interfaces": {"$ref": "#/definitions/string_list"},
-        "source_candidates": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/definitions/source_candidate"}},
+        "source_candidates": {"type": "array", "maxItems": 16, "items": {"$ref": "#/definitions/source_candidate"}},
         "decision_state": {"enum": ["unknown", "candidate", "private-bringup", "qualification-failed", "accepted"]},
         "public_disposition": {"type": ["string", "null"], "enum": ["source-built", "necessary-prebuilt", "removed", "research-only", null]},
         "public_prebuilt_refs": {
