@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-01 (current state only: version names, product-boundary text, step labels, unbuilt features, release gates and the next-validation list removed); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (current state only: version names, product-boundary text, step labels, unbuilt features, release gates and the next-validation list removed); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -971,7 +971,15 @@ VPN, and what a locked phone shows.
     size. Lamps appear with no animation delay; only disappearance may animate.
     The dot's colour follows the area under it without ever delaying the dot.
     Tally lock views draw empty or partial states without failing: a SystemUI
-    crash removes every privacy indicator until restart.
+    crash removes every privacy indicator until restart. Location alone runs
+    the status bar chip on each app's first use in 10 minutes (stock's debounce;
+    the flag that GrapheneOS leaves off is on), then the dot and the location
+    lamp by the lens; a camera or microphone use that starts while location
+    alone shows the dot runs the chip (-151, a Tally regression against stock's
+    dot colour change, fixed), and a sensor that joins while a chip shows
+    updates that chip, so the dot ends with the current items (-152, a stock
+    fix). System location use and background use without a foreground service
+    show nowhere, as in stock.
   - *Drawing:* only colours with a 2 dp edge, padding, radius, a 16 dp dot drawn
     as a lamp 16 dp from top and side (status icons keep clear), one shade chip
     for every sensor, screen capture alone in the capture colour, and
@@ -1126,6 +1134,12 @@ VPN, and what a locked phone shows.
   benefit, an owner, measured rebase cost and regression checks.
 - Framework authorities are not replaced; no shared visual controller gains
   platform authority.
+- The system font is Sofia Sans Tally (Sofia Sans, OFL 1.1, scaled to Roboto's
+  metrics), built reproducibly from the pinned upstream file. Every app parses
+  it, so it passes OTS sanitising and fontTools decompilation before it ships;
+  it is read-only on the verified product partition. Apps can see it (a small OS
+  signal among many); WebView keeps the platform fonts, so websites see no
+  difference from GrapheneOS.
 
 Every Tally shell commit (FP6-211) also keeps the indicator and disclosure rules
 under [Privacy
