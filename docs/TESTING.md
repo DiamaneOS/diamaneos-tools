@@ -24,66 +24,6 @@ refusal, source/role drift, incomplete proofs, path escape and artifact
 tampering, and sign nothing; real APK, APEX, AVB, full-OTA and delta-OTA
 evidence comes from the builder and offline qualification there.
 
-## Stock phone records
-
-The [stock hardware report](../reports-public/stock-capabilities.json) gives a
-result per component for one FP6 on the stated stock build, from
-operator-observed stock diagnostics and app use plus selected ADB identity,
-charging and throwaway-file transfer checks. Its software and boot state are
-from the Android 15 arrival inspection (build unchanged, bootloader locked). A
-later row, after the separately verified official Android 16 OTA, formatted a
-throwaway 128 GB microSD as portable storage and passed a 4 MiB
-create/read/hash/delete round trip; it names its own build and does not imply
-the arrival build stayed installed. The report does not cover performance,
-battery or custom-OS qualification, or restore and unlock/relock (later
-validated by FP6-025, see the installer recovery runbook).
-
-The [stock-input inventory](../config/stock-inputs.json), the immutable,
-hash-bound pre-restore selection snapshot of build environment v4, binds the
-observed product and build to official factory-package URLs, byte sizes and
-published SHA-256 values. The final Android 15 package and the EU Android 16
-package first offered by the phone are verified recovery inputs: two complete
-reads reproduced Fairphone's outer hash, the full ZIP CRC passed, required
-members were present and all 76 embedded checksum-list files matched.
-
-| Build | Role |
-| --- | --- |
-| `FP6.QREL.15.176.0` (Android 15) | Arrival build; the official OTA came later. |
-| `FP6.QREL.16.100.0` (Android 16 EU, 2026-08-05 patch) | Accepted locked, green-verified stock checkpoint and EU restore selection; the Android 15 archive stays a historical verified input. |
-| `FP6.QREL.16.111.0` (released 2026-09-28, 2026-09-05 patch) | Vendor-file input since 2026-09-30, not a tested restore input. Fairphone had not published its checksum, so the entry has two agreeing local reads, the MD5 from the official host's object metadata, the full ZIP CRC and all 76 embedded hashes; compare with Fairphone's value once published. |
-| `FP6.QREL.16.104.0` (US) | Excluded as this EU phone's restore or flash input (it offered 16.100.0). |
-
-Archive checks prove no restore, rollback eligibility, AVB/relock safety or
-bootloader operation; FP6-025 proved those for the exact Android 16 EU archive
-(restore, AVB/rollback review, critical relock, normal relock, locked-green
-boot, final cold-boot hardware checks).
-
-- Read recovery copies from two independent private storage locations (not two
-  directories on one volume), matching the recorded byte count and SHA-256,
-  before destructive work. Custody, provider and account evidence stay private;
-  a path or filename never replaces content verification.
-- The factory script wipes user data by default and needs normal and critical
-  unlock. Its fallback that continues without a checksum tool is forbidden:
-  first verify the whole archive against the independently read official hash,
-  and its embedded declared files.
-- The regional package must match the build the phone offers, never the
-  maintainer's location.
-- The validated `super.img` has checksummed liblp 10.2 metadata with all seven
-  slot-A logical partitions populated and every slot-B counterpart at zero
-  bytes/extents. The script selects A; never select, boot or fabricate B as a
-  repair.
-- After relock, rollback locations 0–4 matched the authenticated target values
-  `0,1,1785888000,1785888000,1785888000`; 5–31 were zero. No raw partition
-  bodies or per-partition hashes were collected; package-derived topology is
-  labelled derived, not a device dump.
-- Relock trap: with the script's defaults the first unlocked boot set
-  `get_unlock_ability` to `0` and greyed out the OEM control. No lock was tried
-  at zero. The accepted path used a same-directory copy with only the
-  `REBOOT_TO_BOOTLOADER` toggle enabled, repeated the verified wipe/flash,
-  required ability `1` before the critical and the normal lock, and proved
-  final ability `0`, both locks closed and green Verified Boot. See the
-  [installer recovery runbook](../../installer/docs/recovery-preflight.md).
-
 ## Regional FP6 qualification
 
 US is `UNVERIFIED` until a US stock comparison and a run on a US-region FP6 are
@@ -154,8 +94,8 @@ compatibility. Valid schema data still has implementation gates and is no
 active deployment.
 
 `tests/vendor/test_vendor_files.py` covers selected regular-file generation with
-the real component validator and filesystem publication (repeat generation,
+the stock identity check and filesystem publication (repeat generation,
 retained image metadata, altered input/output, missing notices, wrong stock
-identity, absent dependency, unknown owner, traversal, special files,
-concurrent publication, interrupted copying, private/public policy
-separation), using synthetic bytes: no FP6 product closure or hardware result.
+identity, absent or self dependency, traversal, special files, concurrent
+publication, interrupted copying), using synthetic bytes: no FP6 product
+closure or hardware result.
