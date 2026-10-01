@@ -411,7 +411,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover \
 FP6-034 accepted the runner at signed commit
 `089432fd6d82e10cce384747d4b0438120e60086` on the accepted test host: the
 read-only `smoke` suite on locked stock Android 15 `FP6.QREL.15.176.0`
-(`VS21`, user build), run `fp6-034-stock15-20260911T234004Z`, completed all six
+(`VS21`, user build), run on 2026-09-11, completed all six
 cases in a schema-valid report (five `PASS`, one reasoned `SKIP` for the
 optional IMS dumpsys service) with no failure, harness error or unresolved
 check; sanitized report SHA-256
