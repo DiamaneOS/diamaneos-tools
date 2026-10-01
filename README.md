@@ -41,7 +41,7 @@ fastboot --version
 - [Reproduce the current generic build](docs/REPRODUCIBILITY.md)
 - [Testing and command setup](docs/TESTING.md)
 - [FP6 component decisions and artifact closure](docs/COMPONENTS.md)
-- [FP6 firmware inventory and update path](docs/FIRMWARE.md)
+- [FP6 firmware inventory](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Repository map](config/repositories.json) — checkout discovery and lifecycle
@@ -52,4 +52,4 @@ fastboot --version
 - Interface design and branding live in the separate, private
   `diamaneos-design` repository.
 
-Only implemented commands can be run. Planned features and unresolved evidence are identified in their component contracts; a planning record is not a runtime result.
+Only implemented commands can be run; unresolved evidence is identified in the component contracts.

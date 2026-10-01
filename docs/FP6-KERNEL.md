@@ -123,7 +123,7 @@ equivalence). None proves module insertion, firmware execution or boot.
 
 ## Configuration policy
 
-Open items: the baseline is Linux 6.1.129 while stock reports 6.1.138; and the
+Known gaps: the baseline is Linux 6.1.129 while stock reports 6.1.138; and the
 effective device-tree boot arguments need production review, as the pinned
 source includes `kpti=0` and debugging/tuning options that configuration checks
 do not see.
@@ -160,8 +160,7 @@ debugfs stays as in the 2026-09-26 development build
 never completes) and a recovery module's init fails, stopping recovery's
 first-stage module loading. User builds never mount debugfs; debuggable builds
 mount it only until boot completes (AOSP `init-debug.rc`, with
-`ro.product.debugfs_restrictions.enabled=true`), under SELinux. Keeping the API
-but refusing mounts is a stricter open option.
+`ro.product.debugfs_restrictions.enabled=true`), under SELinux.
 
 KPROBES stays on (owner decision, 2026-09-27). The USB glue (`dwc3-msm`)
 implements twelve controller hooks (pull-up, connection-done, GSI event

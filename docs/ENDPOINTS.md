@@ -54,28 +54,19 @@ directly; this claims no search of every upstream file.
   The project time server owns authenticated upstream sampling and agreement.
 - `gs-loc.apple.grapheneos.org` relays Apple Wi-Fi/cell positioning, used only
   with network location on. Requests list nearby access points and cells, so a
-  relay sees approximate location and must keep no cache or per-request logs.
-  As in GrapheneOS, network location is off by default with three opt-in
-  choices (owner decision 2026-09-26): DiamaneOS's own EU relay (hiding the
-  device IP from Apple), Apple directly, and Apple's China service directly;
-  `client_defaults` discloses the direct ones, and the setup wizard's location
-  switch must not enable any silently. The network position seeds GNSS: in an
-  indoor owner test on the FP6 that day, GPS alone had no fix for several
-  minutes, while with Apple directly the first network fix came about 35 s after
-  the request and GPS locked about 1 s later.
+  relay sees approximate location and must keep no cache or per-request logs;
+  `client_defaults` discloses direct (unrelayed) choices. The network position
+  seeds GNSS: in an indoor owner test on the FP6 on 2026-09-26, GPS alone had no
+  fix for several minutes, while with Apple directly the first network fix came
+  about 35 s after the request and GPS locked about 1 s later.
 - `nominatim.grapheneos.org` answers Android Geocoder queries. DiamaneOS hosts
-  no geocoder for now (owner decision 2026-09-26): geocoding is off by default,
-  and users may opt in to OpenStreetMap's public Nominatim directly, which then
-  sees the device IP and searched text or coordinates. `client_defaults`
-  discloses this non-EU direct exception, like the Swiss Private DNS default;
-  the validator requires that entry and rejects a geocoder relay or service
-  entry, and `geocoder.diamaneos.de` is only reserved. The NetworkLocation fork
-  must replace the client's GrapheneOS User-Agent with a DiamaneOS one and stay
-  within OpenStreetMap's
+  no geocoder (owner decision 2026-09-26). `client_defaults` discloses direct
+  use of OpenStreetMap's public Nominatim, which sees the device IP and searched
+  text or coordinates, as a non-EU direct exception like the Swiss Private DNS
+  default; the validator requires that entry and rejects a geocoder relay or
+  service entry. Direct use must stay within OpenStreetMap's
   [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/)
-  (identify the app, low request rate, attribution). `GEOCODER-HOSTING` tracks
-  the rest, including asking the OpenStreetMap Foundation before the option is
-  more than an opt-in.
+  (identify the app, low request rate, attribution).
 - `attestation.app` serves Auditor's opt-in remote verification and sample
   submission: the only stateful contract (paired accounts and history), needing
   DiamaneOS key pins and FP6 support GrapheneOS's server lacks.
