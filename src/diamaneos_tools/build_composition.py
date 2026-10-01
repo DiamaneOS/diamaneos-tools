@@ -1,6 +1,6 @@
 """Install an authenticated overlay and detach its moving projects at declared commits.
 
-The source-sync adapter owns the workspace lock. This helper neither resolves
+The caller owns the workspace lock. This helper neither resolves
 network refs nor relaxes the final clean-source preflight.
 """
 import argparse

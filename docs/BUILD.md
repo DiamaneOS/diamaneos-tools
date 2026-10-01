@@ -2,8 +2,8 @@
 
 To build DiamaneOS, follow [BUILDING.md](BUILDING.md). This page explains how
 the build works and why: the build commands and their records, the pinned
-environment, the generated inputs, packaging and the reference builder. It also
-covers developing the host tools themselves.
+environment, the generated inputs and packaging. It also covers developing the
+host tools themselves.
 
 The host tools are Python 3 programs and do not require an Android source
 checkout or compilation. Schema conformance tests use the pinned development
@@ -51,7 +51,7 @@ validates its recipes with it), the commands each step uses (`modinfo` and
 floor allows 2 GiB for what firmware and the kernel reserve), disk (only for
 steps whose output does not exist yet), a case-sensitive filesystem and, for
 compile steps, unprivileged user namespaces with util-linux 2.38 or newer.
-Differences from the reference builder's package versions are recorded, not
+Differences from the environment's pinned package versions are recorded, not
 fatal.
 
 **Network.** Only `repo`, `git fetch`, the kernel preparation and the two
@@ -65,8 +65,8 @@ similar). Unix sockets in the filesystem stay reachable; see the threat model.
 If the host has no unprivileged user namespaces the command stops;
 `--allow-network` builds anyway and records `network_isolation: off` for the
 kernel, vendor and Android steps. If `DIAMANEOS_THERMAL_CHECK` names a program,
-it runs before every compile, as on the reference builder. Temporary files go
-to the workspace (`TMPDIR`), never to `/tmp`.
+it runs before every compile. Temporary files go to the workspace (`TMPDIR`),
+never to `/tmp`.
 
 **Build identity.** The source identity is a digest of the environment file,
 the source project map, the vendor and kernel inventories, the variant and the
@@ -162,13 +162,6 @@ python3 -m venv .venv
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
-OS compilation uses a separate online build host and unprivileged build
-identity. The builder setup and trust boundary are documented in
-[`deploy/builder/README.md`](../deploy/builder/README.md). Production release
-keys never enter that host. Host acceptance requires an actual clean build in
-addition to hardware, capacity and thermal checks. Remote-power features are
-deployment-specific.
-
 ## FP6 native integration
 
 The FP6 product resolves against the selected Android 17 framework with source
@@ -180,10 +173,10 @@ keeping prebuilt alignment and ELF checks enabled.
 
 The FP6 product environment selects `config/patches-fp6.json` for its Android
 GPT/UFS, boot-control and power adaptations. It records exact upstream/derived
-commits, changed files and canonical full-index diff hashes. The accepted generic
-environment and kernel preparation retain `config/patches.json`; advancing an
-Android HAL must not invalidate an unchanged kernel preparation or relabel
-generic qualification. The environment's `project_inputs` identifies its ledger.
+commits, changed files and canonical full-index diff hashes. The generic
+environment and kernel preparation use `config/patches.json`; advancing an
+Android HAL must not invalidate an unchanged kernel preparation. The
+environment's `project_inputs` identifies its ledger.
 
 The source power HAL dynamically loads the stock performance client. Its
 performance/thermal backend is a separate explicit input family in the component
@@ -209,9 +202,7 @@ AVB chains, builds protected VM firmware (`pvmfw`) from source into the system
 AVB chain, installs the vendor module blocklist in both the first-stage ramdisk
 and `vendor_dlkm`, and uses a 48-bit virtual address space kernel. UFS access
 remains scoped to the boot-control service. Exact revisions and project-map
-digests bind the selected workspace. The accepted generic result below remains
-bound to its original configuration and tools snapshot; changing current pins
-does not requalify or relabel that result.
+digests bind the selected workspace.
 
 `config/build-environment.json` is the build-input authority for FP6-033. It
 binds the selected stable GrapheneOS tag, tag object, peeled manifest commit,
@@ -226,19 +217,7 @@ and other targets. A branch name, a GitHub verification badge or an existing
 download cache is not a substitute for the local signature checks.
 
 The project-selected Debian 13 host is newer than the operating systems listed
-by the upstream build guide. This is a declared compatibility deviation. The
-reference builder closed that deviation for this exact environment with clean
-generic qualification run `generic-qualification-20260919T170522Z`. The run
-used signed tools commit
-`24a03bce3bdfb9c0cdf301b9c3ea43331576945f`, environment
-`fp6-android17-grapheneos-2026091000-debian13-v4`, target
-`sdk_phone64_x86_64-cur-userdebug` and an initially empty source-local `out`
-directory. Preflight and postflight retained the same 1,057-project map and
-runtime build identity; the result and 66 top-level products were hash-bound.
-This acceptance proves only the reference host and generic source path. It does
-not prove that the unfinished FP6 target builds, boots or meets the device
-requirements, and another host or changed environment still needs its own
-qualification.
+by the upstream build guide. This is a declared compatibility deviation.
 
 Full preflight also verifies the gaps between Git projects: undeclared files or
 symlinked source directories cannot supply optional Make includes. Manifest
@@ -259,86 +238,7 @@ Changing a tag, project-map pin, tool record, stock input or patch inventory
 changes that identity. It deliberately reports the generated FP6 device-input
 manifest as pending until the generator has produced and verified it.
 
-Run source synchronization as the unprivileged build identity from an exact,
-reviewed tools checkout:
-
-```sh
-export DIAMANEOS_EXPECTED_TOOLS_COMMIT=REPLACE_WITH_REVIEWED_40_HEX_COMMIT
-export DIAMANEOS_THERMAL_CHECK=/absolute/path/to/qualified-thermal-check
-deploy/builder/sync-pinned-source /opt/diamaneos/tools
-```
-
-The script downloads the current official signer list, verifies its pinned
-hash, initializes only `refs/tags/2026091000`, fixes the internal `repo`
-implementation to the signed v2.65 tag commit, verifies the `repo` tag through
-the launcher's GPG keyring, verifies the GrapheneOS tag with OpenSSH, runs
-`repo sync --no-manifest-update --optimized-fetch -j8` without a fallback,
-and then invokes the full preflight. The authenticated manifest stays fixed;
-exact commits already available locally are reused without another fetch.
-Moving development branches still require resolution to their declared build
-commits. Any fetch, signature, revision, clean-tree or package mismatch
-terminates the operation. The initial recipe also requires an empty output root. Preserve the
-complete stdout/stderr and its SHA-256 as private build evidence.
-
-Before downloading source, the same script runs `--host-only` to enforce the
-exact package/tool pins, memory and free-space floors, separated workspace,
-empty clean-build output and the configured live thermal-safety preflight. A
-host mismatch therefore fails before consuming a large sync.
-
-The source revision uses a Yarn v1 lockfile. Prepare Yarn as the build identity
-with the pinned Node/Corepack on PATH, before source sync:
-
-```sh
-"$TOOLS_ROOT/deploy/builder/prepare-yarn" "$WORK_ROOT"
-```
-
-This derives the version and SHA-512 from the environment's npm integrity,
-requires a new Corepack cache, and passes the hash to Corepack's acquisition
-check. It refuses an existing cache rather than trusting previously extracted
-bytes. Preserve a failed cache as evidence and investigate before retrying with
-a clean workspace. The helper installs shims in `$WORK_ROOT/toolbin`; builds
-use `$WORK_ROOT/.cache/corepack`. The source lockfile remains unchanged.
-See [Corepack's integrity-qualified package-manager references](https://github.com/nodejs/corepack#when-authoring-packages).
-
-The accepted workspace separates source-controlled, cache and generated state
-as follows:
-
-- `src/grapheneos-2026091000` contains only the repo checkout;
-- `cache` contains reusable downloads and compiler cache, which may improve
-  performance but cannot define a release input;
-- `src/grapheneos-2026091000/out` is Android's standard clean output directory
-  and is never imported from another host.
-
-Use `OUT_DIR` and `CCACHE_DIR` to enforce those boundaries. The first generic
-qualification run starts with an empty output root. Invoke the committed
-`deploy/builder/run-generic-qualification` wrapper through its reviewed service
-rather than exporting an absolute or parent-relative output path by hand.
-Soong rejects paths which escape the source root and the pinned Siso resolves
-its configuration repository relative to that root. The wrapper therefore
-uses Android's standard source-local `out` path:
-
-```sh
-SOURCE_ROOT="$WORK_ROOT/src/grapheneos-2026091000"
-OUTPUT_ROOT="$SOURCE_ROOT/out"
-cd "$SOURCE_ROOT"
-export OUT_DIR="$(realpath --relative-to="$SOURCE_ROOT" "$OUTPUT_ROOT")"
-export CCACHE_DIR="$WORK_ROOT/cache/ccache"
-source build/envsetup.sh
-lunch sdk_phone64_x86_64-cur-userdebug
-m
-```
-
-`OUT_DIR` must resolve exactly to the declared source-local `OUTPUT_ROOT` before
-the build starts. Do not replace it with an absolute or `../` path. The service
-also binds the exact reviewed tools commit through
-`DIAMANEOS_EXPECTED_TOOLS_COMMIT`, requires the pinned source-sync unit, invokes
-the configured `DIAMANEOS_THERMAL_CHECK`, and denies network access during
-compilation.
-
-Before this or any later build, the full preflight and configured thermal-safety
-check must pass. A clean generic result does not authorize
-production signing material on the online builder. The FP6 preflight also
-requires the generated-input descriptor described under
+The FP6 preflight also requires the generated-input descriptor described under
 [the build commands](#the-build-commands).
 
 ## Downstream manifest overlay
@@ -440,10 +340,9 @@ SOURCE_ROOT="/absolute/path/to/android-source"
 `config/fp6-stock-image-recipe.json`. Obtain that exact archive through the
 source recorded in `config/fp6-sources.json`. Other regions/builds are not
 interchangeable. `IMAGE_TOOLS` is a `bin` directory holding `simg2img`,
-`lpunpack` and `debugfs_static` with their sibling `lib64` directory: either the
-otatools package of the reference builder's generic build, whose programs and
-libraries `config/fp6-image-tools.json` pins, or the synced source's own host
-output (`out/host/linux-x86/bin`, as the `vendor` step uses). Pass
+`lpunpack` and `debugfs_static` with their sibling `lib64` directory: either an
+otatools package whose programs and libraries `config/fp6-image-tools.json`
+pins, or the synced source's own host output (`out/host/linux-x86/bin`, as the `vendor` step uses). Pass
 `--record-tools` to `vendor extract` for the latter: it records their hashes in
 the extraction identity instead of requiring the pins. Every extracted file is
 checked against the selected-file recipe either way.
@@ -721,22 +620,6 @@ remote definitions and original upstream exports. Environments without this
 object still reject local manifests.
 
 A new composition requires a new environment identity and source qualification.
-The source-sync adapter accepts a reviewed configuration and overlay repository:
-
-```sh
-deploy/builder/sync-pinned-source "$TOOLS_ROOT" "$WORK_ROOT" \
-  config/build-environment-fp6.json "$OVERLAY_ROOT"
-```
-
-Its ordinary tools-commit and thermal-check environment bindings still apply.
-The overlay checkout must be clean at the declared commit. After synchronization,
-moving projects are detached at the environment's exact resolutions, refusing
-local changes; the original branch-tracking overlay remains installed. Full
-preflight checks the resulting clean composed map. This prepares source only;
-it does not qualify the product graph or authorize using old build evidence.
-`DIAMANEOS_SOURCE_REFERENCE` may name a retained repo workspace for Git object
-reuse. Keep that object store available while referenced checkouts depend on it;
-an object reference is neither an independent backup nor build evidence.
 Generated hardware inputs must also receive their own declared provenance;
 source composition alone does not accept a device build.
 

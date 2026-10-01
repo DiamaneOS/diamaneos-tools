@@ -92,6 +92,3 @@ path.
   tail, and limits are explicit at the call site. A child starting a new
   session escapes the process group, so deployed services also own a systemd
   cgroup; these tools are no sandbox for hostile executables.
-- Source sync and the generic build share `$WORK_ROOT/.workspace.lock` for the
-  whole operation, including evidence finalization; a competing operation fails
-  immediately. Never delete a lock file to clear a busy operation.
