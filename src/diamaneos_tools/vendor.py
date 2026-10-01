@@ -15,7 +15,7 @@ import sys
 import tempfile
 import zipfile
 
-from .components import ComponentError, load_json
+from .safe_json import JsonError, load_json
 
 ROOT = Path(__file__).resolve().parents[2]
 # Inputs needed for partition/AVB and kernel-ramdisk discovery. Writable device
@@ -180,34 +180,24 @@ def main(argv=None):
     parser.add_argument('--recipe', type=Path, default=ROOT / 'config/fp6-stock-image-recipe.json')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--inputs', type=Path, help='extracted partition roots for selected-file generation')
-    parser.add_argument('--model', type=Path, default=ROOT / 'config/components.json')
-    parser.add_argument('--sources', type=Path, default=ROOT / 'config/fp6-sources.json')
-    parser.add_argument('--environment', type=Path, default=ROOT / 'config/build-environment.json')
-    parser.add_argument('--public', action='store_true', help='require accepted public component dispositions')
+    parser.add_argument('--stock', type=Path, default=ROOT / 'config/fp6-stock-image-recipe.json',
+                        help='generate: the stock image recipe the selected files must come from')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.operation == 'stage':
-            if args.archive is None or args.inputs is not None or args.public:
+            if args.archive is None or args.inputs is not None:
                 raise VendorError('stage requires an archive and no generation options')
             result = stage(load_json(args.recipe), args.archive, args.output)
         else:
-            from . import components, vendor_files
+            from . import vendor_files
             if args.inputs is None or args.archive is not None:
                 raise VendorError('generate requires extracted inputs and a selected-file recipe')
-            with args.model.open('rb') as stream:
-                model_data = stream.read(components.MAX_FILE_BYTES + 1)
-            with args.sources.open('rb') as stream:
-                source_data = stream.read(components.MAX_FILE_BYTES + 1)
             result = vendor_files.generate(
-                load_json(args.recipe), args.inputs, args.output,
-                model=components.loads(model_data), sources=components.loads(source_data),
-                environment=load_json(args.environment),
-                model_sha256=hashlib.sha256(model_data).hexdigest(),
-                source_sha256=hashlib.sha256(source_data).hexdigest(), public=args.public)
+                load_json(args.recipe), args.inputs, args.output, stock=load_json(args.stock))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
-    except (VendorError, ComponentError) as error:
+    except (VendorError, JsonError) as error:
         print('ERROR: ' + str(error), file=sys.stderr)
         return 2
     except (OSError, zipfile.BadZipFile, RuntimeError, NotImplementedError):

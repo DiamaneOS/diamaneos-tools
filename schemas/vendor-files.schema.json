@@ -6,7 +6,6 @@
     "stock_build",
     "region",
     "archive_sha256",
-    "model_sha256",
     "files",
     "notices"
   ],
@@ -25,10 +24,6 @@
       ]
     },
     "archive_sha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "model_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },

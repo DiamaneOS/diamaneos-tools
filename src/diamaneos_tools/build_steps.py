@@ -41,10 +41,9 @@ KERNEL_RECIPES = ('kernel-sources-fp6.json', 'patches.json', 'kernel-workspace-f
                   'fp6-kernel-packaging.json', 'kernel-policy-fp6.json')
 KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py')
 VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minimal/vendor-files.json',
-                  'fp6-minimal/vendor-elf.json', 'components.json', 'fp6-sources.json',
-                  'fp6-image-tools.json', 'build-environment.json')
+                  'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
-               'carrier_data.py', 'components.py')
+               'carrier_data.py', 'safe_json.py')
 # The parts of config/fp6-build.json each step depends on; editing another
 # part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
@@ -458,16 +457,12 @@ def plan_vendor(ctx: Context) -> StepPlan:
             recipe, selection, pins, 'recorded')
 
     def product():
-        from . import components, vendor_product
-        model = (ROOT / 'config/components.json').read_bytes()
-        sources = (ROOT / 'config/fp6-sources.json').read_bytes()
+        from . import safe_json, vendor_product
         ctx.cache['product'] = vendor_product.generate(
-            components.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
-            components.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
+            safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
+            safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
-            aapt2=ctx.host_bin / 'aapt2', model=components.loads(model), sources=components.loads(sources),
-            environment=components.load_json(ROOT / 'config/build-environment.json'),
-            model_sha256=hashlib.sha256(model).hexdigest(), source_sha256=hashlib.sha256(sources).hexdigest())
+            aapt2=ctx.host_bin / 'aapt2', stock=recipe)
 
     actions = [host_tools,
                Action(f'Download the Fairphone factory package {archive["filename"]} and check its SHA-256',

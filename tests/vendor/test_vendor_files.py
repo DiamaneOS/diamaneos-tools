@@ -1,4 +1,4 @@
-"""Selected-file publication exercises real component policy and filesystem I/O."""
+"""Selected-file publication exercises the stock identity check and real filesystem I/O."""
 import copy
 import hashlib
 import json
@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
-from diamaneos_tools import components, vendor, vendor_files
+from diamaneos_tools import safe_json, vendor, vendor_files
 
 TOOLS = Path(__file__).resolve().parents[2]
 
@@ -32,15 +32,10 @@ class SelectedFilesTests(unittest.TestCase):
             p = self.inputs / name
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(data)
-        model_bytes = (TOOLS / 'config/components.json').read_bytes()
-        sources_bytes = (TOOLS / 'config/fp6-sources.json').read_bytes()
-        self.kwargs = {'model': components.loads(model_bytes),
-                       'sources': components.loads(sources_bytes),
-                       'environment': components.load_json(TOOLS / 'config/build-environment.json'),
-                       'model_sha256': sha(model_bytes), 'source_sha256': sha(sources_bytes)}
-        stock = self.kwargs['model']['fp6_model']['inputs']['selected_stock']
-        self.recipe = {'schema_version': 1, 'stock_build': stock['build'], 'region': stock['region'],
-                       'archive_sha256': stock['factory_sha256'], 'model_sha256': sha(model_bytes),
+        stock = safe_json.load_json(TOOLS / 'config/fp6-stock-image-recipe.json')
+        self.kwargs = {'stock': stock}
+        self.recipe = {'schema_version': 1, 'stock_build': stock['stock_build'], 'region': stock['region'],
+                       'archive_sha256': stock['archive_sha256'],
                        'notices': [{'input': 'vendor/etc/NOTICE.txt', 'sha256': sha(self.notice), 'bytes': len(self.notice)}],
                        'files': [{'input': self.path, 'path': self.path, 'sha256': sha(self.data), 'bytes': len(self.data),
                                   'component_id': 'camera-stack', 'inventory_ref': 'userspace_hal_families:camera',
@@ -61,8 +56,6 @@ class SelectedFilesTests(unittest.TestCase):
         self.assertEqual(0o640, (current / 'files' / self.path).stat().st_mode & 0o777)
         manifest = json.loads((current / 'manifest.json').read_bytes())
         self.assertEqual(self.recipe['files'][0]['metadata'], manifest['recipe']['files'][0]['metadata'])
-        closure = json.loads((current / 'component-closure.json').read_bytes())
-        self.assertEqual([], components.validate_closure(self.kwargs['model'], closure, model_sha256=self.kwargs['model_sha256']))
         self.assertFalse(first['product_graph_validated'])
         (self.inputs / self.path).write_bytes(b'x' * len(self.data))
         with self.assertRaises(vendor.VendorError):
@@ -88,14 +81,14 @@ class SelectedFilesTests(unittest.TestCase):
         self.generate()
         previous = os.readlink(self.output / 'current')
         original = copy.deepcopy(self.recipe)
-        for mutation in ('missing', 'wrong-hash', 'wrong-build', 'dependency', 'owner', 'notice', 'traversal', 'duplicate', 'state'):
+        for mutation in ('missing', 'wrong-hash', 'wrong-build', 'dependency', 'self-dependency', 'notice', 'traversal', 'duplicate', 'state'):
             self.recipe = copy.deepcopy(original)
             f = self.recipe['files'][0]
             if mutation == 'missing': f['input'] = 'vendor/missing'
             if mutation == 'wrong-hash': f['sha256'] = '0' * 64
             if mutation == 'wrong-build': self.recipe['stock_build'] = 'WRONG'
             if mutation == 'dependency': f['dependencies'] = ['vendor/lib64/missing.so']
-            if mutation == 'owner': f['component_id'] = 'missing'
+            if mutation == 'self-dependency': f['dependencies'] = [f['path']]
             if mutation == 'notice': f['notices'] = ['0' * 64]
             if mutation == 'traversal': f['input'] = 'vendor/../secret'
             if mutation == 'duplicate': self.recipe['files'].append(copy.deepcopy(f))
@@ -105,10 +98,6 @@ class SelectedFilesTests(unittest.TestCase):
             self.assertEqual(previous, os.readlink(self.output / 'current'))
             self.assertEqual(self.data, (self.output / 'current/files' / self.path).read_bytes())
             self.assertFalse(list((self.output / 'generations').glob('.generate-*')))
-
-    def test_private_allowance_fails_public_validation_before_publication(self):
-        with self.assertRaises(vendor.VendorError): self.generate(public=True)
-        self.assertFalse(self.output.exists())
 
     def test_missing_notice_and_altered_existing_output_fail(self):
         self.generate()
@@ -177,10 +166,10 @@ class SelectedFilesTests(unittest.TestCase):
         (self.output / 'current/unexpected').mkdir()
         with self.assertRaises(vendor.VendorError): self.generate()
 
-    def test_stale_model_and_wrong_archive_fail_before_generation(self):
-        for field in ('model_sha256', 'archive_sha256'):
+    def test_wrong_stock_identity_fails_before_generation(self):
+        for field, wrong in (('archive_sha256', '0' * 64), ('stock_build', 'WRONG'), ('region', 'US')):
             original = self.recipe[field]
-            self.recipe[field] = '0' * 64
+            self.recipe[field] = wrong
             with self.subTest(field=field), self.assertRaises(vendor.VendorError): self.generate()
             self.assertFalse(self.output.exists())
             self.recipe[field] = original
@@ -227,9 +216,6 @@ class SelectedSymlinkTests(unittest.TestCase):
         self.assertFalse((current/'files'/item['path']).exists())
         links = json.loads((current/'symlinks.json').read_bytes())
         self.assertEqual(links['symlinks'], [item])
-        closure = json.loads((current/'component-closure.json').read_bytes())
-        alias = next(a for a in closure['artifacts'] if a['path']==item['path'])
-        self.assertEqual(alias['dependencies'], [self.path])
         (self.inputs/item['input']).unlink()
         (self.inputs/item['input']).symlink_to('/outside/private-fixture')
         with self.assertRaises(vendor.VendorError): self.generate()

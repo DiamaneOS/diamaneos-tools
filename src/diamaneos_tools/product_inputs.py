@@ -49,10 +49,10 @@ def policy_sha256(policy):
 
 def current_recipes(root=ROOT):
     """Recipe digests of this checkout, computed as the generators record them."""
-    from . import components
+    from . import safe_json
     return {
-        'vendor_files': hashlib.sha256(encoded(components.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
-        'vendor_elf': hashlib.sha256(encoded(components.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
+        'vendor_files': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
+        'vendor_elf': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
         'kernel_sources': sha(root / 'config/kernel-sources-fp6.json'),
         'kernel_patches': sha(root / 'config/patches.json'),
         'kernel_packaging': sha(root / 'config/fp6-kernel-packaging.json'),

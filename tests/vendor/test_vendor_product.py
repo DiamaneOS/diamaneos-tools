@@ -443,9 +443,10 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(set(vendor_product.GNSS_REQUIRED), set(vendor_product.GNSS_CONFIG_REWRITES))
         self.assertEqual(set(vendor_product.GNSS_FORBIDDEN), set(vendor_product.GNSS_CONFIG_REWRITES))
 
-    def test_recipe_binds_the_current_component_model(self):
-        model = ROOT / 'config/components.json'
-        self.assertEqual(hashlib.sha256(model.read_bytes()).hexdigest(), self.recipe['model_sha256'])
+    def test_recipe_matches_the_stock_image_recipe(self):
+        stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
+        self.assertEqual((stock['stock_build'], stock['region'], stock['archive_sha256']),
+                         (self.recipe['stock_build'], self.recipe['region'], self.recipe['archive_sha256']))
 
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
@@ -668,25 +669,17 @@ class NativeProductTests(unittest.TestCase):
         owners = {r['path']: r['component_id'] for r in self.recipe['files']}
         self.assertEqual('firmware-trusted-boot', owners['vendor/firmware/vpu20_2v.mbn'])
 
-    def test_recipe_satisfies_the_component_graph(self):
-        from diamaneos_tools import components, vendor_files
-        model_data = (ROOT / 'config/components.json').read_bytes()
-        source_data = (ROOT / 'config/fp6-sources.json').read_bytes()
-        closure = vendor_files.selection(
-            self.recipe, model=components.loads(model_data), sources=components.loads(source_data),
-            environment=components.load_json(ROOT / 'config/build-environment.json'),
-            model_sha256=hashlib.sha256(model_data).hexdigest(),
-            source_sha256=hashlib.sha256(source_data).hexdigest(), public=False)
-        radio = next(r for r in closure['component_results'] if r['component_id'] == 'radio-ims-data')
-        self.assertIn('system_ext/priv-app/ims/ims.apk', radio['artifact_paths'])
+    def test_recipe_passes_the_selection_checks(self):
+        from diamaneos_tools import vendor_files
+        stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
+        vendor_files.selection(self.recipe, stock)
+        paths = {r['path'] for r in self.recipe['files']}
+        self.assertIn('system_ext/priv-app/ims/ims.apk', paths)
         # The stock call-audio client is not selected (the device builds its own
         # bridge); QCRIL keeps its IQcRilAudio interface library and VINTF
         # declaration, which the bridge talks to.
-        audio = next(r for r in closure['component_results'] if r['component_id'] == 'audio-stack')
-        self.assertFalse(any('QtiTelephonyService' in p for p in audio['artifact_paths']))
-        self.assertNotIn('system_ext/app/QtiTelephonyService/QtiTelephonyService.apk',
-                         {r['path'] for r in self.recipe['files']})
-        self.assertIn('vendor/lib64/vendor.qti.hardware.radio.am-V1-ndk.so', radio['artifact_paths'])
+        self.assertFalse(any('QtiTelephonyService' in p for p in paths))
+        self.assertIn('vendor/lib64/vendor.qti.hardware.radio.am-V1-ndk.so', paths)
 
     def test_unreviewed_system_ext_input_rejected(self):
         row = copy.deepcopy(next(r for r in self.recipe['files'] if r['path'].startswith('system_ext/')))
