@@ -104,6 +104,15 @@ def validate_config(config: dict) -> None:
                 if not _source_relative_path(path):
                     raise BuildError("invalid resolved overlay project path")
                 _require_sha(revision, "resolved overlay revision", SHA1_RE)
+        if "removed_projects" in composition:
+            # Upstream projects the overlay drops without a replacement (kernels
+            # for other devices). Declared here as well as in the overlay so a
+            # fork at the wrong path cannot pass as a removal.
+            composition_keys.add("removed_projects")
+            removed = composition["removed_projects"]
+            if (not isinstance(removed, list) or not removed or removed != sorted(set(removed))
+                    or not all(isinstance(path, str) and _source_relative_path(path) for path in removed)):
+                raise BuildError("invalid removed project list")
         if "overlay_url" in composition:
             # Where public builds obtain the overlay repository. The revision
             # and content hash above still decide what is accepted.
@@ -523,14 +532,15 @@ def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> by
         overlay = stream.read(MAX_MANIFEST_BYTES + 1)
     if len(overlay) > MAX_MANIFEST_BYTES or sha256_bytes(overlay) != composition["overlay_sha256"]:
         raise BuildError("declared overlay content mismatch")
-    composed = compose_overlay(signed_xml, overlay, composition.get("resolved_revisions", {}))
+    composed = compose_overlay(signed_xml, overlay, composition.get("resolved_revisions", {}),
+                               composition.get("removed_projects", ()))
     rows, digest = parse_project_map(composed)
     if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
         raise BuildError("composed manifest does not match its declared project map")
     return composed
 
 
-def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes:
+def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict, removed=()) -> bytes:
     """Apply one reviewed overlay to the signed manifest with exact resolutions.
 
     Pure function: callers bind the overlay bytes and the resulting project map.
@@ -560,8 +570,9 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
     for entry in addition:
         if entry.tag == "remove-project":
             # A fork replaces exactly one signed upstream project at the same
-            # path. No optional/wildcard removal, overlay-on-overlay removal or
-            # stale root exports. The final project map still binds every SHA.
+            # path; a declared removal drops one without exports. No
+            # optional/wildcard removal, overlay-on-overlay removal or stale
+            # root exports. The final project map still binds every SHA.
             matches = [p for p in upstream_projects if p.get("name") == entry.get("name")]
             if (set(entry.attrib) != {"name"} or len(entry) or len(matches) != 1
                     or matches[0] not in list(base)
@@ -621,9 +632,10 @@ def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict) -> bytes
         else:
             raise BuildError("unsupported source overlay operation")
         base.append(entry)
-    if not removed_paths <= added_paths:
-        raise BuildError("removed upstream project lacks a same-path replacement")
-    if any(added_exports.get(path) != exports for path, exports in removed_exports.items()):
+    if removed_paths - added_paths != set(removed):
+        raise BuildError("removed upstream project lacks a same-path replacement or does not match "
+                         "the declared removals")
+    if any(added_exports.get(path, []) != exports for path, exports in removed_exports.items()):
         raise BuildError("a replaced upstream project's copy and link files must be kept exactly")
     if used_revisions != set(revisions):
         raise BuildError("unused resolved overlay revisions")
