@@ -217,6 +217,34 @@ class CompositionTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, 'must be kept exactly'):
             build.compose_source_manifest(self.config, self.source, exported)
 
+    def test_declared_removal_drops_a_project_without_replacement(self):
+        base = self.base.replace(b'</manifest>', b'<project name="other-kernel" path="device/other/kernel" '
+                                 b'remote="upstream" revision="' + b'e'*40 + b'"/></manifest>')
+        overlay = b'<manifest><remove-project name="other-kernel"/></manifest>'
+        composed = build.compose_overlay(base, overlay, {}, ['device/other/kernel'])
+        self.assertEqual(['build/make'], [row[0] for row in build.parse_project_map(composed)[0]])
+        for removed in ((), ['device/other/kernel', 'build/make'], ['device/other/elsewhere']):
+            with self.subTest(removed=removed):
+                with self.assertRaisesRegex(build.BuildError, 'declared removals'):
+                    build.compose_overlay(base, overlay, {}, removed)
+        exported = base.replace(b'"/></manifest>', b'"><linkfile src="x" dest="x"/></project></manifest>')
+        with self.assertRaisesRegex(build.BuildError, 'must be kept exactly'):
+            build.compose_overlay(exported, overlay, {}, ['device/other/kernel'])
+        # A fork at the wrong path does not pass as a removal.
+        original, _ = self.replacement_overlay()
+        moved = original.replace(b'path="build/make"', b'path="different/path"')
+        with self.assertRaisesRegex(build.BuildError, 'declared removals'):
+            build.compose_overlay(self.base, moved, {})
+
+    def test_removed_project_list_is_validated(self):
+        for removed in ([], ['b', 'a'], ['a', 'a'], ['../x'], 'device/x', [1]):
+            with self.subTest(removed=removed):
+                self.config['composition']['removed_projects'] = removed
+                with self.assertRaisesRegex(build.BuildError, 'removed project list'):
+                    build.validate_config(self.config)
+        self.config['composition']['removed_projects'] = ['device/a', 'device/b']
+        build.validate_config(self.config)
+
     def test_replacement_keeps_exactly_the_upstream_link_files(self):
         links = b'<linkfile src="core" dest="build/core"/><linkfile src="envsetup.sh" dest="build/envsetup.sh"/>'
         base = self.base.replace(b'/></manifest>', b'>' + links + b'</project></manifest>')

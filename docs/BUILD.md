@@ -600,8 +600,11 @@ continues to bind the independently authenticated GrapheneOS release.
 
 HTTPS remotes and explicitly resolved projects are supported. A fork may replace
 exactly one upstream project without root exports, at the same path, using an
-explicit `remove-project` followed by its replacement. Optional, ambiguous,
-unmatched or incomplete removals are rejected. Reviewed project groups are
+explicit `remove-project` followed by its replacement. A project without root
+exports may also be dropped with a `remove-project` alone when the environment
+lists its path in `removed_projects` (the FP6 line drops the kernels of other
+devices this way). Optional, ambiguous, unmatched, undeclared or incomplete
+removals are rejected. Reviewed project groups are
 preserved; the overlay hash binds this metadata as well as the source choices.
 Development overlays may put an Android branch on the owned remote and let
 projects inherit it. An immutable environment then records `resolved_revisions`,

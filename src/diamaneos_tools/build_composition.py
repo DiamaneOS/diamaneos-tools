@@ -19,19 +19,21 @@ def git(root, *args):
     return result.stdout
 
 
-def derive(signed_xml, overlay, overlay_revision, resolved, overlay_url=None):
+def derive(signed_xml, overlay, overlay_revision, resolved, overlay_url=None, removed=()):
     """Compute the composition record for an overlay and exact resolutions.
 
     Maintainers use it to move pins; it performs the same checks as preflight.
     """
     if not build.SHA1_RE.fullmatch(overlay_revision or ''):
         raise build.BuildError('overlay revision must be an exact commit')
-    composed = build.compose_overlay(signed_xml, overlay, resolved)
+    composed = build.compose_overlay(signed_xml, overlay, resolved, removed)
     rows, digest = build.parse_project_map(composed)
     result = {'overlay_revision': overlay_revision, 'overlay_sha256': build.sha256_bytes(overlay),
               'project_count': len(rows), 'project_map_sha256': digest}
     if resolved:
         result['resolved_revisions'] = dict(sorted(resolved.items()))
+    if removed:
+        result['removed_projects'] = sorted(removed)
     if overlay_url:
         result['overlay_url'] = overlay_url
     return result
