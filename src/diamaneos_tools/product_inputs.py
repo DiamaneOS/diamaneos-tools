@@ -281,6 +281,12 @@ def retire_stale(source, environment_sha256=None, root=ROOT):
                 shutil.rmtree(previous)
             destination.rename(previous)
             moved.append(label)
+            # Parents left empty (vendor/fairphone) are not source projects;
+            # the source tree check would reject them.
+            for parent in destination.parents:
+                if parent == source or any(parent.iterdir()):
+                    break
+                parent.rmdir()
     if descriptor.exists() or descriptor.is_symlink():
         descriptor.unlink()
     return moved

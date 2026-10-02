@@ -162,6 +162,7 @@ class ProductInputTests(unittest.TestCase):
         (self.source/'vendor/fairphone/FP6/input').write_bytes(b'edited!')
         self.assertEqual(['vendor','kernel'],subject.retire_stale(self.source))
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
+        self.assertFalse((self.source/'vendor').exists())
         self.assertFalse((self.source/'.repo/diamaneos-generated-inputs.json').exists())
         self.assertEqual(b'edited!',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
         self.assertEqual([],subject.retire_stale(self.source))
