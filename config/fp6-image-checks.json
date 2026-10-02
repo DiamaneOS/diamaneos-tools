@@ -634,8 +634,31 @@
         "ro.product.manufacturer_for_attestation=Fairphone",
         "keyguard.no_require_sim=true",
         "persist.vendor.data.profile_update=true",
-        "audio.timecheck.timeout_duration_ms=8000",
+        "audio.timecheck.timeout_duration_ms=8000"
+      ]
+    },
+    {
+      "id": "debugfs-restrictions",
+      "why": "Debuggable builds restrict debugfs. The platform sets this only for non-user builds.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
         "ro.product.debugfs_restrictions.enabled=true"
+      ],
+      "variants": [
+        "userdebug"
+      ]
+    },
+    {
+      "id": "debugfs-restrictions-user",
+      "why": "User builds never mount debugfs, so the platform leaves the restriction property out.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "absent": [
+        "ro.product.debugfs_restrictions.enabled"
+      ],
+      "variants": [
+        "user"
       ]
     },
     {
