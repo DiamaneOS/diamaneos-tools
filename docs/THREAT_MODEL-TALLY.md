@@ -146,6 +146,19 @@ bouncer windows keep stock or shorter enter animations.
   left out (Launcher would need new privileges).
 - The All apps letter rail uses stock's sections, so a hidden private space gets
   no slot. No permission, manifest or allow-list change.
+- The default Colour icon style gives a key in its own colour only to the system
+  apps in a fixed list, checked by package name and system-app status, so an app
+  installed under a listed name keeps its own icon and cannot take a system
+  app's key; every other app keeps its own icon. Launcher keeps the chosen style
+  and writes it to the Secure setting tally_icon_style with the
+  WRITE_SECURE_SETTINGS it already holds; SystemUI reads it to draw notification
+  icons the same way. The setting names only a look (apps that can read it learn
+  the chosen icon style) and an unknown value means Colour. No permission is
+  added.
+- The default wallpaper, Paper, is a SystemUI wallpaper service that only draws:
+  no permissions, no input, bindable only by holders of BIND_WALLPAPER (the
+  system and the wallpaper picker). The lock screen draws no dim over it; other
+  wallpapers keep stock's dim.
 
 ## Settings search
 
