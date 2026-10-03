@@ -323,6 +323,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   HAL permission is empty, so the colour sensor needs the Sensors permission like
   every standard sensor.
 
+- **2026-10-03:** the Colour icon style is the default: listed system apps get
+  keys in their own colour (package name and system-app status checked), other
+  apps keep their own icons; Launcher writes the chosen style to the Secure
+  setting tally_icon_style with a permission it already holds, and SystemUI
+  reads it for notification icons. The default wallpaper is Paper, a SystemUI
+  wallpaper service with no permissions, bindable only with BIND_WALLPAPER; the
+  lock screen draws no dim over it.
+
 ## IMS integration notes
 
 These notes record how the IMS containment evolved. The current state is in [IMS
