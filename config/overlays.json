@@ -51,7 +51,7 @@
         "config_bodyFontFamily": "Sofia Sans, after the metric gate",
         "config_bodyFontFamilyMedium": "Sofia Sans, after the metric gate",
         "default_wallpaper": "DiamaneOS default wallpaper",
-        "default_wallpaper_component": "Tally's plain wallpaper in SystemUI as the default wallpaper: one colour in light and dark theme",
+        "default_wallpaper_component": "Tally's Paper wallpaper in SystemUI as the default wallpaper: grained stone paper, light or dark with the theme",
         "default_lock_wallpaper": "DiamaneOS default lock wallpaper",
         "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL"
       },
