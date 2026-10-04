@@ -1,9 +1,10 @@
 # FP6 kernel build and capability contract
 
-The native entry points, checks and deliberate settings behind the
-`kernel prepare`, `kernel build` and `build inputs` workflow in
-[the build reference](BUILD.md#generated-inputs-step-by-step), which
-reconstructs and installs the whole set. Terms are explained in the [threat model](THREAT_MODEL.md#terms).
+The native entry points, checks and deliberate settings behind
+`kernel prepare`, `kernel build` and `kernel publish`. The Android build does
+not build the kernel: it uses the published kernel prebuilts, which the
+DiamaneOS manifest checks out at `device/fairphone/FP6-kernel`. These commands
+make and publish that set. Terms are explained in the [threat model](THREAT_MODEL.md#terms).
 
 ## Sources and workspace
 
@@ -11,25 +12,41 @@ The kernel follows Qualcomm's CodeLinaro release for this chip
 (`LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0` and the kernel-platform and
 techpack releases it names), with the GrapheneOS `kernel_common-6.1` release
 merged into the vendor kernel. Fairphone's FP6 changes (the `fps` target,
-panel, touch, camera and sensor drivers) are DiamaneOS patches; only the device
-trees, which Qualcomm does not publish for this chip, come from Fairphone. The
-source set is separate from the platform checkout: `config/fp6-sources.json`
-names upstream families and [`config/patches.json`](../config/patches.json)
-binds downstream changes, including the matched devfreq header exported to the
-graphics package and the common/vendor configuration and ABI changes. Never
-substitute Pixel kernel sources or disable strict KMI, module protection or
-sandbox checks.
+panel, touch, camera and sensor drivers) are part of the imported sources; only
+the device trees, which Qualcomm does not publish for this chip, come from
+Fairphone. Never substitute Pixel kernel sources or disable strict KMI, module
+protection or sandbox checks.
 
-[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) records
-the resolved workspace projects and link exports. Fetch each project from its
-declared URL at its exact revision, apply only the downstream revisions in
-`config/patches.json`, and keep the resolved manifest before building.
-Preserve link exports except the two absent legacy `kernel/build` entry points
-`build.sh` and `build_abi.sh` at `f19534bc201764082056c886279fb69aeb423641`;
-use the actual Bazel entry point. The `vendor` link must resolve to the pinned
-sibling vendor tree, and `build/msm_kernel_extensions.bzl` and
-`build/abl_extensions.bzl` to their matching projects. A missing source or
-wrong revision is an error.
+All of it is one repository,
+[`kernel_qcom-6.1`](https://github.com/DiamaneOS/kernel_qcom-6.1), in the
+layout of Qualcomm's kernel workspace (`kernel_platform/`, `vendor/`) so the
+Qualcomm build files work unchanged. The workspace links are committed as
+symlinks. `kernel_platform/common` is a submodule,
+[`kernel_common-6.1`](https://github.com/DiamaneOS/kernel_common-6.1). The
+toolchains (Clang, the kernel build tools, Bazel, the JDK and others) are
+listed in `prebuilts.json` with exact revisions and fetched into
+`kernel_platform/prebuilts`, never committed; `sync_prebuilts.sh` in the
+repository fetches them for a plain clone. Each upstream project was imported
+once on the repository's `upstream` branch; DiamaneOS changes are commits on
+`android17`.
+
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins the
+repository and one commit. `kernel prepare --workspace DIR`:
+
+- checks out that commit in `DIR` (one commit, no history; `DIR` must be empty,
+  a workspace an earlier preparation made, or a clone of the repository);
+- checks out each submodule at the commit the tree records and each toolchain
+  in `prebuilts.json` at its revision, fetching exact commits over HTTPS with
+  HTTP/1.1 and retries;
+- refuses edited sources, never resetting them, and any untracked input; Git
+  ignores the tools' own files in the workspace through the clone's
+  `.git/info/exclude`;
+- checks the shared headers (below) and writes `preparation.json` (the source
+  commit, the submodule and toolchain revisions) and `resolved-manifest.xml`,
+  the trees Kleaf stamps the kernel version from (`KLEAF_REPO_MANIFEST`).
+
+`kernel build` runs only on a preparation of the pinned commit and checks the
+checkout again before and after the build.
 
 ## Build
 
@@ -107,10 +124,10 @@ and calls land on the wrong callback (a CFI panic at boot). Clang warns
   kernels' `vmlinux` and every unstripped module
   (`src/diamaneos_tools/kernel_layout.py`), writes `layout-scan.json` and fails
   if a structure has more than one member order;
-- with `kernel prepare`, requires the DRM headers in both the common and vendor
-  trees (`shared_headers` in
-  [`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json)) to
-  be byte-identical, as their structures cross the Image/module boundary.
+- with `kernel prepare`, requires the DRM headers (`include/drm`,
+  `include/uapi/drm`) in the common and vendor kernel trees to be
+  byte-identical as committed, as their structures cross the Image/module
+  boundary.
 
 Fix a split at its source by declaring the tag first (include or forward
 declaration), never by disabling RANDSTRUCT; any upstream kernel, GrapheneOS or
@@ -161,9 +178,8 @@ permissive: `setenforce 0` fails, and on userdebug
 `androidboot.selinux=permissive` makes init stop fatally. Never combine it with
 the permissive diagnostic vendor_boot images made for the 2026-09-26
 development build. The only fallbacks are reflashing those images or building
-from different
-sources (the defconfig commit reverted, other derived revisions in
-`config/patches.json` and a regenerated kernel manifest).
+from different sources (the defconfig commit reverted in `kernel_qcom-6.1` and
+`kernel_common-6.1`, and the source pin moved to that commit).
 
 debugfs keeps its in-kernel API but cannot be mounted
 (`CONFIG_DEBUG_FS_DISALLOW_MOUNT`): the filesystem is never registered and
@@ -208,3 +224,30 @@ RAM; reboots stay cold. Device-tree bootargs set loglevel=6, so the console zone
 holds notice-level and worse (warnings, errors, panic output), not info lines.
 ramoops finds the dynamically placed region via the reserved-memory lookup; it
 stays put while the device tree and memory map are unchanged.
+
+## Publish a kernel build
+
+```sh
+diamaneos kernel publish --run "$KERNEL_WORKSPACE/runs/<run>" \
+  --to /path/to/device_fairphone_FP6-kernels
+```
+
+`kernel publish` copies a passed run's candidate (`Image`, `dtbo.img`, `dtbs/`,
+`modules/`, `BoardConfigKernel.mk`, `device-kernel.mk` and the
+`*-modules.blocklist` files) into a clean checkout of
+[`device_fairphone_FP6-kernels`](https://github.com/DiamaneOS/device_fairphone_FP6-kernels),
+replacing the previous set. It refuses to publish when:
+
+- a file differs from the run's `artifacts.json`, or the candidate holds a file
+  that is not part of a kernel set;
+- a file contains private key material, a home or `/var/lib` path, or this
+  machine's user or host name (add more strings with `--forbid`);
+- the run was built from a modified tools checkout or does not record its
+  source commit.
+
+It rewrites the README's "This build" lines (the `kernel_qcom-6.1` commit and
+Linux version, the tools commit and configuration profile, the module, device
+tree and overlay counts, the build date). It does not commit or push: review
+the change, add a test note to the README once the set has been tested on a
+phone, commit and push. The next Android build that syncs the manifest picks
+up the new commit.
