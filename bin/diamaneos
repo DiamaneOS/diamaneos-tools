@@ -22,6 +22,9 @@ def main(argv=None):
     if argv[:2] == ['build', 'inputs']:
         from diamaneos_tools import product_inputs
         return product_inputs.main(argv[2:])
+    if argv[:2] == ['kernel', 'publish']:
+        from diamaneos_tools import kernel_publish
+        return kernel_publish.main(argv[2:])
     if argv[:1] == ['kernel']:
         from diamaneos_tools import kernel
         return kernel.main(argv[1:])
@@ -45,7 +48,7 @@ def main(argv=None):
         print("  build sync|kernel|vendor|android|package|verify -> the steps of build all, one at a time")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|endpoints validate|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|endpoints validate|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: build all -> sync, kernel, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
@@ -54,7 +57,7 @@ def main(argv=None):
         print("        overlays check -> resource overlays against their targets at a release")
         print("        signing -> signing-role, target-files and dummy-proof verification")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
-        print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        build inputs -> install verified generated Android inputs")
+        print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")
         return 0
     if argv[:2] == ["build", "kernel-config"]:
         from diamaneos_tools import kernel_config
