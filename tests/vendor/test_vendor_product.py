@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
 from diamaneos_tools import vendor_product
@@ -523,7 +524,7 @@ class NativeProductTests(unittest.TestCase):
                      'camera_com.qti.sensor.fp6_imx896', 'hw_sensors.vl53l1']:
             self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', required)
         block = bp[bp.index('name: "fp6_stock_vendor_lib64_vendor.qti.hardware.camera.offlinecamera-service-impl"'):]
-        self.assertIn('vendor.qti.camera.offlinecamera-impl.xml', block[:block.index('}\n')])
+        self.assertNotIn('vintf_fragments', block[:block.index('}\n')])
         for stem in ['android.hardware.camera.device-V2-ndk', 'libhwbinder', 'vendor.qti.hardware.camera.postproc@1.0',
                      'vendor.qti.hardware.display.allocator@4.0', 'vendor.qti.hardware.camera.offlinecamera-V1-ndk']:
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
@@ -745,6 +746,36 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(vendor_product.CAMERA_CONFIG_REWRITES[path]['source_sha256'], row['sha256'])
         with self.assertRaises(VendorError):
             vendor_product.camera_config(path, b'service vendor.camera-provider /vendor/bin/hw/x\n')
+
+    def test_offline_camera_service_is_linked_but_not_declared(self):
+        # The CHI override and libchifeature2 link the offline camera library,
+        # so it stays; its service has no client, so neither its VINTF
+        # declaration nor the provider's interface line is installed.
+        rendered = self.render()
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        self.assertNotIn('vendor.qti.hardware.camera.offlinecamera-service-impl', vendor_product.LIBRARY_VINTF)
+        self.assertFalse([r for r in self.recipe['files'] if r['path'].startswith('vendor/etc/vintf/')
+                          and 'offlinecamera' in r['path']])
+        self.assertNotIn('offlinecamera-impl.xml', bp + make)
+        self.assertIn('fp6_stock_vendor_lib64_vendor.qti.hardware.camera.offlinecamera-service-impl',
+                      json.loads(rendered['modules.json']))
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_com.qti.chi.override"'):]
+        self.assertIn('"fp6_stock_vendor_lib64_vendor.qti.hardware.camera.offlinecamera-service-impl"',
+                      block[:block.index('}\n')])
+
+    def test_camera_provider_rc_drops_the_offline_camera_interface(self):
+        path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
+        source = (b'service vendor.camera-provider /vendor/bin/hw/vendor.qti.camera.provider-service_64\n'
+                  b'    interface aidl android.hardware.camera.provider.ICameraProvider/vendor_qti/0\n'
+                  b'    interface aidl vendor.qti.hardware.camera.offlinecamera.IOfflineCameraService/default\n'
+                  b'    interface vendor.qti.hardware.camera.postproc@1.0::IPostProcService camerapostprocservice\n'
+                  b'    class hal\n')
+        expected = (b'service vendor.camera-provider /vendor/bin/hw/vendor.qti.camera.provider-service_64\n'
+                    b'    interface aidl android.hardware.camera.provider.ICameraProvider/vendor_qti/0\n'
+                    b'    class hal\n')
+        rule = {'source_sha256': hashlib.sha256(source).hexdigest(), 'sha256': hashlib.sha256(expected).hexdigest()}
+        with mock.patch.dict(vendor_product.CAMERA_CONFIG_REWRITES, {path: rule}):
+            self.assertEqual(expected, vendor_product.camera_config(path, source))
 
 
 if __name__ == '__main__': unittest.main()

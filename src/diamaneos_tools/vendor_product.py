@@ -247,11 +247,12 @@ def blueprint(kind, properties):
 
 # Passthrough HAL libraries whose VINTF declaration makes them discoverable.
 # Without hwservicemanager, HIDL resolves passthrough HALs only through VINTF.
-LIBRARY_VINTF = {
- # The CHI override links this library, which registers the offline camera
- # AIDL service inside the camera provider process (stock declaration).
- 'vendor.qti.hardware.camera.offlinecamera-service-impl': 'vendor.qti.camera.offlinecamera-impl.xml',
-}
+# vendor.qti.hardware.camera.offlinecamera-service-impl is installed without
+# its stock declaration (vendor.qti.camera.offlinecamera-impl.xml): the CHI
+# override and libchifeature2 link it, but nothing uses the offline camera
+# service it registers, and without a declaration servicemanager refuses the
+# registration. The library logs the refusal and the provider carries on.
+LIBRARY_VINTF = {}
 # Non-ELF data the stock CamX reads from /vendor/lib64 (sensor modules, tuning,
 # flash/face-detection tables, BitML networks). Copied as is; generate()
 # rejects ELF content under these paths.
@@ -730,9 +731,9 @@ def audio_config(path, data):
 CAMERA_CONFIG_REWRITES = {
     'vendor/etc/init/vendor.qti.camera.provider-service_64.rc': {
         'source_sha256': 'ccc0c2b945c1be4fee8061ddc519d090c2c8f76ea70b3c733b11429eb20175f8',
-        'sha256': '9f3fa09193baeb9a6afc2a92e562f0b0701dc81e03057b891061c0c89cdf75fe',
+        'sha256': '39c85b1ae77d82f3cea2956a2ea779aa49f736f6c972bee09a48401df1a10b58',
         'reason': 'Limit camera provider groups to camera, media (secure FastRPC node), oem_2907 (thermal) '
-                  'and wakelock; drop the undeclared postproc/AON interface lines and the '
+                  'and wakelock; drop the undeclared offline camera, postproc and AON interface lines and the '
                   'cam_event_inject fault-injection chown'},
 }
 
@@ -742,8 +743,12 @@ def camera_config(path, data):
     rule = CAMERA_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('camera configuration differs from reviewed EU stock input')
-    derived = re.sub(rb'^    interface vendor\.qti\.hardware\.camera\.(?:postproc|aon)@1\.0::\S+ \S+\n',
+    # The offline camera service is not declared (LIBRARY_VINTF), so the
+    # provider does not advertise it either.
+    derived = re.sub(rb'^    interface aidl vendor\.qti\.hardware\.camera\.offlinecamera\.IOfflineCameraService/default\n',
                      b'', data, flags=re.M)
+    derived = re.sub(rb'^    interface vendor\.qti\.hardware\.camera\.(?:postproc|aon)@1\.0::\S+ \S+\n',
+                     b'', derived, flags=re.M)
     derived = derived.replace(b'    group audio camera input drmrpc oem_2907 oem_2912 wakelock\n',
                               b'    group camera media oem_2907 wakelock\n')
     derived = re.sub(rb'\non boot\n    chown cameraserver camera /sys/module/camera/parameters/cam_event_inject\n\Z',
