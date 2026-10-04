@@ -624,8 +624,9 @@ AUDIO_CONFIG_REWRITES = {
         'reason': 'Disable context detection and remove deferred sound-trigger/model configuration'},
     'vendor/etc/audio/sku_volcano/audio_policy_configuration.xml': {
         'source_sha256': '3bf77c8f71e1ad1186e226b177c0c4cc9881c9ed9bad91cf848b632b7f039219',
-        'sha256': 'db37e22a193fceadd924b1c91d2ad3cf552e2cfa36709ee18ac3ada3ea48ff25',
-        'reason': 'Route Bluetooth A2DP and LE audio through the AOSP software Bluetooth audio module instead of DSP offload'},
+        'sha256': '9df51292f1d17bb3877f58fac0d29e58d24c1c6fd756183e4e513234e7173c4b',
+        'reason': 'Route Bluetooth A2DP and LE audio through the AOSP software Bluetooth audio module instead of DSP '
+                  'offload, and decode compressed music in the sandboxed software codecs instead of the DSP'},
 }
 # Primary-module device ports that exist only for Bluetooth DSP offload.
 BT_OFFLOAD_PORTS = (b'BT A2DP Out', b'BT A2DP Headphones', b'BT A2DP Speaker', b'BT BLE Out',
@@ -633,7 +634,7 @@ BT_OFFLOAD_PORTS = (b'BT A2DP Out', b'BT A2DP Headphones', b'BT A2DP Speaker', b
 
 
 def bluetooth_software_audio_policy(data):
-    """Drop the offload-only Bluetooth ports from the primary module and use the AOSP Bluetooth module."""
+    """Drop the offload-only Bluetooth ports and compressed offload; use the AOSP Bluetooth module."""
     names = b'|'.join(re.escape(n) for n in BT_OFFLOAD_PORTS)
     derived = re.sub(rb'^[ \t]*<devicePort tagName="(?:' + names + rb')"[^>]*>.*?</devicePort>\n',
                      b'', data, flags=re.S | re.M)
@@ -641,6 +642,10 @@ def bluetooth_software_audio_policy(data):
                      b'', derived, flags=re.M)
     derived = re.sub(rb'sources="([^"]*)"', lambda m: b'sources="' + b','.join(
         s for s in m[1].split(b',') if s not in (b'A2DP In', b'BLE In')) + b'"', derived)
+    # No compressed offload: apps cannot hand MP3, AAC, FLAC and other bitstreams to the
+    # closed DSP decoders; Android's sandboxed software codecs decode them instead.
+    derived = re.sub(rb'^[ \t]*<mixPort name="compressed_offload".*?</mixPort>\n', b'', derived, flags=re.S | re.M)
+    derived = derived.replace(b',compressed_offload', b'')
     return derived.replace(
         b'        <!-- Bluetooth Audio HAL for hearing aid -->\n'
         b'        <xi:include href="/vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml"/>\n',
