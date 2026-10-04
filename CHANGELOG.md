@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Stop declaring the camera provider's offline camera service. Nothing uses
+  it; its library stays because the CHI override links it, and the provider
+  logs the refused registration and carries on. Image checks require the
+  declaration, the provider's interface line and the registration grant to be
+  gone.
 - Take the vendor patch level from the stock vendor image. The vendor step
   reads `ro.vendor.build.security_patch` from the stock `vendor/build.prop`,
   which `vendor-files.json` pins under `build_properties`, instead of a fixed

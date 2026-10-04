@@ -831,6 +831,49 @@
       ]
     },
     {
+      "id": "no-offline-camera-declaration",
+      "why": "The offline camera service has no client: its stock VINTF declaration is not installed, so servicemanager refuses the registration inside the camera provider.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/etc/vintf/manifest/vendor.qti.camera.offlinecamera-impl.xml"
+      ]
+    },
+    {
+      "id": "no-offline-camera-service",
+      "why": "No manifest, matrix or provider service definition names the offline camera service.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/vintf/manifest.xml",
+        "VENDOR/etc/vintf/manifest/*.xml",
+        "VENDOR/etc/init/vendor.qti.camera.provider-service_64.rc",
+        "SYSTEM/etc/vintf/compatibility_matrix.device.xml"
+      ],
+      "match": "all",
+      "absent": [
+        "IOfflineCameraService"
+      ]
+    },
+    {
+      "id": "no-offline-camera-registration",
+      "why": "The camera provider may not register the offline camera service.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "absent": [
+        "(allow hal_camera_default vendor_hal_offlinecamera_service "
+      ]
+    },
+    {
+      "id": "offline-camera-library-kept",
+      "why": "The CHI override and libchifeature2 link the offline camera library; without it the camera provider cannot load them.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/vendor.qti.hardware.camera.offlinecamera-service-impl.so",
+        "VENDOR/lib64/hw/com.qti.chi.override.so"
+      ]
+    },
+    {
       "id": "call-audio-service-isolation",
       "why": "Both radio call-audio instances use the dedicated protected service label rather than the shared IMS label.",
       "type": "text",

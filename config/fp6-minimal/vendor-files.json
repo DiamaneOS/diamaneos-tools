@@ -12706,26 +12706,6 @@
       }
     },
     {
-      "input": "vendor/etc/vintf/manifest/vendor.qti.camera.offlinecamera-impl.xml",
-      "path": "vendor/etc/vintf/manifest/vendor.qti.camera.offlinecamera-impl.xml",
-      "sha256": "48c94bf7015a40d89370bfddf48ea7fe51b6afb938b376f9fa9184c2727de987",
-      "bytes": 444,
-      "component_id": "camera-stack",
-      "inventory_ref": "userspace_hal_families:camera",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Declares the offline camera service the provider registers in-process (stock behaviour).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/etc/camera/camxoverridesettings.txt",
       "path": "vendor/etc/camera/camxoverridesettings.txt",
       "sha256": "620b6aeb7fc0e57cb19971f0c64796563ccfb9439dba2ddb4151cd314d9ad3af",
