@@ -22,6 +22,8 @@ class KernelPreparationTests(unittest.TestCase):
         self.root=Path(self.temp.name);self.reference=self.root/'reference';self.repo=self.reference/'kernel_platform/common'
         self.repo.mkdir(parents=True)
         self.git('init','-q');self.git('config','user.name','Fixture');self.git('config','user.email','fixture@example.invalid')
+        # Synthetic history must not depend on the host's signing agent.
+        self.git('config','commit.gpgsign','false')
         (self.repo/'file').write_text('base\n');self.git('add','file');self.git('-c','commit.gpgsign=false','commit','-qm','base')
         base=self.git('rev-parse','HEAD')
         (self.repo/'file').write_text('derived\n');self.git('commit','-qam','derived','--no-gpg-sign')
