@@ -7,7 +7,8 @@
   which `vendor-files.json` pins under `build_properties`, instead of a fixed
   value. It must be set once, to a real date no later than the factory
   package's release date; the generation's provenance and the vendor step's
-  state record it.
+  state record it. `build verify` checks that target-files and `vendor.img`
+  report it.
 - Build from the DiamaneOS manifest. The FP6 build environment names the full
   manifest (`platform_manifest`, branch `android17`) instead of an overlay
   with pinned commits; `build sync` runs `repo init` and `repo sync` on it,

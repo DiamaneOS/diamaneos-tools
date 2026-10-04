@@ -433,6 +433,42 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('differs VENDOR/firmware/touch.bin', detail)
 
+    def test_vendor_patch_level_matches_the_stock_value(self):
+        vendor = self.root / 'vendor'
+        vendor.mkdir()
+        (vendor / 'provenance.json').write_text(json.dumps({'vendor_security_patch': '2026-09-05'}))
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+        prop = b'ro.vendor.build.date.utc=1\nro.vendor.build.security_patch=2026-09-05\n'
+        image = {'prop': prop}
+
+        def debugfs(args):
+            command = str(args[1])
+            if command.startswith('dump '):
+                self.assertEqual('/build.prop', command.split()[1])
+                Path(command.split()[2]).write_bytes(image['prop'])
+            return 'Type: regular\n'
+
+        def check(members):
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            v.vendor_dir = vendor
+            return subject.check_vendor_patch_level(v)
+        self.assertEqual((True, 'ro.vendor.build.security_patch=2026-09-05'), check({'VENDOR/build.prop': prop}))
+        ok, detail = check({'VENDOR/build.prop': prop.replace(b'09-05', b'08-05')})
+        self.assertFalse(ok)
+        self.assertIn('VENDOR/build.prop sets', detail)
+        ok, _ = check({'VENDOR/build.prop': prop + b'ro.vendor.build.security_patch=2026-09-05\n'})
+        self.assertFalse(ok)
+        image['prop'] = b'ro.vendor.build.date.utc=1\n'
+        ok, detail = check({'VENDOR/build.prop': prop})
+        self.assertFalse(ok)
+        self.assertIn('vendor.img sets []', detail)
+        image['prop'] = prop
+        (vendor / 'provenance.json').write_text(json.dumps({}))
+        self.assertFalse(check({'VENDOR/build.prop': prop})[0])
+        v = self.harness({'VENDOR/build.prop': prop})
+        v.vendor_dir = None
+        self.assertFalse(subject.check_vendor_patch_level(v)[0])
+
     def test_super_holds_exactly_the_logical_images(self):
         logical = json.loads((ROOT / 'config/fp6-build.json').read_text())['images']['logical']
         for name in logical:
