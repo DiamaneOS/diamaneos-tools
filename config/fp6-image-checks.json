@@ -818,6 +818,18 @@
       ]
     },
     {
+      "id": "call-audio-service-isolation",
+      "why": "Both radio call-audio instances use the dedicated protected service label rather than the shared IMS label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_service_contexts"
+      ],
+      "regex": [
+        "^vendor\\.qti\\.hardware\\.radio\\.am\\.IQcRilAudio/slot1\\s+u:object_r:fp6_hal_qcrilaudio_service:s0$",
+        "^vendor\\.qti\\.hardware\\.radio\\.am\\.IQcRilAudio/slot2\\s+u:object_r:fp6_hal_qcrilaudio_service:s0$"
+      ]
+    },
+    {
       "id": "pal-agm-private",
       "why": "Only the audio HAL may register and look up its PAL and AGM services.",
       "type": "text",
