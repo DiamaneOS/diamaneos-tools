@@ -487,6 +487,13 @@ def build(root, jobs, timeout, profile='production'):
                 checked = kernel_config.check(config.read_bytes(), policy, profile)
                 (run / report).write_bytes(encoded(checked))
                 require(checked['status'] == 'PASS', label + ' configuration regressed')
+            # QRTR lives in the vendor kernel configuration; the GKI Image
+            # deliberately has no QRTR. Check the role guard where it is built.
+            vendor_policy = load_json(ROOT / 'config/kernel-vendor-policy-fp6.json')
+            checked = kernel_config.check(one(vendor_core, '.config', '/fps_gki/').read_bytes(),
+                                          vendor_policy, profile)
+            (run / 'vendor-role-kernel-config.json').write_bytes(encoded(checked))
+            require(checked['status'] == 'PASS', 'vendor IMS ownership configuration regressed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
             found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
             require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')

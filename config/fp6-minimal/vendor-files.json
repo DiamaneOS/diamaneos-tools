@@ -16690,26 +16690,6 @@
       }
     },
     {
-      "input": "product/app/uimlpaservice/uimlpaservice.apk",
-      "path": "product/app/uimlpaservice/uimlpaservice.apk",
-      "sha256": "281f24de857d79ad1c1c2d80e97b85c7ae2a68180f3cdfaadf42fa11c3fcdecd",
-      "bytes": 221752,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "Stock Qualcomm LPA (com.qualcomm.qti.lpa, EuiccService over IUimLpa); presigned, privileged; the device sysconfig turns its services off by default because it cannot list profiles on the FP6 (stock leaves its eSIM service on).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "system_ext/framework/qti-telephony-hidl-wrapper.jar",
       "path": "system_ext/framework/qti-telephony-hidl-wrapper.jar",
       "sha256": "0262c74a8ec7092b8b8ed1a9bed01a63be765583eb12c21cac718f6d8230d826",
@@ -16814,86 +16794,6 @@
       "path": "product/etc/permissions/ims_ext_common.xml",
       "sha256": "2d0231984a8b68c24f312f5b3ee227354e5cc706371476eff5cf67d892e8c3c0",
       "bytes": 1675,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "Stock permission file that declares only the shared library jar above.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "product/framework/uimlpalibrary.jar",
-      "path": "product/framework/uimlpalibrary.jar",
-      "sha256": "22fc8491a2e0717838d4ffde805304529df161da153eaaa071858ed040c1e6e2",
-      "bytes": 28534,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "Shared library com.qualcomm.qti.lpa.uimlpalibrary required by the LPA (uses-library).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "product/etc/permissions/lpa.xml",
-      "path": "product/etc/permissions/lpa.xml",
-      "sha256": "ba92e2bba470ce8ed0dd38c23edce525c3fc7ea7451ab75adda1255dba7c976c",
-      "bytes": 325,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "Stock permission file that declares only the shared library jar above.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "product/framework/qti-telephony-hidl-wrapper-prd.jar",
-      "path": "product/framework/qti-telephony-hidl-wrapper-prd.jar",
-      "sha256": "0262c74a8ec7092b8b8ed1a9bed01a63be765583eb12c21cac718f6d8230d826",
-      "bytes": 29982,
-      "component_id": "radio-ims-data",
-      "inventory_ref": "userspace_hal_families:radio-ims",
-      "dependencies": [],
-      "notices": [
-        "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976"
-      ],
-      "purpose": "Shared library qti-telephony-hidl-wrapper-prd required by the LPA (uses-library).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:system_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "product/etc/permissions/qti_telephony_hidl_wrapper_prd.xml",
-      "path": "product/etc/permissions/qti_telephony_hidl_wrapper_prd.xml",
-      "sha256": "95380e79e973ffff35bf5c590e717f917435aaa118111d98128261c352c14c20",
-      "bytes": 1709,
       "component_id": "radio-ims-data",
       "inventory_ref": "userspace_hal_families:radio-ims",
       "dependencies": [],

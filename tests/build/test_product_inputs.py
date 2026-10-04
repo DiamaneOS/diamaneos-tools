@@ -33,6 +33,7 @@ class ProductInputTests(unittest.TestCase):
                                                                  'patches_sha256':self.recipes['kernel_patches']}))
         for name in ('kernel-config.json','vendor-kernel-config.json'):
             (ktree.parent/name).write_text(json.dumps({'policy_sha256':self.recipes['kernel_policy']}))
+        (ktree.parent/'vendor-role-kernel-config.json').write_text(json.dumps({'status':'PASS','policy_sha256':self.recipes['kernel_vendor_policy']}))
         self.write_result()
         (self.kernel/'current').symlink_to('runs/example/candidate')
     def write_result(self,**changes):
@@ -41,6 +42,12 @@ class ProductInputTests(unittest.TestCase):
                     packaging_recipe_sha256=self.recipes['kernel_packaging'],**changes)
         (run/'result.json').write_text(json.dumps(result))
     def install(self):return subject.install(self.source,self.vendor,self.kernel)
+    def test_vendor_ownership_report_is_required_and_must_pass(self):
+        report=self.kernel/'runs/example/vendor-role-kernel-config.json'
+        report.write_text(json.dumps({'status':'FAIL','policy_sha256':self.recipes['kernel_vendor_policy']}))
+        with self.assertRaisesRegex(ValueError,'ownership configuration'):self.install()
+        report.unlink()
+        with self.assertRaisesRegex(ValueError,'input inventory'):self.install()
     def test_install_and_verify_existing(self):
         result=self.install();self.assertEqual('installed',result['vendor']);self.assertEqual('installed',result['kernel'])
         result=self.install();self.assertEqual('verified-existing',result['vendor'])

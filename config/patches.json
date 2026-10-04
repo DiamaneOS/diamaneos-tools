@@ -114,14 +114,16 @@
       "workspace": "kernel",
       "path": "kernel_platform/common",
       "base_revision": "1c17a250aecb9a2eef61f679eced9475b0d50b71",
-      "derived_revision": "4774098be21decca0775b21fc31e79d57b097d51",
-      "canonical_diff_sha256": "69b588a4a8d309b521d5e7f46207140708a4f5f288fe51c5cf3d262ab8561a9d",
+      "derived_revision": "e3849d3ce81dc314ccc871a8651de947d5d59e1d",
+      "canonical_diff_sha256": "eca36eae9b957a5a960e1624990e1b46e8cc750a7ea1210ecee080828e2c5295",
       "changed_files": [
+        "android/abi_gki_aarch64_qcom",
         "arch/arm64/configs/gki_defconfig",
         "fs/debugfs/inode.c",
         "include/drm/drm_mode_config.h",
         "init/main.c",
         "modules.bzl",
+        "net/tipc/Kconfig",
         "net/tipc/bcast.c",
         "net/tipc/bcast.h",
         "net/tipc/bearer.c",
@@ -130,8 +132,8 @@
         "net/tipc/node.c",
         "net/tipc/socket.c"
       ],
-      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes). Turn off SELinux development mode and restrict dmesg to root from boot. Log boot parameters that are handed to user space by name only, since the bootloader's can carry device identifiers. Keep the debugfs API for kernel code but refuse debugfs mounts (DEBUG_FS_DISALLOW_MOUNT, broken upstream since Linux 5.12, made to work again).",
-      "validation": "The first full-hardening build and its FP6 userdebug boot pass; all 506 scanned debug artifacts have consistent function-pointer layouts. Production qualification remains. TIPC: signatures verified; mobile data works on both SIMs with the TIPC module, before and with this revision (the 6.1.178 fixes), both SELinux permissive; the enforcing data test is pending. Production configuration and parameter logging: signatures verified, kconfig and savedefconfig checked (only the two intended symbols change), init/main.o compiled with the build's clang and the logging checked in a user-space harness; kernel build and phone test pending. debugfs mount refusal: fs/debugfs/inode.o compiled with the build's clang and the GKI configuration; savedefconfig checked (only DEBUG_FS_DISALLOW_MOUNT changes); a user-mode Linux run of the patched tree created debugfs files with no registered debugfs filesystem and no /sys/kernel/debug, where the unpatched tree fails with -ENOENT; kernel build and phone test pending."
+      "purpose": "Declare DRM callback return-type tags before drm_mode_config_funcs so Clang applies one RANDSTRUCT_FULL layout throughout the core kernel. Build TIPC as a module (no UDP bearer, crypto or diag) and list tipc.ko as a GKI module: Qualcomm's data module reaches nicmd over TIPC. Apply the net/tipc part of Linux 6.1.178 (CVE-2026-74281, -74282, -74283 and two memory-safety fixes). Turn off SELinux development mode and restrict dmesg to root from boot. Log boot parameters that are handed to user space by name only, since the bootloader's can carry device identifiers. Keep the debugfs API for kernel code but refuse debugfs mounts (DEBUG_FS_DISALLOW_MOUNT, broken upstream since Linux 5.12, made to work again). Restrict TIPC to local IPC; network bearer activation is disabled. Preserve the read-only LSM exports required by the protected QRTR publisher.",
+      "validation": "Signed sources preserve the current debugfs and init-memory fixes. Paired GKI, vendor and external-module builds, configuration, interface and layout checks pass. Enforcing phone ownership/recovery and ordinary telephony/data qualification remain pending."
     },
     {
       "id": "kernel-qcom-grapheneos",
@@ -139,11 +141,11 @@
       "workspace": "kernel",
       "path": "kernel_platform/msm-kernel",
       "base_revision": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
-      "derived_revision": "9793cb346511c74cea60a5347a0f59f9037f62b1",
-      "canonical_diff_sha256": "d96a8f2f75a035646480215c78ee902d904202cd444044f8081235f1d7e2ecb6",
-      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel. The same production configuration and boot-parameter logging change as the common kernel. The same debugfs mount refusal as the common kernel.",
-      "validation": "The GKI kernel, vendor kernel and all external modules build together; the vendor KMI symbol list check passes. The first full-hardening FP6 userdebug boot passes and the 506-artifact layout scan is clean. The file list is bound by digest because the merge touches thousands of files. Production qualification remains. Production configuration and parameter logging: the same two commits as the common kernel with identical file contents; signatures verified, vendor configuration and init/main.o checked the same way; kernel build and phone test pending. debugfs mount refusal: the same change as the common kernel with identical file contents; kernel build and phone test pending.",
-      "changed_files_sha256": "6adcf3ae4f23e5f2ee61c6ab51f7331ecb8cdfb03dba9a76a28a956c39a23975",
+      "derived_revision": "d5cc6609d27735f712aaaef374de0348cd346d2e",
+      "canonical_diff_sha256": "091d7ff30f911c4cf87b1fa442733928c09ae41582ddccb8eb667be787751a64",
+      "purpose": "Merge the GrapheneOS kernel_common-6.1 release (6.1.177, 48-bit VA, CFI, SCS, struct randomization, forced module signatures) into the FP6 Qualcomm vendor kernel, keeping the GPU devfreq export, and fit the vendor configuration and drivers to it. The follow-up DRM callback header fix aligns its RANDSTRUCT_FULL layout with the core kernel. The same TIPC module change as the common kernel, so both trees build with one configuration. The same 6.1.178 TIPC fixes as the common kernel. The same production configuration and boot-parameter logging change as the common kernel. The same debugfs mount refusal as the common kernel. Restrict TIPC to local IPC; network bearer activation is disabled. Preserve the read-only LSM exports required by the protected QRTR publisher. Reserve the local IMS DCM QRTR role with actual UID and SELinux subject checks, canonical control records and control-record validation.",
+      "validation": "Signed sources preserve the current debugfs and init-memory fixes. Paired GKI, vendor and external-module builds, configuration, interface and layout checks pass. Enforcing phone ownership/recovery and ordinary telephony/data qualification remain pending.",
+      "changed_files_sha256": "bdb74fe6c37c5edc496d658a5b1a0be4f3d9f624fca1ec87554723beaee7b281",
       "merged_upstream": {
         "repository": "https://github.com/GrapheneOS/kernel_common-6.1",
         "tag": "2026091900",

@@ -173,8 +173,7 @@
         "VENDOR/etc/permissions/android.hardware.telephony.gsm.prebuilt.xml",
         "VENDOR/etc/permissions/android.hardware.telephony.ims.prebuilt.xml",
         "VENDOR/etc/permissions/android.hardware.telephony.euicc.prebuilt.xml",
-        "SYSTEM_EXT/priv-app/ims/ims.apk",
-        "PRODUCT/priv-app/uimlpaservice/uimlpaservice.apk"
+        "SYSTEM_EXT/priv-app/ims/ims.apk"
       ]
     },
     {
@@ -968,26 +967,17 @@
       ]
     },
     {
-      "id": "lpa-services-off",
-      "why": "The stock LPA stays installed with both services off by default, without its JNI library.",
-      "type": "component_override",
-      "file": "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml",
-      "package": "com.qualcomm.qti.lpa",
-      "components": {
-        "com.qualcomm.qti.lpa.QtiEuiccServiceImpl": "false",
-        "com.qualcomm.qti.lpa.UimLpaService": "false"
-      },
-      "scan": [
-        "SYSTEM",
-        "SYSTEM_EXT",
-        "PRODUCT",
-        "VENDOR",
-        "ODM"
-      ],
-      "allowed_files": [
-        "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml",
+      "id": "deferred-lpa-absent",
+      "why": "Deferred eSIM management ships no inactive stock LPA or its libraries and grants.",
+      "type": "files_absent",
+      "paths": [
+        "PRODUCT/priv-app/uimlpaservice/uimlpaservice.apk",
+        "PRODUCT/framework/uimlpalibrary.jar",
+        "PRODUCT/framework/qti-telephony-hidl-wrapper-prd.jar",
+        "PRODUCT/etc/permissions/lpa.xml",
+        "PRODUCT/etc/permissions/qti_telephony_hidl_wrapper_prd.xml",
         "PRODUCT/etc/permissions/privapp-permissions-fp6-lpa.xml",
-        "PRODUCT/etc/permissions/lpa.xml"
+        "PRODUCT/etc/sysconfig/fp6-lpa-default-disabled.xml"
       ]
     },
     {

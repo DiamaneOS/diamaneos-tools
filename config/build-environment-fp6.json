@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261002-2",
+  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261004-ims-hardening",
   "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-10-02, including the build/make fork and the Tally forks, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here. The line builds with the public build commands; it is not phone-tested as a whole.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -96,12 +96,12 @@
     {
       "id": "patch-inventory",
       "repository_path": "config/patches-fp6.json",
-      "sha256": "aa39aa36dff9c9130b55cac41ca8fe6f9e034d57f218af5cd761bd90364e4d60"
+      "sha256": "1dd22305da915e1e22189038314dfbd2e08b0c94e7de9d1039de04f65e9d3d7c"
     },
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "52a9e637477c148d6d4213ec07412cbea5e669e5319d3c5fa2b44e5b9d5285be"
+      "sha256": "920c228e784cbf7c7c5a735bab7541b3e39ff6df4d720bd569c8f736505b3ea1"
     },
     {
       "id": "fp6-native-dependencies",
@@ -124,10 +124,41 @@
     "production_signing_material_allowed": false
   },
   "composition": {
-    "overlay_revision": "11abc36ba0bb732a4b1a4d2e95a42d35b0cb552c",
-    "overlay_sha256": "247385feb7464aeec82f825ac2e0dff787e8862381496e4f415ce0c095a6cfef",
+    "overlay_revision": "7c57fa1e5d49f919fa05f67444042d3dce1ab3fb",
+    "overlay_sha256": "ac4771b0e27011ae88559f6ae550a5ee7d89bc221d4486f70104030802e61530",
     "project_count": 1038,
-    "project_map_sha256": "f9c97929ab9cd7dab77b40064bbac938c80daac1e46e67266ca4ba3cb16e59f4",
+    "project_map_sha256": "d739b7b86a3c73ece61387a3d0c2818278dd41b0103f89803aec112d29c1ddbc",
+    "resolved_revisions": {
+      "bootable/recovery": "4b93765f922f7a561c2682fade373ab298a92a15",
+      "build/make": "400085679c4f417c94205637a97b7c17da526d3b",
+      "device/fairphone/FP6": "93a3c6f0d232f3ea1b1b09672603901c333ac48d",
+      "frameworks/av": "96a00658177a140bed0f77e8534e85d26877d6f5",
+      "frameworks/base": "80e082152b0c0390fb203fe48b4db901a75d1ef3",
+      "frameworks/libs/systemui": "bc4366a6443c57294490800da57f457fe45c2cba",
+      "frameworks/native": "84fc898d9eff5a862a1bedfb7b6020176175ebcf",
+      "frameworks/opt/telephony": "1b0271e4b64a2946461c3ca8b8a291056a8099a3",
+      "hardware/diamaneos/ims": "e238df756c3cb1f10ff2216d09ccb71cb80100ba",
+      "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
+      "hardware/qcom/display": "30d823f92d6713cf4bc7cc745c4cf598d432e388",
+      "hardware/qcom/wlan": "d9e8e3b3ff7d4324b49af08b98e0a09de5537904",
+      "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
+      "packages/apps/DeskClock": "c23534db87358f7a4bd422b9da360d7fb688988e",
+      "packages/apps/DocumentsUI": "f098599d86bee4a68197fe84b811ece65fa8c98e",
+      "packages/apps/ExactCalculator": "74d01273b74691cfd1eec9592338efbcfc55e70a",
+      "packages/apps/ImsServiceEntitlement": "73f72735a791b05a8d7889cd01c11bad9d8a7026",
+      "packages/apps/Launcher3": "c8053882313d59cd407d3b4c94630bd5622bfd00",
+      "packages/apps/Settings": "b18e83448ce0866216e0e7731d7ec5cf68e20cd9",
+      "packages/apps/SettingsIntelligence": "b4caa0ddba62dbda1489ec6d8f304a84a963ceed",
+      "packages/apps/ThemePicker": "b214a444f6175b50e02200f4e1fa945afdf9b24c",
+      "packages/apps/WallpaperPicker2": "3e5e4c832315899a520ceb1fd98ecb65aa1f7f14",
+      "packages/inputmethods/LatinIME": "83c9763d1aefae042d20f7ec509a3a245fb67c65",
+      "packages/modules/Connectivity": "b6f1537e51f8a8b0faa4b32b1c652a0d783d45e0",
+      "packages/modules/Wifi": "91ae1c0dab78ff431f87f7c3ee99cee6eed9b988",
+      "vendor/diamaneos": "8d245099c3112f0da9373b8998b07a12003745c1",
+      "vendor/qcom/opensource/power": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
+      "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
+      "vendor/qcom/opensource/vibrator": "13c68c585852798afece3b823ac0160c8e580c73"
+    },
     "removed_projects": [
       "device/amlogic/yukawa-kernel",
       "device/google/akita-kernels/6.1",
@@ -164,35 +195,6 @@
       "kernel/prebuilts/mainline/x86_64",
       "prebuilts/qemu-kernel"
     ],
-    "resolved_revisions": {
-      "bootable/recovery": "4b93765f922f7a561c2682fade373ab298a92a15",
-      "build/make": "400085679c4f417c94205637a97b7c17da526d3b",
-      "device/fairphone/FP6": "f9765e69f35db8224317bed9bab01742c007c486",
-      "frameworks/base": "4b805c253532d1c51f2d3d3914c1513cd00fb49e",
-      "frameworks/libs/systemui": "bc4366a6443c57294490800da57f457fe45c2cba",
-      "frameworks/native": "84fc898d9eff5a862a1bedfb7b6020176175ebcf",
-      "frameworks/opt/telephony": "1b0271e4b64a2946461c3ca8b8a291056a8099a3",
-      "hardware/diamaneos/ims": "04470029a63ebb4be2fbd3170448d3218e56324a",
-      "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
-      "hardware/qcom/display": "30d823f92d6713cf4bc7cc745c4cf598d432e388",
-      "hardware/qcom/wlan": "d9e8e3b3ff7d4324b49af08b98e0a09de5537904",
-      "packages/apps/CarrierConfig": "d68e040f649d47becbb2efb71d7a6f6cd71c6d0b",
-      "packages/apps/DeskClock": "c23534db87358f7a4bd422b9da360d7fb688988e",
-      "packages/apps/DocumentsUI": "f098599d86bee4a68197fe84b811ece65fa8c98e",
-      "packages/apps/ExactCalculator": "74d01273b74691cfd1eec9592338efbcfc55e70a",
-      "packages/apps/ImsServiceEntitlement": "08e2d5aaf2dcac7650d3bdc9aa670f1a936ba33a",
-      "packages/apps/Launcher3": "c8053882313d59cd407d3b4c94630bd5622bfd00",
-      "packages/apps/Settings": "b18e83448ce0866216e0e7731d7ec5cf68e20cd9",
-      "packages/apps/SettingsIntelligence": "b4caa0ddba62dbda1489ec6d8f304a84a963ceed",
-      "packages/apps/ThemePicker": "b214a444f6175b50e02200f4e1fa945afdf9b24c",
-      "packages/apps/WallpaperPicker2": "3e5e4c832315899a520ceb1fd98ecb65aa1f7f14",
-      "packages/inputmethods/LatinIME": "83c9763d1aefae042d20f7ec509a3a245fb67c65",
-      "packages/modules/Connectivity": "b6f1537e51f8a8b0faa4b32b1c652a0d783d45e0",
-      "vendor/diamaneos": "8d245099c3112f0da9373b8998b07a12003745c1",
-      "vendor/qcom/opensource/power": "f59bd8b09621fd2e8f0651d2695b6f42eddfbb0f",
-      "vendor/qcom/opensource/recovery-ext": "eba942a4889ad2ce63053c43748931f97f2abca3",
-      "vendor/qcom/opensource/vibrator": "13c68c585852798afece3b823ac0160c8e580c73"
-    },
     "overlay_url": "https://github.com/DiamaneOS/platform_manifest"
   }
 }

@@ -50,11 +50,25 @@ class KernelConfigTests(unittest.TestCase):
         # Qualcomm's data stack needs TIPC; its network bearer, crypto and diag must stay out.
         data = self.config(False)
         for old, new in [(b'CONFIG_TIPC=m', b'# CONFIG_TIPC is not set'),
+                         (b'CONFIG_TIPC_LOCAL_ONLY=y', b'# CONFIG_TIPC_LOCAL_ONLY is not set'),
                          (b'# CONFIG_TIPC_MEDIA_UDP is not set', b'CONFIG_TIPC_MEDIA_UDP=y'),
                          (b'# CONFIG_TIPC_CRYPTO is not set', b'CONFIG_TIPC_CRYPTO=y'),
                          (b'# CONFIG_TIPC_DIAG is not set', b'CONFIG_TIPC_DIAG=m')]:
             with self.subTest(change=new):
                 self.assertEqual(kernel_config.check(data.replace(old, new), self.policy, 'development')['status'], 'FAIL')
+
+    def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
+        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
+        good = b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n'
+        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
+        for changed in (good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
+                        good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y',
+                                     b'# CONFIG_QRTR_IMSDCM_OWNERSHIP is not set')):
+            with self.subTest(config=changed):
+                report = kernel_config.check(changed, policy, 'production')
+                self.assertEqual(report['status'], 'FAIL')
+                self.assertEqual([row['symbol'] for row in report['failures']],
+                                 ['CONFIG_QRTR_IMSDCM_OWNERSHIP'])
 
     def test_runtime_features_and_lockdown_stay_on(self):
         # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
