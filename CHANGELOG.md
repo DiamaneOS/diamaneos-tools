@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Stop selecting the stock Bluetooth HCI service and the eight FM, ANT, SAR,
+  config-store and TPI libraries it links but never registers. The device's
+  own service (device `bluetooth/service.cpp`) registers the stock HCI
+  implementation, now a runtime root. Image checks require our service, its
+  label and init line, and the absence of the stock service and those
+  libraries.
 - Stop installing the stock display colour service and its two interface
   libraries. It was a lazy service any platform app could start, and nothing in
   the build is its client; the composer still loads the colour libraries and

@@ -294,36 +294,41 @@ class NativeProductTests(unittest.TestCase):
         for path in ['sensors/hals.conf', 'sensors/sns_reg_config', 'sensors/config/volcano_tmd2755_0.json']:
             self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
 
-    def test_bluetooth_hci_service_installed_with_device_activation(self):
+    def test_bluetooth_hci_implementation_installed_without_stock_service(self):
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
-        for name in ['fp6_stock_vendor_bin_hw_android.hardware.bluetooth@1.1-service-qti',
-                     'fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.0-impl-qti',
+        for name in ['fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.0-impl-qti',
                      'fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.1-impl-qti',
                      'fp6_stock_vendor_lib64_libbtnv', 'fp6_stock_vendor_lib64_libsoc_helper']:
             self.assertIn(name, modules)
-        # AOSP HCI interfaces are source-built; FM, ANT, SAR and config-store
-        # implementations and the stock Bluetooth audio stack are not installed.
+        # The device's own service registers the stock implementation, so the
+        # implementation is a root; the stock service and the FM, ANT, SAR,
+        # config-store and TPI libraries it links are not selected.
+        self.assertIn('vendor/lib64/hw/android.hardware.bluetooth@1.1-impl-qti.so', self.selection['roots'])
+        self.assertNotIn('android.hardware.bluetooth@1.1-service-qti', vendor_product.ACTIVATION)
+        paths = {r['path'] for r in self.recipe['files']}
+        for marker in ['bluetooth@1.1-service', 'vendor.qti.hardware.fm@', 'com.dsi.ant@', 'bluetooth_sar',
+                       'btconfigstore', 'bttpi']:
+            self.assertFalse([p for p in paths if marker in p], marker)
+            self.assertNotIn(marker, bp + make)
+        # AOSP HCI interfaces are source-built; the stock Bluetooth audio stack
+        # is not installed.
         for name in ['fp6_stock_vendor_lib64_android.hardware.bluetooth@1.0',
                      'fp6_stock_vendor_lib64_android.hardware.bluetooth@1.1',
-                     'fp6_stock_vendor_lib64_hw_vendor.qti.hardware.fm@1.0-impl',
-                     'fp6_stock_vendor_lib64_hw_com.dsi.ant@1.0-impl',
-                     'fp6_stock_vendor_lib64_hw_vendor.qti.hardware.bluetooth_sar@1.1-impl',
-                     'fp6_stock_vendor_lib64_hw_vendor.qti.hardware.btconfigstore@2.0-impl',
                      'fp6_stock_vendor_lib64_hw_audio.bluetooth_qti.default']:
             self.assertNotIn(name, modules)
-        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.bluetooth@1.1-service-qti"'):]
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.1-impl-qti"'):]
         block = block[:block.index('}\n')]
-        self.assertNotIn('init_rc', block)
-        self.assertNotIn('vintf_fragments', block)
+        self.assertIn('relative_install_path: "hw"', block)
         self.assertIn('"android.hardware.bluetooth@1.1"', block)
-        self.assertIn('"fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.1-impl-qti"', block)
-        self.assertNotIn('android.hardware.bluetooth@1.1-service-qti.rc', make)
+        self.assertIn('"fp6_stock_vendor_lib64_hw_android.hardware.bluetooth@1.0-impl-qti"', block)
+        self.assertNotIn('init_rc', block)
         # The derived audio policy no longer includes the stock hearing-aid file.
         self.assertNotIn('bluetooth_qti_hearing_aid_audio_policy_configuration.xml', make)
         owners = {r['path']: r['component_id'] for r in self.recipe['files']}
-        self.assertEqual('connectivity-peripherals', owners['vendor/bin/hw/android.hardware.bluetooth@1.1-service-qti'])
+        self.assertEqual('connectivity-peripherals',
+                         owners['vendor/lib64/hw/android.hardware.bluetooth@1.1-impl-qti.so'])
         for stem in ['libqmiservices', 'libidl']:
             self.assertEqual('remote-processor-services', owners['vendor/lib64/' + stem + '.so'])
 
