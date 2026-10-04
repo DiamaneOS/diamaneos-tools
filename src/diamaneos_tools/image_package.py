@@ -23,6 +23,8 @@ SUMS = 'SHA256SUMS'
 PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot')
 RECORD = 'build.json'
 TARGET_FILES_COPY = 'target-files.zip'
+# The resolved manifest (repo manifest -r) of the source the set was built from.
+MANIFEST_COPY = 'resolved-manifest.xml'
 
 
 def image_names(config: dict) -> list[str]:
@@ -218,8 +220,14 @@ def plan(ctx):
         if state['reuse']:
             return
         out = android['outputs']
-        sync, kernel, vendor = (ws.passed(s) for s in ('sync', 'kernel', 'vendor'))
+        sync, vendor = ws.passed('sync'), ws.passed('vendor')
+        if sync is None:
+            raise BuildStepError('the sync step has no passed record; run "diamaneos build sync" again')
         shutil.copy2(state['target_files'], state['partial'] / TARGET_FILES_COPY)
+        resolved = ws.state_dir / MANIFEST_COPY
+        shutil.copyfile(resolved, state['partial'] / MANIFEST_COPY)
+        if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
+            raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
         tools = product_inputs.tools_identity()
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
@@ -230,9 +238,13 @@ def plan(ctx):
             'source_identity': out.get('source_identity'),
             'tools': tools, 'reproducible': bool(tools.get('clean')),
             'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
-            'source': sync['outputs'] if sync else None,
+            'source': sync['outputs'],
+            'manifest': {'url': sync['outputs'].get('manifest_url'), 'branch': sync['outputs'].get('manifest_branch'),
+                         'commit': sync['outputs'].get('manifest_commit'), 'file': MANIFEST_COPY,
+                         'resolved_sha256': sync['outputs'].get('resolved_manifest_sha256')},
+            'kernel_prebuilts': {'path': product_inputs.KERNEL_PREBUILTS,
+                                 'commit': sync['outputs'].get('kernel_prebuilts_commit')},
             'generated_inputs': {'descriptor_sha256': out['descriptor_sha256'],
-                                 'kernel': kernel['outputs'] if kernel else None,
                                  'vendor': vendor['outputs'] if vendor else None},
             'stock_build': ctx.environment['device_inputs']['selected_stock_build'],
             'target_files': {'file': TARGET_FILES_COPY, 'sha256': out['target_files_sha256']},

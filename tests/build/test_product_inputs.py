@@ -14,11 +14,9 @@ class ProductInputTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name).resolve();self.source=self.root/'source';(self.source/'.repo').mkdir(parents=True)
-        self.vendor=self.root/'vendor';self.kernel=self.root/'kernel'
+        self.vendor=self.root/'vendor'
         vtree=self.vendor/'generations'/('a'*64);vtree.mkdir(parents=True)
-        ktree=self.kernel/'runs/example/candidate';ktree.mkdir(parents=True)
-        for tree in (vtree,ktree):
-            (tree/'input').write_bytes(b'fixture');(tree/'input').chmod(0o640)
+        (vtree/'input').write_bytes(b'fixture');(vtree/'input').chmod(0o640)
         # The generations record the recipes they were made from, as the real
         # generators do; the fixture uses this checkout's recipes.
         self.recipes=subject.current_recipes()
@@ -28,34 +26,16 @@ class ProductInputTests(unittest.TestCase):
         records={name:{'bytes':(vtree/name).stat().st_size,'sha256':sha(vtree/name)} for name in ('input','provenance.json')}
         (self.vendor/'inventories').mkdir();(self.vendor/'inventories'/('a'*64+'.json')).write_text(json.dumps(records))
         (self.vendor/'current').symlink_to('generations/'+'a'*64)
-        inventory=ktree.parent/'artifacts.json';inventory.write_text(json.dumps([dict(path='input',**records['input'])]))
-        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':self.recipes['kernel_sources']}))
-        for name in ('kernel-config.json','vendor-kernel-config.json'):
-            (ktree.parent/name).write_text(json.dumps({'policy_sha256':self.recipes['kernel_policy']}))
-        (ktree.parent/'vendor-role-kernel-config.json').write_text(json.dumps({'status':'PASS','policy_sha256':self.recipes['kernel_vendor_policy']}))
-        self.write_result()
-        (self.kernel/'current').symlink_to('runs/example/candidate')
-    def write_result(self,**changes):
-        run=self.kernel/'runs/example'
-        result=dict(status='PASS',inventory_sha256=sha(run/'artifacts.json'),preparation_sha256=sha(self.kernel/'preparation.json'),
-                    packaging_recipe_sha256=self.recipes['kernel_packaging'],**changes)
-        (run/'result.json').write_text(json.dumps(result))
-    def install(self):return subject.install(self.source,self.vendor,self.kernel)
-    def test_vendor_ownership_report_is_required_and_must_pass(self):
-        report=self.kernel/'runs/example/vendor-role-kernel-config.json'
-        report.write_text(json.dumps({'status':'FAIL','policy_sha256':self.recipes['kernel_vendor_policy']}))
-        with self.assertRaisesRegex(ValueError,'ownership configuration'):self.install()
-        report.unlink()
-        with self.assertRaisesRegex(ValueError,'input inventory'):self.install()
+    def install(self):return subject.install(self.source,self.vendor)
     def test_install_and_verify_existing(self):
-        result=self.install();self.assertEqual('installed',result['vendor']);self.assertEqual('installed',result['kernel'])
+        result=self.install();self.assertEqual('installed',result['vendor']);self.assertNotIn('kernel',result)
         result=self.install();self.assertEqual('verified-existing',result['vendor'])
         self.assertTrue((self.source/'.repo/diamaneos-generated-inputs.json').is_file())
     def test_existing_edit_preserved(self):
         self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'owner edit')
         self.assertRaises(VendorError,self.install);self.assertEqual(b'owner edit',p.read_bytes())
-    def test_wrong_candidate_inventory_rejected_before_install(self):
-        (self.kernel/'runs/example/artifacts.json').write_text('[]')
+    def test_wrong_inventory_rejected_before_install(self):
+        (self.vendor/'inventories'/('a'*64+'.json')).write_text('{}')
         self.assertRaises(ValueError,self.install);self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
     def test_symlink_destination_parent_rejected(self):
         (self.source/'vendor').symlink_to(self.vendor,target_is_directory=True)
@@ -93,23 +73,24 @@ class ProductInputTests(unittest.TestCase):
     def test_descriptor_binds_environment_recipes_and_trees(self):
         self.install()
         descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
-        self.assertEqual(2,descriptor['schema_version'])
+        self.assertEqual(3,descriptor['schema_version'])
         self.assertEqual(sha(subject.DEFAULT_ENVIRONMENT),descriptor['environment_sha256'])
         self.assertEqual(subject.current_recipes(),descriptor['recipes'])
-        self.assertEqual({'vendor','kernel'},set(descriptor['inputs']))
-        self.assertEqual('runs/example/candidate',descriptor['inputs']['kernel']['run'])
+        self.assertEqual({'vendor_files','vendor_elf'},set(descriptor['recipes']))
+        self.assertEqual({'vendor'},set(descriptor['inputs']))
         accepted=subject.verify_descriptor(self.source,descriptor['environment_sha256'])
-        self.assertEqual({'vendor/fairphone/FP6','device/fairphone/FP6-kernel'},accepted)
+        self.assertEqual({'vendor/fairphone/FP6'},accepted)
+        self.assertFalse((self.source/'device/fairphone/FP6-kernel').exists())
 
     def test_descriptor_rejects_other_environment_stale_recipes_and_edits(self):
         self.install()
         with self.assertRaisesRegex(ValueError,'another build environment'):
             subject.verify_descriptor(self.source,'0'*64)
-        changed=dict(self.recipes,kernel_policy='1'*64)
+        changed=dict(self.recipes,vendor_elf='1'*64)
         with patch.object(subject,'current_recipes',return_value=changed):
-            with self.assertRaisesRegex(ValueError,'other recipes .kernel_policy.'):
+            with self.assertRaisesRegex(ValueError,'other recipes .vendor_elf.'):
                 subject.verify_descriptor(self.source)
-        (self.source/'device/fairphone/FP6-kernel/input').write_bytes(b'edited!')
+        (self.source/'vendor/fairphone/FP6/input').write_bytes(b'edited!')
         with self.assertRaises(ValueError):
             subject.verify_descriptor(self.source)
 
@@ -146,19 +127,10 @@ class ProductInputTests(unittest.TestCase):
             self.install()
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
 
-    def test_install_refuses_a_kernel_run_from_another_preparation_or_policy(self):
-        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':'1'*64}))
-        with self.assertRaisesRegex(ValueError,'no longer matches its preparation'):
-            self.install()
-        self.write_result()
-        with self.assertRaisesRegex(ValueError,'other recipes .kernel_sources.'):
-            self.install()
-        self.assertFalse((self.source/'device/fairphone/FP6-kernel').exists())
-
     def test_replace_moves_the_differing_tree_aside(self):
         self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'old tree')
-        result=subject.install(self.source,self.vendor,self.kernel,replace=True)
-        self.assertEqual('replaced',result['vendor']);self.assertEqual('verified-existing',result['kernel'])
+        result=subject.install(self.source,self.vendor,replace=True)
+        self.assertEqual('replaced',result['vendor'])
         self.assertEqual(b'fixture',p.read_bytes())
         self.assertEqual(b'old tree',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
 
@@ -166,11 +138,25 @@ class ProductInputTests(unittest.TestCase):
         self.install()
         self.assertEqual([],subject.retire_stale(self.source))
         (self.source/'vendor/fairphone/FP6/input').write_bytes(b'edited!')
-        self.assertEqual(['vendor','kernel'],subject.retire_stale(self.source))
+        self.assertEqual(['vendor'],subject.retire_stale(self.source))
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
         self.assertFalse((self.source/'vendor').exists())
         self.assertFalse((self.source/'.repo/diamaneos-generated-inputs.json').exists())
         self.assertEqual(b'edited!',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
         self.assertEqual([],subject.retire_stale(self.source))
+
+    def test_kernel_tree_of_earlier_tools_moves_aside_but_the_manifest_project_stays(self):
+        # Earlier tools installed a generated kernel where the manifest now
+        # has the kernel prebuilts project; the old descriptor names both.
+        legacy=self.source/'device/fairphone/FP6-kernel';legacy.mkdir(parents=True);(legacy/'Image').write_bytes(b'old')
+        (self.source/'.repo/diamaneos-generated-inputs.json').write_text(json.dumps({'schema_version':2,'status':'PASS'}))
+        self.assertEqual(['kernel'],subject.retire_stale(self.source))
+        self.assertFalse(legacy.exists());self.assertFalse((self.source/'device').exists())
+        self.assertEqual(b'old',(self.source/'.repo/diamaneos-previous-inputs/kernel/Image').read_bytes())
+        self.assertFalse((self.source/'.repo/diamaneos-generated-inputs.json').exists())
+        legacy.mkdir(parents=True);(legacy/'.git').write_text('gitdir: ../../../.repo/projects/x.git\n')
+        self.install()
+        self.assertEqual([],subject.retire_stale(self.source))
+        self.assertTrue((legacy/'.git').exists())
 
 if __name__=='__main__':unittest.main()

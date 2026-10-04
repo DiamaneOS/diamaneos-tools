@@ -27,7 +27,10 @@ import time
 from . import process
 
 ROOT = Path(__file__).resolve().parents[2]
-STEPS = ('sync', 'kernel', 'vendor', 'android', 'package', 'verify')
+STEPS = ('sync', 'vendor', 'android', 'package', 'verify')
+# Steps outside "build all": building the kernel from source is for maintainers
+# (the Android build uses the kernel prebuilts in the manifest).
+MAINTAINER_STEPS = ('kernel',)
 STATE_SCHEMA = 1
 GIB = 1024 ** 3
 # unshare(1) >= 2.38. The mapped user keeps its own uid, so the Android build,

@@ -170,7 +170,7 @@ class PlanTests(unittest.TestCase):
 
     def test_failed_commit_time_lookup_stops_a_real_build(self):
         ctx = self.context()
-        for name in ('sync', 'kernel', 'vendor'):
+        for name in ('sync', 'vendor'):
             ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
                                              'outputs': {'project_map_sha256': 'p'}})
         failure = bw.BuildStepError('git log failed')
@@ -196,13 +196,16 @@ class PlanTests(unittest.TestCase):
 
     def test_android_uses_a_given_build_number(self):
         ctx = self.context()
-        for name in ('sync', 'kernel', 'vendor'):
+        for name in ('sync', 'vendor'):
             ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
-                                             'outputs': {'project_map_sha256': 'p'}})
+                                             'outputs': {'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k'}})
         with patch.object(steps, 'android_identity', return_value='a' * 64), \
                 patch.object(steps, 'newest_commit_time', return_value='1'):
             plan = steps.plan_android(replace(ctx, build_number='test.7'))
         self.assertEqual('test.7', plan.inputs['build_number'])
+        # The kernel prebuilts commit from the resolved manifest is an Android input.
+        self.assertEqual('k', plan.inputs['sync']['kernel_prebuilts_commit'])
+        self.assertNotIn('kernel', plan.inputs)
 
     def test_build_all_follows_the_manifest_branch(self):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
@@ -313,8 +316,8 @@ class RunnerTests(unittest.TestCase):
         self.run_all(force=('package',))
         self.assertEqual(['package'], self.calls)
         self.calls.clear()
-        self.run_all(force=('kernel',))
-        self.assertEqual(['kernel'], self.calls)
+        self.run_all(force=('vendor',))
+        self.assertEqual(['vendor'], self.calls)
 
     def test_any_exception_is_recorded_and_reported_plainly(self):
         def broken(ctx):
@@ -329,13 +332,18 @@ class RunnerTests(unittest.TestCase):
 
     def test_single_step_refuses_stale_prerequisites(self):
         self.run_all()
-        self.inputs['kernel']['value'] = 2
+        self.inputs['vendor']['value'] = 2
         with patch.dict(steps.PLANS, {n: self.fake(n) for n in bw.STEPS}):
-            with self.assertRaisesRegex(bw.UsageError, 'kernel is out of date'):
+            with self.assertRaisesRegex(bw.UsageError, 'vendor is out of date'):
                 steps.run_steps(self.ctx, ('package',), force=('package',))
-            with self.assertRaisesRegex(bw.UsageError, 'kernel is out of date'):
+            with self.assertRaisesRegex(bw.UsageError, 'vendor is out of date'):
                 steps.run_steps(self.ctx, ('android',), force=('android',))
             steps.run_steps(self.ctx, ('vendor',), force=('vendor',))
+
+    def test_build_all_has_no_kernel_step_and_build_kernel_stays(self):
+        self.assertNotIn('kernel', bw.STEPS)
+        self.assertNotIn('kernel', steps.DEPENDS['android'])
+        self.assertEqual('build kernel', 'build ' + steps.parser().parse_args(['kernel']).step)
 
     def test_single_step_after_a_userdebug_build_checks_that_build(self):
         def android(ctx):

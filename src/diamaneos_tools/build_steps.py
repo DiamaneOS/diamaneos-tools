@@ -1,8 +1,10 @@
 """Build a DiamaneOS test image for the Fairphone 6 in one workspace.
 
-The steps are sync, kernel, vendor, android, package and verify; "all" runs
-them in order and skips steps whose inputs did not change. Every step checks
-what it consumes and records what it produced. --dry-run prints the plan.
+The steps are sync, vendor, android, package and verify; "all" runs them in
+order and skips steps whose inputs did not change. Every step checks what it
+consumes and records what it produced. The kernel comes from the kernel
+prebuilts in the manifest; "build kernel" builds it from source for
+maintainers. --dry-run prints the plan.
 """
 from __future__ import annotations
 
@@ -49,9 +51,12 @@ VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_prod
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
                   'target_files')
 # Earlier steps each step consumes; a single step refuses stale ones.
-DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'kernel', 'vendor'),
-           'package': ('sync', 'kernel', 'vendor', 'android'),
-           'verify': ('sync', 'kernel', 'vendor', 'android', 'package')}
+DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'vendor'),
+           'package': ('sync', 'vendor', 'android'),
+           'verify': ('sync', 'vendor', 'android', 'package')}
+# What the Android build takes from the sync: the exact source tree, the
+# manifest commit and the kernel prebuilts commit.
+SOURCE_KEYS = ('project_map_sha256', 'resolved_manifest_sha256', 'manifest_commit', 'kernel_prebuilts_commit')
 MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
 # body are still expected"), and repo then retries the project with every
@@ -473,12 +478,15 @@ def plan_vendor(ctx: Context) -> StepPlan:
     return StepPlan('vendor', inputs, actions, outputs, valid, waiting_for=None if sync else 'sync')
 
 
+def source_record(sync: dict) -> dict:
+    return {key: sync['outputs'].get(key) for key in SOURCE_KEYS}
+
+
 def android_identity(ctx: Context, sync: dict) -> str:
-    selected = product_inputs.selected_inputs(ctx.workspace.vendor, ctx.workspace.kernel)
+    selected = product_inputs.selected_inputs(ctx.workspace.vendor)
     return bw.digest({
-        'environment_sha256': ctx.environment_sha256, 'project_map_sha256': sync['outputs']['project_map_sha256'],
+        'environment_sha256': ctx.environment_sha256, **source_record(sync),
         'vendor_records_sha256': product_inputs.records_sha256(selected['vendor']['records']),
-        'kernel_records_sha256': product_inputs.records_sha256(selected['kernel']['records']),
         'variant': ctx.variant, 'build_config': config_subset(ctx.config, ANDROID_CONFIG)})
 
 
@@ -492,8 +500,8 @@ def find_target_files(ctx: Context) -> Path:
 
 def plan_android(ctx: Context) -> StepPlan:
     ws, config = ctx.workspace, ctx.config
-    sync, kernel, vendor = ws.passed('sync'), ws.passed('kernel'), ws.passed('vendor')
-    waiting = next((n for n, s in (('sync', sync), ('kernel', kernel), ('vendor', vendor)) if s is None), None)
+    sync, vendor = ws.passed('sync'), ws.passed('vendor')
+    waiting = next((n for n, s in (('sync', sync), ('vendor', vendor)) if s is None), None)
     targets = config['make_targets']
     if not all(NAME.fullmatch(t) for t in targets):
         raise UsageError('invalid make target')
@@ -502,8 +510,8 @@ def plan_android(ctx: Context) -> StepPlan:
     if waiting is None:
         identity = android_identity(ctx, sync)
         number = ctx.build_number or build_number(identity, config)
-        inputs = {'environment_sha256': ctx.environment_sha256, 'sync': sync['outputs']['project_map_sha256'],
-                  'kernel': kernel['outputs'], 'vendor': vendor['outputs'], 'variant': ctx.variant,
+        inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
+                  'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
                   'network_isolation': not ctx.allow_network}
         try:
@@ -516,12 +524,14 @@ def plan_android(ctx: Context) -> StepPlan:
             datetime = None
 
     def install():
-        ctx.cache['inputs'] = product_inputs.install(ws.src, ws.vendor, ws.kernel, ctx.environment_path, replace=True)
+        ctx.cache['inputs'] = product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True)
 
     def preflight(key):
         def check():
             if ctx.environment['device_inputs']['generated_input_manifest_status'] != 'verified':
                 raise BuildStepError('the build environment does not require bound generated inputs')
+            if not sync['outputs'].get('kernel_prebuilts_commit'):
+                raise BuildStepError('the manifest has no kernel prebuilts at ' + product_inputs.KERNEL_PREBUILTS)
             result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256)
             if result['resolved_manifest_sha256'] != sync['outputs']['resolved_manifest_sha256']:
                 raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded; '
@@ -538,7 +548,7 @@ def plan_android(ctx: Context) -> StepPlan:
              'BUILD_DATETIME': datetime if datetime is not None else '<newest source commit time>',
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname']})
-    actions = [Action('Install the generated vendor and kernel inputs', func=install),
+    actions = [Action('Install the generated vendor tree', func=install),
                Action('Verify the source tree and the generated inputs', func=preflight('preflight')),
                compile_action,
                Action('Check the source tree is unchanged after the build', func=preflight('postflight'))]
@@ -740,8 +750,9 @@ def make_context(args, echo=print) -> Context:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         prog='diamaneos build', description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging.')
-    result.add_argument('step', choices=('all',) + bw.STEPS)
+        epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging. '
+               '"diamaneos build kernel" builds the kernel from source (maintainers; not part of build all).')
+    result.add_argument('step', choices=('all',) + bw.STEPS + bw.MAINTAINER_STEPS)
     result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE or ~/diamaneos-build)')
     result.add_argument('--dry-run', action='store_true', help='print the plan and change nothing')
     result.add_argument('--variant', help='user (default) or userdebug')
