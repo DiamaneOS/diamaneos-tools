@@ -25,8 +25,10 @@ PREVIOUS = '.repo/diamaneos-previous-inputs'
 DESCRIPTOR_SCHEMA = 2
 DEFAULT_ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
 TARGET_PRODUCT = 'FP6'
+# Where the device configuration expects the kernel prebuilts.
+KERNEL_PREBUILTS = 'device/fairphone/FP6-kernel'
 # Generated trees and where the device configuration expects them.
-DESTINATIONS = {'vendor': 'vendor/fairphone/FP6', 'kernel': 'device/fairphone/FP6-kernel'}
+DESTINATIONS = {'vendor': 'vendor/fairphone/FP6', 'kernel': KERNEL_PREBUILTS}
 # The recipes each generated tree records about itself: the vendor product in
 # its provenance, the kernel run in its result, preparation and configuration
 # reports. Installation and the preflight require them to equal the recipes

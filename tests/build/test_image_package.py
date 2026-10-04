@@ -22,7 +22,7 @@ def fixture_workspace(root: Path, variant='user'):
     """A workspace whose android step passed, with a synthetic target-files."""
     ctx = steps.make_context(argparse.Namespace(
         workspace=str(root / 'ws'), environment=None, variant=variant, jobs=None, allow_network=True,
-        objects_from=None, factory_zip=None, shallow=False), lambda *a: None)
+        factory_zip=None, shallow=False), lambda *a: None)
     ws, config = ctx.workspace, ctx.config
     product = ctx.out / 'target/product/FP6/obj/PACKAGING/target_files_intermediates'
     product.mkdir(parents=True)

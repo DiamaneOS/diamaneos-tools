@@ -271,6 +271,152 @@ class BuildEnvironmentTests(unittest.TestCase):
                     build.verify_manifest_checkout(config, source, allowed)
 
 
+def rev(path, expression="HEAD"):
+    return subprocess.run(["git", "-C", str(path), "rev-parse", expression], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def fixture_repository(path, name, text):
+    path.mkdir(parents=True, exist_ok=True)
+    git(path, "init", "-q")
+    for key, value in (("user.name", "Fixture"), ("user.email", "fixture@example.invalid"),
+                       ("commit.gpgsign", "false"), ("tag.gpgsign", "false")):
+        git(path, "config", key, value)
+    (path / name).write_text(text, encoding="utf-8")
+    git(path, "add", name)
+    git(path, "commit", "-q", "-m", "fixture")
+    return rev(path)
+
+
+class ManifestModeTests(unittest.TestCase):
+    """Builds that follow the DiamaneOS manifest branch."""
+
+    def setUp(self):
+        self.config, self.raw = build.load_config(ROOT / "config" / "build-environment-fp6.json")
+
+    def test_fp6_environment_follows_the_diamaneos_manifest(self):
+        build.validate_config(self.config)
+        self.assertNotIn("composition", self.config)
+        self.assertEqual({"url": "https://github.com/DiamaneOS/platform_manifest.git", "branch": "android17"},
+                         self.config["manifest"])
+        identity = build.declared_identity(self.config, self.raw, ROOT)
+        self.assertEqual(self.config["manifest"], identity["source_manifest"])
+
+    def test_manifest_schema(self):
+        good = copy.deepcopy(self.config)
+        good["manifest"]["revision"] = "a" * 40
+        build.validate_config(good)
+        good["manifest"]["branch"] = "refs/tags/diamaneos-2026100500"
+        build.validate_config(good)
+        changes = (("url", "http://example.invalid/manifest"), ("branch", "../escape"),
+                   ("branch", "android17/"), ("revision", "android17"), ("extra", True))
+        for key, value in changes:
+            with self.subTest(key=key, value=value):
+                changed = copy.deepcopy(self.config)
+                changed["manifest"][key] = value
+                with self.assertRaises(build.BuildError):
+                    build.validate_config(changed)
+        changed = copy.deepcopy(self.config)
+        changed["composition"] = {}
+        with self.assertRaisesRegex(build.BuildError, "no overlay composition"):
+            build.validate_config(changed)
+
+    def test_inputs_only_preflight_names_the_manifest(self):
+        result = subprocess.run(
+            [str(ROOT / "bin" / "diamaneos"), "build", "preflight", "--inputs-only",
+             "--config", str(ROOT / "config" / "build-environment-fp6.json")],
+            cwd=ROOT, capture_output=True, text=True, timeout=30,
+            env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(0, result.returncode, result.stderr)
+        inputs = json.loads(result.stdout)["required_runtime_inputs"]
+        self.assertEqual(self.config["manifest"], inputs["source_manifest"])
+        self.assertNotIn("allowed_signers_file", inputs)
+
+
+class BranchCheckoutTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.source = self.root / "source"
+        self.config, _ = build.load_config(ROOT / "config" / "build-environment-fp6.json")
+        repo_tool = self.source / ".repo" / "repo"
+        fixture_repository(repo_tool, "repo", "fixture repo tool\n")
+        git(repo_tool, "remote", "add", "origin", self.config["upstream"]["repo_tool"]["url"])
+        git(repo_tool, "tag", "-a", "fixture-repo", "-m", "repo fixture")
+        self.config["upstream"]["repo_tool"].update({
+            "release_tag": "fixture-repo", "tag_object": rev(repo_tool, "fixture-repo^{tag}"),
+            "peeled_commit": rev(repo_tool, "fixture-repo^{}")})
+        self.project = self.source / "device" / "example"
+        revision = fixture_repository(self.project, "tracked.txt", "tracked\n")
+        self.manifests = self.source / ".repo" / "manifests"
+        self.resolved = ("<manifest><remote name='diamaneos' fetch='https://example.invalid/'/>"
+                         "<default remote='diamaneos'/><project name='example' path='device/example' "
+                         f"revision='{revision}' upstream='android17'/></manifest>").encode()
+        fixture_repository(self.manifests, "default.xml", self.resolved.decode())
+        git(self.manifests, "remote", "add", "origin", self.config["manifest"]["url"])
+        git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
+        original = build._run
+
+        def fixture_run(command, cwd=None, env=None, timeout=120):
+            if command[:3] == ["repo", "manifest", "-r"]:
+                return subprocess.CompletedProcess(command, 0, self.resolved, b"")
+            if "verify-tag" in command:
+                return subprocess.CompletedProcess(command, 0, b"", b"Good signature\n")
+            return original(command, cwd=cwd, env=env, timeout=timeout)
+        patcher = mock.patch.object(build, "_run", side_effect=fixture_run)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def verify(self, **kw):
+        return build.verify_branch_checkout(self.config, self.source, **kw)
+
+    def test_clean_checkout_records_the_resolved_manifest(self):
+        path = self.root / "state" / "resolved-manifest.xml"
+        result = self.verify(resolved_path=path)
+        self.assertEqual(self.resolved, path.read_bytes())
+        self.assertEqual(hashlib.sha256(self.resolved).hexdigest(), result["resolved_manifest_sha256"])
+        self.assertEqual(1, result["resolved_project_count"])
+        self.assertEqual(rev(self.manifests), result["manifest_commit"])
+        self.assertEqual("android17", result["manifest_branch"])
+        self.assertTrue(result["source_layout_verified"])
+
+    def test_manifest_checkout_must_follow_the_declared_branch_and_pin(self):
+        git(self.manifests, "commit", "-q", "--allow-empty", "-m", "local")
+        with self.assertRaisesRegex(build.BuildError, "not at android17"):
+            self.verify()
+        git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
+        self.verify()
+        self.config["manifest"]["revision"] = "f" * 40
+        with self.assertRaisesRegex(build.BuildError, "pinned manifest revision"):
+            self.verify()
+        del self.config["manifest"]["revision"]
+        git(self.manifests, "remote", "set-url", "origin", "https://example.invalid/other.git")
+        with self.assertRaisesRegex(build.BuildError, "declared manifest URL"):
+            self.verify()
+
+    def test_dirty_project_undeclared_input_and_local_manifest_fail(self):
+        (self.project / "untracked.txt").write_text("dirty")
+        with self.assertRaisesRegex(build.BuildError, "dirty or untracked"):
+            self.verify()
+        (self.project / "untracked.txt").unlink()
+        rogue = self.source / "device" / "rogue.mk"
+        rogue.write_text("undeclared")
+        with self.assertRaisesRegex(build.BuildError, "undeclared input"):
+            self.verify()
+        rogue.unlink()
+        local = self.source / ".repo" / "local_manifests"
+        local.mkdir()
+        (local / "diamaneos.xml").write_text("<manifest/>")
+        with self.assertRaisesRegex(build.BuildError, "local manifests"):
+            self.verify()
+
+    def test_remote_without_https_fails(self):
+        self.resolved = self.resolved.replace(b"https://example.invalid/", b"git://example.invalid/")
+        with self.assertRaisesRegex(build.BuildError, "without HTTPS"):
+            self.verify()
+
+
 class SourceLayoutTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
