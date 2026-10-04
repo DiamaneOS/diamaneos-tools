@@ -1,0 +1,3 @@
+# Soong and the Android build skip this directory when the tools are checked
+# out inside the source tree (tools/diamaneos); the test fixtures contain
+# Android.bp files that must not become build modules.
