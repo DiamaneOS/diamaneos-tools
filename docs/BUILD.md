@@ -1,8 +1,8 @@
 # Build reference
 
 To build DiamaneOS, follow [BUILDING.md](BUILDING.md). This page explains how
-the build works and why: the build commands and their records, the pinned
-environment, the generated inputs and packaging. It also covers developing the
+the build works and why: the build commands and their records, the manifest
+and the build environment, the generated inputs and packaging. It also covers developing the
 host tools themselves.
 
 The host tools are Python 3 programs and do not require an Android source
@@ -11,22 +11,29 @@ dependencies in `requirements-dev.txt`.
 
 ## The build commands
 
-`diamaneos build all` runs six steps in one workspace directory
-(`~/diamaneos-build`, or `--workspace`, or `DIAMANEOS_WORKSPACE`). Each step
-can also run on its own; it then always runs again, and it refuses to start
-while an earlier step it consumes has not run or is out of date.
+`diamaneos build all` runs five steps in one workspace directory
+(`~/diamaneos-build`, or `--workspace`, or `DIAMANEOS_WORKSPACE`); the source
+is its `src` directory. Each step can also run on its own; it then always runs
+again, and it refuses to start while an earlier step it consumes has not run
+or is out of date.
 
-The environment pins the current development line: the latest pushed
-`android17` commit of every DiamaneOS repository, composed on the signed
-GrapheneOS release. It is not a release and not phone-tested as a whole.
+The build environment ([`config/build-environment-fp6.json`](../config/build-environment-fp6.json))
+names the source: the DiamaneOS manifest
+(`https://github.com/DiamaneOS/platform_manifest.git`) on its `android17`
+branch. That branch selects every project: GrapheneOS and AOSP projects at the
+exact commits of the GrapheneOS release it is based on, Fairphone and
+CodeLinaro projects at exact commits, the DiamaneOS forks and projects at their
+`android17` branches, the kernel prebuilts and the tools. It is the current
+development line, not a release and not phone-tested as a whole. Because the
+branch moves, `build all` starts with `sync` every time; an environment that
+pins one manifest commit (`manifest.revision`) does not.
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
-| `sync` | Downloads GrapheneOS's signer list, runs `repo init` at the signed release tag with the pinned `repo` tool, installs the DiamaneOS manifest overlay at its pinned revision, runs `repo sync` and detaches every DiamaneOS project at its pinned commit. | The signer list hash, the `repo` tool and release tag signatures before any source is fetched, then the full source preflight: the composed project map, clean trees, no undeclared files. Records the project map. |
-| `kernel` | `kernel prepare` (network) and `kernel build` (network off). | Everything `kernel build` checks (source pins, patch diffs, the kernel policy, module placement, the deny list, symbol rules, signatures). Records the kernel run. |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the pinned source; their hashes are recorded in the extraction identity. |
-| `android` | Installs the generated vendor and kernel trees, then `lunch FP6-cur-<variant>` and `m` with network off. | The full preflight before and after the build, including the generated-input descriptor. Records the target-files archive and the build identity. |
-| `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab, the stock FRP image and the stock partition table. |
+| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned), then the full source preflight: every project clean at its resolved commit, no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit and the kernel prebuilts commit. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
+| `android` | Installs the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
+| `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
 
 **State and resume.** Each step writes `state/<step>.json` with the digest of
@@ -39,10 +46,17 @@ starts. A second command on the same workspace fails at once
 (`.workspace.lock`). `--dry-run` prints every command and changes nothing.
 Any failure is recorded in the step's state with a plain message.
 
-**Shallow sync.** `build sync --shallow` fetches only the pinned commits. The
+**Shallow sync.** `build sync --shallow` passes `--depth=1` to `repo init` and
+`-c --no-tags` to `repo sync`, so only the resolved commits are fetched. The
 workspace remembers the choice (`state/shallow`), so a later `build all` stays
 shallow; the tree and its preflight are the same, so the choice is not part of
 the digest.
+
+**Building the kernel.** `build kernel` runs `kernel prepare` (network) and
+`kernel build` (network off) in the workspace's `kernel` directory. It is not
+part of `build all`: the Android build uses the kernel prebuilts the manifest
+selects. Maintainers use it to make a new kernel set and `kernel publish` to
+copy it into the kernel prebuilts repository ([FP6-KERNEL.md](FP6-KERNEL.md)).
 
 **Host check.** Before running, the command checks the host for the steps it
 will run: Linux on x86_64, Python 3.11 with `jsonschema` (vendor generation
@@ -54,8 +68,8 @@ compile steps, unprivileged user namespaces with util-linux 2.38 or newer.
 Differences from the environment's pinned package versions are recorded, not
 fatal.
 
-**Network.** Only `repo`, `git fetch`, the kernel preparation and the two
-downloads use the network. Downloads use HTTPS only, stop at the expected
+**Network.** Only `repo`, `git fetch`, the kernel preparation and the factory
+package download use the network. Downloads use HTTPS only, stop at the expected
 size, and refuse redirects to another host or to plain HTTP. Compilation (the
 kernel, the image tools and Android) runs inside `unshare --user
 --map-current-user --net`, so the build keeps its own user id and has no
@@ -69,10 +83,11 @@ it runs before every compile. Temporary files go to the workspace (`TMPDIR`),
 never to `/tmp`.
 
 **Build identity.** The source identity is a digest of the environment file,
-the source project map, the vendor and kernel inventories, the variant and the
-build parts of `config/fp6-build.json`. `BUILD_NUMBER` is `test.` and its
-first 12 digits; `BUILD_DATETIME` is the newest committer time among the
-pinned sources (the build stops if it cannot read them); `BUILD_USERNAME` and
+the source project map, the resolved manifest's SHA-256, the manifest commit,
+the kernel prebuilts commit, the vendor inventory, the variant and the build
+parts of `config/fp6-build.json`. `BUILD_NUMBER` is `test.` and its first 12
+digits; `BUILD_DATETIME` is the newest committer time among the synced
+projects and the manifest commit (the build stops if it cannot read them); `BUILD_USERNAME` and
 `BUILD_HOSTNAME` are fixed. The image set's build identity adds the build
 number, the network isolation, the tools commit and the target-files hash.
 The image directory is `<date>-<variant>-<build identity>`, and an existing
@@ -81,15 +96,16 @@ identity.
 
 **Generated-input descriptor.** `build inputs` (called by the `android` step)
 writes `.repo/diamaneos-generated-inputs.json`. It binds
-`vendor/fairphone/FP6` and `device/fairphone/FP6-kernel` to the environment
-file's hash, the recipe digests the generations recorded themselves (the
-vendor provenance, and the kernel run's preparation, packaging recipe and
-policy reports) and their complete inventories. Installation and the full
-preflight require those digests to equal this checkout's recipes, and accept
-the two directories only while every file matches its inventory; any other
-file outside the projects still fails the preflight. A tree that no longer
-matches is replaced explicitly (the old one moves to
-`.repo/diamaneos-previous-inputs/`); `sync` moves stale trees aside.
+`vendor/fairphone/FP6` to the environment file's hash, the recipe digests the
+vendor generation recorded in its provenance and its complete inventory.
+Installation and the full preflight require those digests to equal this
+checkout's recipes, and accept the directory only while every file matches its
+inventory; any other file outside the projects still fails the preflight. A
+tree that no longer matches is replaced explicitly (the old one moves to
+`.repo/diamaneos-previous-inputs/`); `sync` moves stale trees aside, and also a
+kernel tree an earlier version of the tools generated at
+`device/fairphone/FP6-kernel`, where the manifest now has the kernel prebuilts
+project.
 
 **Packaging.** The target-files archive is the image authority: its `IMAGES/`
 were made together by the build, so the AVB descriptors match them, and
@@ -118,8 +134,9 @@ with the test key and the published layout (recovery 1, vbmeta_system 2, boot 3,
 init_boot 4, flags 0, pvmfw in vbmeta_system); zero OS fields in the boot-family
 headers with the versions in AVB properties; `super.img` holding exactly the
 logical images; `validate_target_files` and `check_target_files_vintf`; the
-kernel run named in `build.json` in boot, vendor_boot and dtbo; module placement
-and load lists against that run, no denied or unsigned module; every selected
+kernel prebuilts in boot, vendor_boot and dtbo (the `device/fairphone/FP6-kernel`
+checkout, which must be at the commit `build.json` names and unchanged); module
+placement and load lists against those prebuilts, no denied or unsigned module; every selected
 stock file arriving with its generated bytes; no permissive domain beyond the
 variant's; the bootconfig; no pre-trusted adb key; the wipe images. Then every
 rule in `config/fp6-image-checks.json`: the per-build device checks, each with
@@ -133,22 +150,19 @@ and passed. The flash order, slot and wipe images come from
 partition, because a stalled `super` flash may already have written the new
 layout.
 
-**Reproducibility.** The same tools commit gives the same source map,
-generated inputs and source identity. Kernel images and modules differ between
-builds, because each kernel build makes a new module-signing key: the kernel
-embeds its certificate and every module carries a signature, so boot,
-vendor_boot, the DLKM images and the vbmeta images that describe them differ
-too. The other partitions are expected to be identical; a second host's build
+**Reproducibility.** The same resolved manifest gives the same source map,
+generated inputs and source identity, and every image set carries its resolved
+manifest. The kernel, its modules and device trees come prebuilt from the
+manifest, so they are the same on every host. A kernel rebuilt from source
+matches the prebuilts except for the module signatures and the certificate the
+kernel embeds, because each kernel build makes a new module-signing key. The
+partitions are expected to be identical between hosts; a second host's build
 has to show it. A modified tools checkout is recorded as not reproducible.
 
-**Other environments.** `--environment FILE` selects another environment file (a
-copy of the FP6 environment with other resolved commits and project map).
-`--objects-from DIR` adds local commits before checkout: `DIR/objects.json` maps
-project paths, and `manifest` for the overlay, to git bundles in `DIR`. The
-pinned commits and the preflight still decide what is built.
-`DIAMANEOS_BUILD_NUMBER` overrides the build number and
-`DIAMANEOS_KERNEL_REFERENCE` lets `kernel prepare` borrow Git objects from
-another workspace.
+**Other environments.** `--environment FILE` selects another environment file:
+a copy of the FP6 environment with another manifest branch, or with
+`manifest.revision` set to build one manifest commit. `DIAMANEOS_BUILD_NUMBER`
+overrides the build number.
 
 ## Prepare a development checkout
 
@@ -172,9 +186,8 @@ keeping prebuilt alignment and ELF checks enabled.
 The FP6 product environment selects `config/patches-fp6.json` for its Android
 GPT/UFS, boot-control and power adaptations. It records exact upstream/derived
 commits, changed files and canonical full-index diff hashes. The generic
-environment and kernel preparation use `config/patches.json`; advancing an
-Android HAL must not invalidate an unchanged kernel preparation. The
-environment's `project_inputs` identifies its ledger.
+environment uses `config/patches.json`. The environment's `project_inputs`
+identifies its ledger.
 
 The source power HAL dynamically loads the stock performance client. Its
 performance/thermal backend is a separate explicit input family in the component
@@ -185,11 +198,13 @@ policy and device behavior checked separately.
 
 ## Pinned Android environment
 
-The current metadata identity and input pins are recorded in
-[`config/build-environment.json`](../config/build-environment.json). The composed
-FP6 candidate identity and its source, device and generated-input recipe pins are
-recorded in
-[`config/build-environment-fp6.json`](../config/build-environment-fp6.json).
+The generic qualification identity and its input pins are recorded in
+[`config/build-environment.json`](../config/build-environment.json). The FP6
+environment, with its `manifest` (URL, branch and an optional `revision`) and
+its device and generated-input recipe pins, is
+[`config/build-environment-fp6.json`](../config/build-environment-fp6.json); its
+`upstream` record names the GrapheneOS release the manifest is based on and
+pins the `repo` tool.
 Read `environment_id` and the referenced records from the selected configuration;
 these identifiers are build-input identities, not public OS release versions.
 
@@ -219,11 +234,12 @@ by the upstream build guide. This is a declared compatibility deviation.
 
 Full preflight also verifies the gaps between Git projects: undeclared files or
 symlinked source directories cannot supply optional Make includes. Manifest
-`copyfile` contents and `linkfile` targets must match the signed release, and
-the manifest checkout itself must be at that release commit. The declared
-output container and `.repo` metadata are outside this source-layout traversal;
-individual project content is still checked separately with Git. The current
-flat-manifest environment does not permit local-manifest overlays.
+`copyfile` contents and `linkfile` targets must match the manifest (the signed
+release for the generic environment, the resolved manifest for FP6), and the
+manifest checkout itself must be at that release commit or at the head of the
+declared branch. The declared output container and `.repo` metadata are outside
+this source-layout traversal; individual project content is still checked
+separately with Git. No environment permits local manifests.
 
 The portable cold-environment check requires no source tree or private cache:
 
@@ -239,28 +255,32 @@ manifest as pending until the generator has produced and verified it.
 The FP6 preflight also requires the generated-input descriptor described under
 [the build commands](#the-build-commands).
 
-## Downstream manifest overlay
+## The DiamaneOS manifest
 
-The accepted environment initializes the authenticated GrapheneOS release tag
-directly and contains no DiamaneOS overlay projects. The separate
-`platform_manifest` repository is a minimal local-manifest overlay; it does not
-copy the upstream `default.xml` or repeat upstream project revisions.
+[`platform_manifest`](https://github.com/DiamaneOS/platform_manifest) is a full
+`repo` manifest: GrapheneOS's `default.xml` at the release it is based on, with
+the DiamaneOS forks in place of the projects they fork, the Fairphone and
+CodeLinaro projects the FP6 needs, the kernels of other devices left out, and
+two DiamaneOS projects: the kernel prebuilts
+([`device_fairphone_FP6-kernels`](https://github.com/DiamaneOS/device_fairphone_FP6-kernels)
+at `device/fairphone/FP6-kernel`, fetched with `clone-depth="1"`) and these
+tools (`tools/diamaneos`, branch `main`).
 
-An environment that uses the overlay binds the reviewed overlay commit and file
-digest, installs that overlay under `.repo/local_manifests` before `repo sync`,
-and records the new resolved project-map digest; re-run the affected source
-and build qualification. Do not modify an accepted environment in place, add
-empty repositories or use the overlay to freeze revisions already supplied by
-the signed GrapheneOS release.
+GrapheneOS and AOSP projects keep the exact revisions of GrapheneOS's signed
+manifest. Builders trust the DiamaneOS manifest branch; they do not check
+GrapheneOS's tag themselves. The maintainer verifies GrapheneOS's signed
+release tag when merging a GrapheneOS release into the manifest and records
+that in the merge commit. Every build records the resolved manifest, so the
+exact commit of each project is known afterwards.
 
 ## Upstream tracking
 
 [`config/forks.json`](../config/forks.json) lists every upstream the build uses.
-`forks` are the repositories DiamaneOS forks and patches: the manifest overlay
-forks and the kernel forks in `config/patches.json`. A fork exists only where
+`forks` are the repositories DiamaneOS forks and patches: the forks the
+DiamaneOS manifest selects and the kernel forks. A fork exists only where
 DiamaneOS changes the code; each follows the CodeLinaro release branch of the
 selected Qualcomm release. A fork that stops carrying a needed change leaves
-both files, its project is pinned unmodified in the source plan, and
+the registry, the manifest takes the upstream project unmodified, and
 `config/repositories.json` marks it `retired` while it is still published.
 A retired fork may be deleted; its entry then goes, and builds
 whose manifests pinned it can no longer be synced from GitHub (the five kernel forks
@@ -268,7 +288,7 @@ retired on 2026-09-27 were deleted that day). A `follow_note` says why a fork th
 is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
 GrapheneOS release, the repo launcher, Fairphone's source manifest, the
 Qualcomm SELinux policy, the stock factory image and the platform repositories
-the manifest overlay takes straight from CodeLinaro or Fairphone. Each names the file and
+the manifest takes straight from CodeLinaro or Fairphone. Each names the file and
 field that hold its pin, so the registry never repeats a revision. `newer`
 patterns name the branches or tags that would supersede a followed reference,
 such as Fairphone's next `odm/rc/target/<android>/fp6` branch or the next
@@ -285,9 +305,9 @@ answers "is this commit already ours?" locally, without fetching missing
 objects into partial clones. States: `current`, `update-available` (the followed
 branch moved), `newer-release` (a newer branch or tag exists), `pinned-commit`
 (the entry follows no branch or tag yet), `manual-check` (not a Git source) and
-`error`. Adopting any update is a reviewed, signed change: rebase, update the
-pins (`config/patches.json`, the kernel manifest, the build environment), run
-the tests and the kernel layout checks, build, then push.
+`error`. Adopting any update is a reviewed, signed change: rebase, run the
+tests (and for the kernel, the kernel build with its layout checks), build,
+then push the fork branch or update the manifest's pinned revision.
 
 ## Signing handoff
 
@@ -306,8 +326,9 @@ inventory.
 
 ## Generated inputs step by step
 
-The `kernel`, `vendor` and `android` steps run these commands for you. They
-stay available for inspection and for work on a single input.
+The `vendor` and `android` steps run the vendor and input commands for you,
+and the `kernel` step the kernel commands. They stay available for inspection
+and for work on a single input.
 
 These commands reconstruct the selected factory-derived userspace files and
 source-built kernel, modules and device trees. The source repositories contain
@@ -398,21 +419,13 @@ before replacing `current`. Scratch raw images are removed after extraction.
   --workspace "$WORK_ROOT/fp6-kernel" --jobs 16 --timeout 7200
 ```
 
-Preparation uses the source pins in
-[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json), the exact
-downstream revisions/diffs in [`config/patches.json`](../config/patches.json),
-and the declared link adaptations in
-[`config/kernel-workspace-fp6.json`](../config/kernel-workspace-fp6.json). It verifies
-tracked and untracked source inputs and writes a resolved Kleaf manifest. It refuses edited
-sources or occupied unexpected link destinations. The two absent legacy shell
-entrypoints are explicitly excluded; source-directory links using `src="."`
-are preserved.
-
-An optional `--reference /absolute/path/to/existing-kernel-workspace` on
-`kernel prepare` borrows Git objects from another checkout. That source must
-remain available while the new repositories use it. Revision/diff verification
-still runs. It shares no generated kernel output, but is not evidence of an
-independent acquisition or a second builder. Omit it for a standalone checkout.
+Preparation checks out the kernel repository at the commit pinned in
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json), its
+common-kernel submodule at the commit the tree records and the toolchains its
+`prebuilts.json` lists at their revisions (see [FP6-KERNEL.md](FP6-KERNEL.md)).
+It refuses edited sources, untracked inputs and a workspace that holds anything
+else, and writes `preparation.json` and the manifest Kleaf stamps the kernel
+version from.
 
 The build command runs the non-consolidate GKI/vendor targets, strict common KMI
 and explicit common ABI comparison, all queried FP6 external modules (requiring
@@ -429,7 +442,9 @@ configurations must pass the production profile (`kernel-config.json`,
 check to the baseline and does not change the kernel configuration. See
 [FP6-KERNEL.md](FP6-KERNEL.md).
 
-Logs and terminal results are in `fp6-kernel/runs/<run>/`. `current` advances to
+Logs and terminal results are in `fp6-kernel/runs/<run>/`; `kernel publish`
+copies a passed run's `candidate` into a checkout of the kernel prebuilts
+repository ([FP6-KERNEL.md](FP6-KERNEL.md#publish-a-kernel-build)). `current` advances to
 that run's `candidate` only after all steps pass. Failed runs remain available.
 A retry creates a new run and reuses Bazel's completed work; there is no automatic
 retry loop. `--jobs` bounds the requested build parallelism. `--timeout` is a
@@ -449,26 +464,22 @@ sync is running. Then:
 
 ```sh
 "$TOOLS_ROOT/bin/diamaneos" build inputs --source "$SOURCE_ROOT" \
-  --vendor "$WORK_ROOT/vendor-product" --kernel "$WORK_ROOT/fp6-kernel"
+  --vendor "$WORK_ROOT/vendor-product"
 ```
 
-Add `--replace` to move differing installed trees aside instead of refusing
-them. This verifies inventories and installs complete trees at:
-
-- `vendor/fairphone/FP6`
-- `device/fairphone/FP6-kernel`
-
-Manifest synchronization alone does not populate those paths. Installation
-refuses symlink destinations and differing existing content. Each tree is
-published atomically; if interrupted between the two trees, rerun the command.
-It verifies an already installed matching tree and completes the missing one.
-It writes the generated-input descriptor `.repo/diamaneos-generated-inputs.json`
-(see [the build commands](#the-build-commands)), which the full preflight
-checks. Do not hand-edit either generated tree.
+Add `--replace` to move a differing installed tree aside instead of refusing
+it. This verifies the inventory and installs the complete tree at
+`vendor/fairphone/FP6`, which manifest synchronization alone does not
+populate. The kernel at `device/fairphone/FP6-kernel` is a manifest project and
+is not installed. Installation refuses symlink destinations and differing
+existing content and publishes the tree atomically. It writes the
+generated-input descriptor `.repo/diamaneos-generated-inputs.json` (see
+[the build commands](#the-build-commands)), which the full preflight checks. Do
+not hand-edit the generated tree.
 
 The `android` step continues with the Android build, `package` with the image
-set and `verify` with its checks. A prepared kernel or vendor tree alone does
-not authorize flashing.
+set and `verify` with its checks. A generated vendor tree alone does not
+authorize flashing.
 
 ## Stage stock images for vendor discovery
 
@@ -589,41 +600,6 @@ check and reconcile the configured module outputs and both boot/recovery load
 lists. Source-built output still needs symbol, signature, configuration,
 firmware and hardware validation.
 
-## Pinned downstream source composition
-
-An environment may declare an optional `composition` object with the exact
-`overlay_revision`, `overlay_sha256`, `project_count` and `project_map_sha256`.
-The revision records the reviewed manifest repository commit; the content
-hash authenticates the installed `.repo/local_manifests/diamaneos.xml` bytes.
-The map/count describe the entire composed checkout. The `upstream` record
-continues to bind the independently authenticated GrapheneOS release.
-
-HTTPS remotes and explicitly resolved projects are supported. A fork may replace
-exactly one upstream project without root exports, at the same path, using an
-explicit `remove-project` followed by its replacement. A project without root
-exports may also be dropped with a `remove-project` alone when the environment
-lists its path in `removed_projects` (the FP6 line drops the kernels of other
-devices this way). Optional, ambiguous, unmatched, undeclared or incomplete
-removals are rejected. Reviewed project groups are
-preserved; the overlay hash binds this metadata as well as the source choices.
-Development overlays may put an Android branch on the owned remote and let
-projects inherit it. An immutable environment then records `resolved_revisions`,
-a map from each moving project's checkout path to its exact 40-character commit.
-Obtain those commits from the reviewed `repo manifest -r` output; changing a
-resolution requires a new environment identity and composed project-map digest.
-Preflight performs no network resolution and rejects missing, unused or moving
-resolution values. Exact upstream revisions need no redundant map entries.
-Release manifests pin project revisions; development manifests track branches.
-Upstream replacements, nested/overlapping projects, manifest includes,
-copy/link exports in the overlay, extra local manifests and symlinks are
-rejected. Full preflight checks the composed project revisions, clean trees,
-remote definitions and original upstream exports. Environments without this
-object still reject local manifests.
-
-A new composition requires a new environment identity and source qualification.
-Generated hardware inputs must also receive their own declared provenance;
-source composition alone does not accept a device build.
-
 ### Kernel configuration checks
 
 Check the generated kernel `.config` against an explicit policy before packaging:
@@ -713,9 +689,9 @@ does not establish public component acceptance, runtime compatibility or
 permission to flash.
 
 Device policy and hardware setup are source-owned by `device/fairphone/FP6`.
-Matched kernel outputs remain a separate generated input at
-`device/fairphone/FP6-kernel`; source composition must pin that artifact set as
-well as the repositories. Native module and enforcing USER policy checks pass
+The matched kernel, modules and device trees come from the kernel prebuilts
+project at `device/fairphone/FP6-kernel`, which the manifest selects;
+`kernel publish` updates that repository from a kernel build. Native module and enforcing USER policy checks pass
 for the combined candidate. Native boot, vendor_boot, DTBO and both DLKM images have been built and their
 kernel, DT and module payloads checked against the selected inputs. Module bytes
 and load-list order survive packaging, including the 60 signed GKI modules.
@@ -791,8 +767,8 @@ baseline (source-base semantics). It is not the
 identity of the current host or composed product environment.
 `base_project_map_sha256` binds that baseline's project map. Each patch binds
 its workspace, project path, exact base and derived revisions, canonical diff
-and changed-file set. Advancing a host, overlay or product input creates a new
-build environment identity without silently rewriting an accepted environment.
+and changed-file set. Advancing a host or product input creates a new build
+environment identity without silently rewriting an accepted environment.
 
 Freeze these values when selecting a candidate for a recorded build or test.
 Ordinary working edits and documentation changes do not each require another
@@ -802,8 +778,8 @@ snapshot. Keep the previous snapshot accessible through its tools commit. The
 configuration schema version changes only when its structure or meaning changes;
 it is separate from a candidate environment ID and any public OS release version.
 
-A moving development branch in the manifest is resolved to exact commits in the
-consuming build environment. Source composition authenticates the overlay bytes,
-overlay revision and resolved project map, rejects undeclared overlays and
-verifies actual checkout contents. A previous native integration probe is not a
-clean build of a later environment.
+The DiamaneOS projects follow their `android17` branches in the manifest; each
+build resolves them to exact commits and records the resolved manifest with its
+image set. The preflight rejects local manifests and verifies the actual
+checkout contents. A previous native integration probe is not a clean build of
+a later source state.

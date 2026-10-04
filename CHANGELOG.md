@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Build from the DiamaneOS manifest. The FP6 build environment names the full
+  manifest (`platform_manifest`, branch `android17`) instead of an overlay
+  with pinned commits; `build sync` runs `repo init` and `repo sync` on it,
+  checks the tree and records the resolved manifest, and `build all` syncs to
+  the branch head first. The overlay composition code, `--objects-from` and the
+  GrapheneOS signer download in the sync step are gone.
+- Take the kernel from the published kernel prebuilts in the manifest
+  (`device/fairphone/FP6-kernel`). `build all` no longer builds the kernel;
+  `build kernel` stays for maintainers. build.json names the manifest commit,
+  the resolved manifest (copied into the image set) and the kernel prebuilts
+  commit, and `build verify` checks the images against that checkout.
+- Prepare the kernel from the `kernel_qcom-6.1` repository: one pinned commit,
+  its common-kernel submodule and the toolchains in its `prebuilts.json`. The
+  per-project source plan, the kernel patch entries, the workspace link rules
+  and `kernel manifest` are gone. Add `kernel publish`, which copies a kernel
+  build into a checkout of the kernel prebuilts repository with its checks.
+
 - Carry a frameworks/native fork (`84fc898`): a custom sensor whose HAL names
   no permission keeps the Sensors permission, so the FP6's colour sensor can no
   longer be read with the Sensors permission off (-153).

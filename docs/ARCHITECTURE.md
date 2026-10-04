@@ -9,7 +9,7 @@ vendor input; layout and source selection follow integration evidence.
 | Component (repository ID) | Responsible role | Inputs | Owned state | Authority boundary |
 | --- | --- | --- | --- | --- |
 | tools | Host-tooling maintainer | Pinned manifests and immutable inputs | Build workspaces and their bounded records | No signing or release-promotion credentials; destructive recipes remain in the installer/runbook |
-| manifest | Source-integration maintainer | Reviewed upstream manifest and fork pins | Checkout identity at sync | Authenticate upstream; bind downstream composition when present |
+| manifest | Source-integration maintainer | GrapheneOS release manifest, DiamaneOS forks and pinned upstream projects | The DiamaneOS manifest branch | Verify GrapheneOS's signed tag when merging a release; every build records its resolved manifest |
 | device/product | Device-integration maintainer | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
 | vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
 | kernel/modules/dt | Kernel maintainer | Qualcomm CodeLinaro release with GrapheneOS `kernel_common-6.1` merged in; FP6 device trees from Fairphone | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
@@ -24,14 +24,16 @@ feeds builds, release evidence derives from the candidate.
 
 ## Sources and generated vendor content
 
-The accepted build authenticates the upstream release and resolved project map
-directly. The local-manifest repository pins the initial FP6 device and shared
-product projects; environment v4 stays upstream-only, and a consuming
-environment must bind the overlay commit, digest and composed map. Preflight
-supports explicitly declared additive composition while keeping upstream
-signature and source-layout checks. Add repositories or services only when
-needed; remove unused reference dependencies with a recorded rationale and
-regenerate derived content from reviewed inputs.
+The DiamaneOS manifest is GrapheneOS's manifest at the release it is based on,
+with the DiamaneOS forks, the Fairphone and CodeLinaro projects, the kernel
+prebuilts and the tools added and other devices' kernels removed. FP6 builds
+follow its `android17` branch, check the whole tree and record the resolved
+manifest; the generic qualification environment still authenticates the
+GrapheneOS release directly. The kernel sources are one repository
+(`kernel_qcom-6.1`), built separately into the published prebuilts. Add
+repositories or services only when needed; remove unused reference
+dependencies with a recorded rationale and regenerate derived content from
+reviewed inputs.
 
 The FP6 port uses QSSI (Qualcomm's common system side) and the Fairphone target
 tree (device, kernel, modules, vendor side). `config/fp6-sources.json` maps

@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -44,7 +44,8 @@ rules).
    ([details](#call-and-sms-content-subscriber-identity-coarse-location)).
 6. **No USB-C port control** ([details](#locked-device-data-kernel-integrity)).
 7. **Attestation fails** ([details](#hardware-limits-and-evidence)).
-8. **Supply chain:** one-person review; every FP6 build so far compiled with
+8. **Supply chain:** one-person review; builds take the DiamaneOS manifest
+   branch without checking a signature; every FP6 build so far compiled with
    network access on one host; no FP6 release signing; vendor inputs checked
    only against the vendor's own published hash
    ([details](#source-and-build-outputs)).
@@ -824,18 +825,30 @@ entry point), the protections in current builds, what remains, and the status.
 #### Source and build outputs
 
 - **Threat:** compromised upstream host or project, build dependency or build
-  host, via source fetch, prebuilt toolchains, the build account and the image
-  tools built from source.
+  host, via source fetch, prebuilt toolchains, the kernel prebuilts, the build
+  account and the image tools built from source.
 - **Protection:**
-  - Signed GrapheneOS tags checked before sync; immutable commit pins; signed
-    downstream commits (verified before build by the earlier build scripts, not
-    yet by the public build commands); a full source preflight before and after
-    every Android build.
-  - Generated vendor and kernel trees are installed only when the recipe digests
-    their generations recorded (vendor provenance; the kernel run's preparation,
-    packaging recipe and policy reports) equal the checkout's recipes, and the
-    preflight accepts them only while a descriptor binds them to the environment
+  - Builders trust the DiamaneOS manifest branch. It keeps GrapheneOS and AOSP
+    projects at the exact commits of the GrapheneOS release it is based on,
+    whose signed tag the maintainer verifies when merging that release (recorded
+    in the merge commit); Fairphone and CodeLinaro projects are pinned to exact
+    commits; DiamaneOS projects follow their `android17` branches. The pinned
+    `repo` tool's tag signature is checked. Each build records the resolved
+    manifest (every project's commit) in its image set, and a full source
+    preflight (clean projects at their resolved commits, no local manifests,
+    nothing undeclared) runs at sync and before and after every Android build.
+    Downstream commits are signed, but the public build commands do not verify
+    those signatures.
+  - The generated vendor tree is installed only when the recipe digests its
+    generation recorded in its provenance equal the checkout's recipes, and the
+    preflight accepts it only while a descriptor binds it to the environment
     file and those digests and every file matches its inventory.
+  - The kernel, modules and device trees come from the kernel prebuilts the
+    manifest selects; `build verify` checks boot, vendor_boot, dtbo and the
+    module lists against that checkout at the commit `build.json` names.
+    `kernel publish` refuses a kernel build whose files differ from its
+    inventory, that contains private key material or strings naming the build
+    host, or that was built from a modified tools checkout.
   - Network-denied compilation: the public build commands compile in an
     unprivileged network namespace, with agent and bus socket variables removed
     from the compile environment.
@@ -854,14 +867,24 @@ entry point), the protections in current builds, what remains, and the status.
     the user can.
   - Host packages are recorded, not pinned; a build with `--allow-network`
     compiles with network access (recorded for the kernel, vendor and Android
-    steps); the kernel workspace link adaptation is not among the recorded
-    recipe digests; a modified tools checkout is recorded as not reproducible.
-  - The tools checkout is only as trustworthy as the maintainer keys used to
-    check it, which are not published.
+    steps); a modified tools checkout is recorded as not reproducible.
+  - The manifest branch, the DiamaneOS branches it follows and the tools in it
+    (`tools/diamaneos`, branch `main`) are not tagged or signature-checked at
+    build time: a builder takes what the branches hold when it syncs, so a
+    compromised maintainer account or GitHub repository is caught only by
+    review of the recorded resolved manifest. Builders do not re-check
+    GrapheneOS's signed tag; comparing the manifest's GrapheneOS projects with
+    GrapheneOS's signed manifest is a manual step. The maintainer keys that
+    sign the commits are not published.
+  - The kernel prebuilts are binaries a maintainer built and published; a
+    builder checks them against the published commit, not by rebuilding.
+    `kernel build` can rebuild them from `kernel_qcom-6.1` for comparison, but
+    module signatures and the embedded certificate differ per build.
 - **Status:** Observed gap (FP6 path): every FP6 build so far compiled with
   network available, on one host, with the earlier build scripts; no second
-  independent build. Bring-up (not qualified): the public build commands with
-  network-off compilation, the full preflight and bound generated inputs are
+  independent build. Bring-up (not qualified): the public build commands
+  (syncing the DiamaneOS manifest branch, network-off compilation, the full
+  preflight, bound generated inputs and the kernel prebuilts check) are
   implemented and unit-tested, not yet run on a build. Recorded (generic
   target): a network-denied build path. Unverified: reproducible environment.
 
