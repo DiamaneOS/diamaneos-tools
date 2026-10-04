@@ -1,8 +1,13 @@
-"""Prepare and build the pinned FP6 development kernel, modules and device trees."""
+"""Prepare and build the pinned FP6 development kernel, modules and device trees.
+
+The sources are one repository, DiamaneOS/kernel_qcom-6.1, at the commit pinned
+in config/kernel-sources-fp6.json. It holds Qualcomm's kernel workspace layout
+(kernel_platform/, vendor/) with the common kernel as a submodule; the
+toolchains it lists in prebuilts.json are fetched at their pinned revisions.
+"""
 import argparse
 from contextlib import contextmanager
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,8 +17,6 @@ import stat
 import sys
 import tempfile
 import time
-from urllib.parse import urlparse
-from xml.sax.saxutils import quoteattr
 import xml.etree.ElementTree as ET
 
 from . import kernel_layout, process
@@ -21,8 +24,6 @@ from .vendor_extract import sha, relative
 from .vendor import ROOT, load_json, VendorError, encoded
 
 KMI = '--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom'
-# Downstream patch diffs can carry a recorded ABI definition; keep the capture bounded.
-MAX_PATCH_DIFF_BYTES = 64 * 1024 * 1024
 # The GrapheneOS common kernel changes the GKI configuration and does not keep
 # a comparable recorded GKI ABI, so no ABI comparison is run: every module is
 # built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
@@ -30,10 +31,23 @@ CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki', '//msm-kernel:fps_gki
 IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
 # External module targets left out of the build, with the reason. Each must
 # still exist, so a stale entry fails the build instead of hiding a new target.
-# (UBWC-P left with the mm-sys fork: the unforked project has no fps target.)
 EXCLUDED_MODULE_TARGETS = {}
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
 CONFIG_PROFILES = ('production', 'development')
+SOURCE_PLAN = ROOT / 'config/kernel-sources-fp6.json'
+SHA1 = re.compile(r'[0-9a-f]{40}')
+# Files the tools keep in the workspace next to the sources. Git ignores them
+# through the clone's own info/exclude, never through a committed file.
+OWN_FILES = ('.preparation.lock', 'preparation.json', 'resolved-manifest.xml', 'runs', 'current')
+EXCLUDES = ['/' + name + ('/' if name == 'runs' else '') for name in OWN_FILES] + ['/.publish-*']
+# Bazel's convenience links next to its workspace; they point into the build output.
+BAZEL_LINK = re.compile(r'kernel_platform/bazel-[A-Za-z0-9_.-]+')
+# Headers that the core kernel and the vendor kernel tree each carry must stay
+# byte-identical: structures in them cross the Image/module boundary, and a
+# difference can change a RANDSTRUCT layout on one side only.
+SHARED_HEADERS = ({'trees': ('kernel_platform/common', 'kernel_platform/msm-kernel'),
+                   'paths': ('include/drm', 'include/uapi/drm')},)
+FETCH_ATTEMPTS = 4
 
 
 class KernelError(ValueError):
@@ -74,168 +88,243 @@ def git(path, *args):
     return call(['git', '-c', 'core.hooksPath=/dev/null', '-C', path, *args], cwd=path).strip()
 
 
-HUNK_CONTEXT = re.compile(rb'^(@@ -[0-9,]+ \+[0-9,]+ @@).*$', re.M)
-
-
-def canonical_diff(diff):
-    """A patch diff without the function name Git appends to hunk headers. Which
-    name it prints depends on the Git version's diff drivers (the kernel's
-    .gitattributes selects cpp and dts), not on the change itself."""
-    return HUNK_CONTEXT.sub(rb'\1', diff)
+def check_url(url):
+    require(isinstance(url, str) and url.startswith('https://') and len(url) <= 512
+            and not any(c.isspace() for c in url), 'source URL must use HTTPS: ' + str(url))
 
 
 def configuration():
-    plan = load_json(ROOT / 'config/kernel-sources-fp6.json')
-    changes = [p for p in load_json(ROOT / 'config/patches.json')['patches'] if p['workspace'] == 'kernel']
-    adaptation = load_json(ROOT / 'config/kernel-workspace-fp6.json')
-    paths = [p['path'] for p in plan['projects']]
-    require(len(paths) == len(set(paths)), 'duplicate source path')
-    for row in plan['projects']:
-        relative(row['path']); relative(row['project'])
-        require(re.fullmatch('[a-f0-9]{40}', row['revision']), 'invalid source revision')
-    for change in changes:
-        matching = [p for p in plan['projects'] if p['path'] == change['path']]
-        require(len(matching) == 1 and matching[0]['revision'] == change['base_revision'], 'patch base mismatch')
-    return plan, changes, adaptation
+    plan = load_json(SOURCE_PLAN)
+    require(isinstance(plan, dict) and set(plan) == {'repository', 'revision'}, 'invalid kernel source plan')
+    check_url(plan['repository'])
+    require(isinstance(plan['revision'], str) and SHA1.fullmatch(plan['revision']), 'invalid kernel source revision')
+    return plan
 
 
-def sources(root, plan, changes, *, prepare=False, reference=None):
-    expected = {p['path']: dict(p) for p in plan['projects']}
-    patches = {p['path']: p for p in changes}
-    for row in sorted(plan['projects'], key=lambda r: (r['path'].count('/'), r['path'])):
-        dest = root / relative(row['path'])
-        require(dest.resolve().is_relative_to(root.resolve()), 'source path escaped workspace')
-        require(not dest.is_symlink(), 'source directory is a symlink')
-        patch = patches.get(row['path'])
-        revision = patch['derived_revision'] if patch else row['revision']
-        url = patch['repository'] if patch else row.get('url') or plan['source_url'] + row['project']
-        created = prepare and not (dest / '.git').exists()
-        if created:
-            require(not dest.exists() or not any(dest.iterdir()), 'unowned source directory is occupied')
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.mkdir(exist_ok=True)
-            git(dest, 'init', '-q')
-            if reference and (reference / row['path'] / '.git').exists():
-                # Local object reuse is optional; all revisions and patch preimages are still verified.
-                # Link the object store directly: a prepared workspace has only detached checkouts, and
-                # cloning a repository without refs yields an empty clone without shared objects.
-                objects = Path(git(reference / row['path'], 'rev-parse', '--path-format=absolute', '--git-path', 'objects'))
-                require(objects.is_dir(), 'reference object store missing: ' + row['path'])
-                alternates = dest / '.git/objects/info/alternates'
-                alternates.parent.mkdir(parents=True, exist_ok=True)
-                alternates.write_text(str(objects) + '\n')
-                # A reference prepared with depth-1 fetches is shallow; without its list of
-                # cut-off commits, history walks look for parents that were never fetched.
-                shallow = Path(git(reference / row['path'], 'rev-parse', '--path-format=absolute', '--git-path', 'shallow'))
-                if shallow.is_file():
-                    (dest / '.git/shallow').write_bytes(shallow.read_bytes())
-        require((dest / '.git').exists(), 'source project missing: ' + row['path'])
-        require(created or (not git(dest, 'diff', '--name-only') and not git(dest, 'diff', '--cached', '--name-only')),
-                'tracked source changes: ' + row['path'])
-        if prepare:
-            # Fetch missing objects only; never force/reset a caller's edits.
-            for pin in ([row['revision'], revision] if patch else [revision]):
-                found = process.run(['git', '-C', str(dest), 'cat-file', '-e', pin + '^{commit}'], 60, cwd=root)
-                if found['transport'] != 'ok':
-                    call(['git', '-C', dest, 'fetch', '--depth=1', '--no-tags', url, pin], cwd=root, timeout=5400)
-            git(dest, 'checkout', '--detach', revision)
-        require(git(dest, 'rev-parse', 'HEAD') == revision, 'source revision mismatch: ' + row['path'])
-        if patch:
-            diff = process.run(['git', '-C', str(dest), 'diff', '--full-index', '--no-ext-diff', '--no-textconv',
-                                '--no-color', row['revision'], revision], 120, MAX_PATCH_DIFF_BYTES, cwd=root)
-            require(diff['transport'] == 'ok' and
-                    hashlib.sha256(canonical_diff(diff['stdout'])).hexdigest() == patch['canonical_diff_sha256'],
-                    'downstream patch bytes differ')
-            names = git(dest, 'diff', '--name-only', row['revision'], revision).splitlines()
-            if 'changed_files' in patch:
-                require(names == patch['changed_files'], 'downstream patch file set differs')
-            else:
-                # Upstream merges touch thousands of files; bind the list by digest.
-                listed = hashlib.sha256(''.join(n + '\n' for n in names).encode()).hexdigest()
-                require(listed == patch['changed_files_sha256'], 'downstream patch file set differs')
-        # A forked project checks out its derived commit; link exclusions stay keyed
-        # to the upstream revision named in the source plan.
-        expected[row['path']]['base_revision'] = row['revision']
-        expected[row['path']]['revision'] = revision
-    return list(expected.values())
+def has_commit(repository, revision):
+    return process.run(['git', '-C', str(repository), 'cat-file', '-e', revision + '^{commit}'], 60,
+                       cwd=repository)['transport'] == 'ok'
 
 
-def links(root, rows, adaptation):
-    for row in rows:
-        for link in row['linkfiles']:
-            skipped = [e for e in adaptation['excluded_linkfiles'] if
-                       e['project'] == row['project'] and e['revision'] == row.get('base_revision', row['revision']) and
-                       e['src'] == link['src'] and e['dest'] == link['dest']]
-            src = root / row['path'] / (Path('.') if link['src'] == '.' else relative(link['src']))
-            if skipped:
-                require(not src.exists(), 'excluded legacy link source unexpectedly exists')
-                continue
-            link_one(root, src, root / relative(link['dest']))
-    for link in adaptation['generated_links']:
-        link_one(root, root / relative(link['source']), root / relative(link['dest']))
+def fetch(repository, url, revision):
+    """Fetch one exact commit (no history) unless it is already present."""
+    if has_commit(repository, revision):
+        return
+    for attempt in range(FETCH_ATTEMPTS):
+        try:
+            call(['git', '-c', 'http.version=HTTP/1.1', '-c', 'core.hooksPath=/dev/null', '-C', repository,
+                  'fetch', '-q', '--depth=1', '--no-tags', url, revision], cwd=repository, timeout=5400)
+            break
+        except KernelError:
+            if attempt == FETCH_ATTEMPTS - 1:
+                raise
+    require(has_commit(repository, revision), 'fetched source lacks the pinned commit: ' + revision)
 
 
-def link_one(root, source, dest):
-    require(source.exists() and source.resolve().is_relative_to(root.resolve()), 'missing or escaped link source')
-    require(dest.parent.resolve().is_relative_to(root.resolve()), 'link parent escaped workspace')
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    target = os.path.relpath(source, dest.parent)
-    if dest.is_symlink():
-        require(os.readlink(dest) == target, 'existing workspace link differs')
-    else:
-        require(not dest.exists(), 'workspace link destination occupied')
-        dest.symlink_to(target)
+def tracked_changes(repository, submodules=True):
+    ignore = [] if submodules else ['--ignore-submodules=all']
+    return git(repository, 'diff', '--name-only', *ignore) or git(repository, 'diff', '--cached', '--name-only', *ignore)
 
 
-def verify_untracked(root, rows, adaptation):
-    allowed = {r['path'] for r in rows}
-    allowed |= {l['dest'] for r in rows for l in r['linkfiles']}
-    allowed |= {l['dest'] for l in adaptation['generated_links']}
-    for row in rows:
-        for name in git(root / row['path'], 'ls-files', '--others', '--exclude-standard').splitlines():
-            full = row['path'] + '/' + name.rstrip('/')
-            require(any(full == a or full.startswith(a + '/') for a in allowed if a != row['path']),
-                    'untracked source input: ' + full)
+def checkout(repository, url, revision, label):
+    """Bring one repository to an exact commit; never discard a caller's edits."""
+    if not (repository / '.git').exists():
+        require(not repository.exists() or not any(repository.iterdir()), 'unowned directory is occupied: ' + label)
+        repository.mkdir(parents=True, exist_ok=True)
+        git(repository, 'init', '-q')
+    elif has_commit(repository, 'HEAD'):
+        require(not tracked_changes(repository), 'tracked source changes: ' + label)
+    fetch(repository, url, revision)
+    git(repository, 'checkout', '-q', '--detach', revision)
+    require(git(repository, 'rev-parse', 'HEAD') == revision, 'source revision mismatch: ' + label)
 
 
-def shared_headers(root, adaptation):
-    """Headers that the core kernel and the vendor kernel tree each carry must stay
-    byte-identical: structures in them cross the Image/module boundary, and a
-    difference can change a RANDSTRUCT layout on one side only."""
+def checkout_source(root, plan):
+    """The kernel repository itself, checked out in the workspace root."""
+    if not (root / '.git').exists():
+        occupied = sorted(p.name for p in root.iterdir() if p.name not in OWN_FILES)
+        require(not occupied, 'the kernel workspace holds other files (' + ', '.join(occupied[:5]) +
+                '); prepare an empty directory or move them aside')
+        git(root, 'init', '-q')
+        git(root, 'config', 'diamaneos.kernelsource', plan['repository'])
+    require((root / '.git').is_dir() and not (root / '.git').is_symlink(), 'the kernel workspace .git is not a directory')
+    marked = process.run(['git', '-C', str(root), 'config', '--get', 'diamaneos.kernelsource'], 60, cwd=root)
+    shaped = all(process.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:' + name], 60, cwd=root)['transport'] == 'ok'
+                 for name in ('prebuilts.json', 'kernel_platform'))
+    require(marked['transport'] == 'ok' or shaped, 'the workspace is another Git repository, not a kernel source checkout')
+    exclude = root / '.git/info/exclude'
+    exclude.parent.mkdir(exist_ok=True)
+    present = exclude.read_text().splitlines() if exclude.is_file() else []
+    missing = [line for line in EXCLUDES if line not in present]
+    if missing:
+        exclude.write_text('\n'.join(present + missing) + '\n')
+    if has_commit(root, 'HEAD'):
+        require(not tracked_changes(root, submodules=False), 'tracked source changes in the kernel workspace')
+    fetch(root, plan['repository'], plan['revision'])
+    git(root, 'checkout', '-q', '--detach', plan['revision'])
+    require(git(root, 'rev-parse', 'HEAD') == plan['revision'], 'kernel source revision mismatch')
+
+
+def submodule_plan(root):
+    """(path, url, gitlink) for every submodule of the checked-out commit."""
+    gitlinks = {}
+    for line in git(root, 'ls-files', '--stage').splitlines():
+        mode, revision, _stage_path = line.split(' ', 2)
+        if mode == '160000':
+            gitlinks[_stage_path.split('\t', 1)[1]] = revision
+    configured = {}
+    if (root / '.gitmodules').is_file():
+        listing = process.run(['git', '-C', str(root), 'config', '-f', '.gitmodules', '--get-regexp',
+                               r'^submodule\..*\.path$'], 60, cwd=root)
+        for line in listing['stdout'].decode().splitlines() if listing['transport'] == 'ok' else []:
+            key, path = line.split(' ', 1)
+            name = key[len('submodule.'):-len('.path')]
+            configured[path] = git(root, 'config', '-f', '.gitmodules', '--get', 'submodule.' + name + '.url')
+    require(set(configured) == set(gitlinks), 'submodules in .gitmodules and the tree differ')
+    rows = []
+    for path in sorted(gitlinks):
+        relative(path)
+        check_url(configured[path])
+        require(SHA1.fullmatch(gitlinks[path]), 'invalid submodule revision: ' + path)
+        rows.append((path, configured[path], gitlinks[path]))
+    return rows
+
+
+def prebuilt_plan(root):
+    """The toolchains prebuilts.json lists, each at an exact revision."""
+    data = load_json(root / 'prebuilts.json')
+    require(isinstance(data, dict) and set(data) == {'prebuilts'} and isinstance(data['prebuilts'], list)
+            and data['prebuilts'], 'invalid prebuilts.json')
+    rows = []
+    for entry in data['prebuilts']:
+        require(isinstance(entry, dict) and set(entry) == {'path', 'url', 'revision'}, 'invalid prebuilts.json entry')
+        relative(entry['path'])
+        require(entry['path'].startswith('kernel_platform/prebuilts/'), 'prebuilt outside kernel_platform/prebuilts')
+        check_url(entry['url'])
+        require(isinstance(entry['revision'], str) and SHA1.fullmatch(entry['revision']), 'invalid prebuilt revision')
+        rows.append((entry['path'], entry['url'], entry['revision']))
+    paths = [r[0] for r in rows]
+    require(len(paths) == len(set(paths)) and not any(a != b and b.startswith(a + '/') for a in paths for b in paths),
+            'duplicate or nested prebuilt paths')
+    return rows
+
+
+def nested_checkouts(root, rows):
+    result = {}
+    for path, url, revision in rows:
+        dest = root / path
+        for parent in [dest, *dest.parents]:
+            if parent == root:
+                break
+            require(not parent.is_symlink(), 'source directory is a symlink: ' + path)
+        checkout(dest, url, revision, path)
+        result[path] = revision
+    return result
+
+
+def verify_source(root, plan, submodules, prebuilts):
+    """The checkout is exactly the pinned commit, its submodules and toolchains."""
+    require(git(root, 'rev-parse', 'HEAD') == plan['revision'], 'kernel source revision mismatch')
+    status = call(['git', '-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all',
+                   '--ignore-submodules=none'], cwd=root)
+    unexpected = []
+    for entry in filter(None, status.split('\0')):
+        path = entry[3:]
+        if entry.startswith('?? ') and BAZEL_LINK.fullmatch(path) and (root / path).is_symlink():
+            continue
+        unexpected.append(path)
+    require(not unexpected, 'kernel source changes or untracked inputs: ' + ', '.join(unexpected[:10]))
+    require({p: r for p, _, r in submodule_plan(root)} == submodules, 'submodule pins differ from the preparation')
+    for path, revision in submodules.items():
+        require(git(root / path, 'rev-parse', 'HEAD') == revision, 'submodule revision mismatch: ' + path)
+    require({p: r for p, _, r in prebuilt_plan(root)} == prebuilts, 'prebuilt pins differ from the preparation')
+    for path, revision in prebuilts.items():
+        require(git(root / path, 'rev-parse', 'HEAD') == revision, 'prebuilt revision mismatch: ' + path)
+        require(not git(root / path, 'status', '--porcelain=v1', '--untracked-files=all'),
+                'prebuilt has local changes: ' + path)
+        require(process.run(['git', '-C', str(root), 'check-ignore', '-q', path], 60, cwd=root)['transport'] == 'ok',
+                'prebuilt is not ignored by the kernel repository: ' + path)
+
+
+def tree_listing(root, tree, paths):
+    """Mode, object and path (relative to ``tree``) of the committed files under ``paths``."""
+    directory = (root / relative(tree)).resolve()
+    top = Path(git(directory, 'rev-parse', '--show-toplevel')).resolve()
+    prefix = directory.relative_to(top).as_posix()
+    prefix = '' if prefix == '.' else prefix + '/'
+    listing = git(top, 'ls-tree', '-r', '--full-tree', 'HEAD', '--',
+                  *[prefix + relative(p).as_posix() for p in paths])
+    rows = []
+    for line in listing.splitlines():
+        meta, name = line.split('\t', 1)
+        rows.append(meta + '\t' + name[len(prefix):])
+    return rows
+
+
+def shared_headers(root, groups=SHARED_HEADERS):
     checked = 0
-    for group in adaptation.get('shared_headers', []):
+    for group in groups:
         listings = []
         for tree in group['trees']:
-            listing = git(root / relative(tree), 'ls-tree', '-r', '--full-tree', 'HEAD', '--',
-                          *[relative(p).as_posix() for p in group['paths']])
+            listing = tree_listing(root, tree, group['paths'])
             require(listing, 'shared headers missing: ' + tree)
             listings.append(listing)
         require(all(l == listings[0] for l in listings), 'shared headers differ between ' + ' and '.join(group['trees']))
-        checked += len(listings[0].splitlines())
+        checked += len(listings[0])
     return checked
 
 
-def prepare(root, reference=None):
-    plan, changes, adaptation = configuration()
+def kleaf_manifest(plan, submodules):
+    """KLEAF_REPO_MANIFEST: the kernel trees Kleaf stamps with their revisions,
+    with paths relative to kernel_platform (the Bazel workspace)."""
+    manifest = ET.Element('manifest')
+    for path, revision in sorted(submodules.items()):
+        if path.startswith('kernel_platform/'):
+            ET.SubElement(manifest, 'project', name=path, path=os.path.relpath(path, 'kernel_platform'),
+                          revision=revision)
+    ET.SubElement(manifest, 'project', name='kernel_platform/msm-kernel', path='msm-kernel', revision=plan['revision'])
+    return ET.tostring(manifest, encoding='utf-8')
+
+
+def prepare(root):
+    plan = configuration()
     with locked(root):
-        rows = sources(root, plan, changes, prepare=True, reference=reference)
-        links(root, rows, adaptation)
-        verify_untracked(root, rows, adaptation)
-        shared = shared_headers(root, adaptation)
-        manifest = ET.Element('manifest')
-        for row in rows:
-            ET.SubElement(manifest, 'project', name=row['project'], revision=row['revision'],
-                          path=os.path.relpath(root / row['path'], root / 'kernel_platform'))
-        (root / 'resolved-manifest.xml').write_bytes(ET.tostring(manifest, encoding='utf-8'))
-        borrowed_objects = any((root / row['path'] / git(root / row['path'], 'rev-parse', '--git-path', 'objects/info/alternates')).is_file() for row in rows)
-        result = {'status': 'PASS', 'operation': 'kernel-source-preparation', 'project_count': len(rows),
-                  'source_plan_sha256': sha(ROOT / 'config/kernel-sources-fp6.json'),
-                  'patches_sha256': sha(ROOT / 'config/patches.json'),
+        checkout_source(root, plan)
+        submodules = nested_checkouts(root, submodule_plan(root))
+        prebuilts = nested_checkouts(root, prebuilt_plan(root))
+        verify_source(root, plan, submodules, prebuilts)
+        shared = shared_headers(root)
+        (root / 'resolved-manifest.xml').write_bytes(kleaf_manifest(plan, submodules))
+        result = {'status': 'PASS', 'operation': 'kernel-source-preparation',
+                  'repository': plan['repository'], 'source_commit': plan['revision'],
+                  'source_plan_sha256': sha(SOURCE_PLAN), 'submodules': submodules, 'prebuilts': prebuilts,
+                  'prebuilts_sha256': sha(root / 'prebuilts.json'),
                   'resolved_manifest_sha256': sha(root / 'resolved-manifest.xml'),
-                  'shared_headers_checked': shared,
-                  'local_object_reference': borrowed_objects, 'device_commands_executed': 0}
+                  'shared_headers_checked': shared, 'device_commands_executed': 0}
         (root / 'preparation.json').write_bytes(encoded(result))
         return result
+
+
+def prepared(root, plan):
+    """The preparation record, checked against the pin and the checkout."""
+    preparation = load_json(root / 'preparation.json')
+    require(preparation.get('status') == 'PASS' and preparation.get('source_commit') == plan['revision']
+            and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN),
+            'the kernel sources were prepared from another pin; run "diamaneos kernel prepare" again')
+    require(sha(root / 'resolved-manifest.xml') == preparation.get('resolved_manifest_sha256'),
+            'resolved source manifest changed')
+    require(isinstance(preparation.get('submodules'), dict) and isinstance(preparation.get('prebuilts'), dict),
+            'the preparation record is incomplete; run "diamaneos kernel prepare" again')
+    verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
+    return preparation
+
+
+def linux_version(work):
+    """VERSION.PATCHLEVEL.SUBLEVEL of the common kernel."""
+    values = dict(re.findall(r'^(VERSION|PATCHLEVEL|SUBLEVEL) = ([0-9]+)$',
+                             (work / 'common/Makefile').read_text(errors='replace'), re.M))
+    require(set(values) == {'VERSION', 'PATCHLEVEL', 'SUBLEVEL'}, 'common/Makefile names no kernel version')
+    return '.'.join(values[k] for k in ('VERSION', 'PATCHLEVEL', 'SUBLEVEL'))
 
 
 def module_key(name):
@@ -425,26 +514,23 @@ def build(root, jobs, timeout, profile='production'):
                if shutil.which(name) is None]
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
     require(profile in CONFIG_PROFILES, 'unknown kernel configuration profile')
-    plan, changes, adaptation = configuration()
+    plan = configuration()
     recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
     denied = denied_modules(recipe)
     allowlist = import_allowlist(recipe)
     forbidden = forbidden_symbols(recipe)
     with locked(root):
-        rows = sources(root, plan, changes)
-        links(root, rows, adaptation)
-        verify_untracked(root, rows, adaptation)
-        shared_headers(root, adaptation)
-        preparation = load_json(root / 'preparation.json')
-        require(sha(root / 'resolved-manifest.xml') == preparation['resolved_manifest_sha256'], 'resolved source manifest changed')
-        require(preparation['source_plan_sha256'] == sha(ROOT / 'config/kernel-sources-fp6.json') and
-                preparation['patches_sha256'] == sha(ROOT / 'config/patches.json'), 'source preparation uses different recipes')
+        preparation = prepared(root, plan)
+        shared_headers(root)
         work = root / 'kernel_platform'
+        from .product_inputs import tools_identity
         run = root / 'runs' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
         run.mkdir(parents=True)
         result = {'status': 'RUNNING', 'operation': 'kernel-build-and-package', 'commands': [],
                   'device_commands_executed': 0, 'kernel_accepted': False, 'config_profile': profile,
                   'preparation_sha256': sha(root / 'preparation.json'),
+                  'repository': preparation['repository'], 'source_commit': preparation['source_commit'],
+                  'linux_version': linux_version(work), 'tools': tools_identity(),
                   'recipe_sha256': sha(Path(__file__)), 'packaging_recipe_sha256': sha(ROOT / 'config/fp6-kernel-packaging.json')}
         def save():
             temp = run / 'result.tmp'; temp.write_bytes(encoded(result)); temp.replace(run / 'result.json')
@@ -523,11 +609,11 @@ def build(root, jobs, timeout, profile='production'):
             command('dt-environment', ['bash', 'build/build_module.sh', '-j' + str(jobs)], dt_env)
             command('dt-compiler', ['bash', '-e', '-c', 'source build/_setup_env.sh; compile_external_dtc'], dt_env)
             require(sha(output / 'kernel_platform/msm-kernel/.config') == sha(kit / '.config'), 'DT config differs from vendor kernel')
-            dt_rows = [r for r in rows if r['path'].startswith('vendor/') and r['path'].endswith('-devicetree')]
-            require(dt_rows, 'vendor device-tree projects missing')
-            for row in dt_rows:
-                dt_env['EXT_MODULES'] = os.path.relpath(root / row['path'], work)
-                command('dt-' + Path(row['path']).name, ['bash', 'build/build_module.sh', '-j' + str(jobs), 'dtbs'], dt_env)
+            dt_trees = sorted(p for p in root.glob('vendor/*/*/*-devicetree') if p.is_dir() and not p.is_symlink())
+            require(dt_trees, 'vendor device-tree projects missing')
+            for tree in dt_trees:
+                dt_env['EXT_MODULES'] = os.path.relpath(tree, work)
+                command('dt-' + tree.name, ['bash', 'build/build_module.sh', '-j' + str(jobs), 'dtbs'], dt_env)
             dtc = output / 'kernel_platform/external/dtc'
             host = run / 'host'; (host / 'bin').mkdir(parents=True); (host / 'lib').mkdir()
             for name in ('dtc', 'fdtget', 'fdtput', 'fdtoverlay', 'fdtoverlaymerge'):
@@ -601,7 +687,7 @@ def build(root, jobs, timeout, profile='production'):
             system_map = vmlinux.parent / 'System.map'
             require(system_map.is_file(), 'System.map missing next to the packaged kernel')
             check_forbidden_symbols(system_map.read_text(errors='replace'), forbidden)
-            sources(root, plan, changes); verify_untracked(root, rows, adaptation)
+            verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
             for p in candidate.rglob('*'):
                 if p.is_file(): p.chmod(0o640)
             inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
@@ -623,68 +709,11 @@ def build(root, jobs, timeout, profile='production'):
         return result
 
 
-def repo_manifest():
-    """Render the kernel source plan as a repo manifest for kernel_manifest-fp6.
-
-    Patched projects point at the DiamaneOS forks at their derived revisions. The
-    generated workspace links cannot be expressed in a manifest; `kernel prepare`
-    creates them and verifies every revision after `repo sync`.
-    """
-    plan, changes, adaptation = configuration()
-    patches = {p['path']: p for p in changes}
-    remotes = {'fairphone': plan['source_url']}
-
-    def remote(url):
-        parsed = urlparse(url)
-        require(parsed.scheme == 'https', 'unexpected project URL: ' + url)
-        path = parsed.path.strip('/').removesuffix('.git')
-        if parsed.hostname == 'git.codelinaro.org':
-            require(path.startswith('clo/la/'), 'unexpected CodeLinaro project: ' + url)
-            remotes.setdefault('codelinaro', 'https://git.codelinaro.org/clo/la/')
-            return 'codelinaro', path.removeprefix('clo/la/')
-        require(parsed.hostname == 'github.com', 'unexpected project host: ' + url)
-        owner, name = path.split('/')
-        remotes.setdefault(owner.lower(), 'https://github.com/' + owner + '/')
-        return owner.lower(), name
-
-    lines = []
-    for row in plan['projects']:
-        patch = patches.get(row['path'])
-        attrs = [('path', row['path'])]
-        if patch:
-            where, name = remote(patch['repository'])
-            attrs += [('name', name), ('remote', where), ('revision', patch['derived_revision'])]
-        elif 'url' in row:
-            where, name = remote(row['url'])
-            attrs += [('name', name), ('remote', where), ('revision', row['revision'])]
-        else:
-            attrs += [('name', row['project']), ('revision', row['revision'])]
-        kept = [l for l in row['linkfiles'] if not any(
-            e['project'] == row['project'] and e['revision'] == row['revision'] and
-            e['src'] == l['src'] and e['dest'] == l['dest'] for e in adaptation['excluded_linkfiles'])]
-        tag = '  <project ' + ' '.join(k + '=' + quoteattr(v) for k, v in attrs)
-        if not kept:
-            lines.append(tag + ' />')
-            continue
-        lines.append(tag + '>')
-        lines += ['    <linkfile src=' + quoteattr(l['src']) + ' dest=' + quoteattr(l['dest']) + ' />' for l in kept]
-        lines.append('  </project>')
-    head = ['<?xml version="1.0" encoding="UTF-8"?>',
-            '<!-- Generated by DiamaneOS tools (diamaneos kernel manifest) from',
-            '     config/kernel-sources-fp6.json and config/patches.json. Do not edit. -->',
-            '<manifest>']
-    head += ['  <remote name=' + quoteattr(k) + ' fetch=' + quoteattr(v) + ' />' for k, v in remotes.items()]
-    head += ['', '  <default remote="fairphone" sync-j="8" />', '']
-    return ('\n'.join(head + lines + ['</manifest>']) + '\n').encode()
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['prepare', 'build', 'manifest'])
-    parser.add_argument('--workspace', type=Path)
-    parser.add_argument('--output', type=Path, help='manifest: write the repo manifest here')
-    parser.add_argument('--check', type=Path, help='manifest: fail unless this file matches the generated manifest')
-    parser.add_argument('--reference', type=Path, help='optional existing source workspace for Git object reuse only')
+    parser.add_argument('operation', choices=['prepare', 'build'])
+    parser.add_argument('--workspace', type=Path, required=True,
+                        help='kernel source workspace: the kernel repository checkout and its build runs')
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
     parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
@@ -692,33 +721,14 @@ def main(argv=None):
                              'baseline. It does not change the kernel configuration, which comes from '
                              'the pinned defconfig')
     args = parser.parse_args(argv)
-    if args.operation == 'manifest':
-        try:
-            require(args.workspace is None and args.reference is None, 'manifest takes no workspace')
-            require(args.config_profile == 'production', 'config profile is a build option')
-            require((args.output is None) != (args.check is None), 'manifest needs exactly one of --output or --check')
-            rendered = repo_manifest()
-            if args.output:
-                args.output.write_bytes(rendered)
-            else:
-                require(args.check.read_bytes() == rendered, 'kernel manifest differs from the source plan: ' + str(args.check))
-            print(json.dumps({'status': 'PASS', 'operation': 'kernel-manifest', 'sha256': hashlib.sha256(rendered).hexdigest()}, indent=2))
-            return 0
-        except (KernelError, VendorError, OSError, ValueError, KeyError) as exc:
-            print('ERROR: kernel manifest failed: ' + str(exc), file=sys.stderr); return 2
-    if args.workspace is None:
-        parser.error('--workspace is required')
-    if args.output or args.check:
-        parser.error('--output and --check are manifest options')
     try:
         require(1 <= args.jobs <= 64 and 60 <= args.timeout <= 21600, 'invalid build resource limits')
-        require(args.operation == 'prepare' or args.reference is None, 'reference is a preparation option')
         require(args.operation == 'build' or args.config_profile == 'production', 'config profile is a build option')
         with process.interrupt_on_termination():
-            result = (prepare(args.workspace.absolute(), args.reference) if args.operation == 'prepare' else
+            result = (prepare(args.workspace.absolute()) if args.operation == 'prepare' else
                       build(args.workspace.absolute(), args.jobs, args.timeout, args.config_profile))
         print(json.dumps(result, indent=2)); return 0
     except KeyboardInterrupt:
-        print('ERROR: kernel preparation interrupted', file=sys.stderr); return 130
+        print('ERROR: kernel ' + args.operation + ' interrupted', file=sys.stderr); return 130
     except (KernelError, VendorError, OSError, ValueError, KeyError) as exc:
-        print('ERROR: kernel preparation failed: ' + str(exc), file=sys.stderr); return 2
+        print('ERROR: kernel ' + args.operation + ' failed: ' + str(exc), file=sys.stderr); return 2

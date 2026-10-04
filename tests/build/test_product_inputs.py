@@ -29,8 +29,7 @@ class ProductInputTests(unittest.TestCase):
         (self.vendor/'inventories').mkdir();(self.vendor/'inventories'/('a'*64+'.json')).write_text(json.dumps(records))
         (self.vendor/'current').symlink_to('generations/'+'a'*64)
         inventory=ktree.parent/'artifacts.json';inventory.write_text(json.dumps([dict(path='input',**records['input'])]))
-        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':self.recipes['kernel_sources'],
-                                                                 'patches_sha256':self.recipes['kernel_patches']}))
+        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':self.recipes['kernel_sources']}))
         for name in ('kernel-config.json','vendor-kernel-config.json'):
             (ktree.parent/name).write_text(json.dumps({'policy_sha256':self.recipes['kernel_policy']}))
         (ktree.parent/'vendor-role-kernel-config.json').write_text(json.dumps({'status':'PASS','policy_sha256':self.recipes['kernel_vendor_policy']}))
@@ -148,11 +147,11 @@ class ProductInputTests(unittest.TestCase):
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
 
     def test_install_refuses_a_kernel_run_from_another_preparation_or_policy(self):
-        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':'1'*64,'patches_sha256':'2'*64}))
+        (self.kernel/'preparation.json').write_text(json.dumps({'source_plan_sha256':'1'*64}))
         with self.assertRaisesRegex(ValueError,'no longer matches its preparation'):
             self.install()
         self.write_result()
-        with self.assertRaisesRegex(ValueError,'other recipes .kernel_patches, kernel_sources.'):
+        with self.assertRaisesRegex(ValueError,'other recipes .kernel_sources.'):
             self.install()
         self.assertFalse((self.source/'device/fairphone/FP6-kernel').exists())
 

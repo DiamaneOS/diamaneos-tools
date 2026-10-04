@@ -37,8 +37,8 @@ HOST_TOOLS_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_L
 ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNCH" '
                   '&& { [ ! -d "$OUT_DIR/target/product/$DIAMANEOS_PRODUCT" ] || m $DIAMANEOS_JOBS installclean; } '
                   '&& m $DIAMANEOS_JOBS $DIAMANEOS_TARGETS')
-KERNEL_RECIPES = ('kernel-sources-fp6.json', 'patches.json', 'kernel-workspace-fp6.json',
-                  'fp6-kernel-packaging.json', 'kernel-policy-fp6.json')
+KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-packaging.json', 'kernel-policy-fp6.json',
+                  'kernel-vendor-policy-fp6.json')
 KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py')
 VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minimal/vendor-files.json',
                   'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json')
@@ -374,9 +374,6 @@ def plan_kernel(ctx: Context) -> StepPlan:
     ws = ctx.workspace
     inputs = {'recipes': config_hashes(KERNEL_RECIPES), 'code': code_hashes(KERNEL_CODE)}
     prepare = [sys.executable, DIAMANEOS, 'kernel', 'prepare', '--workspace', ws.kernel]
-    reference = os.environ.get('DIAMANEOS_KERNEL_REFERENCE')
-    if reference:
-        prepare += ['--reference', reference]
     actions = [
         Action('Prepare the kernel sources at their pinned revisions', argv=prepare, network=True),
         Action('Build and package the kernel, modules and device trees',

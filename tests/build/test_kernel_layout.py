@@ -94,7 +94,7 @@ class SharedHeaderTests(unittest.TestCase):
             (repo / 'include/drm/mode.h').write_text('struct drm_framebuffer;\n')
             (repo / 'include/other.h').write_text(tree + '\n')
             self.commit(repo)
-        self.adaptation = {'shared_headers': [{'trees': ['common', 'vendor'], 'paths': ['include/drm']}]}
+        self.groups = [{'trees': ['common', 'vendor'], 'paths': ['include/drm']}]
 
     def commit(self, repo):
         run = lambda *a: subprocess.run(['git', '-C', str(repo), *a], check=True, capture_output=True)
@@ -105,31 +105,37 @@ class SharedHeaderTests(unittest.TestCase):
             'commit', '-qm', 'state')
 
     def test_identical_headers_pass_and_other_files_may_differ(self):
-        self.assertEqual(1, kernel.shared_headers(self.root, self.adaptation))
+        self.assertEqual(1, kernel.shared_headers(self.root, self.groups))
 
     def test_drift_is_rejected(self):
         (self.root / 'vendor/include/drm/mode.h').write_text('struct drm_framebuffer;\nstruct drm_file;\n')
         self.commit(self.root / 'vendor')
         with self.assertRaisesRegex(kernel.KernelError, 'shared headers differ between common and vendor'):
-            kernel.shared_headers(self.root, self.adaptation)
+            kernel.shared_headers(self.root, self.groups)
 
     def test_header_only_in_one_tree_is_rejected(self):
         (self.root / 'common/include/drm/extra.h').write_text('\n')
         self.commit(self.root / 'common')
         with self.assertRaisesRegex(kernel.KernelError, 'differ'):
-            kernel.shared_headers(self.root, self.adaptation)
+            kernel.shared_headers(self.root, self.groups)
 
     def test_missing_headers_are_rejected(self):
-        self.adaptation['shared_headers'][0]['paths'] = ['include/absent']
+        self.groups[0]['paths'] = ['include/absent']
         with self.assertRaisesRegex(kernel.KernelError, 'shared headers missing: common'):
-            kernel.shared_headers(self.root, self.adaptation)
+            kernel.shared_headers(self.root, self.groups)
 
     def test_fp6_workspace_checks_the_drm_headers(self):
-        adaptation = kernel.load_json(kernel.ROOT / 'config/kernel-workspace-fp6.json')
-        self.assertEqual([{'trees': ['kernel_platform/common', 'kernel_platform/msm-kernel'],
-                           'paths': ['include/drm', 'include/uapi/drm']}],
-                         [{k: g[k] for k in ('trees', 'paths')} for g in adaptation['shared_headers']])
+        self.assertEqual([{'trees': ('kernel_platform/common', 'kernel_platform/msm-kernel'),
+                           'paths': ('include/drm', 'include/uapi/drm')}], list(kernel.SHARED_HEADERS))
 
+    def test_a_tree_inside_a_larger_repository_is_compared_by_its_own_paths(self):
+        # In the kernel repository msm-kernel is a directory, common a submodule.
+        monorepo = self.root / 'mono'
+        (monorepo / 'kernel/vendor/include/drm').mkdir(parents=True)
+        (monorepo / 'kernel/vendor/include/drm/mode.h').write_text('struct drm_framebuffer;\n')
+        self.commit(monorepo)
+        groups = [{'trees': ['common', 'mono/kernel/vendor'], 'paths': ['include/drm']}]
+        self.assertEqual(1, kernel.shared_headers(self.root, groups))
 
 if __name__ == '__main__':
     unittest.main()

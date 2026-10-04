@@ -111,14 +111,6 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(forked - {'platform_manifest'}, slugs)
         self.assertIn('grapheneos-platform', {s['id'] for s in sources})
 
-    def test_kernel_forks_follow_the_source_plan_upstreams(self):
-        plan = json.loads((ROOT / 'config/kernel-sources-fp6.json').read_text())
-        urls = {p['path']: p.get('url') or plan['source_url'] + p['project'] for p in plan['projects']}
-        for fork in forks.load():
-            if fork.get('workspace') == 'kernel':
-                with self.subTest(fork=fork['id']):
-                    self.assertEqual(urls[fork['path']].removesuffix('.git'), fork['upstream']['url'])
-
     def test_tools_pins_resolve(self):
         _, sources = forks.load_registry()
         for source in sources:

@@ -31,7 +31,7 @@ DESTINATIONS = {'vendor': 'vendor/fairphone/FP6', 'kernel': 'device/fairphone/FP
 # its provenance, the kernel run in its result, preparation and configuration
 # reports. Installation and the preflight require them to equal the recipes
 # in this checkout, so a tree made from other recipes is refused.
-RECIPE_KEYS = ('vendor_files', 'vendor_elf', 'kernel_sources', 'kernel_patches', 'kernel_packaging',
+RECIPE_KEYS = ('vendor_files', 'vendor_elf', 'kernel_sources', 'kernel_packaging',
                'kernel_policy', 'kernel_vendor_policy')
 MAX_DESCRIPTOR_BYTES = 16 * 1024 * 1024
 
@@ -54,7 +54,6 @@ def current_recipes(root=ROOT):
         'vendor_files': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
         'vendor_elf': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
         'kernel_sources': sha(root / 'config/kernel-sources-fp6.json'),
-        'kernel_patches': sha(root / 'config/patches.json'),
         'kernel_packaging': sha(root / 'config/fp6-kernel-packaging.json'),
         'kernel_policy': policy_sha256(json.loads((root / 'config/kernel-policy-fp6.json').read_bytes())),
         'kernel_vendor_policy': policy_sha256(json.loads((root / 'config/kernel-vendor-policy-fp6.json').read_bytes())),
@@ -74,7 +73,7 @@ def generation_recipes(vendor_tree, kernel_root, run_dir):
     vendor_policy = read(run_dir / 'vendor-role-kernel-config.json')
     require(vendor_policy.get('status') == 'PASS', 'vendor IMS ownership configuration was not accepted')
     recipes = {'vendor_files': provenance.get('recipe_sha256'), 'vendor_elf': provenance.get('elf_selection_sha256'),
-               'kernel_sources': preparation.get('source_plan_sha256'), 'kernel_patches': preparation.get('patches_sha256'),
+               'kernel_sources': preparation.get('source_plan_sha256'),
                'kernel_packaging': result.get('packaging_recipe_sha256'), 'kernel_policy': policies.pop(),
                'kernel_vendor_policy': vendor_policy.get('policy_sha256')}
     missing = sorted(k for k, v in recipes.items() if not isinstance(v, str) or not re.fullmatch('[a-f0-9]{64}', v))

@@ -1,5 +1,5 @@
 import copy
-import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -10,138 +10,150 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'src'))
 from diamaneos_tools import kernel
 
 
+def run_git(path, *args):
+    return subprocess.check_output(['git', '-C', str(path), '-c', 'user.name=Fixture', '-c',
+                                    'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false',
+                                    '-c', 'protocol.file.allow=always', *args],
+                                   text=True, stderr=subprocess.PIPE).strip()
+
+
+def repository(path, files):
+    path.mkdir(parents=True)
+    run_git(path, 'init', '-q')
+    for name, text in files.items():
+        (path / name).parent.mkdir(parents=True, exist_ok=True)
+        (path / name).write_text(text)
+    run_git(path, 'add', '-A')
+    run_git(path, 'commit', '-qm', 'fixture')
+    return run_git(path, 'rev-parse', 'HEAD')
+
+
 class KernelPreparationTests(unittest.TestCase):
+    """The kernel repository, its submodule and toolchains, at their exact pins."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        header = 'struct drm_mode_config;\n'
+        self.tool = repository(self.root / 'tool', {'bin/tool': 'tool\n'})
+        self.common = repository(self.root / 'common', {
+            'include/drm/mode.h': header, 'Makefile': 'VERSION = 6\nPATCHLEVEL = 1\nSUBLEVEL = 177\n'})
+        source = self.root / 'source'
+        self.revision = repository(source, {
+            '.gitignore': '/kernel_platform/prebuilts/\n/kernel_platform/out/\n',
+            '.gitmodules': '[submodule "kernel_platform/common"]\n\tpath = kernel_platform/common\n'
+                           '\turl = ' + str(self.root / 'common') + '\n',
+            'prebuilts.json': json.dumps({'prebuilts': [{'path': 'kernel_platform/prebuilts/tool',
+                                                         'url': str(self.root / 'tool'),
+                                                         'revision': self.tool}]}),
+            'kernel_platform/msm-kernel/include/drm/mode.h': header,
+            'vendor/qcom/proprietary/display-devicetree/display.dtsi': '/ {};\n'})
+        (source / 'kernel_platform/common').mkdir()
+        run_git(source, 'update-index', '--add', '--cacheinfo', '160000,' + self.common + ',kernel_platform/common')
+        run_git(source, 'commit', '-qm', 'common')
+        self.revision = run_git(source, 'rev-parse', 'HEAD')
+        self.plan = {'repository': str(source), 'revision': self.revision}
+        self.workspace = self.root / 'workspace'
+
+    def prepare(self):
+        with patch.object(kernel, 'configuration', return_value=self.plan), \
+                patch.object(kernel, 'check_url', lambda url: None):
+            return kernel.prepare(self.workspace)
+
+    def verify(self):
+        preparation = json.loads((self.workspace / 'preparation.json').read_text())
+        with patch.object(kernel, 'check_url', lambda url: None):
+            kernel.verify_source(self.workspace, self.plan, preparation['submodules'], preparation['prebuilts'])
+
+    def test_prepares_the_pinned_commit_submodule_and_toolchains(self):
+        result = self.prepare()
+        self.assertEqual('PASS', result['status'])
+        self.assertEqual(self.revision, result['source_commit'])
+        self.assertEqual({'kernel_platform/common': self.common}, result['submodules'])
+        self.assertEqual({'kernel_platform/prebuilts/tool': self.tool}, result['prebuilts'])
+        self.assertEqual(1, result['shared_headers_checked'])
+        self.assertEqual(self.revision, kernel.git(self.workspace, 'rev-parse', 'HEAD'))
+        self.assertEqual(self.common, kernel.git(self.workspace / 'kernel_platform/common', 'rev-parse', 'HEAD'))
+        self.assertEqual('tool\n', (self.workspace / 'kernel_platform/prebuilts/tool/bin/tool').read_text())
+        manifest = (self.workspace / 'resolved-manifest.xml').read_text()
+        self.assertIn('path="common" revision="' + self.common + '"', manifest)
+        self.assertIn('path="msm-kernel" revision="' + self.revision + '"', manifest)
+        self.assertEqual('6.1.177', kernel.linux_version(self.workspace / 'kernel_platform'))
+        # The tools' own files do not show up as untracked sources.
+        self.assertEqual('', kernel.git(self.workspace, 'status', '--porcelain'))
+        self.assertEqual(result, self.prepare())
+
+    def test_dirty_source_is_preserved_and_refused(self):
+        self.prepare()
+        edited = self.workspace / 'kernel_platform/msm-kernel/include/drm/mode.h'
+        edited.write_text('owner edit\n')
+        self.assertRaisesRegex(kernel.KernelError, 'tracked source changes', self.prepare)
+        self.assertEqual('owner edit\n', edited.read_text())
+
+    def test_untracked_input_is_rejected_but_bazel_links_are_not(self):
+        self.prepare()
+        (self.workspace / 'kernel_platform/bazel-out').symlink_to(self.root)
+        self.verify()
+        (self.workspace / 'vendor/unowned.c').write_text('extra')
+        self.assertRaisesRegex(kernel.KernelError, 'untracked inputs: vendor/unowned.c', self.verify)
+
+    def test_changed_toolchain_or_submodule_is_rejected(self):
+        self.prepare()
+        (self.workspace / 'kernel_platform/prebuilts/tool/bin/tool').write_text('changed\n')
+        self.assertRaisesRegex(kernel.KernelError, 'prebuilt has local changes', self.verify)
+        run_git(self.workspace / 'kernel_platform/prebuilts/tool', 'checkout', '-q', '--', '.')
+        (self.workspace / 'kernel_platform/common/extra.h').write_text('extra')
+        self.assertRaisesRegex(kernel.KernelError, 'kernel_platform/common', self.verify)
+
+    def test_shared_header_drift_is_rejected(self):
+        source = Path(self.plan['repository'])
+        (source / 'kernel_platform/msm-kernel/include/drm/mode.h').write_text('struct other;\n')
+        run_git(source, 'commit', '-qam', 'drift')
+        self.plan['revision'] = run_git(source, 'rev-parse', 'HEAD')
+        self.assertRaisesRegex(kernel.KernelError, 'shared headers differ', self.prepare)
+        self.assertFalse((self.workspace / 'preparation.json').exists())
+
+    def test_unpinned_or_insecure_prebuilts_are_rejected(self):
+        source = Path(self.plan['repository'])
+        for entry in ({'path': 'kernel_platform/prebuilts/tool', 'url': str(self.root / 'tool'), 'revision': 'main'},
+                      {'path': 'elsewhere/tool', 'url': str(self.root / 'tool'), 'revision': self.tool}):
+            with self.subTest(entry=entry):
+                (source / 'prebuilts.json').write_text(json.dumps({'prebuilts': [entry]}))
+                with self.assertRaises(kernel.KernelError):
+                    kernel.prebuilt_plan(source)
+        with self.assertRaisesRegex(kernel.KernelError, 'HTTPS'):
+            kernel.check_url('http://example.invalid/tool')
+
+    def test_old_per_project_workspace_and_other_repositories_are_refused(self):
+        (self.workspace / 'kernel_platform/common').mkdir(parents=True)
+        self.assertRaisesRegex(kernel.KernelError, 'holds other files', self.prepare)
+        other = self.root / 'other'
+        repository(other, {'README': 'not a kernel\n'})
+        self.workspace = other
+        self.assertRaisesRegex(kernel.KernelError, 'another Git repository', self.prepare)
+        self.assertEqual('not a kernel\n', (other / 'README').read_text())
+
+    def test_build_refuses_a_preparation_from_another_pin(self):
+        self.prepare()
+        self.plan['revision'] = '0' * 40
+        with self.assertRaisesRegex(kernel.KernelError, 'another pin'):
+            kernel.prepared(self.workspace, self.plan)
+
+    def test_workspace_symlink_rejected(self):
+        self.workspace.symlink_to(self.root, target_is_directory=True)
+        self.assertRaisesRegex(kernel.KernelError, 'symlink', self.prepare)
+
+    def test_committed_source_plan_names_one_https_commit(self):
+        plan = kernel.configuration()
+        self.assertEqual('https://github.com/DiamaneOS/kernel_qcom-6.1', plan['repository'])
+        self.assertRegex(plan['revision'], '^[0-9a-f]{40}$')
+
     def test_missing_verification_tools_reject_before_workspace_changes(self):
         with patch.dict('os.environ', {'PATH': ''}):
             with self.assertRaisesRegex(kernel.KernelError, 'missing from PATH: modinfo, modprobe'):
                 kernel.build(self.workspace, 1, 60)
         self.assertFalse(self.workspace.exists())
 
-    def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
-        self.root=Path(self.temp.name);self.reference=self.root/'reference';self.repo=self.reference/'kernel_platform/common'
-        self.repo.mkdir(parents=True)
-        self.git('init','-q');self.git('config','user.name','Fixture');self.git('config','user.email','fixture@example.invalid')
-        # Synthetic history must not depend on the host's signing agent.
-        self.git('config','commit.gpgsign','false')
-        (self.repo/'file').write_text('base\n');self.git('add','file');self.git('-c','commit.gpgsign=false','commit','-qm','base')
-        base=self.git('rev-parse','HEAD')
-        (self.repo/'file').write_text('derived\n');self.git('commit','-qam','derived','--no-gpg-sign')
-        revision=self.git('rev-parse','HEAD')
-        diff=kernel.canonical_diff(subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision]))
-        self.plan={'source_url':'https://example.invalid/','projects':[dict(project='kernel/common',path='kernel_platform/common',revision=base,linkfiles=[dict(src='.',dest='kernel_platform/common-link')])]}
-        self.changes=[dict(path='kernel_platform/common',base_revision=base,derived_revision=revision,repository='https://example.invalid/common',canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['file'])]
-        self.adaptation={'excluded_linkfiles':[],'generated_links':[]}
-        self.workspace=self.root/'workspace'
-    def git(self,*args):
-        return subprocess.check_output(['git','-C',str(self.repo),*args],text=True,stderr=subprocess.PIPE).strip()
-    def prepare(self):
-        with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):
-            return kernel.prepare(self.workspace,self.reference)
-    def test_new_shared_clone_and_repeat_with_directory_link(self):
-        result=self.prepare();self.assertEqual('PASS',result['status'])
-        self.assertEqual('derived\n',(self.workspace/'kernel_platform/common/file').read_text())
-        self.assertEqual(self.changes[0]['derived_revision'],kernel.git(self.workspace/'kernel_platform/common','rev-parse','HEAD'))
-        self.assertTrue((self.workspace/'kernel_platform/common-link').is_symlink())
-        self.assertEqual(result,self.prepare())
-    def test_large_downstream_patch_is_verified(self):
-        # A recorded ABI definition makes a patch diff larger than the default capture bound.
-        base=self.changes[0]['base_revision']
-        (self.repo/'abi.stg').write_text('symbol line\n'*60000);self.git('add','abi.stg')
-        self.git('commit','-qm','record abi','--no-gpg-sign');revision=self.git('rev-parse','HEAD')
-        diff=kernel.canonical_diff(subprocess.check_output(['git','-C',str(self.repo),'diff','--full-index',base,revision]))
-        self.assertGreater(len(diff),262144)
-        self.changes[0].update(derived_revision=revision,canonical_diff_sha256=hashlib.sha256(diff).hexdigest(),changed_files=['abi.stg','file'])
-        self.assertEqual('PASS',self.prepare()['status'])
-    def test_canonical_diff_ignores_hunk_function_context(self):
-        # Git versions name the enclosing function differently; the change is the same.
-        a = b'@@ -10,7 +10,8 @@ static int probe(struct device *dev)\n-x\n+y\n'
-        b = b'@@ -10,7 +10,8 @@ struct foo {\n-x\n+y\n'
-        self.assertEqual(kernel.canonical_diff(a), kernel.canonical_diff(b))
-        self.assertEqual(b'@@ -1 +1 @@\n+@@ -2 +2 @@ in content\n',
-                         kernel.canonical_diff(b'@@ -1 +1 @@ ctx\n+@@ -2 +2 @@ in content\n'))
-
-    def test_file_list_bound_by_digest(self):
-        # Upstream merges record a digest of the changed file list instead of the list.
-        del self.changes[0]['changed_files']
-        self.changes[0]['changed_files_sha256'] = hashlib.sha256(b'file\n').hexdigest()
-        self.assertEqual('PASS', self.prepare()['status'])
-    def test_file_list_digest_mismatch_rejected(self):
-        del self.changes[0]['changed_files']
-        self.changes[0]['changed_files_sha256'] = hashlib.sha256(b'other\n').hexdigest()
-        self.assertRaisesRegex(kernel.KernelError, 'file set differs', self.prepare)
-    def test_unpatched_project_fetches_from_its_own_url(self):
-        # A project taken unmodified from another upstream (GrapheneOS common) names its URL.
-        self.plan['projects'][0].update(url=str(self.repo), revision=self.changes[0]['derived_revision'])
-        with patch.object(kernel,'configuration',return_value=(self.plan,[],self.adaptation)):
-            result = kernel.prepare(self.workspace)
-        self.assertEqual('PASS', result['status'])
-        self.assertEqual('derived\n',(self.workspace/'kernel_platform/common/file').read_text())
-    def test_reference_objects_are_shared_from_a_detached_workspace(self):
-        # A reference prepared by tools has no branches, only a detached checkout.
-        self.git('checkout','-q','--detach'); self.git('branch','-D','master' if 'master' in self.git('branch') else 'main')
-        result=self.prepare()
-        self.assertTrue(result['local_object_reference'])
-        alternates=(self.workspace/'kernel_platform/common/.git/objects/info/alternates').read_text()
-        self.assertIn(str(self.repo/'.git/objects'),alternates)
-
-    def test_shallow_reference_keeps_its_shallow_commits(self):
-        # A reference prepared with depth-1 fetches is shallow: its oldest commits name
-        # parents it does not have. The new workspace borrows its objects and must also
-        # know where its history is cut off.
-        self.git('checkout', '-q', '--detach')
-        older = self.repo.parent / 'older'
-        subprocess.check_call(['git', 'init', '-q', str(older)])
-        subprocess.check_call(['git', '-C', str(older), '-c', 'user.name=F', '-c', 'user.email=f@example.invalid',
-                               'commit', '-q', '--allow-empty', '-m', 'older', '--no-gpg-sign'])
-        self.git('fetch', '-q', str(older), 'HEAD')
-        self.git('rebase', '-q', '--onto', 'FETCH_HEAD', '--root', '--committer-date-is-author-date')
-        derived = self.git('rev-parse', 'HEAD'); base = self.git('rev-parse', 'HEAD~1')
-        diff = kernel.canonical_diff(subprocess.check_output(['git', '-C', str(self.repo), 'diff', '--full-index', base, derived]))
-        self.plan['projects'][0]['revision'] = base
-        self.changes[0].update(base_revision=base, derived_revision=derived,
-                               canonical_diff_sha256=hashlib.sha256(diff).hexdigest())
-        shallow_ref = self.root / 'shallow-reference' / 'kernel_platform/common'
-        subprocess.check_call(['git', 'clone', '-q', '--depth=2', 'file://' + str(self.repo), str(shallow_ref)])
-        self.reference = self.root / 'shallow-reference'
-        result = self.prepare()
-        self.assertEqual('PASS', result['status'])
-        self.assertIn(base, (self.workspace / 'kernel_platform/common/.git/shallow').read_text())
-
-    def test_standalone_fetch_without_reference(self):
-        self.changes[0]['repository'] = str(self.repo)
-        with patch.object(kernel,'configuration',return_value=(self.plan,self.changes,self.adaptation)):
-            result = kernel.prepare(self.workspace)
-        self.assertFalse(result['local_object_reference'])
-        self.assertEqual('derived\n',(self.workspace/'kernel_platform/common/file').read_text())
-    def test_dirty_source_preserved(self):
-        self.prepare();p=self.workspace/'kernel_platform/common/file';p.write_text('owner edit\n')
-        self.assertRaisesRegex(kernel.KernelError,'tracked source changes',self.prepare)
-        self.assertEqual('owner edit\n',p.read_text())
-    def test_untracked_source_rejected(self):
-        self.prepare();(self.workspace/'kernel_platform/common/unowned').write_text('extra')
-        self.assertRaisesRegex(kernel.KernelError,'untracked source input',self.prepare)
-    def test_patch_digest_mismatch_rejected(self):
-        self.changes[0]['canonical_diff_sha256']='0'*64
-        self.assertRaisesRegex(kernel.KernelError,'patch bytes',self.prepare)
-        self.assertFalse((self.workspace/'preparation.json').exists())
-    def test_link_escape_and_occupied_destination_rejected(self):
-        self.prepare();p=self.workspace/'kernel_platform/common-link';p.unlink();p.symlink_to(self.root)
-        self.assertRaisesRegex(kernel.KernelError,'link differs',self.prepare)
-    def test_link_exclusion_follows_the_upstream_revision_of_a_fork(self):
-        # The excluded link names the plan (upstream) revision; the workspace holds the fork's commit.
-        self.plan['projects'][0]['linkfiles'].append(dict(src='legacy.sh',dest='kernel_platform/legacy.sh'))
-        self.adaptation['excluded_linkfiles'].append(dict(project='kernel/common',revision=self.changes[0]['base_revision'],
-                                                          src='legacy.sh',dest='kernel_platform/legacy.sh'))
-        self.assertEqual('PASS',self.prepare()['status'])
-        self.assertFalse((self.workspace/'kernel_platform/legacy.sh').exists())
-
-    def test_undeclared_missing_link_rejected(self):
-        self.plan['projects'][0]['linkfiles'].append(dict(src='missing',dest='kernel_platform/missing'))
-        self.assertRaisesRegex(kernel.KernelError,'missing or escaped',self.prepare)
-    def test_workspace_symlink_rejected(self):
-        self.workspace.symlink_to(self.reference,target_is_directory=True)
-        self.assertRaisesRegex(kernel.KernelError,'symlink',self.prepare)
 
 if __name__=='__main__':unittest.main()
 
