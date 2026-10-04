@@ -20,7 +20,6 @@ import subprocess
 import sys
 import urllib.parse
 import urllib.request
-import xml.etree.ElementTree as ET
 
 from . import build, product_inputs
 from . import build_workspace as bw
@@ -146,10 +145,6 @@ def run_git(argv, cwd=None, timeout=3600, check=True):
     if check and result.returncode:
         raise BuildStepError('git ' + ' '.join(map(str, argv[:3])) + ' failed: ' + result.stderr.strip()[-500:])
     return result
-
-
-def has_commit(repository: Path, commit: str) -> bool:
-    return run_git(['-C', repository, 'cat-file', '-e', commit + '^{commit}'], check=False).returncode == 0
 
 
 class SameHostRedirects(urllib.request.HTTPRedirectHandler):
