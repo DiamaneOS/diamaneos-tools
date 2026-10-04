@@ -187,7 +187,8 @@ def plan(ctx):
             if image['kind'] == 'zeros':
                 zeros(state['partial'] / image['image'], image['bytes'])
         vendor = ws.passed('vendor')
-        factory = Path(vendor['outputs'].get('factory_zip', '')) if vendor else None
+        factory_name = vendor['outputs'].get('factory_zip') if vendor else None
+        factory = Path(factory_name) if factory_name else None
         checked = {}
         for name, image in images.items():
             if image.get('partition_label') and factory and factory.is_file():
