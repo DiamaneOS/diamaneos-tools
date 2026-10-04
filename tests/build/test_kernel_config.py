@@ -59,7 +59,8 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
-        good = b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n'
+        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
                         good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y',
@@ -69,6 +70,17 @@ class KernelConfigTests(unittest.TestCase):
                 self.assertEqual(report['status'], 'FAIL')
                 self.assertEqual([row['symbol'] for row in report['failures']],
                                  ['CONFIG_QRTR_IMSDCM_OWNERSHIP'])
+
+    def test_vendor_role_policy_rejects_the_qrtr_tunnel(self):
+        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
+        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
+        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
+        for changed in (good.replace(b'# CONFIG_QRTR_TUN is not set\n', b''),
+                        good.replace(b'# CONFIG_QRTR_TUN is not set', b'CONFIG_QRTR_TUN=m')):
+            with self.subTest(config=changed):
+                report = kernel_config.check(changed, policy, 'production')
+                self.assertEqual([row['symbol'] for row in report['failures']], ['CONFIG_QRTR_TUN'])
 
     def test_runtime_features_and_lockdown_stay_on(self):
         # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
