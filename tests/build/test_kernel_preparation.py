@@ -105,6 +105,19 @@ class KernelPreparationTests(unittest.TestCase):
         (self.workspace / 'kernel_platform/common/extra.h').write_text('extra')
         self.assertRaisesRegex(kernel.KernelError, 'kernel_platform/common', self.verify)
 
+    def test_undeclared_nested_gitlink_stays_empty(self):
+        # edk2 carries its upstream's own submodules; they are not initialised.
+        source = Path(self.plan['repository'])
+        (source / 'kernel_platform/bootable/nested').mkdir(parents=True)
+        run_git(source, 'update-index', '--add', '--cacheinfo', '160000,' + self.tool + ',kernel_platform/bootable/nested')
+        run_git(source, 'commit', '-qm', 'nested')
+        self.plan['revision'] = run_git(source, 'rev-parse', 'HEAD')
+        self.assertEqual({'kernel_platform/common': self.common}, self.prepare()['submodules'])
+        nested = self.workspace / 'kernel_platform/bootable/nested'
+        self.assertEqual([], list(nested.iterdir()))
+        (nested / 'hidden.c').write_text('not seen by git status')
+        self.assertRaisesRegex(kernel.KernelError, 'undeclared submodule directory is not empty', self.verify)
+
     def test_shared_header_drift_is_rejected(self):
         source = Path(self.plan['repository'])
         (source / 'kernel_platform/msm-kernel/include/drm/mode.h').write_text('struct other;\n')
