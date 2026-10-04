@@ -203,6 +203,36 @@
       },
       "minItems": 1
     },
+    "build_properties": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input",
+          "sha256",
+          "bytes"
+        ],
+        "properties": {
+          "input": {
+            "enum": [
+              "vendor/build.prop"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          }
+        }
+      }
+    },
     "symlinks": {
       "type": "array",
       "maxItems": 4096,
@@ -309,5 +339,5 @@
   },
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SelectedStockFiles",
-  "description": "Exact selected regular files, authenticated symlink declarations and original image metadata. Symlinks are retained as metadata, never followed or materialized on the host."
+  "description": "Exact selected regular files, authenticated symlink declarations and original image metadata. Symlinks are retained as metadata, never followed or materialized on the host. Build property files are authenticated and read for their values, never installed."
 }

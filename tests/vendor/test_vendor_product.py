@@ -680,6 +680,65 @@ class NativeProductTests(unittest.TestCase):
     def test_configuration_transform_rejects_unreviewed_bytes(self):
         with self.assertRaises(VendorError): vendor_product.performance_config(b'<PerfConfigsStore/>')
 
+    def test_vendor_patch_level_is_read_strictly_from_the_stock_build_prop(self):
+        import datetime
+        today = datetime.date(2026, 10, 5)
+        prop = (b'# begin common build properties\n#ro.vendor.build.security_patch=2027-01-05\n'
+                b'ro.vendor.build.date.utc=1788145138\nro.vendor.build.security_patch=2026-09-05\n'
+                b'ro.vendor.build.security_patch_extra=2020-01-01\n')
+        self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, '2026-09-28', today))
+        self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, None, today))
+        # The build date may precede the patch level; the release date bounds it.
+        self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, '2026-09-05', today))
+        for data in (b'ro.vendor.build.date.utc=1788145138\n', b'ro.vendor.build.security_patch=\n',
+                     prop + b'ro.vendor.build.security_patch=2026-09-05\n',
+                     b'ro.vendor.build.security_patch=2026-9-05\n', b'ro.vendor.build.security_patch=20260905\n',
+                     b'ro.vendor.build.security_patch=2026-09-05 x\n', b'ro.vendor.build.security_patch=2026-02-30\n',
+                     b'ro.vendor.build.security_patch=2026-13-05\n'):
+            with self.subTest(data=data), self.assertRaises(VendorError):
+                vendor_product.vendor_patch_level(data, '2026-09-28', today)
+        with self.assertRaisesRegex(VendorError, 'release date'):
+            vendor_product.vendor_patch_level(prop, '2026-09-04', today)
+        with self.assertRaisesRegex(VendorError, 'future'):
+            vendor_product.vendor_patch_level(prop, None, datetime.date(2026, 9, 4))
+        for release in ('2026-9-28', '2026-02-30', 28):
+            with self.subTest(release=release), self.assertRaises(VendorError):
+                vendor_product.vendor_patch_level(prop, release, today)
+
+    def test_vendor_patch_level_comes_from_the_authenticated_build_prop(self):
+        import datetime, tempfile
+        today = datetime.date(2026, 10, 5)
+        data = b'ro.vendor.build.id=X\nro.vendor.build.security_patch=2026-09-05\n'
+        with tempfile.TemporaryDirectory() as temporary:
+            inputs, scratch = Path(temporary) / 'inputs', Path(temporary) / 'scratch'
+            (inputs / 'vendor').mkdir(parents=True)
+            scratch.mkdir()
+            (inputs / 'vendor/build.prop').write_bytes(data)
+            recipe = {'build_properties': [{'input': 'vendor/build.prop', 'bytes': len(data),
+                                            'sha256': hashlib.sha256(data).hexdigest()}]}
+            self.assertEqual('2026-09-05', vendor_product.stock_vendor_patch_level(recipe, inputs, scratch, None, today))
+            (inputs / 'vendor/build.prop').write_bytes(data.replace(b'09-05', b'10-05'))
+            with self.assertRaises(VendorError):
+                vendor_product.stock_vendor_patch_level(recipe, inputs, scratch / 'again', None, today)
+            with self.assertRaises(VendorError):
+                vendor_product.stock_vendor_patch_level({}, inputs, scratch / 'none', None, today)
+
+    def test_recipe_pins_the_stock_vendor_build_prop(self):
+        rows = self.recipe['build_properties']
+        self.assertEqual(['vendor/build.prop'], [r['input'] for r in rows])
+        self.assertNotIn('vendor/build.prop', {r['input'] for r in self.recipe['files']})
+        # The generation writes the patch level it read; rendering has none.
+        self.assertNotIn('BoardConfigVendor.mk', self.render())
+        self.assertEqual(b'# ro.vendor.build.security_patch of the stock vendor image (vendor/build.prop).\n'
+                         b'VENDOR_SECURITY_PATCH := 2026-09-05\n', vendor_product.board_config('2026-09-05'))
+        stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
+        inventory = json.loads((ROOT / 'config/stock-inputs.json').read_bytes())
+        release = vendor_product.release_date_of(stock, inventory)
+        archive = next(a for a in inventory['archives'] if a['sha256'] == stock['archive_sha256'])
+        self.assertEqual(archive['release_date'], release)
+        vendor_product.iso_date(release, 'release date')
+        self.assertIsNone(vendor_product.release_date_of(dict(stock, archive_sha256='0' * 64), inventory))
+
     def test_camera_provider_rc_rewrite_is_pinned_to_the_recipe(self):
         path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
         row = next(r for r in self.recipe['files'] if r['path'] == path)

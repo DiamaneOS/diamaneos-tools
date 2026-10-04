@@ -1,6 +1,7 @@
 """Selected-file publication exercises the stock identity check and real filesystem I/O."""
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -76,6 +77,21 @@ class SelectedFilesTests(unittest.TestCase):
             with self.subTest(kind=kind), self.assertRaises(vendor.VendorError):
                 self.generate()
             self.assertEqual(previous, os.readlink(self.output/'current'))
+
+    @unittest.skipUnless(importlib.util.find_spec('jsonschema'), 'the recipe schema check needs jsonschema')
+    def test_build_properties_are_pinned_inputs_not_installed_files(self):
+        data = b'ro.vendor.build.security_patch=2026-09-05\n'
+        row = {'input': 'vendor/build.prop', 'sha256': sha(data), 'bytes': len(data)}
+        stock = self.kwargs['stock']
+        vendor_files.selection(dict(self.recipe, build_properties=[row]), stock)
+        for bad in ([dict(row, input='odm/build.prop')], [dict(row, input=self.path)], [dict(row, bytes=0)],
+                    [row, row], []):
+            with self.subTest(bad=bad), self.assertRaises(vendor.VendorError):
+                vendor_files.selection(dict(self.recipe, build_properties=bad), stock)
+        recipe = copy.deepcopy(self.recipe)
+        recipe['files'][0]['input'] = 'vendor/build.prop'
+        with self.assertRaisesRegex(vendor.VendorError, 'repeated'):
+            vendor_files.selection(dict(recipe, build_properties=[row]), stock)
 
     def test_bad_selection_preserves_previous_tree(self):
         self.generate()

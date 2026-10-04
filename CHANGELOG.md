@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Take the vendor patch level from the stock vendor image. The vendor step
+  reads `ro.vendor.build.security_patch` from the stock `vendor/build.prop`,
+  which `vendor-files.json` pins under `build_properties`, instead of a fixed
+  value. It must be set once, to a real date no later than the factory
+  package's release date; the generation's provenance and the vendor step's
+  state record it.
 - Build from the DiamaneOS manifest. The FP6 build environment names the full
   manifest (`platform_manifest`, branch `android17`) instead of an overlay
   with pinned commits; `build sync` runs `repo init` and `repo sync` on it,

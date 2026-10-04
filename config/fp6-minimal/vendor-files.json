@@ -17535,5 +17535,12 @@
       "sha256": "15c6f74dad3ea934a5f6723dc40198615eb3c5f19024a67614e528ed6e087976",
       "bytes": 139889
     }
+  ],
+  "build_properties": [
+    {
+      "input": "vendor/build.prop",
+      "sha256": "2a45fb64ad11b9362a3939f4d2981706d18e352877a8bd7b33de14445ded318b",
+      "bytes": 15183
+    }
   ]
 }

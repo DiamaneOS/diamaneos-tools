@@ -1,5 +1,6 @@
 """Materialize the reviewed FP6 native Android integration from authenticated files."""
 import argparse
+import datetime
 import fcntl
 import gzip
 import hashlib
@@ -586,9 +587,62 @@ def render(recipe, selection, notice_kind):
                 and not any(p.fullmatch(path) for p in LIB64_DATA)):
             raise VendorError('unclassified Android installation input')
         make += 'PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/' + path.removeprefix('vendor/') + '\n'
-    return {'Android.bp': text.encode(), 'device-vendor.mk': make.encode(),
-            'BoardConfigVendor.mk': b'# Selected stock vendor patch level.\nVENDOR_SECURITY_PATCH := 2026-08-05\n',
-            'modules.json': encoded(names)}
+    return {'Android.bp': text.encode(), 'device-vendor.mk': make.encode(), 'modules.json': encoded(names)}
+
+
+# The vendor patch level is the one the selected stock vendor files were
+# released with: ro.vendor.build.security_patch of the stock vendor/build.prop,
+# which the recipe pins by hash under build_properties.
+VENDOR_BUILD_PROP = 'vendor/build.prop'
+VENDOR_PATCH_PROPERTY = 'ro.vendor.build.security_patch'
+
+
+def iso_date(value, what):
+    """A real calendar date written as YYYY-MM-DD."""
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', value):
+        raise VendorError(what + ' is not a YYYY-MM-DD date')
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        raise VendorError(what + ' is not a real date') from None
+
+
+def vendor_patch_level(data, release_date=None, today=None):
+    """The patch level the stock vendor build.prop sets, checked strictly.
+
+    The property must be set exactly once to a real date. Stock builds are made
+    before the bulletin date they carry (a build of 31 August can carry a
+    5 September patch level), so the bound is the factory package's release
+    date and today, not the build date.
+    """
+    values = []
+    for line in data.decode('latin-1').splitlines():
+        key, separator, value = line.partition('=')
+        if separator and not line.lstrip().startswith('#') and key.strip() == VENDOR_PATCH_PROPERTY:
+            values.append(value.strip())
+    if len(values) != 1:
+        raise VendorError('the stock vendor build.prop must set ' + VENDOR_PATCH_PROPERTY + ' exactly once')
+    patch = iso_date(values[0], 'the stock vendor patch level')
+    if release_date is not None and patch > iso_date(release_date, 'the factory package release date'):
+        raise VendorError(f'the stock vendor patch level {patch} is later than the factory package release date')
+    if patch > (today or datetime.datetime.now(datetime.timezone.utc).date()):
+        raise VendorError(f'the stock vendor patch level {patch} is in the future')
+    return patch.isoformat()
+
+
+def stock_vendor_patch_level(recipe, inputs, scratch, release_date=None, today=None):
+    """Authenticate the pinned stock vendor build.prop and read its patch level."""
+    rows = [r for r in recipe.get('build_properties', []) if r['input'] == VENDOR_BUILD_PROP]
+    if len(rows) != 1:
+        raise VendorError('the selected-file recipe does not pin the stock vendor build.prop')
+    copy = Path(scratch) / 'stock-vendor-build.prop'
+    vendor_files.copy_verified(inputs, rows[0], copy)
+    return vendor_patch_level(copy.read_bytes(), release_date, today)
+
+
+def board_config(patch):
+    return ('# ' + VENDOR_PATCH_PROPERTY + ' of the stock vendor image (' + VENDOR_BUILD_PROP + ').\n'
+            'VENDOR_SECURITY_PATCH := ' + patch + '\n').encode()
 
 
 def performance_config(data):
@@ -850,7 +904,7 @@ def gnss_config(path, data):
         raise VendorError('derived GNSS configuration differs from reviewed result')
     return derived
 
-def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=None):
+def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=None, release_date=None):
     vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
     provenance = {'operation': 'fp6-native-product-generation',
@@ -890,6 +944,9 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
         with tempfile.TemporaryDirectory(prefix='.product-', dir=generations) as temporary:
             tree = Path(temporary) / 'tree'
             tree.mkdir()
+            vendor_patch = stock_vendor_patch_level(recipe, inputs, temporary, release_date)
+            rendered['BoardConfigVendor.mk'] = board_config(vendor_patch)
+            provenance['vendor_security_patch'] = vendor_patch
             for item in recipe.get('symlinks', []):
                 vendor_files.verify_symlink(inputs, item)
             for item in recipe['files']:
@@ -1010,7 +1067,14 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                 link.symlink_to(target)
                 os.replace(link, current)
     return dict(operation='fp6-native-product-generation', status='PASS',
-                generation_sha256=identity, inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(), scope='private-bringup', native_or_device_accepted=False)
+                generation_sha256=identity, inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(),
+                vendor_security_patch=vendor_patch, scope='private-bringup', native_or_device_accepted=False)
+
+
+def release_date_of(stock, inventory):
+    """The release date stock-inputs.json records for the pinned factory package, if any."""
+    matches = [a for a in inventory.get('archives', []) if a.get('sha256') == stock['archive_sha256']]
+    return matches[0].get('release_date') if len(matches) == 1 else None
 
 
 def main(argv=None):
@@ -1023,9 +1087,10 @@ def main(argv=None):
     parser.add_argument('--aapt2', type=Path, help='aapt2 for selected stock carrier data extraction')
     args = parser.parse_args(argv)
     try:
+        stock = safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json')
         result = generate(safe_json.load_json(args.recipe), safe_json.load_json(args.selection),
-            args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2,
-            stock=safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json'))
+            args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2, stock=stock,
+            release_date=release_date_of(stock, safe_json.load_json(ROOT / 'config/stock-inputs.json')))
         print(json.dumps(result, indent=2))
         return 0
     except (ValueError, KeyError, TypeError, OSError, EOFError, safe_json.JsonError):

@@ -135,7 +135,12 @@ def selection(recipe, stock):
         raise VendorError('missing or unused selected-file notice')
     for notice in recipe['notices']:
         safe_path(notice['input'])
-    if sum(i['bytes'] for i in recipe['files'] + recipe['notices']) > MAX_TOTAL_BYTES:
+    # Build property files are read for their values, never installed.
+    for item in recipe.get('build_properties', []):
+        if safe_path(item['input']) in inputs:
+            raise VendorError('repeated selected file or destination')
+        inputs.add(item['input'])
+    if sum(i['bytes'] for i in recipe['files'] + recipe['notices'] + recipe.get('build_properties', [])) > MAX_TOTAL_BYTES:
         raise VendorError('selected files exceed total size bound')
     for item in selected:
         for dependency in item.get('dependencies', []):
