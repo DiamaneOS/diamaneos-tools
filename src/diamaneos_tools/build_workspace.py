@@ -125,7 +125,6 @@ class Workspace:
         self.stock_files = self.stock / 'files'
         self.vendor = self.root / 'vendor'
         self.cache = self.root / 'cache'
-        self.trust = self.cache / 'trust'
         self.logs = self.root / 'logs'
         self.state_dir = self.root / 'state'
         self.work = self.root / 'work'

@@ -97,8 +97,6 @@ def validate_config(config: dict) -> None:
         # tag), optionally pinned to one manifest commit. "upstream" then
         # records the GrapheneOS release the manifest is based on and pins
         # the repo tool.
-        if "composition" in config:
-            raise BuildError("a manifest-mode environment has no overlay composition")
         expected_root.add("manifest")
         manifest = config["manifest"]
         if (not isinstance(manifest, dict) or not {"url", "branch"} <= set(manifest)
@@ -114,46 +112,6 @@ def validate_config(config: dict) -> None:
             raise BuildError("manifest branch is invalid")
         if "revision" in manifest:
             _require_sha(manifest["revision"], "manifest revision", SHA1_RE)
-    if "composition" in config:
-        expected_root.add("composition")
-        composition = config["composition"]
-        composition_keys = {"overlay_sha256", "overlay_revision",
-                            "project_count", "project_map_sha256"}
-        if "resolved_revisions" in composition:
-            composition_keys.add("resolved_revisions")
-            revisions = composition["resolved_revisions"]
-            if not isinstance(revisions, dict) or not revisions:
-                raise BuildError("invalid resolved overlay revisions")
-            for path, revision in revisions.items():
-                if not _source_relative_path(path):
-                    raise BuildError("invalid resolved overlay project path")
-                _require_sha(revision, "resolved overlay revision", SHA1_RE)
-        if "removed_projects" in composition:
-            # Upstream projects the overlay drops without a replacement (kernels
-            # for other devices). Declared here as well as in the overlay so a
-            # fork at the wrong path cannot pass as a removal.
-            composition_keys.add("removed_projects")
-            removed = composition["removed_projects"]
-            if (not isinstance(removed, list) or not removed or removed != sorted(set(removed))
-                    or not all(isinstance(path, str) and _source_relative_path(path) for path in removed)):
-                raise BuildError("invalid removed project list")
-        if "overlay_url" in composition:
-            # Where public builds obtain the overlay repository. The revision
-            # and content hash above still decide what is accepted.
-            composition_keys.add("overlay_url")
-            url = composition["overlay_url"]
-            if (not isinstance(url, str) or not url.startswith("https://")
-                    or len(url) > 512 or any(c.isspace() for c in url)):
-                raise BuildError("overlay URL must use HTTPS")
-        _require_keys(composition, composition_keys, "composition")
-        for key in ("overlay_sha256", "project_map_sha256"):
-            if not isinstance(composition[key], str) or not SHA256_RE.fullmatch(composition[key]):
-                raise BuildError("invalid composition digest")
-        if not isinstance(composition["overlay_revision"], str) or not SHA1_RE.fullmatch(
-                composition["overlay_revision"]):
-            raise BuildError("invalid overlay revision")
-        if type(composition["project_count"]) is not int or composition["project_count"] < 1:
-            raise BuildError("invalid composed project count")
     _require_keys(config, expected_root, "configuration")
     if config["schema_version"] != 1:
         raise BuildError("unsupported build-environment schema version")
@@ -317,10 +275,6 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
     }
     if "manifest" in config:
         identity["source_manifest"] = dict(config["manifest"])
-    if "composition" in config:
-        identity["composed_project_map_sha256"] = config["composition"]["project_map_sha256"]
-        identity["source_overlay_sha256"] = config["composition"]["overlay_sha256"]
-        identity["source_overlay_revision"] = config["composition"]["overlay_revision"]
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     identity["declared_build_identity_sha256"] = sha256_bytes(encoded)
     return identity
@@ -540,149 +494,27 @@ def _source_relative_path(value) -> bool:
             and all(part not in ("", ".", "..") for part in value.split("/")))
 
 
-def compose_source_manifest(config: dict, source: Path, signed_xml: bytes) -> bytes:
-    """Authenticate one additive overlay; upstream replacements need separate review."""
-    directory = source / ".repo/local_manifests"
-    if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
-        raise BuildError("local manifest directory is invalid")
-    entries = sorted(directory.iterdir()) if directory.exists() else []
-    composition = config.get("composition")
-    if composition is None:
-        if entries:
-            raise BuildError("local manifests are not declared by this environment")
-        return signed_xml
-    path = directory / "diamaneos.xml"
-    if entries != [path] or path.is_symlink() or not path.is_file():
-        raise BuildError("expected exactly the declared diamaneos.xml overlay")
-    with path.open("rb") as stream:
-        overlay = stream.read(MAX_MANIFEST_BYTES + 1)
-    if len(overlay) > MAX_MANIFEST_BYTES or sha256_bytes(overlay) != composition["overlay_sha256"]:
-        raise BuildError("declared overlay content mismatch")
-    composed = compose_overlay(signed_xml, overlay, composition.get("resolved_revisions", {}),
-                               composition.get("removed_projects", ()))
-    rows, digest = parse_project_map(composed)
-    if len(rows) != composition["project_count"] or digest != composition["project_map_sha256"]:
-        raise BuildError("composed manifest does not match its declared project map")
-    return composed
-
-
-def compose_overlay(signed_xml: bytes, overlay: bytes, revisions: dict, removed=()) -> bytes:
-    """Apply one reviewed overlay to the signed manifest with exact resolutions.
-
-    Pure function: callers bind the overlay bytes and the resulting project map.
-    """
-    if len(overlay) > MAX_MANIFEST_BYTES:
-        raise BuildError("declared overlay content mismatch")
-    if b"<!DOCTYPE" in overlay.upper() or b"<!ENTITY" in overlay.upper():
-        raise BuildError("overlay declarations are not supported")
-    try:
-        base, addition = ET.fromstring(signed_xml), ET.fromstring(overlay)
-    except ET.ParseError:
-        raise BuildError("source composition is not valid XML") from None
-    if addition.tag != "manifest" or addition.attrib:
-        raise BuildError("invalid overlay root")
-    remotes = {entry.get("name") for entry in base.findall("remote")}
-    paths = {entry.get("path", entry.get("name")) for entry in base.findall("project")}
-    names = {entry.get("name") for entry in base.findall("project")}
-    used_revisions, remote_revisions = set(), {}
-    upstream_projects = tuple(base.findall("project"))
-    removed_paths, added_paths = set(), set()
-    # A replaced upstream project's copy/link files, which its replacement
-    # must reproduce exactly (the signed exports stay bound).
-    removed_exports, added_exports = {}, {}
-
-    def exports_of(project):
-        return [(child.tag, sorted(child.attrib.items())) for child in project]
-    for entry in addition:
-        if entry.tag == "remove-project":
-            # A fork replaces exactly one signed upstream project at the same
-            # path; a declared removal drops one without exports. No
-            # optional/wildcard removal, overlay-on-overlay removal or stale
-            # root exports. The final project map still binds every SHA.
-            matches = [p for p in upstream_projects if p.get("name") == entry.get("name")]
-            if (set(entry.attrib) != {"name"} or len(entry) or len(matches) != 1
-                    or matches[0] not in list(base)
-                    or any(child.tag not in ("copyfile", "linkfile") for child in matches[0])):
-                raise BuildError("replacement must remove one upstream project with at most copy and link files")
-            original = matches[0]
-            removed_exports[original.get("path", original.get("name"))] = exports_of(original)
-            original_path = original.get("path", original.get("name"))
-            base.remove(original)
-            paths.remove(original_path)
-            names.remove(original.get("name"))
-            removed_paths.add(original_path)
-            continue
-        if entry.tag == "remote":
-            if (set(entry.attrib) not in ({"name", "fetch"}, {"name", "fetch", "revision"}) or len(entry)
-                    or not SAFE_ID_RE.fullmatch(entry.get("name", ""))
-                    or not entry.get("fetch", "").startswith("https://")
-                    or entry.get("name") in remotes):
-                raise BuildError("invalid or redefined overlay remote")
-            if "revision" in entry.attrib:
-                if not _source_relative_path(entry.get("revision")):
-                    raise BuildError("invalid remote revision")
-                remote_revisions[entry.get("name")] = entry.get("revision")
-            remotes.add(entry.get("name"))
-        elif entry.tag == "project":
-            attributes = set(entry.attrib) - {"groups"}
-            if attributes not in ({"name", "path", "remote", "revision"},
-                                  {"name", "path", "remote"}):
-                raise BuildError("overlay projects must be explicit and contain no exports")
-            if len(entry) and exports_of(entry) != removed_exports.get(entry.get("path")):
-                raise BuildError("overlay projects may carry only the exact copy and link files "
-                                 "of the upstream project they replace")
-            added_exports[entry.get("path")] = exports_of(entry)
-            if "groups" in entry.attrib and not re.fullmatch(
-                    r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:,[A-Za-z0-9][A-Za-z0-9_.-]*)*",
-                    entry.get("groups", "")):
-                raise BuildError("invalid project groups")
-            name, project_path = entry.get("name"), entry.get("path")
-            revision = entry.get("revision", remote_revisions.get(entry.get("remote"), ""))
-            if not SHA1_RE.fullmatch(revision):
-                if not _source_relative_path(revision) or project_path not in revisions:
-                    raise BuildError("moving overlay revision lacks an exact environment resolution")
-                revision = revisions[project_path]
-                used_revisions.add(project_path)
-            entry.set("revision", revision)
-            if (not _source_relative_path(name) or not _source_relative_path(project_path)
-                    or not SHA1_RE.fullmatch(entry.get("revision", ""))
-                    or entry.get("remote") not in remotes or name in names
-                    or any(project_path == old or project_path.startswith(old + "/")
-                           or old.startswith(project_path + "/") for old in paths)):
-                raise BuildError("invalid, overlapping or replaced overlay project")
-            if project_path.split("/")[0] in (".repo", "out"):
-                raise BuildError("overlay project overlaps metadata or output")
-            paths.add(project_path)
-            names.add(name)
-            added_paths.add(project_path)
-        else:
-            raise BuildError("unsupported source overlay operation")
-        base.append(entry)
-    if removed_paths - added_paths != set(removed):
-        raise BuildError("removed upstream project lacks a same-path replacement or does not match "
-                         "the declared removals")
-    if any(added_exports.get(path, []) != exports for path, exports in removed_exports.items()):
-        raise BuildError("a replaced upstream project's copy and link files must be kept exactly")
-    if used_revisions != set(revisions):
-        raise BuildError("unused resolved overlay revisions")
-    return ET.tostring(base, encoding="utf-8")
-
-
-def verify_source_layout(config: dict, source: Path, rows, signed_xml: bytes,
+def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
                          resolved_xml: bytes, generated=frozenset()) -> None:
     """Reject undeclared inputs outside projects without traversing build output.
 
     Git status covers each project's files. This covers the gaps between those
     projects and authenticates the manifest's copy/link files, which the project
-    commit map alone does not describe. ``generated`` names generated-input
-    trees whose complete contents the caller has already verified against the
-    bound generated-input descriptor; nothing else outside projects is accepted.
+    commit map alone does not describe: ``declared_xml`` is the manifest whose
+    exports are expected (the signed release manifest, or in manifest mode the
+    resolved manifest itself). ``generated`` names generated-input trees whose
+    complete contents the caller has already verified against the bound
+    generated-input descriptor; nothing else outside projects is accepted.
     """
     source = source.resolve(strict=True)
-    signed_xml = compose_source_manifest(config, source, signed_xml)
-    exports = _manifest_exports(signed_xml)
+    directory = source / ".repo/local_manifests"
+    if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
+        raise BuildError("local manifest directory is invalid")
+    if directory.exists() and any(directory.iterdir()):
+        raise BuildError("local manifests are not declared by this environment")
+    exports = _manifest_exports(declared_xml)
     if exports != _manifest_exports(resolved_xml):
-        raise BuildError("resolved manifest exports differ from the signed manifest")
+        raise BuildError("resolved manifest exports differ from the declared manifest")
 
     projects = {row[0] for row in rows}
     if any(not _source_relative_path(path) for path in projects):
@@ -759,20 +591,17 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     manifests = source / ".repo" / "manifests"
     resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
     rows, project_map_sha256 = parse_project_map(resolved)
-    declared = config.get("composition", upstream)
-    # Independently bind the signed base before authenticating its additions.
     base_rows, base_digest = parse_project_map(signed_xml)
     if len(base_rows) != upstream["project_count"] or base_digest != upstream["project_map_sha256"]:
         raise BuildError("signed upstream project map mismatch")
-    composed = compose_source_manifest(config, source, signed_xml)
-    if len(rows) != declared["project_count"]:
+    if len(rows) != upstream["project_count"]:
         raise BuildError("resolved manifest project count mismatch")
-    if project_map_sha256 != declared["project_map_sha256"]:
+    if project_map_sha256 != upstream["project_map_sha256"]:
         raise BuildError("resolved manifest project map mismatch")
     # Remote URLs affect where repo obtains source, even when commit pins match.
     remote_attributes = lambda data: sorted(tuple(sorted(e.attrib.items()))
                                            for e in ET.fromstring(data).findall("remote"))
-    if remote_attributes(composed) != remote_attributes(resolved):
+    if remote_attributes(signed_xml) != remote_attributes(resolved):
         raise BuildError("resolved manifest remotes differ from declared sources")
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     verify_source_layout(config, source, rows, signed_xml, resolved, generated)
