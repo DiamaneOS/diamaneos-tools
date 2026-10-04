@@ -274,7 +274,8 @@ class NativeProductTests(unittest.TestCase):
                      'fp6_stock_vendor_lib64_libssc_default_listener',
                      'fp6_stock_vendor_lib64_libprotobuf-cpp-lite-21.7']:
             self.assertIn(name, modules)
-        # The AOSP multi-HAL, dynamic sub-HAL and sensors interfaces are source-built.
+        # The AOSP multi-HAL and sensors interfaces are source-built; the AOSP
+        # dynamic sub-HAL is neither stock nor loaded (SENSORS_CONFIG_REWRITES).
         for name in ['fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal',
                      'fp6_stock_vendor_lib64_hw_sensors.dynamic_sensor_hal',
                      'fp6_stock_vendor_lib64_android.hardware.sensors@2.1']:
@@ -769,6 +770,24 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(vendor_product.CAMERA_CONFIG_REWRITES[path]['source_sha256'], row['sha256'])
         with self.assertRaises(VendorError):
             vendor_product.camera_config(path, b'service vendor.camera-provider /vendor/bin/hw/x\n')
+
+    def test_sensors_config_loads_only_the_qualcomm_sub_hal(self):
+        # The stock list is just two library names; the dynamic-sensor (HID)
+        # sub-HAL is dropped and the AOSP module is not installed (device.mk).
+        path = 'vendor/etc/sensors/hals.conf'
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        rule = vendor_product.SENSORS_CONFIG_REWRITES[path]
+        self.assertEqual(rule['source_sha256'], row['sha256'])
+        stock = b'sensors.qsh.so\nsensors.dynamic_sensor_hal.so\n'
+        self.assertEqual(rule['source_sha256'], hashlib.sha256(stock).hexdigest())
+        self.assertEqual(b'sensors.qsh.so\n', vendor_product.sensors_config(path, stock))
+        with self.assertRaises(VendorError):
+            vendor_product.sensors_config(path, b'sensors.qsh.so\n')
+        other = b'sensors.qsh.so\nsensors.other.so\nsensors.dynamic_sensor_hal.so\n'
+        patched = dict(rule, source_sha256=hashlib.sha256(other).hexdigest())
+        with mock.patch.dict(vendor_product.SENSORS_CONFIG_REWRITES, {path: patched}):
+            with self.assertRaises(VendorError):
+                vendor_product.sensors_config(path, other)
 
     def test_offline_camera_service_is_linked_but_not_declared(self):
         # The CHI override and libchifeature2 link the offline camera library,

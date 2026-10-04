@@ -850,6 +850,32 @@ def nfc_config(path, data):
     return derived
 
 
+# The stock sensors multi-HAL configuration also loads the AOSP dynamic-sensor
+# sub-HAL, which parses HID sensor descriptors from Bluetooth and USB devices
+# (head trackers). The HAL has no hidraw access, so it cannot serve one; only
+# the Qualcomm sub-HAL is loaded.
+SENSORS_CONFIG_REWRITES = {
+    'vendor/etc/sensors/hals.conf': {
+        'source_sha256': 'bc557b49cb701087efcf16281e9e394c80a11e49693f144e84fed8e74b2f4f9b',
+        'sha256': 'cc212c26215c9a282fc068a481d4f2ed42881f80c721109e731b3c65fcc5a020',
+        'reason': 'Load only the Qualcomm sensors sub-HAL, not the AOSP dynamic-sensor (HID) sub-HAL'},
+}
+
+
+def sensors_config(path, data):
+    """Pinned removal of the dynamic-sensor sub-HAL from the multi-HAL configuration."""
+    rule = SENSORS_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('sensors configuration differs from reviewed EU stock input')
+    derived = b''.join(line for line in data.splitlines(keepends=True)
+                       if line.strip() != b'sensors.dynamic_sensor_hal.so')
+    if [line.strip() for line in derived.splitlines()] != [b'sensors.qsh.so']:
+        raise VendorError('derived sensors configuration loads an unreviewed sub-HAL')
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived sensors configuration differs from reviewed result')
+    return derived
+
+
 GNSS_CONFIG_REWRITES = {
     'vendor/etc/izat.conf': {
         'source_sha256': 'faaf2906fb7520b8c348e4f47e797d4a0b574d332cd647cc0c251a3352352c4f',
@@ -1013,6 +1039,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
             for path, rewrite in NFC_CONFIG_REWRITES.items():
                 config = tree / 'files' / path
                 config.write_bytes(nfc_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in SENSORS_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(sensors_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in GNSS_CONFIG_REWRITES.items():
                 config = tree / 'files' / path

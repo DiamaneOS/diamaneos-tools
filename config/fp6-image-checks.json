@@ -42,6 +42,43 @@
       ]
     },
     {
+      "id": "sensors-qualcomm-sub-hal-only",
+      "why": "The multi-HAL loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/sensors/hals.conf"
+      ],
+      "lines": [
+        "sensors.qsh.so"
+      ],
+      "absent": [
+        "dynamic_sensor"
+      ]
+    },
+    {
+      "id": "no-dynamic-sensor-sub-hal",
+      "why": "The dynamic-sensor sub-HAL and the head-tracker feature are not shipped.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/hw/sensors.dynamic_sensor_hal.so",
+        "VENDOR/etc/permissions/android.hardware.sensor.dynamic.head_tracker.xml"
+      ]
+    },
+    {
+      "id": "no-dynamic-sensor-grants",
+      "why": "The sensors HAL no longer lists /dev or reads the mock dynamic-sensor properties.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "absent": [
+        "(allow hal_sensors_default vendor_dynamic_sensor_prop "
+      ],
+      "absent_regex": [
+        "^\\(allow hal_sensors_default device(_[0-9]+)? \\(dir "
+      ]
+    },
+    {
       "id": "fingerprint-hal",
       "why": "The source fingerprint HAL is installed.",
       "type": "files_present",
