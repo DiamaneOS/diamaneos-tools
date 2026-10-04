@@ -112,7 +112,7 @@
       "why": "Hardware bring-up: Bluetooth, NFC, radio, modem, camera, GNSS, display, haptics and their activation files.",
       "type": "files_present",
       "paths": [
-        "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service-qti",
+        "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
         "VENDOR/bin/hw/android.hardware.nfc-service.sec",
         "VENDOR/bin/hw/qcrilNrd",
         "VENDOR/bin/nicmd",
@@ -903,6 +903,57 @@
         "VENDOR/lib64/libsdm-disp-vndapis.so",
         "VENDOR/lib64/libsnapdragoncolor-manager.so",
         "VENDOR/lib64/libsdm-color.so"
+      ]
+    },
+    {
+      "id": "bluetooth-own-service",
+      "why": "Our Bluetooth service registers the stock HCI implementation; init starts it in the Bluetooth HAL domain.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
+        "VENDOR/lib64/hw/android.hardware.bluetooth@1.1-impl-qti.so",
+        "VENDOR/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so"
+      ]
+    },
+    {
+      "id": "bluetooth-own-service-started",
+      "why": "init starts our service, not the stock one.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.bluetooth.rc"
+      ],
+      "lines": [
+        "service vendor.bluetooth-1-1-fp6 /vendor/bin/hw/android.hardware.bluetooth@1.1-service.fp6"
+      ],
+      "absent": [
+        "/vendor/bin/hw/android.hardware.bluetooth@1.1-service-qti"
+      ]
+    },
+    {
+      "id": "bluetooth-own-service-label",
+      "why": "Our service has the Bluetooth HAL label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/bin/hw/android\\\\\\.hardware\\\\\\.bluetooth@1\\\\\\.1-service\\\\\\.fp6\\s+u:object_r:hal_bluetooth_default_exec:s0$"
+      ]
+    },
+    {
+      "id": "no-bluetooth-value-add",
+      "why": "The stock Bluetooth service and the FM, ANT, SAR, config-store and TPI libraries it linked but never registered stay out.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service-qti",
+        "VENDOR/lib64/vendor.qti.hardware.fm@1.0.so",
+        "VENDOR/lib64/com.dsi.ant@1.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.bluetooth_sar@1.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.bluetooth_sar@1.1.so",
+        "VENDOR/lib64/vendor.qti.hardware.btconfigstore@1.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.btconfigstore@2.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.bttpi-V3-ndk.so",
+        "VENDOR/lib64/hw/vendor.qti.hardware.bttpi-impl.so"
       ]
     },
     {

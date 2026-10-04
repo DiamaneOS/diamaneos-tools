@@ -102,7 +102,7 @@ SOURCE_INTERFACES = {
     # AOSP seccomp helper through which qcrilNrd applies its stock policy.
     'libavservices_minijail',
     # Frozen AOSP Bluetooth HCI HIDL interfaces linked by the stock Qualcomm
-    # Bluetooth service and HCI implementation (device bluetooth/bluetooth.mk).
+    # HCI implementation and the device's own Bluetooth service.
     'android.hardware.bluetooth@1.0',
     'android.hardware.bluetooth@1.1',
     # AOSP NFC interfaces the stock Samsung NFC HAL and its implementation
@@ -175,10 +175,10 @@ ACTIVATION={
                             'vendor.qti.hardware.radio.lpa.xml','vendor.qti.hardware.data.iwlandata.xml')),
  # nicmd configures the rmnet data interfaces for modem data calls.
  'nicmd':('nicmd.rc',None),
- # The Bluetooth HCI service: the device bluetooth/init.fp6.bluetooth.rc starts
- # it without the stock diag and ssgtzd groups, and the device manifest.xml
- # declares android.hardware.bluetooth@1.1::IBluetoothHci/default.
- 'android.hardware.bluetooth@1.1-service-qti':(None,None),
+ # Not selected: the stock Bluetooth HCI service. It links FM, ANT, SAR,
+ # config-store and TPI libraries it never registers here; the device's own
+ # service (bluetooth/service.cpp) registers the stock HCI implementation, a
+ # runtime root, and the device manifest.xml declares IBluetoothHci 1.1.
  # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default); its rc also sets the
  # /dev/sec-nfc owner at boot.
  'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),

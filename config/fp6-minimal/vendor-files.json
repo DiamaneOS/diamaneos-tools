@@ -6151,41 +6151,6 @@
       }
     },
     {
-      "input": "vendor/bin/hw/android.hardware.bluetooth@1.1-service-qti",
-      "path": "vendor/bin/hw/android.hardware.bluetooth@1.1-service-qti",
-      "sha256": "59444e54bcb0c615eb1c6e068eaaed9256d833bb095f3715aa9d6035aafd860a",
-      "bytes": 45280,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [
-        "vendor/lib64/android.hardware.bluetooth@1.0.so",
-        "vendor/lib64/android.hardware.bluetooth@1.1.so",
-        "vendor/lib64/com.dsi.ant@1.0.so",
-        "vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so",
-        "vendor/lib64/hw/android.hardware.bluetooth@1.1-impl-qti.so",
-        "vendor/lib64/hw/vendor.qti.hardware.bttpi-impl.so",
-        "vendor/lib64/libqti_vndfwk_detect_vendor.so",
-        "vendor/lib64/libsoc_helper.so",
-        "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.0.so",
-        "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.1.so",
-        "vendor/lib64/vendor.qti.hardware.btconfigstore@1.0.so",
-        "vendor/lib64/vendor.qti.hardware.btconfigstore@2.0.so",
-        "vendor/lib64/vendor.qti.hardware.bttpi-V3-ndk.so",
-        "vendor/lib64/vendor.qti.hardware.fm@1.0.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock Qualcomm Bluetooth HCI service: registers android.hardware.bluetooth@1.1::IBluetoothHci/default through its passthrough implementation; started by the device bluetooth rc.",
-      "metadata": {
-        "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:hal_bluetooth_default_exec:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/android.hardware.bluetooth@1.0.so",
       "path": "vendor/lib64/android.hardware.bluetooth@1.0.so",
       "sha256": "c947245fc57aaa2dc2d969ad2253d877e10205be12dea1adff11b7404821fe92",
@@ -6274,27 +6239,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock Qualcomm IBluetoothHci 1.1 passthrough implementation over the 1.0 implementation (loaded by the service and linked by it).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.bttpi-V3-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.bttpi-V3-ndk.so",
-      "sha256": "ac33b1f303f6370fe78bca4895459e3bcbdc12d04099163d31dd31d6eb4d26b1",
-      "bytes": 102784,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm TPI AIDL interface library linked by the Bluetooth service; interface only.",
+      "purpose": "Stock Qualcomm IBluetoothHci 1.1 passthrough implementation over the 1.0 implementation; the device Bluetooth service registers it through HIDL passthrough.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -6314,153 +6259,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Qualcomm SoC identification helper linked by the Bluetooth service and HCI implementation (reads ro.vendor.qti.soc_id or /sys/devices/soc0/soc_id).",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.fm@1.0.so",
-      "path": "vendor/lib64/vendor.qti.hardware.fm@1.0.so",
-      "sha256": "945efe2b74f3b54e76f242ba505423485e0ff94dd09153d1b6b89f798fa5c322",
-      "bytes": 168448,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm FM HIDL interface library linked by the service; FM is not registered (ro.vendor.qti.va_odm.support not set) and no FM implementation is installed.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/com.dsi.ant@1.0.so",
-      "path": "vendor/lib64/com.dsi.ant@1.0.so",
-      "sha256": "4c55f8d8dd69cda3bcbe314e58e8d4b7813981153bd34c56b3750faa6500aae5",
-      "bytes": 138704,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "ANT HIDL interface library linked by the service; ANT is not registered (ro.vendor.qti.va_odm.support not set) and no ANT implementation is installed.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.0.so",
-      "path": "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.0.so",
-      "sha256": "a12b1036325470f02d3ea48f138a415b660ce6a702084c3255e578c8097f0c40",
-      "bytes": 108968,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm Bluetooth SAR HIDL interface library linked by the service; its implementation is not installed.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.1.so",
-      "path": "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.1.so",
-      "sha256": "c43dca68d9657034a180aac141ca68f465c2df80103c5b5606590353ac7ae9e5",
-      "bytes": 117984,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [
-        "vendor/lib64/vendor.qti.hardware.bluetooth_sar@1.0.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm Bluetooth SAR HIDL interface library linked by the service; its implementation is not installed.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/hw/vendor.qti.hardware.bttpi-impl.so",
-      "path": "vendor/lib64/hw/vendor.qti.hardware.bttpi-impl.so",
-      "sha256": "6dd66ca734b8e4ab11f7ee5ec0b3dca6da0533e215f07a3565ad0e5c714e31d2",
-      "bytes": 66704,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [
-        "vendor/lib64/android.hardware.bluetooth@1.0.so",
-        "vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so",
-        "vendor/lib64/vendor.qti.hardware.bttpi-V3-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Link-required by the Bluetooth service; the TPI AIDL service is registered only when persist.vendor.qcom.bluetooth.tpi_supported=true, which is not set.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.btconfigstore@1.0.so",
-      "path": "vendor/lib64/vendor.qti.hardware.btconfigstore@1.0.so",
-      "sha256": "793c46425e257103d64c6375abdf976a23fa1118d1fe6f97b75115dba82fc15a",
-      "bytes": 118304,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm Bluetooth config-store HIDL interface library linked by the service; registered only with ro.vendor.qti.va_odm.support, which is not set.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.btconfigstore@2.0.so",
-      "path": "vendor/lib64/vendor.qti.hardware.btconfigstore@2.0.so",
-      "sha256": "476009ede3d14dd701c2c446a88bf4cc6431f8a4455464a17a5f3ac8b98ea19a",
-      "bytes": 127336,
-      "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Qualcomm Bluetooth config-store HIDL interface library linked by the service; registered only with ro.vendor.qti.va_odm.support, which is not set.",
+      "purpose": "Qualcomm SoC identification helper linked by the Bluetooth HCI implementation (reads ro.vendor.qti.soc_id or /sys/devices/soc0/soc_id).",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -6475,12 +6274,12 @@
       "sha256": "0197b7e827e745ba81fc101b1dc4f902bc41ef958e3c3459459ce6234e419258",
       "bytes": 14784,
       "component_id": "connectivity-peripherals",
-      "inventory_ref": "userspace_hal_families:bluetooth",
+      "inventory_ref": "userspace_hal_families:gnss",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Qualcomm framework-type detection linked by the Bluetooth service; reads ro.vendor.qti.va_odm.support and ro.vendor.qti.va_aosp.support to decide whether FM, ANT and config store are registered.",
+      "purpose": "Qualcomm framework-type detection linked by the GNSS service and implementation (reads ro.vendor.qti.va_odm.support and ro.vendor.qti.va_aosp.support).",
       "metadata": {
         "uid": 0,
         "gid": 0,
