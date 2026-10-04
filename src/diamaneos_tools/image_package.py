@@ -224,8 +224,7 @@ def plan(ctx):
         if sync is None:
             raise BuildStepError('the sync step has no passed record; run "diamaneos build sync" again')
         shutil.copy2(state['target_files'], state['partial'] / TARGET_FILES_COPY)
-        resolved = ws.state_dir / MANIFEST_COPY
-        shutil.copyfile(resolved, state['partial'] / MANIFEST_COPY)
+        shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
         tools = product_inputs.tools_identity()
