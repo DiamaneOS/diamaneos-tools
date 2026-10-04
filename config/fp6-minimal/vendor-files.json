@@ -54,30 +54,6 @@
       }
     },
     {
-      "input": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "path": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "sha256": "47562a76cda99fbb6c6f0c93ccca0d3b191110ade8ec76cae7c985d32dad45a3",
-      "bytes": 37648,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [
-        "vendor/lib64/libsdm-disp-vndapis.so",
-        "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-        "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:vendor_hal_display_color_default_exec:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
       "path": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
       "sha256": "be9aec7f8558c7947db9a95ae7c82176f286dc675c70e1e5c465c25396db52bc",
@@ -299,26 +275,6 @@
       "bytes": 410,
       "component_id": "credentials-security",
       "inventory_ref": "userspace_hal_families:gatekeeper-keymint-secureprocessor",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/init/vendor.qti.hardware.display.color-service.rc",
-      "path": "vendor/etc/init/vendor.qti.hardware.display.color-service.rc",
-      "sha256": "d59294d8b2deb4266d7cf6531f21b731edd9dfe1e875688acbd49f6078f87ce9",
-      "bytes": 469,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -1927,26 +1883,6 @@
       }
     },
     {
-      "input": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "sha256": "6cb9d0910b70f8d573406d884d3c155316fff4a624fa2eb4c1e52a62bd81c281",
-      "bytes": 59048,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/vendor.qti.hardware.display.composer3-V1-ndk.so",
       "path": "vendor/lib64/vendor.qti.hardware.display.composer3-V1-ndk.so",
       "sha256": "b74186edc1a4060ae9c67ca46a33fe0f522803bc90659899b8aa97920b3c233a",
@@ -2180,26 +2116,6 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "sha256": "00105566c869adf66c6036f466731864b1cd92ffbdea43daf2eeb6b808a1bace",
-      "bytes": 37864,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     },

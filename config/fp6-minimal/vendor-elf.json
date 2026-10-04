@@ -41,11 +41,6 @@
       "bytes": 36968
     },
     {
-      "path": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "sha256": "47562a76cda99fbb6c6f0c93ccca0d3b191110ade8ec76cae7c985d32dad45a3",
-      "bytes": 37648
-    },
-    {
       "path": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
       "sha256": "be9aec7f8558c7947db9a95ae7c82176f286dc675c70e1e5c465c25396db52bc",
       "bytes": 24928
@@ -2256,11 +2251,6 @@
       "bytes": 127632
     },
     {
-      "path": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "sha256": "6cb9d0910b70f8d573406d884d3c155316fff4a624fa2eb4c1e52a62bd81c281",
-      "bytes": 59048
-    },
-    {
       "path": "vendor/lib64/vendor.qti.hardware.display.composer3-V1-ndk.so",
       "sha256": "b74186edc1a4060ae9c67ca46a33fe0f522803bc90659899b8aa97920b3c233a",
       "bytes": 72560
@@ -2319,11 +2309,6 @@
       "path": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.3.so",
       "sha256": "4fef8c55c031ac3b26a0acce4191fd08b84fe56c785155b4496570650bd3625a",
       "bytes": 183440
-    },
-    {
-      "path": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "sha256": "00105566c869adf66c6036f466731864b1cd92ffbdea43daf2eeb6b808a1bace",
-      "bytes": 37864
     },
     {
       "path": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
@@ -3983,104 +3968,6 @@
       "needed": "sensors.vl53l1.so",
       "kind": "selected-stock-runtime",
       "provider": "vendor/lib64/hw/sensors.vl53l1.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libbinder.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libsdm-disp-vndapis.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libsdm-disp-vndapis.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "vendor.qti.hardware.display.color-V1-ndk.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.hardware.display.color-service",
-      "needed": "vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so"
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
@@ -46537,46 +46424,6 @@
       ]
     },
     {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/lib64/vendor.qti.hardware.display.composer3-V1-ndk.so",
       "needed": "android.hardware.graphics.composer3-V2-ndk.so",
       "kind": "selected-stock",
@@ -47411,46 +47258,6 @@
       "needed": "vendor.qti.hardware.display.mapperextensions@1.2.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.2.so"
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "needed": "libbinder_ndk.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
     },
     {
       "consumer": "vendor/lib64/vendor.qti.hardware.dsp@1.0.so",
@@ -48327,7 +48134,6 @@
     "vendor/lib64/hw/libfingerprint.default.so",
     "vendor/bin/hw/android.hardware.gatekeeper-service-qti",
     "vendor/bin/hw/android.hardware.security.keymint-service-qti",
-    "vendor/bin/hw/vendor.qti.hardware.display.color-service",
     "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
     "vendor/bin/hw/vendor.qti.hardware.perf2-hal-service",
     "vendor/bin/pd-mapper",

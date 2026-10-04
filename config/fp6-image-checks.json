@@ -874,6 +874,38 @@
       ]
     },
     {
+      "id": "no-display-colour-service",
+      "why": "The stock display colour service has no client in this build; platform apps could start it.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/bin/hw/vendor.qti.hardware.display.color-service",
+        "VENDOR/etc/init/vendor.qti.hardware.display.color-service.rc"
+      ]
+    },
+    {
+      "id": "no-display-colour-server",
+      "why": "No init service offers the colour or post-processing interfaces, so nothing can start a server for them.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/**"
+      ],
+      "match": "all",
+      "absent": [
+        "IDisplayColor",
+        "IDisplayPostproc"
+      ]
+    },
+    {
+      "id": "display-colour-libraries-kept",
+      "why": "The composer loads the colour manager (panel calibration) and dlopens libsdm-disp-vndapis itself.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/libsdm-disp-vndapis.so",
+        "VENDOR/lib64/libsnapdragoncolor-manager.so",
+        "VENDOR/lib64/libsdm-color.so"
+      ]
+    },
+    {
       "id": "call-audio-service-isolation",
       "why": "Both radio call-audio instances use the dedicated protected service label rather than the shared IMS label.",
       "type": "text",

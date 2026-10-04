@@ -50,7 +50,6 @@ SOURCE_INTERFACES = {
     'libsdmutils',
     'libvmmem',
     'vendor.display.config@2.0',
-    'vendor.qti.hardware.display.color-V1-ndk',
     'vendor.qti.hardware.display.composer3-V1-ndk',
     'vendor.qti.hardware.display.config-V5-ndk',
     'vendor.qti.hardware.display.config-V7-ndk',
@@ -63,7 +62,6 @@ SOURCE_INTERFACES = {
     'vendor.qti.hardware.display.mapperextensions@1.1',
     'vendor.qti.hardware.display.mapperextensions@1.2',
     'vendor.qti.hardware.display.mapperextensions@1.3',
-    'vendor.qti.hardware.display.postproc-V1-ndk',
     # Sensors interfaces used by the stock Qualcomm sub-HAL, built from source
     # with the AOSP sensors multi-HAL (frozen HIDL/AIDL interfaces).
     'android.hardware.sensors@1.0',
@@ -138,7 +136,9 @@ SOURCE_MODULE_DEPENDENCIES = {
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
  'android.hardware.security.keymint-service-qti':('android.hardware.security.keymint-service-qti.rc','android.hardware.security.keymint-service-qti.xml'),
- 'vendor.qti.hardware.display.color-service':('vendor.qti.hardware.display.color-service.rc',None),
+ # Not selected: the stock display colour service, a lazy IDisplayColor and
+ # IDisplayPostproc server that platform apps could start. Nothing in this build
+ # is a client. libsdm-disp-vndapis stays as its own root: the composer dlopens it.
  'vendor.qti.hardware.memtrack-service':('memtrack_qti.rc','memtrack_qti.xml'),
  'qseecomd':('qseecomd.rc',None),
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
