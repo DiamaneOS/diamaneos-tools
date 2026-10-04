@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +74,19 @@ class PackageTests(unittest.TestCase):
         self.assertEqual((self.ctx.workspace.images / 'latest').resolve(), directory.resolve())
         self.assertIn('-g android -r -T 1790000000 -U edfbd922-2398-582a-bc24-062261d4ee5e -l metadata -S 67108864',
                       (directory / 'metadata.img').read_text())
+
+    def test_missing_factory_archive_does_not_probe_inaccessible_working_directory(self):
+        self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
+                                                  'outputs': {'generation': 'authenticated'}})
+        original = Path.is_file
+        def is_file(path):
+            if path == Path('.'):
+                raise PermissionError('inherited working directory is inaccessible')
+            return original(path)
+        with patch.object(Path, 'is_file', is_file):
+            outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
+        self.assertEqual({}, record['wipe']['partition_table_checked'])
 
     def test_repackaging_the_same_build_reuses_the_published_set(self):
         first = run_plan(self.ctx, image_package.plan(self.ctx))
