@@ -357,7 +357,33 @@ class GenericCheckTests(unittest.TestCase):
         (self.root / 'vendor_boot.img').write_bytes(b'other')
         self.assertFalse(subject.check_kernel(v)[0])
 
-    def test_module_placement_follows_the_kernel_run(self):
+    def test_kernel_prebuilts_must_be_the_recorded_clean_commit(self):
+        import subprocess
+        src = self.root / 'src'
+        prebuilts = src / 'device/fairphone/FP6-kernel'
+        prebuilts.mkdir(parents=True)
+        run = lambda *a: subprocess.run(['git', '-C', str(prebuilts), '-c', 'user.name=F', '-c',
+                                         'user.email=f@example.invalid', '-c', 'commit.gpgsign=false', *a],
+                                        check=True, capture_output=True, text=True).stdout.strip()
+        run('init', '-q')
+        (prebuilts / 'Image').write_bytes(b'IMAGE')
+        run('add', 'Image')
+        run('commit', '-qm', 'kernel')
+        commit = run('rev-parse', 'HEAD')
+        record = {'kernel_prebuilts': {'path': 'device/fairphone/FP6-kernel', 'commit': commit}}
+        self.assertEqual((prebuilts, ''), subject.kernel_prebuilts(src, record))
+        directory, problem = subject.kernel_prebuilts(src, {'kernel_prebuilts': {
+            'path': 'device/fairphone/FP6-kernel', 'commit': '0' * 40}})
+        self.assertIsNone(directory)
+        self.assertIn('the build used 000000000000', problem)
+        (prebuilts / 'Image').write_bytes(b'OTHER')
+        self.assertEqual((None, 'device/fairphone/FP6-kernel has local changes'), subject.kernel_prebuilts(src, record))
+        self.assertIsNone(subject.kernel_prebuilts(src, {'generated_inputs': {}})[0])
+        v = self.harness({})
+        v.kernel_dir, v.kernel_problem = None, 'device/fairphone/FP6-kernel has local changes'
+        self.assertEqual((False, 'device/fairphone/FP6-kernel has local changes'), subject.check_kernel(v))
+
+    def test_module_placement_follows_the_kernel_prebuilts(self):
         kernel = self.root / 'kernel'
         kernel.mkdir()
         (kernel / 'BoardConfigKernel.mk').write_text(

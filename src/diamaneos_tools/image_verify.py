@@ -1,7 +1,8 @@
 """Verify an exported FP6 test image set.
 
-Generic checks bind the set to its record, the kernel run and the vendor
-generation, and check the security properties every public build must have.
+Generic checks bind the set to its record, the kernel prebuilts it was built
+with and the vendor generation, and check the security properties every public
+build must have.
 The device checks in config/fp6-image-checks.json run on the same archive.
 File-level checks read the target-files archive the images were made from;
 image-level checks read the exported images.
@@ -136,7 +137,7 @@ class Sources:
     def read(self, spec: str) -> bytes:
         if spec.startswith('kernel:'):
             if self.kernel_dir is None:
-                raise FileNotFoundError('no kernel run recorded')
+                raise FileNotFoundError('no verified kernel prebuilts')
             return (self.kernel_dir / spec.removeprefix('kernel:')).read_bytes()
         if spec.startswith('image:'):
             return (self.images / spec.removeprefix('image:')).read_bytes()
@@ -613,6 +614,7 @@ class Verification:
                  kernel_dir: Path | None, vendor_dir: Path | None, packaging: dict | None, src: Path):
         self.images, self.record, self.tf, self.tools, self.config = images, record, target_files, tools, config
         self.kernel_dir, self.vendor_dir, self.packaging, self.src = kernel_dir, vendor_dir, packaging, src
+        self.kernel_problem = ''
         self.sources = Sources(target_files, kernel_dir, images)
         self.variant = record['variant']
         self.results = []
@@ -759,23 +761,53 @@ def module_key(name: str) -> str:
     return PurePosixPath(name.strip()).name.removesuffix('.ko').replace('-', '_')
 
 
+def kernel_prebuilts(src: Path, record: dict) -> tuple[Path | None, str]:
+    """The kernel prebuilts checkout the set was built with, or None and why.
+
+    It must be the project path and commit build.json names, with nothing
+    changed, so the checks compare the images with exactly those files.
+    """
+    from .product_inputs import KERNEL_PREBUILTS
+    named = record.get('kernel_prebuilts') or {}
+    if named.get('path') != KERNEL_PREBUILTS or not re.fullmatch(r'[0-9a-f]{40}', str(named.get('commit'))):
+        return None, 'build.json names no kernel prebuilts commit'
+    directory = src / KERNEL_PREBUILTS
+    if not directory.is_dir() or directory.is_symlink():
+        return None, f'the kernel prebuilts checkout {KERNEL_PREBUILTS} is missing'
+    try:
+        head = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'], capture_output=True, text=True,
+                              timeout=60)
+        status = subprocess.run(['git', '-C', str(directory), 'status', '--porcelain=v1', '--untracked-files=all'],
+                                capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as error:
+        return None, f'cannot read the kernel prebuilts checkout: {error}'
+    if head.returncode or head.stdout.strip() != named['commit']:
+        return None, (f'{KERNEL_PREBUILTS} is at {head.stdout.strip()[:12] or "no commit"}, the build used '
+                      f'{named["commit"][:12]}; sync the source the set was built from')
+    if status.returncode or status.stdout:
+        return None, f'{KERNEL_PREBUILTS} has local changes'
+    return directory, ''
+
+
 def check_kernel(v):
     if v.kernel_dir is None:
-        return False, 'no kernel run recorded'
+        return False, v.kernel_problem or 'no verified kernel prebuilts'
     problems = []
     image = (v.kernel_dir / 'Image').read_bytes()
-    if boot_kernel((v.images / 'boot.img').read_bytes()) != image:
-        problems.append('boot.img does not carry the recorded kernel Image')
+    booted = boot_kernel((v.images / 'boot.img').read_bytes())
+    if booted != image:
+        problems.append(f'boot.img carries a kernel with SHA-256 {hashlib.sha256(booted).hexdigest()[:16]}, '
+                        f'the prebuilts Image has {hashlib.sha256(image).hexdigest()[:16]}')
     if (v.kernel_dir / 'dtbs/fp6.dtb').read_bytes() not in (v.images / 'vendor_boot.img').read_bytes():
-        problems.append('vendor_boot.img does not carry the recorded fp6.dtb')
+        problems.append('vendor_boot.img does not carry the prebuilts fp6.dtb')
     if avb_payload((v.images / 'dtbo.img').read_bytes()) != (v.kernel_dir / 'dtbo.img').read_bytes():
-        problems.append('dtbo.img is not the recorded kernel run\'s dtbo')
+        problems.append('dtbo.img is not the prebuilts dtbo.img')
     return not problems, '; '.join(problems)
 
 
 def check_modules(v):
     if v.kernel_dir is None or v.packaging is None:
-        return False, 'no kernel run recorded'
+        return False, v.kernel_problem or 'no verified kernel prebuilts'
     lists = board_lists((v.kernel_dir / 'BoardConfigKernel.mk').read_text())
     places = {'VENDOR_DLKM/lib/modules/': 'BOARD_VENDOR_KERNEL_MODULES',
               'SYSTEM_DLKM/lib/modules/': 'BOARD_SYSTEM_KERNEL_MODULES',
@@ -786,7 +818,7 @@ def check_modules(v):
     for prefix, key in places.items():
         present = {PurePosixPath(n).name for n in v.tf.names if n.startswith(prefix) and n.endswith('.ko')}
         if present != set(lists.get(key, [])):
-            problems.append(f'{prefix} has {len(present)} modules, the kernel run lists {len(lists.get(key, []))}')
+            problems.append(f'{prefix} has {len(present)} modules, the kernel prebuilts list {len(lists.get(key, []))}')
         if {module_key(n) for n in present} & denied:
             problems.append(f'denied module in {prefix}')
         for name in v.tf.names:
@@ -802,7 +834,7 @@ def check_modules(v):
     for path, key in counts.items():
         listed = [l for l in lines_of(v.tf.read(path)) if l.strip()]
         if len(listed) != len(lists.get(key, [])):
-            problems.append(f'{path} lists {len(listed)} modules, the kernel run {len(lists.get(key, []))}')
+            problems.append(f'{path} lists {len(listed)} modules, the kernel prebuilts {len(lists.get(key, []))}')
     blocklists = [v.tf.read(p) for p in ('VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist',
                                           'VENDOR_DLKM/lib/modules/modules.blocklist')]
     if blocklists[0] != blocklists[1]:
@@ -948,8 +980,9 @@ GENERIC = [
     ('boot-header', 'Boot-family headers carry zero OS fields; the versions live in AVB properties.', check_boot_headers),
     ('super', 'super.img holds exactly the exported logical images; slot b is empty.', check_super),
     ('validators', 'validate_target_files and check_target_files_vintf pass on the archive.', check_validators),
-    ('kernel-binding', 'boot, vendor_boot and dtbo carry the recorded kernel run.', check_kernel),
-    ('modules', 'Module placement and load lists match the kernel run; no denied or unsigned module.', check_modules),
+    ('kernel-binding', 'boot, vendor_boot and dtbo carry the kernel prebuilts the build record names.', check_kernel),
+    ('modules', 'Module placement and load lists match the kernel prebuilts; no denied or unsigned module.',
+     check_modules),
     ('vendor-binding', 'Every selected stock file arrives with its generated bytes.', check_vendor),
     ('selinux-enforcing', 'No permissive domain beyond the variant\'s allowance.', check_permissive),
     ('bootconfig', 'Required bootconfig present; nothing overrides SELinux.', check_bootconfig),
@@ -959,7 +992,7 @@ GENERIC = [
 
 
 def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: Path | None,
-           vendor_dir: Path | None, packaging: dict | None, src: Path) -> dict:
+           vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '') -> dict:
     from .image_package import check_sums
     record = json.loads((images / 'build.json').read_bytes())
     results_head = [{'id': 'sums', 'status': 'PASS' if check_sums(images) else 'FAIL',
@@ -967,6 +1000,7 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
     target_files = TargetFiles(images / record['target_files']['file'])
     try:
         v = Verification(images, record, target_files, tools, config, kernel_dir, vendor_dir, packaging, src)
+        v.kernel_problem = kernel_problem
         for check_id, why, func in GENERIC:
             v.add(check_id, why, lambda func=func: func(v))
         for rule in validate_rules(checks):
@@ -997,15 +1031,15 @@ def plan(ctx):
 
     def run():
         images = ws.root / package['outputs']['directory']
-        # The kernel run and vendor generation this set was made from, as its
-        # record names them (not whatever the workspace holds now).
-        inputs = json.loads((images / 'build.json').read_bytes()).get('generated_inputs') or {}
-        kernel, vendor = inputs.get('kernel') or {}, inputs.get('vendor') or {}
+        # The kernel prebuilts and vendor generation this set was made from, as
+        # its record names them (not whatever the workspace holds now).
+        record = json.loads((images / 'build.json').read_bytes())
+        vendor = (record.get('generated_inputs') or {}).get('vendor') or {}
         packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_bytes())
-        kernel_dir = ws.kernel / kernel['run'] if kernel.get('run') else None
+        kernel_dir, kernel_problem = kernel_prebuilts(ws.src, record)
         vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
         report = verify(images, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'), kernel_dir,
-                        vendor_dir, packaging, ws.src)
+                        vendor_dir, packaging, ws.src, kernel_problem)
         path = ws.images / (package['outputs']['build_id'] + '.verify.json')
         bw.write_atomic(path, bw.encoded(report))
         state.update(report=report, path=path)
