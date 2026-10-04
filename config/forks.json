@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "policy": "Every upstream DiamaneOS builds from. forks: repositories we fork and patch (the manifest overlay forks on android17 and the kernel forks pinned in config/patches.json); the fork branch is the pin and upstream is the reference it follows. sources: pinned upstream inputs that are not forked; pin names the file and field that hold the pinned value. newer: branches or tags that would supersede the followed reference, ordered by their capture group. Fairphone forks track the public-build branch where it exists, otherwise rc; CodeLinaro forks track a release tag, or the newest release branch that contains the pinned commit with its release tags as newer. Checks read remote refs only and never move a branch or push; upstream updates are rebased into a local candidate branch for build and review, and adopting one is a reviewed, signed change.",
+  "policy": "Every upstream DiamaneOS builds from. forks: repositories we fork and patch (the forks the DiamaneOS manifest selects on android17, and the kernel forks); the fork branch is the pin and upstream is the reference it follows. sources: pinned upstream inputs that are not forked; pin names the file and field that hold the pinned value. newer: branches or tags that would supersede the followed reference, ordered by their capture group. Fairphone forks track the public-build branch where it exists, otherwise rc; CodeLinaro forks track a release tag, or the newest release branch that contains the pinned commit with its release tags as newer. Checks read remote refs only and never move a branch or push; upstream updates are rebased into a local candidate branch for build and review, and adopting one is a reviewed, signed change.",
   "forks": [
     {
       "id": "connectivity-framework",
@@ -160,7 +160,7 @@
     {"id": "repo-tool", "description": "repo launcher used to sync the platform.", "url": "https://gerrit.googlesource.com/git-repo",
      "follow": {"kind": "tags", "pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$"},
      "pin": {"repository": "tools", "file": "config/build-environment.json", "pointer": "/upstream/repo_tool/release_tag"}},
-    {"id": "fairphone-manifest", "description": "Fairphone FP6 source release: device configuration and the unforked kernel-platform projects in config/kernel-sources-fp6.json.", "url": "https://gerrit-public.fairphone.software/manifest",
+    {"id": "fairphone-manifest", "description": "Fairphone FP6 source release: device configuration and the kernel-platform projects imported into kernel_qcom-6.1.", "url": "https://gerrit-public.fairphone.software/manifest",
      "follow": {"kind": "branch", "ref": "odm/public-build/16/fp6", "newer_branches": "^odm/public-build/([0-9]+)/fp6$"},
      "pin": {"repository": "tools", "file": "config/fp6-sources.json", "pointer": "/inputs/fairphone_manifest/revision_observed"}},
     {"id": "qualcomm-sepolicy-vendor", "description": "Qualcomm vendor SELinux policy the device policy is selected from.", "url": "https://gerrit-public.fairphone.software/device/qcom/sepolicy_vndr",
@@ -174,24 +174,24 @@
      "pin": {"repository": "tools", "file": "config/stock-inputs.json", "pointer": "/current_restore_selection/installed_build"}},
     {"id": "thermal-hal", "description": "vendor/qcom/opensource/thermal-hal: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/thermal",
      "follow": {"kind": "branch", "ref": "odm/public-build/target/16/fp6"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/thermal-hal"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/thermal-hal"}},
     {"id": "lights-hal", "description": "vendor/qcom/opensource/lights: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/lights",
      "follow": {"kind": "branch", "ref": "core-technologies.lnx.14.0.r4-rel"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/lights"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/lights"}},
     {"id": "usb-hal", "description": "vendor/qcom/opensource/usb: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/usb",
      "follow": {"kind": "branch", "ref": "odm/rc/target/16/fp6"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/usb"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/usb"}},
     {"id": "healthd-ext", "description": "vendor/qcom/opensource/healthd-ext: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/healthd-ext",
      "follow": {"kind": "branch", "ref": "android-core.lnx.14.0.r1-rel"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/healthd-ext"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/healthd-ext"}},
     {"id": "display-interfaces", "description": "vendor/qcom/opensource/commonsys-intf/display: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/display-commonsys-intf",
      "follow": {"kind": "branch", "ref": "display-sysintf.lnx.17.0.r7-rel", "newer_branches": "^display-sysintf\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/commonsys-intf/display"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/commonsys-intf/display"}},
     {"id": "qcom-interfaces", "description": "vendor/qcom/opensource/interfaces: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/interfaces",
      "follow": {"kind": "branch", "ref": "android-core-sysintf.lnx.17.0.r4-rel", "newer_branches": "^android-core-sysintf\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/interfaces"}},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/interfaces"}},
     {"id": "libvmmem", "description": "vendor/qcom/opensource/libvmmem: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem",
      "follow": {"kind": "branch", "ref": "kernel.apps.lnx.5.0.r2-rel", "newer_branches": "^kernel\\.apps\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/libvmmem"}}
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/libvmmem"}}
   ]
 }
