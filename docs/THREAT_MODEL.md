@@ -106,8 +106,13 @@ paired-image native qualification before release claims.
 
 The proprietary IMS/IWLAN/certificate components, modem firmware and selected
 network-control daemon remain part of the trusted computing base. Presigned OEM
-apps retain OEM update trust. Development test keys are public; production signing,
-locked verified boot and the OEM-app update policy remain release gates. AML and
+apps retain OEM signature verification. The inherited GrapheneOS installer policy
+also blocks unknown-source system-app updates: production allows its first-party
+installer and explicitly authorized shell installs; a debuggable-only override is
+not a production allowance. OEM signatures alone therefore do not permit ordinary
+apps to install these updates. The first-party catalog's allowed update sources,
+production signing and locked verified boot remain wider release gates. Development
+test keys are public. AML and
 eSIM profile management are deferred; an inactive LPA is omitted. Existing eSIM
 profiles and carrier emergency-location mechanisms require device/carrier evidence.
 The [IMS integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) preserve
