@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from . import build, build_composition, product_inputs
+from . import build, product_inputs
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -83,7 +83,6 @@ class Context:
     variant: str
     jobs: int | None = None
     allow_network: bool = False
-    objects_from: Path | None = None
     factory_zip: Path | None = None
     shallow: bool = False
     echo: object = print
@@ -107,17 +106,20 @@ class Context:
     def host_bin(self) -> Path:
         return self.out / HOST_BIN
 
-    def signers(self) -> Path:
-        return self.workspace.trust / ('grapheneos-allowed-signers-' + self.environment['upstream']['release_tag'])
+    @property
+    def resolved_manifest(self) -> Path:
+        """The resolved manifest (repo manifest -r) the last sync recorded."""
+        return self.workspace.state_dir / 'resolved-manifest.xml'
+
+    @property
+    def follows_branch(self) -> bool:
+        """The manifest is a branch without a pinned manifest commit."""
+        manifest = self.environment['manifest']
+        return 'revision' not in manifest and not manifest['branch'].startswith('refs/tags/')
 
     def jobs_for(self, cap=None) -> int:
         memory = (self.host or {}).get('memory_bytes')
         return bw.default_jobs(self.jobs, memory, cap)
-
-    def signed_manifest(self) -> bytes:
-        if 'signed' not in self.cache:
-            self.cache['signed'] = build.verify_release_manifest(self.environment, self.workspace.src, self.signers())
-        return self.cache['signed']
 
 
 @dataclass
@@ -210,42 +212,50 @@ def download(url: str, destination: Path, size: int | None, sha256: str, echo=pr
     return destination
 
 
-def read_objects(directory: Path | None) -> dict:
-    """Optional local commits for development builds: DIR/objects.json maps
-    project paths (and "manifest") to git bundles in DIR."""
-    if directory is None:
-        return {}
-    index = directory / 'objects.json'
-    try:
-        value = json.loads(index.read_bytes())
-    except (OSError, ValueError):
-        raise UsageError('--objects-from needs an objects.json in ' + str(directory)) from None
-    if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
-        raise UsageError('objects.json maps project paths to bundle file names')
-    result = {}
-    for project, name in value.items():
-        if project != 'manifest' and not build._source_relative_path(project):
-            raise UsageError('unsafe project path in objects.json: ' + project)
-        bundle = directory / name
-        if not NAME.fullmatch(name) or not bundle.is_file():
-            raise UsageError('missing bundle in objects.json: ' + name)
-        result[project] = bundle
-    return result
+def newest_commit_time(ctx: 'Context', sync: dict) -> int:
+    """BUILD_DATETIME: the newest committer time among the synced projects and
+    the manifest commit, so the same sources give the same build date on
+    every host."""
+    key = ('datetime', sync['outputs'].get('resolved_manifest_sha256'))
+    if key not in ctx.cache:
+        src = ctx.workspace.src
+        rows, _ = build.parse_project_map(synced_manifest(ctx, sync))
+        times = [int(run_git(['-C', src / '.repo/manifests', 'log', '-1', '--format=%ct',
+                              sync['outputs']['manifest_commit']]).stdout.strip())]
+        for path, _name, _remote, commit in rows:
+            times.append(int(run_git(['-C', src / path, 'log', '-1', '--format=%ct', commit]).stdout.strip()))
+        ctx.cache[key] = max(times)
+    return ctx.cache[key]
 
 
-def overlay_remotes(overlay: bytes) -> dict:
-    root = ET.fromstring(overlay)
-    return {p.get('path'): p.get('remote') for p in root.findall('project')}
+def project_revision(resolved: bytes, path: str) -> str | None:
+    """The resolved commit of the project at ``path``, or None."""
+    rows, _ = build.parse_project_map(resolved)
+    return next((row[3] for row in rows if row[0] == path), None)
 
 
-def newest_commit_time(src: Path, environment: dict) -> int:
-    """BUILD_DATETIME: the newest committer time among the pinned sources, so
-    the same pins give the same build date on every host."""
-    times = [int(run_git(['-C', src / '.repo/manifests', 'log', '-1', '--format=%ct',
-                          environment['upstream']['peeled_commit']]).stdout.strip())]
-    for path, commit in environment.get('composition', {}).get('resolved_revisions', {}).items():
-        times.append(int(run_git(['-C', src / path, 'log', '-1', '--format=%ct', commit]).stdout.strip()))
-    return max(times)
+def retire_overlay(src: Path) -> list:
+    """Move the manifest overlay the tools used to install out of the way.
+
+    The full DiamaneOS manifest replaces it; left in place, repo would apply
+    it on top. Other local manifests are the user's and stop the sync.
+    """
+    directory = src / '.repo/local_manifests'
+    if not directory.exists() and not directory.is_symlink():
+        return []
+    if directory.is_symlink() or not directory.is_dir():
+        raise UsageError(f'{directory} is not a directory')
+    entries = sorted(p.name for p in directory.iterdir())
+    if not entries:
+        return []
+    if entries != ['diamaneos.xml'] or (directory / 'diamaneos.xml').is_symlink():
+        raise UsageError(f'{directory} holds local manifests the build does not use ({", ".join(entries)}); '
+                         'move them away and run the sync again')
+    previous = src / '.repo/diamaneos-previous-local-manifests'
+    previous.mkdir(exist_ok=True)
+    os.replace(directory / 'diamaneos.xml', previous / 'diamaneos.xml')
+    directory.rmdir()
+    return ['the old manifest overlay']
 
 
 def build_number(identity: str, config: dict) -> str:
@@ -261,109 +271,81 @@ def build_number(identity: str, config: dict) -> str:
 
 def plan_sync(ctx: Context) -> StepPlan:
     ws, env = ctx.workspace, ctx.environment
-    upstream, repo = env['upstream'], env['upstream']['repo_tool']
-    composition = env.get('composition')
-    objects = read_objects(ctx.objects_from)
-    # A shallow checkout holds the same pinned tree and passes the same
-    # preflight, so the choice is remembered in the workspace, not digested.
-    inputs = {'environment_sha256': ctx.environment_sha256,
-              'objects': {k: bw.sha_file(v) for k, v in sorted(objects.items())}}
-    overlay_dir = ws.cache / 'manifest'
+    manifest, repo = env['manifest'], env['upstream']['repo_tool']
+    # A shallow checkout holds the same tree and passes the same checks, so
+    # the choice is remembered in the workspace, not digested.
+    inputs = {'environment_sha256': ctx.environment_sha256}
     jobs = ctx.jobs_for(cap=16)
 
-    def fetch_signers():
-        download(upstream['allowed_signers_url'], ctx.signers(), None,
-                 upstream['allowed_signers_sha256'], ctx.echo, opener=_opener(ctx))
+    def create():
+        ws.src.mkdir(parents=True, exist_ok=True)
+        if ctx.shallow:
+            ws.state_dir.mkdir(parents=True, exist_ok=True)
+            (ws.state_dir / 'shallow').write_text('Fetch only the resolved commits in this workspace.\n')
 
-    def get_overlay():
-        revision = composition['overlay_revision']
-        if 'manifest' in objects:
-            if not (overlay_dir / '.git').is_dir():
-                overlay_dir.mkdir(parents=True, exist_ok=True)
-                run_git(['init', '-q', overlay_dir])
-            run_git(['-C', overlay_dir, 'fetch', '-q', objects['manifest'], '+refs/heads/*:refs/remotes/bundle/*'])
-        else:
-            url = composition.get('overlay_url')
-            if not url:
-                raise UsageError('the build environment names no overlay URL')
-            if not (overlay_dir / '.git').is_dir():
-                run_git(['clone', '-q', '--no-checkout', url, overlay_dir])
-            if not has_commit(overlay_dir, revision):
-                run_git(['-C', overlay_dir, 'fetch', '-q', 'origin', revision])
-        run_git(['-C', overlay_dir, 'checkout', '-q', '--detach', revision])
+    def clear():
+        # Before repo sync: a generated tree where the manifest now has a
+        # project (the kernel prebuilts) would stop the checkout.
+        moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256) + retire_overlay(ws.src)
+        if moved:
+            ctx.echo('    moved aside: ' + ', '.join(moved))
 
-    def install_overlay():
-        build_composition.prepare(env, ws.src, overlay_dir, ctx.signed_manifest(), replace=True)
-
-    def add_bundles():
-        for project, bundle in sorted(objects.items()):
-            if project == 'manifest':
-                continue
-            if not (ws.src / project / '.git').exists():
-                raise UsageError('objects.json names a project the manifest does not have: ' + project)
-            run_git(['-C', ws.src / project, 'fetch', '-q', '--no-tags', bundle,
-                     '+refs/heads/*:refs/diamaneos-bundles/*'])
-
-    def fetch_pinned():
-        remotes = overlay_remotes((ws.src / '.repo/local_manifests/diamaneos.xml').read_bytes())
-        for path, commit in sorted(composition.get('resolved_revisions', {}).items()):
-            if not has_commit(ws.src / path, commit):
-                ctx.echo(f'    fetching {path} {commit[:12]}')
-                depth = ['--depth=1'] if ctx.shallow else []
-                run_git(['-C', ws.src / path, 'fetch', '-q', '--no-tags', *depth, remotes[path], commit])
-
-    def checkout():
-        build_composition.checkout(env, ws.src, ctx.signed_manifest())
+    def check_manifest():
+        build.verify_repo_tool(env, ws.src)
+        build.verify_manifest_repository(env, ws.src)
 
     def retire():
         moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256)
         if moved:
             ctx.echo('    moved stale generated inputs aside: ' + ', '.join(moved))
 
-    def preflight():
-        ctx.cache['sync'] = build.verify_manifest_checkout(env, ws.src, ctx.signers(), ctx.environment_sha256)
-
-    def create():
-        ws.src.mkdir(parents=True, exist_ok=True)
-        if ctx.shallow:
-            ws.state_dir.mkdir(parents=True, exist_ok=True)
-            (ws.state_dir / 'shallow').write_text('Fetch only pinned commits in this workspace.\n')
+    def verify():
+        ctx.cache['sync'] = build.verify_branch_checkout(env, ws.src, ctx.environment_sha256,
+                                                         resolved_path=ctx.resolved_manifest)
 
     actions = [
         Action('Create the source directory' + (' (shallow checkout)' if ctx.shallow else ''), func=create),
-        Action('Download the GrapheneOS signer list and check its hash', func=fetch_signers, network=True),
-        Action('Initialise the checkout at the signed release tag',
-               argv=['repo', 'init', '-u', upstream['manifest_url'], '-b', 'refs/tags/' + upstream['release_tag'],
+        Action('Move generated inputs and the old manifest overlay out of the way', func=clear),
+        Action(f'Initialise the checkout on the DiamaneOS manifest ({manifest["branch"]})',
+               argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]
                     + (['--depth=1'] if ctx.shallow else []),
                cwd=ws.src, network=True, env=GIT_HTTP),
-        Action('Check the repo tool and the release manifest signatures', func=ctx.signed_manifest),
-    ]
-    if composition:
-        actions += [Action('Get the DiamaneOS manifest overlay at its pinned revision', func=get_overlay, network=True),
-                    Action('Install the overlay', func=install_overlay)]
-    actions += [
+        Action('Check the repo tool and the manifest checkout', func=check_manifest),
         Action('Download the source', argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}',
                                             '--retry-fetches=4']
                + (['-c', '--no-tags'] if ctx.shallow else []), cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Move stale generated inputs aside', func=retire),
+        Action('Verify the whole source tree and record the resolved manifest', func=verify),
     ]
-    if objects:
-        actions.append(Action('Add local commits from the bundles', func=add_bundles))
-    if composition:
-        actions += [Action('Fetch pinned commits not on a branch head', func=fetch_pinned, network=True),
-                    Action('Check out the pinned DiamaneOS commits', func=checkout)]
-    actions.append(Action('Verify the whole source tree', func=preflight))
 
     def outputs():
         result = ctx.cache['sync']
+        resolved = ctx.resolved_manifest.read_bytes()
+        if build.sha256_bytes(resolved) != result['resolved_manifest_sha256']:
+            raise BuildStepError('the recorded resolved manifest changed during the sync')
         return {'project_map_sha256': result['resolved_project_map_sha256'],
                 'project_count': result['resolved_project_count'],
-                'manifest_commit': upstream['peeled_commit'],
-                'overlay_revision': (composition or {}).get('overlay_revision'),
-                'allowed_signers_sha256': upstream['allowed_signers_sha256'], 'shallow': ctx.shallow}
+                'manifest_url': result['manifest_url'], 'manifest_branch': result['manifest_branch'],
+                'manifest_commit': result['manifest_commit'],
+                'resolved_manifest_sha256': result['resolved_manifest_sha256'],
+                'kernel_prebuilts_commit': project_revision(resolved, product_inputs.KERNEL_PREBUILTS),
+                'shallow': ctx.shallow}
 
-    return StepPlan('sync', inputs, actions, outputs, lambda state: (ws.src / '.repo').is_dir())
+    def valid(state):
+        path = ctx.resolved_manifest
+        return ((ws.src / '.repo').is_dir() and path.is_file()
+                and bw.sha_file(path) == state['outputs'].get('resolved_manifest_sha256'))
+
+    return StepPlan('sync', inputs, actions, outputs, valid)
+
+
+def synced_manifest(ctx: Context, sync: dict) -> bytes:
+    """The resolved manifest recorded by the passed sync step."""
+    resolved = ctx.resolved_manifest.read_bytes()
+    if build.sha256_bytes(resolved) != sync['outputs'].get('resolved_manifest_sha256'):
+        raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build sync" again')
+    return resolved
 
 
 def _opener(ctx):
@@ -525,10 +507,11 @@ def plan_android(ctx: Context) -> StepPlan:
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
                   'network_isolation': not ctx.allow_network}
         try:
-            datetime = newest_commit_time(ws.src, ctx.environment)
-        except (BuildStepError, ValueError, OSError, subprocess.SubprocessError) as error:
+            datetime = newest_commit_time(ctx, sync)
+        except (BuildStepError, build.BuildError, ValueError, KeyError, OSError,
+                subprocess.SubprocessError) as error:
             if not ctx.dry_run:
-                raise BuildStepError('cannot read the commit times of the pinned sources for BUILD_DATETIME '
+                raise BuildStepError('cannot read the commit times of the synced sources for BUILD_DATETIME '
                                      f'({error}); run "diamaneos build sync" again') from error
             datetime = None
 
@@ -539,8 +522,11 @@ def plan_android(ctx: Context) -> StepPlan:
         def check():
             if ctx.environment['device_inputs']['generated_input_manifest_status'] != 'verified':
                 raise BuildStepError('the build environment does not require bound generated inputs')
-            ctx.cache[key] = build.verify_manifest_checkout(ctx.environment, ws.src, ctx.signers(),
-                                                            ctx.environment_sha256)
+            result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256)
+            if result['resolved_manifest_sha256'] != sync['outputs']['resolved_manifest_sha256']:
+                raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded; '
+                                     'run "diamaneos build sync" again')
+            ctx.cache[key] = result
         return check
 
     compile_action = Action(
@@ -549,7 +535,7 @@ def plan_android(ctx: Context) -> StepPlan:
         env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': lunch, 'DIAMANEOS_PRODUCT': config['product'],
              'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
              'BUILD_NUMBER': number or '<from the build identity>',
-             'BUILD_DATETIME': datetime if datetime is not None else '<newest pinned commit time>',
+             'BUILD_DATETIME': datetime if datetime is not None else '<newest source commit time>',
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname']})
     actions = [Action('Install the generated vendor and kernel inputs', func=install),
@@ -726,6 +712,8 @@ def make_context(args, echo=print) -> Context:
     environment_raw = environment_path.read_bytes()
     environment = json.loads(environment_raw)
     build.validate_config(environment)
+    if 'manifest' not in environment:
+        raise UsageError('the build environment names no source manifest')
     config, config_raw = bw.load_config('fp6-build.json')
     declared = environment['workspace']
     source, output = Path(declared['source_subdirectory']), Path(declared['output_subdirectory'])
@@ -745,7 +733,6 @@ def make_context(args, echo=print) -> Context:
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
                    jobs=args.jobs,
                    allow_network=args.allow_network,
-                   objects_from=Path(args.objects_from).absolute() if args.objects_from else None,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
                    shallow=shallow, echo=echo, dry_run=getattr(args, 'dry_run', False))
 
@@ -763,17 +750,16 @@ def parser() -> argparse.ArgumentParser:
                         help='compile with network access instead of without it. Only for hosts where '
                              'unprivileged user namespaces are unavailable; recorded in build.json')
     result.add_argument('--shallow', action='store_true',
-                        help='sync: fetch only the pinned commits, not their history. Saves roughly '
+                        help='sync: fetch only the resolved commits, not their history. Saves roughly '
                              'half of the source download and disk, but the checkout has no history '
                              'and moving to a new release fetches more')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
-    result.add_argument('--objects-from', help=argparse.SUPPRESS)
     result.add_argument('--factory-zip', help='vendor: use this Fairphone factory package instead of downloading it')
     return result
 
 
-STEP_OPTIONS = {'shallow': ('sync', 'all'), 'objects_from': ('sync', 'all'), 'factory_zip': ('vendor', 'all'),
+STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'),
                 'from_step': ('all',)}
 
 
@@ -791,6 +777,10 @@ def main(argv=None, echo=print) -> int:
             force = (args.from_step,)
         elif args.step != 'all':
             force = (args.step,)
+        elif ctx.follows_branch:
+            # Like repo sync before a build: move to the branch head. Later
+            # steps rerun only if the synced tree changed.
+            force = ('sync',)
         if args.dry_run:
             echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant})')
             run_steps(ctx, steps, force, dry_run=True)

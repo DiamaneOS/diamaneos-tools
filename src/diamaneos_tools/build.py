@@ -21,6 +21,8 @@ DEFAULT_CONFIG = ROOT / "config" / "build-environment.json"
 SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+# A manifest branch, or a tag as refs/tags/NAME.
+MANIFEST_REF_RE = re.compile(r"^(?:refs/tags/)?[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 MAX_CONFIG_BYTES = 262_144
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024
@@ -90,6 +92,28 @@ def validate_config(config: dict) -> None:
         "schema_version", "environment_id", "scope", "upstream", "host",
         "workspace", "project_inputs", "device_inputs", "build",
     }
+    if "manifest" in config:
+        # Manifest mode: the source is the DiamaneOS manifest at a branch (or
+        # tag), optionally pinned to one manifest commit. "upstream" then
+        # records the GrapheneOS release the manifest is based on and pins
+        # the repo tool.
+        if "composition" in config:
+            raise BuildError("a manifest-mode environment has no overlay composition")
+        expected_root.add("manifest")
+        manifest = config["manifest"]
+        if (not isinstance(manifest, dict) or not {"url", "branch"} <= set(manifest)
+                or not set(manifest) <= {"url", "branch", "revision"}):
+            raise BuildError("manifest fields do not match the supported schema")
+        url = manifest["url"]
+        if (not isinstance(url, str) or not url.startswith("https://") or len(url) > 512
+                or any(c.isspace() for c in url)):
+            raise BuildError("manifest URL must use HTTPS")
+        branch = manifest["branch"]
+        if (not isinstance(branch, str) or not MANIFEST_REF_RE.fullmatch(branch) or ".." in branch
+                or "//" in branch or branch.endswith(("/", ".lock"))):
+            raise BuildError("manifest branch is invalid")
+        if "revision" in manifest:
+            _require_sha(manifest["revision"], "manifest revision", SHA1_RE)
     if "composition" in config:
         expected_root.add("composition")
         composition = config["composition"]
@@ -291,6 +315,8 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
         "selected_stock_factory_sha256": config["device_inputs"][
             "selected_stock_factory_sha256"],
     }
+    if "manifest" in config:
+        identity["source_manifest"] = dict(config["manifest"])
     if "composition" in config:
         identity["composed_project_map_sha256"] = config["composition"]["project_map_sha256"]
         identity["source_overlay_sha256"] = config["composition"]["overlay_sha256"]
@@ -751,27 +777,7 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     verify_source_layout(config, source, rows, signed_xml, resolved, generated)
 
-    dirty = []
-    for path, _name, _remote, revision in rows:
-        checkout = source / path
-        if not checkout.is_dir():
-            raise BuildError(f"source project is missing: {path}")
-        head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
-        if head != revision:
-            raise BuildError(f"source project revision mismatch: {path}")
-        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1",
-                       "--untracked-files=all"]).stdout
-        if status:
-            dirty.append(path)
-            if len(dirty) >= 20:
-                break
-    manifest_status = _run(["git", "-C", str(manifests), "status", "--porcelain=v1",
-                            "--untracked-files=all"]).stdout
-    if manifest_status:
-        dirty.append(".repo/manifests")
-    if dirty:
-        raise BuildError("source checkout contains dirty or untracked content: "
-                         + ", ".join(dirty))
+    verify_projects(source, rows)
     return {
         "repo_tool_release_tag": repo_tag,
         "repo_tool_tag_object": repo_pin["tag_object"],
@@ -791,19 +797,9 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     }
 
 
-def verify_release_manifest(config: dict, source: Path, allowed_signers: Path) -> bytes:
-    """Authenticate the repo tool and the signed release manifest in a checkout.
-
-    Runs before ``repo sync`` as well as in the full preflight. Returns the
-    signed tag's ``default.xml``.
-    """
+def verify_repo_tool(config: dict, source: Path) -> dict:
+    """Authenticate the pinned repo implementation of a checkout."""
     upstream = config["upstream"]
-
-    if sha256_file(allowed_signers) != upstream["allowed_signers_sha256"]:
-        raise BuildError("allowed-signers file hash mismatch")
-    manifests = source / ".repo" / "manifests"
-    if not manifests.is_dir():
-        raise BuildError("source checkout lacks .repo/manifests")
     repo_tool = source / ".repo" / "repo"
     repo_pin = upstream["repo_tool"]
     if not repo_tool.is_dir():
@@ -833,6 +829,118 @@ def verify_release_manifest(config: dict, source: Path, allowed_signers: Path) -
     repo_verify_env["GNUPGHOME"] = str(Path.home() / ".repoconfig" / "gnupg")
     _run(["git", "-C", str(repo_tool), "verify-tag", repo_tag],
          env=repo_verify_env)
+    return {
+        "repo_tool_release_tag": repo_tag,
+        "repo_tool_tag_object": repo_pin["tag_object"],
+        "repo_tool_commit": repo_pin["peeled_commit"],
+        "repo_tool_signature_verification": "PASS",
+    }
+
+
+def verify_projects(source: Path, rows) -> None:
+    """Every project is checked out at its resolved commit with nothing changed."""
+    dirty = []
+    for path, _name, _remote, revision in rows:
+        checkout = source / path
+        if not checkout.is_dir():
+            raise BuildError(f"source project is missing: {path}")
+        head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
+        if head != revision:
+            raise BuildError(f"source project revision mismatch: {path}")
+        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1",
+                       "--untracked-files=all"]).stdout
+        if status:
+            dirty.append(path)
+            if len(dirty) >= 20:
+                break
+    manifest_status = _run(["git", "-C", str(source / ".repo" / "manifests"), "status",
+                            "--porcelain=v1", "--untracked-files=all"]).stdout
+    if manifest_status:
+        dirty.append(".repo/manifests")
+    if dirty:
+        raise BuildError("source checkout contains dirty or untracked content: "
+                         + ", ".join(dirty))
+
+
+def verify_manifest_repository(config: dict, source: Path) -> str:
+    """The manifest checkout follows the declared manifest; returns its commit."""
+    manifest = config["manifest"]
+    manifests = source / ".repo" / "manifests"
+    if not manifests.is_dir():
+        raise BuildError("source checkout lacks .repo/manifests")
+    origin = _run(["git", "-C", str(manifests), "remote", "get-url", "origin"])
+    if origin.stdout.decode("utf-8", "strict").strip() != manifest["url"]:
+        raise BuildError("manifest origin does not match the declared manifest URL")
+    head = _run(["git", "-C", str(manifests), "rev-parse", "HEAD"]).stdout.decode().strip()
+    branch = manifest["branch"]
+    reference = branch if branch.startswith("refs/tags/") else "refs/remotes/origin/" + branch
+    try:
+        expected = _run(["git", "-C", str(manifests), "rev-parse", "--verify", "-q",
+                         reference + "^{commit}"]).stdout.decode().strip()
+    except BuildError:
+        expected = None
+    if expected != head:
+        raise BuildError(f"manifest checkout is not at {branch}; run repo init with -b {branch}")
+    if "revision" in manifest and head != manifest["revision"]:
+        raise BuildError("manifest checkout does not match the pinned manifest revision")
+    return head
+
+
+def verify_branch_checkout(config: dict, source: Path, environment_sha256: str | None = None,
+                           resolved_path: Path | None = None) -> dict:
+    """Verify a checkout of the DiamaneOS manifest (manifest mode).
+
+    The builder trusts the declared manifest branch: the resolved manifest
+    (``repo manifest -r``) is the record of what was built. Every project
+    must be clean at its resolved commit, and nothing outside the projects,
+    their copy/link files and the bound generated inputs may exist.
+    ``resolved_path`` receives the resolved manifest.
+    """
+    if "manifest" not in config:
+        raise BuildError("the build environment does not declare a manifest")
+    result = verify_repo_tool(config, source)
+    manifest_commit = verify_manifest_repository(config, source)
+    resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
+    rows, project_map_sha256 = parse_project_map(resolved)
+    if any(not remote.get("fetch", "").startswith("https://")
+           for remote in ET.fromstring(resolved).findall("remote")):
+        raise BuildError("resolved manifest fetches from a remote without HTTPS")
+    generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
+    verify_source_layout(config, source, rows, resolved, resolved, generated)
+    verify_projects(source, rows)
+    if resolved_path is not None:
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = resolved_path.with_name(resolved_path.name + ".tmp")
+        temporary.write_bytes(resolved)
+        os.replace(temporary, resolved_path)
+    result.update({
+        "manifest_url": config["manifest"]["url"],
+        "manifest_branch": config["manifest"]["branch"],
+        "manifest_commit": manifest_commit,
+        "resolved_manifest_sha256": sha256_bytes(resolved),
+        "resolved_project_count": len(rows),
+        "resolved_project_map_sha256": project_map_sha256,
+        "source_clean": True,
+        "source_layout_verified": True,
+        "generated_inputs": sorted(generated),
+        "generated_input_descriptor_sha256": descriptor_sha256,
+    })
+    return result
+
+
+def verify_release_manifest(config: dict, source: Path, allowed_signers: Path) -> bytes:
+    """Authenticate the repo tool and the signed release manifest in a checkout.
+
+    Returns the signed tag's ``default.xml``.
+    """
+    upstream = config["upstream"]
+
+    if sha256_file(allowed_signers) != upstream["allowed_signers_sha256"]:
+        raise BuildError("allowed-signers file hash mismatch")
+    manifests = source / ".repo" / "manifests"
+    if not manifests.is_dir():
+        raise BuildError("source checkout lacks .repo/manifests")
+    verify_repo_tool(config, source)
     origin = _run(["git", "-C", str(manifests), "remote", "get-url", "origin"])
     if origin.stdout.decode("utf-8", "strict").strip() != upstream["manifest_url"]:
         raise BuildError("manifest origin does not match the authoritative URL")
@@ -924,10 +1032,14 @@ def main(argv=None) -> int:
         if args.inputs_only:
             result["required_runtime_inputs"] = {
                 "source_checkout": "required-for-full-preflight",
-                "allowed_signers_file": config["upstream"]["allowed_signers_sha256"],
                 "generated_device_input_manifest": config["device_inputs"][
                     "generated_input_manifest_status"],
             }
+            if "manifest" in config:
+                result["required_runtime_inputs"]["source_manifest"] = config["manifest"]
+            else:
+                result["required_runtime_inputs"]["allowed_signers_file"] = config[
+                    "upstream"]["allowed_signers_sha256"]
             print(json.dumps(result, indent=2, sort_keys=True))
             return 0
         workspace_paths = (args.source_root, args.cache_root, args.output_root)
@@ -943,13 +1055,16 @@ def main(argv=None) -> int:
         if args.host_only:
             print(json.dumps(result, indent=2, sort_keys=True))
             return 0
-        if args.allowed_signers is None:
+        if args.allowed_signers is None and "manifest" not in config:
             raise BuildError("full preflight requires an allowed-signers path")
         if args.purpose == "fp6" and config["device_inputs"][
                 "generated_input_manifest_status"] != "verified":
             raise BuildError("FP6 generated device-input manifest is not verified")
-        result["source"] = verify_manifest_checkout(
-            config, args.source_root, args.allowed_signers, sha256_bytes(raw))
+        if "manifest" in config:
+            result["source"] = verify_branch_checkout(config, args.source_root, sha256_bytes(raw))
+        else:
+            result["source"] = verify_manifest_checkout(
+                config, args.source_root, args.allowed_signers, sha256_bytes(raw))
         runtime_identity = {
             "declared": identity["declared_build_identity_sha256"],
             "host_packages": result["host"]["installed_package_set_sha256"],

@@ -18,7 +18,7 @@ from diamaneos_tools import build_steps as steps, build_workspace as bw
 
 def arguments(workspace, **kw):
     values = dict(workspace=str(workspace), environment=None, variant=None, jobs=None, allow_network=False,
-                  objects_from=None, factory_zip=None, shallow=False)
+                  factory_zip=None, shallow=False)
     values.update(kw)
     return argparse.Namespace(**values)
 
@@ -108,7 +108,7 @@ class PlanTests(unittest.TestCase):
         text = '\n'.join(self.lines)
         for step in bw.STEPS:
             self.assertIn(step + ':', text)
-        self.assertIn('repo init -u https://github.com/GrapheneOS/platform_manifest.git -b refs/tags/2026091000', text)
+        self.assertIn('repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17', text)
         self.assertIn('FP6-cur-user', text)
         self.assertIn('unshare --user --map-current-user --net --', text)
         self.assertFalse((self.root / 'ws').exists())
@@ -180,7 +180,7 @@ class PlanTests(unittest.TestCase):
                 steps.plan_android(ctx)
             ctx.dry_run = True
             plan = steps.plan_android(ctx)
-        self.assertIn('<newest pinned commit time>', plan.actions[2].env['BUILD_DATETIME'])
+        self.assertIn('<newest source commit time>', plan.actions[2].env['BUILD_DATETIME'])
 
     def test_a_prerequisite_keeps_the_options_it_was_built_with(self):
         ctx = self.context()
@@ -204,17 +204,69 @@ class PlanTests(unittest.TestCase):
             plan = steps.plan_android(replace(ctx, build_number='test.7'))
         self.assertEqual('test.7', plan.inputs['build_number'])
 
-    def test_objects_from_needs_an_index_of_existing_bundles(self):
-        directory = self.root / 'objects'
-        directory.mkdir()
-        with self.assertRaisesRegex(bw.UsageError, 'objects.json'):
-            steps.read_objects(directory)
-        (directory / 'device.bundle').write_bytes(b'bundle')
-        (directory / 'objects.json').write_text(json.dumps({'device/fairphone/FP6': 'device.bundle'}))
-        self.assertEqual({'device/fairphone/FP6': directory / 'device.bundle'}, steps.read_objects(directory))
-        (directory / 'objects.json').write_text(json.dumps({'../escape': 'device.bundle'}))
-        with self.assertRaises(bw.UsageError):
-            steps.read_objects(directory)
+    def test_build_all_follows_the_manifest_branch(self):
+        environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
+        environment['manifest']['revision'] = 'a' * 40
+        pinned = self.root / 'environment.json'
+        pinned.write_text(json.dumps(environment))
+        for path, follows in ((None, True), (str(pinned), False)):
+            with self.subTest(pinned=not follows):
+                ctx = self.context(environment=path)
+                self.assertEqual(follows, ctx.follows_branch)
+                plan = steps.plan_sync(ctx)
+                (ctx.workspace.src / '.repo').mkdir(parents=True, exist_ok=True)
+                ctx.resolved_manifest.parent.mkdir(parents=True, exist_ok=True)
+                ctx.resolved_manifest.write_bytes(b'<manifest/>')
+                ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs': plan.inputs,
+                                                   'inputs_sha256': bw.digest(plan.inputs), 'outputs': {
+                                                       'project_map_sha256': 'p', 'manifest_commit': 'm',
+                                                       'resolved_manifest_sha256': bw.sha_file(ctx.resolved_manifest)}})
+                self.lines.clear()
+                argv = ['all', '--dry-run', '--workspace', str(ctx.workspace.root)]
+                self.assertEqual(0, steps.main(argv + (['--environment', path] if path else []), self.lines.append))
+                self.assertIn('sync: to run' if follows else 'sync: up to date', self.lines)
+
+    def test_environment_without_a_manifest_is_refused(self):
+        environment = json.loads((ROOT / 'config/build-environment.json').read_text())
+        path = self.root / 'environment.json'
+        path.write_text(json.dumps(environment))
+        with self.assertRaisesRegex(bw.UsageError, 'no source manifest'):
+            self.context(environment=str(path))
+
+    def test_sync_is_valid_only_with_its_recorded_resolved_manifest(self):
+        ctx = self.context()
+        plan = steps.plan_sync(ctx)
+        (ctx.workspace.src / '.repo').mkdir(parents=True)
+        state = {'outputs': {'resolved_manifest_sha256': hashlib.sha256(b'<manifest/>').hexdigest()}}
+        self.assertFalse(plan.valid(state))
+        ctx.resolved_manifest.parent.mkdir(parents=True, exist_ok=True)
+        ctx.resolved_manifest.write_bytes(b'<manifest/>')
+        self.assertTrue(plan.valid(state))
+        ctx.resolved_manifest.write_bytes(b'<manifest></manifest>')
+        self.assertFalse(plan.valid(state))
+        with self.assertRaisesRegex(bw.BuildStepError, 'changed'):
+            steps.synced_manifest(ctx, state)
+
+    def test_old_overlay_is_moved_aside_and_other_local_manifests_stop_the_sync(self):
+        src = self.root / 'src'
+        local = src / '.repo/local_manifests'
+        self.assertEqual([], steps.retire_overlay(src))
+        local.mkdir(parents=True)
+        (local / 'diamaneos.xml').write_text('<manifest/>')
+        self.assertEqual(['the old manifest overlay'], steps.retire_overlay(src))
+        self.assertFalse(local.exists())
+        self.assertEqual('<manifest/>', (src / '.repo/diamaneos-previous-local-manifests/diamaneos.xml').read_text())
+        local.mkdir()
+        (local / 'mine.xml').write_text('<manifest/>')
+        with self.assertRaisesRegex(bw.UsageError, 'mine.xml'):
+            steps.retire_overlay(src)
+        self.assertTrue((local / 'mine.xml').exists())
+
+    def test_resolved_project_revision(self):
+        resolved = (b'<manifest><remote name="r" fetch="https://example.invalid/"/><default remote="r"/>'
+                    b'<project name="k" path="device/fairphone/FP6-kernel" revision="' + b'b' * 40 + b'"/></manifest>')
+        self.assertEqual('b' * 40, steps.project_revision(resolved, 'device/fairphone/FP6-kernel'))
+        self.assertIsNone(steps.project_revision(resolved, 'device/other'))
 
 
 class RunnerTests(unittest.TestCase):
