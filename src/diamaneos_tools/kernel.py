@@ -165,13 +165,23 @@ def checkout_source(root, plan):
     require(git(root, 'rev-parse', 'HEAD') == plan['revision'], 'kernel source revision mismatch')
 
 
-def submodule_plan(root):
-    """(path, url, gitlink) for every submodule of the checked-out commit."""
-    gitlinks = {}
+def gitlinks(root):
+    """Path -> commit of every gitlink in the checked-out commit."""
+    links = {}
     for line in git(root, 'ls-files', '--stage').splitlines():
-        mode, revision, _stage_path = line.split(' ', 2)
+        mode, revision, rest = line.split(' ', 2)
         if mode == '160000':
-            gitlinks[_stage_path.split('\t', 1)[1]] = revision
+            links[rest.split('\t', 1)[1]] = revision
+    return links
+
+
+def submodule_plan(root):
+    """(path, url, gitlink) for every submodule the top-level .gitmodules declares.
+
+    Gitlinks it does not declare (edk2 carries its upstream's own) stay
+    unpopulated; verify_source requires their directories to stay empty.
+    """
+    links = gitlinks(root)
     configured = {}
     if (root / '.gitmodules').is_file():
         listing = process.run(['git', '-C', str(root), 'config', '-f', '.gitmodules', '--get-regexp',
@@ -180,13 +190,13 @@ def submodule_plan(root):
             key, path = line.split(' ', 1)
             name = key[len('submodule.'):-len('.path')]
             configured[path] = git(root, 'config', '-f', '.gitmodules', '--get', 'submodule.' + name + '.url')
-    require(set(configured) == set(gitlinks), 'submodules in .gitmodules and the tree differ')
+    require(set(configured) <= set(links), 'a submodule in .gitmodules is not in the tree')
     rows = []
-    for path in sorted(gitlinks):
+    for path in sorted(configured):
         relative(path)
         check_url(configured[path])
-        require(SHA1.fullmatch(gitlinks[path]), 'invalid submodule revision: ' + path)
-        rows.append((path, configured[path], gitlinks[path]))
+        require(SHA1.fullmatch(links[path]), 'invalid submodule revision: ' + path)
+        rows.append((path, configured[path], links[path]))
     return rows
 
 
@@ -235,6 +245,12 @@ def verify_source(root, plan, submodules, prebuilts):
         unexpected.append(path)
     require(not unexpected, 'kernel source changes or untracked inputs: ' + ', '.join(unexpected[:10]))
     require({p: r for p, _, r in submodule_plan(root)} == submodules, 'submodule pins differ from the preparation')
+    for path in sorted(set(gitlinks(root)) - set(submodules)):
+        # Git status does not look inside an unpopulated gitlink directory.
+        directory = root / path
+        require(not directory.is_symlink() and (not directory.exists() or
+                                                (directory.is_dir() and not any(directory.iterdir()))),
+                'undeclared submodule directory is not empty: ' + path)
     for path, revision in submodules.items():
         require(git(root / path, 'rev-parse', 'HEAD') == revision, 'submodule revision mismatch: ' + path)
     require({p: r for p, _, r in prebuilt_plan(root)} == prebuilts, 'prebuilt pins differ from the preparation')
