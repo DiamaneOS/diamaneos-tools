@@ -278,13 +278,13 @@
     },
     {
       "id": "call-audio-bridge-domain",
-      "why": "The bridge has its seapp domain.",
+      "why": "The bridge has its seapp domain, selected by its signer and package.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts"
       ],
       "lines": [
-        "user=_app isPrivApp=true name=de.diamaneos.callaudio domain=fp6_callaudio_app type=app_data_file levelFrom=all"
+        "user=_app seinfo=diamaneos_callaudio isPrivApp=true name=de.diamaneos.callaudio domain=fp6_callaudio_app type=app_data_file levelFrom=all"
       ]
     },
     {
@@ -314,10 +314,11 @@
     },
     {
       "id": "call-audio-bridge-apk",
-      "why": "The bridge asks for one normal permission and is not platform-signed.",
+      "why": "The bridge asks only for the call-audio control permission and the normal audio settings permission, and is not platform-signed.",
       "type": "apk",
       "path": "SYSTEM_EXT/priv-app/FP6CallAudio/FP6CallAudio.apk",
       "permissions": [
+        "android.permission.DIAMANEOS_CONTROL_CALL_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "not_signed_like": "SYSTEM/framework/framework-res.apk"
@@ -781,7 +782,6 @@
       "apk": "VENDOR/overlay/FP6WifiOverlay.apk",
       "values": {
         "bool/config_wifi_connected_mac_randomization_supported": "true",
-        "bool/config_wifi_p2p_mac_randomization_supported": "true",
         "bool/config_wifi_background_scan_support": "true"
       },
       "target": "com.android.wifi.resources"
