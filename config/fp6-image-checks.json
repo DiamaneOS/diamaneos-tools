@@ -51,13 +51,14 @@
     },
     {
       "id": "device-overlays",
-      "why": "The FP6 framework, Settings, SystemUI and tethering overlays are installed.",
+      "why": "The FP6 framework, Settings, SystemUI, tethering and Wi-Fi overlays are installed.",
       "type": "files_present",
       "paths": [
         "VENDOR/overlay/FP6FrameworksOverlay.apk",
         "VENDOR/overlay/FP6SettingsOverlay.apk",
         "VENDOR/overlay/FP6SystemUIOverlay.apk",
-        "VENDOR/overlay/FP6TetheringOverlay.apk"
+        "VENDOR/overlay/FP6TetheringOverlay.apk",
+        "VENDOR/overlay/FP6WifiOverlay.apk"
       ]
     },
     {
@@ -735,6 +736,18 @@
         "integer/config_tether_usb_functions": "1"
       },
       "target": "com.android.networkstack.tethering"
+    },
+    {
+      "id": "wifi-mac-randomisation",
+      "why": "Wi-Fi connects with a randomised MAC address and scans with the screen off.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6WifiOverlay.apk",
+      "values": {
+        "bool/config_wifi_connected_mac_randomization_supported": "true",
+        "bool/config_wifi_p2p_mac_randomization_supported": "true",
+        "bool/config_wifi_background_scan_support": "true"
+      },
+      "target": "com.android.wifi.resources"
     },
     {
       "id": "ncm-gadget",
