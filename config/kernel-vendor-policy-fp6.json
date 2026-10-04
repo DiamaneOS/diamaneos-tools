@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "fp6-6-1-ims-vendor-kernel-policy-v1",
+  "baseline": {
+    "CONFIG_QRTR": "m",
+    "CONFIG_QRTR_IMSDCM_OWNERSHIP": "y"
+  },
+  "production": {
+    "CONFIG_SECURITY_SELINUX_DEVELOP": "n"
+  }
+}

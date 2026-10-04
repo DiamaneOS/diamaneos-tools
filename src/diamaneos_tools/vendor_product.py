@@ -198,10 +198,8 @@ STOCK_APPS = {
  # Not selected: QtiTelephonyService (the IQcRilAudio call-audio client). The
  # device's own call-audio bridge (device callaudio/) replaces it with the
  # normal permission MODIFY_AUDIO_SETTINGS instead of MODIFY_AUDIO_ROUTING.
- # eSIM LPA; the device sysconfig turns its services off by default because it
- # cannot list profiles on the FP6 (stock leaves its eSIM service on). Nothing
- # then loads its JNI library (libjni_aidl_service), which is not selected.
- 'product/app/uimlpaservice/uimlpaservice.apk':('uimlpaservice', True),
+ # Deferred: no inactive stock LPA or its download privileges are packaged.
+
 }
 # JNI libraries of the stock apps and the platform libraries they link.
 STOCK_JNI = {
@@ -216,8 +214,6 @@ STOCK_LIBRARIES = {
  'system_ext/etc/permissions/qti_telephony_hidl_wrapper.xml':'system_ext/framework/qti-telephony-hidl-wrapper.jar',
  'system_ext/etc/permissions/qti_telephony_utils.xml':'system_ext/framework/qti-telephony-utils.jar',
  'product/etc/permissions/ims_ext_common.xml':'product/framework/ims-ext-common.jar',
- 'product/etc/permissions/lpa.xml':'product/framework/uimlpalibrary.jar',
- 'product/etc/permissions/qti_telephony_hidl_wrapper_prd.xml':'product/framework/qti-telephony-hidl-wrapper-prd.jar',
  'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
 }
 STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml'}
@@ -705,8 +701,8 @@ TELEPHONY_CONFIG_REWRITES = {
         'reason': 'Drop the log, readproc, diag (oem_2901) and SSG socket (oem_2912) groups from the radio daemon'},
     'vendor/etc/init/nicmd.rc': {
         'source_sha256': 'b756045f1b044b7f690bd3296fec9e82351cd8afee99ee5af8bdc2f8c1a3f7e3',
-        'sha256': '0a4a6373d3eb0b6d587739a93111d65fb30ea15b0074a28f8086731cf5b3cfc1',
-        'reason': 'Declare the root user and bound nicmd to the capabilities its stock SELinux domain allows'},
+        'sha256': '569b4569f639f51a263134faece0db072b1facd06cadc262ece4fb968488e361',
+        'reason': 'Start every nicmd thread as radio with only network administration, raw-network and wake-lock capabilities'},
     'vendor/etc/data/nicm_config.xml': {
         'source_sha256': 'd9c5fd8ab8be49512d6ce4bf628c1f7c3218de1c287569e3f19e64040d35d0a0',
         'sha256': '03914a36e14990016b6bf72da90b95230c4e67381b0faadd2b82454dd30defaf',
@@ -729,8 +725,8 @@ def telephony_config(path, data):
                                b'    group radio cache inet misc audio wakelock\n')
     elif path.endswith('/nicmd.rc'):
         service = b'service vendor.nicmd /system/vendor/bin/nicmd\n    class main\n'
-        derived = data.replace(service, service + b'    user root\n'
-                               b'    capabilities NET_ADMIN NET_RAW SETGID SETUID SETPCAP KILL BLOCK_SUSPEND\n')
+        derived = data.replace(service, service + b'    user radio\n    group radio\n'
+                               b'    capabilities NET_ADMIN NET_RAW BLOCK_SUSPEND\n')
     elif path.endswith('/qcrilNr.db'):
         # Same-length edits of two SQLite records (SQLite keeps no page
         # checksums): poweron_opt def_val 1 -> 0 and qcrildb_version 15.0 -> 16.0.

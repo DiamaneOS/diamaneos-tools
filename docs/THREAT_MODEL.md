@@ -29,7 +29,7 @@ rules).
    keys, SELinux enforcement not validated per subsystem
    ([details](#current-development-state)).
 2. **No MTE, much closed code:** memory-safety bugs are not contained as on
-   current Pixels; the 720 closed files (about 369 MB) include large parsers of
+   current Pixels; the selected closed files recorded in `config/fp6-minimal/vendor-files.json` include large parsers of
    untrusted input, and the closed GPU driver and shader compilers run in every
    app ([details](#camera-microphone-sensor-streams-device-integrity)).
 3. **Unpatchable firmware** that lags Android Security Bulletins: no firmware
@@ -78,23 +78,40 @@ personal accounts and sensitive data stay off them.
   control in the OS, so the unlock-ability flag stays as stock left it.
 - **Network endpoints:** inherited GrapheneOS services (connectivity, time, CT
   list, provisioning proxies, app catalog, SUPL proxy).
-- **Closed vendor code:** 720 stock Qualcomm/Fairphone files (about 369 MB),
-  stock-first, all hash-pinned, purpose partly generic.
+- **Closed vendor code:** selected Qualcomm/Fairphone inputs are hash-pinned in
+  `config/fp6-minimal/vendor-files.json`; source replacements and remaining closed
+  components require their recorded review and qualification.
 - **Debug interfaces:** userspace Qualcomm diag removed; debug USB functions
   remain.
 - **Firmware:** the last flashed stock release.
 
-### IMS status (2026-09-28)
+### IMS development evidence and remaining release gates (2026-10-04)
 
-IMS (carrier voice, SMS and Wi-Fi calling over IP) on the enforcing development
-image: ordinary voice, SMS and mobile data work on the tested subscriptions,
-including basic Wi-Fi calling and coexistence with VPN lockdown. Reconnection
-can leave IMS unavailable for about ten minutes; a second-network
-observer/address discrepancy is under investigation. The new `de.diamaneos` app
-and interface identities need separate build and device validation; earlier
-image results are not acceptance of the namespace migration. The [IMS
-integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) record how the
-containment evolved.
+The tested enforcing development image has ordinary voice, SMS and mobile data on
+both test subscriptions, including incoming/outgoing Wi-Fi-only calls with VPN
+lockdown. One immediately observed reporter restart preserved both registrations
+at the sampled points; this does not establish universal or long-term recovery.
+Native self-target carrier activation/cache/job tests passed without carrier traffic.
+Emergency framework tests are simulations, not end-to-end emergency acceptance.
+
+The source integration separates the modem-facing DCM, the restricted-network
+metadata broker and passive Wi-Fi observer/reporter. The broker has no Internet
+permission and does not forward application traffic or bypass app VPN policy.
+Carrier checks have bounded physical workers and a whole-request deadline, native
+Android retries, and durable carrier-delay fences. Audio control requires the
+current unique bridge identity and a platform-owned permission, beyond the normal
+Modify audio settings permission. The paired kernel reserves the DCM publisher
+role and restricts TIPC to local IPC. These later controls still require final
+paired-image native qualification before release claims.
+
+The proprietary IMS/IWLAN/certificate components, modem firmware and selected
+network-control daemon remain part of the trusted computing base. Presigned OEM
+apps retain OEM update trust. Development test keys are public; production signing,
+locked verified boot and the OEM-app update policy remain release gates. AML and
+eSIM profile management are deferred; an inactive LPA is omitted. Existing eSIM
+profiles and carrier emergency-location mechanisms require device/carrier evidence.
+The [IMS integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) preserve
+historical evidence without making it acceptance of this later source cut.
 
 ## What DiamaneOS defends against today
 

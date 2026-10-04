@@ -606,28 +606,12 @@ class NativeProductTests(unittest.TestCase):
                      'product/etc/permissions/ims_ext_common.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/ims_ext_common.xml']:
             self.assertIn('vendor/fairphone/FP6/files/' + path, make)
 
-    def test_stock_lpa_is_a_presigned_product_privileged_app_with_its_libraries(self):
+    def test_deferred_lpa_is_absent_but_native_radio_dependency_remains(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
-        lpa = bp[bp.index('name: "uimlpaservice"'):]
-        lpa = lpa[:lpa.index('}\n')]
-        for line in ['product_specific: true', 'presigned: true', 'privileged: true',
-                     'apk: "files/product/app/uimlpaservice/uimlpaservice.apk"',
-                     'licenses: ["fp6_selected_stock_notices_product"]']:
-            self.assertIn(line, lpa)
-        self.assertNotIn('certificate', lpa)
-        for path in ['product/framework/uimlpalibrary.jar:$(TARGET_COPY_OUT_PRODUCT)/framework/uimlpalibrary.jar',
-                     'product/etc/permissions/lpa.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/lpa.xml',
-                     'system_ext/framework/extphonelib.jar:$(TARGET_COPY_OUT_SYSTEM_EXT)/framework/extphonelib.jar']:
-            self.assertIn('vendor/fairphone/FP6/files/' + path, make)
-        # The LPA's services stay off (device sysconfig), so nothing loads its
-        # ServiceLib JNI library: it is neither selected nor installable.
-        self.assertNotIn('libjni_aidl_service', bp + make)
-        self.assertFalse([r for r in self.recipe['files'] if r['path'].startswith('product/lib64/')])
-        row = copy.deepcopy(next(r for r in self.recipe['files'] if r['path'].startswith('product/')))
-        row['path'] = row['input'] = 'product/lib64/libjni_aidl_service.so'
-        self.recipe['files'].append(row)
-        with self.assertRaises(VendorError): self.render()
+        for value in ('uimlpaservice', 'uimlpalibrary', 'qti-telephony-hidl-wrapper-prd', 'libjni_aidl_service'):
+            self.assertNotIn(value, bp + make)
+        self.assertIn('vendor.qti.hardware.radio.lpa-V1-ndk', bp)
 
     def test_unreviewed_stock_jar_or_permission_file_rejected(self):
         for path in ['product/framework/other.jar', 'system_ext/etc/permissions/privapp-permissions-other.xml']:
@@ -639,16 +623,16 @@ class NativeProductTests(unittest.TestCase):
                 with self.assertRaises(VendorError):
                     vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
         # A permission file is only installed with the jar it declares.
-        self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != 'product/framework/uimlpalibrary.jar']
+        self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != 'product/framework/ims-ext-common.jar']
         with self.assertRaises(VendorError): self.render()
 
     def test_stock_permission_file_may_only_declare_its_library(self):
-        path = 'product/etc/permissions/lpa.xml'
+        path = 'product/etc/permissions/ims_ext_common.xml'
         good = (b'<?xml version="1.0" encoding="utf-8"?>\n<!-- licence -->\n<permissions>\n'
-                b' <library name="com.qualcomm.qti.lpa.uimlpalibrary"\n'
-                b'          file="/product/framework/uimlpalibrary.jar"/>\n</permissions>\n')
-        self.assertEqual('com.qualcomm.qti.lpa.uimlpalibrary', vendor_product.stock_library_declaration(path, good))
-        for bad in [good.replace(b'/product/framework/uimlpalibrary.jar', b'/product/framework/other.jar'),
+                b' <library name="org.codeaurora.ims"\n'
+                b'          file="/product/framework/ims-ext-common.jar"/>\n</permissions>\n')
+        self.assertEqual('org.codeaurora.ims', vendor_product.stock_library_declaration(path, good))
+        for bad in [good.replace(b'/product/framework/ims-ext-common.jar', b'/product/framework/other.jar'),
                     good.replace(b'</permissions>', b'<privapp-permissions package="x"/></permissions>'),
                     good.replace(b'<permissions>', b'<config>').replace(b'</permissions>', b'</config>'),
                     b'<permissions><feature name="android.hardware.telephony.euicc"/></permissions>', b'<permissions']:

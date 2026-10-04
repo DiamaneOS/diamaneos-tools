@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-kernel-policy-v8",
+  "id": "fp6-android14-6-1-kernel-policy-v9",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -38,7 +38,8 @@
     "CONFIG_PSTORE": "y",
     "CONFIG_PSTORE_RAM": "y",
     "CONFIG_PSTORE_CONSOLE": "y",
-    "CONFIG_PSTORE_PMSG": "y"
+    "CONFIG_PSTORE_PMSG": "y",
+    "CONFIG_TIPC_LOCAL_ONLY": "y"
   },
   "production": {
     "CONFIG_SECURITY_SELINUX_DEVELOP": "n",
