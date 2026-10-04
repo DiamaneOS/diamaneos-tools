@@ -400,8 +400,8 @@ current extraction contract is specific to these ext4 stock images; it rejects
 an unexpected filesystem or another partition (system, odm) rather than
 guessing another decoder.
 
-`stock-files/current` contains the regular files, notice file and symlinks
-declared in
+`stock-files/current` contains the regular files, notice files, symlinks and
+build property file declared in
 [`config/fp6-minimal/vendor-files.json`](../config/fp6-minimal/vendor-files.json).
 Product generation applies the reviewed source replacements, activation and
 configuration derivation. Its complete output inventory is stored in
@@ -409,6 +409,17 @@ configuration derivation. Its complete output inventory is stored in
 original bytes from derived files and retained inputs from installed libraries.
 Identical inputs reproduce the same generation; changed or missing inputs fail
 before replacing `current`. Scratch raw images are removed after extraction.
+
+**Vendor patch level.** `VENDOR_SECURITY_PATCH` in the generated
+`BoardConfigVendor.mk`, which the build reports as
+`ro.vendor.build.security_patch`, is the value the stock `vendor/build.prop`
+sets. The recipe pins that file by size and SHA-256 under `build_properties`;
+it is read, never installed. Generation requires the property exactly once, as
+a real `YYYY-MM-DD` date no later than the factory package's release date in
+`config/stock-inputs.json` or today, and records it in the generation's
+`provenance.json` and the vendor step's state. The bound is the release date,
+not the stock build date: stock builds are made before the patch date they
+carry.
 
 ### Prepare sources and build the kernel set
 

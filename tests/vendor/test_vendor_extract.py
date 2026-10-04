@@ -97,6 +97,19 @@ class ExtractionTests(unittest.TestCase):
                           '/lib64/hal@1.0.so':'vendor_a.img'},dumps)
         self.assertEqual(self.data,(self.output/'current/product/framework/lib.jar').read_bytes())
         self.assertEqual(target,os.readlink(self.output/'current/system_ext/priv-app/ims/lib/arm64/libjni.so'))
+    def test_build_properties_are_extracted_and_checked(self):
+        digest=hashlib.sha256(self.data).hexdigest()
+        self.selection['build_properties']=[dict(input='vendor/build.prop',bytes=len(self.data),sha256=digest)]
+        result=self.extract()
+        self.assertEqual(2,result['file_count'])
+        dumps=[c[2] for c in self.calls if Path(c[0]).name=='debugfs_static' and c[2].startswith('dump ')]
+        self.assertIn('dump /build.prop tree/vendor/build.prop',dumps)
+        self.assertEqual(self.data,(self.output/'current/vendor/build.prop').read_bytes())
+        previous=os.readlink(self.output/'current')
+        self.selection['build_properties'][0]['sha256']='1'*64
+        self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
+        self.selection['build_properties'][0]=dict(input='vendor/lib64/hal@1.0.so',bytes=len(self.data),sha256=digest)
+        self.assertRaises(VendorError,self.extract)
     def test_absolute_alias_cannot_leave_its_partition(self):
         target='/vendor/lib64/hal@1.0.so'
         self.selection['symlinks'].append(dict(input='system_ext/lib64/alias.so',target=target,

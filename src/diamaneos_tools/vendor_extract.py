@@ -73,7 +73,7 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_
     observed_tools = tool_identity(image_tools, tool_pins, tool_policy)
     if tool_policy == 'recorded':
         tool_pins = observed_tools
-    rows = selection['files'] + selection['notices']
+    rows = selection['files'] + selection['notices'] + selection.get('build_properties', [])
     links = selection.get('symlinks', [])
     paths = [relative(r['input']) for r in rows + links]
     if len(set(paths)) != len(paths) or any(p.parts[0] not in EXTRACT_PARTITIONS or len(p.parts) < 2

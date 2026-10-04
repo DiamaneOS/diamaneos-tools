@@ -447,7 +447,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
-            aapt2=ctx.host_bin / 'aapt2', stock=recipe)
+            aapt2=ctx.host_bin / 'aapt2', stock=recipe, release_date=archive.get('release_date'))
 
     actions = [host_tools,
                Action(f'Download the Fairphone factory package {archive["filename"]} and check its SHA-256',
@@ -463,6 +463,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 'extraction': ctx.cache['extract']['generation'],
                 'image_tools': ctx.cache['extract']['image_tools'],
                 'generation': product['generation_sha256'], 'inventory_sha256': product['inventory_sha256'],
+                'vendor_security_patch': product['vendor_security_patch'],
                 'aapt2_sha256': bw.sha_file(ctx.host_bin / 'aapt2'),
                 'network_isolation': 'off' if ctx.allow_network else 'on'}
 
