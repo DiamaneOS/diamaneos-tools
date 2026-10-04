@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261004-ims-hardening",
+  "environment_id": "fp6-android17-grapheneos-2026091000-published-20261004-ims-recovery",
   "scope": "Published FP6 development line: the android17 heads of every DiamaneOS project on 2026-10-02, including the build/make fork and the Tally forks, composed on the authenticated GrapheneOS release, with authenticated vendor inputs. Only pushed commits are pinned here. The line builds with the public build commands; it is not phone-tested as a whole.",
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -127,7 +127,7 @@
     "overlay_revision": "7c57fa1e5d49f919fa05f67444042d3dce1ab3fb",
     "overlay_sha256": "ac4771b0e27011ae88559f6ae550a5ee7d89bc221d4486f70104030802e61530",
     "project_count": 1038,
-    "project_map_sha256": "d739b7b86a3c73ece61387a3d0c2818278dd41b0103f89803aec112d29c1ddbc",
+    "project_map_sha256": "6ca648970c2aa97e1afce4215c099ea626a940d0181e49cb71d9d5f576bec0c0",
     "resolved_revisions": {
       "bootable/recovery": "4b93765f922f7a561c2682fade373ab298a92a15",
       "build/make": "400085679c4f417c94205637a97b7c17da526d3b",
@@ -137,7 +137,7 @@
       "frameworks/libs/systemui": "bc4366a6443c57294490800da57f457fe45c2cba",
       "frameworks/native": "84fc898d9eff5a862a1bedfb7b6020176175ebcf",
       "frameworks/opt/telephony": "1b0271e4b64a2946461c3ca8b8a291056a8099a3",
-      "hardware/diamaneos/ims": "e238df756c3cb1f10ff2216d09ccb71cb80100ba",
+      "hardware/diamaneos/ims": "a39d250c46630041c5fe1c0391ae4ee51054fd84",
       "hardware/qcom/bootctrl": "6248198cd1e32f94b75486500fdbf9c5503fd568",
       "hardware/qcom/display": "30d823f92d6713cf4bc7cc745c4cf598d432e388",
       "hardware/qcom/wlan": "d9e8e3b3ff7d4324b49af08b98e0a09de5537904",
