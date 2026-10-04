@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Derive the sensors multi-HAL configuration (`hals.conf`) with only the
+  Qualcomm sub-HAL. The AOSP dynamic-sensor sub-HAL parses HID sensor
+  descriptors from Bluetooth and USB devices but has no hidraw access here;
+  the device stops installing it and declaring the head-tracker feature. Image
+  checks require the derived list, the absence of the sub-HAL and feature
+  file, and no /dev listing or mock-sensor property grants for the sensors HAL.
 - Stop selecting the stock Bluetooth HCI service and the eight FM, ANT, SAR,
   config-store and TPI libraries it links but never registers. The device's
   own service (device `bluetooth/service.cpp`) registers the stock HCI
