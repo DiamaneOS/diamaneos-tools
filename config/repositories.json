@@ -193,13 +193,23 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
     },
     {
+      "checkout_path": "WORK_ROOT/kernel_qcom-6.1",
+      "id": "kernel-sources",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/kernel_qcom-6.1.git",
+      "revision": null,
+      "slug": "kernel_qcom-6.1",
+      "state": "active",
+      "upstream_url": null
+    },
+    {
       "checkout_path": "WORK_ROOT/kernel_manifest",
       "id": "kernel-manifest",
       "publication": "generated",
       "remote_url": "https://github.com/DiamaneOS/kernel_manifest-fp6.git",
       "revision": null,
       "slug": "kernel_manifest-fp6",
-      "state": "active",
+      "state": "retired",
       "upstream_url": null
     },
     {
