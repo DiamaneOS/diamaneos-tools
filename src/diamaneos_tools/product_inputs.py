@@ -1,9 +1,10 @@
-"""Install verified generated vendor and kernel inputs into an Android checkout.
+"""Install the verified generated vendor tree into an Android checkout.
 
 Installation writes a descriptor (``.repo/diamaneos-generated-inputs.json``)
-that binds both trees to the selected build environment, the recipes that
-produced them and their complete inventories. The full source preflight accepts
-the two generated directories only when that descriptor still matches.
+that binds the tree to the selected build environment, the recipes that
+produced it and its complete inventory. The full source preflight accepts the
+generated directory only when that descriptor still matches. The kernel is not
+generated: it comes from the kernel prebuilts project in the manifest.
 """
 import argparse
 import hashlib
@@ -22,19 +23,20 @@ from .vendor_files import verify_tree
 
 DESCRIPTOR = '.repo/diamaneos-generated-inputs.json'
 PREVIOUS = '.repo/diamaneos-previous-inputs'
-DESCRIPTOR_SCHEMA = 2
+DESCRIPTOR_SCHEMA = 3
 DEFAULT_ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
 TARGET_PRODUCT = 'FP6'
-# Where the device configuration expects the kernel prebuilts.
+# Where the device configuration expects the kernel prebuilts (a manifest project).
 KERNEL_PREBUILTS = 'device/fairphone/FP6-kernel'
 # Generated trees and where the device configuration expects them.
-DESTINATIONS = {'vendor': 'vendor/fairphone/FP6', 'kernel': KERNEL_PREBUILTS}
-# The recipes each generated tree records about itself: the vendor product in
-# its provenance, the kernel run in its result, preparation and configuration
-# reports. Installation and the preflight require them to equal the recipes
-# in this checkout, so a tree made from other recipes is refused.
-RECIPE_KEYS = ('vendor_files', 'vendor_elf', 'kernel_sources', 'kernel_packaging',
-               'kernel_policy', 'kernel_vendor_policy')
+DESTINATIONS = {'vendor': 'vendor/fairphone/FP6'}
+# Trees earlier tools generated where the manifest now has a project. A sync
+# moves such a tree aside (it has no .git) so repo can check out the project.
+LEGACY_DESTINATIONS = {'kernel': KERNEL_PREBUILTS}
+# The recipes the vendor tree records about itself in its provenance.
+# Installation and the preflight require them to equal the recipes in this
+# checkout, so a tree made from other recipes is refused.
+RECIPE_KEYS = ('vendor_files', 'vendor_elf')
 MAX_DESCRIPTOR_BYTES = 16 * 1024 * 1024
 
 
@@ -44,40 +46,19 @@ def read(path):
     return json.loads(path.read_bytes())
 
 
-def policy_sha256(policy):
-    """The kernel policy digest kernel_config.check records."""
-    return hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-
-
 def current_recipes(root=ROOT):
-    """Recipe digests of this checkout, computed as the generators record them."""
+    """Recipe digests of this checkout, computed as the generator records them."""
     from . import safe_json
     return {
         'vendor_files': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
         'vendor_elf': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
-        'kernel_sources': sha(root / 'config/kernel-sources-fp6.json'),
-        'kernel_packaging': sha(root / 'config/fp6-kernel-packaging.json'),
-        'kernel_policy': policy_sha256(json.loads((root / 'config/kernel-policy-fp6.json').read_bytes())),
-        'kernel_vendor_policy': policy_sha256(json.loads((root / 'config/kernel-vendor-policy-fp6.json').read_bytes())),
     }
 
 
-def generation_recipes(vendor_tree, kernel_root, run_dir):
-    """Recipe digests the vendor generation and the kernel run recorded."""
+def generation_recipes(vendor_tree):
+    """Recipe digests the vendor generation recorded."""
     provenance = read(vendor_tree / 'provenance.json')
-    result = read(run_dir / 'result.json')
-    preparation_path = kernel_root / 'preparation.json'
-    require(sha(preparation_path) == result.get('preparation_sha256'),
-            'the kernel run no longer matches its preparation; run the kernel build again')
-    preparation = read(preparation_path)
-    policies = {read(run_dir / name).get('policy_sha256') for name in ('kernel-config.json', 'vendor-kernel-config.json')}
-    require(len(policies) == 1, 'the kernel run checked two different policies')
-    vendor_policy = read(run_dir / 'vendor-role-kernel-config.json')
-    require(vendor_policy.get('status') == 'PASS', 'vendor IMS ownership configuration was not accepted')
-    recipes = {'vendor_files': provenance.get('recipe_sha256'), 'vendor_elf': provenance.get('elf_selection_sha256'),
-               'kernel_sources': preparation.get('source_plan_sha256'),
-               'kernel_packaging': result.get('packaging_recipe_sha256'), 'kernel_policy': policies.pop(),
-               'kernel_vendor_policy': vendor_policy.get('policy_sha256')}
+    recipes = {'vendor_files': provenance.get('recipe_sha256'), 'vendor_elf': provenance.get('elf_selection_sha256')}
     missing = sorted(k for k, v in recipes.items() if not isinstance(v, str) or not re.fullmatch('[a-f0-9]{64}', v))
     require(not missing, 'the generated inputs do not record their recipes: ' + ', '.join(missing))
     return recipes
@@ -154,8 +135,8 @@ def install_one(source, records, destination, previous=None):
     return outcome
 
 
-def selected_inputs(vendor, kernel):
-    """Resolve and authenticate the current vendor generation and kernel run."""
+def selected_inputs(vendor):
+    """Resolve and authenticate the current vendor generation."""
     vcurrent = vendor / 'current'
     require(vcurrent.is_symlink(), 'vendor current generation is absent')
     target = os.readlink(vcurrent)
@@ -163,39 +144,24 @@ def selected_inputs(vendor, kernel):
     vtree = vendor / target
     vinventory = vendor / 'inventories' / (Path(target).name + '.json')
     vrecords = read(vinventory)
-    kcurrent = kernel / 'current'
-    require(kcurrent.is_symlink(), 'kernel current candidate is absent')
-    ktarget = os.readlink(kcurrent); relative(ktarget)
-    require(ktarget.startswith('runs/') and ktarget.endswith('/candidate'), 'invalid kernel candidate pointer')
-    ktree = kernel / ktarget
-    require(ktree.resolve().is_relative_to(kernel.resolve()), 'kernel candidate escaped workspace')
-    report = read(ktree.parent / 'result.json')
-    kinventory = ktree.parent / 'artifacts.json'
-    require(report['status'] == 'PASS' and sha(kinventory) == report['inventory_sha256'], 'kernel build result does not bind its inventory')
-    rows = read(kinventory)
-    krecords = {r['path']:{'bytes':r['bytes'],'sha256':r['sha256']} for r in rows}
-    require(len(rows) == len(krecords), 'duplicate kernel artifact')
     return {
         'vendor': {'tree': vtree, 'records': vrecords, 'generation': Path(target).name,
                    'inventory_sha256': sha(vinventory)},
-        'kernel': {'tree': ktree, 'records': krecords, 'run': ktarget,
-                   'result_sha256': sha(ktree.parent / 'result.json'), 'inventory_sha256': sha(kinventory)},
-        'recipes': generation_recipes(vtree, kernel, ktree.parent),
+        'recipes': generation_recipes(vtree),
     }
 
 
-def install(source, vendor, kernel, environment=DEFAULT_ENVIRONMENT, replace=False):
+def install(source, vendor, environment=DEFAULT_ENVIRONMENT, replace=False):
     require(source.is_dir() and not source.is_symlink(), 'Android source root is absent or a symlink')
     source = source.resolve()
     require((source / '.repo').is_dir() and not (source / '.repo').is_symlink(), 'expected an Android repo checkout')
-    selected = selected_inputs(vendor, kernel)
+    selected = selected_inputs(vendor)
     require_current(selected['recipes'])
     environment = Path(environment)
     environment_bytes = environment.read_bytes()
     environment_id = json.loads(environment_bytes)['environment_id']
     result = {'operation':'generated-input-installation', 'device_commands_executed':0,
-              'vendor_inventory_sha256':selected['vendor']['inventory_sha256'],
-              'kernel_inventory_sha256':selected['kernel']['inventory_sha256']}
+              'vendor_inventory_sha256':selected['vendor']['inventory_sha256']}
     descriptor = {
         'schema_version': DESCRIPTOR_SCHEMA, 'operation': 'generated-input-installation',
         'target_product': TARGET_PRODUCT, 'device_commands_executed': 0,
@@ -204,9 +170,8 @@ def install(source, vendor, kernel, environment=DEFAULT_ENVIRONMENT, replace=Fal
         'tools': tools_identity(), 'recipes': selected['recipes'], 'inputs': {},
     }
     with locked(source / '.repo'):
-        for label in ('vendor', 'kernel'):
+        for label, rel in DESTINATIONS.items():
             item = selected[label]
-            rel = DESTINATIONS[label]
             dest = source / rel
             # Do not install through any existing source-tree symlink.
             for parent in [dest,*dest.parents]:
@@ -214,13 +179,9 @@ def install(source, vendor, kernel, environment=DEFAULT_ENVIRONMENT, replace=Fal
                 require(not parent.is_symlink(), 'generated destination has a symlink ancestor')
             previous = source / PREVIOUS / label if replace else None
             result[label] = install_one(item['tree'], item['records'], dest, previous)
-            entry = {'path': rel, 'inventory_sha256': item['inventory_sha256'],
-                     'records_sha256': records_sha256(item['records']), 'records': item['records']}
-            if label == 'vendor':
-                entry['generation'] = item['generation']
-            else:
-                entry.update(run=item['run'], result_sha256=item['result_sha256'])
-            descriptor['inputs'][label] = entry
+            descriptor['inputs'][label] = {'path': rel, 'inventory_sha256': item['inventory_sha256'],
+                                           'records_sha256': records_sha256(item['records']),
+                                           'records': item['records'], 'generation': item['generation']}
         result['status']='PASS'
         descriptor['status'] = 'PASS'
         report = source / DESCRIPTOR
@@ -264,34 +225,44 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
     return accepted
 
 
+def move_aside(source, label, destination):
+    require(not destination.is_symlink() and destination.is_dir(), 'generated destination is not a directory')
+    previous = source / PREVIOUS / label
+    previous.parent.mkdir(parents=True, exist_ok=True)
+    if previous.exists():
+        shutil.rmtree(previous)
+    destination.rename(previous)
+    # Parents left empty (vendor/fairphone) are not source projects;
+    # the source tree check would reject them.
+    for parent in destination.parents:
+        if parent == source or any(parent.iterdir()):
+            break
+        parent.rmdir()
+
+
 def retire_stale(source, environment_sha256=None, root=ROOT):
     """Move generated trees aside when they no longer match their descriptor,
-    the environment or the recipes. Returns the labels that were moved."""
+    the environment or the recipes, and trees of earlier tools where the
+    manifest now has a project. Returns the labels that were moved."""
     source = Path(source)
+    moved = []
+    for label, rel in LEGACY_DESTINATIONS.items():
+        destination = source / rel
+        if (destination.exists() or destination.is_symlink()) and not (destination / '.git').exists():
+            move_aside(source, label, destination)
+            moved.append(label)
     descriptor = source / DESCRIPTOR
     if descriptor.exists() or descriptor.is_symlink():
         try:
             verify_descriptor(source, environment_sha256, root)
-            return []
+            return moved
         except (ValueError, OSError):
             pass
-    moved = []
     for label, rel in DESTINATIONS.items():
         destination = source / rel
         if destination.exists() or destination.is_symlink():
-            require(not destination.is_symlink() and destination.is_dir(), 'generated destination is not a directory')
-            previous = source / PREVIOUS / label
-            previous.parent.mkdir(parents=True, exist_ok=True)
-            if previous.exists():
-                shutil.rmtree(previous)
-            destination.rename(previous)
+            move_aside(source, label, destination)
             moved.append(label)
-            # Parents left empty (vendor/fairphone) are not source projects;
-            # the source tree check would reject them.
-            for parent in destination.parents:
-                if parent == source or any(parent.iterdir()):
-                    break
-                parent.rmdir()
     if descriptor.exists() or descriptor.is_symlink():
         descriptor.unlink()
     return moved
@@ -301,14 +272,13 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=Path,required=True)
     parser.add_argument('--vendor',type=Path,required=True,help='vendor product generation root')
-    parser.add_argument('--kernel',type=Path,required=True,help='prepared kernel workspace')
     parser.add_argument('--environment',type=Path,default=DEFAULT_ENVIRONMENT,
                         help='build environment the inputs are bound to')
     parser.add_argument('--replace',action='store_true',
                         help='move differing installed trees aside instead of refusing')
     args=parser.parse_args(argv)
     try:
-        print(json.dumps(install(args.source.absolute(),args.vendor.absolute(),args.kernel.absolute(),
+        print(json.dumps(install(args.source.absolute(),args.vendor.absolute(),
                                  args.environment, args.replace),indent=2));return 0
     except (OSError,ValueError,KeyError,TypeError):
         print('ERROR: generated inputs could not be verified or installed');return 2

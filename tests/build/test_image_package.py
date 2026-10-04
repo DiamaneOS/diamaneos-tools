@@ -42,6 +42,11 @@ def fixture_workspace(root: Path, variant='user'):
                'variant': variant, 'lunch': f'FP6-cur-{variant}', 'descriptor_sha256': 'd' * 64,
                'network_isolation': 'on'}
     ws.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': outputs})
+    ctx.resolved_manifest.write_bytes(b'<manifest/>')
+    ws.write_state('sync', {'status': 'PASS', 'inputs_sha256': 's', 'outputs': {
+        'manifest_url': 'https://github.com/DiamaneOS/platform_manifest.git', 'manifest_branch': 'android17',
+        'manifest_commit': 'c' * 40, 'resolved_manifest_sha256': bw.sha_file(ctx.resolved_manifest),
+        'kernel_prebuilts_commit': 'b' * 40, 'project_map_sha256': 'p' * 64, 'project_count': 1040}})
     return ctx
 
 
@@ -74,6 +79,13 @@ class PackageTests(unittest.TestCase):
         self.assertEqual((self.ctx.workspace.images / 'latest').resolve(), directory.resolve())
         self.assertIn('-g android -r -T 1790000000 -U edfbd922-2398-582a-bc24-062261d4ee5e -l metadata -S 67108864',
                       (directory / 'metadata.img').read_text())
+        # The record names the manifest commit, the resolved manifest and the kernel prebuilts.
+        self.assertEqual(b'<manifest/>', (directory / 'resolved-manifest.xml').read_bytes())
+        self.assertEqual({'url': 'https://github.com/DiamaneOS/platform_manifest.git', 'branch': 'android17',
+                          'commit': 'c' * 40, 'file': 'resolved-manifest.xml',
+                          'resolved_sha256': bw.sha_file(directory / 'resolved-manifest.xml')}, record['manifest'])
+        self.assertEqual({'path': 'device/fairphone/FP6-kernel', 'commit': 'b' * 40}, record['kernel_prebuilts'])
+        self.assertNotIn('kernel', record['generated_inputs'])
 
     def test_missing_factory_archive_does_not_probe_inaccessible_working_directory(self):
         self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',

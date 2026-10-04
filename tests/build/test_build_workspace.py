@@ -91,10 +91,10 @@ class WorkspaceTests(unittest.TestCase):
     def test_disk_estimate_counts_only_steps_without_output(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         full = bw.needed_space(config, bw.STEPS)
-        self.assertEqual(sum(config['disk_estimate_gib'].values()) * bw.GIB, full)
-        resumed = bw.needed_space(config, bw.STEPS, present={'sync', 'kernel', 'vendor', 'android'})
+        self.assertEqual(sum(config['disk_estimate_gib'][step] for step in bw.STEPS) * bw.GIB, full)
+        resumed = bw.needed_space(config, bw.STEPS, present={'sync', 'vendor', 'android'})
         self.assertEqual((config['disk_estimate_gib']['package'] + config['disk_estimate_gib']['verify']) * bw.GIB, resumed)
-        self.host(present={'sync', 'kernel', 'vendor', 'android'}, free=100 * bw.GIB)
+        self.host(present={'sync', 'vendor', 'android'}, free=100 * bw.GIB)
         with self.assertRaisesRegex(bw.HostError, 'GiB free'):
             self.host(free=100 * bw.GIB)
 
