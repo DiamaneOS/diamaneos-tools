@@ -140,6 +140,24 @@ class NativeProductTests(unittest.TestCase):
         for name in ['fp6_stock_vendor_bin_qseecomd', 'fp6_stock_vendor_lib64_libQSEEComAPI']:
             self.assertIn(name, modules)
 
+    def test_unused_display_colour_service_not_selected(self):
+        # Nothing is a client of the lazy colour service; the composer dlopens
+        # libsdm-disp-vndapis and loads the colour libraries itself.
+        rendered = self.render()
+        paths = {r['path'] for r in self.recipe['files']}
+        for path in ['vendor/bin/hw/vendor.qti.hardware.display.color-service',
+                     'vendor/etc/init/vendor.qti.hardware.display.color-service.rc',
+                     'vendor/lib64/vendor.qti.hardware.display.color-V1-ndk.so',
+                     'vendor/lib64/vendor.qti.hardware.display.postproc-V1-ndk.so']:
+            self.assertNotIn(path, paths)
+        self.assertFalse([r for r in self.selection['roots'] if 'display.color' in r])
+        self.assertNotIn('vendor.qti.hardware.display.color-service', vendor_product.ACTIVATION)
+        self.assertNotIn(b'display.color', rendered['Android.bp'] + rendered['device-vendor.mk'])
+        self.assertIn('vendor/lib64/libsdm-disp-vndapis.so', self.selection['roots'])
+        modules = json.loads(rendered['modules.json'])
+        for stem in ['libsdm-disp-vndapis', 'libsdm-color', 'libsnapdragoncolor-manager']:
+            self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
+
     def test_keymint_links_the_stock_keymaster_messages(self):
         # A C++ implementation library, not a frozen interface: the stock
         # KeyMint HAL keeps the copy it was built with.
@@ -456,8 +474,8 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('.vndk.', bp)
         self.assertNotIn('ro.vndk.version', make)
         self.assertNotIn('PRODUCT_EXTRA_VNDK_VERSIONS', make)
-        color = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.hardware.display.color-service"'):]
-        self.assertIn('"libbinder"', color[:color.index('}\n')])
+        service = bp[bp.index('name: "fp6_stock_vendor_bin_pm-service"'):]
+        self.assertIn('"libbinder"', service[:service.index('}\n')])
 
     def test_stock_display_vintf_fragments_are_not_installed(self):
         make = self.render()['device-vendor.mk'].decode()

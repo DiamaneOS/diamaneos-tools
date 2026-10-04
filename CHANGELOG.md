@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Stop installing the stock display colour service and its two interface
+  libraries. It was a lazy service any platform app could start, and nothing in
+  the build is its client; the composer still loads the colour libraries and
+  `libsdm-disp-vndapis` itself. Image checks require the service and its init
+  file to be gone and no init file to offer IDisplayColor or IDisplayPostproc.
 - Stop declaring the camera provider's offline camera service. Nothing uses
   it; its library stays because the CHI override links it, and the provider
   logs the refused registration and carries on. Image checks require the
