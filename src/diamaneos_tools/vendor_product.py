@@ -245,7 +245,12 @@ STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/et
 # in /vendor/lib64 collides with the AOSP one at the same path. These go to
 # /odm/lib64 instead, which the vendor and sphal linker namespaces search before
 # /vendor/lib64, so their stock consumers still load the stock copy.
-ODM_LIBRARIES = {'libkeymaster_messages'}
+# The Codec2 framework libraries are the Android 14 builds the Qualcomm codec
+# plugins were built against; the Android 17 ones are not ABI compatible.
+ODM_LIBRARIES = {'libkeymaster_messages',
+                 'libcodec2_hidl@1.0', 'libcodec2_hidl@1.1', 'libcodec2_hidl@1.2',
+                 'libcodec2_hidl_plugin', 'libcodec2_vndk',
+                 'libstagefright_aidl_bufferpool2', 'libstagefright_bufferpool@2.0.1'}
 PARTITIONS = {'system_ext': ('system_ext_specific', '$(TARGET_COPY_OUT_SYSTEM_EXT)'),
               'product': ('product_specific', '$(TARGET_COPY_OUT_PRODUCT)')}
 
