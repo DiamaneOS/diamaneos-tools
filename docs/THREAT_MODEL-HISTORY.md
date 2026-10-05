@@ -362,6 +362,11 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   them to the modem at every boot, because activating a slot restores the
   modem's file system from a copy without them. Bluetooth was checked: it uses
   a random, locally administered address kept until a reset.
+- **2026-10-05:** the encoder-only hardware codec service is built and runs
+  on the phone: seccomp filter installed, camera recording uses the hardware
+  H.264 encoder, playback stays on the software decoders. The stock Codec2
+  libraries that share names with platform libraries load from /odm. The
+  modem file server fork is built and serves the modem.
 - **2026-10-05:** a power stats HAL of our own, implemented, not yet built.
   Stock ships none. It reports the SoC sleep modes and the modem, WPSS, ADSP
   and CDSP sleep time from the qcom_stats driver's `/dev/stats` ioctls, runs
