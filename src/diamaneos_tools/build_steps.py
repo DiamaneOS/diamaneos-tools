@@ -21,7 +21,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-from . import build, product_inputs
+from . import build, product_inputs, source_sync
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -99,6 +99,8 @@ class Context:
     variant_given: bool = True
     # Set only to check a prerequisite with the build number it was built with.
     build_number: str | None = None
+    # A recorded resolved manifest to reproduce (build sync --resolved-manifest).
+    pinned: source_sync.PinnedManifest | None = None
     cache: dict = field(default_factory=dict)
 
     @property
@@ -117,6 +119,11 @@ class Context:
     def resolved_manifest(self) -> Path:
         """The resolved manifest (repo manifest -r) the last sync recorded."""
         return self.workspace.state_dir / 'resolved-manifest.xml'
+
+    @property
+    def pinned_manifest(self) -> Path:
+        """Where a pinned sync keeps the resolved manifest it gives repo sync -m."""
+        return self.workspace.state_dir / 'pinned-manifest.xml'
 
     @property
     def follows_branch(self) -> bool:
@@ -272,19 +279,30 @@ def build_number(identity: str, config: dict) -> str:
 
 # ------------------------------------------------------------------- steps
 
+def pinned_sync(ws: bw.Workspace) -> dict | None:
+    """What the passed sync recorded about the resolved manifest it reproduced, if any."""
+    return ((ws.passed('sync') or {}).get('outputs') or {}).get('pinned_manifest')
+
+
 def plan_sync(ctx: Context) -> StepPlan:
-    ws, env = ctx.workspace, ctx.environment
+    ws, env, pinned = ctx.workspace, ctx.environment, ctx.pinned
     manifest, repo = env['manifest'], env['upstream']['repo_tool']
     # A shallow checkout holds the same tree and passes the same checks, so
-    # the choice is remembered in the workspace, not digested.
+    # the choice is remembered in the workspace, not digested. A pinned
+    # manifest is recorded in the outputs, so later steps see the same inputs.
     inputs = {'environment_sha256': ctx.environment_sha256}
     jobs = ctx.jobs_for(cap=16)
+    memo = {}
 
     def create():
         ws.src.mkdir(parents=True, exist_ok=True)
         if ctx.shallow:
             ws.state_dir.mkdir(parents=True, exist_ok=True)
             (ws.state_dir / 'shallow').write_text('Fetch only the resolved commits in this workspace.\n')
+        if pinned:
+            bw.write_atomic(ctx.pinned_manifest, pinned.data)
+        else:
+            ctx.pinned_manifest.unlink(missing_ok=True)
 
     def clear():
         # Before repo sync: a generated tree where the manifest now has a
@@ -297,17 +315,41 @@ def plan_sync(ctx: Context) -> StepPlan:
         build.verify_repo_tool(env, ws.src)
         build.verify_manifest_repository(env, ws.src)
 
+    def repo_manifest() -> bytes:
+        """The checked-out manifest as repo reads it ("repo manifest", no network)."""
+        if 'manifest' not in memo:
+            memo['manifest'] = build.repo_manifest(ws.src, resolved=False)
+        return memo['manifest']
+
+    def checkout_recorded():
+        source_sync.checkout_manifest_commit(ws.src, manifest['url'], manifest['branch'], pinned.manifest_commit,
+                                             ctx.echo)
+
+    def check_recorded():
+        ctx.echo(f'    reproducing a pinned resolved manifest: the manifest checkout must be at the recorded '
+                 f'commit {pinned.manifest_commit}, in the history of {manifest["branch"]}; the check that it is '
+                 f'at the head of {manifest["branch"]} does not apply')
+        build.verify_manifest_repository(env, ws.src, pinned.manifest_commit)
+        source_sync.check_against_manifest(pinned.data, repo_manifest(), pinned.manifest_commit)
+
     def retire():
         moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256)
         if moved:
             ctx.echo('    moved stale generated inputs aside: ' + ', '.join(moved))
 
     def verify():
-        ctx.cache['sync'] = build.verify_branch_checkout(env, ws.src, ctx.environment_sha256,
-                                                         resolved_path=ctx.resolved_manifest)
+        result = build.verify_branch_checkout(env, ws.src, ctx.environment_sha256,
+                                              resolved_path=ctx.resolved_manifest,
+                                              manifest_commit=pinned.manifest_commit if pinned else None)
+        if pinned and result['resolved_manifest_sha256'] != pinned.sha256:
+            raise BuildStepError('the synced source is not the pinned resolved manifest: "repo manifest -r" '
+                                 f'gives SHA-256 {result["resolved_manifest_sha256"]}, the pinned manifest has '
+                                 f'{pinned.sha256}')
+        ctx.cache['sync'] = result
 
     actions = [
-        Action('Create the source directory' + (' (shallow checkout)' if ctx.shallow else ''), func=create),
+        Action('Create the source directory' + (' (shallow checkout)' if ctx.shallow else '')
+               + (' and keep the pinned resolved manifest' if pinned else ''), func=create),
         Action('Move generated inputs and the old manifest overlay out of the way', func=clear),
         Action(f'Initialise the checkout on the DiamaneOS manifest ({manifest["branch"]})',
                argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
@@ -315,9 +357,20 @@ def plan_sync(ctx: Context) -> StepPlan:
                     + (['--depth=1'] if ctx.shallow else []),
                cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Check the repo tool and the manifest checkout', func=check_manifest),
-        Action('Download the source', argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}',
-                                            '--retry-fetches=4']
-               + (['-c', '--no-tags'] if ctx.shallow else []), cwd=ws.src, network=True, env=GIT_HTTP),
+    ]
+    if pinned:
+        actions += [
+            Action(f'Check out the recorded manifest commit {pinned.manifest_commit} (a shallow manifest checkout '
+                   f'first fetches the history of {manifest["branch"]})', func=checkout_recorded, network=True),
+            Action(f'Check the manifest checkout is at the recorded commit and that it is in the history of '
+                   f'{manifest["branch"]} (the branch-head check does not apply to a pinned manifest), and that '
+                   'the pinned manifest has that commit\'s projects and remotes', func=check_recorded),
+        ]
+    actions += [
+        Action('Download the source' + (' at the pinned resolved manifest' if pinned else ''),
+               argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}', '--retry-fetches=4']
+               + (['-c', '--no-tags'] if ctx.shallow else []) + (['-m', ctx.pinned_manifest] if pinned else []),
+               cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Move stale generated inputs aside', func=retire),
         Action('Verify the whole source tree and record the resolved manifest', func=verify),
     ]
@@ -327,13 +380,18 @@ def plan_sync(ctx: Context) -> StepPlan:
         resolved = ctx.resolved_manifest.read_bytes()
         if build.sha256_bytes(resolved) != result['resolved_manifest_sha256']:
             raise BuildStepError('the recorded resolved manifest changed during the sync')
-        return {'project_map_sha256': result['resolved_project_map_sha256'],
-                'project_count': result['resolved_project_count'],
-                'manifest_url': result['manifest_url'], 'manifest_branch': result['manifest_branch'],
-                'manifest_commit': result['manifest_commit'],
-                'resolved_manifest_sha256': result['resolved_manifest_sha256'],
-                'kernel_prebuilts_commit': project_revision(resolved, product_inputs.KERNEL_PREBUILTS),
-                'shallow': ctx.shallow}
+        values = {'project_map_sha256': result['resolved_project_map_sha256'],
+                  'project_count': result['resolved_project_count'],
+                  'manifest_url': result['manifest_url'], 'manifest_branch': result['manifest_branch'],
+                  'manifest_commit': result['manifest_commit'],
+                  'resolved_manifest_sha256': result['resolved_manifest_sha256'],
+                  'kernel_prebuilts_commit': project_revision(resolved, product_inputs.KERNEL_PREBUILTS),
+                  'shallow': ctx.shallow,
+                  'pinned_manifest': pinned.record() if pinned else None}
+        different = sorted(k for k, v in (pinned.expected_source if pinned else {}).items() if values.get(k) != v)
+        if different:
+            raise BuildStepError('the synced source differs from the one build.json records: ' + ', '.join(different))
+        return values
 
     def valid(state):
         path = ctx.resolved_manifest
@@ -546,7 +604,14 @@ def plan_android(ctx: Context) -> StepPlan:
                 raise BuildStepError('the build environment does not require bound generated inputs')
             if not sync['outputs'].get('kernel_prebuilts_commit'):
                 raise BuildStepError('the manifest has no kernel prebuilts at ' + product_inputs.KERNEL_PREBUILTS)
-            result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256)
+            # A sync that reproduced a pinned resolved manifest left the
+            # manifest checkout at the recorded commit, not the branch head.
+            commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
+            if commit and key == 'preflight':
+                ctx.echo(f'    the sync reproduced a pinned resolved manifest: checking the manifest checkout is at '
+                         f'its recorded commit {commit}, in the branch history, not at the branch head')
+            result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256,
+                                                  manifest_commit=commit)
             if result['resolved_manifest_sha256'] != sync['outputs']['resolved_manifest_sha256']:
                 raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded; '
                                      'run "diamaneos build sync" again')
@@ -752,13 +817,20 @@ def make_context(args, echo=print) -> Context:
     # A workspace synced shallow stays shallow; a plain "build all" must not
     # turn it into a full download.
     shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
+    pinned = None
+    if getattr(args, 'resolved_manifest', None):
+        record = getattr(args, 'build_json', None)
+        pinned = source_sync.load_pinned(
+            Path(args.resolved_manifest), Path(record) if record else None, getattr(args, 'manifest_commit', None),
+            environment, hashlib.sha256(environment_raw).hexdigest(),
+            product_inputs.tools_identity().get('commit') if record else None)
     return Context(workspace=workspace,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
                    jobs=args.jobs,
                    allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
-                   shallow=shallow, echo=echo, dry_run=getattr(args, 'dry_run', False))
+                   shallow=shallow, pinned=pinned, echo=echo, dry_run=getattr(args, 'dry_run', False))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -778,6 +850,15 @@ def parser() -> argparse.ArgumentParser:
                         help='sync: fetch only the resolved commits, not their history. Saves roughly '
                              'half of the source download and disk, but the checkout has no history '
                              'and moving to a new release fetches more')
+    result.add_argument('--resolved-manifest', metavar='FILE',
+                        help='sync: reproduce a recorded build: check out every project at the commit this '
+                             'resolved manifest (an image set\'s resolved-manifest.xml) records, with the manifest '
+                             'checkout at the recorded manifest commit instead of the branch head')
+    result.add_argument('--build-json', metavar='FILE',
+                        help='with --resolved-manifest: the image set\'s build.json. The resolved manifest must '
+                             'match the SHA-256 it records, and it gives the manifest commit')
+    result.add_argument('--manifest-commit', metavar='COMMIT',
+                        help='with --resolved-manifest and no --build-json: the manifest commit the build recorded')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
     result.add_argument('--factory-zip', help='vendor: use this Fairphone factory package instead of downloading it')
@@ -785,7 +866,8 @@ def parser() -> argparse.ArgumentParser:
 
 
 STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'),
-                'from_step': ('all',)}
+                'from_step': ('all',), 'resolved_manifest': ('sync', 'all'), 'build_json': ('sync', 'all'),
+                'manifest_commit': ('sync', 'all')}
 
 
 def main(argv=None, echo=print) -> int:
@@ -794,7 +876,13 @@ def main(argv=None, echo=print) -> int:
         for option, steps in STEP_OPTIONS.items():
             if getattr(args, option) and args.step not in steps:
                 raise UsageError(f'--{option.replace("_", "-")} is an option of: ' + ', '.join(steps))
+        if (args.build_json or args.manifest_commit) and not args.resolved_manifest:
+            raise UsageError('--build-json and --manifest-commit go with --resolved-manifest')
+        if args.resolved_manifest and args.from_step not in (None, 'sync'):
+            raise UsageError('--resolved-manifest runs the sync step; it does not go with --from ' + args.from_step)
         ctx = make_context(args, echo)
+        for note in ctx.pinned.notes if ctx.pinned else ():
+            echo('note: ' + note)
         steps = bw.STEPS if args.step == 'all' else (args.step,)
         force = ()
         if args.from_step:
@@ -802,6 +890,14 @@ def main(argv=None, echo=print) -> int:
             force = (args.from_step,)
         elif args.step != 'all':
             force = (args.step,)
+        elif ctx.pinned:
+            force = ('sync',)
+        elif ctx.follows_branch and pinned_sync(ctx.workspace):
+            # A reproduction keeps its source until "build sync" moves on.
+            commit = pinned_sync(ctx.workspace).get('manifest_commit')
+            echo(f'note: the last sync reproduced a pinned resolved manifest (manifest commit {commit}); '
+                 '"build all" builds that source. Run "diamaneos build sync" to move to the head of '
+                 f'{ctx.environment["manifest"]["branch"]}.')
         elif ctx.follows_branch:
             # Like repo sync before a build: move to the branch head. Later
             # steps rerun only if the synced tree changed.

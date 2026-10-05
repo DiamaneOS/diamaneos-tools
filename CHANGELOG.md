@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `build sync --resolved-manifest FILE` (also `build all`) syncs the source of
+  a recorded image set: every project at the commit its resolved manifest
+  names, and the manifest checkout at the commit its `build.json` records
+  (`--build-json`, or `--manifest-commit`), which must be in the manifest
+  branch's history. The file must match the SHA-256 `build.json` records, and
+  that commit's manifest apart from the project commits; afterwards
+  `repo manifest -r` must give it byte for byte. The sync and `android` steps
+  check the recorded manifest commit instead of the branch head and say so.
+  The sync state records the reproduction.
 - Build the image tools with a fixed build number and the sources' own date:
   aapt2 carried the build day in its version string, its hash reached the
   vendor inventory, and the same sources gave a different build identity on
