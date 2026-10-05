@@ -1373,6 +1373,49 @@
       ]
     },
     {
+      "id": "module-streams",
+      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and no serial modprobe of the whole list is left.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/hw/init.qcom.rc"
+      ],
+      "contains": [
+        "    start vendor.modprobe_system\n    exec_start vendor.modprobe_platform\n    start vendor.modprobe_debug\n    start vendor.modprobe_wireless\n    start vendor.modprobe_audio\n    start vendor.modprobe_data\n    start vendor.modprobe_crypto\n    start vendor.modprobe_media\n    exec_start vendor.modprobe_display\n    start vendor.modprobe_touch\n    wait_for_prop init.svc.vendor.modprobe_system stopped\n    wait_for_prop init.svc.vendor.modprobe_debug stopped\n    wait_for_prop init.svc.vendor.modprobe_wireless stopped\n    wait_for_prop init.svc.vendor.modprobe_audio stopped\n    wait_for_prop init.svc.vendor.modprobe_data stopped\n    wait_for_prop init.svc.vendor.modprobe_crypto stopped\n    wait_for_prop init.svc.vendor.modprobe_media stopped\n    chown root system /mnt/vendor/persist\n"
+      ],
+      "regex": [
+        "^service vendor\\.modprobe_system /vendor/bin/modprobe -q -b -d /system/lib/modules --all=/system/lib/modules/modules\\.load\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_platform /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.platform\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_debug /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.debug\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_wireless /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.wireless\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_audio /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.audio\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_data /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.data\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_crypto /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.crypto\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_media /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.media\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_display /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.display\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
+        "^service vendor\\.modprobe_touch /vendor/bin/modprobe -q -b -d /vendor/lib/modules -d /system/lib/modules --all=/vendor/lib/modules/modules\\.load\\.touch\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n"
+      ],
+      "absent": [
+        "--all=/vendor/lib/modules/modules.load\n",
+        "exec u:r:vendor_modprobe:s0"
+      ]
+    },
+    {
+      "id": "module-stream-lists",
+      "why": "The load lists of the module streams are installed next to modules.load.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR_DLKM/lib/modules/modules.load.platform",
+        "VENDOR_DLKM/lib/modules/modules.load.debug",
+        "VENDOR_DLKM/lib/modules/modules.load.wireless",
+        "VENDOR_DLKM/lib/modules/modules.load.audio",
+        "VENDOR_DLKM/lib/modules/modules.load.data",
+        "VENDOR_DLKM/lib/modules/modules.load.crypto",
+        "VENDOR_DLKM/lib/modules/modules.load.media",
+        "VENDOR_DLKM/lib/modules/modules.load.display",
+        "VENDOR_DLKM/lib/modules/modules.load.touch"
+      ]
+    },
+    {
       "id": "fingerprint-factory-service",
       "why": "The fingerprint HAL answers the module's factory service registration in-process; nothing labels it (finding -16).",
       "type": "elf_exports",

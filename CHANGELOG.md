@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Check the parallel kernel module streams of the device tree: the
+  `modules.load.*` lists in vendor_dlkm must together name every module of
+  its `modules.load` once, each in that order, and `modules.load` must match
+  the kernel prebuilts. Image checks require the stream lists, one modprobe
+  service per list in the vendor_modprobe domain with only CAP_SYS_MODULE,
+  init waiting for every stream but touch, and no serial modprobe of the whole
+  list.
 - Rename the stock camera provider's libhardware.so dependency to the
   device's seccomp loader, libcamxjail.so (same length; input and output
   hashes pinned in `NEEDED_REWRITES`, which now records a reason per entry).
