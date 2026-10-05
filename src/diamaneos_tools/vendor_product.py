@@ -132,6 +132,18 @@ SOURCE_MODULE_DEPENDENCIES = {
     'android.hardware.thermal-V1-ndk',
     'android.hardware.thermal@1.0',
     'android.hardware.thermal@2.0',
+    # Media (hardware video encoders): the frozen Codec2 HIDL and bufferpool2
+    # AIDL V1 interfaces, the minijail helper and the display-config V5
+    # interface linked by the stock Qualcomm Codec2 service and its plugins.
+    # The last two are also SOURCE_INTERFACES (their stock rows belong to
+    # radio-ims-data and public-hal-services); listing them here admits the
+    # media source-module edges without a component dependency on those lanes.
+    'android.hardware.media.bufferpool2-V1-ndk',
+    'android.hardware.media.c2@1.0',
+    'android.hardware.media.c2@1.1',
+    'android.hardware.media.c2@1.2',
+    'libavservices_minijail',
+    'vendor.qti.hardware.display.config-V5-ndk',
 }
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
@@ -185,6 +197,13 @@ ACTIVATION={
  # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default); its rc also sets the
  # /dev/sec-nfc owner at boot.
  'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),
+ # Stock Qualcomm Codec2 video service (HIDL IComponentStore/default),
+ # hardware encoders only (MEDIA_CONFIG_REWRITES). The device
+ # media/init.fp6.media.rc starts it in group mediacodec only (not the stock
+ # camera, mediadrm, drmrpc and system groups), and the device manifest.xml
+ # declares only the default instance (the stock fragment also claims the
+ # platform's software instance).
+ 'vendor.qti.media.c2@1.0-service':(None,None),
 }
 
 # Reviewed stock Java components outside vendor (bring-up). They keep
@@ -301,7 +320,123 @@ NEEDED_REWRITES = {
   'source_sha256': '751fa24b9d44a790a2594828c5aaa2a9e98f1a2a7734cf7cd103023893031f6a',
   'sha256': 'fcec163779acab018729a028fec7ed9d431a2355bc0b714a3911b62367c890ff',
   'reason': 'Load the seccomp loader (libcamxjail, which links libhardware) before the provider starts'},
+ # Hardware video encoders (compat/codec2-v34):
+ # - libcodec2_vndk was built against Android 14, where GraphicBuffer is 256
+ #   bytes; it allocates 256 bytes itself and calls the platform constructor.
+ #   Android 17's GraphicBuffer is 3376 bytes, so binding it to Android 17 libui
+ #   overflows the codec service's heap (finding -115). Its libui.so dependency
+ #   is renamed to uiv34.so and its six GraphicBuffer imports to GraphicBufV34
+ #   (same lengths; see GRAPHICBUFFER_V34_SYMBOLS), so they bind to uiv34's
+ #   Android 14 sized GraphicBuffer (which fails closed) instead. Every other
+ #   libui symbol still comes from the real libui, which uiv34 links.
+ # - libcodec2_hidl@1.0-1.2 need GraphicBufferSource::getHGraphicBufferProducer,
+ #   which Android 17 dropped on a class whose layout did not change; their
+ #   bufferqueue-helper dependency is renamed to the compat library that re-adds
+ #   it (device compat/codec2-v34).
+ 'vendor/lib64/libcodec2_vndk.so': {
+  'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
+  'symbols': 'GRAPHICBUFFER_V34_SYMBOLS',
+  'source_sha256': 'f1d104621b5575f6603fa6779b55548034c2b11be85e6fcd47bffb2afc199e5d',
+  'sha256': 'ae840358c2b8ad2aed69d816b7896603bab1ffe2e9af57c964163de2faf34c1f',
+  'reason': 'Bind the Android 14 sized GraphicBuffer and mapper entry points (uiv34, links libui) instead of libui.so'},
+ 'vendor/lib64/libcodec2_hidl@1.0.so': {
+  'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
+  'module': 'libstagefright_bqhelper_v34compat',
+  'source_sha256': 'f77c0f4abfcc8b3e6ffcd5cfde19babd377aa5bd6bc933f9c2e4663afb1dede2',
+  'sha256': 'bf3868b031c5242e1ffd8e064faff6287322212fbf7c81195953347c28d69519',
+  'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
+            '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
+ 'vendor/lib64/libcodec2_hidl@1.1.so': {
+  'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
+  'module': 'libstagefright_bqhelper_v34compat',
+  'source_sha256': '8c637bfdff0f59802dba11ba493c0f014cf9a16163839312a26616e2a3329010',
+  'sha256': 'a5246ffd6080415159089c38477fb2390d30de8f28d9833cf63470b8e9b052c8',
+  'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
+            '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
+ 'vendor/lib64/libcodec2_hidl@1.2.so': {
+  'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
+  'module': 'libstagefright_bqhelper_v34compat',
+  'source_sha256': '9d87cc30c7eeec29eaca509a8910d93bf331fa588fc7cc831b2a36cb04d0a2ae',
+  'sha256': '02076417238b400cdf4eb456b99cf1423fc87acd0e60859f2ec9ddc3222d574c',
+  'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
+            '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
 }
+
+# The android::GraphicBuffer symbols the stock libcodec2_vndk imports from libui
+# and constructs at the Android 14 size, renamed to a 13-character name only the
+# uiv34 compat defines (GraphicBuffer and GraphicBufV34 are both 13 characters,
+# so every Itanium length prefix stays valid and the strings keep their length).
+# Only these six undefined symbols are renamed; the library's own defined
+# sp<GraphicBuffer> template symbols keep their names.
+GRAPHICBUFFER_V34_SYMBOLS = (
+    ('_ZN7android13GraphicBufferC1Ev',
+     '_ZN7android13GraphicBufV34C1Ev'),
+    ('_ZN7android13GraphicBufferC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj',
+     '_ZN7android13GraphicBufV34C1EPK13native_handleNS0_16HandleWrapMethodEjjijmj'),
+    ('_ZNK7android13GraphicBuffer9initCheckEv',
+     '_ZNK7android13GraphicBufV349initCheckEv'),
+    ('_ZN7android13GraphicBuffer17toAHardwareBufferEv',
+     '_ZN7android13GraphicBufV3417toAHardwareBufferEv'),
+    ('_ZN7android13GraphicBuffer19fromAHardwareBufferEP15AHardwareBuffer',
+     '_ZN7android13GraphicBufV3419fromAHardwareBufferEP15AHardwareBuffer'),
+    ('_ZN7android13GraphicBuffer19fromAHardwareBufferEPK15AHardwareBuffer',
+     '_ZN7android13GraphicBufV3419fromAHardwareBufferEPK15AHardwareBuffer'),
+)
+SYMBOL_RENAMES = {'GRAPHICBUFFER_V34_SYMBOLS': GRAPHICBUFFER_V34_SYMBOLS}
+
+
+def rename_dynamic_symbols(data, pairs):
+    """Rename specific undefined dynamic symbols in place; refuse anything unsafe.
+
+    Each new name must have the same length as the old one (so .dynstr offsets
+    stay valid). Every old name must resolve to exactly one symbol, that symbol
+    must be undefined (so its name is not in the GNU hash table and renaming it
+    cannot break symbol lookup for the library's own exports), and the edited
+    bytes must belong to no other dynamic symbol's name.
+    """
+    import struct
+    if data[:5] != b'\x7fELF\x02' or data[5] != 1:
+        raise VendorError('unsupported ELF for symbol rename')
+    shoff, = struct.unpack_from('<Q', data, 0x28)
+    shentsize, shnum, _ = struct.unpack_from('<HHH', data, 0x3a)
+    sections = [struct.unpack_from('<IIQQQQIIQQ', data, shoff + i * shentsize) for i in range(shnum)]
+    dynsym = [s for s in sections if s[1] == 11]
+    if len(dynsym) != 1:
+        raise VendorError('unsupported symbol rename')
+    dynsym = dynsym[0]
+    strtab = sections[dynsym[6]]
+    base, size = strtab[4], strtab[5]
+    entries = []
+    for offset in range(dynsym[4], dynsym[4] + dynsym[5], 24):
+        st_name, _, _, shndx, _, _ = struct.unpack_from('<IBBHQQ', data, offset)
+        entries.append((st_name, shndx))
+    data = bytearray(data)
+    edits = []
+    for old, new in pairs:
+        if len(old) != len(new):
+            raise VendorError('symbol rename changes length')
+        old_bytes, new_bytes = old.encode(), new.encode()
+        matches = [(st_name, shndx) for st_name, shndx in entries
+                   if data[base + st_name:base + st_name + len(old_bytes) + 1] == old_bytes + b'\0']
+        if len(matches) != 1:
+            raise VendorError('symbol to rename is not present exactly once')
+        st_name, shndx = matches[0]
+        if shndx != 0:
+            raise VendorError('symbol to rename is not undefined')
+        start = base + st_name
+        end = start + len(old_bytes)
+        if end >= base + size:
+            raise VendorError('symbol name runs past the string table')
+        for other_name, _ in entries:
+            other = base + other_name
+            if other == start:
+                continue
+            if start < other <= end:
+                raise VendorError('symbol name is shared with another symbol')
+        edits.append((start, old_bytes, new_bytes))
+    for start, old_bytes, new_bytes in edits:
+        data[start:start + len(old_bytes)] = new_bytes
+    return bytes(data)
 
 
 def rewrite_needed(data, needed, replacement):
@@ -928,6 +1063,102 @@ def gnss_config(path, data):
         raise VendorError('derived GNSS configuration differs from reviewed result')
     return derived
 
+
+# Hardware video encoders only (owner decision 2026-09-27): every decoder stays
+# the platform software decoder in the sandboxed mediaswcodec. Two pinned
+# derivations keep the stock Qualcomm Codec2 service from exposing a hardware
+# decoder by any path:
+# - the target specification gets a "codecs-available" list with the five
+#   encoders and no decoder; libqcodec2_platform collects the decoders,
+#   encoders and OptionalCodecs lists into one set, and libqcodec2_v4l2codec
+#   registers only the codecs in it (store listing and component creation
+#   both go through that registry). An empty set means every codec, so the
+#   invariants below also require OptionalCodecs to stay empty;
+# - the codec list loses its decoder section, so MediaCodec (which only
+#   creates codecs that MediaCodecList lists) cannot pick one even if the
+#   service ever registered one.
+MEDIA_ENCODERS = ('c2.qti.avc.encoder', 'c2.qti.hevc.encoder', 'c2.qti.hevc.encoder.cq',
+                  'c2.qti.hevc.encoder.hdr', 'c2.qti.heic.encoder')
+MEDIA_CONFIG_REWRITES = {
+    'vendor/etc/media_codecs_volcano_v1.xml': {
+        'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
+        'sha256': 'f3bab56928d262ef354814d4a77bbace55cd80c4c0ed56965a3e496c852090b5',
+        'reason': 'Drop the hardware decoder section from the codec list; decoding stays in the software codecs'},
+    'vendor/etc/media_volcano_v1/video_system_specs.json': {
+        'source_sha256': '994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09',
+        'sha256': 'eca3f4cbae94b0a19d4847085544f66501775eb94592f3c5198871a77e8d3dcd',
+        'reason': 'List only the five hardware encoders as available, so the Codec2 service registers no decoder'},
+}
+
+
+def media_encoders_only_codec_list(data):
+    """Replace the codec list's Decoders section with a note; every other byte stays."""
+    derived, count = re.subn(
+        rb'\n    <Decoders>\n.*?\n    </Decoders>\n',
+        b'\n    <!-- DiamaneOS: no hardware decoders. Decoding stays in the platform\n'
+        b'         software codecs (device media/media.mk). -->\n', data, flags=re.S)
+    if count != 1:
+        raise VendorError('codec list differs from reviewed structure')
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(derived)
+    except ET.ParseError:
+        raise VendorError('derived codec list is not well formed') from None
+    names = [codec.get('name') for codec in root.iter('MediaCodec')]
+    if root.findall('Decoders') or sorted(names) != sorted(MEDIA_ENCODERS):
+        raise VendorError('derived codec list lists more than the hardware encoders')
+    return derived
+
+
+def media_target_spec_codecs(data):
+    """Codec lists of a target specification (JSON with whole-line // comments)."""
+    try:
+        text = data.decode()
+        if '/*' in text:
+            raise ValueError('block comment')
+        video = json.loads('\n'.join(line for line in text.split('\n')
+                                     if not line.lstrip().startswith('//')))['Video']
+    except (ValueError, KeyError, TypeError):
+        raise VendorError('target specification is not well formed') from None
+    return video.get('codecs-available'), video.get('OptionalCodecs')
+
+
+def media_encoders_only_target_spec(data):
+    """Add a codecs-available list naming only the hardware encoders."""
+    anchor = b'\n        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
+    if data.count(anchor) != 1 or b'"codecs-available"' in data:
+        raise VendorError('target specification differs from reviewed structure')
+    block = (b'\n        // DiamaneOS: hardware encoders only. libqcodec2_v4l2codec registers\n'
+             b'        // only the codecs listed here (and under "OptionalCodecs", which\n'
+             b'        // stays empty); decoding stays in the platform software codecs.\n'
+             b'        "codecs-available": {\n'
+             b'            "decoders": [\n'
+             b'            ],\n'
+             b'            "encoders": [\n'
+             + b',\n'.join(b'                "' + name.encode() + b'"' for name in MEDIA_ENCODERS)
+             + b'\n            ]\n'
+             b'        },\n')
+    derived = data.replace(anchor, block + anchor)
+    available, optional = media_target_spec_codecs(derived)
+    if available != {'decoders': [], 'encoders': list(MEDIA_ENCODERS)} or optional != []:
+        raise VendorError('derived target specification enables more than the hardware encoders')
+    return derived
+
+
+def media_config(path, data):
+    """Pinned encoder-only derivations of the stock codec list and target specification."""
+    rule = MEDIA_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('media configuration differs from reviewed EU stock input')
+    if path.endswith('.xml'):
+        derived = media_encoders_only_codec_list(data)
+    else:
+        derived = media_encoders_only_target_spec(data)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived media configuration differs from reviewed result')
+    return derived
+
+
 def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=None, release_date=None):
     vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
@@ -1034,6 +1265,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                 config = tree / 'files' / path
                 config.write_bytes(gnss_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in MEDIA_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(media_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
             provenance['stock_shared_libraries'] = {
                 path: stock_library_declaration(path, (tree / 'files' / path).read_bytes())
                 for path in sorted(STOCK_LIBRARIES) if path in {i['path'] for i in recipe['files']}}
@@ -1042,7 +1277,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                 original = blob.read_bytes()
                 if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
                     raise VendorError('dependency rewrite input differs from reviewed blob')
-                derived = rewrite_needed(original, rewrite['needed'], rewrite['replacement'])
+                derived = original
+                if 'symbols' in rewrite:
+                    derived = rename_dynamic_symbols(derived, SYMBOL_RENAMES[rewrite['symbols']])
+                derived = rewrite_needed(derived, rewrite['needed'], rewrite['replacement'])
                 if hashlib.sha256(derived).hexdigest() != rewrite['sha256']:
                     raise VendorError('dependency rewrite differs from reviewed result')
                 blob.write_bytes(derived)
