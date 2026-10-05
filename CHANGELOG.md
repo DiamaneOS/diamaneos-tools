@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Drop the CodeLinaro power HAL fork (vendor_qcom_opensource_power) from the
+  fork list, patch inventories and repository map: the power HAL is
+  LineageOS's libperfmgr, and the fork was no longer built.
 - Track the Log Viewer fork (DiamaneOS/platform_packages_apps_LogViewer): its
   Report button opens the DiamaneOS issue tracker.
 - Drop the 22 retired kernel component forks and the old kernel manifest from

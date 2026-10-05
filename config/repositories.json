@@ -123,16 +123,6 @@
       "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/recovery-ext"
     },
     {
-      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/power",
-      "id": "power-hal",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_power.git",
-      "revision": null,
-      "slug": "vendor_qcom_opensource_power",
-      "state": "active",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/power"
-    },
-    {
       "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/vibrator",
       "id": "vibrator-hal",
       "publication": "public-source",
