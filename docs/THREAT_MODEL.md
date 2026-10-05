@@ -193,10 +193,12 @@ historical evidence without making it acceptance of this later source cut.
   not enable remote key provisioning, so attestation was expected to fail. Since
   the 2026-09-26 build, the device sets stock's provisioning properties
   (requests via the inherited GrapheneOS proxy) and reports the factory
-  attestation IDs. On the 2026-09-27 build provisioning reaches the server but
-  the TEE's certificate request always fails, so no attestation keys are
-  provisioned and attestation still fails (cause open); unchanged on the
-  2026-10-05 build, whose vendor patch level matches stock.
+  attestation IDs. Provisioning reaches the server, but the TEE's certificate
+  request fails while the bootloader is unlocked, on stock too: a locked stock
+  FP6 produces the request, and the same phone fails the same way once
+  unlocked. So no attestation keys are provisioned, and attestation fails until
+  the phone is locked with our key; whether the TEE accepts the yellow state is
+  unverified.
 - **No pKVM:** on current firmware the kernel runs under Qualcomm's Gunyah
   hypervisor, not KVM, so Android protected VMs are unavailable (observed on a
   bring-up build).
