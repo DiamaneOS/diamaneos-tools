@@ -50,7 +50,19 @@ Any failure is recorded in the step's state with a plain message.
 `-c --no-tags` to `repo sync`, so only the resolved commits are fetched. The
 workspace remembers the choice (`state/shallow`), so a later `build all` stays
 shallow; the tree and its preflight are the same, so the choice is not part of
-the digest.
+the digest. Before `repo sync`, a shallow sync does two more things:
+
+- It removes project git directories with no refs and no shallow file, and
+  their empty object directories and work trees. An interrupted sync leaves
+  them, and `repo` would fetch such a project with its whole history.
+- It fetches the largest prebuilt projects itself, listed in `shallow_prefetch`
+  in `config/fp6-build.json`: one revision each (the commit, or the tag the
+  manifest names) at depth 1 over HTTP/1.1, a few at a time. A transfer that
+  stays below the speed limit stops, and a failed fetch is retried a bounded
+  number of times. The fetch goes into the project's git directory, or into
+  its object directory when `repo` has not created the project yet; `repo`
+  then finds the revision and does not fetch the project. If a project still
+  fails, the step stops, and running it again starts that fetch over.
 
 **Building the kernel.** `build kernel` runs `kernel prepare` (network) and
 `kernel build` (network off) in the workspace's `kernel` directory. It is not
