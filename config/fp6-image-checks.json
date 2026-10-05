@@ -918,7 +918,7 @@
         "VENDOR/etc/group"
       ],
       "regex": [
-        "^vendor_powerstats:[^:]*:2994:"
+        "^vendor_powerstats:[^:]*:2995:"
       ]
     },
     {
