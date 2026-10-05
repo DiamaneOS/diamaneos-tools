@@ -96,7 +96,8 @@ equivalent security or inherited certification.
 Keep accurate upstream names, source links, technical identifiers and required
 copyright/licence notices. Where a project overview or distribution page
 describes the GrapheneOS-based OS, make its separate identity clear, for example:
-"Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project."
+"DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or
+Fairphone."
 Component READMEs and technical documents do not need to repeat that notice
 unless their presentation could suggest affiliation. Commit messages name the
 upstream or device when relevant to the change; no stock tagline or disclaimer

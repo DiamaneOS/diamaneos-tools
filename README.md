@@ -4,10 +4,11 @@ Host tooling and machine-readable project maps for DiamaneOS.
 
 ## Project context
 
-DiamaneOS is an operating system project under development. The current port
-targets Fairphone 6 and uses GrapheneOS as its upstream OS base.
+DiamaneOS is an operating system project under development for the Fairphone 6,
+with GrapheneOS as its upstream OS base.
 
-> Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
+> DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or
+> Fairphone.
 
 ## Licence
 
