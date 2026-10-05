@@ -2046,12 +2046,17 @@
     },
     {
       "id": "media-codec2-service",
-      "why": "The hardware video encoder service and its Codec2 libraries are installed with the device rc and manifest (encoders only).",
+      "why": "The hardware video encoder service and its Codec2 libraries are installed with the device rc and manifest (encoders only); the Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
-        "VENDOR/lib64/libcodec2_vndk.so",
-        "VENDOR/lib64/libcodec2_hidl@1.2.so",
+        "ODM/lib64/libcodec2_hidl@1.0.so",
+        "ODM/lib64/libcodec2_hidl@1.1.so",
+        "ODM/lib64/libcodec2_hidl@1.2.so",
+        "ODM/lib64/libcodec2_hidl_plugin.so",
+        "ODM/lib64/libcodec2_vndk.so",
+        "ODM/lib64/libstagefright_aidl_bufferpool2.so",
+        "ODM/lib64/libstagefright_bufferpool@2.0.1.so",
         "VENDOR/lib64/libqcodec2_core.so",
         "VENDOR/lib64/libqcodec2_v4l2codec.so",
         "VENDOR/lib64/uiv34.so",
@@ -2059,6 +2064,20 @@
         "VENDOR/etc/init/init.fp6.media.rc",
         "VENDOR/firmware/vpu20_2v.mbn",
         "VENDOR/etc/seccomp_policy/codec2.vendor.base-arm64.policy"
+      ]
+    },
+    {
+      "id": "media-codec2-not-on-vendor",
+      "why": "No stock Android 14 Codec2 framework library on vendor: AOSP owns those paths, and a vendor copy would collide or shadow.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/libcodec2_hidl@1.0.so",
+        "VENDOR/lib64/libcodec2_hidl@1.1.so",
+        "VENDOR/lib64/libcodec2_hidl@1.2.so",
+        "VENDOR/lib64/libcodec2_hidl_plugin.so",
+        "VENDOR/lib64/libcodec2_vndk.so",
+        "VENDOR/lib64/libstagefright_aidl_bufferpool2.so",
+        "VENDOR/lib64/libstagefright_bufferpool@2.0.1.so"
       ]
     },
     {
@@ -2083,7 +2102,7 @@
     },
     {
       "id": "media-target-spec-encoders-only",
-      "why": "The Codec2 target specification registers only the five hardware encoders and no decoder.",
+      "why": "The Codec2 target specification registers only the five hardware encoders: its decoder list and its optional codec list are empty (the stock file mentions optional decoders only in comments).",
       "type": "binary_count",
       "file": "VENDOR/etc/media_volcano_v1/video_system_specs.json",
       "patterns": [
@@ -2092,11 +2111,15 @@
           "count": 1
         },
         {
-          "text": ".decoder",
-          "count": 0
+          "text": "\"decoders\": [\n            ],",
+          "count": 1
         },
         {
-          "text": "c2.qti.heic.encoder",
+          "text": "\"OptionalCodecs\": [\n        ]",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.heic.encoder\"",
           "min": 1
         }
       ]
@@ -2129,7 +2152,7 @@
       "id": "codec2-graphicbuffer-abi",
       "why": "The stock Codec2 library's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one (finding -115).",
       "type": "codec2_abi_guard",
-      "path": "VENDOR/lib64/libcodec2_vndk.so",
+      "path": "ODM/lib64/libcodec2_vndk.so",
       "alloc_bytes": 256,
       "needed_present": [
         "uiv34.so"
