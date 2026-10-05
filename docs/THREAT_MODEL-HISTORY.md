@@ -330,6 +330,15 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   reads it for notification icons. The default wallpaper is Paper, a SystemUI
   wallpaper service with no permissions, bindable only with BIND_WALLPAPER; the
   lock screen draws no dim over it.
+- **2026-10-05:** Qualcomm's closed perf2 daemon and its client libraries leave
+  the build, implemented, not yet built. It ran as root with setuid, kill and
+  sys_nice and could read and write every app's `/proc` files. LineageOS's
+  libperfmgr power HAL replaces it and the CodeLinaro power HAL: system user,
+  CAP_SYS_NICE only, write access to the CPU and GPU frequency limits, the GPU
+  wake trigger and the tap-to-wake switch only, setsched on apps,
+  SurfaceFlinger and system_server for ADPF, and the scheduler boost only
+  through fixed init triggers. A no-op perf client stands in for the closed one
+  the camera and composition extension load.
 
 ## IMS integration notes
 

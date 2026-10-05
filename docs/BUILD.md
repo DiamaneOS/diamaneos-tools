@@ -191,12 +191,15 @@ commits, changed files and canonical full-index diff hashes. The generic
 environment uses `config/patches.json`. The environment's `project_inputs`
 identifies its ledger.
 
-The source power HAL dynamically loads the stock performance client. Its
-performance/thermal backend is a separate explicit input family in the component
-model; allowing that family for bring-up does not allow replacing the published
-HAL wrappers with prebuilts. The generated selection must include its exact
-runtime dependencies, configurations, init identities and notices, with native
-policy and device behavior checked separately.
+The power HAL is LineageOS's libperfmgr, built from source with the device's
+`power/` configuration; Qualcomm's perf2 performance daemon and its client
+libraries are not selected. The device's no-op `libqti-perfd-client` stands in
+for the client the stock camera and SDM extension load by name. The stock thermal
+engine is a separate explicit input family in the component model; allowing that
+family for bring-up does not allow replacing the published HAL wrappers with
+prebuilts. The generated selection must include its exact runtime dependencies,
+configurations, init identities and notices, with native policy and device
+behavior checked separately.
 
 ## Pinned Android environment
 
@@ -289,8 +292,9 @@ how a fork follows upstream or why one that ships nothing is kept. `sources`
 are pinned inputs that are not forked: the GrapheneOS release, the repo
 launcher, Fairphone's source manifest, the Qualcomm SELinux policy, the stock
 factory image, the platform repositories the manifest takes straight from
-CodeLinaro or Fairphone, and the upstream projects imported into the kernel
-repository. Each names the file and field that hold its pin, so the registry
+CodeLinaro, Fairphone or linux-msm, the LineageOS power HAL projects it takes
+unmodified through DiamaneOS mirrors, AOSP's nos host libraries, and the
+upstream projects imported into the kernel repository. Each names the file and field that hold its pin, so the registry
 never repeats a revision. `newer` patterns name the branches or tags that would
 supersede a followed reference, such as Fairphone's next
 `odm/rc/target/<android>/fp6` branch or the next CodeLinaro release tag.
@@ -710,17 +714,14 @@ that only a closed HAL uses stays stock: the stock KeyMint HAL keeps its
 checks. The same caveat applies where closed stock code links a source-built
 display library, such as `libsdmextension` against the source `libsdm*`
 libraries and CamX against `libgralloc.qti`; the ELF checks cannot catch a
-layout change there either. It records a narrowly pinned transformation of the
-performance configuration that disables optional learning/memory/prekill gates
-while preserving core power hints. Original and derived hashes remain distinct.
-This generation is also explicit about the runtime roots: the disabled
-learning/memory plugins, their meters library and the learning configuration are
-not selected at all. Their protobuf runtime is installed only because the sensor
-stack links it. Source-interface replacements and uninstalled optional libraries
-are listed in generated provenance; retained authenticated inputs are not an
-installed-artifact inventory. This generation is for development: its success
-does not establish public component acceptance, runtime compatibility or
-permission to flash.
+layout change there either. Derived configuration files keep their original and
+derived hashes distinct. This generation is also explicit about the runtime
+roots: Qualcomm's perf2 daemon, its client and plugin libraries and their
+configuration are not selected at all. Source-interface replacements and
+uninstalled optional libraries are listed in generated provenance; retained
+authenticated inputs are not an installed-artifact inventory. This generation is
+for development: its success does not establish public component acceptance,
+runtime compatibility or permission to flash.
 
 Device policy and hardware setup are source-owned by `device/fairphone/FP6`.
 The matched kernel, modules and device trees come from the kernel prebuilts

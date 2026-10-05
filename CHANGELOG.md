@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Stop selecting Qualcomm's perf2 daemon, its init and VINTF files, its nine
+  configuration files and the ten client, plugin and interface libraries only
+  it and its client used (22 files). The device builds LineageOS's libperfmgr
+  power HAL instead, running as system with CAP_SYS_NICE only, and a no-op
+  `libqti-perfd-client` for the stock camera and SDM extension, which load the
+  client by name. The renderer no longer derives the perf configuration. Image
+  checks require the HAL, its init override, sched_boost triggers, labels,
+  property contexts, node grants and the stub's exports, and the absence of the
+  perf2 stack, its declarations and the CodeLinaro power HAL.
 - Require the FP6 CarrierConfig overlay in the image checks. It is read after
   the stock carrier data and turns off the stock world-phone flag, so Settings
   shows Android's network-type list with GrapheneOS's LTE-only and 5G-only

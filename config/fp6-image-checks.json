@@ -626,13 +626,215 @@
     },
     {
       "id": "tap-to-wake-hal",
-      "why": "The power HAL knows the gesture node.",
+      "why": "The power HAL configuration switches the gesture node for Mode::DOUBLE_TAP_TO_WAKE.",
       "type": "text",
       "files": [
-        "VENDOR/bin/hw/android.hardware.power-service"
+        "VENDOR/etc/powerhint.json"
       ],
       "contains": [
         "/sys/bus/spi/devices/spi0.0/gesture_wakeup"
+      ]
+    },
+    {
+      "id": "power-hal",
+      "why": "LineageOS's libperfmgr power HAL, its configuration and init files, and the no-op perf client the stock camera loads.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.power-service.lineage-libperfmgr",
+        "VENDOR/etc/init/android.hardware.power-service.lineage-libperfmgr.rc",
+        "VENDOR/etc/init/init.fp6.power.rc",
+        "VENDOR/etc/powerhint.json",
+        "VENDOR/lib64/libperfmgr.so",
+        "VENDOR/lib64/libqti-perfd-client.so"
+      ]
+    },
+    {
+      "id": "power-hal-as-system",
+      "why": "The power HAL runs as system with CAP_SYS_NICE only: our init file overrides the module service, which runs as root.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.power.rc"
+      ],
+      "lines": [
+        "service vendor.power-hal-aidl /vendor/bin/hw/android.hardware.power-service.lineage-libperfmgr",
+        "    user system",
+        "    group system",
+        "    capabilities SYS_NICE",
+        "    override"
+      ],
+      "absent_regex": [
+        "^\\s+user root",
+        "^\\s+group .*readproc"
+      ]
+    },
+    {
+      "id": "power-hal-sched-boost",
+      "why": "WALT sched_boost changes only through fixed init triggers on the one property the power HAL may set.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.power.rc"
+      ],
+      "lines": [
+        "on property:vendor.powerhal.sched_boost=0",
+        "on property:vendor.powerhal.sched_boost=1",
+        "on property:vendor.powerhal.sched_boost=2",
+        "    write /proc/sys/walt/sched_boost 1",
+        "    write /proc/sys/walt/sched_boost 2"
+      ]
+    },
+    {
+      "id": "power-hal-started",
+      "why": "The power HAL starts writing its nodes after the boot-time CPU tuning, which no longer writes the minimum frequencies it owns.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.perf.rc"
+      ],
+      "lines": [
+        "    setprop vendor.powerhal.init 1"
+      ],
+      "absent_regex": [
+        "^\\s+write \\S+/scaling_min_freq "
+      ]
+    },
+    {
+      "id": "power-hal-label",
+      "why": "The power HAL runs in the platform power HAL domain.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/bin/hw/android\\\\\\.hardware\\\\\\.power-service\\\\\\.lineage-libperfmgr\\s+u:object_r:hal_power_default_exec:s0$"
+      ]
+    },
+    {
+      "id": "power-hal-property",
+      "why": "The sched_boost request property has its own label and accepts only the values init acts on.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "regex": [
+        "^vendor\\.powerhal\\.sched_boost\\s+u:object_r:vendor_power_sched_boost_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+2\\s*$",
+        "^vendor\\.powerhal\\.\\s+u:object_r:vendor_power_prop:s0\\s*$"
+      ]
+    },
+    {
+      "id": "power-hal-cpu-limits",
+      "why": "The power HAL may write the relabelled CPU frequency limits.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "hal_power_default",
+      "target": "vendor_sysfs_cpufreq_limit",
+      "cls": "file",
+      "perm": "write"
+    },
+    {
+      "id": "power-hal-gpu-limits",
+      "why": "The power HAL may write the relabelled GPU frequency limits and wake trigger.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "hal_power_default",
+      "target": "vendor_sysfs_kgsl_limit",
+      "cls": "file",
+      "perm": "write"
+    },
+    {
+      "id": "power-hal-sched-boost-property",
+      "why": "The power HAL may set its sched_boost request property.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "hal_power_default",
+      "target": "vendor_power_sched_boost_prop",
+      "cls": "property_service",
+      "perm": "set"
+    },
+    {
+      "id": "power-hal-narrow",
+      "why": "No write on the generic CPU, GPU, WALT or proc labels, and no perf HAL client grants.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "absent": [
+        "vendor_hal_perf_default",
+        "vendor_hal_perf2_service"
+      ],
+      "absent_regex": [
+        "^\\(allow hal_power_default(_[0-9]+)? (sysfs_devices_system_cpu|vendor_sysfs_kgsl|vendor_proc_walt|proc|sysfs)(_[0-9]+)? \\(file \\([^)]*\\b(write|append)\\b",
+        "^\\(allow hal_power_default(_[0-9]+)? vendor_power_prop(_[0-9]+)? \\(property_service "
+      ]
+    },
+    {
+      "id": "perf-client-stub",
+      "why": "The perf client is our no-op stub: it exports the calls the stock camera and SDM extension look up.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libqti-perfd-client.so",
+      "symbols": [
+        "perf_lock_acq",
+        "perf_lock_rel",
+        "perf_hint",
+        "perf_hint_renew",
+        "perf_hint_acq_rel_offload",
+        "perf_lock_rel_offload",
+        "perf_hint_offload",
+        "perf_event"
+      ]
+    },
+    {
+      "id": "perf-client-stub-only",
+      "why": "The perf client never reaches the perf2 service.",
+      "type": "text",
+      "files": [
+        "VENDOR/lib64/libqti-perfd-client.so"
+      ],
+      "absent": [
+        "vendor.qti.hardware.perf2"
+      ]
+    },
+    {
+      "id": "no-perf2",
+      "why": "Qualcomm's perf2 daemon (a root service), its client, plugins and configuration, and the CodeLinaro power HAL are not shipped.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/bin/hw/vendor.qti.hardware.perf2-hal-service",
+        "VENDOR/etc/init/vendor.qti.hardware.perf2-hal-service.rc",
+        "VENDOR/etc/vintf/manifest/vendor.qti.hardware.perf2.xml",
+        "VENDOR/etc/perf/perfboostsconfig.xml",
+        "VENDOR/etc/perf/perfconfigstore.xml",
+        "VENDOR/etc/perf/commonresourceconfigs.xml",
+        "VENDOR/etc/perf/targetresourceconfigs.xml",
+        "VENDOR/lib64/libqti-perfd.so",
+        "VENDOR/lib64/libperfconfig.so",
+        "VENDOR/lib64/libperfgluelayer.so",
+        "VENDOR/lib64/libperfioctl.so",
+        "VENDOR/lib64/libq-perflog.so",
+        "VENDOR/lib64/libqti-util.so",
+        "VENDOR/lib64/vendor.qti.hardware.perf2-V1-ndk.so",
+        "VENDOR/lib64/vendor.qti.memory.pasrmanager-V1-ndk.so",
+        "VENDOR/bin/hw/android.hardware.power-service",
+        "VENDOR/etc/init/android.hardware.power-service.rc"
+      ]
+    },
+    {
+      "id": "no-perf2-declared",
+      "why": "Nothing declares, labels or starts the perf2 service.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_service_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "VENDOR/etc/vintf/manifest.xml",
+        "SYSTEM/etc/vintf/compatibility_matrix.device.xml"
+      ],
+      "match": "all",
+      "absent": [
+        "vendor.qti.hardware.perf2"
       ]
     },
     {
