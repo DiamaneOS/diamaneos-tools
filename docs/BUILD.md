@@ -236,8 +236,10 @@ identifies its ledger.
 
 The power HAL is LineageOS's libperfmgr, built from source with the device's
 `power/` configuration; Qualcomm's perf2 performance daemon and its client
-libraries are not selected. The device's no-op `libqti-perfd-client` stands in
-for the client the stock camera and SDM extension load by name. The power stats
+libraries are not selected. The device's `libqti-perfd-client` stands in for
+the client the stock camera and SDM extension load by name; it passes only the
+camera's open, close and snapshot hints to the power HAL, as time-limited
+boosts. The power stats
 HAL is the device's own (`power/stats`): SoC and remote-processor sleep
 residency from the qcom_stats driver, without energy meters; stock has none. The
 stock thermal engine is a separate explicit input family in the component model;

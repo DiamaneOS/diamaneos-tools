@@ -31,7 +31,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertIn(b'"libdrm"', first['Android.bp'])
 
     def test_perf2_daemon_and_client_are_not_selected(self):
-        # The device builds the libperfmgr power HAL and a no-op
+        # The device builds the libperfmgr power HAL and its own
         # libqti-perfd-client; the closed perf2 daemon, its client, plugins and
         # configuration stay out of the selection and the rendered tree.
         rendered = self.render()

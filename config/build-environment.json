@@ -86,7 +86,7 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "7b5889898a289ac40ad55bd9a70ec8563560db4384bbfc86d0ed4ec3f1786e9b"
+      "sha256": "f1a5cbd77a00de07d7365be983e4d3459ec95d94be9f721d44adbdc57587f97e"
     },
     {
       "id": "stock-input-inventory",

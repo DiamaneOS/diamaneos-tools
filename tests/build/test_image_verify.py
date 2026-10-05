@@ -164,6 +164,23 @@ class RuleTests(unittest.TestCase):
         v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil + b'(allow untrusted_app vendor_hal_audio_internal_hwservice (hwservice_manager (find)))\n'})
         self.assertFalse(subject.rule_sepolicy_exclusive(exclusive, v)[0])
 
+    def test_camera_power_client_rule(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        rule = next(r for r in rules if r['id'] == 'camera-power-client')
+        cil = (b'(typeattributeset hal_power (hal_power_default))\n'
+               b'(typeattributeset hal_power_server (hal_power_default))\n'
+               b'(typeattributeset hal_power_client (hal_camera_default))\n'
+               b'(allow hal_camera_default hal_power (memfd_file (read write getattr map)))\n'
+               b'(allow hal_power hal_camera_default (memfd_file (read write getattr map)))\n')
+        ok = lambda text: subject.rule_text(rule, self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        self.assertTrue(ok(cil))
+        self.assertFalse(ok(cil.replace(b'hal_power_client (hal_camera_default)', b'hal_power_client (hal_camera_default hal_audio_default)')))
+        self.assertFalse(ok(cil.replace(b'hal_power_server (hal_power_default)', b'hal_power_server (hal_power_default hal_camera_default)')))
+        self.assertFalse(ok(cil + b'(allow hal_camera_default hal_power_default (binder (call transfer)))\n'))
+        self.assertFalse(ok(cil + b'(allow hal_camera_default hal_power_stats_service_202604 (service_manager (find)))\n'))
+        self.assertFalse(ok(cil + b'(allow hal_power_default hal_camera_default (process (setsched)))\n'))
+        self.assertFalse(ok(cil.replace(b'(typeattributeset hal_power_client (hal_camera_default))\n', b'')))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'

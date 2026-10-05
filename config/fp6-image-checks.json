@@ -683,7 +683,7 @@
     },
     {
       "id": "power-hal",
-      "why": "LineageOS's libperfmgr power HAL, its configuration and init files, and the no-op perf client the stock camera loads.",
+      "why": "LineageOS's libperfmgr power HAL, its configuration and init files, and our perf client the stock camera loads.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.power-service.lineage-libperfmgr",
@@ -832,7 +832,7 @@
     },
     {
       "id": "perf-client-stub",
-      "why": "The perf client is our no-op stub: it exports the calls the stock camera and SDM extension look up.",
+      "why": "The perf client is our stand-in: it exports the calls the stock camera and SDM extension look up.",
       "type": "elf_exports",
       "path": "VENDOR/lib64/libqti-perfd-client.so",
       "symbols": [
@@ -848,13 +848,47 @@
     },
     {
       "id": "perf-client-stub-only",
-      "why": "The perf client never reaches the perf2 service.",
+      "why": "The perf client never reaches the perf2 service; the only service it looks up is the power HAL.",
       "type": "text",
       "files": [
         "VENDOR/lib64/libqti-perfd-client.so"
       ],
+      "contains": [
+        "android.hardware.power.IPower/default"
+      ],
       "absent": [
         "vendor.qti.hardware.perf2"
+      ]
+    },
+    {
+      "id": "camera-power-client",
+      "why": "The camera provider calls the power HAL for its time-limited camera boosts as a plain IPower client: the only vendor domain in hal_power_client, no power HAL server role and no direct rules between it and the power or power stats HAL domains.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(typeattributeset hal_power_client \\(hal_camera_default\\)\\)$"
+      ],
+      "absent_regex": [
+        "^\\(typeattributeset hal_power(_server)? \\([^)]*\\bhal_camera_default\\b",
+        "^\\(allow hal_camera_default (hal_power_default|hal_power_stats_default|hal_power_stats_service(_[0-9]+)?) ",
+        "^\\(allow (hal_power_default|hal_power_stats_default) hal_camera_default "
+      ]
+    },
+    {
+      "id": "camera-boosts-config",
+      "why": "The power HAL defines the camera launch and shot boosts the camera's hints start, and no camera streaming mode that would cap the little cores CamX runs on.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/powerhint.json"
+      ],
+      "contains": [
+        "\"PowerHint\": \"CAMERA_LAUNCH\"",
+        "\"PowerHint\": \"CAMERA_SHOT\""
+      ],
+      "absent": [
+        "CAMERA_STREAMING_"
       ]
     },
     {

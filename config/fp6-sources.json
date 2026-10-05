@@ -888,7 +888,7 @@
           "revision": "d8f830f18bbdcf12c3f7d656d77a16beeaed946a"
         }
       ],
-      "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power HAL is LineageOS libperfmgr (unmodified) with the device's powerhint.json, init file and no-op libqti-perfd-client (device power/)",
+      "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power HAL is LineageOS libperfmgr (unmodified) with the device's powerhint.json, init file and libqti-perfd-client, which passes the camera's boost hints to the power HAL (device power/)",
       "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
       "licence_profile": "published-source-review-required",
       "rebuilt_from_source": true
