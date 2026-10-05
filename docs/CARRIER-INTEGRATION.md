@@ -24,6 +24,16 @@ aapt2 executable and output hashes bind the result. The complete stock APN XML
 is installed as data, keeping IMS/emergency rows, MVNO filters and priority
 rather than merging overlapping APNs.
 
+The stock `vendor.xml` also carries an unfiltered block applied to every
+carrier. The FP6 device overlay of CarrierConfig's own `res/xml/vendor.xml` is
+read after it and is the place for explicit corrections; it turns off
+`world_phone_bool`, a Qualcomm default for CDMA world phones that made Settings
+show an unfiltered list of 34 network modes instead of Android's list (which
+carries GrapheneOS's LTE-only and 5G-only options). Known gap: the stock data
+gives a few carriers Wi-Fi calling mode 10, a Qualcomm "IMS preferred" value
+Android does not define. Android passes it to the IMS service unchanged and
+Settings labels it "Off" on the SIM page while Wi-Fi calling is on.
+
 ## IWLAN and certificate apps
 
 The Qualcomm IWLAN app calls QCRIL's `IIWlan` service through
