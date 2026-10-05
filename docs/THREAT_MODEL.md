@@ -271,7 +271,7 @@ entry point), the protections in current builds, what remains, and the status.
 | Supply chain | [Release signing keys](#release-signing-keys) | Not implemented |
 | Supply chain | [Repositories, domain, install page](#repositories-domain-install-page) | Recorded |
 | Supply chain | [Exposure window for known bugs](#exposure-window-for-known-bugs) | Observed gap |
-| Supply chain | [Shell fork rebase lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell) | Bring-up (not qualified) |
+| Supply chain | [Shell fork rebase lag](#shell-fork-rebase-lag-grapheneos-security-fixes-under-the-tally-shell) | Bring-up (not qualified) |
 | Supply chain | [Install-time trust](#install-time-trust) | Not implemented |
 | Everyday use | [Correct user decisions](#correct-user-decisions) | Not implemented |
 | Everyday use | [Typed text and personal words](#typed-text-and-personal-words) | Bring-up (not qualified) |
@@ -974,7 +974,7 @@ entry point), the protections in current builds, what remains, and the status.
   sets, read at build time and checked in every image set (implemented, not yet
   built).
 
-#### Shell fork rebase lag: timely GrapheneOS security fixes under the Tally shell
+#### Shell fork rebase lag: GrapheneOS security fixes under the Tally shell
 
 - **Threat:** n-day exploitation of a fix not yet shipped or lost while
   rebasing, via DiamaneOS's Tally changes to frameworks/base (SystemUI, WM
@@ -983,7 +983,7 @@ entry point), the protections in current builds, what remains, and the status.
   SystemUI's dependency injection, so upstream files change little; Tally code
   behind one build-time flag (fixed read-only, on in DiamaneOS's release
   config), so an area can be dropped or the flag turned off to take a GrapheneOS
-  security release without delay.
+  security release without waiting for the Tally changes to be rebased.
 - **Remaining:** the flag helps only while Tally code still builds on the new
   release, and switches a resource off only where the resource names it
   (SystemUI, WM Shell and the shared clock library read it). If a later
@@ -1245,7 +1245,7 @@ Every Tally shell commit (FP6-211) also keeps the indicator and disclosure rules
 under [Privacy
 indicators](#privacy-indicators-and-disclosures-under-the-tally-shell), the
 rebase rule under [Shell fork rebase
-lag](#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell),
+lag](#shell-fork-rebase-lag-grapheneos-security-fixes-under-the-tally-shell),
 and the per-component rules in [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md):
 lock screen and biometric prompt, transitions, Quick Settings and the shade,
 Recents' Stop, Settings switches, Home and All apps, Settings search, Clock,

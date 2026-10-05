@@ -5,7 +5,7 @@ boundary](THREAT_MODEL.md#fresh-ui-boundary). Every Tally shell commit (FP6-211)
 keeps them, together with the [privacy indicator
 rules](THREAT_MODEL.md#privacy-indicators-and-disclosures-under-the-tally-shell)
 and the [rebase
-rule](THREAT_MODEL.md#shell-fork-rebase-lag-timely-grapheneos-security-fixes-under-the-tally-shell).
+rule](THREAT_MODEL.md#shell-fork-rebase-lag-grapheneos-security-fixes-under-the-tally-shell).
 This file follows the threat model's [maintenance
 rules](THREAT_MODEL.md#how-this-document-is-maintained).
 
