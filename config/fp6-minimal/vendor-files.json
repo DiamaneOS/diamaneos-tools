@@ -5893,26 +5893,6 @@
           "reason": "libscveObjectTracker dlopens libscveObjectTracker_stub.so (elf-strings)"
         },
         {
-          "path": "vendor/lib64/libOpenCL.so",
-          "soname": "libOpenCL.so",
-          "reason": "com.qti.stats.awb and libswregistrationalgo dlopen libOpenCL.so (elf-strings); libmmcamera_cac links it"
-        },
-        {
-          "path": "vendor/lib64/libOpenCL_adreno.so",
-          "soname": "libOpenCL_adreno.so",
-          "reason": "libOpenCL.so dlopens the Adreno ICD libOpenCL_adreno.so (elf-strings)"
-        },
-        {
-          "path": "vendor/lib64/libllvm-qcom.so",
-          "soname": "libllvm-qcom.so",
-          "reason": "the selected Adreno compute backend libCB.so dlopens libllvm-qcom.so to build OpenCL programs (elf-strings)"
-        },
-        {
-          "path": "vendor/lib64/libadreno_compiler_cl.so",
-          "soname": "libadreno_compiler_cl.so",
-          "reason": "libllvm-qcom.so dlopens libadreno_compiler_cl.so (elf-strings)"
-        },
-        {
           "path": "vendor/lib64/com.qti.settings.milos.so",
           "soname": "com.qti.settings.milos.so",
           "reason": "loaded by CamX/CHI by a constructed library name (no DT_NEEDED consumer; Qualcomm CamX runtime)"
@@ -5945,11 +5925,6 @@
         {
           "path": "vendor/lib64/libmmcamera_bestats.so",
           "soname": "libmmcamera_bestats.so",
-          "reason": "loaded by CamX/CHI by a constructed library name (no DT_NEEDED consumer; Qualcomm CamX runtime)"
-        },
-        {
-          "path": "vendor/lib64/libmmcamera_cac.so",
-          "soname": "libmmcamera_cac.so",
           "reason": "loaded by CamX/CHI by a constructed library name (no DT_NEEDED consumer; Qualcomm CamX runtime)"
         },
         {
@@ -6854,86 +6829,6 @@
       }
     },
     {
-      "input": "vendor/lib64/libOpenCL.so",
-      "path": "vendor/lib64/libOpenCL.so",
-      "sha256": "671d4c60e8effd7d63c9fb85aa9de09f1264b7377bac161f95c5822d7f36a8a3",
-      "bytes": 68152,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Adreno OpenCL runtime selected only for the camera stack (com.qti.stats.awb, libswregistrationalgo, libopencv3a dlopen it; libmmcamera_cac links it); remove together with the camera.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libOpenCL_adreno.so",
-      "path": "vendor/lib64/libOpenCL_adreno.so",
-      "sha256": "1662f89cc0e4f96bb27bb65393e7b54a95503ab1ad1a361ca5e600dfa6996b3f",
-      "bytes": 179928,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Adreno OpenCL runtime selected only for the camera stack (com.qti.stats.awb, libswregistrationalgo, libopencv3a dlopen it; libmmcamera_cac links it); remove together with the camera.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libllvm-qcom.so",
-      "path": "vendor/lib64/libllvm-qcom.so",
-      "sha256": "cea310b138ad5f0025ba68dea93c430468a34254e3a16cfef33b0dae4c3e7434",
-      "bytes": 290264,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Adreno OpenCL runtime selected only for the camera stack (com.qti.stats.awb, libswregistrationalgo, libopencv3a dlopen it; libmmcamera_cac links it); remove together with the camera.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libadreno_compiler_cl.so",
-      "path": "vendor/lib64/libadreno_compiler_cl.so",
-      "sha256": "08e09ff4f03d9a5cd2cc8e9aba3254827038eca0a1857c9fd8235c817493f839",
-      "bytes": 33796528,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Adreno OpenCL runtime selected only for the camera stack (com.qti.stats.awb, libswregistrationalgo, libopencv3a dlopen it; libmmcamera_cac links it); remove together with the camera.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/com.qti.settings.milos.so",
       "path": "vendor/lib64/com.qti.settings.milos.so",
       "sha256": "b519b10d51bb03d17c534cd117ee2e1a733dba04456226eff89a0fec6acdf7af",
@@ -7100,37 +6995,6 @@
       "inventory_ref": "userspace_hal_families:camera",
       "dependencies": [
         "vendor/lib64/android.hardware.graphics.allocator-V1-ndk.so",
-        "vendor/lib64/libcamxcommonutils.so",
-        "vendor/lib64/libcamxsettingsmanager.so",
-        "vendor/lib64/libcdsprpc.so",
-        "vendor/lib64/libcommonchiutils.so",
-        "vendor/lib64/libgralloc.qti.so",
-        "vendor/lib64/libqti_vndfwk_detect.so",
-        "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so",
-        "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock CamX/CHI component, algorithm or dependency loaded into the camera provider.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libmmcamera_cac.so",
-      "path": "vendor/lib64/libmmcamera_cac.so",
-      "sha256": "61a92628804e5a62dc5bcd1beefd7cde03d2b4807d42e80275e205fdd9312f6d",
-      "bytes": 196480,
-      "component_id": "camera-stack",
-      "inventory_ref": "userspace_hal_families:camera",
-      "dependencies": [
-        "vendor/lib64/android.hardware.graphics.allocator-V1-ndk.so",
-        "vendor/lib64/libOpenCL.so",
         "vendor/lib64/libcamxcommonutils.so",
         "vendor/lib64/libcamxsettingsmanager.so",
         "vendor/lib64/libcdsprpc.so",

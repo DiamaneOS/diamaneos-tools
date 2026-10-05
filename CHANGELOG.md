@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Stop selecting the Adreno OpenCL runtime (libOpenCL, libOpenCL_adreno), its
+  compiler (libllvm-qcom, libadreno_compiler_cl; about 34 MB together) and the
+  software chromatic-aberration library libmmcamera_cac, which links the
+  runtime. They were selected only as camera provider runtime dependencies,
+  loaded on demand by CamX's GPU and CAC nodes and its OpenCV users.
+  An image check requires their absence.
 - `config/repositories.json` marks the EmergencyLocation fork retired; the
   DiamaneOS manifest does not select it. The threat model's statuses follow the
   2026-10-05 build and phone tests, and the README, the threat model and the
