@@ -421,6 +421,18 @@ class NativeProductTests(unittest.TestCase):
                      'libqcodec2_mockfilter', 'libqc2audio_core', 'libvideooptfeature', 'libvideoml']:
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
         self.assertNotIn('fp6_stock_vendor_bin_hw_vendor.qti.media.c2audio@1.0-service', modules)
+        # The Android 14 Codec2 framework libraries share their names with AOSP
+        # vendor-available libraries, whose install rules Soong always defines;
+        # they install on odm, which the vendor namespace searches first.
+        for stem in ['libcodec2_hidl@1.0', 'libcodec2_hidl@1.1', 'libcodec2_hidl@1.2', 'libcodec2_hidl_plugin',
+                     'libcodec2_vndk', 'libstagefright_aidl_bufferpool2', 'libstagefright_bufferpool@2.0.1']:
+            self.assertIn(stem, vendor_product.ODM_LIBRARIES)
+            block = bp[bp.index('name: "fp6_stock_vendor_lib64_' + stem + '"'):]
+            block = block[:block.index('}\n')]
+            self.assertIn('device_specific: true', block)
+            self.assertNotIn('vendor: true', block)
+        for stem in ['libqcodec2_core', 'libqcodec2_utils', 'libvideotxr']:
+            self.assertNotIn(stem, vendor_product.ODM_LIBRARIES)
         # Android 14 ABI compat (device compat/codec2-v34): libcodec2_vndk binds
         # the compat GraphicBuffer/mapper (uiv34, which links libui), not libui.
         block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcodec2_vndk"'):]

@@ -14,7 +14,11 @@
   and confirms the dependency and symbols were renamed and the 256-byte
   allocations bind the 256-byte object (finding -115). The threat model now
   describes the encoder-only service and the GraphicBuffer fix. The
-  build-environment pins follow the new selection.
+  build-environment pins follow the new selection. The seven Android 14
+  Codec2 framework libraries share their names with AOSP vendor-available
+  libraries, whose install rules Soong always defines, so they install on
+  odm (ODM_LIBRARIES) like libkeymaster_messages; an image check requires
+  them there and absent from vendor.
 - Rename the stock camera provider's libhardware.so dependency to the
   device's seccomp loader, libcamxjail.so (same length; input and output
   hashes pinned in `NEEDED_REWRITES`, which now records a reason per entry).
