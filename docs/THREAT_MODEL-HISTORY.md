@@ -339,6 +339,16 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   SurfaceFlinger and system_server for ADPF, and the scheduler boost only
   through fixed init triggers. A no-op perf client stands in for the closed one
   the camera and composition extension load.
+- **2026-10-05:** public-text pass. Statuses brought up to date with the
+  2026-10-05 build and phone tests: Bluetooth pairing, music and a headset call
+  work with DiamaneOS's own HCI service; calls with audio work through the
+  call-audio bridge, which holds the call-audio control permission as well as
+  the normal audio-settings one; compressed music is decoded in software; the
+  -153 fix, the debugfs mount refusal and the location logging changes are in
+  builds since the 2026-10-01 build; the vendor patch level and the public build
+  commands are in the 2026-10-05 build. The IMS section states what exists
+  instead of release gates, the "defends against" heading says what DiamaneOS
+  aims to defend against, and the disclaimer names Fairphone.
 
 ## IMS integration notes
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `config/repositories.json` marks the EmergencyLocation fork retired; the
+  DiamaneOS manifest does not select it. The threat model's statuses follow the
+  2026-10-05 build and phone tests, and the README, the threat model and the
+  contribution guide use one disclaimer that names GrapheneOS and Fairphone.
 - Stop selecting Qualcomm's perf2 daemon, its init and VINTF files, its nine
   configuration files and the ten client, plugin and interface libraries only
   it and its client used (22 files). The device builds LineageOS's libperfmgr
