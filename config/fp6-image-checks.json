@@ -1927,7 +1927,7 @@
     },
     {
       "id": "media-target-spec-encoders-only",
-      "why": "The Codec2 target specification registers only the five hardware encoders and no decoder.",
+      "why": "The Codec2 target specification registers only the five hardware encoders: its decoder list and its optional codec list are empty (the stock file mentions optional decoders only in comments).",
       "type": "binary_count",
       "file": "VENDOR/etc/media_volcano_v1/video_system_specs.json",
       "patterns": [
@@ -1936,11 +1936,15 @@
           "count": 1
         },
         {
-          "text": ".decoder",
-          "count": 0
+          "text": "\"decoders\": [\n            ],",
+          "count": 1
         },
         {
-          "text": "c2.qti.heic.encoder",
+          "text": "\"OptionalCodecs\": [\n        ]",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.heic.encoder\"",
           "min": 1
         }
       ]
