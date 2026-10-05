@@ -142,7 +142,10 @@ ACTIVATION={
  'vendor.qti.hardware.memtrack-service':('memtrack_qti.rc','memtrack_qti.xml'),
  'qseecomd':('qseecomd.rc',None),
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
- 'vendor.qti.hardware.perf2-hal-service':('vendor.qti.hardware.perf2-hal-service.rc','vendor.qti.hardware.perf2.xml'),
+ # Not selected: Qualcomm's perf2 daemon (a root service), its client and
+ # plugin libraries and their configuration. The device builds LineageOS's
+ # libperfmgr power HAL and a no-op libqti-perfd-client for the stock camera
+ # and SDM extension, which load the client by name (device power/).
  'rmt_storage':('vendor.qti.rmt_storage.rc',None),
  # Not selected: tftp_server and pd-mapper. The device builds the open
  # linux-msm tqftpserv and pd-mapper instead (device modem/modem.mk).
@@ -646,28 +649,6 @@ def board_config(patch):
             'VENDOR_SECURITY_PATCH := ' + patch + '\n').encode()
 
 
-def performance_config(data):
-    """Pinned correction of optional startup gates; preserve every other byte."""
-    if hashlib.sha256(data).hexdigest() != 'bc2c287db99b1d184ee281429cd8703e8b8976fe9e0a951378d454cfb69e60db':
-        raise VendorError('performance configuration differs from reviewed input')
-    import xml.etree.ElementTree as ET
-    # The perf HAL dlopens the learning module and memperfd only behind these
-    # gates; neither they nor the learning-module configuration are selected.
-    disabled = {'vendor.debug.enable.lm', 'vendor.debug.enable.memperfd', 'ro.vendor.perf.enable.prekill'}
-    def replace(match):
-        token = match[0]
-        if token.startswith(b'<!--'):
-            return token
-        node = ET.fromstring(token)
-        if node.attrib.get('Name') in disabled:
-            return token.replace(b'Value="true"', b'Value="false"')
-        return token
-    result = re.sub(rb'<!--.*?-->|<Prop\s[^>]*?/>', replace, data, flags=re.S)
-    if hashlib.sha256(result).hexdigest() != '960b5b4088af3601279297e9169e82168dd931e5b901701924bc9db47651873b':
-        raise VendorError('derived performance configuration differs from reviewed result')
-    return result
-
-
 AUDIO_CONFIG_REWRITES = {
     'vendor/etc/audio/sku_volcano/audio_effects.xml': {
         'source_sha256': '6de7bf739222d27f88adb1a95fa6f010e0d1c151b60d0a3da5603dbf0c74d1fe',
@@ -1016,14 +997,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                 if len(notice) > 64 * 1024**2:
                     raise VendorError('expanded notice exceeds size limit')
                 rendered['NOTICE.xml' if partition == 'vendor' else 'NOTICE-' + partition + '.xml'] = notice
-            config = tree / 'files/vendor/etc/perf/perfconfigstore.xml'
-            original = config.read_bytes()
-            derived = performance_config(original)
-            config.write_bytes(derived)
-            provenance['derived_files'] = [{'path': 'vendor/etc/perf/perfconfigstore.xml',
-                'source_sha256': hashlib.sha256(original).hexdigest(),
-                'sha256': hashlib.sha256(derived).hexdigest(),
-                'reason': 'Disable optional learning, memory plugin and prekill startup gates'}]
+            provenance['derived_files'] = []
             for path, rewrite in AUDIO_CONFIG_REWRITES.items():
                 config = tree / 'files' / path
                 config.write_bytes(audio_config(path, config.read_bytes()))

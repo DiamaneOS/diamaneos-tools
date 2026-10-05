@@ -29,15 +29,27 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(len(modules), len(set(modules)))
         self.assertNotIn('fp6_stock_vendor_lib64_libdrm', modules)
         self.assertIn(b'"libdrm"', first['Android.bp'])
-        self.assertIn(b'vendor.qti.hardware.perf2.xml', first['Android.bp'])
-        # The perf HAL's learning-module plugins are gated off and not selected.
+
+    def test_perf2_daemon_and_client_are_not_selected(self):
+        # The device builds the libperfmgr power HAL and a no-op
+        # libqti-perfd-client; the closed perf2 daemon, its client, plugins and
+        # configuration stay out of the selection and the rendered tree.
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
         paths = {r['path'] for r in self.recipe['files']}
-        for stem in ['liblearningmodule', 'libmemperfd', 'libmeters']:
-            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertNotIn('vendor.qti.hardware.perf2-hal-service', vendor_product.ACTIVATION)
+        for stem in ['libqti-perfd', 'libqti-perfd-client', 'libperfconfig', 'libperfgluelayer',
+                     'libperfioctl', 'libq-perflog', 'libqti-util', 'vendor.qti.hardware.perf2-V1-ndk',
+                     'vendor.qti.memory.pasrmanager-V1-ndk', 'liblearningmodule', 'libmemperfd', 'libmeters']:
             self.assertNotIn('vendor/lib64/' + stem + '.so', paths)
-        self.assertFalse([p for p in paths if p.startswith('vendor/etc/lm/')])
-        self.assertIn('fp6_stock_vendor_lib64_libqti-perfd', modules)
-        self.assertNotIn(b'vendor/etc/lm/', first['device-vendor.mk'])
+            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertFalse([p for p in paths if 'perf2' in p or p.startswith(('vendor/etc/perf/', 'vendor/etc/lm/'))])
+        self.assertFalse([r for r in self.selection['roots'] if 'perf' in r])
+        for marker in ['perf2', 'libqti-perfd', 'vendor/etc/perf/', 'vendor/etc/lm/']:
+            self.assertNotIn(marker, bp + make)
+        # The camera keeps the thermal client it links.
+        self.assertIn('vendor/lib64/libthermalclient.so', paths)
 
     def test_missing_or_changed_firmware_rejected(self):
         path = self.selection['firmware_inputs'][0]['path']
@@ -731,9 +743,6 @@ class NativeProductTests(unittest.TestCase):
         link = next(l for l in self.recipe['symlinks'] if l['path'].startswith('system_ext/'))
         self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != link['target'][1:]]
         with self.assertRaises(VendorError): self.render()
-
-    def test_configuration_transform_rejects_unreviewed_bytes(self):
-        with self.assertRaises(VendorError): vendor_product.performance_config(b'<PerfConfigsStore/>')
 
     def test_vendor_patch_level_is_read_strictly_from_the_stock_build_prop(self):
         import datetime

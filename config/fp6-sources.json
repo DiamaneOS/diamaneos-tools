@@ -860,8 +860,12 @@
       "origin": "published-source-with-device-specific-adaptation",
       "source_revisions": [
         {
-          "path": "vendor/qcom/opensource/power",
-          "revision": "2aa3974fc92a0d130e989a203b9a231398834071"
+          "path": "hardware/lineage/interfaces",
+          "revision": "8e74530186f555d7f4802a579e901535d9f0968f"
+        },
+        {
+          "path": "hardware/google/pixel",
+          "revision": "8bd3c71cf2be40cfbe8f5a4b9bf5574ee9fbc624"
         },
         {
           "path": "vendor/qcom/opensource/thermal-hal",
@@ -884,7 +888,7 @@
           "revision": "d8f830f18bbdcf12c3f7d656d77a16beeaed946a"
         }
       ],
-      "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power wrapper requires the separate stock performance backend",
+      "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power HAL is LineageOS libperfmgr (unmodified) with the device's powerhint.json, init file and no-op libqti-perfd-client (device power/)",
       "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
       "licence_profile": "published-source-review-required",
       "rebuilt_from_source": true
@@ -942,11 +946,8 @@
       "id": "power-thermal-backends",
       "origin": "proprietary-prebuilt-userspace-and-firmware",
       "source_revisions": [],
-      "reference_vintf": [
-        "vendor.qti.hardware.perf2.IPerf/default"
-      ],
-      "abi_uapi": "Source power utils.c dlopens libqti-perfd-client.so; its AIDL performance backend controls matched kernel/sysfs resources. The thermal engine complements the reporting HAL with device thermal control.",
-      "load_path": "Explicit selected stock runtime libraries, perf2 service, thermal-engine-v2 and their authenticated configuration/dependencies; no blanket auxiliary-package inclusion.",
+      "abi_uapi": "The closed thermal engine complements the source thermal HAL with device thermal control. Qualcomm's perf2 performance backend and its client libraries are not selected; the source power HAL needs none.",
+      "load_path": "Explicit selected stock thermal-engine-v2 and its authenticated configuration/dependencies; no blanket auxiliary-package inclusion.",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },

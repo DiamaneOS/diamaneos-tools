@@ -74,32 +74,6 @@
       }
     },
     {
-      "input": "vendor/bin/hw/vendor.qti.hardware.perf2-hal-service",
-      "path": "vendor/bin/hw/vendor.qti.hardware.perf2-hal-service",
-      "sha256": "d1824c29312751cdf130c665bc9137a548e25239ec51980dc0c4fbc7b770de79",
-      "bytes": 54992,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libperfconfig.so",
-        "vendor/lib64/libperfgluelayer.so",
-        "vendor/lib64/libq-perflog.so",
-        "vendor/lib64/libqti-perfd-client.so",
-        "vendor/lib64/vendor.qti.hardware.perf2-V1-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:vendor_hal_perf_default_exec:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/bin/qseecomd",
       "path": "vendor/bin/qseecomd",
       "sha256": "67caf49683755d103ad56a2661d06889c2482a6e7493cb167305d36f021d83b9",
@@ -289,206 +263,6 @@
       }
     },
     {
-      "input": "vendor/etc/init/vendor.qti.hardware.perf2-hal-service.rc",
-      "path": "vendor/etc/init/vendor.qti.hardware.perf2-hal-service.rc",
-      "sha256": "aeebc7e101a93aadd998704f3a916b43e5309152952222c74dd4f9119a5d8248",
-      "bytes": 1519,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/avcsysnodesconfigs.xml",
-      "path": "vendor/etc/perf/avcsysnodesconfigs.xml",
-      "sha256": "7fded53a23bd067374075f8c85b5c60dc03f6de1aba511200e5af39e3f8637ae",
-      "bytes": 1871,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/commonresourceconfigs.xml",
-      "path": "vendor/etc/perf/commonresourceconfigs.xml",
-      "sha256": "3fd3a02aaa8f1ec509a70b03dd6d3a5f0510c1fd4af146ef61d78521d71f4f03",
-      "bytes": 28291,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/commonsysnodesconfigs.xml",
-      "path": "vendor/etc/perf/commonsysnodesconfigs.xml",
-      "sha256": "5d19c74aa1448d72f3511c7636243c3db61a4c4963cd9b4a2bcbc28d58d32651",
-      "bytes": 2744,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/perfboostsconfig.xml",
-      "path": "vendor/etc/perf/perfboostsconfig.xml",
-      "sha256": "f2a9ae850f40547c5efcf9b36d982dbdf997a649c897242d770d158ba4082600",
-      "bytes": 43413,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/perfconfigstore.xml",
-      "path": "vendor/etc/perf/perfconfigstore.xml",
-      "sha256": "bc2c287db99b1d184ee281429cd8703e8b8976fe9e0a951378d454cfb69e60db",
-      "bytes": 10130,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/targetavcsysnodesconfigs.xml",
-      "path": "vendor/etc/perf/targetavcsysnodesconfigs.xml",
-      "sha256": "5a2da02079f91686d19660b8a711410f68e18648d91de219028bfc042488b2f1",
-      "bytes": 712,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/targetconfig.xml",
-      "path": "vendor/etc/perf/targetconfig.xml",
-      "sha256": "af81dab07c1f8d951217a1ea09a324a8dfeb3d65ed9bdfad55bca34339f319a3",
-      "bytes": 2501,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/targetresourceconfigs.xml",
-      "path": "vendor/etc/perf/targetresourceconfigs.xml",
-      "sha256": "5497312a2615f4f969197c2a158c52773112da71fa8577c0db4bd40fce27f821",
-      "bytes": 13513,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/perf/targetsysnodesconfigs.xml",
-      "path": "vendor/etc/perf/targetsysnodesconfigs.xml",
-      "sha256": "fed282fa588445b39515c3b181b339772c35bea62d189c56d9221a697b934f3d",
-      "bytes": 1638,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/etc/thermal-engine.conf",
       "path": "vendor/etc/thermal-engine.conf",
       "sha256": "c32b39af7a19759a7db7f8b2d92d069a0534848aa7a195ca2cec24aa6c317cb3",
@@ -535,26 +309,6 @@
       "bytes": 1695,
       "component_id": "graphics-display-media",
       "inventory_ref": "userspace_hal_families:graphics-display-media",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/vintf/manifest/vendor.qti.hardware.perf2.xml",
-      "path": "vendor/etc/vintf/manifest/vendor.qti.hardware.perf2.xml",
-      "sha256": "d4d223824ceff7781e702d287bd2626dc82b183f9562d7ce112f00ee3e061f1a",
-      "bytes": 1829,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
       "dependencies": [],
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
@@ -1350,100 +1104,10 @@
       }
     },
     {
-      "input": "vendor/lib64/libperfconfig.so",
-      "path": "vendor/lib64/libperfconfig.so",
-      "sha256": "40729c8019f0f47d2fe30c3cb8a51b8a1807e21151708bfee4f57b4319a0dd6c",
-      "bytes": 87176,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libq-perflog.so",
-        "vendor/lib64/libqti-util.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libperfgluelayer.so",
-      "path": "vendor/lib64/libperfgluelayer.so",
-      "sha256": "263778871daf08aaff6596b30f89bbc7d583f6c87bed945d24151734b9c2a00e",
-      "bytes": 32824,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libperfconfig.so",
-        "vendor/lib64/libq-perflog.so",
-        "vendor/lib64/libqti-perfd-client.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libperfioctl.so",
-      "path": "vendor/lib64/libperfioctl.so",
-      "sha256": "9695d6a6dd852775e8d2c0d7d1e2e43f47c0653e07dd54b810d9ccd0956f84e1",
-      "bytes": 15416,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libdrm.so",
-        "vendor/lib64/libq-perflog.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
       "path": "vendor/lib64/libprotobuf-cpp-lite-21.7.so",
       "sha256": "0aecfa2a1a5962a7fdae12753e4530dd354249becd758984c23e509cd5d276ac",
       "bytes": 601488,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libq-perflog.so",
-      "path": "vendor/lib64/libq-perflog.so",
-      "sha256": "47c76a9176d690c0dcdd9fad1a55cf84fe8f78d638ecbb62a925a482472aca9f",
-      "bytes": 14880,
       "component_id": "public-hal-services",
       "inventory_ref": "userspace_hal_families:power-thermal-backends",
       "dependencies": [],
@@ -1558,82 +1222,6 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libqti-perfd-client.so",
-      "path": "vendor/lib64/libqti-perfd-client.so",
-      "sha256": "c18ec7819b0393f2013784c603702cd39e73120f7c54f2076ed05ceb49804596",
-      "bytes": 83840,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/vendor.qti.hardware.perf2-V1-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libqti-perfd.so",
-      "path": "vendor/lib64/libqti-perfd.so",
-      "sha256": "da35605b68b4c36f14e2a0a3c3eb00e920196c3328dee0faf803d7a5b0550324",
-      "bytes": 432744,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libdisplayconfig.qti.so",
-        "vendor/lib64/libperfconfig.so",
-        "vendor/lib64/libperfgluelayer.so",
-        "vendor/lib64/libperfioctl.so",
-        "vendor/lib64/libq-perflog.so",
-        "vendor/lib64/libqti-perfd-client.so",
-        "vendor/lib64/libqti-util.so",
-        "vendor/lib64/libthermalclient.so",
-        "vendor/lib64/vendor.qti.hardware.display.config-V5-ndk.so",
-        "vendor/lib64/vendor.qti.hardware.perf2-V1-ndk.so",
-        "vendor/lib64/vendor.qti.memory.pasrmanager-V1-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libqti-util.so",
-      "path": "vendor/lib64/libqti-util.so",
-      "sha256": "b7fe0fa1940b08c675141c537958100a5cb4f5c38ef9424a37c973f98b0782ab",
-      "bytes": 40888,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [
-        "vendor/lib64/libq-perflog.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     },
@@ -1925,26 +1513,6 @@
       }
     },
     {
-      "input": "vendor/lib64/vendor.qti.hardware.display.config-V5-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.display.config-V5-ndk.so",
-      "sha256": "8a689475b4df93aaadd853a44bd414157424d06d9bbc01f949bb54f80204c86a",
-      "bytes": 152720,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/vendor.qti.hardware.display.demura-V1-ndk.so",
       "path": "vendor/lib64/vendor.qti.hardware.display.demura-V1-ndk.so",
       "sha256": "db19844dbc0beadb62667f8398b925aebef209445a6170838c8e7ad329492c6b",
@@ -2116,46 +1684,6 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.hardware.perf2-V1-ndk.so",
-      "path": "vendor/lib64/vendor.qti.hardware.perf2-V1-ndk.so",
-      "sha256": "6152e67ad6c464d4e7b2519e3305e8f857c070daede0ed599729e268743ddec5",
-      "bytes": 88960,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:same_process_hal_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/vendor.qti.memory.pasrmanager-V1-ndk.so",
-      "path": "vendor/lib64/vendor.qti.memory.pasrmanager-V1-ndk.so",
-      "sha256": "b08230054544ddbe8a187cdf6d99167b324457db0d421b3058a57263e488e008",
-      "bytes": 55088,
-      "component_id": "public-hal-services",
-      "inventory_ref": "userspace_hal_families:power-thermal-backends",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Selected native provider, runtime backend or its configuration/dependency; activation is defined by the FP6 product renderer.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     },
