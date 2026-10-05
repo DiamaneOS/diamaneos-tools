@@ -354,6 +354,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   technologies and the phone stays on LTE with calls working; with LTE-only it
   allows LTE alone and calls over LTE work; turning protection off brings GSM
   back. Settings shows Android's filtered network-type list.
+- **2026-10-05:** statuses brought up to date with the phone: the libperfmgr
+  power HAL, the power stats HAL (own user, no capabilities, only the seven
+  read commands), the camera seccomp loader (log mode) and the OpenCL removal
+  are built and run. The stock traceability daemon stays excluded; our IMEI
+  tool reads only the two IMEIs from the traceability partition and writes
+  them to the modem at every boot, because activating a slot restores the
+  modem's file system from a copy without them. Bluetooth was checked: it uses
+  a random, locally administered address kept until a reset.
 - **2026-10-05:** a power stats HAL of our own, implemented, not yet built.
   Stock ships none. It reports the SoC sleep modes and the modem, WPSS, ADSP
   and CDSP sleep time from the qcom_stats driver's `/dev/stats` ioctls, runs
