@@ -165,14 +165,15 @@ GKI configuration (the Image) and the vendor tree's (the modules) against
 with the production profile: no SELinux development mode and dmesg restricted
 from boot, plus the baseline hardening. The baseline keeps userfaultfd (ART's
 garbage collector; unprivileged users get user-mode-only descriptors), io_uring
-(compressed OTA updates), Unicode casefolding for f2fs and forced lockdown in
-confidentiality mode, and pins settings hardware support needs without failing
-loudly: kprobes and kretprobes, the firmware loader's user-helper fallback (the
-device init sets `force_sysfs_fallback`, so ueventd loads firmware) and the
-debugfs API, which kernel code keeps while mounts are refused. The settings
-live in `arch/arm64/configs/gki_defconfig`, identical in the common kernel and
-the vendor kernel (`kernel_platform/msm-kernel`) and kept in `savedefconfig`
-form because the GKI build runs `check_defconfig`.
+(compressed OTA updates), Unicode casefolding for f2fs and forced lockdown at
+integrity level (confidentiality fails the check), and pins settings hardware
+support needs without failing loudly: kprobes and kretprobes, the firmware
+loader's user-helper fallback (the device init sets `force_sysfs_fallback`, so
+ueventd loads firmware) and the debugfs API, which kernel code keeps while
+mounts are refused. The settings live in `arch/arm64/configs/gki_defconfig`,
+identical in the common kernel and the vendor kernel
+(`kernel_platform/msm-kernel`) and kept in `savedefconfig` form because the GKI
+build runs `check_defconfig`.
 
 `--config-profile development` checks only the baseline and records the
 profile; the configuration itself always comes from the pinned source commit.
@@ -200,14 +201,36 @@ KPROBES stays on. The USB glue (`dwc3-msm`) implements thirteen controller hooks
 (pull-up, connection-done, GSI event buffers, stop handling and others) as
 kretprobes on the built-in dwc3 core and ignores registration failures, so
 without kprobes they silently vanish; turning KPROBES off first needs them as
-explicit calls in both trees. Lockdown blocks user-space kprobes (tracefs, perf)
-and BPF kernel reads, so only signed kernel code places probes; confidentiality
-level also empties tracefs (no perfetto or atrace) and denies BPF kernel-memory
-reads, so per-UID CPU time (per-app CPU in Battery usage) and the memevents OOM
-listener do not start. Integrity level would restore both but let root probe
-through tracefs; the level is an open decision. Enforcing USER policy replaces
-none of these settings. Current artifacts use development AVB identities, not
-release, relock or production-signing inputs.
+explicit calls in both trees.
+
+Lockdown is forced at integrity level (owner decision, 2026-10-05): the
+features that let user space modify the running kernel stay off, but kernel
+memory is not hidden from privileged processes. Confidentiality level, used
+before, also empties tracefs (no perfetto or atrace) and denies BPF programs
+kernel-memory reads, so per-UID CPU time (per-app CPU in Battery usage) and
+lmkd's memevents OOM listener could not start; integrity restores both. The
+cost is kprobes from user space: with KPROBES on, a process that may write
+tracefs's `kprobe_events` can place probes whose arguments read kernel memory
+(perf's kprobe events also need CAP_PERFMON or CAP_SYS_ADMIN). SELinux decides
+who may. `kprobe_events` has no label of its own, so it carries tracefs's
+default, `debugfs_tracing_debug`:
+
+- user builds: only init may write it (an AOSP neverallow keeps every other
+  domain out, and the device policy adds no grant; vendor_init may only open
+  and read it), and only root may write the file (0640). Only `bpfloader` and
+  `uprobestats` hold one of those capabilities together with perf access;
+- userdebug builds: atrace's userdebug init script makes `kprobe_events`
+  world-writable, the adb root shell runs in the permissive `su` domain, and
+  AOSP lets shell (adb without root), atrace, Perfetto's `traced_probes`,
+  Traceur, `simpleperf_boot`, `profcollectd` and the atrace HAL write it.
+
+BPF programs may now read kernel memory, but only `bpfloader` may load them.
+IPsec keys are no longer blanked in XFRM state dumps, which SELinux allows only
+netd, system_server, the network stack, `netutils_wrapper`, dumpstate and
+Qualcomm's nicmd (checked in the compiled user and userdebug policies of the
+2026-10-05 builds). Enforcing USER policy replaces none of these settings.
+Current artifacts use development AVB identities, not release, relock or
+production-signing inputs.
 
 ## Boot logs
 

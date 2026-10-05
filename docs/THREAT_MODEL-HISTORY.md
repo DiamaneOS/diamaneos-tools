@@ -378,6 +378,19 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   the seven read commands it uses. The driver's other commands read the wrong
   subsystem entries or send a request to the AOSS and stay denied. No energy
   meters: the FP6 has no on-device power monitor.
+- **2026-10-05:** the kernel's forced lockdown moves from confidentiality to
+  integrity (owner decision), implemented, not yet built. Confidentiality had
+  emptied tracefs and denied BPF programs kernel-memory reads, so Android's
+  per-app CPU time accounting and lmkd's memory-event listener did not start.
+  Integrity still keeps user space from modifying the running kernel, but with
+  KPROBES on, kprobes from user space are now limited by SELinux: on user
+  builds only init may write tracefs's kprobe_events; on userdebug builds the
+  permissive adb root shell and AOSP's tracing domains (shell without root,
+  atrace, traced_probes, Traceur, simpleperf_boot, profcollectd, the atrace
+  HAL) may. Only bpfloader loads BPF programs. XFRM state dumps carry IPsec
+  keys again, readable only by netd, system_server, the network stack,
+  netutils_wrapper, dumpstate and Qualcomm's nicmd. The kernel policy requires
+  integrity and fails a confidentiality configuration.
 
 ## IMS integration notes
 

@@ -84,15 +84,36 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_runtime_features_and_lockdown_stay_on(self):
         # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
-        # /data (unicode, f2fs) and lockdown, which keeps kprobes and BPF kernel reads
-        # away from user space while KPROBES stays on for the USB controller glue.
+        # /data (unicode, f2fs) and integrity lockdown, which keeps user space from
+        # modifying the running kernel.
         data = self.config(False)
         for symbol in ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
-                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'):
+                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'):
             with self.subTest(symbol=symbol):
                 changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
                 result = kernel_config.check(changed, self.policy, 'development')
                 self.assertEqual([r['symbol'] for r in result['failures']], [symbol])
+
+    def test_lockdown_level_is_integrity(self):
+        # Confidentiality lockdown empties tracefs and blocks BPF kernel reads, so
+        # per-app CPU time and lmkd's memory events stop; no lockdown lets user space
+        # modify the running kernel. Either choice fails the check.
+        data = self.config(False)
+        integrity = b'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y'
+        self.assertIn(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set', data)
+        without = data.replace(integrity, b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set')
+        confidentiality = without.replace(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set',
+                                          b'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY=y')
+        none = without + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y'
+        for changed, failing in ((confidentiality, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY',
+                                                    'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY']),
+                                 (none, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'])):
+            for profile in ('development', 'production'):
+                with self.subTest(failing=failing, profile=profile):
+                    result = kernel_config.check(changed, self.policy, profile)
+                    self.assertEqual(result['status'], 'FAIL')
+                    self.assertEqual([r['symbol'] for r in result['failures']
+                                      if r['symbol'].startswith('CONFIG_LOCK_DOWN_')], failing)
 
     def test_settings_hardware_support_depends_on_stay_on(self):
         # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and

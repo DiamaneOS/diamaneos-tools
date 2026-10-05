@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-kernel-policy-v9",
+  "id": "fp6-android14-6-1-kernel-policy-v10",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -24,7 +24,8 @@
     "CONFIG_TIPC_MEDIA_UDP": "n",
     "CONFIG_TIPC_CRYPTO": "n",
     "CONFIG_TIPC_DIAG": "n",
-    "CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY": "y",
+    "CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY": "y",
+    "CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY": "n",
     "CONFIG_USERFAULTFD": "y",
     "CONFIG_IO_URING": "y",
     "CONFIG_UNICODE": "y",
