@@ -30,6 +30,9 @@ DIAMANEOS = ROOT / 'bin' / 'diamaneos'
 HOST_BIN = Path('host/linux-x86/bin')
 NAME = re.compile(r'[A-Za-z0-9_.+-]{1,128}')
 BUILD_NUMBER = re.compile(r'[A-Za-z0-9._-]{1,64}')
+# Build number of the host image tools (aapt2 and friends), fixed so their
+# bytes do not depend on the build day.
+HOST_TOOLS_BUILD_NUMBER = 'diamaneos-host-tools'
 # lunch and m run in their own shell so build/envsetup.sh cannot change the
 # environment of later checks (it sets T, for example). Values come in
 # through environment variables, never through the script text.
@@ -414,12 +417,27 @@ def plan_vendor(ctx: Context) -> StepPlan:
         raise UsageError('invalid host tool target')
     inputs = None if sync is None else {
         'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(VENDOR_RECIPES),
-        'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets}
+        'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
+        'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER}
+    # A fixed build number and the sources' own date: without them the build
+    # stamps the current date into the tools (aapt2's version string), their
+    # hashes reach the vendor inventory, and the same sources would give a
+    # different build identity on another day.
+    tool_env = {'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': ctx.environment['build']['generic_qualification_target'],
+                'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
+                'BUILD_NUMBER': HOST_TOOLS_BUILD_NUMBER}
+    if sync is not None:
+        try:
+            tool_env['BUILD_DATETIME'] = str(newest_commit_time(ctx, sync))
+        except (BuildStepError, build.BuildError, ValueError, KeyError, OSError,
+                subprocess.SubprocessError) as error:
+            if not ctx.dry_run:
+                raise BuildStepError('cannot read the commit times of the synced sources for the image tools '
+                                     f'({error}); run "diamaneos build sync" again') from error
     host_tools = Action(
         'Build the image tools from the synced source',
         argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD',),
-        env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': ctx.environment['build']['generic_qualification_target'],
-             'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}'})
+        env=tool_env)
 
     def fetch():
         if ctx.factory_zip:

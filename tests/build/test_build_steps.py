@@ -207,6 +207,19 @@ class PlanTests(unittest.TestCase):
         self.assertEqual('k', plan.inputs['sync']['kernel_prebuilts_commit'])
         self.assertNotIn('kernel', plan.inputs)
 
+    def test_image_tools_get_a_fixed_build_number_and_the_source_date(self):
+        # Otherwise aapt2's version string carries the build day, its hash
+        # reaches the vendor inventory and the build identity changes daily.
+        ctx = self.context()
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
+                                           'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1791172325):
+            plan = steps.plan_vendor(ctx)
+        tools = plan.actions[0]
+        self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, tools.env['BUILD_NUMBER'])
+        self.assertEqual('1791172325', tools.env['BUILD_DATETIME'])
+        self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, plan.inputs['host_tools_build_number'])
+
     def test_build_all_follows_the_manifest_branch(self):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         environment['manifest']['revision'] = 'a' * 40

@@ -100,6 +100,12 @@ class PackageTests(unittest.TestCase):
         record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
         self.assertEqual({}, record['wipe']['partition_table_checked'])
 
+    def test_build_record_names_the_factory_package_without_its_path(self):
+        record = image_package.public_vendor_outputs(
+            {'factory_zip': '/var/lib/x/ws/cache/FP6-factory.zip', 'factory_sha256': 'f' * 64})
+        self.assertEqual('FP6-factory.zip', record['factory_zip'])
+        self.assertEqual('f' * 64, record['factory_sha256'])
+
     def test_repackaging_the_same_build_reuses_the_published_set(self):
         first = run_plan(self.ctx, image_package.plan(self.ctx))
         second = run_plan(self.ctx, image_package.plan(self.ctx))
