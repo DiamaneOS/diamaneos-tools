@@ -434,21 +434,27 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libqcodec2_core', 'libqcodec2_utils', 'libvideotxr']:
             self.assertNotIn(stem, vendor_product.ODM_LIBRARIES)
         # Android 14 ABI compat (device compat/codec2-v34): libcodec2_vndk binds
-        # the compat GraphicBuffer/mapper (uiv34, which links libui), not libui.
+        # the compat GraphicBuffer/mapper (uiv34, which links libui). libui stays
+        # listed (keep_link) because Soong's ELF check resolves the blob's other
+        # libui imports only against the listed libraries.
         block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcodec2_vndk"'):]
         shared = block[:block.index('}\n')]
         shared = shared[shared.index('shared_libs:'):].split('\n')[0]
         self.assertIn('"uiv34"', shared)
-        self.assertNotIn('"libui"', shared)
+        self.assertIn('"libui"', shared)
         # Each stock Codec2 HIDL library binds the getHGraphicBufferProducer
-        # compat; it keeps the real libui (its GraphicBuffer use is unaffected).
+        # compat and keeps the real helper listed for its other imports.
         for version in ['1.0', '1.1', '1.2']:
             block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcodec2_hidl@' + version + '"'):]
             shared = block[:block.index('}\n')]
             shared = shared[shared.index('shared_libs:'):].split('\n')[0]
             self.assertIn('"libstagefright_bqhelper_v34compat"', shared)
-            self.assertNotIn('"libstagefright_bufferqueue_helper"', shared)
+            self.assertIn('"libstagefright_bufferqueue_helper"', shared)
             self.assertIn('"libui"', shared)
+        # Rewrites without keep_link still drop the original (camera provider).
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
+        shared = block[:block.index('}\n')]
+        self.assertNotIn('"libhardware"', shared[shared.index('shared_libs:'):].split('\n')[0])
         # Both stock seccomp policies are installed; the device configs and the
         # firmware are copied; the generic and other-variant configs are not.
         for path in ['media_codecs_volcano_v1.xml', 'media_codecs_performance_volcano_v1.xml',
