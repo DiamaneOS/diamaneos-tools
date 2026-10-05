@@ -173,8 +173,6 @@ historical evidence without making it acceptance of this later source cut.
   Android's network controls do not see.
 - Removal of eSIM profiles, modem state or factory calibration by factory reset;
   they live outside userdata.
-- Vendor-controlled unlock: installing, and recovering from a bad flash, need
-  Fairphone's online unlock service (a dependency, not a security gap).
 - A determined adversary with unlimited physical access and time.
 
 ## Hardware limits and evidence
