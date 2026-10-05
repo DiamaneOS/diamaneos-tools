@@ -695,6 +695,19 @@
       ]
     },
     {
+      "id": "surfaceflinger-top-app",
+      "why": "SurfaceFlinger's main and RenderEngine threads join the top-app cpuset, as on Pixels, instead of the silver-only system-background set.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/task_profiles.json"
+      ],
+      "contains": [
+        "\"SFMainPolicy\"",
+        "\"SFRenderEnginePolicy\"",
+        "\"top-app\""
+      ]
+    },
+    {
       "id": "power-hal-as-system",
       "why": "The power HAL runs as system with CAP_SYS_NICE only: our init file overrides the module service, which runs as root.",
       "type": "text",
