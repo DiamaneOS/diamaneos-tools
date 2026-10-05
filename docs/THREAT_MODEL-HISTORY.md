@@ -367,6 +367,9 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   H.264 encoder, playback stays on the software decoders. The stock Codec2
   libraries that share names with platform libraries load from /odm. The
   modem file server fork is built and serves the modem.
+- **2026-10-05:** Log Viewer is forked so its Report button opens the
+  DiamaneOS issue tracker instead of GrapheneOS's; as before it copies the log
+  to the clipboard and the user decides what to paste.
 - **2026-10-05:** a power stats HAL of our own, implemented, not yet built.
   Stock ships none. It reports the SoC sleep modes and the modem, WPSS, ADSP
   and CDSP sleep time from the qcom_stats driver's `/dev/stats` ioctls, runs
