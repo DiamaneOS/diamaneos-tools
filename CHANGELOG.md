@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Rename the stock camera provider's libhardware.so dependency to the
+  device's seccomp loader, libcamxjail.so (same length; input and output
+  hashes pinned in `NEEDED_REWRITES`, which now records a reason per entry).
+  The loader links libhardware and installs the provider's seccomp filter
+  before main(). Image checks require the loader, the policy and its fixed
+  rules (threads only, Unix and QRTR sockets, no writable and executable
+  mappings, no exec, ptrace or clone3), and the renamed dependency.
 - Stop selecting the Adreno OpenCL runtime (libOpenCL, libOpenCL_adreno), its
   compiler (libllvm-qcom, libadreno_compiler_cl; about 34 MB together) and the
   software chromatic-aberration library libmmcamera_cac, which links the

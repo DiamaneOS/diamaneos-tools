@@ -272,9 +272,6 @@ DSP_DIRECTORIES = ('vendor/lib/rfsa/adsp/', 'vendor/lib64/rfs/dsp/')
 DSP_MACHINE_MAGIC = b'\x7fELF\x01\x01\x01\x00'  # ELF32 little-endian (QDSP6, e_machine 164)
 RUNTIME_EDGE = 'selected-stock-runtime'
 
-# Blobs built against an Android 14 VNDK library whose Android 17 ABI differs.
-# The dependency is renamed to a source-built copy with the old ABI (device
-# compat module); input and output bytes are pinned.
 # Stable AIDL interface versions that selected stock libraries link but that
 # cannot be link dependencies here: Android 17's libui links allocator V2, the
 # stock camera libraries (built against Android 14) link V1, and Soong rejects
@@ -284,11 +281,26 @@ RUNTIME_EDGE = 'selected-stock-runtime'
 # versions are on the device as in stock.
 RUNTIME_ONLY_AIDL = {'android.hardware.graphics.allocator-V1-ndk'}
 
+# One DT_NEEDED name of a stock blob renamed to a source-built device module
+# of the same name length; input and output bytes are pinned.
+# - The colour manager was built against the Android 14 VNDK tinyxml2, whose
+#   Android 17 ABI differs: it links an old-ABI copy (device compat module).
+# - The camera provider links the seccomp loader (device camera/seccomp) in
+#   place of libhardware, which the loader links in turn (and
+#   camx.provider-impl.so links too), so nothing else changes. The dynamic
+#   linker runs the loader's constructor before the provider's main(), and so
+#   before CamX is loaded; without the loader the provider does not start.
 NEEDED_REWRITES = {
  'vendor/lib64/libsnapdragoncolor-manager.so': {
   'needed': 'libtinyxml2.so', 'replacement': 'libtxml2v34.so', 'module': 'libtxml2v34',
   'source_sha256': 'e66febb064b81332eaf79525f1dd7a3e531dd28ac46e430495e484c71611c52e',
-  'sha256': 'd75f85d85ac41a1f79617cc374dc144626f6b7d34e8285be8f484bc433e4e03a'},
+  'sha256': 'd75f85d85ac41a1f79617cc374dc144626f6b7d34e8285be8f484bc433e4e03a',
+  'reason': 'Use the Android 14 tinyxml2 ABI (libtxml2v34) instead of libtinyxml2.so'},
+ 'vendor/bin/hw/vendor.qti.camera.provider-service_64': {
+  'needed': 'libhardware.so', 'replacement': 'libcamxjail.so', 'module': 'libcamxjail',
+  'source_sha256': '751fa24b9d44a790a2594828c5aaa2a9e98f1a2a7734cf7cd103023893031f6a',
+  'sha256': 'fcec163779acab018729a028fec7ed9d431a2355bc0b714a3911b62367c890ff',
+  'reason': 'Load the seccomp loader (libcamxjail, which links libhardware) before the provider starts'},
 }
 
 
@@ -1035,8 +1047,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                     raise VendorError('dependency rewrite differs from reviewed result')
                 blob.write_bytes(derived)
                 provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
-                    'sha256': rewrite['sha256'],
-                    'reason': 'Use the Android 14 tinyxml2 ABI (' + rewrite['module'] + ') instead of ' + rewrite['needed']})
+                    'sha256': rewrite['sha256'], 'reason': rewrite['reason']})
             rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe)})
             for name, content in rendered.items():
                 (tree / name).write_bytes(content)

@@ -1167,6 +1167,60 @@
       ]
     },
     {
+      "id": "camera-provider-seccomp-loader",
+      "why": "The camera provider's seccomp loader and its system call list are installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/libcamxjail.so",
+        "VENDOR/etc/seccomp_policy/camera-provider.policy"
+      ]
+    },
+    {
+      "id": "camera-provider-links-seccomp-loader",
+      "why": "The stock camera provider links the seccomp loader in place of libhardware, so it cannot start without the filter.",
+      "type": "binary_count",
+      "file": "VENDOR/bin/hw/vendor.qti.camera.provider-service_64",
+      "patterns": [
+        {
+          "text": "libcamxjail.so\u0000",
+          "count": 1
+        },
+        {
+          "text": "libhardware.so",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "camera-provider-seccomp-loader-policy",
+      "why": "The loader compiles the installed camera provider policy.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libcamxjail.so",
+      "patterns": [
+        {
+          "text": "/vendor/etc/seccomp_policy/camera-provider.policy\u0000",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "camera-provider-seccomp-policy",
+      "why": "The camera provider may start threads but no processes (clone3 hides its flags from the filter), open only Unix and QRTR sockets and never map memory writable and executable; it may not run programs or trace or write other processes.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/seccomp_policy/camera-provider.policy"
+      ],
+      "lines": [
+        "clone: arg0 & 0x10000",
+        "socket: arg0 == 1 || arg0 == 42",
+        "mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE",
+        "mprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE"
+      ],
+      "absent_regex": [
+        "^\\s*(execve|execveat|ptrace|process_vm_writev|clone3|vfork|fork)\\s*:"
+      ]
+    },
+    {
       "id": "no-display-colour-service",
       "why": "The stock display colour service has no client in this build; platform apps could start it.",
       "type": "files_absent",
