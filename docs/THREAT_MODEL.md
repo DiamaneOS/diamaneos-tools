@@ -897,8 +897,7 @@ entry point), the protections in current builds, what remains, and the status.
   unlocked. A test-key build must stay unlocked, since anyone can sign images
   with the public test keys. The `flash-steps` wipe writes Fairphone's factory
   FRP image (clearing factory reset protection and keeping OEM unlocking
-  allowed) and zeros misc, as Fairphone's own factory flash does. Installing and
-  recovering depend on Fairphone's unlock service.
+  allowed) and zeros misc, as Fairphone's own factory flash does.
 - **Status:** Observed gap (bring-up images): SHA-1 hashtrees, release-style
   rollback indexes and a public test key. Observed (bring-up): AVB chain built
   and parsed. Unverified: signing verifier (FP6-035).
