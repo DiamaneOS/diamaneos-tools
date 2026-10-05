@@ -309,12 +309,14 @@ class NativeProductTests(unittest.TestCase):
             vendor_product.rewrite_needed(b'not an elf', 'libtinyxml2.so', 'libtxml2v34.so')
 
     @staticmethod
-    def synthetic_elf(symbol_names):
+    def synthetic_elf(symbol_names, sym_defined=False):
         """A minimal ELF64 with .dynstr, .dynamic (two DT_NEEDED) and .dynsym sections."""
         import struct
         dynstr = b'\0libfoo.so\0libhardware.so\0sym\0'
         dynamic = struct.pack('<qQqQqQ', 1, 1, 1, 11, 0, 0)
-        dynsym = b''.join(struct.pack('<IBBHQQ', name, 0, 0, 0, 0, 0) for name in [0, *symbol_names])
+        shndx = 1 if sym_defined else 0  # the "sym" name is at offset 26
+        dynsym = b''.join(struct.pack('<IBBHQQ', name, 0, 0, shndx if name == 26 else 0, 0, 0)
+                          for name in [0, *symbol_names])
         body = dynstr + dynamic + dynsym
         sections = [bytes(64)]
         for kind, offset, size, entsize in [(3, 64, len(dynstr), 0), (6, 64 + len(dynstr), len(dynamic), 16),
@@ -352,6 +354,162 @@ class NativeProductTests(unittest.TestCase):
         # Other libhardware users are unchanged.
         block = bp[bp.index('name: "fp6_stock_vendor_lib64_camx.provider-impl"'):]
         self.assertIn('"libhardware"', block[:block.index('}\n')])
+
+    def test_dependency_rewrites_are_reviewed_same_length_renames(self):
+        for path, rewrite in vendor_product.NEEDED_REWRITES.items():
+            self.assertTrue(path.startswith(('vendor/lib64/', 'vendor/bin/')))
+            self.assertEqual(len(rewrite['needed']), len(rewrite['replacement']))
+            self.assertEqual(rewrite['replacement'], rewrite['module'] + '.so')
+            self.assertRegex(rewrite['source_sha256'], '^[0-9a-f]{64}$')
+            self.assertRegex(rewrite['sha256'], '^[0-9a-f]{64}$')
+            self.assertNotEqual(rewrite['source_sha256'], rewrite['sha256'])
+            self.assertIn(rewrite['module'], rewrite['reason'])
+            if 'symbols' in rewrite:
+                self.assertIn(rewrite['symbols'], vendor_product.SYMBOL_RENAMES)
+
+    def test_symbol_rename_only_touches_one_undefined_symbol(self):
+        # Rename an undefined symbol in place; the length must match and the byte
+        # span must belong to no other symbol. "sym" is an undefined dynsym here.
+        data = self.synthetic_elf([26])
+        renamed = vendor_product.rename_dynamic_symbols(data, [('sym', 'syX')])
+        self.assertEqual(data.replace(b'\0sym\0', b'\0syX\0'), renamed)
+        # A different length is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.rename_dynamic_symbols(data, [('sym', 'symbol')])
+        # A name that is not a dynamic symbol is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.rename_dynamic_symbols(data, [('missing', 'present')])
+        # A defined symbol (shndx != 0) is refused: renaming it would break the
+        # GNU hash table. "sym" is defined in this variant.
+        defined = self.synthetic_elf([26], sym_defined=True)
+        with self.assertRaises(VendorError):
+            vendor_product.rename_dynamic_symbols(defined, [('sym', 'syX')])
+        # The six GraphicBuffer renames keep the length (so the Itanium length
+        # prefix "13" stays valid) and rename only the class token.
+        for old, new in vendor_product.GRAPHICBUFFER_V34_SYMBOLS:
+            self.assertEqual(len(old), len(new))
+            self.assertIn('13GraphicBuffer', old)
+            self.assertIn('13GraphicBufV34', new)
+            self.assertNotIn('GraphicBuffer', new)
+
+    def test_codec2_video_service_installed_with_device_activation(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.media.c2@1.0-service"'):]
+        block = block[:block.index('}\n')]
+        # The device rc and manifest.xml activate it; the stock rc and the
+        # fragment that also claims the platform's software store are not used.
+        self.assertNotIn('init_rc', block)
+        self.assertNotIn('vintf_fragments', block)
+        self.assertNotIn('vendor.qti.media.c2@1.0-service.rc', make)
+        self.assertNotIn('c2_manifest_vendor', bp + make)
+        shared = block[block.index('shared_libs:'):].split('\n')[0]
+        for name in ['"android.hardware.media.c2@1.2"', '"libavservices_minijail"', '"libhidltransport"',
+                     '"fp6_stock_vendor_lib64_libcodec2_hidl@1.2"', '"fp6_stock_vendor_lib64_libcodec2_vndk"']:
+            self.assertIn(name, shared)
+        required = block[block.index('required:'):].split('\n')[0]
+        for stem in ['libqcodec2_core', 'libqcodec2_v4l2codec', 'libqcodec2_imgtxrfilter']:
+            self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', required)
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libqcodec2_utils"'):]
+        shared = block[:block.index('}\n')]
+        self.assertIn('"vendor.qti.hardware.display.config-V5-ndk"', shared)
+        self.assertIn('"libgralloc.qti"', shared)
+        # Frozen interfaces are source-built; audio codecs, OMX and test plugins stay out.
+        for stem in ['android.hardware.media.c2@1.0', 'android.hardware.media.c2@1.2',
+                     'android.hardware.media.bufferpool2-V1-ndk', 'libOmxCore', 'libstagefrighthw',
+                     'libqcodec2_mockfilter', 'libqc2audio_core', 'libvideooptfeature', 'libvideoml']:
+            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertNotIn('fp6_stock_vendor_bin_hw_vendor.qti.media.c2audio@1.0-service', modules)
+        # Android 14 ABI compat (device compat/codec2-v34): libcodec2_vndk binds
+        # the compat GraphicBuffer/mapper (uiv34, which links libui), not libui.
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcodec2_vndk"'):]
+        shared = block[:block.index('}\n')]
+        shared = shared[shared.index('shared_libs:'):].split('\n')[0]
+        self.assertIn('"uiv34"', shared)
+        self.assertNotIn('"libui"', shared)
+        # Each stock Codec2 HIDL library binds the getHGraphicBufferProducer
+        # compat; it keeps the real libui (its GraphicBuffer use is unaffected).
+        for version in ['1.0', '1.1', '1.2']:
+            block = bp[bp.index('name: "fp6_stock_vendor_lib64_libcodec2_hidl@' + version + '"'):]
+            shared = block[:block.index('}\n')]
+            shared = shared[shared.index('shared_libs:'):].split('\n')[0]
+            self.assertIn('"libstagefright_bqhelper_v34compat"', shared)
+            self.assertNotIn('"libstagefright_bufferqueue_helper"', shared)
+            self.assertIn('"libui"', shared)
+        # Both stock seccomp policies are installed; the device configs and the
+        # firmware are copied; the generic and other-variant configs are not.
+        for path in ['media_codecs_volcano_v1.xml', 'media_codecs_performance_volcano_v1.xml',
+                     'media_volcano_v1/video_system_specs.json', 'media_codecs_google_c2_video.xml',
+                     'seccomp_policy/codec2.vendor.base-arm64.policy',
+                     'seccomp_policy/codec2.vendor.ext-arm64.policy']:
+            self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
+        for name in ['media_codecs_volcano_qv0.xml', 'init.qti.media', 'c2audio']:
+            self.assertNotIn(name, make)
+        self.assertIn('vendor/firmware/vpu20_2v.mbn:$(TARGET_COPY_OUT_VENDOR)/firmware/vpu20_2v.mbn', make)
+        owners = {r['path']: r['component_id'] for r in self.recipe['files']}
+        self.assertEqual('graphics-display-media', owners['vendor/bin/hw/vendor.qti.media.c2@1.0-service'])
+        # Only the phone's SoC variant (_volcano_v1) is selected.
+        for other in ['v0', 'v2', 'v3']:
+            self.assertNotIn('volcano_' + other, make)
+
+    def test_media_derivations_bind_the_selected_encoder_only_configs(self):
+        # Hardware encoders only: both configs that decide which Qualcomm codecs
+        # exist are pinned derivations of the selected stock rows.
+        rows = {r['path']: r for r in self.recipe['files']}
+        self.assertEqual(set(vendor_product.MEDIA_CONFIG_REWRITES),
+                         {'vendor/etc/media_codecs_volcano_v1.xml',
+                          'vendor/etc/media_volcano_v1/video_system_specs.json'})
+        for path, rule in vendor_product.MEDIA_CONFIG_REWRITES.items():
+            self.assertEqual(rule['source_sha256'], rows[path]['sha256'])
+            self.assertNotEqual(rule['source_sha256'], rule['sha256'])
+            with self.assertRaises(VendorError): vendor_product.media_config(path, b'unreviewed')
+        self.assertTrue(all(name.startswith('c2.qti.') and name.split('.')[3] == 'encoder'
+                            for name in vendor_product.MEDIA_ENCODERS))
+        self.assertFalse([n for n in vendor_product.MEDIA_ENCODERS if 'secure' in n or 'decoder' in n])
+
+    def test_media_codec_list_keeps_only_hardware_encoders(self):
+        encoders = ''.join('        <MediaCodec name="%s" type="video/avc">\n'
+                           '            <Limit name="size" min="128x128" max="4096x4096" />\n'
+                           '        </MediaCodec>\n' % name for name in vendor_product.MEDIA_ENCODERS)
+        stock = ('<?xml version="1.0" encoding="utf-8" ?>\n<MediaCodecs>\n'
+                 '    <Include href="media_codecs_google_audio.xml" />\n'
+                 '    <Decoders>\n        <!-- C2 decoders -->\n'
+                 '        <MediaCodec name="c2.qti.avc.decoder" type="video/avc">\n'
+                 '            <Alias name="OMX.qcom.video.decoder.avc"/>\n'
+                 '        </MediaCodec>\n'
+                 '    </Decoders>\n    <Encoders>\n' + encoders + '    </Encoders>\n'
+                 '    <Include href="media_codecs_google_c2.xml" />\n</MediaCodecs>\n').encode()
+        derived = vendor_product.media_encoders_only_codec_list(stock)
+        self.assertNotIn(b'decoder', derived.replace(b'hardware decoders', b''))
+        self.assertIn(b'<Include href="media_codecs_google_c2.xml" />', derived)
+        self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <!-- DiamaneOS')[0])
+        # A decoder outside the removed section, or a second section, is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.media_encoders_only_codec_list(stock.replace(
+                b'    <Encoders>\n', b'    <Encoders>\n        <MediaCodec name="c2.qti.vp9.decoder" />\n'))
+        with self.assertRaises(VendorError):
+            vendor_product.media_encoders_only_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'))
+
+    def test_media_target_spec_lists_only_hardware_encoders(self):
+        stock = (b'// Qualcomm\n{\n    "Video": {\n        "QC2CodecPlugins": [\n'
+                 b'            "libqcodec2_imgtxrfilter.so"\n        ],\n\n'
+                 b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
+                 b'        // "c2.qti.dv.decoder",\n        //\n'
+                 b'        "OptionalCodecs": [\n        ]\n    }\n}\n')
+        derived = vendor_product.media_encoders_only_target_spec(stock)
+        available, optional = vendor_product.media_target_spec_codecs(derived)
+        self.assertEqual({'decoders': [], 'encoders': list(vendor_product.MEDIA_ENCODERS)}, available)
+        self.assertEqual([], optional)
+        self.assertTrue(derived.startswith(stock.split(b'\n        //\n        // Put')[0]))
+        # An optional codec would join the same set (an empty set enables every
+        # codec, a non-empty one adds to it), so it is refused, as is an input
+        # that already has a codec list.
+        with self.assertRaises(VendorError):
+            vendor_product.media_encoders_only_target_spec(stock.replace(
+                b'"OptionalCodecs": [\n        ]', b'"OptionalCodecs": [\n            "c2.qti.dv.decoder"\n        ]'))
+        with self.assertRaises(VendorError):
+            vendor_product.media_encoders_only_target_spec(derived)
 
     def test_sensor_stack_installed_with_activation_and_configuration(self):
         rendered = self.render()

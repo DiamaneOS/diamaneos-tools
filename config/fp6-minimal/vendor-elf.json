@@ -41,6 +41,11 @@
       "bytes": 24928
     },
     {
+      "path": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "sha256": "43e2535ccea69a64c7743559ed4e85920395c257d2aec25f82535059745e8da9",
+      "bytes": 19776
+    },
+    {
       "path": "vendor/bin/nicmd",
       "sha256": "82ac7808bf29313701c3867d1155ceb1454febfb6dcfbff7d31038adc0236c59",
       "bytes": 28704
@@ -1121,6 +1126,31 @@
       "bytes": 249704
     },
     {
+      "path": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "sha256": "f77c0f4abfcc8b3e6ffcd5cfde19babd377aa5bd6bc933f9c2e4663afb1dede2",
+      "bytes": 368240
+    },
+    {
+      "path": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "sha256": "8c637bfdff0f59802dba11ba493c0f014cf9a16163839312a26616e2a3329010",
+      "bytes": 142664
+    },
+    {
+      "path": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "sha256": "9d87cc30c7eeec29eaca509a8910d93bf331fa588fc7cc831b2a36cb04d0a2ae",
+      "bytes": 151856
+    },
+    {
+      "path": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "sha256": "c73258997d22eea2c6e30de513432922b4be62080571667735b4caba6fde6eec",
+      "bytes": 112336
+    },
+    {
+      "path": "vendor/lib64/libcodec2_vndk.so",
+      "sha256": "f1d104621b5575f6603fa6779b55548034c2b11be85e6fcd47bffb2afc199e5d",
+      "bytes": 851952
+    },
+    {
       "path": "vendor/lib64/libcolor-default.so",
       "sha256": "1512a7e8f5556495025448dd588ff4706f2a5ae1b0a063227316aa808113c496",
       "bytes": 52176
@@ -1521,6 +1551,51 @@
       "bytes": 28096
     },
     {
+      "path": "vendor/lib64/libqcodec2_base.so",
+      "sha256": "1a58890d7ad5f2be1c8e21f15c9f838e30c413ed0a8f7636a11e0865c81c412d",
+      "bytes": 39568
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_basecodec.so",
+      "sha256": "6428a9e34de50e62309759a561114821ba5debbe568968b76ce1bc0eff11a853",
+      "bytes": 443856
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_core.so",
+      "sha256": "b9ccb00c0b5588b7dc6e03cbb5325442d4c5eca11826b753049d0f9907ec99c9",
+      "bytes": 396136
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_filterbase.so",
+      "sha256": "813a17dee36247b72fc9c39a23ff96973722bd252a2e1eaf4ed9e44be9390321",
+      "bytes": 324304
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_hooks.so",
+      "sha256": "37d092f03f9015eb5cbedcd34faa41ab1f036e33f9636b0579fd5d1920005337",
+      "bytes": 32272
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "sha256": "53f8f83d5634e90e366758437e17df7ecc6e853092aa39a04ed663364b1e0c75",
+      "bytes": 348848
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_platform.so",
+      "sha256": "48a3c1832cb1eb980c97f0994b3e605b29c327d988adaa871dfb90581cc5d0eb",
+      "bytes": 151992
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_utils.so",
+      "sha256": "165c41bca8e1c2222269ff4d05ecc0f7405f6d3f3667e9cbfeb8d8371a61401b",
+      "bytes": 479216
+    },
+    {
+      "path": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "sha256": "e3a2bec4902ae948fe1e8ca99d91ab9a5d678a494f004e48743ca7a0578391d7",
+      "bytes": 1876872
+    },
+    {
       "path": "vendor/lib64/libqcrilDataModule.so",
       "sha256": "6d634ef10258e5ff675de631f82c7ee9d78b749095ff2bfc0886dd20c3e11db9",
       "bytes": 2644800
@@ -1861,6 +1936,16 @@
       "bytes": 15192
     },
     {
+      "path": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "sha256": "6c9538aa2dc7d33574579b44e02089a151fa44a9573ff41dc5561d8eb0ed328b",
+      "bytes": 287496
+    },
+    {
+      "path": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "sha256": "32946a43e8046ec21ca35be2c4bef750b433ec6ed8dda84348da848871763fe7",
+      "bytes": 281936
+    },
+    {
       "path": "vendor/lib64/libswregistrationalgo.so",
       "sha256": "d733a283cd88b1772824935b38c65984dc4aea6481ebea5743da76013049c48b",
       "bytes": 4909416
@@ -1914,6 +1999,11 @@
       "path": "vendor/lib64/libubwcp.so",
       "sha256": "5284532f8a5358b3be7957f51612313713f1db878939e0dedb7eddf530d30b3b",
       "bytes": 14928
+    },
+    {
+      "path": "vendor/lib64/libvideotxr.so",
+      "sha256": "6a29320189371b4d0a78e0a0787950a41b95f613a8218d7863de23b0c07ccf8e",
+      "bytes": 4978368
     },
     {
       "path": "vendor/lib64/libvmfilexfer.so",
@@ -2044,6 +2134,11 @@
       "path": "vendor/lib64/qcrild_libqcrilnrutils.so",
       "sha256": "fd3e535c794d76f44e00c1a5e6e333653d859c7fca5b7c104d2ccba93df35861",
       "bytes": 27720
+    },
+    {
+      "path": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "sha256": "89495a1aaf8fa383808b696edadcda6fcfbf4e718c08589b75e4e10960d768e5",
+      "bytes": 31472
     },
     {
       "path": "vendor/lib64/qtiPeripheralMgr.so",
@@ -3702,6 +3797,136 @@
     {
       "consumer": "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
       "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "android.hardware.media.c2@1.2.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libavservices_minijail.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libbinder.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libcodec2_hidl@1.2.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl@1.2.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libhidltransport.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libhwbinder.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libqcodec2_core.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqcodec2_core.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libqcodec2_imgtxrfilter.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqcodec2_imgtxrfilter.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libqcodec2_v4l2codec.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/libqcodec2_v4l2codec.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "needed": "libvndksupport.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
@@ -27882,6 +28107,803 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.graphics.bufferqueue@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.graphics.bufferqueue@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.graphics.common@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.media.bufferpool@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.media.c2@1.0.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.media.omx@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "android.hardware.media@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libcodec2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libcodec2_hidl_plugin.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl_plugin.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libstagefright_bufferpool@2.0.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libstagefright_bufferqueue_helper.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.graphics.bufferqueue@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.graphics.bufferqueue@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.graphics.common@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.media.bufferpool@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.media.c2@1.0.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.media.c2@1.1.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.media.omx@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "android.hardware.media@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libcodec2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libcodec2_hidl@1.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl@1.0.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libcodec2_hidl_plugin.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl_plugin.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libstagefright_bufferpool@2.0.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libstagefright_bufferqueue_helper.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.graphics.bufferqueue@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.graphics.bufferqueue@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.graphics.common@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media.bufferpool@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media.c2@1.0.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media.c2@1.1.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media.c2@1.2.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media.omx@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "android.hardware.media@1.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcodec2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcodec2_hidl@1.0.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl@1.0.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcodec2_hidl@1.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl@1.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcodec2_hidl_plugin.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_hidl_plugin.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libstagefright_bufferpool@2.0.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libstagefright_bufferqueue_helper.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libcodec2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.common-V2-ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.common.fmq-V1-ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.graphics.bufferqueue@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.graphics.common@1.2.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.media.bufferpool2-V1-ndk.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "android.hardware.media.bufferpool@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libdmabufheap.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libfmq.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libgralloctypes.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libion.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libnativewindow.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libstagefright_aidl_bufferpool2.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libstagefright_aidl_bufferpool2.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libstagefright_bufferpool@2.0.1.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libstagefright_foundation.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcodec2_vndk.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libcolor-default.so",
       "needed": "libbinder.so",
       "kind": "platform-or-vndk34",
@@ -34762,6 +35784,837 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_base.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libqcodec2_platform.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_platform.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libqcodec2_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_basecodec.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libjsoncpp.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libqcodec2_basecodec.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_basecodec.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libqcodec2_hooks.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_hooks.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libqcodec2_platform.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_platform.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libqcodec2_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_core.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libqcodec2_basecodec.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_basecodec.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libqcodec2_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_filterbase.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_hooks.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libqcodec2_basecodec.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_basecodec.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libqcodec2_filterbase.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_filterbase.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libqcodec2_platform.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_platform.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libqcodec2_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libjsoncpp.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_platform.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "android.hardware.graphics.mapper@3.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "android.hardware.graphics.mapper@4.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libgralloc.qti.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libgralloc.qti.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libgralloctypes.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libnativewindow.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libqcodec2_platform.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_platform.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "libvideotxr.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvideotxr.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_utils.so",
+      "needed": "vendor.qti.hardware.display.config-V5-ndk.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libqcodec2_base.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_base.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libqcodec2_basecodec.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_basecodec.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libqcodec2_platform.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_platform.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libqcodec2_utils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcodec2_utils.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "libvmmem.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmmem.so"
+    },
+    {
+      "consumer": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "needed": "qti.video.utils.videobufferlayout.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/qti.video.utils.videobufferlayout.so"
+    },
+    {
       "consumer": "vendor/lib64/libqcrilDataModule.so",
       "needed": "android.hardware.radio-V2-ndk.so",
       "kind": "selected-stock",
@@ -40008,6 +41861,163 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "android.hardware.media.bufferpool2-V1-ndk.so",
+      "kind": "source-module"
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libfmq.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "android.hardware.media.bufferpool@2.0.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libfmq.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
       "consumer": "vendor/lib64/libswregistrationalgo.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -40639,6 +42649,84 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libcodec2_vndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcodec2_vndk.so"
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libhidlbase.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libnativewindow.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libvideotxr.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
       ]
     },
     {
@@ -42877,6 +44965,54 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
       ]
     },
     {
@@ -45970,7 +48106,8 @@
     "vendor/lib64/libjnihelper.so",
     "vendor/lib64/libcacertclient.so",
     "vendor/lib64/vendor.qti.hardware.cacert@1.0.so",
-    "vendor/lib64/libWlanServiceJni.so"
+    "vendor/lib64/libWlanServiceJni.so",
+    "vendor/bin/hw/vendor.qti.media.c2@1.0-service"
   ],
   "firmware_inputs": [
     {
