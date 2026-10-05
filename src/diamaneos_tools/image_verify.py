@@ -97,8 +97,8 @@ class Tools:
         return tempfile.TemporaryDirectory(dir=self.work, prefix='.verify-')
 
     def path(self, name: str) -> Path:
-        if name == 'llvm-readelf':
-            found = sorted((self.src / 'prebuilts/clang/host/linux-x86').glob('clang-r*/bin/llvm-readelf'))
+        if name in ('llvm-readelf', 'llvm-objdump'):
+            found = sorted((self.src / 'prebuilts/clang/host/linux-x86').glob('clang-r*/bin/' + name))
             if not found:
                 raise ToolMissing(name)
             return found[-1]
@@ -458,6 +458,74 @@ def rule_elf_exports(rule, v):
     return not missing, 'does not export ' + ', '.join(missing) if missing else ''
 
 
+def rule_codec2_abi_guard(rule, v):
+    """Prove the stock Codec2 library's 256-byte GraphicBuffer allocations bind a
+    256-byte object (finding -115), not Android 17's 3376-byte one.
+
+    The stock libcodec2_vndk was built against Android 14, where GraphicBuffer is
+    256 bytes: it allocates 256 bytes and calls the constructor. The vendor
+    product renames its libui dependency to the compat library and its six
+    GraphicBuffer symbols to GraphicBufV34, which the compat defines at 256 bytes
+    (a build-time static_assert). On the built image this confirms that the
+    dependency and the construction symbols were renamed, so every GraphicBuffer
+    construction binds to the 256-byte compat and none reaches Android 17 libui's
+    3376-byte GraphicBuffer, and that the stock 256-byte allocations are intact.
+    """
+    with v.tools.scratch() as temporary:
+        path = v.tf.extract(rule['path'], Path(temporary))
+        dyn = v.tools.run('llvm-readelf', ['--dynamic', '--dyn-syms', '-W', path])
+        text = v.tools.run('llvm-objdump', ['-d', '--no-show-raw-insn', path])
+    problems = []
+    needed = {line.split('[')[-1].rstrip(']') for line in dyn.splitlines() if '(NEEDED)' in line}
+    for name in rule['needed_present']:
+        if name not in needed:
+            problems.append('does not depend on ' + name)
+    for name in rule['needed_absent']:
+        if name in needed:
+            problems.append('still depends on ' + name)
+    undefined = set()
+    for line in dyn.splitlines():
+        fields = line.split()
+        if len(fields) >= 8 and fields[0].rstrip(':').isdigit() and fields[6] == 'UND':
+            undefined.add(fields[7].split('@')[0])
+    for name in rule['symbols_present']:
+        if name not in undefined:
+            problems.append('does not import ' + name)
+    for name in rule['symbols_absent']:
+        if name in undefined:
+            problems.append('still imports ' + name)
+    # Each renamed constructor is still reached (the sites were not optimised
+    # away): the renames above then guarantee every construction binds to the
+    # 256-byte compat.
+    lines = [line.replace('\t', ' ') for line in text.splitlines()]
+    is_bl = re.compile(r'\bbl\b')
+    calls = {name: 0 for name in rule['ctor_symbols']}
+    for line in lines:
+        if is_bl.search(line):
+            for name in rule['ctor_symbols']:
+                if ('<' + name + '@plt>') in line or ('<' + name + '>') in line:
+                    calls[name] += 1
+    for name, count in calls.items():
+        if count < 1:
+            problems.append('no construction call to ' + name)
+    # The stock 256-byte allocations are intact: an operator new call (bl _Znwm)
+    # preceded (within a few instructions) by mov w0, #<alloc_bytes>. The four
+    # GraphicBuffer construction sites each have one; require them all.
+    alloc = re.compile(r'\bw0, #(0x[0-9a-f]+|\d+)\b')
+    sized = 0
+    for i, line in enumerate(lines):
+        if is_bl.search(line) and '_Znwm' in line:
+            for prev in lines[max(0, i - 3):i]:
+                m = alloc.search(prev)
+                if m and int(m.group(1), 0) == rule['alloc_bytes']:
+                    sized += 1
+                    break
+    if sized < rule['min_sized_allocations']:
+        problems.append('found %d %d-byte allocations before operator new, want at least %d'
+                        % (sized, rule['alloc_bytes'], rule['min_sized_allocations']))
+    return not problems, '; '.join(problems)
+
+
 def pattern_bytes(pattern: dict) -> bytes:
     return bytes.fromhex(pattern['hex']) if 'hex' in pattern else pattern['text'].encode('latin-1')
 
@@ -589,7 +657,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'overlay': rule_overlay, 'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
-         'file_metadata': rule_file_metadata}
+         'file_metadata': rule_file_metadata, 'codec2_abi_guard': rule_codec2_abi_guard}
 
 
 def validate_rules(document: dict) -> list:

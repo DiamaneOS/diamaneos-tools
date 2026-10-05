@@ -17,6 +17,19 @@
   the HAL's access to it as the only vendor grant, the seven allowed
   qcom_stats ioctls and no write, and the qcom_stats module in the load
   list. The threat model and build notes record the HAL.
+- Select the stock Qualcomm Codec2 video service for the phone's SoC variant
+  with the hardware encoders only: its codec list loses the decoder section and
+  its target specification lists only the five encoders, so decoding stays in
+  the software codecs. The stock libcodec2_vndk was built against Android 14,
+  where GraphicBuffer is 256 bytes; it is bound to the device's Android 14 sized
+  GraphicBuffer (compat/codec2-v34) instead of Android 17's 3376-byte one by
+  renaming its libui.so dependency and its six GraphicBuffer symbols (all pinned
+  input and output hashes), and the Codec2 HIDL libraries are bound to the
+  getHGraphicBufferProducer compat. A new image check disassembles the library
+  and confirms the dependency and symbols were renamed and the 256-byte
+  allocations bind the 256-byte object (finding -115). The threat model now
+  describes the encoder-only service and the GraphicBuffer fix. The
+  build-environment pins follow the new selection.
 - Rename the stock camera provider's libhardware.so dependency to the
   device's seccomp loader, libcamxjail.so (same length; input and output
   hashes pinned in `NEEDED_REWRITES`, which now records a reason per entry).
