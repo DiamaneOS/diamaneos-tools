@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Check that ueventd gives the traceability partition to imeiprovd's group,
+  read-only; without it the tool cannot read the IMEIs.
 - Check the parallel kernel module streams of the device tree: the
   `modules.load.*` lists in vendor_dlkm must together name every module of
   its `modules.load` once, each in that order, and `modules.load` must match

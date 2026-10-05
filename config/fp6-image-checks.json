@@ -547,6 +547,17 @@
       ]
     },
     {
+      "id": "imei-provisioning-trace-access",
+      "why": "imeiprovd runs without capabilities, so only the traceability partition's group lets it read the IMEIs (read-only).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/traceability\\s+0440\\s+root\\s+vendor_imeiprov\\s*$"
+      ]
+    },
+    {
       "id": "imei-provisioning-policy",
       "why": "The provisioning tool runs in its own narrow SELinux domain.",
       "type": "text",
