@@ -715,7 +715,12 @@ checks. The same caveat applies where closed stock code links a source-built
 display library, such as `libsdmextension` against the source `libsdm*`
 libraries and CamX against `libgralloc.qti`; the ELF checks cannot catch a
 layout change there either. Derived configuration files keep their original and
-derived hashes distinct. This generation is also explicit about the runtime
+derived hashes distinct. Two stock blobs get one dependency renamed in place,
+to a device library of the same name length, with both hashes pinned: the
+display colour manager links an old-ABI tinyxml2 copy, and the camera provider
+links the seccomp loader (device `camera/seccomp`), which links libhardware in
+turn and installs the provider's system call filter before its `main()`. This
+generation is also explicit about the runtime
 roots: Qualcomm's perf2 daemon, its client and plugin libraries and their
 configuration are not selected at all. Source-interface replacements and
 uninstalled optional libraries are listed in generated provenance; retained

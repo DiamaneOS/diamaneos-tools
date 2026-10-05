@@ -308,6 +308,51 @@ class NativeProductTests(unittest.TestCase):
         with self.assertRaises(VendorError):
             vendor_product.rewrite_needed(b'not an elf', 'libtinyxml2.so', 'libtxml2v34.so')
 
+    @staticmethod
+    def synthetic_elf(symbol_names):
+        """A minimal ELF64 with .dynstr, .dynamic (two DT_NEEDED) and .dynsym sections."""
+        import struct
+        dynstr = b'\0libfoo.so\0libhardware.so\0sym\0'
+        dynamic = struct.pack('<qQqQqQ', 1, 1, 1, 11, 0, 0)
+        dynsym = b''.join(struct.pack('<IBBHQQ', name, 0, 0, 0, 0, 0) for name in [0, *symbol_names])
+        body = dynstr + dynamic + dynsym
+        sections = [bytes(64)]
+        for kind, offset, size, entsize in [(3, 64, len(dynstr), 0), (6, 64 + len(dynstr), len(dynamic), 16),
+                                            (11, 64 + len(dynstr) + len(dynamic), len(dynsym), 24)]:
+            sections.append(struct.pack('<IIQQQQIIQQ', 0, kind, 0, 0, offset, size, 0 if kind == 3 else 1, 0, 8,
+                                        entsize))
+        header = bytearray(b'\x7fELF\x02\x01\x01' + bytes(57))
+        struct.pack_into('<Q', header, 0x28, 64 + len(body))
+        struct.pack_into('<HHH', header, 0x3a, 64, len(sections), 0)
+        return bytes(header) + body + b''.join(sections)
+
+    def test_dependency_rewrite_renames_one_needed_entry(self):
+        data = self.synthetic_elf([26])
+        derived = vendor_product.rewrite_needed(data, 'libhardware.so', 'libcamxjail.so')
+        self.assertEqual(data.replace(b'\0libhardware.so\0', b'\0libcamxjail.so\0'), derived)
+        # A symbol name sharing the renamed bytes ("hardware.so") is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_needed(self.synthetic_elf([26, 14]), 'libhardware.so', 'libcamxjail.so')
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_needed(data, 'libmissing.so', 'libcamxjail.s')
+
+    def test_camera_provider_links_the_seccomp_loader(self):
+        path = 'vendor/bin/hw/vendor.qti.camera.provider-service_64'
+        rewrite = vendor_product.NEEDED_REWRITES[path]
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        self.assertEqual(rewrite['source_sha256'], row['sha256'])
+        self.assertEqual(('libhardware.so', 'libcamxjail.so', 'libcamxjail'),
+                         (rewrite['needed'], rewrite['replacement'], rewrite['module']))
+        bp = self.render()['Android.bp'].decode()
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
+        shared = block[:block.index('}\n')]
+        shared = shared[shared.index('shared_libs:'):].split('\n')[0]
+        self.assertIn('"libcamxjail"', shared)
+        self.assertNotIn('"libhardware"', shared)
+        # Other libhardware users are unchanged.
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_camx.provider-impl"'):]
+        self.assertIn('"libhardware"', block[:block.index('}\n')])
+
     def test_sensor_stack_installed_with_activation_and_configuration(self):
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
