@@ -523,6 +523,41 @@
       ]
     },
     {
+      "id": "imei-provisioning-present",
+      "why": "Our source IMEI provisioning tool and its init rc (finding -171).",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/imeiprovd",
+        "VENDOR/etc/init/imeiprovd.rc",
+        "SYSTEM_EXT/etc/init/imeiprovd-control.rc"
+      ]
+    },
+    {
+      "id": "imei-provisioning-check-only",
+      "why": "The shipped build must provision in --check mode; --write is enabled only after the phone dry-run.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/imeiprovd.rc"
+      ],
+      "contains": [
+        "/vendor/bin/imeiprovd --check"
+      ],
+      "absent": [
+        "imeiprovd --write"
+      ]
+    },
+    {
+      "id": "imei-provisioning-policy",
+      "why": "The provisioning tool runs in its own narrow SELinux domain.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "contains": [
+        "diamaneos_imeiprov"
+      ]
+    },
+    {
       "id": "no-wlan-mac-link",
       "why": "No wlan_mac.bin link into persist; the kernel may not read it.",
       "type": "files_absent",
