@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; implemented, not yet built); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set, implemented, not yet built); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, not yet built; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling, publication on lookup timeout and a 15 s broker-loss grace period; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; not yet built); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling, publication on lookup timeout and a 15 s broker-loss grace period; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi and a broker restart with the VPN down passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -102,8 +102,8 @@ Carrier checks have bounded physical workers and a whole-request deadline, nativ
 Android retries, and durable carrier-delay fences. Audio control requires the
 current unique bridge identity and a platform-owned permission, beyond the normal
 Modify audio settings permission. The paired kernel reserves the DCM publisher
-role and restricts TIPC to local IPC. In the next build (not yet on the phone),
-only the DCM role and kernel sockets may queue local packets to the DCM port,
+role and restricts TIPC to local IPC. Since the 2026-10-05 build, only the DCM
+role and kernel sockets may queue local packets to the DCM port,
 local client closures are no longer relayed to it, the name service refuses DCM
 records from remote nodes and caps lookups at 32 per client, and the image check
 requires the QRTR tunnel device to be off. The DCM daemon in that build no longer
@@ -561,7 +561,7 @@ entry point), the protections in current builds, what remains, and the status.
   colour service, which any platform app could start, is not installed; the
   camera provider's offline camera service has no VINTF declaration and no
   registration grant, so servicemanager refuses it (its library stays, because
-  the CHI override links it) (implemented, not yet built).
+  the CHI override links it) (since the 2026-10-05 build).
 - **Remaining:** large closed parsers (camera about 185 MB) without MTE and
   mostly without seccomp; closed performance and thermal daemons as root;
   Android 14 ABI vendor code on Android 17; per-file purpose partly generic;
@@ -587,7 +587,7 @@ entry point), the protections in current builds, what remains, and the status.
   sysfs labels; Wi-Fi MAC randomization; traceability services excluded; boot
   parameters handed to user space logged by name only (since the 2026-09-27
   build; on the phone the Wi-Fi MAC appeared in no log, pstore or DropBox
-  entry); with the 2026-10-01 kernel change (not yet built) the Wi-Fi platform
+  entry); since the 2026-10-02 kernel the Wi-Fi platform
   driver logs no MAC address the modem or the device supplies; enforcing
   SELinux.
 - **Remaining:** readable on any permissive build; a random per-install
@@ -599,8 +599,8 @@ entry point), the protections in current builds, what remains, and the status.
   rules (no app domain; the 2026-09-26 build's policy gives the camera HAL and
   nicmd only the public SoC id); the factory Wi-Fi MAC in persist is not read
   under enforcing, so the driver falls back to the chip's own MAC or one derived
-  from its serial; Wi-Fi MAC randomization is not yet confirmed on the phone
-  (-170: earlier builds joined networks with the hardware address); a flash
+  from its serial; since the 2026-10-05 build Wi-Fi joins networks with a
+  randomised address (-170: earlier builds used the hardware address); a flash
   dump reveals persist data.
 - **Status:** Observed gap (bring-up): some hardware serials exposed as system
   properties on permissive builds; whether enforcing builds deny the read is not
@@ -633,7 +633,7 @@ entry point), the protections in current builds, what remains, and the status.
   libraries the stock service linked (but never registered) are not shipped,
   and the sensors HAL no longer loads the dynamic-sensor sub-HAL, which parsed
   HID sensor descriptors from paired Bluetooth and USB devices (head trackers
-  are therefore not supported) (implemented, not yet built).
+  are therefore not supported) (since the 2026-10-05 build).
 - **Remaining:** controller firmware and HAL unpatchable by the project; no MTE;
   a random per-install address is unverified (live address path unknown) and the
   address appears in logs; classic address stable per install.
@@ -665,9 +665,9 @@ entry point), the protections in current builds, what remains, and the status.
 - **Remaining:** builds before 2026-10-05 had no Wi-Fi capability overlay, so
   the Wi-Fi service treated the hardware as unable to randomise its MAC address
   and the phone joined networks with a globally administered (hardware)
-  address (-170, seen on the phone on 2026-10-04); the FP6 Wi-Fi overlay now
-  declares randomisation support and the image check requires it, but
-  randomised association is not yet confirmed on the phone; closed
+  address (-170, seen on the phone on 2026-10-04); since the 2026-10-05 build the
+  FP6 Wi-Fi overlay declares randomisation support, the image check requires
+  it, and the phone associates with a locally administered address; closed
   Wi-Fi firmware on the over-the-air path; a LAN peer can wake the device with a
   magic packet; on Wi-Fi networks used for Android Auto the device sends a DHCP
   hostname derived from the device name (inherited default).
