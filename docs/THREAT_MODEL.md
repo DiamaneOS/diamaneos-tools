@@ -990,7 +990,7 @@ entry point), the protections in current builds, what remains, and the status.
   GrapheneOS release moves WM Shell's activity transitions to its new transition
   planner, Tally's page motion falls back to stock until hooked there. Keyguard,
   privacy-indicator and biometric conflicts need careful manual merges;
-  frameworks/base is not in the tools' fork tracker; one-person review capacity.
+  one-person review capacity.
   The bouncer reads Tally token resources when built, so broken tokens would
   break PIN and password entry: every build is tested by unlocking with a PIN
   and a password, flag on. The foundation's colour fixes (SystemUI's "already
