@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Track the Log Viewer fork (DiamaneOS/platform_packages_apps_LogViewer): its
+  Report button opens the DiamaneOS issue tracker.
 - Drop the 22 retired kernel component forks and the old kernel manifest from
   the repository map: they are deleted, and the kernel builds from
   kernel_qcom-6.1.
