@@ -338,29 +338,32 @@ NEEDED_REWRITES = {
  #   which Android 17 dropped on a class whose layout did not change; their
  #   bufferqueue-helper dependency is renamed to the compat library that re-adds
  #   it (device compat/codec2-v34).
+ # Both keep the original library in their Soong shared_libs (keep_link): they
+ # still import its other symbols, which Soong's ELF check resolves only
+ # against the listed libraries.
  'vendor/lib64/libcodec2_vndk.so': {
   'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
-  'symbols': 'GRAPHICBUFFER_V34_SYMBOLS',
+  'symbols': 'GRAPHICBUFFER_V34_SYMBOLS', 'keep_link': True,
   'source_sha256': 'f1d104621b5575f6603fa6779b55548034c2b11be85e6fcd47bffb2afc199e5d',
   'sha256': 'ae840358c2b8ad2aed69d816b7896603bab1ffe2e9af57c964163de2faf34c1f',
   'reason': 'Bind the Android 14 sized GraphicBuffer and mapper entry points (uiv34, links libui) instead of libui.so'},
  'vendor/lib64/libcodec2_hidl@1.0.so': {
   'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
-  'module': 'libstagefright_bqhelper_v34compat',
+  'module': 'libstagefright_bqhelper_v34compat', 'keep_link': True,
   'source_sha256': 'f77c0f4abfcc8b3e6ffcd5cfde19babd377aa5bd6bc933f9c2e4663afb1dede2',
   'sha256': 'bf3868b031c5242e1ffd8e064faff6287322212fbf7c81195953347c28d69519',
   'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
             '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
  'vendor/lib64/libcodec2_hidl@1.1.so': {
   'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
-  'module': 'libstagefright_bqhelper_v34compat',
+  'module': 'libstagefright_bqhelper_v34compat', 'keep_link': True,
   'source_sha256': '8c637bfdff0f59802dba11ba493c0f014cf9a16163839312a26616e2a3329010',
   'sha256': 'a5246ffd6080415159089c38477fb2390d30de8f28d9833cf63470b8e9b052c8',
   'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
             '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
  'vendor/lib64/libcodec2_hidl@1.2.so': {
   'needed': 'libstagefright_bufferqueue_helper.so', 'replacement': 'libstagefright_bqhelper_v34compat.so',
-  'module': 'libstagefright_bqhelper_v34compat',
+  'module': 'libstagefright_bqhelper_v34compat', 'keep_link': True,
   'source_sha256': '9d87cc30c7eeec29eaca509a8910d93bf331fa588fc7cc831b2a36cb04d0a2ae',
   'sha256': '02076417238b400cdf4eb456b99cf1423fc87acd0e60859f2ec9ddc3222d574c',
   'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
@@ -572,6 +575,13 @@ def render(recipe, selection, notice_kind):
             dep = edge['needed'].removesuffix('.so')
             rewrite = NEEDED_REWRITES.get(edge['consumer'])
             if rewrite and rewrite['needed'] == edge['needed']:
+                if rewrite.get('keep_link'):
+                    # The blob still imports the original library's other
+                    # symbols, which it now reaches through the replacement
+                    # (which links it). Soong's ELF check resolves imports only
+                    # against the listed shared_libs, so both are listed; the
+                    # blob's DT_NEEDED names only the replacement.
+                    dependencies[edge['consumer']].append(dep)
                 dep = rewrite['module']
         elif edge['kind'] == 'source-module':
             dep = edge['needed'].removesuffix('.so')
