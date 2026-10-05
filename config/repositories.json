@@ -33,16 +33,6 @@
       "upstream_url": null
     },
     {
-      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel",
-      "id": "kernel",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_msm-6.1.git",
-      "revision": null,
-      "slug": "kernel_qcom_msm-6.1",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/kernel/qcom"
-    },
-    {
       "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/common",
       "id": "kernel-common",
       "publication": "public-source",
@@ -93,106 +83,6 @@
       "upstream_url": null
     },
     {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/graphics-kernel",
-      "id": "kernel-graphics",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_graphics.git",
-      "revision": null,
-      "slug": "kernel_qcom_graphics",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/graphics-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/camera-kernel",
-      "id": "kernel-camera",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_camera.git",
-      "revision": null,
-      "slug": "kernel_qcom_camera",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/camera-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/dataipa",
-      "id": "kernel-dataipa",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_dataipa.git",
-      "revision": null,
-      "slug": "kernel_qcom_dataipa",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/dataipa"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
-      "id": "kernel-wlan-common",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_wlan_common.git",
-      "revision": null,
-      "slug": "kernel_qcom_wlan_common",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn.git"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/display-drivers",
-      "id": "kernel-display",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_display.git",
-      "revision": null,
-      "slug": "kernel_qcom_display",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/display-drivers"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/securemsm-kernel",
-      "id": "kernel-securemsm",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_securemsm.git",
-      "revision": null,
-      "slug": "kernel_qcom_securemsm",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/securemsm-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/touch-drivers",
-      "id": "kernel-touch",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_touch.git",
-      "revision": null,
-      "slug": "kernel_qcom_touch",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/touch-drivers"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/proprietary/display-devicetree",
-      "id": "kernel-display-devicetree",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_display-devicetree.git",
-      "revision": null,
-      "slug": "kernel_qcom_display-devicetree",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/proprietary/display-devicetree"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
-      "id": "kernel-qcom-devicetree",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_devicetree.git",
-      "revision": null,
-      "slug": "kernel_qcom_devicetree",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/kernel_platform/qcom/proprietary/devicetree"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/video-driver",
-      "id": "kernel-video",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_video.git",
-      "revision": null,
-      "slug": "kernel_qcom_video",
-      "state": "retired",
-      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/opensource/video-driver"
-    },
-    {
       "checkout_path": "WORK_ROOT/kernel_qcom-6.1",
       "id": "kernel-sources",
       "publication": "public-source",
@@ -200,16 +90,6 @@
       "revision": null,
       "slug": "kernel_qcom-6.1",
       "state": "active",
-      "upstream_url": null
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_manifest",
-      "id": "kernel-manifest",
-      "publication": "generated",
-      "remote_url": "https://github.com/DiamaneOS/kernel_manifest-fp6.git",
-      "revision": null,
-      "slug": "kernel_manifest-fp6",
-      "state": "retired",
       "upstream_url": null
     },
     {
@@ -441,106 +321,6 @@
       "slug": "platform_packages_inputmethods_LatinIME",
       "state": "active",
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_inputmethods_LatinIME"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/kernel_platform/bootable/bootloader/edk2",
-      "id": "kernel-qcom-edk2",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_edk2.git",
-      "revision": null,
-      "slug": "kernel_qcom_edk2",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/abl/tianocore/edk2"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/audio-kernel",
-      "id": "kernel-qcom-audio",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_audio.git",
-      "revision": null,
-      "slug": "kernel_qcom_audio",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/audio-kernel-ar"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/bt-kernel",
-      "id": "kernel-qcom-bt",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_bt.git",
-      "revision": null,
-      "slug": "kernel_qcom_bt",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/bt-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/datarmnet",
-      "id": "kernel-qcom-datarmnet",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_datarmnet.git",
-      "revision": null,
-      "slug": "kernel_qcom_datarmnet",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/datarmnet-ext",
-      "id": "kernel-qcom-datarmnet-ext",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_datarmnet-ext.git",
-      "revision": null,
-      "slug": "kernel_qcom_datarmnet-ext",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/dsp-kernel",
-      "id": "kernel-qcom-dsp",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_dsp.git",
-      "revision": null,
-      "slug": "kernel_qcom_dsp",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/dsp-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/mmrm-driver",
-      "id": "kernel-qcom-mmrm",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_mmrm.git",
-      "revision": null,
-      "slug": "kernel_qcom_mmrm",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/synx-kernel",
-      "id": "kernel-qcom-synx",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_synx.git",
-      "revision": null,
-      "slug": "kernel_qcom_synx",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/synx-kernel"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/platform",
-      "id": "kernel-qcom-wlan-platform",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_wlan_platform.git",
-      "revision": null,
-      "slug": "kernel_qcom_wlan_platform",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/platform"
-    },
-    {
-      "checkout_path": "WORK_ROOT/kernel_workspace/vendor/qcom/opensource/wlan/qcacld-3.0",
-      "id": "kernel-qcom-qcacld",
-      "publication": "public-source",
-      "remote_url": "https://github.com/DiamaneOS/kernel_qcom_qcacld.git",
-      "revision": null,
-      "slug": "kernel_qcom_qcacld",
-      "state": "retired",
-      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0"
     },
     {
       "checkout_path": "WORK_ROOT/os/hardware/diamaneos/ims",
