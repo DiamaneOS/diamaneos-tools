@@ -51,11 +51,6 @@
       "bytes": 28704
     },
     {
-      "path": "vendor/bin/pd-mapper",
-      "sha256": "5d3a65916f0541036fb7c5c606c2bc7ac3b130d5ccae9e3fa61ea00e922731a6",
-      "bytes": 33152
-    },
-    {
       "path": "vendor/bin/pm-proxy",
       "sha256": "686a281caef8f9f202717a7dc6155e75ddea07025d143fb1104f2021b29d2156",
       "bytes": 31936
@@ -84,11 +79,6 @@
       "path": "vendor/bin/ssr_setup",
       "sha256": "d8142f4c5f519346041e457e36b50e8fb80a112ee33bf58b5ab83f74152cfbd8",
       "bytes": 23880
-    },
-    {
-      "path": "vendor/bin/tftp_server",
-      "sha256": "119bf3b62bb453f526ad2304446d0fcfe89bb919eb36ab955eb7986aa119075c",
-      "bytes": 125152
     },
     {
       "path": "vendor/bin/thermal-engine-v2",
@@ -1734,11 +1724,6 @@
       "path": "vendor/lib64/libqsh.so",
       "sha256": "49dffab72b8a2f9153eb24d8edee014969a708a52a78f7c466d63e4c706b906c",
       "bytes": 113480
-    },
-    {
-      "path": "vendor/lib64/libqsocket.so",
-      "sha256": "3bb666896f4c92586a232285f5fc6666b515be48085d27369bccd1f7cbc9ec4c",
-      "bytes": 15328
     },
     {
       "path": "vendor/lib64/libqti-perfd-client.so",
@@ -4011,92 +3996,6 @@
       ]
     },
     {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libjson.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libjson.so"
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libqmi_cci.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqmi_cci.so"
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libqmi_common_so.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqmi_common_so.so"
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libqmi_csi.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqmi_csi.so"
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libqmi_encdec.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqmi_encdec.so"
-    },
-    {
-      "consumer": "vendor/bin/pd-mapper",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/bin/pm-proxy",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -4587,58 +4486,6 @@
       "export_lists": [
         "/etc/vndksp.libraries.34.txt"
       ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libqrtr.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqrtr.so"
-    },
-    {
-      "consumer": "vendor/bin/tftp_server",
-      "needed": "libqsocket.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqsocket.so"
     },
     {
       "consumer": "vendor/bin/thermal-engine-v2",
@@ -38457,38 +38304,6 @@
       ]
     },
     {
-      "consumer": "vendor/lib64/libqsocket.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libqsocket.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libqsocket.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libqsocket.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/lib64/libqti-perfd-client.so",
       "needed": "libbase.so",
       "kind": "platform-or-vndk34",
@@ -47399,12 +47214,10 @@
     "vendor/bin/hw/android.hardware.security.keymint-service-qti",
     "vendor/bin/hw/vendor.qti.hardware.memtrack-service",
     "vendor/bin/hw/vendor.qti.hardware.perf2-hal-service",
-    "vendor/bin/pd-mapper",
     "vendor/bin/pm-proxy",
     "vendor/bin/pm-service",
     "vendor/bin/qseecomd",
     "vendor/bin/rmt_storage",
-    "vendor/bin/tftp_server",
     "vendor/bin/thermal-engine-v2",
     "vendor/lib64/egl/eglSubDriverAndroid.so",
     "vendor/lib64/egl/libEGL_adreno.so",

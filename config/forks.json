@@ -88,7 +88,11 @@
      "newer": {"tags": "^([0-9]{10})$"}},
     {"id": "kernel-common", "slug": "kernel_common-6.1", "path": "kernel_platform/common", "workspace": "kernel", "branch": "android17", "follow_note": "GrapheneOS hardened 6.1 common kernel; also follow its release tags.",
      "upstream": {"url": "https://github.com/GrapheneOS/kernel_common-6.1", "ref": "17", "kind": "branch"},
-     "newer": {"tags": "^([0-9]{10})$"}}
+     "newer": {"tags": "^([0-9]{10})$"}},
+    {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master with upstream pull request 50 (memory and path fixes) and our unlink, truncation and symlink changes. Drop pull request 50's commits once upstream merges it.",
+     "upstream": {"url": "https://github.com/linux-msm/tqftpserv", "ref": "master", "kind": "branch"}},
+    {"id": "qrtr", "slug": "vendor_qcom_opensource_qrtr", "path": "vendor/qcom/opensource/qrtr", "branch": "android17", "follow_note": "linux-msm's QRTR library: master with one change, the library is installed as libqrtr_linux_msm.so so that Qualcomm's libqrtr.so stays for the stock display, VM and QTEE libraries. tqftpserv links it statically, pd-mapper dynamically.",
+     "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}}
   ],
   "sources": [
     {"id": "grapheneos-platform", "description": "GrapheneOS platform release the Android build is based on (authenticated tag).", "url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -130,6 +134,9 @@
     {"id": "libvmmem", "description": "vendor/qcom/opensource/libvmmem: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem",
      "follow": {"kind": "branch", "ref": "kernel.apps.lnx.5.0.r2-rel", "newer_branches": "^kernel\\.apps\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
      "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/libvmmem"}},
+    {"id": "pd-mapper", "description": "vendor/qcom/opensource/pd-mapper: linux-msm's protection-domain locator, used unmodified (no DiamaneOS fork). Pinned to the last commit that builds for Android: later commits need liblzma, which its Android.bp does not provide.", "url": "https://github.com/linux-msm/pd-mapper",
+     "follow": {"kind": "branch", "ref": "master"},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/pd-mapper"}},
     {"id": "kernel", "description": "kernel_platform/msm-kernel in kernel_qcom-6.1, imported from CodeLinaro with Fairphone's FP6 changes.", "url": "https://git.codelinaro.org/clo/la/kernel/qcom",
      "follow": {"kind": "branch", "ref": "kernel.lnx.6.1.r2-rel", "newer_tags": "^KERNEL\\.PLATFORM\\.3\\.0\\.r1-([0-9]+)-kernel\\.0$"},
      "pin": {"repository": "tools", "file": "config/kernel-upstream-fp6.json", "list": "/imports", "match": {"path": "kernel_platform/msm-kernel"}, "field": "commit", "release_field": "release"}},

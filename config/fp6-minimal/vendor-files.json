@@ -2580,32 +2580,6 @@
       }
     },
     {
-      "input": "vendor/bin/pd-mapper",
-      "path": "vendor/bin/pd-mapper",
-      "sha256": "5d3a65916f0541036fb7c5c606c2bc7ac3b130d5ccae9e3fa61ea00e922731a6",
-      "bytes": 33152,
-      "component_id": "remote-processor-services",
-      "inventory_ref": "userspace_hal_families:remote-processor-services",
-      "dependencies": [
-        "vendor/lib64/libjson.so",
-        "vendor/lib64/libqmi_cci.so",
-        "vendor/lib64/libqmi_common_so.so",
-        "vendor/lib64/libqmi_csi.so",
-        "vendor/lib64/libqmi_encdec.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Protection-domain mapper the ADSP, CDSP and modem query at boot (stock init.qti.kernel.rc starts it before booting them).",
-      "metadata": {
-        "uid": 1000,
-        "gid": 1000,
-        "mode": 493,
-        "selinux": "u:object_r:vendor_pd_mapper_exec:s0",
-        "capabilities_hex": "0100000200040000000000000000000000000000"
-      }
-    },
-    {
       "input": "vendor/bin/pm-service",
       "path": "vendor/bin/pm-service",
       "sha256": "e9e9c7e3cf1ce953f726801aa97f85b5e00183ab5eaa9b697d0490bd07bf3e31",
@@ -2676,29 +2650,6 @@
         "gid": 2000,
         "mode": 493,
         "selinux": "u:object_r:vendor_rmt_storage_exec:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/bin/tftp_server",
-      "path": "vendor/bin/tftp_server",
-      "sha256": "119bf3b62bb453f526ad2304446d0fcfe89bb919eb36ab955eb7986aa119075c",
-      "bytes": 125152,
-      "component_id": "remote-processor-services",
-      "inventory_ref": "userspace_hal_families:remote-processor-services",
-      "dependencies": [
-        "vendor/lib64/libqrtr.so",
-        "vendor/lib64/libqsocket.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Serves /vendor/rfs firmware and persist paths to the remote processors (stock vendor.qti.tftp.rc).",
-      "metadata": {
-        "uid": 0,
-        "gid": 2000,
-        "mode": 493,
-        "selinux": "u:object_r:vendor_rfs_access_exec:s0",
         "capabilities_hex": ""
       }
     },
@@ -2787,50 +2738,10 @@
       }
     },
     {
-      "input": "vendor/lib64/libqsocket.so",
-      "path": "vendor/lib64/libqsocket.so",
-      "sha256": "3bb666896f4c92586a232285f5fc6666b515be48085d27369bccd1f7cbc9ec4c",
-      "bytes": 15328,
-      "component_id": "remote-processor-services",
-      "inventory_ref": "userspace_hal_families:remote-processor-services",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Remote-processor support library or activation file for the selected DSP bring-up daemons.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/etc/init/vendor.qti.rmt_storage.rc",
       "path": "vendor/etc/init/vendor.qti.rmt_storage.rc",
       "sha256": "e43198fb1fbdac63e8439d1445d9068d5a2c168a7daeb8683c3168e1155d0169",
       "bytes": 255,
-      "component_id": "remote-processor-services",
-      "inventory_ref": "userspace_hal_families:remote-processor-services",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Remote-processor support library or activation file for the selected DSP bring-up daemons.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/init/vendor.qti.tftp.rc",
-      "path": "vendor/etc/init/vendor.qti.tftp.rc",
-      "sha256": "07f8714fea9616c2ae240ee120117b8b12a94770a3f6e1102d3c5c22e402a833",
-      "bytes": 324,
       "component_id": "remote-processor-services",
       "inventory_ref": "userspace_hal_families:remote-processor-services",
       "dependencies": [],

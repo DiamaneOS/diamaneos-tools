@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Stop selecting Qualcomm's tftp_server, its init file and socket library, and
+  its pd-mapper. The device builds the open-source linux-msm tqftpserv (our
+  fork) and pd-mapper instead (manifest `vendor/qcom/opensource`); Qualcomm's
+  libqrtr.so stays for the stock libraries that link it, and pd-mapper loads
+  the linux-msm library as libqrtr_linux_msm.so. `config/forks.json` and
+  `config/repositories.json` list the tqftpserv and qrtr forks and the pinned
+  pd-mapper. Image checks require the new daemons, their users, labels, init
+  lines and file links, the forked tqftpserv with libqrtr linked in, the
+  unchanged stock libqrtr.so, and no stock tftp_server, capability or network
+  grant for either daemon.
 - Follow the kernel's imported upstream projects through `kernel_qcom-6.1`.
   The vendor kernel, techpack drivers, two device trees and edk2 are sources in
   `config/forks.json` instead of forks, pinned in the new

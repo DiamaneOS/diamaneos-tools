@@ -1342,6 +1342,222 @@
       "variants": [
         "user"
       ]
+    },
+    {
+      "id": "linux-msm-remote-processor-services",
+      "why": "The open-source linux-msm tqftpserv and pd-mapper, and the linux-msm libqrtr as libqrtr_linux_msm.so, are installed in place of Qualcomm's tftp_server and pd-mapper.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/tqftpserv",
+        "VENDOR/bin/pd-mapper",
+        "VENDOR/lib64/libqrtr_linux_msm.so"
+      ]
+    },
+    {
+      "id": "no-stock-tftp-server",
+      "why": "Qualcomm's tftp_server, its init file and its socket library are not installed.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/bin/tftp_server",
+        "VENDOR/etc/init/vendor.qti.tftp.rc",
+        "VENDOR/lib64/libqsocket.so"
+      ]
+    },
+    {
+      "id": "pd-mapper-is-linux-msm",
+      "why": "/vendor/bin/pd-mapper is the linux-msm build: it loads the linux-msm libqrtr_linux_msm.so, not Qualcomm's libqrtr.so or the stock QMI and JSON libraries.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/pd-mapper"
+      ],
+      "contains": [
+        "libqrtr_linux_msm.so"
+      ],
+      "absent": [
+        "libqrtr.so",
+        "libqmi_csi.so",
+        "libqmi_cci.so",
+        "libjson.so"
+      ]
+    },
+    {
+      "id": "linux-msm-libqrtr",
+      "why": "/vendor/lib64/libqrtr_linux_msm.so is the linux-msm library (qlog_setup) and exports what pd-mapper imports.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libqrtr_linux_msm.so",
+      "symbols": [
+        "qrtr_open",
+        "qrtr_publish",
+        "qrtr_sendto",
+        "qrtr_poll",
+        "qrtr_decode",
+        "qmi_decode_header",
+        "qmi_decode_message",
+        "qmi_encode_message",
+        "qlog_setup"
+      ]
+    },
+    {
+      "id": "stock-libqrtr-kept",
+      "why": "Qualcomm's libqrtr.so stays, unchanged, for the stock display, VM and QTEE libraries that link it.",
+      "type": "file_metadata",
+      "path": "vendor/lib64/libqrtr.so",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_file:s0",
+      "sha256": "93d10dbc0dc43da7ad609a684be8ef0d48da37dd4f84274cb956103f0ba7022b"
+    },
+    {
+      "id": "tqftpserv-is-the-fork",
+      "why": "/vendor/bin/tqftpserv is the DiamaneOS fork (it handles the unlink option) and links libqrtr statically, so it loads neither libqrtr.so.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/tqftpserv"
+      ],
+      "contains": [
+        "Unlink option used in an RRQ",
+        "/data/vendor/tmp/tqftpserv"
+      ],
+      "absent": [
+        "libqrtr.so",
+        "libqrtr_linux_msm.so"
+      ]
+    },
+    {
+      "id": "tqftpserv-modem-files-link",
+      "why": "tqftpserv serves the modem's /readonly/firmware/image/modem_pr requests from the modem partition.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/modem_pr",
+      "target": "/vendor/firmware_mnt/image/modem_pr"
+    },
+    {
+      "id": "pd-mapper-domain-list-adspr",
+      "why": "pd-mapper loads adspr.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/adspr.jsn",
+      "target": "/vendor/firmware_mnt/image/adspr.jsn"
+    },
+    {
+      "id": "pd-mapper-domain-list-adsps",
+      "why": "pd-mapper loads adsps.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/adsps.jsn",
+      "target": "/vendor/firmware_mnt/image/adsps.jsn"
+    },
+    {
+      "id": "pd-mapper-domain-list-adspua",
+      "why": "pd-mapper loads adspua.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/adspua.jsn",
+      "target": "/vendor/firmware_mnt/image/adspua.jsn"
+    },
+    {
+      "id": "pd-mapper-domain-list-battmgr",
+      "why": "pd-mapper loads battmgr.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/battmgr.jsn",
+      "target": "/vendor/firmware_mnt/image/battmgr.jsn"
+    },
+    {
+      "id": "pd-mapper-domain-list-cdspr",
+      "why": "pd-mapper loads cdspr.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/cdspr.jsn",
+      "target": "/vendor/firmware_mnt/image/cdspr.jsn"
+    },
+    {
+      "id": "pd-mapper-domain-list-modemr",
+      "why": "pd-mapper loads modemr.jsn from the modem partition; it exits if a listed file is missing.",
+      "type": "symlink",
+      "path": "VENDOR/firmware/modemr.jsn",
+      "target": "/vendor/firmware_mnt/image/modemr.jsn"
+    },
+    {
+      "id": "linux-msm-services-started",
+      "why": "init starts both services under their own users, with no capabilities.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.modem.rc",
+        "VENDOR/etc/init/hw/init.qcom.rc"
+      ],
+      "match": "any",
+      "regex": [
+        "^service vendor\\.tqftpserv /vendor/bin/tqftpserv\\n    class core\\n    user vendor_tqftpserv\\n    group vendor_tqftpserv system\\n    capabilities\\n",
+        "^service vendor\\.pd_mapper /vendor/bin/pd-mapper\\n    class core\\n    user vendor_pd_mapper\\n    group vendor_pd_mapper system\\n    capabilities\\n",
+        "^    mkdir /data/vendor/tmp/tqftpserv 0700 vendor_tqftpserv vendor_tqftpserv$"
+      ]
+    },
+    {
+      "id": "no-stock-tftp-server-start",
+      "why": "No init file starts tftp_server.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/**"
+      ],
+      "match": "all",
+      "absent": [
+        "/vendor/bin/tftp_server"
+      ]
+    },
+    {
+      "id": "linux-msm-services-users",
+      "why": "Both services have their own vendor user and group.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/passwd",
+        "VENDOR/etc/group"
+      ],
+      "regex": [
+        "^vendor_tqftpserv:[^:]*:2993:",
+        "^vendor_pd_mapper:[^:]*:2992:"
+      ]
+    },
+    {
+      "id": "linux-msm-services-labels",
+      "why": "Both services and the modem's read-write files have their own labels.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/bin/tqftpserv\\s+u:object_r:vendor_tqftpserv_exec:s0$",
+        "^/vendor/bin/pd-mapper\\s+u:object_r:vendor_pd_mapper_exec:s0$",
+        "^/data/vendor/tmp/tqftpserv\\(/\\.\\*\\)\\?\\s+u:object_r:vendor_tqftpserv_data_file:s0$"
+      ],
+      "absent": [
+        "vendor_rfs_access_exec"
+      ]
+    },
+    {
+      "id": "linux-msm-services-policy",
+      "why": "The stock tftp_server domain is gone, and neither service is granted a capability or a network socket.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow vendor_tqftpserv (self|vendor_tqftpserv) \\(qipcrtr_socket ",
+        "^\\(allow vendor_pd_mapper (self|vendor_pd_mapper) \\(qipcrtr_socket "
+      ],
+      "absent": [
+        "vendor_rfs_access"
+      ],
+      "absent_regex": [
+        "^\\(allow (vendor_tqftpserv (self|vendor_tqftpserv)|vendor_pd_mapper (self|vendor_pd_mapper)) \\((capability|capability2|cap_userns|cap2_userns|tcp_socket|udp_socket|rawip_socket|packet_socket|tipc_socket) "
+      ]
+    },
+    {
+      "id": "tqftpserv-files-exclusive",
+      "why": "Only tqftpserv is granted access to the modem's read-write TFTP files in the vendor policy.",
+      "type": "sepolicy_exclusive",
+      "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
+      "target": "vendor_tqftpserv_data_file",
+      "cls": "file",
+      "allowed": [
+        "vendor_tqftpserv"
+      ]
     }
   ]
 }
