@@ -1155,6 +1155,18 @@
       ]
     },
     {
+      "id": "no-camera-opencl",
+      "why": "The Adreno OpenCL runtime and compiler, selected only for the camera, and the software CAC library that links the runtime stay out; CamX's GPU node and its OpenCV users run without them.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/libOpenCL.so",
+        "VENDOR/lib64/libOpenCL_adreno.so",
+        "VENDOR/lib64/libllvm-qcom.so",
+        "VENDOR/lib64/libadreno_compiler_cl.so",
+        "VENDOR/lib64/libmmcamera_cac.so"
+      ]
+    },
+    {
       "id": "no-display-colour-service",
       "why": "The stock display colour service has no client in this build; platform apps could start it.",
       "type": "files_absent",

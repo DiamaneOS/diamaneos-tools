@@ -604,6 +604,27 @@ class NativeProductTests(unittest.TestCase):
         for name in ['postproc-impl.xml', 'algoservice-default', 'vendor/etc/camera/AncRawAlgos']:
             self.assertNotIn(name, bp + make)
 
+    def test_camera_runs_without_the_opencl_runtime(self):
+        # The Adreno OpenCL runtime and compiler were selected only for the
+        # camera, and the software CAC library links the runtime; CamX's GPU
+        # node and the OpenCV users fall back without them.
+        removed = ['libOpenCL', 'libOpenCL_adreno', 'libllvm-qcom', 'libadreno_compiler_cl', 'libmmcamera_cac']
+        paths = {r['path'] for r in self.recipe['files']}
+        provider = next(r for r in self.recipe['files']
+                        if r['path'] == 'vendor/bin/hw/vendor.qti.camera.provider-service_64')
+        runtime = {d['path'] for d in provider['runtime_dependencies']}
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        for stem in removed:
+            self.assertNotIn('vendor/lib64/' + stem + '.so', paths)
+            self.assertNotIn('vendor/lib64/' + stem + '.so', runtime)
+            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
+        self.assertFalse([e for e in self.selection['edges']
+                          if e['needed'] in {s + '.so' for s in removed}])
+        # The GLES driver still loads the compute backend; the GPU node stays.
+        for stem in ['libCB', 'camera_components_com.qti.node.gpu', 'camera_components_com.qti.node.swcac']:
+            self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
+
     def test_camera_data_firmware_and_dsp_libraries_installed(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()

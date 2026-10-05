@@ -906,16 +906,6 @@
       "bytes": 32048
     },
     {
-      "path": "vendor/lib64/libOpenCL.so",
-      "sha256": "671d4c60e8effd7d63c9fb85aa9de09f1264b7377bac161f95c5822d7f36a8a3",
-      "bytes": 68152
-    },
-    {
-      "path": "vendor/lib64/libOpenCL_adreno.so",
-      "sha256": "1662f89cc0e4f96bb27bb65393e7b54a95503ab1ad1a361ca5e600dfa6996b3f",
-      "bytes": 179928
-    },
-    {
       "path": "vendor/lib64/libQSEEComAPI.so",
       "sha256": "e60d77891ff4c0949f2d539a10ed83b6185c680c2ab162e69ecb8b2f98ad2fe7",
       "bytes": 70568
@@ -934,11 +924,6 @@
       "path": "vendor/lib64/libadm.so",
       "sha256": "8cc2f3bac0d48c9aeafeb49949b46d13ff6324c82e0d00acd460caf475aecc86",
       "bytes": 43864
-    },
-    {
-      "path": "vendor/lib64/libadreno_compiler_cl.so",
-      "sha256": "08e09ff4f03d9a5cd2cc8e9aba3254827038eca0a1857c9fd8235c817493f839",
-      "bytes": 33796528
     },
     {
       "path": "vendor/lib64/libadreno_utils.so",
@@ -1361,11 +1346,6 @@
       "bytes": 2501128
     },
     {
-      "path": "vendor/lib64/libllvm-qcom.so",
-      "sha256": "cea310b138ad5f0025ba68dea93c430468a34254e3a16cfef33b0dae4c3e7434",
-      "bytes": 290264
-    },
-    {
       "path": "vendor/lib64/libllvm-qgl.so",
       "sha256": "88d3099ab4815f143b73f1fc9a079d88228f20f613efad7166c02c6cd02d7511",
       "bytes": 23864248
@@ -1434,11 +1414,6 @@
       "path": "vendor/lib64/libmmcamera_bestats.so",
       "sha256": "2ba1773d279abe9aabbd4e469d3620ce1a243ced9f48bc9428985d06f1e94446",
       "bytes": 39936
-    },
-    {
-      "path": "vendor/lib64/libmmcamera_cac.so",
-      "sha256": "61a92628804e5a62dc5bcd1beefd7cde03d2b4807d42e80275e205fdd9312f6d",
-      "bytes": 196480
     },
     {
       "path": "vendor/lib64/libmmcamera_lscv35.so",
@@ -3368,24 +3343,6 @@
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
-      "needed": "libOpenCL.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/libOpenCL.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
-      "needed": "libOpenCL_adreno.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/libOpenCL_adreno.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
-      "needed": "libadreno_compiler_cl.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/libadreno_compiler_cl.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
       "needed": "libaidenoiser.so",
       "kind": "selected-stock-runtime",
       "provider": "vendor/lib64/libaidenoiser.so"
@@ -3574,12 +3531,6 @@
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
-      "needed": "libllvm-qcom.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/libllvm-qcom.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
       "needed": "liblog.so",
       "kind": "platform-or-vndk34",
       "export_lists": [
@@ -3617,12 +3568,6 @@
       "needed": "libmmcamera_bestats.so",
       "kind": "selected-stock-runtime",
       "provider": "vendor/lib64/libmmcamera_bestats.so"
-    },
-    {
-      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
-      "needed": "libmmcamera_cac.so",
-      "kind": "selected-stock-runtime",
-      "provider": "vendor/lib64/libmmcamera_cac.so"
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
@@ -24069,110 +24014,6 @@
       ]
     },
     {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libOpenCL_adreno.so",
-      "needed": "libvndksupport.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/lib64/libQSEEComAPI.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -24394,46 +24235,6 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libadreno_compiler_cl.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libadreno_compiler_cl.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libadreno_compiler_cl.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libadreno_compiler_cl.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libadreno_compiler_cl.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
       ]
     },
     {
@@ -31915,46 +31716,6 @@
       ]
     },
     {
-      "consumer": "vendor/lib64/libllvm-qcom.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libllvm-qcom.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libllvm-qcom.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libllvm-qcom.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libllvm-qcom.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
       "consumer": "vendor/lib64/libllvm-qgl.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -33182,196 +32943,6 @@
     },
     {
       "consumer": "vendor/lib64/libmmcamera_bestats.so",
-      "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "android.hardware.graphics.allocator-V1-ndk.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/android.hardware.graphics.allocator-V1-ndk.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "android.hardware.graphics.allocator@4.0.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "android.hardware.graphics.common@1.1.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "android.hardware.graphics.mapper@4.0.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libOpenCL.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libOpenCL.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libc++.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libc.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcamera_metadata.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndkcore.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcamxcommonutils.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libcamxcommonutils.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcamxsettingsmanager.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libcamxsettingsmanager.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcdsprpc.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libcdsprpc.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcommonchiutils.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libcommonchiutils.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libcutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libdl.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libgralloc.qti.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libgralloc.qti.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libgralloctypes.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libhardware.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libhidlbase.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libhidltransport.so",
-      "kind": "source-module"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "liblog.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libm.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libqti_vndfwk_detect.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/libqti_vndfwk_detect.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libsync.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/llndk.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "libutils.so",
-      "kind": "platform-or-vndk34",
-      "export_lists": [
-        "/etc/vndksp.libraries.34.txt"
-      ]
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "vendor.qti.hardware.display.allocator@4.0.so",
-      "kind": "source-module"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
-      "needed": "vendor.qti.hardware.display.mapper@4.0.so",
-      "kind": "selected-stock",
-      "provider": "vendor/lib64/vendor.qti.hardware.display.mapper@4.0.so"
-    },
-    {
-      "consumer": "vendor/lib64/libmmcamera_cac.so",
       "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
