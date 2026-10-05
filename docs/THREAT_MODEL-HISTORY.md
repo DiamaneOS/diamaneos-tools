@@ -391,6 +391,20 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   keys again, readable only by netd, system_server, the network stack,
   netutils_wrapper, dumpstate and Qualcomm's nicmd. The kernel policy requires
   integrity and fails a confidentiality configuration.
+- **2026-10-05:** the stock camera's performance hints reach the power HAL,
+  implemented, not yet built. Our stand-in for the closed perf client passes
+  on only the camera's open, close and snapshot hints, as the camera launch
+  and camera shot boosts: at most 5 s each, a hint held until release at most
+  2 s, ended early when the camera releases it, every call carrying its own
+  time limit; it sends them from its own thread with one-way calls. For this
+  the camera provider is a power HAL client, as on Pixels. SELinux grants a
+  binder interface as a whole, so code running in the provider can make any
+  power HAL request: power modes (fixed or capped CPU and GPU clocks, a raised
+  GPU floor, tap-to-wake), boosts (raised CPU floors, the scheduler boost) and
+  hint sessions that raise the uclamp of app, SurfaceFlinger or system_server
+  threads; the effect is on speed, battery and heat, with no access to data
+  (-172). The camera streaming modes, which capped the little cores CamX runs
+  on, are gone from the power HAL configuration.
 
 ## IMS integration notes
 

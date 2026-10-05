@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Threat model and image checks for the camera's performance hints, which
+  the device now passes to the power HAL: the camera provider becomes a power
+  HAL client. `camera-power-client` checks that it is the only vendor domain
+  in hal_power_client, with no server role and no direct rules on the power
+  HAL domains; `camera-boosts-config` that the power HAL defines the camera
+  boosts and no camera streaming caps. The perf client check expects the power
+  HAL lookup and still refuses the perf2 service.
 - Build the kernel with integrity lockdown instead of confidentiality
   (kernel_qcom-6.1 2d006c3, common kernel d2d69f8): confidentiality emptied
   tracefs and denied BPF kernel-memory reads, so Android's per-app CPU time

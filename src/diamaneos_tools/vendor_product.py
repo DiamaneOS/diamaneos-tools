@@ -156,7 +156,7 @@ ACTIVATION={
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
  # Not selected: Qualcomm's perf2 daemon (a root service), its client and
  # plugin libraries and their configuration. The device builds LineageOS's
- # libperfmgr power HAL and a no-op libqti-perfd-client for the stock camera
+ # libperfmgr power HAL and its own libqti-perfd-client for the stock camera
  # and SDM extension, which load the client by name (device power/).
  'rmt_storage':('vendor.qti.rmt_storage.rc',None),
  # Not selected: tftp_server and pd-mapper. The device builds the open
