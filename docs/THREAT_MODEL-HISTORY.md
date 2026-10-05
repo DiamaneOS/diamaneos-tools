@@ -349,6 +349,11 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   commands are in the 2026-10-05 build. The IMS section states what exists
   instead of release gates, the "defends against" heading says what DiamaneOS
   aims to defend against, and the disclaimer names Fairphone.
+- **2026-10-05:** the cellular controls are checked on the phone. With "2G
+  network protection" on, the modem's own preference read back has no GSM
+  technologies and the phone stays on LTE with calls working; with LTE-only it
+  allows LTE alone and calls over LTE work; turning protection off brings GSM
+  back. Settings shows Android's filtered network-type list.
 
 ## IMS integration notes
 
