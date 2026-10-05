@@ -873,6 +873,127 @@
       ]
     },
     {
+      "id": "power-stats-hal",
+      "why": "The device's power stats HAL, its init file and VINTF fragment (stock FP6 has no power stats HAL).",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.power.stats-service.fp6",
+        "VENDOR/etc/init/android.hardware.power.stats-service.fp6.rc",
+        "VENDOR/etc/vintf/manifest/android.hardware.power.stats-service.fp6.xml"
+      ]
+    },
+    {
+      "id": "power-stats-hal-declared",
+      "why": "The HAL declares IPowerStats V2, the version the framework matrix of target level 8 lists.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/vintf/manifest/android.hardware.power.stats-service.fp6.xml"
+      ],
+      "lines": [
+        "        <name>android.hardware.power.stats</name>",
+        "        <version>2</version>",
+        "        <fqname>IPowerStats/default</fqname>"
+      ]
+    },
+    {
+      "id": "power-stats-hal-user",
+      "why": "init starts the power stats HAL as its own user, with no other group and no capabilities.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/android.hardware.power.stats-service.fp6.rc"
+      ],
+      "regex": [
+        "^service vendor\\.power\\.stats-fp6 /vendor/bin/hw/android\\.hardware\\.power\\.stats-service\\.fp6\\n    class hal\\n    user vendor_powerstats\\n    group vendor_powerstats\\n    capabilities\\n"
+      ],
+      "absent_regex": [
+        "^\\s+(user|group)\\s.*\\b(root|system)\\b"
+      ]
+    },
+    {
+      "id": "power-stats-hal-users",
+      "why": "The power stats HAL has its own vendor user and group.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/passwd",
+        "VENDOR/etc/group"
+      ],
+      "regex": [
+        "^vendor_powerstats:[^:]*:2994:"
+      ]
+    },
+    {
+      "id": "power-stats-device-node",
+      "why": "/dev/stats, the qcom_stats sleep counter node, is readable by the power stats HAL's user only.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/stats\\s+0400\\s+vendor_powerstats\\s+vendor_powerstats\\s*$"
+      ]
+    },
+    {
+      "id": "power-stats-labels",
+      "why": "The HAL runs in the platform power stats HAL domain; /dev/stats has its own label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/bin/hw/android\\\\\\.hardware\\\\\\.power\\\\\\.stats-service\\\\\\.fp6\\s+u:object_r:hal_power_stats_default_exec:s0$",
+        "^/dev/stats\\s+u:object_r:vendor_qcom_stats_device:s0$"
+      ]
+    },
+    {
+      "id": "power-stats-device-access",
+      "why": "The power stats HAL may use /dev/stats.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "hal_power_stats_default",
+      "target": "vendor_qcom_stats_device",
+      "cls": "chr_file",
+      "perm": "ioctl"
+    },
+    {
+      "id": "power-stats-device-exclusive",
+      "why": "No other vendor domain is granted /dev/stats.",
+      "type": "sepolicy_exclusive",
+      "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
+      "target": "vendor_qcom_stats_device",
+      "cls": "chr_file",
+      "allowed": [
+        "hal_power_stats_default"
+      ]
+    },
+    {
+      "id": "power-stats-ioctls",
+      "why": "Only the seven qcom_stats commands the HAL reads: not the commands the driver maps to the wrong subsystems, not DDR frequency residency, and no write.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(allowx hal_power_stats_default vendor_qcom_stats_device (ioctl chr_file ((range 0x9d01 0x9d03) 0x9d05 (range 0x9d0a 0x9d0c))))"
+      ],
+      "absent_regex": [
+        "^\\(allowx hal_power_stats_default vendor_qcom_stats_device \\(ioctl chr_file (?!\\(\\(range 0x9d01 0x9d03\\) 0x9d05 \\(range 0x9d0a 0x9d0c\\)\\)\\)\\)$)",
+        "^\\(allow hal_power_stats_default vendor_qcom_stats_device \\(chr_file \\([^)]*\\b(write|append)\\b"
+      ]
+    },
+    {
+      "id": "power-stats-module",
+      "why": "The qcom_stats driver, which creates /dev/stats, is loaded.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.load"
+      ],
+      "lines": [
+        "qcom_stats.ko"
+      ]
+    },
+    {
       "id": "aod-brightness",
       "why": "Factory AOD idle brightness in every panel timing of the DTBO; no D2 at power-on (display device tree d94b9d8).",
       "type": "binary_count",

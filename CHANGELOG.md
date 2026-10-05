@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Check the device's power stats HAL in the image: the binary, init file
+  and IPowerStats V2 VINTF fragment, its own user without other groups or
+  capabilities, `/dev/stats` read-only for that user with its own label,
+  the HAL's access to it as the only vendor grant, the seven allowed
+  qcom_stats ioctls and no write, and the qcom_stats module in the load
+  list. The threat model and build notes record the HAL.
 - Rename the stock camera provider's libhardware.so dependency to the
   device's seccomp loader, libcamxjail.so (same length; input and output
   hashes pinned in `NEEDED_REWRITES`, which now records a reason per entry).
