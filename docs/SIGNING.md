@@ -44,6 +44,14 @@ verified OTA metadata with no key of their own. References: the
 `sign_target_files_apks`; file hashes in the contract stop a moving branch
 replacing the selected release.
 
+The contract fixes the subject of DiamaneOS's own Android certificates as
+`/CN=DiamaneOS/` (`android_certificate_subject`); apps can read it from a
+package's signing certificate. The pinned `script/generate-keys` passes
+`/CN=GrapheneOS/` to `make_key`, so keys are not made with it as it is:
+`make_key` gets the contract's subject. Presigned packages keep their own
+signers' certificates. Development images are signed with AOSP's public test
+keys, whose certificates name Android.
+
 ## Target-files inventory
 
 The inventory comes from `META/apkcerts.txt` (APK certificates),

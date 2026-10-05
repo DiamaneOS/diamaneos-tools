@@ -85,6 +85,7 @@
       "sdk_sandbox"
     ]
   },
+  "android_certificate_subject": "/CN=DiamaneOS/",
   "key_roles": [
     {
       "id": "releasekey",

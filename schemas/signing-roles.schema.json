@@ -9,6 +9,7 @@
     "source_binding",
     "safety",
     "dummy_qualification",
+    "android_certificate_subject",
     "key_roles",
     "artifact_roles",
     "target_profiles",
@@ -76,6 +77,7 @@
         }
       }
     },
+    "android_certificate_subject": {"const": "/CN=DiamaneOS/"},
     "key_roles": {
       "type": "array",
       "minItems": 1,

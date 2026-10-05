@@ -135,6 +135,18 @@ class SigningVerifyTest(unittest.TestCase):
             api.validate_config(changed, self.environment),
         )
 
+    def test_android_certificates_name_diamaneos(self):
+        self.assertEqual("/CN=DiamaneOS/",
+                         self.config["android_certificate_subject"])
+        changed = copy.deepcopy(self.config)
+        changed["android_certificate_subject"] = "/CN=GrapheneOS/"
+        self.assertIn("schema constraint failed: const",
+                      api.validate_config(changed, self.environment))
+        changed = copy.deepcopy(self.config)
+        del changed["android_certificate_subject"]
+        self.assertIn("schema constraint failed: required",
+                      api.validate_config(changed, self.environment))
+
     def test_safety_boundary_cannot_authorize_production_operations(self):
         changed = copy.deepcopy(self.config)
         changed["safety"]["production_key_generation_allowed"] = True
