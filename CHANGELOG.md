@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Drop the 22 retired kernel component forks and the old kernel manifest from
+  the repository map: they are deleted, and the kernel builds from
+  kernel_qcom-6.1.
 - Build the image tools with a fixed build number and the sources' own date:
   aapt2 carried the build day in its version string, its hash reached the
   vendor inventory, and the same sources gave a different build identity on
