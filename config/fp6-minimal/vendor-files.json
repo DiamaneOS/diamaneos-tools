@@ -16456,6 +16456,720 @@
         "selinux": "u:object_r:system_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "path": "vendor/bin/hw/vendor.qti.media.c2@1.0-service",
+      "sha256": "43e2535ccea69a64c7743559ed4e85920395c257d2aec25f82535059745e8da9",
+      "bytes": 19776,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_hidl@1.2.so",
+        "vendor/lib64/libcodec2_vndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm Codec2 HIDL service (IComponentStore/default): hardware video encoders only (the pinned target specification lists no decoder); runs as mediacodec.",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:mediacodec_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libqcodec2_core.so",
+          "soname": "libqcodec2_core.so",
+          "reason": "vendor.qti.media.c2@1.0-service dlopens libqcodec2_core.so to create the Qualcomm component store (elf-strings; not DT_NEEDED)"
+        },
+        {
+          "path": "vendor/lib64/libqcodec2_v4l2codec.so",
+          "soname": "libqcodec2_v4l2codec.so",
+          "reason": "libqcodec2_basecodec dlopens libqcodec2_v4l2codec.so, the V4L2 hardware codecs on /dev/video32 and /dev/video33 (elf-strings \"dlopen\", paths)"
+        },
+        {
+          "path": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+          "soname": "libqcodec2_imgtxrfilter.so",
+          "reason": "libqcodec2_core loads the codec plugins named by QC2CodecPlugins/QC2PreProcessingFilters in /vendor/etc/media_volcano_<variant>/video_system_specs.json"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_core.so",
+      "path": "vendor/lib64/libqcodec2_core.so",
+      "sha256": "b9ccb00c0b5588b7dc6e03cbb5325442d4c5eca11826b753049d0f9907ec99c9",
+      "bytes": 396136,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_basecodec.so",
+        "vendor/lib64/libqcodec2_hooks.so",
+        "vendor/lib64/libqcodec2_platform.so",
+        "vendor/lib64/libqcodec2_utils.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm Codec2 component store and registry.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "path": "vendor/lib64/libqcodec2_v4l2codec.so",
+      "sha256": "e3a2bec4902ae948fe1e8ca99d91ab9a5d678a494f004e48743ca7a0578391d7",
+      "bytes": 1876872,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_basecodec.so",
+        "vendor/lib64/libqcodec2_platform.so",
+        "vendor/lib64/libqcodec2_utils.so",
+        "vendor/lib64/libvmmem.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm Codec2 V4L2 codec implementation for the Iris video core.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "path": "vendor/lib64/libqcodec2_imgtxrfilter.so",
+      "sha256": "53f8f83d5634e90e366758437e17df7ecc6e853092aa39a04ed663364b1e0c75",
+      "bytes": 348848,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_basecodec.so",
+        "vendor/lib64/libqcodec2_filterbase.so",
+        "vendor/lib64/libqcodec2_platform.so",
+        "vendor/lib64/libqcodec2_utils.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm image-transform pre-processing filter named by the target specification.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcodec2_vndk.so",
+      "path": "vendor/lib64/libcodec2_vndk.so",
+      "sha256": "f1d104621b5575f6603fa6779b55548034c2b11be85e6fcd47bffb2afc199e5d",
+      "bytes": 851952,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+        "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "path": "vendor/lib64/libcodec2_hidl@1.2.so",
+      "sha256": "9d87cc30c7eeec29eaca509a8910d93bf331fa588fc7cc831b2a36cb04d0a2ae",
+      "bytes": 151856,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_hidl@1.0.so",
+        "vendor/lib64/libcodec2_hidl@1.1.so",
+        "vendor/lib64/libcodec2_hidl_plugin.so",
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_base.so",
+      "path": "vendor/lib64/libqcodec2_base.so",
+      "sha256": "1a58890d7ad5f2be1c8e21f15c9f838e30c413ed0a8f7636a11e0865c81c412d",
+      "bytes": 39568,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_hooks.so",
+      "path": "vendor/lib64/libqcodec2_hooks.so",
+      "sha256": "37d092f03f9015eb5cbedcd34faa41ab1f036e33f9636b0579fd5d1920005337",
+      "bytes": 32272,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_utils.so",
+      "path": "vendor/lib64/libqcodec2_utils.so",
+      "sha256": "165c41bca8e1c2222269ff4d05ecc0f7405f6d3f3667e9cbfeb8d8371a61401b",
+      "bytes": 479216,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libgralloc.qti.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_platform.so",
+        "vendor/lib64/libvideotxr.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_platform.so",
+      "path": "vendor/lib64/libqcodec2_platform.so",
+      "sha256": "48a3c1832cb1eb980c97f0994b3e605b29c327d988adaa871dfb90581cc5d0eb",
+      "bytes": 151992,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_basecodec.so",
+      "path": "vendor/lib64/libqcodec2_basecodec.so",
+      "sha256": "6428a9e34de50e62309759a561114821ba5debbe568968b76ce1bc0eff11a853",
+      "bytes": 443856,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_platform.so",
+        "vendor/lib64/libqcodec2_utils.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "path": "vendor/lib64/qti.video.utils.videobufferlayout.so",
+      "sha256": "89495a1aaf8fa383808b696edadcda6fcfbf4e718c08589b75e4e10960d768e5",
+      "bytes": 31472,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcodec2_filterbase.so",
+      "path": "vendor/lib64/libqcodec2_filterbase.so",
+      "sha256": "813a17dee36247b72fc9c39a23ff96973722bd252a2e1eaf4ed9e44be9390321",
+      "bytes": 324304,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libqcodec2_base.so",
+        "vendor/lib64/libqcodec2_basecodec.so",
+        "vendor/lib64/libqcodec2_utils.so",
+        "vendor/lib64/qti.video.utils.videobufferlayout.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "path": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
+      "sha256": "32946a43e8046ec21ca35be2c4bef750b433ec6ed8dda84348da848871763fe7",
+      "bytes": 281936,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "path": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
+      "sha256": "6c9538aa2dc7d33574579b44e02089a151fa44a9573ff41dc5561d8eb0ed328b",
+      "bytes": 287496,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "path": "vendor/lib64/libcodec2_hidl@1.0.so",
+      "sha256": "f77c0f4abfcc8b3e6ffcd5cfde19babd377aa5bd6bc933f9c2e4663afb1dede2",
+      "bytes": 368240,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_hidl_plugin.so",
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "path": "vendor/lib64/libcodec2_hidl@1.1.so",
+      "sha256": "8c637bfdff0f59802dba11ba493c0f014cf9a16163839312a26616e2a3329010",
+      "bytes": 142664,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_hidl@1.0.so",
+        "vendor/lib64/libcodec2_hidl_plugin.so",
+        "vendor/lib64/libcodec2_vndk.so",
+        "vendor/lib64/libstagefright_bufferpool@2.0.1.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "path": "vendor/lib64/libcodec2_hidl_plugin.so",
+      "sha256": "c73258997d22eea2c6e30de513432922b4be62080571667735b4caba6fde6eec",
+      "bytes": 112336,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock library linked by the selected Qualcomm Codec2 video service.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libvideotxr.so",
+      "path": "vendor/lib64/libvideotxr.so",
+      "sha256": "6a29320189371b4d0a78e0a0787950a41b95f613a8218d7863de23b0c07ccf8e",
+      "bytes": 4978368,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [
+        "vendor/lib64/libcodec2_vndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Vulkan image-transform engine linked by libqcodec2_utils (colour conversion, HDR metadata).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/seccomp_policy/codec2.vendor.base-arm64.policy",
+      "path": "vendor/etc/seccomp_policy/codec2.vendor.base-arm64.policy",
+      "sha256": "c6d8296c0daafc2f1b53fa01a45046e3a18799ec7357dc26f2f980356c25401b",
+      "bytes": 1995,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock seccomp policy the Codec2 service applies through libavservices_minijail (service path strings).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/seccomp_policy/codec2.vendor.ext-arm64.policy",
+      "path": "vendor/etc/seccomp_policy/codec2.vendor.ext-arm64.policy",
+      "sha256": "b7802c06ac68faf2574347360d6a8d24f6ef1ee4ebe3cc0eb0dece79729e9453",
+      "bytes": 255,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock device-specific seccomp additions the Codec2 service applies (service path strings).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_volcano_v1.xml",
+      "path": "vendor/etc/media_codecs_volcano_v1.xml",
+      "sha256": "19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f",
+      "bytes": 19331,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec list and limits for SoC variant _volcano_v1 (ro.media.xml_variant.codecs, device media.mk); installed as a pinned derivation without the hardware decoder section.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_performance_volcano_v1.xml",
+      "path": "vendor/etc/media_codecs_performance_volcano_v1.xml",
+      "sha256": "33ccf0f266e8cda8fc5d83102cfd56a90b6e916dd7cfaca0579972165fe680a5",
+      "bytes": 14195,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock measured frame rates for SoC variant _volcano_v1 (ro.media.xml_variant.codecs_performance).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_volcano_v1/video_system_specs.json",
+      "path": "vendor/etc/media_volcano_v1/video_system_specs.json",
+      "sha256": "994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09",
+      "bytes": 4387,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Qualcomm Codec2 target specification read by libqcodec2_platform from /vendor/etc/media${vendor.media.target_variant}/ (codec plugins, presets; dumps off); installed as a pinned derivation that lists only the hardware encoders as available.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_google_audio.xml",
+      "path": "vendor/etc/media_codecs_google_audio.xml",
+      "sha256": "f33464aee38c30e1fe52764bdb1d98ccd56a8214618d03b061b0fd63c38b0000",
+      "bytes": 4831,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_vendor_audio.xml",
+      "path": "vendor/etc/media_codecs_vendor_audio.xml",
+      "sha256": "7243761f12b860cd9edc37295f3f3452d159e11249baab8525e59f65f5e392dc",
+      "bytes": 975,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_google_telephony.xml",
+      "path": "vendor/etc/media_codecs_google_telephony.xml",
+      "sha256": "d0ebc3f9b6739d22f140e1a3acae6d92874736c89c53f82779e2e754032ed085",
+      "bytes": 973,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_c2_audio.xml",
+      "path": "vendor/etc/media_codecs_c2_audio.xml",
+      "sha256": "456ae9ce0749fe3dc5b05b1f2ce963c741b851d0c16b6d3b1e0c002c11bb218f",
+      "bytes": 7142,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_google_c2.xml",
+      "path": "vendor/etc/media_codecs_google_c2.xml",
+      "sha256": "46589476ce668dd534368238de8cf8ccaca2be7c295451d43023561bfa7fb9b4",
+      "bytes": 808,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_google_c2_audio.xml",
+      "path": "vendor/etc/media_codecs_google_c2_audio.xml",
+      "sha256": "4f3ffe55c3148cedb9f0a484ed251c6f88c11bb88c0c8b0cba3cd3e7048a7124",
+      "bytes": 5986,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/media_codecs_google_c2_video.xml",
+      "path": "vendor/etc/media_codecs_google_c2_video.xml",
+      "sha256": "8a186d27354b98dacf462433912946cbb4b9b153f9995ed3de7568f5e04de648",
+      "bytes": 8755,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock codec XML included by the selected codec lists (Include href).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [
