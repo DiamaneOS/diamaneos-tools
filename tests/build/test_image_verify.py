@@ -238,6 +238,43 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AServiceManager_addService']}, v)[0])
         self.assertFalse(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AIBinder_new']}, v)[0])
 
+    def test_codec2_graphicbuffer_abi_guard(self):
+        rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
+                'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],
+                'symbols_present': ['_ZN7android13GraphicBufV34C1Ev'],
+                'symbols_absent': ['_ZN7android13GraphicBufferC1Ev'],
+                'ctor_symbols': ['_ZN7android13GraphicBufV34C1Ev']}
+        dyn = ('Dynamic section at offset 0x1 contains entries:\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [uiv34.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libutils.so]\n'
+               'Symbol table (.dynsym):\n'
+               '   10: 0000000000000000 0 FUNC GLOBAL DEFAULT UND _ZN7android13GraphicBufV34C1Ev\n'
+               '   11: 0000000000001000 8 FUNC GLOBAL DEFAULT 15 _ZN7android2spINS_13GraphicBufferEEaSERKS2_\n')
+        good = ('0000000000008000 <fn>:\n'
+                '   8000:\tmov\tw0, #0x100\n'
+                '   8004:\tbl\t0xc4070 <_Znwm@plt>\n'
+                '   8008:\tbl\t0xc56d8 <_ZN7android13GraphicBufV34C1Ev@plt>\n'
+                '   800c:\tmov\tw0, #0x100\n'
+                '   8010:\tstr\txzr, [sp]\n'
+                '   8014:\tbl\t0xc4070 <_Znwm@plt>\n'
+                '   8018:\tbl\t0xc56d8 <_ZN7android13GraphicBufV34C1Ev@plt>\n')
+        tools = FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): good})
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'}, tools=tools)
+        self.assertTrue(subject.rule_codec2_abi_guard(rule, v)[0])
+        # Not rewritten: still libui, still the Android 17 GraphicBuffer symbols.
+        stock_dyn = dyn.replace('uiv34.so', 'libui.so').replace('GraphicBufV34', 'GraphicBuffer')
+        stock = good.replace('GraphicBufV34', 'GraphicBuffer')
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'},
+                         tools=FakeTools({('llvm-readelf',): stock_dyn, ('llvm-objdump',): stock}))
+        ok, detail = subject.rule_codec2_abi_guard(rule, v)
+        self.assertFalse(ok)
+        self.assertIn('still depends on libui.so', detail)
+        # A construction whose allocation is not 256 bytes is caught.
+        wrong = good.replace('mov\tw0, #0x100', 'mov\tw0, #0xd30', 1)
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'},
+                         tools=FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): wrong}))
+        self.assertFalse(subject.rule_codec2_abi_guard(rule, v)[0])
+
     def test_missing_tool_is_a_failed_check_not_a_crash(self):
         v = subject.Verification.__new__(subject.Verification)
         v.results = []

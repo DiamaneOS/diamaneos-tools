@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-05 (camera: the stock camera provider runs under a seccomp filter set up before its main(), so before CamX loads: threads but no child processes, Unix and QRTR sockets only, no writable and executable memory; for now calls outside the list are logged, not blocked; implemented, not yet built); 2026-10-05 (camera: the Adreno OpenCL runtime and compiler, about 34 MB selected only for the camera, and the software chromatic-aberration library that links the runtime are no longer shipped; implemented, not yet built); 2026-10-05 (public-text pass: statuses brought up to date: Bluetooth pairing, music and a headset call work with our own HCI service; calls with audio work through the call-audio bridge, which also holds the call-audio control permission; compressed music is decoded in software; the -153 fix, the debugfs mount refusal, the location logging changes, the vendor patch level and the public build commands are in builds; the IMS evidence states what exists instead of release gates); 2026-10-05 (Qualcomm's closed perf2 daemon, which ran as root with a broad policy, and its client libraries are no longer shipped: LineageOS's open libperfmgr power HAL replaces it and the CodeLinaro power HAL, running as system with CAP_SYS_NICE only in a narrow domain that may write only the CPU and GPU frequency limits it is handed; a no-op perf client ends the camera's perf2 lookups; implemented, not yet built); 2026-10-05 (cellular hardening, source review: the 2G and LTE-only settings reach the modem's network preference, not yet re-checked on the phone; the radio software answers "not supported" to the null-cipher control and predates cellular security notifications, so Settings hides both; Settings offers Android's network-type list instead of the stock list of CDMA world modes, implemented, not yet built); 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-05 (hardware video: the stock Qualcomm Codec2 service is enabled for the hardware encoders only, decoding stays in the sandboxed software codecs; the stock codec library was built against Android 14, where GraphicBuffer is 256 bytes, so rather than overflow the service heap on Android 17 its GraphicBuffer is replaced by a fail-closed Android 14 sized one, and a build check proves the 256-byte allocations bind the 256-byte object, finding -115; implemented, not yet built); 2026-10-05 (camera: the stock camera provider runs under a seccomp filter set up before its main(), so before CamX loads: threads but no child processes, Unix and QRTR sockets only, no writable and executable memory; for now calls outside the list are logged, not blocked; implemented, not yet built); 2026-10-05 (camera: the Adreno OpenCL runtime and compiler, about 34 MB selected only for the camera, and the software chromatic-aberration library that links the runtime are no longer shipped; implemented, not yet built); 2026-10-05 (public-text pass: statuses brought up to date: Bluetooth pairing, music and a headset call work with our own HCI service; calls with audio work through the call-audio bridge, which also holds the call-audio control permission; compressed music is decoded in software; the -153 fix, the debugfs mount refusal, the location logging changes, the vendor patch level and the public build commands are in builds; the IMS evidence states what exists instead of release gates); 2026-10-05 (Qualcomm's closed perf2 daemon, which ran as root with a broad policy, and its client libraries are no longer shipped: LineageOS's open libperfmgr power HAL replaces it and the CodeLinaro power HAL, running as system with CAP_SYS_NICE only in a narrow domain that may write only the CPU and GPU frequency limits it is handed; a no-op perf client ends the camera's perf2 lookups; implemented, not yet built); 2026-10-05 (cellular hardening, source review: the 2G and LTE-only settings reach the modem's network preference, not yet re-checked on the phone; the radio software answers "not supported" to the null-cipher control and predates cellular security notifications, so Settings hides both; Settings offers Android's network-type list instead of the stock list of CDMA world modes, implemented, not yet built); 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or Fairphone.
 
@@ -327,18 +327,34 @@ entry point), the protections in current builds, what remains, and the status.
 #### App data from remote exploit
 
 - **Threat:** remote network, media or web content, via carrier and Wi-Fi data,
-  media files and streams, browser and WebView, captive portals, and web content
-  reaching the GPU shader compiler.
+  media files and streams, browser and WebView, captive portals, web content
+  reaching the GPU shader compiler, and decoded frames an app re-encodes with
+  the hardware video encoder.
 - **Protection:** inherited sandbox, hardened_malloc, exec spawning; Vanadium
-  browser and WebView as mirrored unmodified APKs.
+  browser and WebView as mirrored unmodified APKs; media is decoded only by the
+  platform software codecs in their sandboxed process (hardware decoders
+  excluded); the hardware encoder service keeps the stock seccomp sandbox and
+  the platform codec domain, lists and creates encoders only, and has no camera,
+  decoder, DSP or display-configuration device access. The stock Codec2
+  libraries were built against Android 14, where GraphicBuffer is 256 bytes;
+  rather than bind them to Android 17's 3376-byte GraphicBuffer (a heap overflow
+  reachable by any app that attaches a surface to a codec), the library's
+  GraphicBuffer is replaced by an Android 14 sized one that fails closed, so the
+  surface-output path returns an error. A build check disassembles the library
+  and confirms the 256-byte allocations bind the 256-byte object.
 - **Remaining:** no MTE; closed GPU driver and shader compilers in every app
-  process; hardware video decode is not integrated; inherited captive-portal
-  WebView; browser component updates still point upstream.
+  process; closed video encoder, video driver and video firmware; the
+  encoder-only codec listing falls back to every codec if the codec's own
+  configuration cannot be read (its codec list and device-node permissions still
+  keep hardware decoders out); codec seccomp installation is unverified and can
+  fail open; inherited captive-portal WebView; browser component updates still
+  point upstream.
 - **Status:** Bring-up (not qualified): exec spawning, sandbox permissions and
-  browser delivery unvalidated on the FP6. Observed (bring-up): hardened_malloc
-  active (48-bit VA kernel). Unverified: inherited hardening (FP6-046), debug
-  exposure and component removal (FP6-060, FP6-061), DRM limits (FP6-065),
-  browser delivery (FP6-105, FP6-111).
+  browser delivery unvalidated on the FP6. Designed (implemented, not yet
+  built): the encoder-only hardware codec service and its Android 14 GraphicBuffer
+  compat. Observed (bring-up): hardened_malloc active (48-bit VA kernel).
+  Unverified: inherited hardening (FP6-046), debug exposure and component removal
+  (FP6-060, FP6-061), DRM limits (FP6-065), browser delivery (FP6-105, FP6-111).
 
 #### Traffic outside Android network policy
 
@@ -577,8 +593,9 @@ entry point), the protections in current builds, what remains, and the status.
 
 - **Threat:** malicious app or remote content reaching closed vendor code
   through a platform service: camera, media, display, audio, sensors, GNSS, NFC
-  and Bluetooth HAL interfaces; same-process GPU libraries; persist and vendor
-  data files parsed by closed code.
+  and Bluetooth HAL interfaces (the hardware video encoder service, which every
+  app except isolated processes can call); same-process GPU libraries; persist
+  and vendor data files parsed by closed code.
 - **Protection:** per-file allowlisted, hash-pinned stock selection; SELinux
   grants bound to each service domain; a closed HAL's internal endpoints
   reachable only from its own process (audio since the 2026-09-26 build); fewer
@@ -1251,10 +1268,10 @@ VPN, and what a locked phone shows.
   modules meet the selected KMI/UAPI, or that binaries reproduce stock.
 - **Closed components:** the camera, radio and IMS, secure-world, sensor, DRM
   and much of the graphics and media runtime depend on proprietary userspace or
-  firmware. The bring-up selection holds 679 closed stock files (about 335 MB):
+  firmware. The bring-up selection holds 710 closed stock files (about 346 MB):
   camera 211, radio and IMS 154, sensors 84, display and GPU 74, audio 41,
-  credentials 36, remote-processor services 24, thermal 7, plus
-  smaller Bluetooth, NFC, GNSS and fingerprint sets.
+  credentials 36, video encoding 31, remote-processor services 24, thermal 7,
+  plus smaller Bluetooth, NFC, GNSS and fingerprint sets.
 - **Stock input:** `FP6.QREL.16.111.0` for the EU (`FP6.QREL.16.100.0` until
   2026-09-30); its verified factory package is the authoritative extraction
   input. Vendor generation uses an explicit per-file recipe (partition, path,
@@ -1354,7 +1371,12 @@ Decisions that define current behaviour:
 ## Architecture and verification review
 
 Paths reviewed: remote (network observer, DNS and captive portal); remote media
-(remote media, video device nodes); malicious app (permission and background
+(remote media, software decoders, the hardware encoder service and video device
+nodes: media is decoded only by the software codecs, the encoder service lists
+and creates encoders only with no camera, decoder, DSP or display-configuration
+access, and the stock codec library's Android 14 GraphicBuffer is replaced by a
+fail-closed Android 14 sized one so the surface path cannot overflow the service
+heap); malicious app (permission and background
 listener; camera permission, camera service and closed camera provider, with
 grants bound to its domain, reduced groups and no network under enforcing
 SELinux; flashlight controls reach the closed provider without the camera
