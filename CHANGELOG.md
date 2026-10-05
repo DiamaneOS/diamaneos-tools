@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Build the kernel with integrity lockdown instead of confidentiality
+  (kernel_qcom-6.1 2d006c3, common kernel d2d69f8): confidentiality emptied
+  tracefs and denied BPF kernel-memory reads, so Android's per-app CPU time
+  and lmkd's memory-event listener could not start. Kernel policy v10 requires
+  integrity and fails a confidentiality configuration. FP6-KERNEL.md and the
+  threat model state what SELinux still allows on tracefs.
 - Drop the CodeLinaro power HAL fork (vendor_qcom_opensource_power) from the
   fork list, patch inventories and repository map: the power HAL is
   LineageOS's libperfmgr, and the fork was no longer built.
