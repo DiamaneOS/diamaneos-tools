@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Build the image tools with a fixed build number and the sources' own date:
+  aapt2 carried the build day in its version string, its hash reached the
+  vendor inventory, and the same sources gave a different build identity on
+  another day. build.json names the factory package by file name instead of
+  its workspace path. Found by a second build that otherwise matched bit for
+  bit.
 - Check that ueventd gives the traceability partition to imeiprovd's group,
   read-only; without it the tool cannot read the IMEIs.
 - Check the parallel kernel module streams of the device tree: the

@@ -88,6 +88,16 @@ def frp_image(path: Path, size: int) -> None:
     path.write_bytes(bytes(data))
 
 
+def public_vendor_outputs(outputs: dict) -> dict:
+    """The vendor step outputs for build.json, without workspace paths: the
+    factory package is recorded by file name (its SHA-256 is recorded too), so
+    the same sources give the same record on every host and workspace."""
+    record = dict(outputs)
+    if record.get('factory_zip'):
+        record['factory_zip'] = Path(record['factory_zip']).name
+    return record
+
+
 def stock_partition_size(factory_zip: Path, label: str) -> int | None:
     """A partition's size in the factory package's partition table
     (images/rawprogram*.xml), or None when the package does not list it."""
@@ -244,7 +254,7 @@ def plan(ctx):
             'kernel_prebuilts': {'path': product_inputs.KERNEL_PREBUILTS,
                                  'commit': sync['outputs'].get('kernel_prebuilts_commit')},
             'generated_inputs': {'descriptor_sha256': out['descriptor_sha256'],
-                                 'vendor': vendor['outputs'] if vendor else None},
+                                 'vendor': public_vendor_outputs(vendor['outputs']) if vendor else None},
             'stock_build': ctx.environment['device_inputs']['selected_stock_build'],
             'target_files': {'file': TARGET_FILES_COPY, 'sha256': out['target_files_sha256']},
             'network_isolation': out['network_isolation'], 'host': ctx.host,
