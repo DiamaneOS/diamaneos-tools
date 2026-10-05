@@ -10,6 +10,22 @@
 - Drop the 22 retired kernel component forks and the old kernel manifest from
   the repository map: they are deleted, and the kernel builds from
   kernel_qcom-6.1.
+- `build sync --resolved-manifest FILE` (also `build all`) syncs the source of
+  a recorded image set: every project at the commit its resolved manifest
+  names, and the manifest checkout at the commit its `build.json` records
+  (`--build-json`, or `--manifest-commit`), which must be in the manifest
+  branch's history. The file must match the SHA-256 `build.json` records, and
+  that commit's manifest apart from the project commits; afterwards
+  `repo manifest -r` must give it byte for byte. The sync and `android` steps
+  check the recorded manifest commit instead of the branch head and say so.
+  The sync state records the reproduction.
+- `build sync --shallow` fetches the largest prebuilt projects itself before
+  `repo sync`: one revision each at depth 1, with a low-speed abort and a
+  bounded number of attempts (`shallow_prefetch` in `config/fp6-build.json`).
+  It also removes project git directories an interrupted sync left without
+  data. A broken-off depth-1 fetch of the clang prebuilts had made `repo`
+  fetch the project without depth, which did not finish, and those empty
+  directories came back with their whole history.
 - Build the image tools with a fixed build number and the sources' own date:
   aapt2 carried the build day in its version string, its hash reached the
   vendor inventory, and the same sources gave a different build identity on

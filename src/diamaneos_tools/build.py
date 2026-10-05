@@ -626,6 +626,11 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     }
 
 
+def repo_manifest(source: Path, resolved: bool = True) -> bytes:
+    """``repo manifest`` of a checkout; ``resolved`` adds -r (each project at its checked-out commit)."""
+    return _run(["repo", "manifest", *(["-r"] if resolved else [])], cwd=source, timeout=300).stdout
+
+
 def verify_repo_tool(config: dict, source: Path) -> dict:
     """Authenticate the pinned repo implementation of a checkout."""
     upstream = config["upstream"]
@@ -691,8 +696,15 @@ def verify_projects(source: Path, rows) -> None:
                          + ", ".join(dirty))
 
 
-def verify_manifest_repository(config: dict, source: Path) -> str:
-    """The manifest checkout follows the declared manifest; returns its commit."""
+def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None) -> str:
+    """The manifest checkout follows the declared manifest; returns its commit.
+
+    The checkout must be at the head of the declared branch. A sync that
+    reproduces a recorded resolved manifest passes the manifest commit that
+    build recorded as ``manifest_commit``; the checkout must then be at that
+    commit instead, because the branch may have moved since, and the commit
+    must be in the branch's history.
+    """
     manifest = config["manifest"]
     manifests = source / ".repo" / "manifests"
     if not manifests.is_dir():
@@ -708,27 +720,42 @@ def verify_manifest_repository(config: dict, source: Path) -> str:
                          reference + "^{commit}"]).stdout.decode().strip()
     except BuildError:
         expected = None
-    if expected != head:
-        raise BuildError(f"manifest checkout is not at {branch}; run repo init with -b {branch}")
+    if manifest_commit is None:
+        if expected != head:
+            raise BuildError(f"manifest checkout is not at {branch}; run repo init with -b {branch}")
+    else:
+        if not isinstance(manifest_commit, str) or SHA1_RE.fullmatch(manifest_commit) is None:
+            raise BuildError("the recorded manifest commit is not a full commit id")
+        if head != manifest_commit:
+            raise BuildError(f"manifest checkout is not at the recorded manifest commit {manifest_commit}")
+        try:
+            if expected is None:
+                raise BuildError("no branch reference")
+            _run(["git", "-C", str(manifests), "merge-base", "--is-ancestor", manifest_commit, expected])
+        except BuildError:
+            raise BuildError(f"the recorded manifest commit {manifest_commit} is not in the history of "
+                             f"{branch}") from None
     if "revision" in manifest and head != manifest["revision"]:
         raise BuildError("manifest checkout does not match the pinned manifest revision")
     return head
 
 
 def verify_branch_checkout(config: dict, source: Path, environment_sha256: str | None = None,
-                           resolved_path: Path | None = None) -> dict:
+                           resolved_path: Path | None = None, manifest_commit: str | None = None) -> dict:
     """Verify a checkout of the DiamaneOS manifest (manifest mode).
 
     The builder trusts the declared manifest branch: the resolved manifest
     (``repo manifest -r``) is the record of what was built. Every project
     must be clean at its resolved commit, and nothing outside the projects,
     their copy/link files and the bound generated inputs may exist.
-    ``resolved_path`` receives the resolved manifest.
+    ``resolved_path`` receives the resolved manifest. ``manifest_commit``
+    replaces the branch-head check when the checkout reproduces a recorded
+    resolved manifest (see verify_manifest_repository).
     """
     if "manifest" not in config:
         raise BuildError("the build environment does not declare a manifest")
     result = verify_repo_tool(config, source)
-    manifest_commit = verify_manifest_repository(config, source)
+    manifest_commit = verify_manifest_repository(config, source, manifest_commit)
     resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
     rows, project_map_sha256 = parse_project_map(resolved)
     if any(not remote.get("fetch", "").startswith("https://")
