@@ -354,6 +354,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   technologies and the phone stays on LTE with calls working; with LTE-only it
   allows LTE alone and calls over LTE work; turning protection off brings GSM
   back. Settings shows Android's filtered network-type list.
+- **2026-10-05:** a power stats HAL of our own, implemented, not yet built.
+  Stock ships none. It reports the SoC sleep modes and the modem, WPSS, ADSP
+  and CDSP sleep time from the qcom_stats driver's `/dev/stats` ioctls, runs
+  as its own vendor user without capabilities in the platform power stats HAL
+  domain, and is the only vendor process that may open the node, limited to
+  the seven read commands it uses. The driver's other commands read the wrong
+  subsystem entries or send a request to the AOSS and stay denied. No energy
+  meters: the FP6 has no on-device power monitor.
 
 ## IMS integration notes
 
