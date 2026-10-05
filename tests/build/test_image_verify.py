@@ -389,14 +389,15 @@ class GenericCheckTests(unittest.TestCase):
         (kernel / 'BoardConfigKernel.mk').write_text(
             'BOARD_VENDOR_KERNEL_MODULES := m/a.ko\nBOARD_SYSTEM_KERNEL_MODULES := m/s.ko\n'
             'BOARD_VENDOR_RAMDISK_KERNEL_MODULES := m/r.ko\nBOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := m/r.ko\n'
-            'BOARD_VENDOR_RAMDISK_RECOVERY_KERNEL_MODULES_LOAD := m/r.ko\n')
+            'BOARD_VENDOR_RAMDISK_RECOVERY_KERNEL_MODULES_LOAD := m/r.ko\nBOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko\n')
         signed = b'module' + subject.MODULE_SIGNATURE
         members = {'VENDOR_DLKM/lib/modules/a.ko': signed, 'SYSTEM_DLKM/lib/modules/s.ko': signed,
                    'VENDOR_BOOT/RAMDISK/lib/modules/r.ko': signed,
                    'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'r.ko\n',
                    'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'r.ko\n',
                    'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b'blocklist x\n',
-                   'VENDOR_DLKM/lib/modules/modules.blocklist': b'blocklist x\n'}
+                   'VENDOR_DLKM/lib/modules/modules.blocklist': b'blocklist x\n',
+                   'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\n'}
         packaging = {'denied_modules': [{'modules': ['can.ko'], 'reason': 'no CAN'}],
                      'partitions': {'vendor_dlkm': ['a.ko']}, 'load_lists': {}}
         v = self.harness(members)
@@ -410,6 +411,45 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('denied module', detail)
         self.assertIn('unsigned module', detail)
+
+    def test_vendor_load_list_and_streams_follow_the_kernel_prebuilts(self):
+        kernel = self.root / 'kernel'
+        kernel.mkdir()
+        (kernel / 'BoardConfigKernel.mk').write_text(
+            'BOARD_VENDOR_KERNEL_MODULES := m/a.ko m/b-x.ko m/c.ko m/d.ko\n'
+            'BOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko b-x.ko c.ko d.ko\n')
+        signed = b'module' + subject.MODULE_SIGNATURE
+        base = {f'VENDOR_DLKM/lib/modules/{n}': signed for n in ('a.ko', 'b-x.ko', 'c.ko', 'd.ko')}
+        base.update({'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'',
+                     'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'',
+                     'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b'',
+                     'VENDOR_DLKM/lib/modules/modules.blocklist': b'',
+                     'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\nb-x.ko\nc.ko\nd.ko\n'})
+        packaging = {'partitions': {'vendor_dlkm': []}, 'load_lists': {}}
+
+        def check(**changes):
+            members = dict(base)
+            for name, data in changes.items():
+                path = 'VENDOR_DLKM/lib/modules/modules.load' + ('' if name == 'full' else '.' + name)
+                if data is None:
+                    members.pop(path)
+                else:
+                    members[path] = data
+            v = self.harness(members)
+            v.kernel_dir, v.packaging = kernel, packaging
+            return subject.check_modules(v)
+
+        self.assertEqual((True, ''), check())
+        self.assertEqual((True, ''), check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\n', third=b'd.ko\n'))
+        self.assertIn('order differs from the kernel prebuilts', check(full=b'b-x.ko\na.ko\nc.ko\nd.ko\n')[1])
+        self.assertIn('lists 3 modules, the kernel prebuilts 4', check(full=b'a.ko\nb-x.ko\nc.ko\n')[1])
+        self.assertIn('modules.load is missing', check(full=None)[1])
+        self.assertIn('1 modules.load modules are in no stream: d.ko',
+                      check(first=b'a.ko\nc.ko\n', second=b'b-x.ko\n')[1])
+        self.assertIn('stream first is not in modules.load order', check(first=b'c.ko\na.ko\n', second=b'b-x.ko\nd.ko\n')[1])
+        self.assertIn('c is in streams first and second', check(first=b'a.ko\nc.ko\n', second=b'b-x.ko\nc.ko\nd.ko\n')[1])
+        self.assertIn('stream second lists modules outside modules.load: e.ko',
+                      check(first=b'a.ko\nb-x.ko\nc.ko\n', second=b'd.ko\ne.ko\n')[1])
 
     def test_vendor_binding_compares_generated_bytes(self):
         from diamaneos_tools import carrier_data
