@@ -154,7 +154,7 @@ tests does not establish the caller's end-to-end result.
 
 Use `main` for tools and standalone services, and `android17` for every OS
 repository: the manifest, device and shared product repositories and the kernel
-forks. Preserve upstream history and signed commits. Keep
+repositories. Preserve upstream history in forks and keep commits signed. Keep
 independent Git backups; ROM images and build evidence belong outside source
 Git. Repository discovery is in `config/repositories.json`; exact build pins
 remain in the manifest and environment records.

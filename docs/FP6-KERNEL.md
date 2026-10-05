@@ -29,6 +29,9 @@ listed in `prebuilts.json` with exact revisions and fetched into
 repository fetches them for a plain clone. Each upstream project was imported
 once on the repository's `upstream` branch; DiamaneOS changes are commits on
 `android17`.
+[`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records
+the upstream commit and release of the imports `forks check` follows
+([upstream tracking](BUILD.md#upstream-tracking)).
 
 [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins the
 repository and one commit. `kernel prepare --workspace DIR`:
@@ -167,12 +170,12 @@ confidentiality mode, and pins settings hardware support needs without failing
 loudly: kprobes and kretprobes, the firmware loader's user-helper fallback (the
 device init sets `force_sysfs_fallback`, so ueventd loads firmware) and the
 debugfs API, which kernel code keeps while mounts are refused. The settings
-live in `arch/arm64/configs/gki_defconfig`, identical in the common and vendor
-forks and kept in `savedefconfig` form because the GKI build runs
-`check_defconfig`.
+live in `arch/arm64/configs/gki_defconfig`, identical in the common kernel and
+the vendor kernel (`kernel_platform/msm-kernel`) and kept in `savedefconfig`
+form because the GKI build runs `check_defconfig`.
 
 `--config-profile development` checks only the baseline and records the
-profile; the configuration itself always comes from the pinned fork commits.
+profile; the configuration itself always comes from the pinned source commit.
 Neither profile has SELinux development mode, so the kernel cannot go
 permissive: `setenforce 0` fails, and on userdebug
 `androidboot.selinux=permissive` makes init stop fatally. Never combine it with
@@ -187,9 +190,9 @@ debugfs keeps its in-kernel API but cannot be mounted
 broke this mode in Linux 5.12: `debugfs_init()` returned before marking debugfs
 ready, so every `debugfs_create_*` failed, the display driver failed to bind
 (no display, boot never completed) and a recovery module's init failed,
-stopping recovery's first-stage module loading. Both forks carry the fix in
-`fs/debugfs/inode.c`. No vendor or recovery init script mounts debugfs and the
-device policy gives no service access to debugfs files; user builds never
+stopping recovery's first-stage module loading. Both kernel trees carry the fix
+in `fs/debugfs/inode.c`. No vendor or recovery init script mounts debugfs and
+the device policy gives no service access to debugfs files; user builds never
 mounted it, and on debuggable builds AOSP's `init-debug.rc` mount at early-init
 and dumpstate's mount for the dumpstate HAL now fail harmlessly.
 
@@ -215,8 +218,8 @@ their values.
 
 pstore/ramoops keeps the previous boot's kernel console and pmsg across a warm
 reboot in a 4 MiB region placed at boot in `/reserved-memory` of the FP6 device
-tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), from the DiamaneOS
-fork of Fairphone's SoC device-tree project. Reboots and kernel crashes are cold
+tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), a DiamaneOS change
+to Fairphone's SoC device tree. Reboots and kernel crashes are cold
 by default (`/sys/kernel/reboot/mode` is `cold`, Qualcomm download mode off):
 the PMIC's hard reset clears RAM and the region. A one-off warm reboot on the
 2026-09-27 development build kept both zones, so the bootloader does not clear

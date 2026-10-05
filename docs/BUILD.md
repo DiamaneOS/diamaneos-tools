@@ -277,24 +277,44 @@ exact commit of each project is known afterwards.
 
 ## Upstream tracking
 
-[`config/forks.json`](../config/forks.json) lists every upstream the build uses.
-`forks` are the repositories DiamaneOS forks and patches: the forks the
-DiamaneOS manifest selects and the kernel forks. A fork exists only where
-DiamaneOS changes the code; each follows the CodeLinaro release branch of the
-selected Qualcomm release. A fork that stops carrying a needed change leaves
-the registry, the manifest takes the upstream project unmodified, and
-`config/repositories.json` marks it `retired` while it is still published.
-A retired fork may be deleted; its entry then goes, and builds
-whose manifests pinned it can no longer be synced from GitHub (the five kernel forks
-retired on 2026-09-27 were deleted that day). A `follow_note` says why a fork that ships nothing
-is still needed, for example a target name other projects depend on. `sources` are pinned inputs used unmodified: the
-GrapheneOS release, the repo launcher, Fairphone's source manifest, the
-Qualcomm SELinux policy, the stock factory image and the platform repositories
-the manifest takes straight from CodeLinaro or Fairphone. Each names the file and
-field that hold its pin, so the registry never repeats a revision. `newer`
-patterns name the branches or tags that would supersede a followed reference,
-such as Fairphone's next `odm/rc/target/<android>/fp6` branch or the next
-CodeLinaro release tag.
+[`config/forks.json`](../config/forks.json) lists every upstream the build
+uses. `forks` are the repositories DiamaneOS forks and patches: the forks the
+DiamaneOS manifest selects and the common kernel (`kernel_common-6.1`). A fork
+exists only where DiamaneOS changes the code. A fork that stops carrying a
+needed change leaves the registry, the manifest takes the upstream project
+unmodified, and `config/repositories.json` marks it `retired` while it is still
+published. A retired fork may be deleted; its entry then goes, and builds whose
+manifests pinned it can no longer be synced from GitHub. A `follow_note` says
+how a fork follows upstream or why one that ships nothing is kept. `sources`
+are pinned inputs that are not forked: the GrapheneOS release, the repo
+launcher, Fairphone's source manifest, the Qualcomm SELinux policy, the stock
+factory image, the platform repositories the manifest takes straight from
+CodeLinaro or Fairphone, and the upstream projects imported into the kernel
+repository. Each names the file and field that hold its pin, so the registry
+never repeats a revision. `newer` patterns name the branches or tags that would
+supersede a followed reference, such as Fairphone's next
+`odm/rc/target/<android>/fp6` branch or the next CodeLinaro release tag.
+
+The kernel's upstream projects are folders of
+[`kernel_qcom-6.1`](https://github.com/DiamaneOS/kernel_qcom-6.1), except the
+common kernel submodule. Each was imported as one commit on its `upstream`
+branch, which is merged into `android17`, so upstream commits are not in the
+history of `android17`.
+[`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records
+the imports followed one by one (the vendor kernel, the techpack drivers, two
+device trees and edk2): the upstream commit, the newest release tag that commit
+contains (matching the source's `newer_tags`, or `null`) and whether the folder
+also carries Fairphone's FP6 changes. The other imports are followed through
+Fairphone's source manifest. An import is `current` while its followed
+branch still points at the recorded commit; release tags after the recorded
+release are `newer`. To take an update, import the new upstream state on
+`upstream` and merge it into `android17`. Where `fairphone_changes` is true, the
+import must carry Fairphone's FP6 changes too (Fairphone's rebased branch, or
+the difference between the recorded commit and the folder on `upstream`,
+applied to the new state), or the merge drops them. The change that moves
+`config/kernel-sources-fp6.json` to the merged commit also sets the project's
+`commit` and `release`; `git tag --merged <commit>` in a clone of the upstream
+project lists the releases a commit contains.
 
 ```sh
 bin/diamaneos forks check           # remote refs only; exit 1 when something moved
@@ -307,9 +327,10 @@ answers "is this commit already ours?" locally, without fetching missing
 objects into partial clones. States: `current`, `update-available` (the followed
 branch moved), `newer-release` (a newer branch or tag exists), `pinned-commit`
 (the entry follows no branch or tag yet), `manual-check` (not a Git source) and
-`error`. Adopting any update is a reviewed, signed change: rebase, run the
-tests (and for the kernel, the kernel build with its layout checks), build,
-then push the fork branch or update the manifest's pinned revision.
+`error`. `status` and `update` work on forks only. Adopting any update is a
+reviewed, signed change: rebase or import, run the tests (and for the kernel,
+the kernel build with its layout checks), build, then push the fork branch or
+update the pinned revision.
 
 ## Signing handoff
 
