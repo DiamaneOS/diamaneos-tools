@@ -427,6 +427,10 @@ class GenericCheckTests(unittest.TestCase):
                      'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\nb-x.ko\nc.ko\nd.ko\n'})
         packaging = {'partitions': {'vendor_dlkm': []}, 'load_lists': {}}
 
+        rc = ''.join(f'service vendor.modprobe_{s} /vendor/bin/modprobe -q -b '
+                     f'--all=/vendor/lib/modules/modules.load.{s}\n    oneshot\n\n' for s in ('first', 'second'))
+        base['VENDOR/etc/init/hw/init.qcom.rc'] = rc.encode()
+
         def check(**changes):
             members = dict(base)
             for name, data in changes.items():
@@ -440,7 +444,9 @@ class GenericCheckTests(unittest.TestCase):
             return subject.check_modules(v)
 
         self.assertEqual((True, ''), check())
-        self.assertEqual((True, ''), check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\n', third=b'd.ko\n'))
+        self.assertEqual((True, ''), check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\nd.ko\n'))
+        self.assertIn('no vendor init service loads stream third',
+                      check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\n', third=b'd.ko\n')[1])
         self.assertIn('order differs from the kernel prebuilts', check(full=b'b-x.ko\na.ko\nc.ko\nd.ko\n')[1])
         self.assertIn('lists 3 modules, the kernel prebuilts 4', check(full=b'a.ko\nb-x.ko\nc.ko\n')[1])
         self.assertIn('modules.load is missing', check(full=None)[1])

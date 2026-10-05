@@ -882,6 +882,13 @@ def check_modules(v):
         streams = {n.removeprefix(VENDOR_LOAD + '.'): load_entries(v.tf.read(n))
                    for n in v.tf.names if n.startswith(VENDOR_LOAD + '.')}
         problems += load_stream_problems(full, streams) if streams else []
+        rc = '\n'.join(text_of(v.tf.read(n)) for n in v.tf.names
+                       if n.startswith('VENDOR/etc/init/') and n.endswith('.rc'))
+        unloaded = [s for s in sorted(streams) if not re.search(
+            r'^service \S+ /vendor/bin/modprobe .*--all=/vendor/lib/modules/modules\.load\.' + re.escape(s) + '$',
+            rc, re.M)]
+        if unloaded:
+            problems.append('no vendor init service loads stream ' + ', '.join(unloaded))
     return not problems, '; '.join(problems)
 
 
