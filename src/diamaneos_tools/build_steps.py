@@ -292,6 +292,7 @@ def plan_sync(ctx: Context) -> StepPlan:
     # manifest is recorded in the outputs, so later steps see the same inputs.
     inputs = {'environment_sha256': ctx.environment_sha256}
     jobs = ctx.jobs_for(cap=16)
+    settings = source_sync.prefetch_settings(ctx.config) if ctx.shallow else None
     memo = {}
 
     def create():
@@ -332,6 +333,17 @@ def plan_sync(ctx: Context) -> StepPlan:
         build.verify_manifest_repository(env, ws.src, pinned.manifest_commit)
         source_sync.check_against_manifest(pinned.data, repo_manifest(), pinned.manifest_commit)
 
+    def clear_empty():
+        cleared = source_sync.clear_half_initialised(ws.src, source_sync.manifest_projects(repo_manifest()))
+        if cleared:
+            ctx.echo(f'    removed the empty git directories of {len(cleared)} projects: ' + ', '.join(cleared[:10])
+                     + (' and more' if len(cleared) > 10 else ''))
+
+    def prefetch():
+        targets = source_sync.prefetch_targets(pinned.data if pinned else repo_manifest(), settings['projects'],
+                                               ctx.echo)
+        source_sync.prefetch(ws.src, targets, settings, ctx.echo)
+
     def retire():
         moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256)
         if moved:
@@ -365,6 +377,15 @@ def plan_sync(ctx: Context) -> StepPlan:
             Action(f'Check the manifest checkout is at the recorded commit and that it is in the history of '
                    f'{manifest["branch"]} (the branch-head check does not apply to a pinned manifest), and that '
                    'the pinned manifest has that commit\'s projects and remotes', func=check_recorded),
+        ]
+    if settings:
+        actions += [
+            Action('Remove project git directories an interrupted sync left without data, so repo fetches them '
+                   'shallow again', func=clear_empty),
+            Action(f'Fetch the large prebuilt projects first, one revision each at depth 1, {settings["jobs"]} at a '
+                   f'time; a transfer below {settings["low_speed_limit_bytes"]} bytes/s for '
+                   f'{settings["low_speed_time_seconds"]} s stops, up to {settings["attempts"]} attempts each: '
+                   + ', '.join(settings['projects']), func=prefetch, network=True),
         ]
     actions += [
         Action('Download the source' + (' at the pinned resolved manifest' if pinned else ''),

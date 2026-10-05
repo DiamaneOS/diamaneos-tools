@@ -126,6 +126,21 @@
       }
     }
   },
+  "shallow_prefetch": {
+    "projects": [
+      "prebuilts/clang/host/linux-x86",
+      "prebuilts/misc",
+      "prebuilts/rust-toolchain/linux-musl-x86",
+      "prebuilts/rust-toolchain/linux-x86",
+      "tools/deviceinfra/prebuilts"
+    ],
+    "jobs": 3,
+    "attempts": 8,
+    "retry_delay_seconds": 60,
+    "low_speed_limit_bytes": 1000,
+    "low_speed_time_seconds": 300,
+    "reason": "The prebuilt projects with the largest depth-1 downloads, 2 to 8 GB each. Such a fetch from android.googlesource.com can break off; repo then fetches the project again without depth, which for these does not finish, and an interrupted sync leaves git directories repo later fetches with their whole history. build sync --shallow fetches these projects first, one revision each at depth 1, stops a transfer that stays below the speed limit and tries again a bounded number of times."
+  },
   "disk_estimate_gib": {
     "sync": 220,
     "kernel": 60,

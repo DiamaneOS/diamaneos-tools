@@ -328,13 +328,15 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertIn('note: build.json records tools commit ' + 'c' * 40, text)
         self.assertFalse(self.workspace.exists())
 
-    def test_a_pinned_shallow_plan_marks_network_actions_and_keeps_the_inputs(self):
+    def test_a_pinned_shallow_plan_prefetches_and_marks_network_actions(self):
         ctx = steps.make_context(arguments(self.workspace, shallow=True, resolved_manifest=str(self.resolved),
                                            build_json=None, manifest_commit=self.commit), self.lines.append)
         plan = steps.plan_sync(ctx)
         network = [a.description for a in plan.actions if a.network]
-        self.assertEqual(3, len(network))
+        self.assertEqual(4, len(network))
         self.assertTrue(network[1].startswith('Check out the recorded manifest commit'))
+        self.assertTrue(network[2].startswith('Fetch the large prebuilt projects first, one revision each at depth 1'))
+        self.assertIn('below 1000 bytes/s for 300 s stops, up to 8 attempts each', network[2])
         sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
         self.assertEqual(['-c', '--no-tags', '-m', ctx.pinned_manifest], sync.argv[-4:])
         self.assertEqual(steps.plan_sync(steps.make_context(arguments(self.workspace), print)).inputs, plan.inputs)

@@ -11,6 +11,13 @@
   `repo manifest -r` must give it byte for byte. The sync and `android` steps
   check the recorded manifest commit instead of the branch head and say so.
   The sync state records the reproduction.
+- `build sync --shallow` fetches the largest prebuilt projects itself before
+  `repo sync`: one revision each at depth 1, with a low-speed abort and a
+  bounded number of attempts (`shallow_prefetch` in `config/fp6-build.json`).
+  It also removes project git directories an interrupted sync left without
+  data. A broken-off depth-1 fetch of the clang prebuilts had made `repo`
+  fetch the project without depth, which did not finish, and those empty
+  directories came back with their whole history.
 - Build the image tools with a fixed build number and the sources' own date:
   aapt2 carried the build day in its version string, its hash reached the
   vendor inventory, and the same sources gave a different build identity on
