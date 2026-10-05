@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Require the FP6 CarrierConfig overlay in the image checks. It is read after
+  the stock carrier data and turns off the stock world-phone flag, so Settings
+  shows Android's network-type list with GrapheneOS's LTE-only and 5G-only
+  options. The threat model and carrier notes record the source review of the
+  cellular hardening controls: the 2G and LTE-only settings reach the modem's
+  network preference; the radio software answers "not supported" to the
+  null-cipher control and predates security notifications, so Settings hides
+  both.
 - Stop selecting Qualcomm's tftp_server, its init file and socket library, and
   its pd-mapper. The device builds the open-source linux-msm tqftpserv (our
   fork) and pd-mapper instead (manifest `vendor/qcom/opensource`); Qualcomm's

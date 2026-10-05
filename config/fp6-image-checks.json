@@ -776,6 +776,13 @@
       "target": "com.android.networkstack.tethering"
     },
     {
+      "id": "carrier-config-overlay",
+      "why": "Device corrections to the stock carrier data (Settings shows Android's network-type list) are installed for CarrierConfig.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6CarrierConfigOverlay.apk",
+      "target": "com.android.carrierconfig"
+    },
+    {
       "id": "wifi-mac-randomisation",
       "why": "Wi-Fi connects with a randomised MAC address and scans with the screen off.",
       "type": "overlay",

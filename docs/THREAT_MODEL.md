@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-05 (cellular hardening, source review: the 2G and LTE-only settings reach the modem's network preference, not yet re-checked on the phone; the radio software answers "not supported" to the null-cipher control and predates cellular security notifications, so Settings hides both; Settings offers Android's network-type list instead of the stock list of CDMA world modes, implemented, not yet built); 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > Based on GrapheneOS. Not affiliated with or endorsed by the GrapheneOS project.
 
@@ -39,8 +39,9 @@ rules).
    unverified; no passphrase policy; fingerprint class not measured
    ([details](#bfu-user-data)).
 5. **The modem is outside Android's control:** isolation assumed; its traffic
-   bypasses network controls; no fake-base-station detection; the 2G and
-   LTE-only controls fail silently
+   bypasses network controls; no fake-base-station detection or null-cipher
+   control; the 2G and LTE-only controls reach the modem in source but are not
+   yet re-checked on the phone
    ([details](#call-and-sms-content-subscriber-identity-coarse-location)).
 6. **No USB-C port control** ([details](#locked-device-data-kernel-integrity)).
 7. **Attestation fails** ([details](#hardware-limits-and-evidence)).
@@ -166,8 +167,8 @@ historical evidence without making it acceptance of this later source cut.
   or patch it.
 - Baseband exploitation beyond what SoC isolation provides; on the FP6 that
   isolation is assumed, not verified.
-- Detection of fake base stations, null-cipher sessions or identity requests,
-  reported unsupported by the current Qualcomm radio software.
+- Detection of fake base stations, null-cipher sessions or identity requests:
+  the current Qualcomm radio software does not support it.
 - Traffic the modem sends by itself (IMS, SUPL, control-plane location), which
   Android's network controls do not see.
 - Removal of eSIM profiles, modem state or factory calibration by factory reset;
@@ -376,17 +377,25 @@ entry point), the protections in current builds, what remains, and the status.
 - **Threat:** fake base station, IMSI catcher, downgrading or null-cipher
   network, via 2G fallback, pre-authentication identity requests and radio
   security events.
-- **Protection:** opt-in "2G network protection" and LTE-only controls, which do
-  not work today (see Remaining).
+- **Protection:** opt-in "2G network protection" and the LTE-only, 5G-only and
+  4G-or-5G network types. Both set Android's allowed network types; the radio
+  daemon turns them into the modem's radio-technology preference, one bit per
+  technology, so GSM is left out when 2G is off and LTE-only allows LTE alone.
+  Since the 2026-09-26 build the default network type is set, so the stored 2G
+  setting keeps LTE and 5G. Settings offers Android's network-type list, filtered
+  by what the modem supports, not the stock list of 34 modes with CDMA-only
+  entries (implemented, not yet built).
 - **Remaining:** 2G stays allowed by default ([decision](#decision-record)), so
-  a downgrade works unless the user opts in. The opt-in controls are visible but
-  fail open silently: the mode never reaches the modem. No detection:
-  null-cipher/integrity control and security notifications are reported
-  unsupported by the radio software. LTE/NR identity exposure remains.
-- **Status:** Observed gap (bring-up): controls visible and silently
-  ineffective. Null-cipher control reported unsupported (bring-up notes; radio
-  daemon response not captured). Unverified: telephony bring-up (FP6-044),
-  cellular security notifications (FP6-084), a radio-policy regression check (no
+  a downgrade works unless the user opts in. No detection: the radio software
+  answers "not supported" to the null-cipher/integrity control, and its radio
+  network interface is version 2, while cellular security notifications need
+  version 3, so Settings hides both. LTE/NR identity exposure remains.
+- **Status:** Observed gap (radio software): no null-cipher control or security
+  notifications (FP6-084). Bring-up (not qualified): the source review of
+  2026-10-05 traces both settings to the modem's preference request; a build
+  before 2026-09-26 did not pass the choice to the modem, and the controls have
+  not been re-checked on the phone since. Unverified: the modem's behaviour once
+  the preference is applied (FP6-044), a radio-policy regression check (no
   owning task yet).
 
 #### SMS, SIM applets, broadcast alerts, carrier configuration
@@ -400,7 +409,8 @@ entry point), the protections in current builds, what remains, and the status.
   framework; apps given carrier privileges by the SIM can change carrier
   configuration.
 - **Status:** Accepted limitation (inherited). Unverified: telephony bring-up
-  (FP6-044).
+  (FP6-044); broadcast alert delivery (the radio daemon implements the channel
+  setup and delivery calls; no alert received yet).
 
 #### Application processor and user data
 
@@ -1318,10 +1328,10 @@ grants bound to its domain, reduced groups and no network under enforcing
 SELinux; flashlight controls reach the closed provider without the camera
 permission, with simple on/off and strength values only, as AOSP designs it);
 cellular (fake base station, 2G fallback, the user's hardening choice, the
-modem; on a bring-up build the choice did not reach the modem and the interface
-did not show the failure); cross-profile and physical (secondary user or
-profile, user-switch challenge (FP6-046, FP6-071); AFU and BFU, USB, EDL and
-lock screen, duress). Device-dependent claims stay unverified until checked.
+modem; a build before 2026-09-26 did not pass the choice to the modem, current
+source does, not yet re-checked on the phone); cross-profile and physical
+(secondary user or profile, user-switch challenge (FP6-046, FP6-071); AFU and
+BFU, USB, EDL and lock screen, duress). Device-dependent claims stay unverified until checked.
 
 ## How this document is maintained
 
