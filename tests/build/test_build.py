@@ -361,6 +361,34 @@ class BranchCheckoutTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "declared manifest URL"):
             self.verify()
 
+    def test_a_reproduced_manifest_is_checked_at_its_recorded_commit_not_the_branch_head(self):
+        recorded = rev(self.manifests)
+        git(self.manifests, "commit", "-q", "--allow-empty", "-m", "newer")
+        git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
+        head = rev(self.manifests)
+        git(self.manifests, "checkout", "-q", "--detach", recorded)
+        with self.assertRaisesRegex(build.BuildError, "not at android17"):
+            self.verify()
+        self.assertEqual(recorded, self.verify(manifest_commit=recorded)["manifest_commit"])
+        with self.assertRaisesRegex(build.BuildError, f"not at the recorded manifest commit {head}"):
+            self.verify(manifest_commit=head)
+        with self.assertRaisesRegex(build.BuildError, "full commit id"):
+            self.verify(manifest_commit=recorded[:12])
+        # A commit off the branch (another branch, or a fork's commit a host
+        # may serve by id) is refused.
+        git(self.manifests, "commit", "-q", "--allow-empty", "-m", "off the branch")
+        with self.assertRaisesRegex(build.BuildError, "is not in the history of android17"):
+            self.verify(manifest_commit=rev(self.manifests))
+        git(self.manifests, "checkout", "-q", "--detach", recorded)
+        # The other manifest checks still apply.
+        self.config["manifest"]["revision"] = head
+        with self.assertRaisesRegex(build.BuildError, "pinned manifest revision"):
+            self.verify(manifest_commit=recorded)
+        del self.config["manifest"]["revision"]
+        git(self.manifests, "remote", "set-url", "origin", "https://example.invalid/other.git")
+        with self.assertRaisesRegex(build.BuildError, "declared manifest URL"):
+            self.verify(manifest_commit=recorded)
+
     def test_dirty_project_undeclared_input_and_local_manifest_fail(self):
         (self.project / "untracked.txt").write_text("dirty")
         with self.assertRaisesRegex(build.BuildError, "dirty or untracked"):
