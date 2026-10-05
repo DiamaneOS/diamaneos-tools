@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Follow the kernel's imported upstream projects through `kernel_qcom-6.1`.
+  The vendor kernel, techpack drivers, two device trees and edk2 are sources in
+  `config/forks.json` instead of forks, pinned in the new
+  `config/kernel-upstream-fp6.json`: the upstream commit each folder was
+  imported from, the newest release tag it contains and whether it carries
+  Fairphone's FP6 changes. `forks check` reports a moved followed branch and
+  release tags after the recorded one (`newer_tags` with a `release_field` pin).
+  `config/repositories.json` marks the 21 one-project kernel forks retired.
 - Derive the sensors multi-HAL configuration (`hals.conf`) with only the
   Qualcomm sub-HAL. The AOSP dynamic-sensor sub-HAL parses HID sensor
   descriptors from Bluetooth and USB devices but has no hidraw access here;

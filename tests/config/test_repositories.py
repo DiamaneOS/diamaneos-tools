@@ -41,13 +41,18 @@ class RepositoryMapTests(unittest.TestCase):
 
     def test_existing_public_repositories_are_marked_active(self):
         states = {row["id"]: row["state"] for row in self.rows}
-        self.assertEqual(
-            {key: "active" for key in ("tools", "manifest", "infra", "installer",
-                                        "device", "product", "kernel", "kernel-graphics")},
-            {key: states[key] for key in
-             ("tools", "manifest", "infra", "installer",
-              "device", "product", "kernel", "kernel-graphics")},
-        )
+        active = ("tools", "manifest", "infra", "installer", "device", "product",
+                  "kernel-sources", "kernel-common", "kernel-prebuilts")
+        self.assertEqual({key: "active" for key in active}, {key: states[key] for key in active})
+
+    def test_kernel_component_forks_are_retired_for_the_kernel_repository(self):
+        # The kernel components are folders of kernel_qcom-6.1; their old one-project forks are retired.
+        rows = {row["slug"]: row for row in self.rows}
+        components = {slug for slug in rows if slug.startswith("kernel_qcom_")}
+        self.assertEqual(21, len(components))
+        self.assertEqual({"retired"}, {rows[slug]["state"] for slug in components | {"kernel_manifest-fp6"}})
+        self.assertEqual(("active", "https://github.com/DiamaneOS/kernel_qcom-6.1.git"),
+                         (rows["kernel_qcom-6.1"]["state"], rows["kernel_qcom-6.1"]["remote_url"]))
 
 
 if __name__ == "__main__":

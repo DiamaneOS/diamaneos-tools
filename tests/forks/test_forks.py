@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -110,6 +111,73 @@ class ForkTests(unittest.TestCase):
         forked = {r['slug'] for r in repositories if r['state'] in ('active', 'planned') and r['upstream_url']}
         self.assertEqual(forked - {'platform_manifest'}, slugs)
         self.assertIn('grapheneos-platform', {s['id'] for s in sources})
+
+    def test_kernel_imports_match_their_sources(self):
+        registry, sources = forks.load_registry()
+        # Only the common kernel stays a fork; the other kernel projects are folders of kernel_qcom-6.1.
+        self.assertEqual({'kernel-common'}, {f['id'] for f in registry if f.get('workspace') == 'kernel'})
+        record = json.loads((ROOT / 'config/kernel-upstream-fp6.json').read_text())
+        kernel_sources = json.loads((ROOT / 'config/kernel-sources-fp6.json').read_text())
+        self.assertEqual(kernel_sources['repository'], record['repository'])
+        imports = {row['path']: row for row in record['imports']}
+        self.assertEqual(len(record['imports']), len(imports))
+        pinned = [s for s in sources if s['pin']['file'] == 'config/kernel-upstream-fp6.json']
+        self.assertEqual(21, len(pinned))
+        self.assertEqual(set(imports), {s['pin']['match']['path'] for s in pinned})
+        for source in pinned:
+            with self.subTest(source=source['id']):
+                row = imports[source['pin']['match']['path']]
+                self.assertEqual(('tools', 'branch', row['url']),
+                                 (source['pin']['repository'], source['follow']['kind'], source['url']))
+                self.assertRegex(row['commit'], '^[0-9a-f]{40}$')
+                self.assertIsInstance(row['fairphone_changes'], bool)
+                self.assertEqual(row['commit'], forks.pinned_value(self.root, source))
+                if 'newer_tags' in source['follow']:
+                    release = forks.pinned_value(self.root, source, source['pin']['release_field'])
+                    self.assertTrue(release is None or re.fullmatch(source['follow']['newer_tags'], release))
+                else:
+                    self.assertIsNone(row['release'])
+
+    def test_source_release_tags_need_a_recorded_release(self):
+        follow = {'kind': 'branch', 'ref': 'main', 'newer_tags': r'^r([0-9]+)$'}
+        pin = {'repository': 'kq', 'file': 'imports.json', 'list': '/imports', 'match': {'path': 'k'}, 'field': 'commit'}
+        source = lambda follow, pin: {'id': 'k', 'url': 'https://example.invalid', 'follow': follow, 'pin': pin}
+        forks.load_sources([source(follow, dict(pin, release_field='release'))])
+        for bad in (source(follow, pin),
+                    source({'kind': 'branch', 'ref': 'main'}, dict(pin, release_field='release')),
+                    source(follow, {'repository': 'kq', 'file': 'x.json', 'pointer': '/commit', 'release_field': 'release'}),
+                    source({'kind': 'tags', 'pattern': r'^r([0-9]+)$', 'newer_tags': r'^r([0-9]+)$'},
+                           dict(pin, release_field='release'))):
+            with self.subTest(source=bad), self.assertRaisesRegex(forks.ForkError, 'release_field'):
+                forks.load_sources([bad])
+
+    def test_imported_source_reports_releases_after_the_recorded_one(self):
+        record = Path(self.tmp.name) / 'kq' / 'imports.json'
+        record.parent.mkdir()
+        imported = run(self.upstream, 'rev-parse', 'odm/rc')
+        run(self.upstream, 'tag', 'r1')
+        source = {'id': 'k', 'url': 'https://example.invalid',
+                  'follow': {'kind': 'branch', 'ref': 'odm/rc', 'newer_tags': r'^r([0-9]+)$'},
+                  'pin': {'repository': 'kq', 'file': 'imports.json', 'list': '/imports', 'match': {'path': 'k'},
+                          'field': 'commit', 'release_field': 'release'}}
+        forks.load_sources([source])
+        lister = lambda url: forks.remote_refs(str(self.upstream))
+
+        def check(release):
+            record.write_text(json.dumps({'imports': [{'path': 'k', 'commit': imported, 'release': release}]}))
+            return forks.check(Path(self.tmp.name), [], [source], lister)[0]
+
+        result = check('r1')
+        self.assertEqual(('current', imported, 'r1'), (result['state'], result['pin'], result['release']))
+        self.assertNotIn('newer', result)
+        run(self.upstream, 'tag', 'r2')
+        result = check('r1')
+        self.assertEqual(('newer-release', ['r2']), (result['state'], result['newer']))
+        self.advance_upstream()
+        result = check('r1')
+        self.assertEqual(('update-available', ['r2']), (result['state'], result['newer']))
+        # With no release recorded, the import predates the whole series.
+        self.assertEqual(['r1', 'r2'], check(None)['newer'])
 
     def test_tools_pins_resolve(self):
         _, sources = forks.load_registry()

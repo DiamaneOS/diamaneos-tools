@@ -2,6 +2,9 @@
 
 check: read only the remote refs of every fork and pinned source and report
 which followed references moved and which newer branches or tags appeared.
+The upstream projects imported into kernel_qcom-6.1 are pinned sources: their
+import record holds the imported upstream commit and the newest release tag it
+contains.
 status: fetch (optionally) each fork's upstream reference and report how many
 upstream commits the fork lacks and how many DiamaneOS patches it carries.
 update: rebase the fork's patches onto a newer upstream reference into a new
@@ -77,12 +80,18 @@ def load_sources(sources):
         if follow['kind'] == 'branch':
             if not REF.match(follow.get('ref', '')):
                 raise ForkError(f"invalid source branch: {source['id']}")
-            if 'newer_branches' in follow:
-                newer_pattern(follow['newer_branches'], source['id'])
+            for key in ('newer_branches', 'newer_tags'):
+                if key in follow:
+                    newer_pattern(follow[key], source['id'])
         elif follow['kind'] == 'tags':
             newer_pattern(follow.get('pattern'), source['id'])
         if 'list' in pin and not (isinstance(pin.get('match'), dict) and NAME.match(pin.get('field', ''))):
             raise ForkError(f"invalid source pin: {source['id']}")
+        if 'newer_tags' in follow or 'release_field' in pin:
+            # Release tags are measured from the release recorded in the pinned row.
+            if not (follow['kind'] == 'branch' and 'newer_tags' in follow and 'list' in pin
+                    and NAME.match(pin.get('release_field', ''))):
+                raise ForkError(f"newer_tags need a followed branch and a release_field in a list pin: {source['id']}")
         seen.add(source['id'])
     return sources
 
@@ -219,7 +228,8 @@ def json_pointer(data, pointer):
     return data
 
 
-def pinned_value(root, source):
+def pinned_value(root, source, field=None):
+    """The pinned value; field reads another column of a list pin's row, such as its release."""
     pin = source['pin']
     base = ROOT if pin['repository'] == 'tools' else Path(root) / pin['repository']
     path = base / pin['file']
@@ -235,10 +245,10 @@ def pinned_value(root, source):
     data = json.loads(path.read_text())
     if 'pointer' in pin:
         return json_pointer(data, pin['pointer'])
-    values = {row[pin['field']] for row in json_pointer(data, pin['list'])
+    values = {row[field or pin['field']] for row in json_pointer(data, pin['list'])
               if all(row.get(k) == v for k, v in pin['match'].items())}
     if len(values) != 1:
-        raise ForkError(f"pin of {source['id']} does not resolve to one value: {sorted(values)}")
+        raise ForkError(f"pin of {source['id']} does not resolve to one value: {sorted(values, key=str)}")
     return values.pop()
 
 
@@ -309,12 +319,18 @@ def check_source(root, source, refs):
     result['upstream_head'] = head
     if 'state' not in result:
         result['state'] = 'followed-branch-missing' if head is None else 'current' if head == result['pin'] else 'update-available'
+    newer = []
     if 'newer_branches' in follow:
-        newer = newer_refs(refs, 'refs/heads/', re.compile(follow['newer_branches']), follow['ref'])
-        if newer:
-            result['newer'] = newer
-            if result['state'] == 'current':
-                result['state'] = 'newer-release'
+        newer += newer_refs(refs, 'refs/heads/', re.compile(follow['newer_branches']), follow['ref'])
+    if 'newer_tags' in follow and result['pin'] is not None:
+        # No history is fetched, so the release the pinned commit contains is read from the pin's row;
+        # with none recorded, the pin predates the whole series and every release is newer.
+        result['release'] = pinned_value(root, source, source['pin']['release_field'])
+        newer += newer_refs(refs, 'refs/tags/', re.compile(follow['newer_tags']), result['release'] or '')
+    if newer:
+        result['newer'] = newer
+        if result['state'] == 'current':
+            result['state'] = 'newer-release'
     return result
 
 

@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/DiamaneOS/kernel_qcom-6.1",
+  "branch": "upstream",
+  "policy": "Import record of the upstream projects in kernel_qcom-6.1 that config/forks.json follows one by one (the sources whose pin names this file). Each project was imported as one commit on the repository's upstream branch, which is merged into android17. commit: the upstream commit the folder was imported from. fairphone_changes: the folder is that commit with Fairphone's FP6 changes, so the next import must carry them too. release: the newest release tag matching the source's newer_tags that the commit contains, or null. After an import, update commit and release in the change that moves config/kernel-sources-fp6.json to a revision containing it.",
+  "imports": [
+    {
+      "path": "kernel_platform/msm-kernel",
+      "url": "https://git.codelinaro.org/clo/la/kernel/qcom",
+      "commit": "9f9e0d2dfd11b7591717dd0c3e0acbfec3f749d5",
+      "release": "KERNEL.PLATFORM.3.0.r1-13600-kernel.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/graphics-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/graphics-kernel",
+      "commit": "e4cb2ea52efd472a20b10f77e3a087c58c41d135",
+      "release": "GRAPHICS.LA.14.0.r1-11000-lanai.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/camera-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel",
+      "commit": "db93e61705f7a8a20d9b4896307f80fb904ca767",
+      "release": "CAMERA.LA.4.0.r2-09600-lanai.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/dataipa",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/dataipa",
+      "commit": "726acc3f151ffaf65493df90a1f089db957136b2",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/display-drivers",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-drivers",
+      "commit": "1065a7677a1a33214ba1b8733f0d5872ede004b8",
+      "release": "DISPLAY.LA.4.0.r2-10400-lanai.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/wlan/qca-wifi-host-cmn",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn",
+      "commit": "381b9c881a34b62efdd05c45c3a624fec1a6af97",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": false
+    },
+    {
+      "path": "vendor/qcom/opensource/securemsm-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/securemsm-kernel",
+      "commit": "e1010ac4fede58b28a66ae87572b0cbb8aa5849d",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/touch-drivers",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/touch-drivers",
+      "commit": "167825dc915600f14e045829a0bffc8981224a81",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/proprietary/display-devicetree",
+      "url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/proprietary/display-devicetree",
+      "commit": "56394aacd960d7e6d71ef88b9b073f7ea3754be6",
+      "release": null,
+      "fairphone_changes": false
+    },
+    {
+      "path": "kernel_platform/msm-kernel/arch/arm64/boot/dts/vendor",
+      "url": "https://gerrit-public.fairphone.software/platform/kernel_platform/qcom/proprietary/devicetree",
+      "commit": "e54c8cb7d2d1d99026eff5d0d1c858db4739c478",
+      "release": null,
+      "fairphone_changes": false
+    },
+    {
+      "path": "vendor/qcom/opensource/video-driver",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver",
+      "commit": "976400c73395c8cc681c8bd13a3dc18a91804caa",
+      "release": "VIDEO.LA.4.0.r2-08400-lanai.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "kernel_platform/bootable/bootloader/edk2",
+      "url": "https://git.codelinaro.org/clo/la/abl/tianocore/edk2",
+      "commit": "09dca949df9515b1d4f702c78fb205d76b3f8043",
+      "release": "KERNEL.PLATFORM.3.0.r1-13600-kernel.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/audio-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/audio-kernel-ar",
+      "commit": "3176d0df29c2930a287d2840121fe76e056cfdba",
+      "release": "AUDIO.LA.9.0.r1-09000-lanai.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/bt-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/bt-kernel",
+      "commit": "fea32fbec2ab16ef887c83b741f137ea9fb695d2",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/datarmnet",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet",
+      "commit": "068a54349c3cbe72a10d34abf2d3b4363d68d26c",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/datarmnet-ext",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext",
+      "commit": "95ef911b8582c527a67a0fc3eacbe23a8bea0205",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/dsp-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/dsp-kernel",
+      "commit": "5988aecba8fd60eaed2465ad2250ecc2400dcc20",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/mmrm-driver",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver",
+      "commit": "35211a9255b69d52ddc2b82dc8b1dd2840b98868",
+      "release": null,
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/synx-kernel",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/synx-kernel",
+      "commit": "e63a9eaf9544d725a249ede2a72a4fef3b860c96",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/wlan/platform",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/platform",
+      "commit": "8cf79ed25f2d9eae20b1873f22e1f187d58fc39f",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    },
+    {
+      "path": "vendor/qcom/opensource/wlan/qcacld-3.0",
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0",
+      "commit": "05fc8e4467c6ca276e4ad303687da362e62baadd",
+      "release": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0",
+      "fairphone_changes": true
+    }
+  ]
+}
