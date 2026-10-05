@@ -30,7 +30,7 @@ pins one manifest commit (`manifest.revision`) does not.
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
-| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned), then the full source preflight: every project clean at its resolved commit, no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit and the kernel prebuilts commit. |
+| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project clean at its resolved commit, no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
 | `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
 | `android` | Installs the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, builds `super.img` from the same archive, makes the wipe images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash, the wipe images against the device fstab, the stock FRP image and the stock partition table. |
@@ -162,6 +162,35 @@ matches the prebuilts except for the module signatures and the certificate the
 kernel embeds, because each kernel build makes a new module-signing key. The
 partitions are expected to be identical between hosts; a second host's build
 has to show it. A modified tools checkout is recorded as not reproducible.
+
+**Reproducing a build.** `build sync --resolved-manifest DIR/resolved-manifest.xml
+--build-json DIR/build.json` syncs the source of the image set in `DIR`
+(`build all` takes the same options). After the normal `repo init` and its
+checks, the sync checks out the manifest commit `build.json` records, then
+`repo sync -m` checks out every project at the commit the resolved manifest
+names. Its checks:
+
+- The resolved manifest must match the SHA-256 `build.json` records, and
+  `build.json` must name the environment's manifest URL and branch. Without
+  `build.json`, `--manifest-commit` gives the manifest commit.
+- The manifest commit must be in the history of the manifest branch. It is
+  never fetched by its id; a shallow manifest checkout first gets the branch's
+  history.
+- Before `repo sync`, the resolved manifest must equal that commit's manifest
+  apart from the project commits: the same remotes, defaults, projects, groups
+  and copy and link files. It can only choose commits.
+- The check that the manifest checkout is at the head of the branch does not
+  apply. The sync and the `android` step say so and check the recorded commit
+  and the branch history instead.
+- After `repo sync`, `repo manifest -r` must give the resolved manifest byte
+  for byte, and the project map and kernel prebuilts commit must match
+  `build.json`.
+
+The sync state records the reproduction (`pinned_manifest`, which the new
+set's `build.json` carries in `source`). A later `build all` keeps that source;
+`build sync` moves to the branch head again. A different tools commit gives
+the same source identity, but another build identity and image directory name,
+because the build identity includes the tools commit.
 
 **Other environments.** `--environment FILE` selects another environment file:
 a copy of the FP6 environment with another manifest branch, or with

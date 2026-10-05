@@ -285,6 +285,131 @@ class PlanTests(unittest.TestCase):
         self.assertIsNone(steps.project_revision(resolved, 'device/other'))
 
 
+class PinnedSyncTests(unittest.TestCase):
+    """build sync --resolved-manifest: plans and argument checks (the sync itself is in test_sync_flow)."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.lines = []
+        self.workspace = self.root / 'ws'
+        environment = (ROOT / 'config/build-environment-fp6.json').read_bytes()
+        manifest = json.loads(environment)['manifest']
+        self.commit = 'a' * 40
+        self.resolved = self.root / 'resolved-manifest.xml'
+        self.resolved.write_bytes(
+            b'<manifest><remote name="diamaneos" fetch="https://github.com/DiamaneOS/"/><default remote="diamaneos"/>'
+            b'<project name="device_example" path="device/example" revision="' + b'b' * 40 + b'"/></manifest>')
+        sha = bw.sha_file(self.resolved)
+        self.record = {'manifest': {'url': manifest['url'], 'branch': manifest['branch'], 'commit': self.commit,
+                                    'resolved_sha256': sha},
+                       'source': {'manifest_commit': self.commit, 'resolved_manifest_sha256': sha},
+                       'environment': {'sha256': hashlib.sha256(environment).hexdigest()},
+                       'tools': {'commit': 'c' * 40}}
+        self.build_json = self.root / 'build.json'
+        self.build_json.write_text(json.dumps(self.record))
+
+    def main(self, *argv):
+        errors = io.StringIO()
+        with contextlib.redirect_stderr(errors):
+            code = steps.main([*argv, '--workspace', str(self.workspace)], self.lines.append)
+        return code, errors.getvalue()
+
+    def test_dry_run_syncs_to_the_pinned_manifest_and_checks_the_recorded_commit(self):
+        code, _ = self.main('sync', '--dry-run', '--resolved-manifest', str(self.resolved),
+                            '--build-json', str(self.build_json))
+        self.assertEqual(0, code)
+        text = '\n'.join(self.lines)
+        self.assertIn('repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17', text)
+        self.assertIn(f'Check out the recorded manifest commit {self.commit}', text)
+        self.assertIn('in the history of android17', text)
+        self.assertIn('the branch-head check does not apply to a pinned manifest', text)
+        self.assertIn('--retry-fetches=4 -m ' + str(self.workspace / 'state/pinned-manifest.xml'), text)
+        self.assertIn('note: build.json records tools commit ' + 'c' * 40, text)
+        self.assertFalse(self.workspace.exists())
+
+    def test_a_pinned_shallow_plan_marks_network_actions_and_keeps_the_inputs(self):
+        ctx = steps.make_context(arguments(self.workspace, shallow=True, resolved_manifest=str(self.resolved),
+                                           build_json=None, manifest_commit=self.commit), self.lines.append)
+        plan = steps.plan_sync(ctx)
+        network = [a.description for a in plan.actions if a.network]
+        self.assertEqual(3, len(network))
+        self.assertTrue(network[1].startswith('Check out the recorded manifest commit'))
+        sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
+        self.assertEqual(['-c', '--no-tags', '-m', ctx.pinned_manifest], sync.argv[-4:])
+        self.assertEqual(steps.plan_sync(steps.make_context(arguments(self.workspace), print)).inputs, plan.inputs)
+
+    def test_options_are_checked(self):
+        cases = ((('sync', '--build-json', str(self.build_json)), 'go with --resolved-manifest'),
+                 (('android', '--resolved-manifest', str(self.resolved)), 'is an option of: sync, all'),
+                 (('all', '--from', 'vendor', '--resolved-manifest', str(self.resolved), '--manifest-commit',
+                   self.commit), 'does not go with --from vendor'),
+                 (('sync', '--resolved-manifest', str(self.resolved)), 'needs --build-json'),
+                 (('sync', '--resolved-manifest', str(self.resolved), '--manifest-commit', 'abc'), 'full 40-character'),
+                 (('sync', '--resolved-manifest', str(self.root / 'missing.xml'), '--manifest-commit', self.commit),
+                  'cannot read the resolved manifest'))
+        for argv, message in cases:
+            with self.subTest(argv=argv):
+                code, errors = self.main(*argv, '--dry-run')
+                self.assertEqual(2, code)
+                self.assertIn(message, errors)
+        self.record['manifest']['resolved_sha256'] = 'f' * 64
+        self.build_json.write_text(json.dumps(self.record))
+        code, errors = self.main('sync', '--dry-run', '--resolved-manifest', str(self.resolved),
+                                 '--build-json', str(self.build_json))
+        self.assertEqual((2, True), (code, 'does not match' in errors))
+        self.assertFalse(self.workspace.exists())
+
+    def passed_sync(self, pinned):
+        ctx = steps.make_context(arguments(self.workspace), self.lines.append)
+        plan = steps.plan_sync(ctx)
+        (ctx.workspace.src / '.repo').mkdir(parents=True, exist_ok=True)
+        ctx.resolved_manifest.parent.mkdir(parents=True, exist_ok=True)
+        ctx.resolved_manifest.write_bytes(self.resolved.read_bytes())
+        outputs = {'project_map_sha256': 'p', 'manifest_commit': self.commit,
+                   'resolved_manifest_sha256': bw.sha_file(ctx.resolved_manifest),
+                   'pinned_manifest': {'manifest_commit': self.commit} if pinned else None}
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs': plan.inputs,
+                                           'inputs_sha256': bw.digest(plan.inputs), 'outputs': outputs})
+
+    def test_build_all_keeps_a_reproduced_source_until_build_sync(self):
+        self.passed_sync(pinned=True)
+        self.assertEqual((0, ''), self.main('all', '--dry-run'))
+        self.assertIn('sync: up to date', self.lines)
+        self.assertTrue(any(line.startswith('note: the last sync reproduced a pinned resolved manifest')
+                            and 'Run "diamaneos build sync" to move to the head of android17' in line
+                            for line in self.lines))
+        self.lines.clear()
+        self.main('all', '--dry-run', '--resolved-manifest', str(self.resolved), '--build-json', str(self.build_json))
+        self.assertIn('sync: to run', self.lines)
+        self.lines.clear()
+        self.passed_sync(pinned=False)
+        self.main('all', '--dry-run')
+        self.assertIn('sync: to run', self.lines)
+
+    def test_android_checks_the_recorded_manifest_commit_after_a_pinned_sync(self):
+        ctx = steps.make_context(arguments(self.workspace), self.lines.append)
+        calls = []
+
+        def checkout(*args, **kw):
+            calls.append(kw.get('manifest_commit'))
+            return {'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p',
+                    'generated_input_descriptor_sha256': 'd'}
+        for pinned, expected in ((True, self.commit), (False, None)):
+            with self.subTest(pinned=pinned):
+                ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+                    'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k', 'resolved_manifest_sha256': 'r',
+                    'manifest_commit': self.commit,
+                    'pinned_manifest': {'manifest_commit': self.commit} if pinned else None}})
+                ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {}})
+                with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                        patch.object(steps, 'newest_commit_time', return_value=1), \
+                        patch.object(steps.build, 'verify_branch_checkout', side_effect=checkout):
+                    steps.plan_android(ctx).actions[1].func()
+                self.assertEqual(expected, calls[-1])
+        self.assertTrue(any('not at the branch head' in line for line in self.lines))
+
+
 class RunnerTests(unittest.TestCase):
     """Skip, rerun and failure handling with stand-in steps."""
 
