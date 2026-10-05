@@ -533,17 +533,17 @@
       ]
     },
     {
-      "id": "imei-provisioning-check-only",
-      "why": "The shipped build must provision in --check mode; --write is enabled only after the phone dry-run.",
+      "id": "imei-provisioning-write",
+      "why": "The provisioning tool runs in --write mode after the phone dry-run (finding -171).",
       "type": "text",
       "files": [
         "VENDOR/etc/init/imeiprovd.rc"
       ],
       "contains": [
-        "/vendor/bin/imeiprovd --check"
+        "/vendor/bin/imeiprovd --write"
       ],
       "absent": [
-        "imeiprovd --write"
+        "imeiprovd --check"
       ]
     },
     {
