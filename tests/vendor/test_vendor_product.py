@@ -203,25 +203,55 @@ class NativeProductTests(unittest.TestCase):
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
         bp = rendered['Android.bp'].decode()
-        for stem in ['pd-mapper', 'pm-service', 'pm-proxy', 'rmt_storage', 'tftp_server', 'ssr_setup']:
+        for stem in ['pm-service', 'pm-proxy', 'rmt_storage', 'ssr_setup']:
             self.assertIn('fp6_stock_vendor_bin_' + stem, modules)
         # The device modem/init.modem.rc starts ssr_setup; no stock rc is installed.
         block = bp[bp.index('name: "fp6_stock_vendor_bin_ssr_setup"'):]
         self.assertNotIn('init_rc:', block[:block.index('}\n')])
         # The full-RAM subsystem dump collector stays out (privacy).
         self.assertNotIn('fp6_stock_vendor_bin_subsystem_ramdump', modules)
-        for stem, rc in [('rmt_storage', 'vendor.qti.rmt_storage.rc'), ('tftp_server', 'vendor.qti.tftp.rc')]:
-            block = bp[bp.index('name: "fp6_stock_vendor_bin_' + stem + '"'):]
-            self.assertIn('init_rc: ["files/vendor/etc/init/' + rc + '"]', block[:block.index('}\n')])
+        block = bp[bp.index('name: "fp6_stock_vendor_bin_rmt_storage"'):]
+        self.assertIn('init_rc: ["files/vendor/etc/init/vendor.qti.rmt_storage.rc"]', block[:block.index('}\n')])
         # Userspace daemons and libraries have their own component, not the
         # firmware they talk to (whose replacement needs OEM signing).
         owners = {r['path']: r['component_id'] for r in self.recipe['files']}
         for stem in ['libqrtr', 'libqmi_cci', 'libqmi_csi', 'libperipheral_client', 'libjson']:
             self.assertEqual('remote-processor-services', owners['vendor/lib64/' + stem + '.so'])
-        for stem in ['pd-mapper', 'pm-service', 'pm-proxy', 'rmt_storage', 'tftp_server', 'ssr_setup']:
+        for stem in ['pm-service', 'pm-proxy', 'rmt_storage', 'ssr_setup']:
             self.assertEqual('remote-processor-services', owners['vendor/bin/' + stem])
         self.assertFalse([p for p, owner in owners.items() if owner == 'firmware-trusted-boot'
                           and p.startswith(('vendor/bin/', 'vendor/lib64/'))])
+
+    def test_linux_msm_daemons_replace_the_stock_ones(self):
+        # The device builds tqftpserv and pd-mapper from linux-msm; the stock
+        # tftp_server, pd-mapper, tftp_server's libqsocket and its rc are gone.
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp = rendered['Android.bp'].decode()
+        paths = {r['path'] for r in self.recipe['files']}
+        for path in ['vendor/bin/tftp_server', 'vendor/bin/pd-mapper', 'vendor/lib64/libqsocket.so',
+                     'vendor/etc/init/vendor.qti.tftp.rc']:
+            self.assertNotIn(path, paths)
+            self.assertNotIn(path, {r['path'] for r in self.selection['files']})
+            self.assertNotIn(path, self.selection['roots'])
+        for name in ['fp6_stock_vendor_bin_tftp_server', 'fp6_stock_vendor_bin_pd-mapper',
+                     'fp6_stock_vendor_lib64_libqsocket']:
+            self.assertNotIn(name, modules)
+        self.assertNotIn('tftp_server', vendor_product.ACTIVATION)
+        self.assertNotIn('pd-mapper', vendor_product.ACTIVATION)
+        self.assertNotIn(b'vendor.qti.tftp.rc', rendered['device-vendor.mk'])
+        # Qualcomm's libqrtr stays for the stock libraries that link it; the
+        # linux-msm daemons use the source library as libqrtr_linux_msm.so.
+        self.assertIn('libqrtr', [Path(p).name.removesuffix('.so') for p in paths if p.startswith('vendor/lib64/')])
+        self.assertNotIn('libqrtr', vendor_product.SOURCE_INTERFACES)
+        self.assertIn('fp6_stock_vendor_lib64_libqrtr', modules)
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libqrtr"'):]
+        self.assertIn('stem: "libqrtr"', block[:block.index('}\n')])
+        for consumer in ['libqrtrclient', 'libminksocket_vendor', 'libintervmipc', 'libvmfilexfer']:
+            block = bp[bp.index('name: "fp6_stock_vendor_lib64_' + consumer + '"'):]
+            block = block[:block.index('}\n')]
+            self.assertIn('"fp6_stock_vendor_lib64_libqrtr"', block)
+            self.assertNotIn('"libqrtr"', block)
 
     def test_allocator_v1_is_installed_not_linked(self):
         out = self.render()

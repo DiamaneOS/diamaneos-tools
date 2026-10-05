@@ -952,11 +952,25 @@
     },
     {
       "id": "remote-processor-services",
-      "origin": "proprietary-prebuilt-userspace",
-      "source_revisions": [],
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "vendor/qcom/opensource/qrtr",
+          "revision": "54a72e954222bab224a81c42ef30bf586ae772dd"
+        },
+        {
+          "path": "vendor/qcom/opensource/tqftpserv",
+          "revision": "708aa7a7f4f00d8e76eebfd19942cd938b52f954"
+        },
+        {
+          "path": "vendor/qcom/opensource/pd-mapper",
+          "revision": "107104b20bccc1089ba46893e64b3bdcb98c6830"
+        }
+      ],
       "abi_uapi": "QRTR/QMI service registration, protection-domain mapping, peripheral (subsystem) management, remote storage and file-server protocols with the modem and DSPs",
-      "load_path": "generated vendor tree (vendor/bin, vendor/lib64); started by the device init.qcom.rc and the stock rmt_storage/tftp init files",
-      "rebuilt_from_source": false,
+      "load_path": "linux-msm tqftpserv (DiamaneOS fork, libqrtr linked in), pd-mapper and libqrtr (DiamaneOS fork, installed as libqrtr_linux_msm.so) built from source (device modem/modem.mk, init.modem.rc and init.qcom.rc); Qualcomm's libqrtr.so, the peripheral manager, rmt_storage and ssr_setup from the generated vendor tree, started by the device init files and the stock rmt_storage init file",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "partial only",
       "provenance_profile": "exact-stock-non-source"
     }
   ],

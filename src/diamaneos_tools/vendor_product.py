@@ -144,10 +144,10 @@ ACTIVATION={
  'thermal-engine-v2':('init_thermal-engine-v2.rc',None),
  'vendor.qti.hardware.perf2-hal-service':('vendor.qti.hardware.perf2-hal-service.rc','vendor.qti.hardware.perf2.xml'),
  'rmt_storage':('vendor.qti.rmt_storage.rc',None),
- 'tftp_server':('vendor.qti.tftp.rc',None),
+ # Not selected: tftp_server and pd-mapper. The device builds the open
+ # linux-msm tqftpserv and pd-mapper instead (device modem/modem.mk).
  # Stock starts these from its board-wide init.target.rc and init.qti.kernel.rc,
  # which are not selected; the FP6 device init.qcom.rc defines their services.
- 'pd-mapper':(None,None),
  'pm-service':(None,None),
  'pm-proxy':(None,None),
  # ssr_setup enables subsystem restart (recovery) for the modem and DSPs from
