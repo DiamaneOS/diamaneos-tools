@@ -343,6 +343,16 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_ExactCalculator"
     },
     {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Glimpse",
+      "id": "glimpse",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/packages_apps_Glimpse.git",
+      "revision": null,
+      "slug": "packages_apps_Glimpse",
+      "state": "planned",
+      "upstream_url": "https://github.com/LineageOS/android_packages_apps_Glimpse"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/bootable/recovery",
       "id": "recovery",
       "publication": "public-source",

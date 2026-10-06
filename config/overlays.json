@@ -55,6 +55,9 @@
         "default_lock_wallpaper": "DiamaneOS default lock wallpaper",
         "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL"
       },
+      "com.android.systemui": {
+        "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay; SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
+      },
       "com.android.documentsui": {
         "force_material3": "Material 3 Files; the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review, tests and threat-model row"
       },

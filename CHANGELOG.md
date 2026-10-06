@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Register LineageOS's Glimpse (the gallery) as a fork without network
+  access (`glimpse`) and Canvas (the screenshot editor) as a pinned source
+  used unmodified through a DiamaneOS mirror (`lineage-canvas`). The overlay
+  allowlist lets the product's SystemUI overlay name Canvas as the preferred
+  screenshot editor (`config_preferredScreenshotEditor`). Image checks
+  require Glimpse, its system gallery overlay, its libraries' notices and its
+  exact permissions, without INTERNET (`gallery`, `gallery-role`,
+  `gallery-permissions`), Gallery2 reduced to its crop screen
+  (`gallery2-crop-only`), and Canvas with its overlay and no permission
+  beyond AndroidX's own (`screenshot-editor`, `screenshot-editor-overlay`,
+  `screenshot-editor-permissions`).
 - Threat model statuses: items built and phone-checked on 2026-10-06 are marked
   so (eSIM manager, boot control, SHA-256 hashtrees, serials, factory
   Bluetooth address, thermal HAL, Updater build).
