@@ -343,6 +343,16 @@
       "upstream_url": null
     },
     {
+      "checkout_path": "WORK_ROOT/os/packages/apps/DiamaneOSEuicc",
+      "id": "esim-manager",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_DiamaneOSEuicc.git",
+      "revision": null,
+      "slug": "platform_packages_apps_DiamaneOSEuicc",
+      "state": "active",
+      "upstream_url": null
+    },
+    {
       "checkout_path": "WORK_ROOT/os/packages/apps/CarrierConfig",
       "id": "carrier-config",
       "publication": "public-source",

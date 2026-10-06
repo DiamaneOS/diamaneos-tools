@@ -450,6 +450,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   volume listener are built from CodeLinaro source, identical to Fairphone's
   published FP6 audio sources. VoIP capture keeps the DSP's tuned echo
   cancellation instead of AOSP's software canceller.
+- **2026-10-06:** eSIM (implemented, not yet built). DiamaneOS's own eSIM
+  manager (LPA) ships disabled behind GrapheneOS's eSIM support switch, which
+  the Settings fork points at it. When on, it lists, turns on and off, renames
+  and deletes the profiles on the eUICC and erases them on request, all
+  through Android's EuiccCardController; it holds two privileged permissions,
+  has no network access, downloads nothing and logs no identifiers. Slot 1 is
+  marked as the built-in eUICC. Statement corrected: duress erases eSIM
+  profiles through the framework, not through an LPA.
 
 ## IMS integration notes
 

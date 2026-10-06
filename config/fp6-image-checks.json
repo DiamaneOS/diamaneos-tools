@@ -2071,7 +2071,7 @@
     },
     {
       "id": "deferred-lpa-absent",
-      "why": "Deferred eSIM management ships no inactive stock LPA or its libraries and grants.",
+      "why": "No stock Qualcomm LPA ships, nor its libraries and grants: eSIM management is DiamaneOS's own LPA.",
       "type": "files_absent",
       "paths": [
         "PRODUCT/priv-app/uimlpaservice/uimlpaservice.apk",
@@ -2090,6 +2090,54 @@
       "paths": [
         "PRODUCT/lib64/libjni_aidl_service.so"
       ]
+    },
+    {
+      "id": "esim-lpa",
+      "why": "DiamaneOS's own eSIM manager and its privileged-permission allowlist are installed.",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
+        "SYSTEM_EXT/etc/permissions/privapp-permissions-de.diamaneos.euicc.xml"
+      ]
+    },
+    {
+      "id": "esim-lpa-apk",
+      "why": "The eSIM manager asks for its two privileged permissions and no network access (the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
+      "type": "apk",
+      "path": "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
+      "permissions": [
+        "android.permission.READ_PRIVILEGED_PHONE_STATE",
+        "android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS",
+        "de.diamaneos.euicc.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "manifest_regex": [
+        "^\\s*E: application \\(line=\\d+\\)\\n(?:\\s*A: .*\\n)*?\\s*A: http://schemas\\.android\\.com/apk/res/android:enabled\\(0x0101000e\\)=false$"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk"
+    },
+    {
+      "id": "esim-lpa-allowlist",
+      "why": "The allowlist grants the eSIM manager its two privileged permissions.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/permissions/privapp-permissions-de.diamaneos.euicc.xml"
+      ],
+      "contains": [
+        "<privapp-permissions package=\"de.diamaneos.euicc\">",
+        "<permission name=\"android.permission.READ_PRIVILEGED_PHONE_STATE\" />",
+        "<permission name=\"android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS\" />"
+      ]
+    },
+    {
+      "id": "esim-builtin-slot",
+      "why": "Android treats physical slot 1 as the built-in eUICC; stock leaves the list empty.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "arrays": {
+        "array/non_removable_euicc_slots": [
+          "1"
+        ]
+      }
     },
     {
       "id": "pmsg-release-rule",
