@@ -60,6 +60,7 @@ class KernelConfigTests(unittest.TestCase):
     def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
                 b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
@@ -74,6 +75,7 @@ class KernelConfigTests(unittest.TestCase):
     def test_vendor_role_policy_rejects_the_qrtr_tunnel(self):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
                 b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'# CONFIG_QRTR_TUN is not set\n', b''),
@@ -81,6 +83,22 @@ class KernelConfigTests(unittest.TestCase):
             with self.subTest(config=changed):
                 report = kernel_config.check(changed, policy, 'production')
                 self.assertEqual([row['symbol'] for row in report['failures']], ['CONFIG_QRTR_TUN'])
+
+    def test_vendor_policy_keeps_panic_dumps_off_by_default(self):
+        # The download-mode driver no longer lets the running system turn dumps
+        # on, so its built-in default alone decides what a panic does.
+        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
+        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
+                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
+        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
+        for changed in (good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n', b''),
+                        good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set',
+                                     b'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT=y')):
+            with self.subTest(config=changed):
+                report = kernel_config.check(changed, policy, 'production')
+                self.assertEqual([row['symbol'] for row in report['failures']],
+                                 ['CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'])
 
     def test_runtime_features_and_lockdown_stay_on(self):
         # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded

@@ -93,24 +93,28 @@ Its `denied_modules` lists, with reasons, what FP6 never ships: the CAN,
 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and kheaders GKI modules, the
 in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN
 drivers, the WCD938x codec, FM radio, the TrustZone log reader, the SPSS loader
-and bridge, the FocalTech touch driver and the kretprobe-based FunctionFS
-logger. It survives regeneration of the Fairphone-derived lists. `kernel build`
-fails when a denied module is back in any list (`-` and `_` match) or no longer
-built (renamed or dropped: review the entry). A cut needs no remaining importer,
-enforced by the build's dependency check (`module-interfaces.json`), since
-libmodprobe loads dependencies a list omits. Device-tree references count too:
-`eud` stays because the USB controller node takes its extcon from it,
-`qcom_glink_spss` because `glink_probe` imports it, `coresight` because KGSL is
-built with CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the audio machine driver imports them; those need a
-configuration or device-tree change first.
+and bridge, the FocalTech touch driver, the kretprobe-based FunctionFS logger
+and the EUD debugger. It survives regeneration of the Fairphone-derived lists.
+`kernel build` fails when a denied module is back in any list (`-` and `_`
+match) or no longer built (renamed or dropped: review the entry). A cut needs no
+remaining importer, enforced by the build's dependency check
+(`module-interfaces.json`), since libmodprobe loads dependencies a list omits.
+Device-tree references count as importers too. Kept: `qcom_glink_spss` because
+`glink_probe` imports it, `coresight` because KGSL is built with CoreSight
+support, and `wcd937x`, `wcd939x` and `wsa883x` because the audio machine driver
+imports them; those need a configuration or device-tree change first.
 
-Two symbol rules in the same file run on every build. `module_import_allowlist`
-names the only modules that may import a symbol (today only `dwc3-msm.ko` may
-import `register_kretprobe`, the reason KPROBES stays on), and
-`forbidden_symbols` lists symbols that must not exist in the built kernel's
-`System.map` (empty today: `param_name_len`, which `run_init_process` calls
-after init memory is freed, is no longer an `__init` function). Each rule
-carries its reason.
+Three symbol rules in the same file run on every build, each with its reason:
+
+- `module_import_allowlist`: the only modules that may import a symbol (today
+  only `dwc3-msm.ko` may import `register_kretprobe`, the reason KPROBES stays
+  on).
+- `forbidden_symbols`: symbols that must not exist in the built kernel's
+  `System.map` (empty today: `param_name_len`, which `run_init_process` calls
+  after init memory is freed, is no longer an `__init` function).
+- `required_symbols`: symbols that must exist there, marking changes a rebase
+  could drop (`names_command_line`, the names-only /proc/cmdline; ThinLTO's
+  `.llvm.` suffix counts).
 
 ## Structure layout checks
 
@@ -174,6 +178,13 @@ mounts are refused. The settings live in `arch/arm64/configs/gki_defconfig`,
 identical in the common kernel and the vendor kernel
 (`kernel_platform/msm-kernel`) and kept in `savedefconfig` form because the GKI
 build runs `check_defconfig`.
+
+The vendor configuration also meets
+[`config/kernel-vendor-policy-fp6.json`](../config/kernel-vendor-policy-fp6.json),
+for options only the vendor tree builds: the IMS QRTR ownership guard, no QRTR
+tunnel, and Qualcomm's download mode off by default
+(`CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT`), which alone decides whether a
+panic dumps RAM, since the running system cannot turn dumps on.
 
 `--config-profile development` checks only the baseline and records the
 profile; the configuration itself always comes from the pinned source commit.
@@ -239,6 +250,15 @@ carry device identifiers, so both trees log them by name only (command line,
 unknown-parameter line and init's environment listing); kernel parameters keep
 their values.
 
+/proc/cmdline, which bug reports copy, shows names only once init starts:
+
+- Module options (`module.param=value`) keep their values: Android's modprobe
+  reads them there (the display driver gets its panel this way).
+- Every other value goes, init's environment and arguments included. The
+  kernel has read them all by then, in the initcalls and sysctl setup too.
+- The device tree's copy (`/proc/device-tree/chosen/bootargs`) keeps the full
+  line; no bug report or shipped program reads it.
+
 pstore/ramoops keeps the previous boot's kernel console and pmsg across a warm
 reboot in a 4 MiB region placed at boot in `/reserved-memory` of the FP6 device
 tree (2 MiB console, 2 MiB pmsg, no dump records, no ftrace), a DiamaneOS change
@@ -250,6 +270,16 @@ RAM; reboots stay cold. Device-tree bootargs set loglevel=6, so the console zone
 holds notice-level and worse (warnings, errors, panic output), not info lines.
 ramoops finds the dynamically placed region via the reserved-memory lookup; it
 stays put while the device tree and memory map are unchanged.
+
+## Download modes and EUD
+
+- Reboots ignore the `edl` and `qcom_dload` reasons and restart normally.
+- The download-mode module parameters and the `/sys/kernel/dload` files are
+  read-only, so a panic follows the build default (dumps off).
+- EDL through the hardware keys is unaffected.
+- The EUD debugger's device-tree node is disabled and `eud.ko` is denied. The
+  USB controller takes connect and role events from UCSI through its role
+  switch and port graph; EUD's extcon reported only EUD's own connects.
 
 ## Publish a kernel build
 

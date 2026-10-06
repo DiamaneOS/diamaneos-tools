@@ -485,6 +485,21 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   - Fairphone's published SHA-256 for FP6.QREL.16.111.0 matches the pinned
     archive (-52); the capability record marks protected VMs unsupported
     under Gunyah (-84).
+- **2026-10-06:** kernel hardening, implemented, not yet built.
+  - /proc/cmdline shows parameter names only once init starts; module options
+    keep their values because Android's modprobe reads them there (the
+    display driver's panel, for example). Bug reports copy the line, so the
+    hardware identifier the bootloader passes no longer reaches them (-112).
+    The kernel build requires the change's symbol in the System.map.
+  - Reboots ignore the "edl" and "qcom_dload" reasons and restart normally;
+    the download-mode module parameters and dload sysfs files are read-only,
+    so the running system cannot turn RAM dumps on (-17). Panics follow the
+    build default (dumps off), which the vendor kernel policy now checks.
+    EDL through the hardware keys is unchanged (-40).
+  - The EUD debugger's device-tree node is disabled and its driver is on the
+    deny list (-18). The USB controller drops its EUD extcon and takes connect
+    and role events from UCSI only, as it already did for every event but
+    EUD's own spoofed connects.
 
 ## IMS integration notes
 

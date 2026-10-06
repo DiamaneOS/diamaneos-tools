@@ -650,6 +650,10 @@ def rule_devicetree(rule, v):
             if check['child_absent'] in node['children']:
                 problems.append(f'{check["node"]} still has {check["child_absent"]}')
             continue
+        if check.get('absent'):
+            if check['property'] in node['props']:
+                problems.append(f'{check["node"]} still has {check["property"]}')
+            continue
         value = node['props'].get(check['property'])
         if value is None:
             problems.append(f'{check["node"]} lacks {check["property"]}')

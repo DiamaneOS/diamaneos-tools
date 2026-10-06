@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Kernel hardening, pinned at kernel_qcom-6.1 6fed659 (common kernel
+  52f5f55): /proc/cmdline shows parameter names only, keeping module options'
+  values; reboots ignore the `edl` and `qcom_dload` reasons and the
+  download-mode parameters and files are read-only; the EUD debugger's
+  device-tree node is off and the USB controller takes no extcon from it.
+  `eud.ko` joins the packaging deny list. New checks: `required_symbols` in the
+  packaging recipe (`names_command_line` must be in the System.map), the vendor
+  kernel policy requires download mode off by default, image checks
+  `download-reboot-refused`, `usb-events-from-ucsi` and
+  `usb-events-from-ucsi-volcano` (device-tree checks can now require a
+  property's absence). Threat model updated.
 - Image checks and threat model for the factory Wi-Fi MAC (-180): imeiprovd's
   `--wlan-mac` service and its firmware tree, which init waits for at post-fs
   (`wlan-factory-mac-service`), ueventd's firmware directory

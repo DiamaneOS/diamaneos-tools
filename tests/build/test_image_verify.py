@@ -532,6 +532,48 @@ class RuleTests(unittest.TestCase):
         self.assertIn('size', detail)
         self.assertIn('/soc still has ramoops_region', detail)
 
+    def test_usb_controller_takes_no_eud_extcon(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        usb = [r for r in rules if r['id'] in ('usb-events-from-ucsi', 'usb-events-from-ucsi-volcano')]
+        self.assertEqual(['kernel:dtbs/fp6.dtb', 'kernel:dtbs/volcano.dtb'], [r['file'] for r in usb])
+        tree = {'/': {}, '/soc': {}, '/soc/ssusb@a600000': {'usb-role-switch': b''},
+                '/soc/qcom,pmic_glink': {}, '/soc/qcom,pmic_glink/qcom,ucsi': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector/port': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector/port/endpoint': {'remote-endpoint': cells(0x54)},
+                '/soc/qcom,msm-eud@88e0000': {'status': b'disabled\0'}}
+        (self.root / 'dtbs').mkdir()
+        v = self.harness({}, kernel=self.root)
+        for rule in usb:
+            name = rule['file'].removeprefix('kernel:')
+            (self.root / name).write_bytes(dtb(tree))
+            self.assertEqual((True, ''), subject.rule_devicetree(rule, v))
+        stock = copy.deepcopy(tree)
+        stock['/soc/ssusb@a600000']['extcon'] = cells(0x2f0)
+        stock['/soc/qcom,msm-eud@88e0000']['status'] = b'ok\0'
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(stock))
+        ok, detail = subject.rule_devicetree(usb[0], v)
+        self.assertFalse(ok)
+        self.assertIn('/soc/ssusb@a600000 still has extcon', detail)
+        self.assertIn('status', detail)
+        del tree['/soc/ssusb@a600000']['usb-role-switch']
+        (self.root / 'dtbs/volcano.dtb').write_bytes(dtb(tree))
+        self.assertIn('lacks usb-role-switch', subject.rule_devicetree(usb[1], v)[1])
+
+    def test_download_mode_module_ignores_edl_reboots(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        rule = next(r for r in rules if r['id'] == 'download-reboot-refused')
+        (self.root / 'modules').mkdir()
+        v = self.harness({}, kernel=self.root)
+        module = self.root / 'modules/qcom-dload-mode.ko'
+        module.write_bytes(b'\x7fELF\0qcom,dload-mode\0full\0mini\0')
+        self.assertEqual((True, ''), subject.rule_binary_count(rule, v))
+        module.write_bytes(b'\x7fELF\0qcom,dload-mode\0edl\0qcom_dload\0Regulator enable failed(rc:%d)\n\0')
+        ok, detail = subject.rule_binary_count(rule, v)
+        self.assertFalse(ok)
+        self.assertIn('edl', detail)
+        self.assertIn('Regulator enable failed', detail)
+
     def test_tool_based_rules_use_the_build_tools(self):
         dump = ('Package name=x\n    resource 0x7f010000 bool/config_nightDisplayAvailable\n      () true\n'
                 '    resource 0x7f020000 integer/config_tether_usb_functions\n      () 1\n')

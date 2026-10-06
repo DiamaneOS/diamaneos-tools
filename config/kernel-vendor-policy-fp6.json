@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
-  "id": "fp6-6-1-ims-vendor-kernel-policy-v1",
+  "id": "fp6-6-1-vendor-kernel-policy-v2",
   "baseline": {
     "CONFIG_QRTR": "m",
     "CONFIG_QRTR_IMSDCM_OWNERSHIP": "y",
-    "CONFIG_QRTR_TUN": "n"
+    "CONFIG_QRTR_TUN": "n",
+    "CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT": "n"
   },
   "production": {
     "CONFIG_SECURITY_SELINUX_DEVELOP": "n"
