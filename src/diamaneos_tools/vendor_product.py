@@ -74,11 +74,6 @@ SOURCE_INTERFACES = {
     'android.hidl.allocator@1.0',
     'libhidltransport',
     'libtinycompress',
-    'android.hardware.gnss-V3-ndk',
-    'android.hardware.health-V1-ndk',
-    'android.hardware.health@1.0',
-    'android.hardware.health@2.0',
-    'android.hardware.health@2.1',
     # AOSP radio, secure-element and netd interfaces linked by the stock radio
     # daemon, its data module and nicmd; built from source (vendor variants).
     'android.hardware.radio-V2-ndk',
@@ -174,9 +169,10 @@ ACTIVATION={
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
  # audioadsprpcd starts the audio protection domain on the ADSP.
  'audioadsprpcd':('vendor.qti.audio-adsprpc-service.rc',None),
- # Stock GNSS HAL (IGnss v3); its rc is a pinned derivation (GNSS_CONFIG_REWRITES).
- # vendor.qti.gnss-service.xml (ILocAidlGnss) is not installed.
- 'android.hardware.gnss-aidl-service-qti':('android.hardware.gnss-aidl-service-qti.rc','android.hardware.gnss-aidl-service-qti.xml'),
+ # Not selected: the stock GNSS HAL (IGnss v3) and its location libraries. The
+ # device builds them from CodeLinaro source (device gnss/gnss.mk); only the
+ # stock gps.conf, izat.conf (pinned derivations, GNSS_CONFIG_REWRITES) and
+ # sap.conf stay.
  # The stock CamX/CHI camera provider (AIDL ICameraProvider/vendor_qti/0).
  'vendor.qti.camera.provider-service_64':('vendor.qti.camera.provider-service_64.rc','vendor.qti.camera.provider.xml'),
  # The QCRIL radio daemon declares only the services the device uses: the AOSP radio
@@ -1051,10 +1047,6 @@ GNSS_CONFIG_REWRITES = {
         'source_sha256': 'a89ca530acfa96685d87160ecf61ac49f3a26128dfa24372c4eb917ec7ccdd57',
         'sha256': '29dee8ed4ebde298418da8bd31669eaa2bb162f2085a698e8de767dd6114fbb8',
         'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface; log warnings and errors only'},
-    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': {
-        'source_sha256': 'c26a05a20d168de2ff460b6493029368e7ae7fe774c65c794c11e635d3856d1f',
-        'sha256': 'e497937eefe98b5127ceca4331fa271067ef7bd1eb66b794db1aea5728c3f555',
-        'reason': 'Advertise only IGnss/default and keep only the system and gps groups'},
 }
 IZAT_DISABLED_PROCESSES = ('lowi-server', 'xtwifi-client', 'slim_daemon', 'xtra-daemon', 'edgnss-daemon', 'blpsvc')
 GNSS_REQUIRED = {
@@ -1062,14 +1054,10 @@ GNSS_REQUIRED = {
                             b'\nDEBUG_LEVEL = 2\n'),
     'vendor/etc/izat.conf': (b'\nGTP_MODE=DISABLED\n', b'\nFREE_WIFI_SCAN_INJECT=DISABLED\n',
                              b'\nSUPL_WIFI=DISABLED\n', b'\nWIFI_SUPPLICANT_INFO=DISABLED\n'),
-    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': (b'\n    interface aidl android.hardware.gnss.IGnss/default\n',
-                                                                  b'\n    group system gps\n'),
 }
 GNSS_FORBIDDEN = {
     'vendor/etc/gps.conf': (b'xtracloud', b'izatcloud', b'://'),
     'vendor/etc/izat.conf': (b'xtracloud', b'izatcloud', b'://', b'\nPROCESS_STATE=ENABLED'),
-    'vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc': (b'ILocAidlGnss', b'radio', b'vendor_qti_diag',
-                                                                  b'vendor_ssgtzd', b'capabilities', b'inet'),
 }
 
 
@@ -1086,14 +1074,11 @@ def gnss_config(path, data):
         for name in IZAT_DISABLED_PROCESSES:
             derived = re.sub(rb'(\nPROCESS_NAME=' + re.escape(name.encode()) + rb'\nPROCESS_ARGUMENT=[^\n]*\nPROCESS_STATE=)ENABLED\n',
                              rb'\1DISABLED\n', derived)
-    elif path.endswith('/gps.conf'):
+    else:
         derived = data.replace(b'#NTP server\nNTP_SERVER=time.xtracloud.net\n', b'')
         derived = derived.replace(b'\nLOC_DIAGIFACE_ENABLED = 1\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n')
         # Warnings and errors only, the level the engine library itself uses on user builds.
         derived = derived.replace(b'\nDEBUG_LEVEL = 3\n', b'\nDEBUG_LEVEL = 2\n')
-    else:
-        derived = data.replace(b'    interface aidl vendor.qti.gnss.ILocAidlGnss/default\n', b'')
-        derived = derived.replace(b'    group system gps radio vendor_qti_diag vendor_ssgtzd\n', b'    group system gps\n')
     if (any(token not in derived for token in GNSS_REQUIRED[path])
             or any(token in derived for token in GNSS_FORBIDDEN[path])):
         raise VendorError('derived GNSS configuration violates its privacy invariants')

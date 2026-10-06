@@ -716,28 +716,45 @@ class NativeProductTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             vendor_product.nfc_config('vendor/etc/libnfc-nci.conf', b'')
 
-    def test_gnss_hal_installed_with_activation_and_source_interfaces(self):
+    def test_gnss_hal_is_built_from_source(self):
+        # The device builds the GNSS HAL and its location libraries from
+        # CodeLinaro source; no stock GNSS code, interface library or activation
+        # file is selected. The stock engine configuration stays.
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
-        for stem in ['bin_hw_android.hardware.gnss-aidl-service-qti', 'lib64_hw_android.hardware.gnss-aidl-impl-qti',
-                     'lib64_liblocation_api', 'lib64_libgnss', 'lib64_libloc_core', 'lib64_libloc_api_v02',
-                     'lib64_libgps.utils']:
-            self.assertIn('fp6_stock_vendor_' + stem, modules)
-        # Interfaces are source-built; the Qualcomm cloud, Wi-Fi, daemon, batching and geofence layers are not selected.
-        for stem in ['lib64_android.hardware.gnss-V3-ndk', 'lib64_android.hardware.health@2.1',
-                     'bin_loc_launcher', 'bin_xtra-daemon', 'bin_lowi-server', 'bin_xtwifi-client',
+        paths = {r['path'] for r in self.recipe['files']}
+        elf_paths = {r['path'] for r in self.selection['files']}
+        stock = ['bin/hw/android.hardware.gnss-aidl-service-qti', 'lib64/hw/android.hardware.gnss-aidl-impl-qti.so',
+                 'lib64/liblocation_api.so', 'lib64/libgnss.so', 'lib64/libloc_core.so', 'lib64/libgps.utils.so',
+                 'lib64/libloc_api_v02.so', 'lib64/libqti_vndfwk_detect_vendor.so',
+                 'lib64/android.hardware.gnss-V3-ndk.so', 'lib64/android.hardware.health-V1-ndk.so',
+                 'lib64/android.hardware.health@1.0.so', 'lib64/android.hardware.health@2.0.so',
+                 'lib64/android.hardware.health@2.1.so',
+                 'etc/init/android.hardware.gnss-aidl-service-qti.rc',
+                 'etc/vintf/manifest/android.hardware.gnss-aidl-service-qti.xml']
+        for path in ['vendor/' + p for p in stock]:
+            self.assertNotIn(path, paths)
+            self.assertNotIn(path, elf_paths)
+            self.assertNotIn(path, self.selection['roots'])
+            self.assertNotIn(vendor_product.module(path), modules)
+        self.assertFalse([e for e in self.selection['edges']
+                          if 'gnss' in e['consumer'] or 'gnss' in e.get('provider', '')
+                          or e['needed'] in ('libgnss.so', 'libloc_api_v02.so', 'libgps.utils.so')])
+        self.assertNotIn('android.hardware.gnss-aidl-service-qti', vendor_product.ACTIVATION)
+        for stem in ['android.hardware.gnss-V3-ndk', 'android.hardware.health-V1-ndk',
+                     'android.hardware.health@1.0', 'android.hardware.health@2.0', 'android.hardware.health@2.1']:
+            self.assertNotIn(stem, vendor_product.SOURCE_INTERFACES)
+        for marker in ['gnss', 'libloc_', 'libgps.utils', 'liblocation_api', 'vndfwk_detect_vendor']:
+            self.assertNotIn(marker, bp)
+            self.assertNotIn(marker, '\n'.join(modules))
+        # The Qualcomm cloud, Wi-Fi, daemon, batching and geofence layers stay out too.
+        for stem in ['bin_loc_launcher', 'bin_xtra-daemon', 'bin_lowi-server', 'bin_xtwifi-client',
                      'lib64_liblbs_core', 'lib64_libizat_core', 'lib64_vendor.qti.gnss-service',
                      'lib64_libbatching', 'lib64_libgeofencing', 'lib64_liblocation_qesdk', 'lib64_liblocdiagiface']:
             self.assertNotIn('fp6_stock_vendor_' + stem, modules)
-        block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_android.hardware.gnss-aidl-service-qti"'):]
-        block = block[:block.index('}\n')]
-        self.assertIn('files/vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc', block)
-        self.assertIn('files/vendor/etc/vintf/manifest/android.hardware.gnss-aidl-service-qti.xml', block)
-        self.assertIn('"android.hardware.gnss-V3-ndk"', block)
-        self.assertIn('"fp6_stock_vendor_lib64_libloc_api_v02"', block)
         for name in ['vendor.qti.gnss-service.xml', 'loc-launcher.rc', 'xtwifi.conf', 'lowi.conf',
-                     'gnss_antenna_info.conf', 'batching.conf']:
+                     'gnss_antenna_info.conf', 'batching.conf', 'android.hardware.gnss-aidl-service-qti']:
             self.assertNotIn(name, make)
         for name in ['gps.conf', 'izat.conf', 'sap.conf']:
             self.assertIn('files/vendor/etc/' + name + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + name, make)
@@ -754,7 +771,8 @@ class NativeProductTests(unittest.TestCase):
                      b'\nDEBUG_LEVEL = 2\n']:
             self.assertIn(line, required)
         self.assertIn(b'\nPROCESS_STATE=ENABLED', vendor_product.GNSS_FORBIDDEN['vendor/etc/izat.conf'])
-        self.assertIn(b'ILocAidlGnss', vendor_product.GNSS_FORBIDDEN['vendor/etc/init/android.hardware.gnss-aidl-service-qti.rc'])
+        # The service's init file comes from the source HAL, not from stock.
+        self.assertEqual({'vendor/etc/gps.conf', 'vendor/etc/izat.conf'}, set(vendor_product.GNSS_CONFIG_REWRITES))
         self.assertEqual(set(vendor_product.GNSS_REQUIRED), set(vendor_product.GNSS_CONFIG_REWRITES))
         self.assertEqual(set(vendor_product.GNSS_FORBIDDEN), set(vendor_product.GNSS_CONFIG_REWRITES))
 

@@ -95,7 +95,15 @@
     {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master with upstream pull request 50 (memory and path fixes) and our unlink, truncation and symlink changes. Drop pull request 50's commits once upstream merges it.",
      "upstream": {"url": "https://github.com/linux-msm/tqftpserv", "ref": "master", "kind": "branch"}},
     {"id": "qrtr", "slug": "vendor_qcom_opensource_qrtr", "path": "vendor/qcom/opensource/qrtr", "branch": "android17", "follow_note": "linux-msm's QRTR library: master with one change, the library is installed as libqrtr_linux_msm.so so that Qualcomm's libqrtr.so stays for the stock display, VM and QTEE libraries. tqftpserv links it statically, pd-mapper dynamically.",
-     "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}}
+     "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}},
+    {"id": "gnss-hal", "slug": "hardware_qcom_gps", "path": "hardware/qcom/gps", "branch": "android17", "follow_note": "Qualcomm's GNSS HAL and location libraries: the AIDL HAL builds with Soong, gps.conf comes from the device, the libraries load only libgnss and libloc_api_v02, and the HAL opens no socket for the XTRA and DGNSS daemons.",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/gps", "ref": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0", "kind": "tag"},
+     "newer": {"tags": "^LA\\.VENDOR\\.14\\.3\\.0\\.r1-([0-9]+)-lanai\\.QSSI16\\.0$"}},
+    {"id": "location", "slug": "vendor_qcom_opensource_location", "path": "vendor/qcom/opensource/location", "branch": "android17", "follow_note": "Qualcomm's QMI LOC client (libloc_api_v02): builds with Soong against the public QMI framework (three shim headers map the old QMI client names); the other Make files are not included.",
+     "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/location", "ref": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0", "kind": "tag"},
+     "newer": {"tags": "^LA\\.VENDOR\\.14\\.3\\.0\\.r1-([0-9]+)-lanai\\.QSSI16\\.0$"}},
+    {"id": "qmi-framework", "slug": "vendor_qcom_opensource_qmi-framework", "path": "vendor/qcom/opensource/qmi-framework", "branch": "android17", "follow_note": "Qualcomm's public QMI framework: main with a Soong build of the QMI client, encoder and common types as static libraries (linked into libloc_api_v02), and no /etc configuration read on Android.",
+     "upstream": {"url": "https://github.com/qualcomm/qmi-framework", "ref": "main", "kind": "branch"}}
   ],
   "sources": [
     {"id": "grapheneos-platform", "description": "GrapheneOS platform release the Android build is based on (authenticated tag).", "url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -140,6 +148,9 @@
     {"id": "libvmmem", "description": "vendor/qcom/opensource/libvmmem: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/le/platform/system/memory/libvmmem",
      "follow": {"kind": "branch", "ref": "kernel.apps.lnx.5.0.r2-rel", "newer_branches": "^kernel\\.apps\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
      "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/libvmmem"}},
+    {"id": "core-utils", "description": "vendor/qcom/opensource/core-utils: libqti_vndfwk_detect_vendor, which the GNSS HAL links, used unmodified (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/core-utils-vendor",
+     "follow": {"kind": "branch", "ref": "android-core.lnx.14.0.r1-rel"},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/core-utils"}},
     {"id": "pd-mapper", "description": "vendor/qcom/opensource/pd-mapper: linux-msm's protection-domain locator, used unmodified (no DiamaneOS fork). Pinned to the last commit that builds for Android: later commits need liblzma, which its Android.bp does not provide.", "url": "https://github.com/linux-msm/pd-mapper",
      "follow": {"kind": "branch", "ref": "master"},
      "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/pd-mapper"}},

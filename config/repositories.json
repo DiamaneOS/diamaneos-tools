@@ -153,6 +153,36 @@
       "upstream_url": "https://github.com/linux-msm/qrtr"
     },
     {
+      "checkout_path": "WORK_ROOT/os/hardware/qcom/gps",
+      "id": "gnss-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_qcom_gps.git",
+      "revision": null,
+      "slug": "hardware_qcom_gps",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/hardware/qcom/gps"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/location",
+      "id": "location",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_location.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_location",
+      "state": "active",
+      "upstream_url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/location"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/qmi-framework",
+      "id": "qmi-framework",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_qmi-framework.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_qmi-framework",
+      "state": "active",
+      "upstream_url": "https://github.com/qualcomm/qmi-framework"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/display",
       "id": "display-hal",
       "publication": "public-source",

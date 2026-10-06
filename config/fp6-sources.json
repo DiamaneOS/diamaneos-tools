@@ -819,14 +819,32 @@
     },
     {
       "id": "gnss",
-      "origin": "proprietary-prebuilt-userspace-and-firmware",
-      "source_revisions": [],
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "source_revisions": [
+        {
+          "path": "hardware/qcom/gps",
+          "revision": "5ec6e3e3a5d194f26b9e468ecfc204f0c445eccc"
+        },
+        {
+          "path": "vendor/qcom/opensource/location",
+          "revision": "39888d7aeaab604a149c5c2cf5693475da8c67cc"
+        },
+        {
+          "path": "vendor/qcom/opensource/qmi-framework",
+          "revision": "a360139409ce90eab743453eccc7eb11d5646166"
+        },
+        {
+          "path": "vendor/qcom/opensource/core-utils",
+          "revision": "c4bd65ba4c0a068eda3c8dc9dc84ea8d10a0f5de"
+        }
+      ],
       "reference_vintf": [
         "android.hardware.gnss AIDL V3 IGnss/default"
       ],
       "abi_uapi": "GNSS AIDL, location libraries, QMI/modem and assistance-data protocols",
-      "load_path": "generated vendor tree (stock GNSS HAL and location closure) and modem partition; the frozen AOSP GNSS and health interface libraries it links are built from source (renderer SOURCE_INTERFACES)",
-      "rebuilt_from_source": false,
+      "load_path": "GNSS HAL service, IGnss implementation and location libraries built from CodeLinaro source (hardware/qcom/gps and vendor/qcom/opensource/location, DiamaneOS forks; libqti_vndfwk_detect_vendor from vendor/qcom/opensource/core-utils) with the QMI client of Qualcomm's public QMI framework (DiamaneOS fork) linked into libloc_api_v02, installed by device gnss/gnss.mk; Fairphone's stock gps.conf, izat.conf (pinned edits) and sap.conf from the generated vendor tree; the GNSS engine in the modem partition",
+      "licence_profile": "published-source-review-required",
+      "rebuilt_from_source": "userspace only",
       "provenance_profile": "exact-stock-non-source"
     },
     {
