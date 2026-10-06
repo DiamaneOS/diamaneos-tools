@@ -770,8 +770,12 @@ QSEE KeyMint cannot serve vold and `/data` never mounts.
 The renderer retains native source-built interface libraries where declared,
 enables native ELF checks and generates init/VINTF packaging with the provider.
 Declared are frozen AIDL and HIDL interfaces, the libraries of the source-built
-display stack and a few AOSP libraries that stock blobs link (such as `libdrm`,
-`libtinycompress` and `libavservices_minijail`). A C++ implementation library
+display stack and a few AOSP libraries that stock blobs link (such as `libdrm`
+and `libavservices_minijail`). The reverse also exists: stock libraries that
+source modules link (`SOURCE_LINKED_STOCK`: the AudioReach graph services,
+tuning server and voice UI interface that the source-built PAL and AGM link)
+are rendered under their library name instead of the `fp6_stock_` name, and are
+selection roots. A C++ implementation library
 that only a closed HAL uses stays stock: the stock KeyMint HAL keeps its
 `libkeymaster_messages`, because a class-layout change would pass the ELF
 checks. The same caveat applies where closed stock code links a source-built

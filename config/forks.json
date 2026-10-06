@@ -95,7 +95,16 @@
     {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master with upstream pull request 50 (memory and path fixes) and our unlink, truncation and symlink changes. Drop pull request 50's commits once upstream merges it.",
      "upstream": {"url": "https://github.com/linux-msm/tqftpserv", "ref": "master", "kind": "branch"}},
     {"id": "qrtr", "slug": "vendor_qcom_opensource_qrtr", "path": "vendor/qcom/opensource/qrtr", "branch": "android17", "follow_note": "linux-msm's QRTR library: master with one change, the library is installed as libqrtr_linux_msm.so so that Qualcomm's libqrtr.so stays for the stock display, VM and QTEE libraries. tqftpserv links it statically, pd-mapper dynamically.",
-     "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}}
+     "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}},
+    {"id": "audio-hal", "slug": "hardware_qcom_audio-ar", "path": "vendor/qcom/opensource/audio-hal/primary-hal", "branch": "android17", "follow_note": "Fairphone's FP6 AudioReach primary HAL and audioadsprpcd; build changes only (no VINTF fragment, effects built by the device, sanitizers). The audio-source branch carries them until the phone test.",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/audio-ar", "ref": "odm/public-build/target/16/fp6", "kind": "branch"},
+     "newer": {"branches": "^odm/public-build/target/([0-9]+)/fp6$"}},
+    {"id": "audio-pal", "slug": "vendor_qcom_opensource_arpal-lx", "path": "vendor/qcom/opensource/pal", "branch": "android17", "follow_note": "Fairphone's FP6 PAL, including its Awinic speaker calibration code (published without a licence header); build changes only (kernel UAPI from the device header library, closed headers dropped, plugins not built, sanitizers, NOTICE). The audio-source branch carries them until the phone test.",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/arpal-lx", "ref": "odm/public-build/target/16/fp6", "kind": "branch"},
+     "newer": {"branches": "^odm/public-build/target/([0-9]+)/fp6$"}},
+    {"id": "audio-agm", "slug": "vendor_qcom_opensource_agm", "path": "vendor/qcom/opensource/agm", "branch": "android17", "follow_note": "Fairphone's FP6 AGM, its HIDL service and ALSA plugins; build changes only (closed memory logger header dropped, bionic compress headers, sanitizers). The audio-source branch carries them until the phone test.",
+     "upstream": {"url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/agm", "ref": "odm/public-build/target/16/fp6", "kind": "branch"},
+     "newer": {"branches": "^odm/public-build/target/([0-9]+)/fp6$"}}
   ],
   "sources": [
     {"id": "grapheneos-platform", "description": "GrapheneOS platform release the Android build is based on (authenticated tag).", "url": "https://github.com/GrapheneOS/platform_manifest.git",
@@ -152,6 +161,9 @@
     {"id": "aosp-nos-host", "description": "external/nos/host/generic: AOSP's nos host libraries, which GrapheneOS leaves out; only hardware/google/pixel's unused fastboot and recovery modules need them for the build to resolve.", "url": "https://android.googlesource.com/platform/external/nos/host/generic",
      "follow": {"kind": "manual", "note": "Keep it at the AOSP release tag of the pinned GrapheneOS release (android-17.0.0_r1 for 2026091000)."},
      "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "external/nos/host/generic"}},
+    {"id": "audio-graphservices-headers", "description": "vendor/qcom/opensource/audio/graphservices: the AudioReach graph service headers PAL and AGM build against, used unmodified, tracked upstream directly (no DiamaneOS fork). Fairphone publishes only these headers; the graph service libraries stay closed.", "url": "https://gerrit-public.fairphone.software/platform/vendor/qcom-opensource/audioreach-graphservices",
+     "follow": {"kind": "branch", "ref": "odm/public-build/target/16/fp6", "newer_branches": "^odm/public-build/target/([0-9]+)/fp6$"},
+     "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/audio/graphservices"}},
     {"id": "kernel", "description": "kernel_platform/msm-kernel in kernel_qcom-6.1, imported from CodeLinaro with Fairphone's FP6 changes.", "url": "https://git.codelinaro.org/clo/la/kernel/qcom",
      "follow": {"kind": "branch", "ref": "kernel.lnx.6.1.r2-rel", "newer_tags": "^KERNEL\\.PLATFORM\\.3\\.0\\.r1-([0-9]+)-kernel\\.0$"},
      "pin": {"repository": "tools", "file": "config/kernel-upstream-fp6.json", "list": "/imports", "match": {"path": "kernel_platform/msm-kernel"}, "field": "commit", "release_field": "release"}},

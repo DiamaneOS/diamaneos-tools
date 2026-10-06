@@ -430,6 +430,36 @@ class RuleTests(unittest.TestCase):
                 members = {k: v for k, v in {**good, **change}.items() if v is not None}
                 self.assertFalse(check(rule_id, members))
 
+    def test_audio_source_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        lib, hal = 'VENDOR/lib64/', 'VENDOR/lib64/hw/audio.primary.volcano.so'
+        manifest = 'VENDOR/etc/vintf/manifest.xml'
+        rm = 'VENDOR/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml'
+        good = {hal: b'\x7fELF libar-pal.so\0vendor.qti.hardware.AGMIPC@1.0.so\0HMI\0',
+                lib + 'libar-pal.so': b'\x7fELF libagmclient.so\0libvui_intf.so\0',
+                lib + 'libagm.so': b'\x7fELF libar-gsl.so\0libats.so\0',
+                manifest: b'<name>vendor.qti.hardware.AGMIPC</name><name>android.hardware.bluetooth</name>',
+                rm: b'<speaker_protection_enabled>1</speaker_protection_enabled>'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('audio-source-dropped', 'audio-hal-not-stock', 'audio-pal-not-stock', 'audio-agm-not-stock',
+                        'audio-pal-links', 'audio-agm-links', 'audio-hal-links', 'audio-declared',
+                        'audio-speaker-protection-on'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        # Each stock piece fails its rule.
+        for rule_id, change in [
+                ('audio-source-dropped', {lib + 'vendor.qti.hardware.pal@1.0-impl.so': b'x'}),
+                ('audio-source-dropped', {lib + 'libarmemlog.so': b'x'}),
+                ('audio-source-dropped', {'VENDOR/etc/vintf/manifest/manifest_non_qmaa.xml': b'x'}),
+                ('audio-hal-not-stock', {hal: good[hal] + bytes.fromhex('5148e9e387efbad9a545760ff257b8a3')}),
+                ('audio-pal-not-stock', {lib + 'libar-pal.so': bytes.fromhex('d374661ca1aec5ed9f33f5aefde042f3')}),
+                ('audio-agm-not-stock', {lib + 'libagm.so': bytes.fromhex('b214b1a78516520aa6d493c7c44c27e9')}),
+                ('audio-pal-links', {lib + 'libar-pal.so': good[lib + 'libar-pal.so'] + b'libarmemlog.so\0'}),
+                ('audio-agm-links', {lib + 'libagm.so': good[lib + 'libagm.so'] + b'libaudio_log_utils.so\0'}),
+                ('audio-hal-links', {hal: good[hal] + b'vendor.qti.hardware.pal@1.0-impl.so\0'}),
+                ('audio-declared', {manifest: good[manifest] + b'<name>vendor.qti.hardware.pal</name>'}),
+                ('audio-speaker-protection-on', {rm: good[rm].replace(b'>1<', b'>0<')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                self.assertFalse(check(rule_id, {**good, **change}))
     def test_wlan_factory_mac_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         rc, ueventd, fc = 'VENDOR/etc/init/imeiprovd.rc', 'VENDOR/etc/ueventd.rc', 'VENDOR/etc/selinux/vendor_file_contexts'

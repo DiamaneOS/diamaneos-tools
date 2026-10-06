@@ -439,6 +439,23 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   and LTE-only controls and the radio log redaction were checked on the
   phone, debugfs is not mountable on the phone, and the kernel cannot run
   SELinux permissive.
+- **2026-10-06:** audio HAL, PAL and AGM, implemented, not yet built. The
+  primary HAL, PAL, AGM with its HIDL service and ALSA plugins, and
+  audioadsprpcd are built from Fairphone's published FP6 sources (the
+  sources of the stock build, without Fairphone's closed headers) under the
+  stock names, with control-flow integrity and the integer overflow
+  sanitizer as in stock. The HAL registers no PAL HIDL service; it, the
+  memory logger and the dynamic logging library are no longer shipped
+  (closed audio files 36 to 17). The graph services, whose sources Fairphone
+  did not publish, their tuning server (no diag access), the voice UI
+  interface and the deadline manager stay closed in the HAL process. The
+  Awinic calibration code, published without a licence header, is compiled
+  into PAL as in stock; nothing calls it. The amplifier's factory
+  calibration is read by the kernel driver, unchanged. Two HAL bugs any
+  app could reach through getParameters are fixed in the source: a reply
+  without a terminating zero returned stack bytes, and an oversized copy that
+  could abort the HAL; voice UI keys are ignored without a sound trigger
+  HAL (-178).
 - **2026-10-06:** audio effects, implemented, not yet built. AOSP's effect
   proxy creates both halves of an offloadable effect and sends every command
   to both, so with offload playback off every app's equalizer, bass boost,
