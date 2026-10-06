@@ -452,8 +452,8 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   Awinic calibration code, published without a licence header, is compiled
   into PAL as in stock; nothing calls it. The amplifier's factory
   calibration is read by the kernel driver, unchanged. The HAL no longer
-  answers the factory speaker queries and ignores voice UI keys without a
-  sound trigger HAL, which closes parameter-query bugs any app could reach
+  answers the factory speaker queries or accepts the factory speaker
+  protection modes, and ignores voice UI keys without a sound trigger HAL, which closes parameter-query bugs any app could reach
   (-178).
 - **2026-10-06:** audio effects, implemented, not yet built. AOSP's effect
   proxy creates both halves of an offloadable effect and sends every command
