@@ -450,6 +450,13 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   volume listener are built from CodeLinaro source, identical to Fairphone's
   published FP6 audio sources. VoIP capture keeps the DSP's tuned echo
   cancellation instead of AOSP's software canceller.
+- **2026-10-06:** USB-C port control (implemented, not yet built). The
+  framework setting is on, and init triggers map GrapheneOS's port states to
+  the USB controller's data switch, which gets its own SELinux type that only
+  vendor_init may write. Charging cannot be turned off on the FP6, so Off
+  works like Charging-only and Settings says so. Without port control a user
+  build had no USB data at all. On debuggable builds a restrictive mode is
+  reset at boot and the lock modes do nothing while USB debugging is on.
 
 ## IMS integration notes
 
