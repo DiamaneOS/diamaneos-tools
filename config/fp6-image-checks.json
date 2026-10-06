@@ -1025,6 +1025,22 @@
       ]
     },
     {
+      "id": "wlan-driver-own-mac-not-logged",
+      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the line carried four octets of the factory MAC (-180).",
+      "type": "binary_count",
+      "file": "VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko",
+      "patterns": [
+        {
+          "text": "txrx_peer NULL!! peer mac_addr(",
+          "count": 0
+        },
+        {
+          "text": "txrx_peer NULL!! peer_id %u",
+          "min": 1
+        }
+      ]
+    },
+    {
       "id": "soc-serial-label",
       "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
       "type": "text",
