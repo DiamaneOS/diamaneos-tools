@@ -281,6 +281,44 @@ The system label is the literal "DiamaneOS" (apps can read it; it reveals only
 the OS name, as GrapheneOS's did). The fallback boot logo, shown only without a
 boot animation, is the DiamaneOS mark. Neither carries state.
 
+## Moments switch
+
+Implemented, not yet built. The FP6's side slider drives one action the user
+picks in Settings > System > Gestures > Moments switch: Moments (the user's own
+Do Not Disturb, Home with only chosen apps, chosen apps paused, optional grey
+screen), camera and microphone access off, silent mode, airplane mode and/or
+Lockdown, or nothing.
+
+- Reading the switch: the input service reports it only through three hidden
+  methods behind a signature permission that only SystemUI holds; other callers
+  get a SecurityException. Only the internal input device present since boot
+  counts; a USB, Bluetooth or later-added device sending the same switch code
+  is ignored. The kernel's reports only prompt a fresh read of that device, so
+  repeats change nothing. Root and adb (sendevent) are above this boundary.
+- What apps can see: the choices and the "Moments on" flag are system settings
+  that only Settings, SystemUI and Launcher can read (GrapheneOS's protected
+  settings); what the switch changed lives in SystemUI's own storage. Apps can
+  still see the effects, as with any manual change (Do Not Disturb, ringer,
+  airplane mode, a paused app), and an app watching all system settings for
+  changes learns when the Home filter turns on or off, not to what.
+- Raising protection (camera and microphone off, airplane on, Lockdown, pausing
+  apps) applies at once, also on the lock screen. Lowering it waits for the
+  unlock, as GrapheneOS's tiles do. Lockdown ends only with the user's
+  credential, never with the switch.
+- Sliding back undoes only what the switch changed, and only where the setting
+  is still as the switch left it. Camera and microphone blocking is the
+  software sensor-privacy toggle and is labelled so, never as a hardware
+  cut-off.
+- Accidental flips: a short settle time, a haptic tick and a toast on each
+  flip, and a "Nothing" choice. Before setup completes the switch does nothing;
+  until the user chooses an action or moves the switch, it only posts one
+  notice.
+- Home during Moments is a page built in memory with editing locked, so the
+  stored Home layout is never written; work profile and private space are
+  hidden while it is on.
+- Unrelated: the FP6's hall sensor sends unmapped key codes to the focused app
+  (already tracked); the Moments switch does not use it.
+
 ## Rules learned from findings
 
 Findings are described in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).

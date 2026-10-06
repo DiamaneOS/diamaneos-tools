@@ -582,6 +582,12 @@ Longer notes for some revisions, oldest first.
   - Fairphone's published SHA-256 for FP6.QREL.16.111.0 matches the pinned
     archive (-52); the capability record marks protected VMs unsupported
     under Gunyah (-84).
+- **2026-10-06:** Moments switch, implemented, not yet built. The input
+  service reports the FP6's side slider to SystemUI only (signature
+  permission, internal device only, repeats dropped); its settings are
+  protected system settings readable by Settings, SystemUI and Launcher; it
+  raises protection at once and lowers it after the unlock. Rules in
+  [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 - **2026-10-06:** kernel hardening, implemented, not yet built.
   - /proc/cmdline shows parameter names only once init starts; module options
     keep their values because Android's modprobe reads them there (the
