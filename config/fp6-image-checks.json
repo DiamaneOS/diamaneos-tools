@@ -583,7 +583,7 @@
     },
     {
       "id": "usb-port-control-triggers",
-      "why": "The port states reach the USB controller's data switch: ports_disabled and charging-only_immediate turn data off, ports_enabled turns it on. charging-only has no trigger: the kernel refuses the next connection and the current one stays.",
+      "why": "The port states reach the USB controller's data switch and the charger firmware's input suspend. ports_disabled (Off) cuts data and then suspends the input: no charging while the OS runs. charging-only_immediate cuts data, ports_enabled turns data on, and every state but Off turns the input back on, as do boot, charger mode and shutdown, so charging when powered off, in charger mode, fastboot and recovery is unaffected. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.qcom.usb.rc"
@@ -591,12 +591,28 @@
       "lines": [
         "on property:sys.port_security_mode=ports_disabled",
         "on property:sys.port_security_mode=charging-only_immediate",
+        "on property:sys.port_security_mode=charging-only",
         "on property:sys.port_security_mode=ports_enabled",
+        "on boot",
+        "on charger",
+        "on shutdown",
         "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 1",
-        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 0"
+        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 0",
+        "    write /sys/class/qcom-battery/suspend_input_current 1",
+        "    write /sys/class/qcom-battery/suspend_input_current 0"
+      ],
+      "regex": [
+        "^on property:sys\\.port_security_mode=ports_disabled\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
+        "^on property:sys\\.port_security_mode=charging-only_immediate\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1$",
+        "^on property:sys\\.port_security_mode=charging-only\\n    write /sys/class/qcom-battery/suspend_input_current 0$",
+        "^on property:sys\\.port_security_mode=ports_enabled\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 0$",
+        "^on boot\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$",
+        "^on charger\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$",
+        "^on shutdown\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$"
       ],
       "absent_regex": [
-        "^on property:sys\\.port_security_mode=charging-only$"
+        "^on property:sys\\.port_security_mode=charging-only\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable ",
+        "^on (?!property:sys\\.port_security_mode=ports_disabled$).*\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 1"
       ]
     },
     {
@@ -634,6 +650,40 @@
       ]
     },
     {
+      "id": "usb-port-control-input-suspend-label",
+      "why": "The charger firmware's input suspend, which Off sets, has its own type instead of the generic sysfs label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(genfscon sysfs \"/class/qcom-battery/suspend_input_current\" (u object_r vendor_sysfs_usb_input_suspend ((s0) (s0))))"
+      ]
+    },
+    {
+      "id": "usb-port-control-input-suspend-writers",
+      "why": "Only vendor_init (the port-state triggers) and ueventd, which the platform lets write all of sysfs, may write the charger input suspend.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_sysfs_usb_input_suspend",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
       "id": "usb-port-control-debug-guards",
       "why": "On debuggable builds a restrictive port mode is reset at boot and the lock-triggered modes do nothing while USB debugging is on, so a test phone cannot lose ADB.",
       "type": "zip_contains",
@@ -641,11 +691,18 @@
       "text": "debug.diamaneos.usb_port_security.test"
     },
     {
+      "id": "usb-port-control-off-at-boot",
+      "why": "A stored Off is applied when system_server starts, so data and charging stay off after a reboot of a user build; Pixels get this from first-stage init.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "USB-C port Off at boot"
+    },
+    {
       "id": "usb-port-control-off-text",
-      "why": "The FP6 cannot stop charging, so Settings says Off works like Charging-only.",
+      "why": "Off turns off USB data and the charger input on the FP6, while the ADSP firmware still runs Type-C and USB PD, so Settings names what Off turns off.",
       "type": "zip_contains",
       "file": "VENDOR/overlay/FP6SettingsOverlay.apk",
-      "text": "this works like Charging-only"
+      "text": "Turns off USB data and charging on the USB-C port."
     },
     {
       "id": "usb-data-protection-unset",
