@@ -115,6 +115,19 @@ class KernelConfigTests(unittest.TestCase):
                     self.assertEqual([r['symbol'] for r in result['failures']
                                       if r['symbol'].startswith('CONFIG_LOCK_DOWN_')], failing)
 
+    def test_integrity_lockdown_companions_stay_off(self):
+        # Integrity lockdown does not hide kernel memory from privileged processes;
+        # these interfaces would read or replace it, so each must stay off.
+        data = self.config(False)
+        for symbol in ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE', 'CONFIG_HIBERNATION'):
+            self.assertIn(f'# {symbol} is not set'.encode(), data)
+            changed = data.replace(f'# {symbol} is not set'.encode(), f'{symbol}=y'.encode())
+            for profile in ('development', 'production'):
+                with self.subTest(symbol=symbol, profile=profile):
+                    result = kernel_config.check(changed, self.policy, profile)
+                    self.assertEqual(result['status'], 'FAIL')
+                    self.assertIn(symbol, [r['symbol'] for r in result['failures']])
+
     def test_settings_hardware_support_depends_on_stay_on(self):
         # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and
         # the debugfs API that the display driver and a recovery module need.

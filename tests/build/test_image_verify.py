@@ -196,21 +196,39 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         ueventd = (b'/sys/devices/soc0         serial_number    0400   root   root\n'
                    b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_temp   0664   root   system\n'
-                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_hyst   0664   root   system\n')
+                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_hyst   0664   root   system\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc   string_descriptors/serial_number   0400   root   root\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:*   vpd_pg80   0400   root   root\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:*   vpd_pg83   0400   root   root\n')
         rc = (b'service vendor.thermal-hal /vendor/bin/hw/android.hardware.thermal-service.qti\n'
               b'    interface aidl android.hardware.thermal.IThermal/default\n'
               b'    class hal\n    user system\n    group system\n    override\n')
         cil = b'(genfscon sysfs "/devices/soc0/serial_number" (u object_r vendor_sysfs_soc_serial ((s0) (s0))))\n'
         v = self.harness({'VENDOR/etc/ueventd.rc': ueventd, 'VENDOR/etc/init/init.fp6.thermal.rc': rc,
                           'VENDOR/etc/selinux/vendor_sepolicy.cil': cil})
-        for rule_id in ('soc-serial-root-only', 'thermal-hal-trip-nodes', 'thermal-hal-as-system', 'soc-serial-label'):
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-trip-nodes', 'thermal-hal-as-system', 'soc-serial-label',
+                        'ufs-serial-root-only'):
             self.assertTrue(subject.rule_text(rules[rule_id], v)[0], rule_id)
         v = self.harness({'VENDOR/etc/ueventd.rc': ueventd.replace(b'0400', b'0444'),
                           'VENDOR/etc/init/init.fp6.thermal.rc': rc.replace(b'user system', b'user root'),
                           'VENDOR/etc/selinux/vendor_sepolicy.cil':
                               cil + b'(allow hal_graphics_composer_default vendor_sysfs_soc_serial (file (read)))\n'})
-        for rule_id in ('soc-serial-root-only', 'thermal-hal-as-system', 'soc-serial-label'):
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-as-system', 'soc-serial-label', 'ufs-serial-root-only'):
             self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
+
+    def test_adb_network_and_display_colour_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
+                 'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}
+        self.assertTrue(subject.rule_text(rules['no-adb-over-network'], self.harness(clean))[0])
+        self.assertFalse(subject.rule_text(rules['no-adb-over-network'], self.harness(
+            dict(clean, **{'VENDOR/etc/init/a.rc': b'on boot\n    setprop persist.adb.tcp.port 5555\n'})))[0])
+        policy = {'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(typeattribute vendor_hal_display_color)\n',
+                  'VENDOR/etc/selinux/vendor_file_contexts': b'/vendor/bin/x u:object_r:x_exec:s0\n',
+                  'VENDOR/etc/selinux/vendor_service_contexts': b'x u:object_r:x_service:s0\n'}
+        self.assertTrue(subject.rule_text(rules['no-display-colour-policy'], self.harness(policy))[0])
+        self.assertFalse(subject.rule_text(rules['no-display-colour-policy'], self.harness(
+            dict(policy, **{'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(type vendor_hal_display_color_default)\n'})))[0])
 
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
