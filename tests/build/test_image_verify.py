@@ -233,17 +233,41 @@ class RuleTests(unittest.TestCase):
     def test_usb_port_control_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         node = b'/sys/devices/platform/soc/a600000.ssusb/dynamic_disable'
-        rc = (b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' 1\n\n'
-              b'on property:sys.port_security_mode=charging-only_immediate\n    write ' + node + b' 1\n\n'
-              b'on property:sys.port_security_mode=ports_enabled\n    write ' + node + b' 0\n')
+        sic = b'/sys/class/qcom-battery/suspend_input_current'
+        rc = (b'on boot\n    write ' + sic + b' 0\n\n'
+              b'on charger\n    write ' + sic + b' 0\n\n'
+              b'on shutdown\n    write ' + sic + b' 0\n\n'
+              b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' 1\n'
+              b'    write ' + sic + b' 1\n\n'
+              b'on property:sys.port_security_mode=charging-only_immediate\n    write ' + sic + b' 0\n'
+              b'    write ' + node + b' 1\n\n'
+              b'on property:sys.port_security_mode=charging-only\n    write ' + sic + b' 0\n\n'
+              b'on property:sys.port_security_mode=ports_enabled\n    write ' + sic + b' 0\n'
+              b'    write ' + node + b' 0\n')
         cil = (b'(genfscon sysfs "/devices/platform/soc/a600000.ssusb/dynamic_disable" '
                b'(u object_r vendor_sysfs_usb_data_disable ((s0) (s0))))\n')
         triggers = lambda text: subject.rule_text(rules['usb-port-control-triggers'], self.harness(
             {'VENDOR/etc/init/init.qcom.usb.rc': text}))[0]
         self.assertTrue(triggers(rc))
         # charging-only keeps the current connection, so it must not cut data.
-        self.assertFalse(triggers(rc + b'\non property:sys.port_security_mode=charging-only\n    write ' + node + b' 1\n'))
+        self.assertFalse(triggers(rc.replace(b'charging-only\n    write ' + sic + b' 0\n',
+                                             b'charging-only\n    write ' + sic + b' 0\n    write ' + node + b' 1\n')))
         self.assertFalse(triggers(rc.replace(b'=ports_enabled', b'=ports_on')))
+        # Off cuts data first, then the charger input.
+        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' 1\n    write ' + sic + b' 1\n',
+                                             b'    write ' + sic + b' 1\n    write ' + node + b' 1\n')))
+        # Only Off suspends the input; every other state, boot, charger mode and shutdown resume it.
+        self.assertFalse(triggers(rc.replace(b'charging-only\n    write ' + sic + b' 0',
+                                             b'charging-only\n    write ' + sic + b' 1')))
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + sic + b' 1\n'))
+        self.assertFalse(triggers(rc.replace(b'on shutdown\n    write ' + sic + b' 0\n\n', b'')))
+        self.assertFalse(triggers(rc.replace(b'on charger\n    write ' + sic + b' 0\n\n', b'')))
+        isl = lambda text: subject.rule_text(rules['usb-port-control-input-suspend-label'], self.harness(
+            {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        sic_cil = (b'(genfscon sysfs "/class/qcom-battery/suspend_input_current" '
+                   b'(u object_r vendor_sysfs_usb_input_suspend ((s0) (s0))))\n')
+        self.assertTrue(isl(sic_cil))
+        self.assertFalse(isl(sic_cil.replace(b'vendor_sysfs_usb_input_suspend', b'sysfs')))
         label = lambda text: subject.rule_text(rules['usb-port-control-label'], self.harness(
             {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
         self.assertTrue(label(cil))
@@ -265,11 +289,25 @@ class RuleTests(unittest.TestCase):
         ok, detail = writers(vendor + b'(allow vendor_hal_usb_qti vendor_sysfs_usb_data_disable (file (open write)))\n')
         self.assertFalse(ok)
         self.assertIn('vendor_hal_usb_qti', detail)
+        isw_rule = dict(rules['usb-port-control-input-suspend-writers'],
+                        files=['SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'])
+        isw = lambda text: subject.rule_sepolicy_sources(isw_rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))
+        sic_vendor = (b'(type vendor_sysfs_usb_input_suspend)\n(type hal_health_default)\n'
+                      b'(typeattributeset sysfs_type (vendor_sysfs_usb_input_suspend))\n'
+                      b'(allow vendor_init vendor_sysfs_usb_input_suspend (file (open write)))\n')
+        self.assertTrue(isw(sic_vendor)[0])
+        ok, detail = isw(sic_vendor + b'(allow hal_health_default vendor_sysfs_usb_input_suspend (file (open write)))\n')
+        self.assertFalse(ok)
+        self.assertIn('hal_health_default', detail)
 
         jar = io.BytesIO()
         with zipfile.ZipFile(jar, 'w') as inner:
-            inner.writestr('classes3.dex', b'dex\x00debug.diamaneos.usb_port_security.test\x00')
+            inner.writestr('classes3.dex', b'dex\x00debug.diamaneos.usb_port_security.test\x00'
+                                          b'USB-C port Off at boot\x00')
         self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-debug-guards'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-off-at-boot'], self.harness(
             {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
         clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
                  'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}

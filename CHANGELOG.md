@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Threat model and image checks for USB-C port control Off turning off
+  charging: the triggers check now also covers the charger input suspend
+  (Off sets it after the data cut; every other state, boot, charger mode and
+  shutdown lift it), its own SELinux type and writers
+  (`usb-port-control-input-suspend-label`,
+  `usb-port-control-input-suspend-writers`), Off applied at boot
+  (`usb-port-control-off-at-boot`) and the new Off summary
+  (`usb-port-control-off-text`).
 - Threat model and image checks for USB-C port control: the framework
   setting (`usb-port-control`), the port-state triggers
   (`usb-port-control-triggers`), the data switch's own SELinux type and its

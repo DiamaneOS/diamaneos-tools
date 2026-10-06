@@ -453,8 +453,11 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
 - **2026-10-06:** USB-C port control (implemented, not yet built). The
   framework setting is on, and init triggers map GrapheneOS's port states to
   the USB controller's data switch, which gets its own SELinux type that only
-  vendor_init may write. Charging cannot be turned off on the FP6, so Off
-  works like Charging-only and Settings says so. Without port control a user
+  vendor_init may write. Off also turns off charging while the OS runs, as
+  on Pixels: init suspends the charger input in Qualcomm's charger firmware,
+  which also only vendor_init may write; every other mode, boot, charger
+  mode and shutdown turn it back on. A stored Off applies from boot. Without
+  port control a user
   build had no USB data at all. On debuggable builds a restrictive mode is
   reset at boot and the lock modes do nothing while USB debugging is on.
 
