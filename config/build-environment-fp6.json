@@ -90,7 +90,7 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "ce8d95213920e0e48f5873ca02d2225b4fd9115fad968d08fc1af2e7dfc231f4"
+      "sha256": "1328cfc8ca09dba4e44556cc0c5556dc5de21de5cbd1d92a379e1920346ce9d7"
     },
     {
       "id": "stock-input-inventory",
@@ -105,12 +105,12 @@
     {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
-      "sha256": "0bb7a2d403656a396bc25e9cc495e275c49f051b6e1eabba84812fa5a8765f90"
+      "sha256": "a946f5496c41a9dc039ea70598f274aceb25e928e2d34a1cbe1c6e03c0a6bc8d"
     },
     {
       "id": "fp6-native-dependencies",
       "repository_path": "config/fp6-minimal/vendor-elf.json",
-      "sha256": "9c18484ef3ff91a23a7e12d5fa5d0380b4f2eb9dc52769f6bdcc9ed85b6245ea"
+      "sha256": "1f68fd37831f7a9b5c02922d5e33b14b414cbcef36ff8782362d5ca9e99147c6"
     }
   ],
   "device_inputs": {

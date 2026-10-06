@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Stop selecting the stock primary audio HAL, PAL, AGM with its HIDL
+  service and ALSA plugins, audioadsprpcd and its init file: the device
+  builds them from Fairphone's published FP6 sources (DiamaneOS forks
+  `hardware_qcom_audio-ar`, `vendor_qcom_opensource_arpal-lx` and
+  `vendor_qcom_opensource_agm`, followed in `config/forks.json` and
+  `config/repositories.json`; the graph service headers are a pinned source).
+  The PAL HIDL service, memory logger, dynamic logging library and the AOSP
+  libraries only the stock blobs linked leave too (closed audio files 36 to
+  17). The closed libraries the source build links (graph services, tuning
+  server, voice UI interface) are rendered under their library name
+  (`SOURCE_LINKED_STOCK`) and are roots, as is the deadline manager PAL
+  loads. Image checks: `audio-source-dropped`, a build-ID check per
+  source-built file (`audio-*-not-stock`), exports (`audio-hal-exports`,
+  `audio-pal-exports`, the plugin entry points), links (`audio-pal-links`,
+  `audio-agm-links`, `audio-hal-links`), speaker protection on in the
+  resource manager configuration (`audio-speaker-protection-on`), and
+  `audio-declared` now requires that PAL is not declared.
+
 - Kernel hardening, pinned at kernel_qcom-6.1 6fed659 (common kernel
   52f5f55): /proc/cmdline shows parameter names only, keeping module options'
   values; reboots ignore the `edl` and `qcom_dload` reasons and the

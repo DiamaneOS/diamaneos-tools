@@ -153,6 +153,36 @@
       "upstream_url": "https://github.com/linux-msm/qrtr"
     },
     {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/audio-hal/primary-hal",
+      "id": "audio-hal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/hardware_qcom_audio-ar.git",
+      "revision": null,
+      "slug": "hardware_qcom_audio-ar",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/audio-ar"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/pal",
+      "id": "audio-pal",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_arpal-lx.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_arpal-lx",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/arpal-lx"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/vendor/qcom/opensource/agm",
+      "id": "audio-agm",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/vendor_qcom_opensource_agm.git",
+      "revision": null,
+      "slug": "vendor_qcom_opensource_agm",
+      "state": "active",
+      "upstream_url": "https://gerrit-public.fairphone.software/platform/vendor/qcom/opensource/agm"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/hardware/qcom/display",
       "id": "display-hal",
       "publication": "public-source",

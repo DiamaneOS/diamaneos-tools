@@ -287,9 +287,61 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn(config, vendor_product.AUDIO_CONFIG_REWRITES)
         self.assertNotIn(b'audio_effects.xml', rendered['device-vendor.mk'])
         self.assertNotIn(b'soundfx', rendered['Android.bp'])
-        # The stock HAL stays; it opens the offload bundle and visualizer only
-        # if the files exist.
-        self.assertIn('vendor/lib64/hw/audio.primary.volcano.so', recipe_paths)
+        # The source-built HAL opens the offload bundle and visualizer only if
+        # the files exist.
+        self.assertNotIn('vendor/lib64/hw/audio.primary.volcano.so', recipe_paths)
+
+    def test_source_built_audio_stack_is_not_selected(self):
+        # The device builds the primary HAL, PAL, AGM, its HIDL service and
+        # ALSA plugins and audioadsprpcd from Fairphone's published sources
+        # under the stock names. Their stock rows, the PAL HIDL service, the
+        # memory logger, dynamic logging and the AOSP libraries only they
+        # linked leave the selection.
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        recipe_paths = {r['path'] for r in self.recipe['files']}
+        elf_paths = {f['path'] for f in self.selection['files']}
+        gone = ['vendor/lib64/hw/audio.primary.volcano.so', 'vendor/bin/audioadsprpcd',
+                'vendor/lib64/libar-pal.so', 'vendor/lib64/libagm.so', 'vendor/lib64/libagmclient.so',
+                'vendor/lib64/libsndcardparser.so', 'vendor/lib64/libagm_pcm_plugin.so',
+                'vendor/lib64/libagm_mixer_plugin.so', 'vendor/lib64/libagm_compress_plugin.so',
+                'vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so', 'vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so',
+                'vendor/lib64/vendor.qti.hardware.pal@1.0.so', 'vendor/lib64/vendor.qti.hardware.pal@1.0-impl.so',
+                'vendor/lib64/libarmemlog.so', 'vendor/lib64/libaudio_log_utils.so', 'vendor/lib64/libtinycompress.so',
+                'vendor/lib64/android.hidl.allocator@1.0.so', 'vendor/lib64/libhidltransport.so']
+        for path in gone:
+            self.assertNotIn(path, recipe_paths)
+            self.assertNotIn(path, elf_paths)
+            self.assertNotIn(path, self.selection['roots'])
+            self.assertFalse([e for e in self.selection['edges'] if path in (e['consumer'], e.get('provider'))])
+            self.assertNotIn(vendor_product.module(path), modules)
+            self.assertNotIn('"' + vendor_product.module(path) + '"', bp)
+        self.assertNotIn('vendor/etc/init/vendor.qti.audio-adsprpc-service.rc', recipe_paths)
+        self.assertNotIn('audioadsprpcd', vendor_product.ACTIVATION)
+        self.assertNotIn('audio-adsprpc', make)
+        # The closed libraries the source build links keep their library name,
+        # so the source modules can link them; they are roots now.
+        for stem in sorted(vendor_product.SOURCE_LINKED_STOCK):
+            path = 'vendor/lib64/' + stem + '.so'
+            self.assertEqual(stem, vendor_product.module(path))
+            self.assertIn(stem, modules)
+            block = bp[bp.index('name: "' + stem + '"'):]
+            self.assertIn('stem: "' + stem + '"', block[:block.index('}\n')])
+        for root in ['libar-gsl', 'libats', 'libvui_intf', 'libadm']:
+            self.assertIn('vendor/lib64/' + root + '.so', self.selection['roots'])
+        # Their own stock dependencies keep the prefixed names, and stock
+        # consumers name the linkable ones by library name.
+        self.assertIn('fp6_stock_vendor_lib64_libar-acdb', modules)
+        block = bp[bp.index('name: "libats"'):]
+        block = block[:block.index('}\n')]
+        self.assertIn('"libar-gsl"', block)
+        self.assertIn('"liblx-osal"', block)
+        self.assertIn('"fp6_stock_vendor_lib64_libar-acdb"', block)
+        # The deadline manager PAL loads with dlopen stays, as stock.
+        self.assertIn('fp6_stock_vendor_lib64_libadm', modules)
+        # Only the plain lib64 copy is renamed.
+        self.assertEqual('fp6_stock_vendor_lib64_hw_libar-gsl', vendor_product.module('vendor/lib64/hw/libar-gsl.so'))
 
     def test_allocator_v1_is_installed_not_linked(self):
         out = self.render()

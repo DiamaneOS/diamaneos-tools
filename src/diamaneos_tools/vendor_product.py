@@ -69,11 +69,6 @@ SOURCE_INTERFACES = {
     'android.hardware.sensors@2.0-ScopedWakelock',
     'android.hardware.sensors@2.1',
     'android.hardware.sensors-V2-ndk',
-    # AOSP libraries the stock audio HAL, PAL and AGM link, built from source
-    # with the AOSP audio service and HIDL wrappers (device audio.mk).
-    'android.hidl.allocator@1.0',
-    'libhidltransport',
-    'libtinycompress',
     'android.hardware.gnss-V3-ndk',
     'android.hardware.health-V1-ndk',
     'android.hardware.health@1.0',
@@ -172,8 +167,9 @@ ACTIVATION={
  # sscrpcd starts the sensors protection domain on the ADSP; the sensors
  # multi-HAL itself is built from source (device.mk).
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
- # audioadsprpcd starts the audio protection domain on the ADSP.
- 'audioadsprpcd':('vendor.qti.audio-adsprpc-service.rc',None),
+ # Not selected: audioadsprpcd, which starts the audio protection domain on
+ # the ADSP. The device builds it from Fairphone's published audio-ar source
+ # with the same init file (audio/audio.mk).
  # Stock GNSS HAL (IGnss v3); its rc is a pinned derivation (GNSS_CONFIG_REWRITES).
  # vendor.qti.gnss-service.xml (ILocAidlGnss) is not installed.
  'android.hardware.gnss-aidl-service-qti':('android.hardware.gnss-aidl-service-qti.rc','android.hardware.gnss-aidl-service-qti.xml'),
@@ -259,7 +255,19 @@ def notice_license(partition):
     return 'fp6_selected_stock_notices' + ('' if partition == 'vendor' else '_' + partition)
 
 
+# Stock libraries that source-built modules link by library name, so they are
+# rendered under that name instead of the fp6_stock_ one: the AudioReach graph
+# services (Fairphone published only their headers), the tuning server and the
+# voice UI interface, linked by the source-built PAL, AGM and AGM HIDL service
+# (device audio/). Their own stock dependencies keep the fp6_stock_ names.
+SOURCE_LINKED_STOCK = {'libar-gsl', 'libats', 'liblx-osal', 'libvui_intf'}
+
+
 def module(path):
+    if path.startswith('vendor/lib64/') and path.count('/') == 2:
+        stem = Path(path).name.removesuffix('.so')
+        if stem in SOURCE_LINKED_STOCK:
+            return stem
     return 'fp6_stock_' + path.replace('/', '_').removesuffix('.so')
 
 

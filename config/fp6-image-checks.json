@@ -120,14 +120,24 @@
     },
     {
       "id": "audio-stack",
-      "why": "Stock audio user space with the AOSP service and adapters; no placeholder HAL.",
+      "why": "AudioReach user space: the source-built primary HAL, PAL, AGM, ALSA plugins and audioadsprpcd, the stock graph services, calibration and configuration, and the AOSP service and adapters; no placeholder HAL.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/hw/audio.primary.volcano.so",
         "VENDOR/lib64/libar-pal.so",
         "VENDOR/lib64/libagm.so",
-        "VENDOR/lib64/libar-gsl.so",
+        "VENDOR/lib64/libagmclient.so",
+        "VENDOR/lib64/libsndcardparser.so",
         "VENDOR/lib64/libagm_pcm_plugin.so",
+        "VENDOR/lib64/libagm_mixer_plugin.so",
+        "VENDOR/lib64/libagm_compress_plugin.so",
+        "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+        "VENDOR/lib64/libar-gsl.so",
+        "VENDOR/lib64/liblx-osal.so",
+        "VENDOR/lib64/libats.so",
+        "VENDOR/lib64/libvui_intf.so",
+        "VENDOR/lib64/libadm.so",
         "VENDOR/bin/audioadsprpcd",
         "VENDOR/bin/hw/android.hardware.audio.service",
         "VENDOR/lib64/hw/android.hardware.audio@7.1-impl.so",
@@ -271,16 +281,270 @@
       ]
     },
     {
+      "id": "audio-source-dropped",
+      "why": "The source build has no PAL HIDL service, memory logger or dynamic logging, so their libraries are not shipped, and the HAL installs no VINTF fragment (it would declare sound trigger and PAL).",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/vendor.qti.hardware.pal@1.0.so",
+        "VENDOR/lib64/vendor.qti.hardware.pal@1.0-impl.so",
+        "VENDOR/lib64/libarmemlog.so",
+        "VENDOR/lib64/libaudio_log_utils.so",
+        "VENDOR/lib64/libpalclient.so",
+        "VENDOR/etc/vintf/manifest/manifest_non_qmaa.xml",
+        "VENDOR/etc/vintf/manifest/manifest_non_qmaa_extn.xml"
+      ]
+    },
+    {
+      "id": "audio-hal-not-stock",
+      "why": "VENDOR/lib64/hw/audio.primary.volcano.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/hw/audio.primary.volcano.so",
+      "patterns": [
+        {
+          "hex": "5148e9e387efbad9a545760ff257b8a3",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-pal-not-stock",
+      "why": "VENDOR/lib64/libar-pal.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libar-pal.so",
+      "patterns": [
+        {
+          "hex": "d374661ca1aec5ed9f33f5aefde042f3",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-not-stock",
+      "why": "VENDOR/lib64/libagm.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagm.so",
+      "patterns": [
+        {
+          "hex": "b214b1a78516520aa6d493c7c44c27e9",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-client-not-stock",
+      "why": "VENDOR/lib64/libagmclient.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagmclient.so",
+      "patterns": [
+        {
+          "hex": "6882049b493ff8bd2bd28384f0961343",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-sndcard-parser-not-stock",
+      "why": "VENDOR/lib64/libsndcardparser.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libsndcardparser.so",
+      "patterns": [
+        {
+          "hex": "b4b0f50439b7dbbb99521f66a33b675f",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-pcm-plugin-not-stock",
+      "why": "VENDOR/lib64/libagm_pcm_plugin.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagm_pcm_plugin.so",
+      "patterns": [
+        {
+          "hex": "e5fba2d74e1f841c6fb43ede83912467",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-mixer-plugin-not-stock",
+      "why": "VENDOR/lib64/libagm_mixer_plugin.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagm_mixer_plugin.so",
+      "patterns": [
+        {
+          "hex": "3c06f995c4ebfd1357f17ccfa4145f85",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-compress-plugin-not-stock",
+      "why": "VENDOR/lib64/libagm_compress_plugin.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagm_compress_plugin.so",
+      "patterns": [
+        {
+          "hex": "5eb3d10f3b466f0aac07007bea0f988c",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-hidl-not-stock",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+      "patterns": [
+        {
+          "hex": "3c1898beca42952b7ab7f4a0f11bc333",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-hidl-impl-not-stock",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+      "patterns": [
+        {
+          "hex": "3d1342f5ef1df0e2400e9f92b3bed25e",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-adsprpcd-not-stock",
+      "why": "VENDOR/bin/audioadsprpcd is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/bin/audioadsprpcd",
+      "patterns": [
+        {
+          "hex": "421b0ab9f82bd8075924dd4be8007730",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-hal-exports",
+      "why": "The HAL exports its module entry point and the gain functions the volume listener resolves.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/hw/audio.primary.volcano.so",
+      "symbols": [
+        "HMI",
+        "audio_hw_send_gain_dep_calibration",
+        "audio_hw_send_linear_gain",
+        "audio_hw_get_gain_level_mapping"
+      ]
+    },
+    {
+      "id": "audio-pal-exports",
+      "why": "PAL exports its API and keeps the Awinic speaker mode selection (music, voice, ring or bypass profile of the amplifier algorithm).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libar-pal.so",
+      "symbols": [
+        "pal_init",
+        "pal_stream_open",
+        "pal_stream_set_device",
+        "_ZN15ResourceManager16setAwinicSpkModeEv"
+      ]
+    },
+    {
+      "id": "audio-agm-pcm-plugin-exports",
+      "why": "The ALSA plugin exports the entry point tinyalsa opens.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_pcm_plugin.so",
+      "symbols": [
+        "agm_pcm_plugin_open"
+      ]
+    },
+    {
+      "id": "audio-agm-mixer-plugin-exports",
+      "why": "The ALSA plugin exports the entry point tinyalsa opens.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_mixer_plugin.so",
+      "symbols": [
+        "agm_mixer_plugin_open"
+      ]
+    },
+    {
+      "id": "audio-agm-compress-plugin-exports",
+      "why": "The ALSA plugin exports the entry point tinyalsa opens.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_compress_plugin.so",
+      "symbols": [
+        "agm_compress_plugin_open"
+      ]
+    },
+    {
+      "id": "audio-pal-links",
+      "why": "PAL links no memory logger and no PAL HIDL code.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libar-pal.so",
+      "patterns": [
+        {
+          "text": "libarmemlog.so\u0000",
+          "count": 0
+        },
+        {
+          "text": "libpalclient.so\u0000",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-agm-links",
+      "why": "AGM links no memory logger and no dynamic logging library.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libagm.so",
+      "patterns": [
+        {
+          "text": "libarmemlog.so\u0000",
+          "count": 0
+        },
+        {
+          "text": "libaudio_log_utils.so\u0000",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-hal-links",
+      "why": "The HAL links no PAL HIDL service.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/hw/audio.primary.volcano.so",
+      "patterns": [
+        {
+          "text": "vendor.qti.hardware.pal@1.0",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-speaker-protection-on",
+      "why": "PAL keeps the speaker protection on: without this flag it selects the bypass profile of the amplifier algorithm (no thermal and excursion protection).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml"
+      ],
+      "contains": [
+        "<speaker_protection_enabled>1</speaker_protection_enabled>"
+      ]
+    },
+    {
       "id": "audio-declared",
-      "why": "PAL and AGM are declared in the vendor manifest.",
+      "why": "AGM is declared in the vendor manifest; the HAL registers no PAL HIDL service.",
       "type": "text",
       "files": [
         "VENDOR/etc/vintf/manifest.xml"
       ],
       "contains": [
-        "vendor.qti.hardware.pal",
         "vendor.qti.hardware.AGMIPC",
         "android.hardware.bluetooth"
+      ],
+      "absent": [
+        "vendor.qti.hardware.pal"
       ]
     },
     {

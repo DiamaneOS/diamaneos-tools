@@ -726,7 +726,8 @@
       "abi_uapi": "HIDL audio/effect interfaces, ALSA controls and AudioReach DSP protocol",
       "load_path": "source-built service/libraries plus generated vendor blobs; exact paths bind in FP6-040",
       "licence_profile": "published-source-review-required",
-      "rebuilt_from_source": "partial only"
+      "rebuilt_from_source": "partial: the primary HAL, PAL, AGM and audioadsprpcd are built from these revisions (DiamaneOS forks); the graph services, ACDB and configuration stay stock",
+      "note": "graphservices at this revision holds only headers (gsl, acdb, ar_osal, spf); the graph service libraries are not published. st-hal is not built."
     },
     {
       "id": "boot-control",
