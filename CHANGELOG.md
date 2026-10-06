@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- USB-C port control: the triggers check also covers the boot cut (user
+  builds suspend the charger input once the charger firmware is up and again
+  at boot, debuggable builds write 0, nothing at boot cuts the controller or
+  lifts the input). The threat model states the boot cut and the two
+  differences from Pixels (Type-C and USB PD stay on in Off; the boot cut
+  starts once the charger firmware is up).
 - Threat model and image checks for USB-C port control Off turning off
   charging: the triggers check now also covers the charger input suspend
   (Off sets it after the data cut; every other state, boot, charger mode and

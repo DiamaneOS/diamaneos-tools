@@ -583,7 +583,7 @@
     },
     {
       "id": "usb-port-control-triggers",
-      "why": "The port states reach the USB controller's data switch and the charger firmware's input suspend. ports_disabled (Off) cuts data and then suspends the input: no charging while the OS runs. charging-only_immediate cuts data, ports_enabled turns data on, and every state but Off turns the input back on, as do boot, charger mode and shutdown, so charging when powered off, in charger mode, fastboot and recovery is unaffected. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
+      "why": "The port states reach the USB controller's data switch and the charger firmware's input suspend. ports_disabled (Off) cuts data and then suspends the input: no charging while the OS runs. charging-only_immediate cuts data, ports_enabled turns data on, and every state but Off turns the input back on, as do charger mode and shutdown, so charging when powered off, in charger mode, fastboot and recovery is unaffected. User builds start every normal boot with the input suspended once the charger firmware is up (early-boot, after waiting for the node, again at boot), as GrapheneOS starts Pixels with the port off, until the framework applies the stored mode; debuggable builds write 0 there. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.qcom.usb.rc"
@@ -593,9 +593,12 @@
         "on property:sys.port_security_mode=charging-only_immediate",
         "on property:sys.port_security_mode=charging-only",
         "on property:sys.port_security_mode=ports_enabled",
-        "on boot",
+        "on early-boot && property:ro.debuggable=0",
+        "on boot && property:ro.debuggable=0",
+        "on early-boot && property:ro.debuggable=1",
         "on charger",
         "on shutdown",
+        "    wait /sys/class/qcom-battery/suspend_input_current 5",
         "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 1",
         "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 0",
         "    write /sys/class/qcom-battery/suspend_input_current 1",
@@ -606,13 +609,17 @@
         "^on property:sys\\.port_security_mode=charging-only_immediate\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1$",
         "^on property:sys\\.port_security_mode=charging-only\\n    write /sys/class/qcom-battery/suspend_input_current 0$",
         "^on property:sys\\.port_security_mode=ports_enabled\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 0$",
-        "^on boot\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$",
+        "^on early-boot && property:ro\\.debuggable=0\\n    wait /sys/class/qcom-battery/suspend_input_current 5\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
+        "^on boot && property:ro\\.debuggable=0\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
+        "^on early-boot && property:ro\\.debuggable=1\\n    wait /sys/class/qcom-battery/suspend_input_current 5\\n    write /sys/class/qcom-battery/suspend_input_current 0$",
         "^on charger\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$",
         "^on shutdown\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$"
       ],
       "absent_regex": [
         "^on property:sys\\.port_security_mode=charging-only\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable ",
-        "^on (?!property:sys\\.port_security_mode=ports_disabled$).*\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 1"
+        "^on (?!property:sys\\.port_security_mode=ports_disabled$|early-boot && property:ro\\.debuggable=0$|boot && property:ro\\.debuggable=0$).*\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 1",
+        "^on (?:early-)?boot(?: && property:ro\\.debuggable=0)?\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0",
+        "^on (?:early-)?boot(?: && property:ro\\.debuggable=[01])?\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable "
       ]
     },
     {
