@@ -457,7 +457,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   on Pixels: init suspends the charger input in Qualcomm's charger firmware,
   which also only vendor_init may write; every other mode, boot, charger
   mode and shutdown turn it back on. User builds start every boot with
-  charging off until the stored mode applies, as Pixels do. Unlike Pixels,
+  USB data and charging off until the stored mode applies, as Pixels do. Unlike Pixels,
   Type-C and USB PD keep running in Qualcomm firmware in Off. Without port
   control a user
   build had no USB data at all. On debuggable builds a restrictive mode is

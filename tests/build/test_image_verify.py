@@ -234,7 +234,8 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         node = b'/sys/devices/platform/soc/a600000.ssusb/dynamic_disable'
         sic = b'/sys/class/qcom-battery/suspend_input_current'
-        rc = (b'on early-boot && property:ro.debuggable=0\n    wait ' + sic + b' 5\n    write ' + sic + b' 1\n\n'
+        rc = (b'on early-boot && property:ro.debuggable=0\n    write ' + node + b' 1\n'
+              b'    wait ' + sic + b' 5\n    write ' + sic + b' 1\n\n'
               b'on boot && property:ro.debuggable=0\n    write ' + sic + b' 1\n\n'
               b'on early-boot && property:ro.debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 0\n\n'
               b'on charger\n    write ' + sic + b' 0\n\n'
@@ -267,11 +268,17 @@ class RuleTests(unittest.TestCase):
         # User builds start with the input suspended; nothing at boot undoes it or cuts the controller.
         self.assertFalse(triggers(rc.replace(b'on boot && property:ro.debuggable=0\n    write ' + sic + b' 1\n\n', b'')))
         self.assertFalse(triggers(rc + b'\non boot\n    write ' + sic + b' 0\n'))
-        self.assertFalse(triggers(rc + b'\non early-boot && property:ro.debuggable=0\n    write ' + node + b' 1\n'))
+        # User builds also cut the controller at boot, before the input; debuggable builds never do.
+        self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 1\n', b'debuggable=0\n')))
+        self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait', b'debuggable=1\n    write ' + node + b' 1\n    wait')))
+        # Only the port states and the user-build boot cut turn data off; only ports_enabled turns it on.
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 1\n'))
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 0\n'))
         # Debuggable builds keep charging at boot, and the user-build cut waits for the node.
         self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 0',
                                              b'debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 1')))
-        self.assertFalse(triggers(rc.replace(b'debuggable=0\n    wait ' + sic + b' 5\n', b'debuggable=0\n')))
+        self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 1\n    wait ' + sic + b' 5\n',
+                                             b'debuggable=0\n    write ' + node + b' 1\n')))
         isl = lambda text: subject.rule_text(rules['usb-port-control-input-suspend-label'], self.harness(
             {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
         sic_cil = (b'(genfscon sysfs "/class/qcom-battery/suspend_input_current" '
