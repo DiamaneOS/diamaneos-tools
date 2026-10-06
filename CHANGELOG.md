@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Image check `bluetooth-seccomp-enforced`: the Bluetooth HCI service is built
+  in trap mode, so a call outside its seccomp list stops the service. Threat
+  model: enforcing filter, factory address in use, ANT/SAR contexts built.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc

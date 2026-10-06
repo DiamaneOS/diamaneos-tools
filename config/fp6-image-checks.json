@@ -2114,6 +2114,22 @@
       ]
     },
     {
+      "id": "bluetooth-seccomp-enforced",
+      "why": "The Bluetooth HCI service is built in trap mode: a call outside its list stops the service instead of only being logged.",
+      "type": "binary_count",
+      "file": "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
+      "patterns": [
+        {
+          "text": "log-only\u0000",
+          "count": 0
+        },
+        {
+          "text": "trap\u0000",
+          "min": 1
+        }
+      ]
+    },
+    {
       "id": "bluetooth-seccomp-rules",
       "why": "The Bluetooth HCI service may start threads but no processes (clone3 hides its flags from the filter), open only Unix sockets, send only SIGKILL with kill (the HCI implementation's restart after a controller failure) and never map memory writable and executable; it may not run programs or trace or write other processes.",
       "type": "text",

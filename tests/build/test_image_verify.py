@@ -360,13 +360,16 @@ class RuleTests(unittest.TestCase):
         path, service = 'VENDOR/etc/seccomp_policy/bluetooth-hci.policy', 'VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6'
         policy = (b'futex: 1\nclone: arg0 & 0x10000\nsocket: arg0 == 1; return 97\nkill: arg1 == 9\n'
                   b'mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\nmprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\n')
-        good = {path: policy, service: b'\x7fELF\0/vendor/etc/seccomp_policy/bluetooth-hci.policy\0'}
+        good = {path: policy, service: b'\x7fELF\0/vendor/etc/seccomp_policy/bluetooth-hci.policy\0trap\0'}
         check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
-        for rule_id in ('bluetooth-seccomp-policy', 'bluetooth-service-applies-seccomp', 'bluetooth-seccomp-rules'):
+        for rule_id in ('bluetooth-seccomp-policy', 'bluetooth-service-applies-seccomp', 'bluetooth-seccomp-enforced',
+                        'bluetooth-seccomp-rules'):
             self.assertTrue(check(rule_id, good), rule_id)
         for rule_id, change in [
                 ('bluetooth-seccomp-policy', {path: None}),
                 ('bluetooth-service-applies-seccomp', {service: b'\x7fELF\0/vendor/etc/seccomp_policy/other.policy\0'}),
+                ('bluetooth-seccomp-enforced', {service: good[service].replace(b'trap\0', b'log-only\0')}),
+                ('bluetooth-seccomp-enforced', {service: good[service] + b'log-only\0'}),
                 ('bluetooth-seccomp-rules', {path: policy + b'execve: 1\n'}),
                 ('bluetooth-seccomp-rules', {path: policy + b'  clone3: 1\n'}),
                 ('bluetooth-seccomp-rules', {path: policy.replace(b'socket: arg0 == 1; return 97', b'socket: 1')}),
