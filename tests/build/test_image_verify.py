@@ -283,6 +283,27 @@ class RuleTests(unittest.TestCase):
                 members = {k: v for k, v in {**good, **change}.items() if v is not None}
                 self.assertFalse(check(rule_id, members))
 
+    def test_bluetooth_seccomp_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        path, service = 'VENDOR/etc/seccomp_policy/bluetooth-hci.policy', 'VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6'
+        policy = (b'futex: 1\nclone: arg0 & 0x10000\nsocket: arg0 == 1; return 97\nkill: arg1 == 9\n'
+                  b'mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\nmprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\n')
+        good = {path: policy, service: b'\x7fELF\0/vendor/etc/seccomp_policy/bluetooth-hci.policy\0'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('bluetooth-seccomp-policy', 'bluetooth-service-applies-seccomp', 'bluetooth-seccomp-rules'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('bluetooth-seccomp-policy', {path: None}),
+                ('bluetooth-service-applies-seccomp', {service: b'\x7fELF\0/vendor/etc/seccomp_policy/other.policy\0'}),
+                ('bluetooth-seccomp-rules', {path: policy + b'execve: 1\n'}),
+                ('bluetooth-seccomp-rules', {path: policy + b'  clone3: 1\n'}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'socket: arg0 == 1; return 97', b'socket: 1')}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'kill: arg1 == 9', b'kill: 1')}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'clone: arg0 & 0x10000', b'clone: 1')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'
