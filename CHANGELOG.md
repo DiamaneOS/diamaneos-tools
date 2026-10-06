@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Threat model and image checks for USB-C port control: the framework
+  setting (`usb-port-control`), the port-state triggers
+  (`usb-port-control-triggers`), the data switch's own SELinux type and its
+  writers (`usb-port-control-label`, `usb-port-control-writers`), the
+  debuggable-build guards in the framework (`usb-port-control-debug-guards`),
+  the FP6 Off summary (`usb-port-control-off-text`) and Android's advanced
+  protection USB hook staying off (`usb-data-protection-unset`).
 - Stop selecting the stock audio_effects.xml and Qualcomm's four effect
   libraries. The device installs its own effects configuration (AOSP software
   effects, no DSP offload halves) and builds the VoIP pre-processing

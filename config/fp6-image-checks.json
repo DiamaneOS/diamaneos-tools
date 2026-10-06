@@ -573,6 +573,100 @@
       ]
     },
     {
+      "id": "usb-port-control",
+      "why": "GrapheneOS's USB-C port control is on. Without it a user build has no USB data: first-stage init refuses new USB connections at every boot of a non-debuggable build and only port control lifts that.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "values": {
+        "bool/config_usbPortSecuritySupported": "true"
+      }
+    },
+    {
+      "id": "usb-port-control-triggers",
+      "why": "The port states reach the USB controller's data switch: ports_disabled and charging-only_immediate turn data off, ports_enabled turns it on. charging-only has no trigger: the kernel refuses the next connection and the current one stays.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.qcom.usb.rc"
+      ],
+      "lines": [
+        "on property:sys.port_security_mode=ports_disabled",
+        "on property:sys.port_security_mode=charging-only_immediate",
+        "on property:sys.port_security_mode=ports_enabled",
+        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 1",
+        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 0"
+      ],
+      "absent_regex": [
+        "^on property:sys\\.port_security_mode=charging-only$"
+      ]
+    },
+    {
+      "id": "usb-port-control-label",
+      "why": "The data switch has its own type instead of the label shared with the controller role and other USB nodes.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(genfscon sysfs \"/devices/platform/soc/a600000.ssusb/dynamic_disable\" (u object_r vendor_sysfs_usb_data_disable ((s0) (s0))))"
+      ]
+    },
+    {
+      "id": "usb-port-control-writers",
+      "why": "Only vendor_init (the port-state triggers) and ueventd, which the platform lets write all of sysfs, may write the data switch; the USB HAL may not.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_sysfs_usb_data_disable",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "usb-port-control-debug-guards",
+      "why": "On debuggable builds a restrictive port mode is reset at boot and the lock-triggered modes do nothing while USB debugging is on, so a test phone cannot lose ADB.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "debug.diamaneos.usb_port_security.test"
+    },
+    {
+      "id": "usb-port-control-off-text",
+      "why": "The FP6 cannot stop charging, so Settings says Off works like Charging-only.",
+      "type": "zip_contains",
+      "file": "VENDOR/overlay/FP6SettingsOverlay.apk",
+      "text": "this works like Charging-only"
+    },
+    {
+      "id": "usb-data-protection-unset",
+      "why": "Android's advanced protection USB hook stays off: port control alone decides USB data.",
+      "type": "text",
+      "files": [
+        "SYSTEM/build.prop",
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "VENDOR/build.prop",
+        "ODM/etc/build.prop",
+        "VENDOR/etc/init/**",
+        "ODM/etc/init/**"
+      ],
+      "match": "all",
+      "optional": true,
+      "absent": [
+        "ro.usb.data_protection.disable_when_locked.supported"
+      ]
+    },
+    {
       "id": "oem-unlocking",
       "why": "OEM unlocking managed by the OS, as stock.",
       "type": "properties",

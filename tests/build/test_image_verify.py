@@ -230,6 +230,54 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_text(rules['no-display-colour-policy'], self.harness(
             dict(policy, **{'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(type vendor_hal_display_color_default)\n'})))[0])
 
+    def test_usb_port_control_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        node = b'/sys/devices/platform/soc/a600000.ssusb/dynamic_disable'
+        rc = (b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' 1\n\n'
+              b'on property:sys.port_security_mode=charging-only_immediate\n    write ' + node + b' 1\n\n'
+              b'on property:sys.port_security_mode=ports_enabled\n    write ' + node + b' 0\n')
+        cil = (b'(genfscon sysfs "/devices/platform/soc/a600000.ssusb/dynamic_disable" '
+               b'(u object_r vendor_sysfs_usb_data_disable ((s0) (s0))))\n')
+        triggers = lambda text: subject.rule_text(rules['usb-port-control-triggers'], self.harness(
+            {'VENDOR/etc/init/init.qcom.usb.rc': text}))[0]
+        self.assertTrue(triggers(rc))
+        # charging-only keeps the current connection, so it must not cut data.
+        self.assertFalse(triggers(rc + b'\non property:sys.port_security_mode=charging-only\n    write ' + node + b' 1\n'))
+        self.assertFalse(triggers(rc.replace(b'=ports_enabled', b'=ports_on')))
+        label = lambda text: subject.rule_text(rules['usb-port-control-label'], self.harness(
+            {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        self.assertTrue(label(cil))
+        self.assertFalse(label(cil.replace(b'vendor_sysfs_usb_data_disable', b'vendor_sysfs_usb_device')))
+
+        plat = (b'(type ueventd)\n(type vendor_init)\n(type sysfs)\n(type sysfs_usermodehelper)\n'
+                b'(typeattributeset sysfs_type (sysfs sysfs_usermodehelper))\n'
+                b'(typeattributeset base_typeattr_9 (and (sysfs_type ) (not (sysfs_usermodehelper ))))\n'
+                b'(allow ueventd sysfs_type (file (open append write lock map)))\n'
+                b'(allow vendor_init base_typeattr_9 (file (getattr open read write)))\n')
+        vendor = (b'(type vendor_sysfs_usb_data_disable)\n(type vendor_hal_usb_qti)\n'
+                  b'(typeattributeset sysfs_type (vendor_sysfs_usb_data_disable))\n'
+                  b'(allow vendor_init vendor_sysfs_usb_data_disable (file (open write)))\n')
+        rule = dict(rules['usb-port-control-writers'],
+                    files=['SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'])
+        writers = lambda text: subject.rule_sepolicy_sources(rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))
+        self.assertTrue(writers(vendor)[0])
+        ok, detail = writers(vendor + b'(allow vendor_hal_usb_qti vendor_sysfs_usb_data_disable (file (open write)))\n')
+        self.assertFalse(ok)
+        self.assertIn('vendor_hal_usb_qti', detail)
+
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as inner:
+            inner.writestr('classes3.dex', b'dex\x00debug.diamaneos.usb_port_security.test\x00')
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-debug-guards'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
+                 'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}
+        protection = lambda members: subject.rule_text(rules['usb-data-protection-unset'], self.harness(members))[0]
+        self.assertTrue(protection(clean))
+        self.assertFalse(protection(dict(clean, **{
+            'VENDOR/build.prop': b'ro.usb.data_protection.disable_when_locked.supported=true\n'})))
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')
