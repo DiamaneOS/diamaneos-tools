@@ -90,12 +90,12 @@
     {
       "id": "fp6-source-inventory",
       "repository_path": "config/fp6-sources.json",
-      "sha256": "f1a5cbd77a00de07d7365be983e4d3459ec95d94be9f721d44adbdc57587f97e"
+      "sha256": "ce8d95213920e0e48f5873ca02d2225b4fd9115fad968d08fc1af2e7dfc231f4"
     },
     {
       "id": "stock-input-inventory",
       "repository_path": "config/stock-inputs.json",
-      "sha256": "dc33bc41d6f0e53fa48d84e20bdef33fdcfe04aae54e78df90405ad47a0250a9"
+      "sha256": "19c553a00d507c5f0fb8d9c3dbb1d8c1c6937d7cefeeff2bddff1f1470e1a903"
     },
     {
       "id": "patch-inventory",

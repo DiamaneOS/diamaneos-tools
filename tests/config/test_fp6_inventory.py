@@ -241,7 +241,7 @@ def validate_capabilities(data):
         errors.append("stock VINTF parse evidence is incomplete")
     if not SHA256_RE.fullmatch(str(runtime.get("capture_sha256", ""))):
         errors.append("stock VINTF capture lacks a valid SHA-256")
-    for capability_id in ("strongbox-and-hardware-weaver", "memory-tagging-extension"):
+    for capability_id in ("strongbox-and-hardware-weaver", "memory-tagging-extension", "pkvm-hardware-virtualization"):
         if by_id.get(capability_id, {}).get("classification") != "unsupported":
             errors.append(f"{capability_id}: observed hardware gap is not classified unsupported")
     return errors

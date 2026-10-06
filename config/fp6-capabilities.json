@@ -143,9 +143,9 @@
     },
     {
       "id": "pkvm-hardware-virtualization",
-      "classification": "unverified",
-      "basis": "The reference build includes the Virtualization APEX and pvmfw partition, which is configuration intent rather than runtime evidence.",
-      "next_experiment": "Verify protected-VM capabilities, firmware compatibility and applicable virtualization tests on the candidate.",
+      "classification": "unsupported",
+      "basis": "On the current firmware the kernel runs under Qualcomm's Gunyah hypervisor, not KVM: a bring-up build checked on the phone in October 2026 has the Gunyah device and VM driver, and Android's protected-VM properties are unset, so protected VMs are unavailable. The Virtualization APEX and pvmfw stay because the bootloader requires the pvmfw descriptor.",
+      "next_experiment": "None for pKVM on this firmware. Protected VMs on Gunyah would need the kernel's Qualcomm Gunyah platform support, which is off, and are untested.",
       "owner": "FP6-040 and FP6-048"
     },
     {

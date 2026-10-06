@@ -71,6 +71,14 @@
       "url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
       "observed_at": "2026-09-30",
       "purpose": "Official download host. On 2026-09-30 the manual-install article (updated 2026-09-25) did not yet list this package or its checksum; the file name was found on the official host from the published build timestamp 20260831102426. The host's object metadata records the uploaded file's MD5."
+    },
+    {
+      "id": "fairphone-manual-install-16.111.0",
+      "url": "https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone",
+      "api_url": "https://support.fairphone.com/api/v2/help_center/en-us/articles/18896094650513.json",
+      "article_updated_at": "2026-10-02T16:00:29Z",
+      "observed_at": "2026-10-06",
+      "purpose": "Lists FP6.QREL.16.111.0 for the Gen. 6 and 6+ (the official host link, release date 2026-09-28, security patch 2026-09-05) with SHA-256 97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc, the pinned archive hash"
     }
   ],
   "archives": [
@@ -152,7 +160,7 @@
     },
     {
       "id": "fairphone-fp6-a16-factory-16.111.0",
-      "status": "VERIFIED_INPUT_SELECTED_FOR_GENERATION_OFFICIAL_HASH_NOT_YET_PUBLISHED",
+      "status": "VERIFIED_INPUT_SELECTED_FOR_GENERATION",
       "product": "FP6",
       "region": "EU",
       "region_note": "One FP6.QREL.16.111.0 build for all regions per the release notes; the package names no region.",
@@ -168,7 +176,7 @@
       "sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
       "md5": "d9877c380268bcf1d27f3df87c40b486",
       "verification": {
-        "official_sha256_match": "NOT_PUBLISHED_YET",
+        "official_sha256_match": "PASS",
         "official_host_md5_match": "PASS",
         "repeat_read_sha256_match": "PASS",
         "zip_crc": "PASS",
@@ -186,7 +194,6 @@
         "ufs_factory_layout_present": "PASS",
         "result": "VERIFIED_GENERATOR_INPUT_NOT_A_TESTED_RESTORE_INPUT",
         "limits": [
-          "Compare the SHA-256 with Fairphone's published value once the manual-install article lists this package.",
           "Restore, AVB chain, rollback indices, slots and relock with this package remain untested.",
           "A locked boot of this build raises rollback locations 2-4 to 1788566400 (2026-09-05); 16.100.0 images then fail to boot locked."
         ]
@@ -225,7 +232,7 @@
   },
   "remaining_gates": [
     "Test actual stock restoration, AVB/slot/rollback prerequisites and relock in the destructive recovery task.",
-    "Before restoring or relocking with FP6.QREL.16.111.0, verify it against Fairphone's published SHA-256 and repeat the destructive preflight."
+    "Before restoring or relocking with FP6.QREL.16.111.0, repeat the destructive preflight (its SHA-256 matches Fairphone's published value)."
   ],
   "safety": {
     "device_update_authorized": false,

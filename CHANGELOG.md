@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Image checks and threat model for the device's third hardening batch:
+  SHA-256 dm-verity hash trees for every logical partition (the `avb-chain`
+  check, `avb.hashtree_algorithm`), the boot control HAL as its own user
+  with CAP_SYS_RAWIO only and its nodes (`boot-hal-own-user`,
+  `boot-hal-users`, `boot-hal-nodes`), the EUD enable switch's own label
+  and writers (`eud-enable-label`, `eud-enable-writers`, `eud-stays-off`;
+  the bootconfig check refuses `eud.enable`), no ANT or Bluetooth SAR
+  service contexts (`no-bluetooth-value-add-contexts`) and no libubwcp load
+  in gralloc (`gralloc-no-libubwcp`). The stock record notes Fairphone's
+  published SHA-256 for FP6.QREL.16.111.0, which matches; the capability
+  record marks protected VMs unsupported.
 - The vendor generator sets `gEnableWoW=2` in the stock QCA6750 driver
   configuration (pinned input and result, `WIFI_CONFIG_REWRITES`): the driver
   no longer wakes the phone on a wake-on-LAN magic packet, which stock left

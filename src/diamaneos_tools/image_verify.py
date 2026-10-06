@@ -842,16 +842,37 @@ def avb_chains(info: str) -> dict:
     return chains
 
 
+def avb_hashtrees(info: str) -> dict:
+    """Partition name -> hash algorithm of every hashtree descriptor in avbtool info output."""
+    trees = {}
+    for block in re.split(r'\n\s*(?=\S[^\n]*descriptor:)', info):
+        if not block.lstrip().startswith('Hashtree descriptor:'):
+            continue
+        name = re.search(r'Partition Name:\s+(\S+)', block)
+        algorithm = re.search(r'Hash Algorithm:\s+(\S+)', block)
+        if name and algorithm:
+            trees[name.group(1)] = algorithm.group(1)
+    return trees
+
+
 def check_avb(v):
     key = v.src / v.config['avb']['test_key']
     v.tools.run('avbtool', ['verify_image', '--image', v.images / 'vbmeta.img', '--key', key,
                             '--follow_chain_partitions'], cwd=v.images)
-    chains = avb_chains(v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta.img']))
+    info = v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta.img'])
+    chains = avb_chains(info)
     want = {name: (location, 0) for name, location in v.config['avb']['chains'].items()}
     problems = [] if chains == want else [f'chains are {chains} (want {want})']
     system = v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta_system.img'])
     if not re.search(r'Partition Name:\s+pvmfw\b', system):
         problems.append('vbmeta_system lacks the pvmfw descriptor')
+    trees = {**avb_hashtrees(info), **avb_hashtrees(system)}
+    algorithm = v.config['avb']['hashtree_algorithm']
+    if set(trees) != set(v.config['images']['logical']):
+        problems.append(f'hashtrees for {sorted(trees)} (want {sorted(v.config["images"]["logical"])})')
+    weak = sorted(name for name, used in trees.items() if used != algorithm)
+    if weak:
+        problems.append(f'hashtrees not {algorithm}: ' + ', '.join(f'{n} ({trees[n]})' for n in weak))
     return not problems, '; '.join(problems)
 
 
@@ -1225,7 +1246,7 @@ def check_wipe(v):
 GENERIC = [
     ('record', 'The image set matches its build record and is marked as a test build that must never be locked.', check_record),
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
-    ('avb-chain', 'The AVB chain verifies with the test key and has the published FP6 layout.', check_avb),
+    ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees.', check_avb),
     ('boot-header', 'Boot-family headers carry zero OS fields; the versions live in AVB properties.', check_boot_headers),
     ('super', 'super.img holds exactly the exported logical images; slot b is empty.', check_super),
     ('validators', 'validate_target_files and check_target_files_vintf pass on the archive.', check_validators),
@@ -1236,7 +1257,7 @@ GENERIC = [
     ('vendor-patch-level', 'The vendor partition reports the patch level of the stock vendor image its files come '
      'from.', check_vendor_patch_level),
     ('selinux-enforcing', 'No permissive domain beyond the variant\'s allowance.', check_permissive),
-    ('bootconfig', 'Required bootconfig present; nothing overrides SELinux.', check_bootconfig),
+    ('bootconfig', 'Required bootconfig present; nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
     ('adb-keys', 'No pre-trusted adb key.', check_adb_keys),
     ('wipe-images', 'The wipe images are the declared deterministic images.', check_wipe),
 ]

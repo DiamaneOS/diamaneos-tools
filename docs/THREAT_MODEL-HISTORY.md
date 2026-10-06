@@ -464,6 +464,27 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   pattern match, so any peer on the network could wake the phone. The
   generated configuration sets `gEnableWoW=2` (pattern wake-ups only), and the
   supplicant overlay no longer asks for the magic packet (-76).
+- **2026-10-06:** third hardening batch, implemented, not yet built.
+  - dm-verity hash trees use SHA-256, as on stock; avbtool's default was SHA-1
+    (-65). The AVB image check requires SHA-256 for all seven logical
+    partitions.
+  - The boot control HAL runs as its own user with CAP_SYS_RAWIO only (the
+    UFS BSG ioctl that switches the boot LUN needs it) instead of root with
+    every capability; ueventd gives its group the GPT disks of the A/B LUNs,
+    misc and the UFS BSG node, and the other LUNs stay root-only.
+  - Qualcomm's embedded USB debugger (EUD) stays off: its enable switch gets
+    its own SELinux type, which only ueventd and vendor_init may write (vold,
+    the USB HAL and vfio_handler could write it before); the image checks
+    refuse an init file, module option or boot parameter that turns it on
+    (-18). Removing the driver needs a device-tree change: the USB controller
+    takes its cable events from the EUD node.
+  - The ANT, ANT HCI and Bluetooth SAR service contexts are removed, so the
+    Bluetooth HAL can no longer register those interfaces (-36).
+  - The source-built gralloc no longer loads libubwcp when UBWC-P support is
+    compiled out (-50).
+  - Fairphone's published SHA-256 for FP6.QREL.16.111.0 matches the pinned
+    archive (-52); the capability record marks protected VMs unsupported
+    under Gunyah (-84).
 
 ## IMS integration notes
 
