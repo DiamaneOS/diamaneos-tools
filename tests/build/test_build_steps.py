@@ -142,6 +142,89 @@ class PlanTests(unittest.TestCase):
                                            self.lines.append))
         self.assertIn('--shallow is an option of: sync, all', errors.getvalue())
 
+    def test_official_is_an_option_of_android_and_all(self):
+        errors = io.StringIO()
+        with contextlib.redirect_stderr(errors):
+            for argv in (['sync', '--official'], ['vendor', '--no-official'], ['verify', '--official']):
+                with self.subTest(argv=argv):
+                    self.assertEqual(2, steps.main(argv + ['--dry-run', '--workspace', str(self.root / 'ws')],
+                                                   self.lines.append))
+        self.assertIn('--official is an option of: android, all', errors.getvalue())
+        self.assertEqual(0, steps.main(['android', '--official', '--dry-run', '--workspace', str(self.root / 'ws')],
+                                       self.lines.append))
+
+    def android_plan(self, ctx):
+        for name in ('sync', 'vendor'):
+            ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
+                                             'outputs': {'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k'}})
+        with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                patch.object(steps, 'newest_commit_time', return_value='1'):
+            return steps.plan_android(ctx)
+
+    def test_only_official_builds_pass_the_official_flag_to_the_build(self):
+        plans = {official: self.android_plan(self.context(official=official)) for official in (False, True)}
+        build = {official: next(a for a in plan.actions if a.argv) for official, plan in plans.items()}
+        self.assertEqual('true', build[True].env['DIAMANEOS_OFFICIAL_BUILD'])
+        self.assertNotIn('DIAMANEOS_OFFICIAL_BUILD', build[True].unset)
+        self.assertIn(', official)', build[True].description)
+        self.assertNotIn('DIAMANEOS_OFFICIAL_BUILD', build[False].env)
+        self.assertIn('DIAMANEOS_OFFICIAL_BUILD', build[False].unset)
+        # GrapheneOS's flag never reaches either build.
+        self.assertTrue(all('OFFICIAL_BUILD' in action.unset for action in build.values()))
+        self.assertIs(True, plans[True].inputs['official'])
+        # Other builds keep the input digest they had before the option existed.
+        self.assertNotIn('official', plans[False].inputs)
+        # The image tools never get the flag.
+        ctx = self.context(official=True)
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1):
+            tools = steps.plan_vendor(ctx).actions[0]
+        self.assertEqual({'OFFICIAL_BUILD', 'DIAMANEOS_OFFICIAL_BUILD'}, set(tools.unset))
+
+    def test_a_caller_environment_cannot_make_a_build_official(self):
+        build = next(a for a in self.android_plan(self.context()).actions if a.argv)
+        result = self.root / 'flag'
+        probe = bw.Action('Probe', argv=['sh', '-c', 'printf "%s" "${DIAMANEOS_OFFICIAL_BUILD-unset}" > "$PROBE"'],
+                          compile=True, env={'PROBE': str(result)}, unset=build.unset)
+        with patch.dict(os.environ, {'DIAMANEOS_OFFICIAL_BUILD': 'true'}):
+            bw.Runner(True, self.lines.append).run(probe, self.root / 'probe.log')
+        self.assertEqual('unset', result.read_text())
+
+    def test_official_builds_get_their_own_build_identity(self):
+        sync = {'outputs': {}}
+        with patch.object(steps.product_inputs, 'selected_inputs', return_value={'vendor': {'records': []}}), \
+                patch.object(steps.product_inputs, 'records_sha256', return_value='r'):
+            plain = steps.android_identity(self.context(), sync)
+            official = steps.android_identity(self.context(official=True), sync)
+            unchanged = bw.digest({'environment_sha256': self.context().environment_sha256,
+                                   **steps.source_record(sync), 'vendor_records_sha256': 'r', 'variant': 'user',
+                                   'build_config': steps.config_subset(self.context().config, steps.ANDROID_CONFIG)})
+        self.assertNotEqual(plain, official)
+        self.assertEqual(unchanged, plain)
+
+    def test_the_workspace_remembers_the_official_choice(self):
+        workspace = str(self.root / 'ws')
+        self.assertEqual((False, False), (self.context().official, self.context().official_given))
+        self.assertEqual(0, steps.main(['all', '--official', '--dry-run', '--workspace', workspace], self.lines.append))
+        self.assertIn('variant user, official', '\n'.join(self.lines))
+        self.assertFalse(self.context().official, 'a dry run changes nothing')
+        steps.remember_official(self.context().workspace, True)
+        later = self.context()
+        self.assertEqual((True, False), (later.official, later.official_given))
+        self.lines.clear()
+        self.assertEqual(0, steps.main(['all', '--dry-run', '--workspace', workspace], self.lines.append))
+        self.assertIn('--no-official turns that off', '\n'.join(self.lines))
+        self.assertFalse(self.context(official=False).official)
+        steps.remember_official(self.context().workspace, False)
+        self.assertFalse(self.context().official)
+
+    def test_a_prerequisite_keeps_the_official_choice_it_was_built_with(self):
+        ctx = self.context()
+        ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
+            'variant': 'user', 'official': True}})
+        self.assertTrue(steps.recorded_context(ctx, 'android').official)
+        self.assertFalse(steps.recorded_context(self.context(official=False), 'android').official)
+
     def test_build_number_override_is_validated(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertEqual('test.0123456789ab', steps.build_number('0123456789abcdef', config))

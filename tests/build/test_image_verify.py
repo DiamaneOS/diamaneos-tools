@@ -651,6 +651,43 @@ class ConfigTests(unittest.TestCase):
         broken['rules'].append(copy.deepcopy(broken['rules'][0]))
         self.assertRaises(ValueError, subject.validate_rules, broken)
 
+    def test_rules_can_check_official_builds_only_or_the_others_only(self):
+        self.assertTrue(subject.rule_applies({}, 'user', True))
+        self.assertTrue(subject.rule_applies({'official': True}, 'user', True))
+        self.assertFalse(subject.rule_applies({'official': True}, 'user', False))
+        self.assertTrue(subject.rule_applies({'official': False}, 'userdebug', False))
+        self.assertFalse(subject.rule_applies({'official': False}, 'userdebug', True))
+        self.assertFalse(subject.rule_applies({'official': True, 'variants': ['userdebug']}, 'user', True))
+        document = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())
+        broken = copy.deepcopy(document)
+        broken['rules'][0]['official'] = 'yes'
+        self.assertRaises(ValueError, subject.validate_rules, broken)
+
+    def test_official_builds_carry_the_updater_and_others_do_not(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        self.assertEqual({'no-updater': False, 'updater': True, 'updater-server': True, 'updater-permissions': True},
+                         {i: rules[i]['official'] for i in ('no-updater', 'updater', 'updater-server',
+                                                            'updater-permissions')})
+        self.assertEqual(['SYSTEM/priv-app/Updater'], rules['no-updater']['paths'])
+        # The Updater asks the host the endpoint contract names.
+        endpoints = json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']
+        host = next(e['replacement_host'] for e in endpoints if e['id'] == 'os-updates')
+        self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
+
+    def test_record_official_must_be_true_or_false(self):
+        root = Path(tempfile.mkdtemp()); self.addCleanup(lambda: __import__('shutil').rmtree(root))
+        (root / 'target-files.zip').write_bytes(b'tf')
+        digest = hashlib.sha256(b'tf').hexdigest()
+        (root / 'SHA256SUMS').write_text(f'{digest}  target-files.zip\n')
+        record = {'release': False, 'signing': 'public-test-keys', 'never_lock': True, 'images': {},
+                  'target_files': {'file': 'target-files.zip', 'sha256': digest}}
+        class V:
+            images = root
+        for official, ok in ((None, True), (True, True), (False, True), ('true', False)):
+            with self.subTest(official=official):
+                V.record = dict(record, **({} if official is None else {'official': official}))
+                self.assertEqual(ok, subject.check_record(V)[0])
+
     def test_build_config_is_consistent(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertIn(config['default_variant'], config['variants'])

@@ -60,6 +60,12 @@ DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'v
 # manifest commit and the kernel prebuilts commit.
 SOURCE_KEYS = ('project_map_sha256', 'resolved_manifest_sha256', 'manifest_commit', 'kernel_prebuilts_commit')
 MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
+# An official build (DIAMANEOS_OFFICIAL_BUILD=true, read by vendor/diamaneos
+# product.mk) includes the Updater, which checks DiamaneOS's update server. The
+# workspace remembers --official in this state file, so the builder's workspace
+# stays official; --no-official removes it.
+OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
+OFFICIAL_MARKER = 'official'
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
 # body are still expected"), and repo then retries the project with every
 # branch, which for the large prebuilt repositories never finishes. HTTP/1.1
@@ -97,6 +103,10 @@ class Context:
     host: dict | None = None
     # False when the variant is the default because the command named none.
     variant_given: bool = True
+    # An official build: the Android step sets DIAMANEOS_OFFICIAL_BUILD=true.
+    official: bool = False
+    # False when the choice comes from the workspace because the command named none.
+    official_given: bool = True
     # Set only to check a prerequisite with the build number it was built with.
     build_number: str | None = None
     # A recorded resolved manifest to reproduce (build sync --resolved-manifest).
@@ -515,7 +525,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                                      f'({error}); run "diamaneos build sync" again') from error
     host_tools = Action(
         'Build the image tools from the synced source',
-        argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD',),
+        argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
         env=tool_env)
 
     def fetch():
@@ -580,7 +590,14 @@ def android_identity(ctx: Context, sync: dict) -> str:
     return bw.digest({
         'environment_sha256': ctx.environment_sha256, **source_record(sync),
         'vendor_records_sha256': product_inputs.records_sha256(selected['vendor']['records']),
-        'variant': ctx.variant, 'build_config': config_subset(ctx.config, ANDROID_CONFIG)})
+        'variant': ctx.variant, 'build_config': config_subset(ctx.config, ANDROID_CONFIG),
+        **official_input(ctx)})
+
+
+def official_input(ctx: Context) -> dict:
+    """The official choice as a step input: only when set, so the digests of
+    other builds stay as they were."""
+    return {'official': True} if ctx.official else {}
 
 
 def find_target_files(ctx: Context) -> Path:
@@ -606,7 +623,7 @@ def plan_android(ctx: Context) -> StepPlan:
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
                   'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
-                  'network_isolation': not ctx.allow_network}
+                  'network_isolation': not ctx.allow_network, **official_input(ctx)}
         try:
             datetime = newest_commit_time(ctx, sync)
         except (BuildStepError, build.BuildError, ValueError, KeyError, OSError,
@@ -639,15 +656,19 @@ def plan_android(ctx: Context) -> StepPlan:
             ctx.cache[key] = result
         return check
 
+    # GrapheneOS's OFFICIAL_BUILD never reaches the build; DIAMANEOS_OFFICIAL_BUILD
+    # only as --official sets it, never from the caller's environment.
     compile_action = Action(
-        f'Build Android ({lunch})', argv=['bash', '-c', ANDROID_SCRIPT], cwd=ws.src, compile=True,
-        unset=('OFFICIAL_BUILD',),
+        f'Build Android ({lunch}{", official" if ctx.official else ""})', argv=['bash', '-c', ANDROID_SCRIPT],
+        cwd=ws.src, compile=True,
+        unset=('OFFICIAL_BUILD',) + (() if ctx.official else (OFFICIAL_FLAG,)),
         env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': lunch, 'DIAMANEOS_PRODUCT': config['product'],
              'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
              'BUILD_NUMBER': number or '<from the build identity>',
              'BUILD_DATETIME': datetime if datetime is not None else '<newest source commit time>',
              'BUILD_USERNAME': config['build_identity']['username'],
-             'BUILD_HOSTNAME': config['build_identity']['hostname']})
+             'BUILD_HOSTNAME': config['build_identity']['hostname'],
+             **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
     actions = [Action('Install the generated vendor tree', func=install),
                Action('Verify the source tree and the generated inputs', func=preflight('preflight')),
                compile_action,
@@ -666,7 +687,7 @@ def plan_android(ctx: Context) -> StepPlan:
         return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
                 'build_datetime': datetime,
-                'variant': ctx.variant, 'lunch': lunch,
+                'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
                 'descriptor_sha256': ctx.cache['postflight']['generated_input_descriptor_sha256'],
                 'network_isolation': isolation}
 
@@ -716,6 +737,8 @@ def recorded_context(ctx: Context, name: str) -> Context:
         changes['variant'] = inputs['variant']
     if not os.environ.get('DIAMANEOS_BUILD_NUMBER') and isinstance(inputs.get('build_number'), str):
         changes['build_number'] = inputs['build_number']
+    if not ctx.official_given and inputs.get('official') is True:
+        changes['official'] = True
     return replace(ctx, **changes) if changes else ctx
 
 
@@ -793,6 +816,17 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
         ctx.echo(f'{name}: done')
 
 
+def remember_official(ws: bw.Workspace, official: bool) -> None:
+    """Keep --official for later commands in this workspace, or forget it."""
+    marker = ws.state_dir / OFFICIAL_MARKER
+    if official:
+        ws.state_dir.mkdir(parents=True, exist_ok=True)
+        marker.write_text('Build official images in this workspace (DIAMANEOS_OFFICIAL_BUILD=true); '
+                          '"diamaneos build all --no-official" turns it off.\n')
+    else:
+        marker.unlink(missing_ok=True)
+
+
 def output_present(ctx: Context, name: str) -> bool:
     """Whether a step's output already takes its disk space (resume)."""
     ws = ctx.workspace
@@ -838,6 +872,9 @@ def make_context(args, echo=print) -> Context:
     # A workspace synced shallow stays shallow; a plain "build all" must not
     # turn it into a full download.
     shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
+    # Likewise a workspace that built with --official keeps building official images.
+    given = getattr(args, 'official', None)
+    official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
     pinned = None
     if getattr(args, 'resolved_manifest', None):
         record = getattr(args, 'build_json', None)
@@ -848,7 +885,7 @@ def make_context(args, echo=print) -> Context:
     return Context(workspace=workspace,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
-                   jobs=args.jobs,
+                   official=official, official_given=given is not None, jobs=args.jobs,
                    allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
                    shallow=shallow, pinned=pinned, echo=echo, dry_run=getattr(args, 'dry_run', False))
@@ -863,6 +900,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE or ~/diamaneos-build)')
     result.add_argument('--dry-run', action='store_true', help='print the plan and change nothing')
     result.add_argument('--variant', help='user (default) or userdebug')
+    result.add_argument('--official', action=argparse.BooleanOptionalAction, default=None,
+                        help='build official images (DIAMANEOS_OFFICIAL_BUILD=true): they include the Updater, '
+                             'which checks DiamaneOS\'s update server. For DiamaneOS\'s own builder; leave it off '
+                             'for other builds. The workspace remembers the choice; --no-official turns it off')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
                         help='compile with network access instead of without it. Only for hosts where '
@@ -886,7 +927,7 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'),
+STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'), 'official': ('android', 'all'),
                 'from_step': ('all',), 'resolved_manifest': ('sync', 'all'), 'build_json': ('sync', 'all'),
                 'manifest_commit': ('sync', 'all')}
 
@@ -895,7 +936,10 @@ def main(argv=None, echo=print) -> int:
     args = parser().parse_args(argv)
     try:
         for option, steps in STEP_OPTIONS.items():
-            if getattr(args, option) and args.step not in steps:
+            value = getattr(args, option)
+            # --no-official is given too, as False.
+            given = value is not None if option == 'official' else bool(value)
+            if given and args.step not in steps:
                 raise UsageError(f'--{option.replace("_", "-")} is an option of: ' + ', '.join(steps))
         if (args.build_json or args.manifest_commit) and not args.resolved_manifest:
             raise UsageError('--build-json and --manifest-commit go with --resolved-manifest')
@@ -923,13 +967,18 @@ def main(argv=None, echo=print) -> int:
             # Like repo sync before a build: move to the branch head. Later
             # steps rerun only if the synced tree changed.
             force = ('sync',)
+        if ctx.official and not ctx.official_given:
+            echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
+                 'Updater; --no-official turns that off')
         if args.dry_run:
-            echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant})')
+            echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant}{", official" if ctx.official else ""})')
             run_steps(ctx, steps, force, dry_run=True)
             return 0
         pending = steps_to_run(ctx, steps, force)
         need_isolation = not ctx.allow_network and any(s in ('kernel', 'vendor', 'android') for s in pending)
         with ctx.workspace.lock():
+            if ctx.official_given:
+                remember_official(ctx.workspace, ctx.official)
             present = {s for s in pending if output_present(ctx, s)}
             ctx.host = bw.check_host(ctx.workspace, pending, ctx.environment, ctx.config, need_isolation,
                                      present=present)

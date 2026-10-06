@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26, with the network location and geocoder choices recorded the same day. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
+  "note": "endpoint contract design contract design reviewed 2026-09-11; network location, geocoder and attestation contracts added 2026-09-26, with the network location and geocoder choices recorded the same day; the OS update client is the DiamaneOS Updater fork since 2026-10-06. Source observations and project server policy are distinct. No signup, deployment, native test or release acceptance is implied. Blockers gate the named implementation task; validation proves document consistency only.",
   "canonical_domain": "diamaneos.de",
   "providers": [
     {
@@ -188,6 +188,74 @@
       "sha256": "bf91595fb7d229ae752bf25e6ab806950f848adb4a9dde9f9d1f8778d811d59a",
       "role": "manifest-pin",
       "observed_on": "2026-09-11"
+    },
+    {
+      "id": "updater-fork-url",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_Updater",
+      "revision": "0d2e30fe7d84ba8dda3a9ede68b3861a0b6dd9a1",
+      "path": "res/values/config.xml",
+      "symbols": [
+        "url",
+        "channel_default"
+      ],
+      "sha256": "cbe33e1b3ee51e592007c516bf8bed29ef81105d781e8b0d7762ff7b186390ab",
+      "role": "manifest-pin",
+      "observed_on": "2026-10-06"
+    },
+    {
+      "id": "updater-fork-tls",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_Updater",
+      "revision": "0d2e30fe7d84ba8dda3a9ede68b3861a0b6dd9a1",
+      "path": "res/xml/network_security_config.xml",
+      "symbols": [
+        "domain-config",
+        "pin-set"
+      ],
+      "sha256": "2534df6dae58d11f680a84850e820985b1eaf58434799a8517100cf28c2bfcaa",
+      "role": "manifest-pin",
+      "observed_on": "2026-10-06"
+    },
+    {
+      "id": "updater-fork-keys",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_Updater",
+      "revision": "0d2e30fe7d84ba8dda3a9ede68b3861a0b6dd9a1",
+      "path": "src/app/seamlessupdate/client/ReleaseKeys.java",
+      "symbols": [
+        "require",
+        "trusted",
+        "PUBLIC_TEST_CERTIFICATES"
+      ],
+      "sha256": "3e1d055207bba2f79e092346169455af044d20c6be122936d7ba9d769e74cb6f",
+      "role": "manifest-pin",
+      "observed_on": "2026-10-06"
+    },
+    {
+      "id": "updater-fork-jobs",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_Updater",
+      "revision": "0d2e30fe7d84ba8dda3a9ede68b3861a0b6dd9a1",
+      "path": "src/app/seamlessupdate/client/PeriodicJob.java",
+      "symbols": [
+        "schedule",
+        "scheduleRetry",
+        "resetRetryDelay"
+      ],
+      "sha256": "e366fb73fe91bc056828128321abcf2b5d7a42465aad2bc87164efa51c441eb5",
+      "role": "manifest-pin",
+      "observed_on": "2026-10-06"
+    },
+    {
+      "id": "updater-fork-check",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_Updater",
+      "revision": "0d2e30fe7d84ba8dda3a9ede68b3861a0b6dd9a1",
+      "path": "src/app/seamlessupdate/client/Service.java",
+      "symbols": [
+        "onHandleIntent",
+        "readMetadata",
+        "MAX_METADATA_BYTES"
+      ],
+      "sha256": "dc5f8f213a7a2c7dda35a985da5302c52c99787c439c92f9cf37275340bccce2",
+      "role": "manifest-pin",
+      "observed_on": "2026-10-06"
     },
     {
       "id": "network-config",
@@ -1043,7 +1111,7 @@
       "id": "os-updates",
       "upstream_host": "releases.grapheneos.org",
       "replacement_host": "releases.diamaneos.de",
-      "consumer": "OS Updater Service",
+      "consumer": "DiamaneOS Updater fork (app.seamlessupdate.client), included only in official builds",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
       "purpose": "Channel selection and signed OTA delivery; signed factory/recovery objects share the artifact origin.",
       "protocol": "Existing text selector, not a newly invented JSON or proof protocol. Verification is performed after complete download.",
@@ -1056,11 +1124,11 @@
         "Selector first line: targetIncremental targetBuildDate targetDevice targetChannel (space separated); date is Unix seconds.",
         "ZIP byte stream; HTTP 206 on valid Range, 404 missing object; signed OTA metadata checked inside package."
       ],
-      "verification_root": "RecoverySystem.verifyPackage with device-pinned OTA certificates; update_engine payload checks; expected device/channel and newer build date checked. Release key ceremony release key ceremony and verified boot/rollback remain separate. No invented transparency verification in current Updater.",
-      "timeout_retry": "Observed: connect/read 30 s; scheduled checks every 6 h, failed background job rescheduled after >=4 min. Server transfer deadline 3600 s; one attempt per request. No blanket three-retry native claim.",
+      "verification_root": "RecoverySystem.verifyPackage and update_engine check the package against otacerts.zip, which release signing (sign_target_files_apks -o) fills with the signing contract's releasekey certificate; expected device/channel and newer build date checked. The fork downloads and installs nothing while the build is not tagged release-keys or otacerts.zip holds a public AOSP test certificate. Release key ceremony and verified boot/rollback remain separate. No invented transparency verification in current Updater.",
+      "timeout_retry": "Fork: connect/read 30 s; scheduled checks every 6 h; a failed automatic check retries after 4 min, each retry waiting twice as long up to 6 h until a check completes (upstream retried every 4 min without limit); a user-started check is not retried. Server transfer deadline 3600 s; one attempt per request. No blanket three-retry native claim.",
       "cache_freshness": "Project selector body <=4096 bytes; canonical selector publication check <=24 h, HTTP max-age=5. Verified immutable objects remain available by exact name within 64 GiB store; never garbage-collect referenced objects. Publish bytes then selector atomically.",
-      "failure_fallback": "No fresh approved selector: HTTP 503 (no redirect); existing installed OS runs. Invalid signature/metadata: client refuses update. Missing incremental: full OTA path. Interrupted bytes remain untrusted until full verification. Offline signed recovery/OTA is owned by offline signed OTA / release publication.",
-      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. Path reveals OS model/version/channel. Updater does not need a serial in the request.",
+      "failure_fallback": "Not live yet: on 2026-10-06 the name resolves only through the domain's catch-all record to the registrar's forwarding host, which refuses HTTPS, so every check fails before any HTTP exchange; the Updater shows the failure and backs off, nothing is downloaded or installed and the installed OS runs. A non-selector answer (a web page, over 4096 bytes) fails the check the same way. No fresh approved selector: HTTP 503 (no redirect); the client names the status. Invalid signature/metadata: client refuses update. Missing incremental: full OTA path. Interrupted bytes remain untrusted until full verification. Offline signed recovery/OTA is owned by offline signed OTA / release publication.",
+      "exposed_data": "Only official builds ask. IP and requested path are visible to the EU service; no project user account is required. Path reveals OS model/version/channel. Updater does not need a serial in the request.",
       "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
       "jurisdiction": "eu-primary",
       "owner_task": "FP6-128",
@@ -1068,7 +1136,12 @@
       "source_refs": [
         "updater",
         "updater-url",
-        "updater-jobs"
+        "updater-jobs",
+        "updater-fork-url",
+        "updater-fork-tls",
+        "updater-fork-keys",
+        "updater-fork-jobs",
+        "updater-fork-check"
       ],
       "limits_profile": "artifacts",
       "upstreams": [],
@@ -1076,7 +1149,7 @@
         {
           "id": "OTA-BIND",
           "owner_task": "FP6-128",
-          "description": "Bind actual FP6 DEVICE/channel and accepted release certs; validate 4096-byte selector and 8 GiB object ceilings against native client and candidate. Proof-log observation policy is separate from Updater authentication. Freeze factory/recovery object path grammar at this release binding as well."
+          "description": "The fork binds the client: device FP6, channels stable (default), beta and alpha, host releases.diamaneos.de pinned to the ISRG roots. The fork refuses selectors over 4096 bytes. Still to bind: accepted release certs; validate the 8 GiB object ceiling against native client and candidate. Proof-log observation policy is separate from Updater authentication. Freeze factory/recovery object path grammar at this release binding as well."
         }
       ],
       "example": {

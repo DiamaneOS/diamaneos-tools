@@ -243,6 +243,16 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_LogViewer"
     },
     {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Updater",
+      "id": "updater",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_Updater.git",
+      "revision": null,
+      "slug": "platform_packages_apps_Updater",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_Updater"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/packages/apps/WallpaperPicker2",
       "id": "wallpaper-picker",
       "publication": "public-source",

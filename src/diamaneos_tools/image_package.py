@@ -238,10 +238,14 @@ def plan(ctx):
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
         tools = product_inputs.tools_identity()
+        official = out.get('official') is True
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
             'release': False, 'signing': 'public-test-keys', 'never_lock': True,
-            'notice': 'Test build signed with public test keys. Keep the bootloader unlocked.',
+            'notice': 'Test build signed with public test keys. Keep the bootloader unlocked.'
+                      + (' Official build: its Updater checks for updates but installs none while the build is '
+                         'signed with public test keys.' if official else ''),
+            'official': official,
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),

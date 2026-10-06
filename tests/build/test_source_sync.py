@@ -116,6 +116,11 @@ class PinnedManifestTests(unittest.TestCase):
         self.assertIn('another build environment', notes[0])
         self.assertIn('records tools commit ' + 'c' * 40 + ', this checkout is ' + 'd' * 40, notes[1])
 
+    def test_an_official_build_is_noted(self):
+        self.record['official'] = True
+        self.assertEqual(('build.json records an official build; build it with --official to make the same images',),
+                         self.load().notes)
+
     def test_broken_records_are_refused(self):
         for text in ('{"manifest": {}, "manifest": {}}', '[]', 'not json', '{"manifest": {}}'):
             with self.subTest(text=text):

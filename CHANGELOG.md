@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `build all --official` builds official images: the Android build gets
+  `DIAMANEOS_OFFICIAL_BUILD=true`, which adds the DiamaneOS Updater fork
+  (DiamaneOS/platform_packages_apps_Updater). Other builds run with the
+  variable removed. The choice is an Android input, part of the build
+  identity, recorded as `official` in `build.json` and remembered by the
+  workspace until `--no-official`. Image checks require the Updater, its
+  permissions and the DiamaneOS update server in official builds and its
+  absence in the others. The OS update endpoint contract names the fork as
+  its client.
 - Threat model and image checks for the camera's performance hints, which
   the device now passes to the power HAL: the camera provider becomes a power
   HAL client. `camera-power-client` checks that it is the only vendor domain

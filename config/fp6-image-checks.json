@@ -657,6 +657,58 @@
       ]
     },
     {
+      "id": "no-updater",
+      "why": "Only official builds include the Updater; other builds ask no update server.",
+      "official": false,
+      "type": "files_absent",
+      "paths": [
+        "SYSTEM/priv-app/Updater"
+      ]
+    },
+    {
+      "id": "updater",
+      "why": "Official builds include the Updater with its privileged permissions, power-save exemption and notification grant.",
+      "official": true,
+      "type": "files_present",
+      "paths": [
+        "SYSTEM/priv-app/Updater/Updater.apk",
+        "SYSTEM/etc/permissions/app.seamlessupdate.client.xml",
+        "SYSTEM/etc/sysconfig/app.seamlessupdate.client.xml",
+        "SYSTEM/etc/default-permissions/app.seamlessupdate.client.xml"
+      ]
+    },
+    {
+      "id": "updater-server",
+      "why": "The Updater asks DiamaneOS's update server, not GrapheneOS's.",
+      "official": true,
+      "type": "overlay",
+      "apk": "SYSTEM/priv-app/Updater/Updater.apk",
+      "values": {
+        "string/url": "\"https://releases.diamaneos.de/\""
+      }
+    },
+    {
+      "id": "updater-permissions",
+      "why": "The Updater asks for the permissions of GrapheneOS's Updater at the pin and nothing more (the last one comes from AndroidX).",
+      "official": true,
+      "type": "apk",
+      "path": "SYSTEM/priv-app/Updater/Updater.apk",
+      "permissions": [
+        "android.permission.ACCESS_CACHE_FILESYSTEM",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ALLOCATE_AGGRESSIVE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.REBOOT",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "app.seamlessupdate.client.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ]
+    },
+    {
       "id": "tap-to-wake",
       "why": "Double-tap to wake: node permissions, label and power HAL access.",
       "type": "text",

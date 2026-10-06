@@ -694,8 +694,18 @@ def validate_rules(document: dict) -> list:
             raise ValueError('invalid or duplicate image check id: ' + str(rule.get('id')))
         if not isinstance(rule.get('why'), str) or not rule['why'].strip():
             raise ValueError('image check needs a reason: ' + rule['id'])
+        if 'official' in rule and not isinstance(rule['official'], bool):
+            raise ValueError('image check "official" must be true or false: ' + rule['id'])
         ids.add(rule['id'])
     return document['rules']
+
+
+def rule_applies(rule: dict, variant: str, official: bool) -> bool:
+    """A rule may name the variants it checks, and whether it checks only
+    official builds (true) or only the others (false)."""
+    if rule.get('variants') and variant not in rule['variants']:
+        return False
+    return rule.get('official', official) == official
 
 
 # ------------------------------------------------------ generic checks
@@ -727,6 +737,8 @@ def check_record(v):
     problems = []
     if v.record.get('release') is not False or v.record.get('signing') != 'public-test-keys' or not v.record.get('never_lock'):
         problems.append('build.json does not mark a test build that must never be locked')
+    if not isinstance(v.record.get('official', False), bool):
+        problems.append('build.json official is not true or false')
     if sums.get(v.record['target_files']['file']) != v.record['target_files']['sha256']:
         problems.append('target-files copy differs from the build record')
     for name, digest in v.record['images'].items():
@@ -1169,8 +1181,9 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
         v.kernel_problem = kernel_problem
         for check_id, why, func in GENERIC:
             v.add(check_id, why, lambda func=func: func(v))
+        official = v.record.get('official') is True
         for rule in validate_rules(checks):
-            if rule.get('variants') and v.variant not in rule['variants']:
+            if not rule_applies(rule, v.variant, official):
                 continue
             v.add(rule['id'], rule['why'], lambda rule=rule: RULES[rule['type']](rule, v))
     finally:
