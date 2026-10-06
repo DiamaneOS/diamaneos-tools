@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Threat model: user builds silence the camera HAL's log tag, which logged the
+  camera module serials.
 - Image check `bluetooth-seccomp-enforced`: the Bluetooth HCI service is built
   in trap mode, so a call outside its seccomp list stops the service. Threat
   model: enforcing filter, factory address in use, ANT/SAR contexts built.
