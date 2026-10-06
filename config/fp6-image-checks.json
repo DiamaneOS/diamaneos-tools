@@ -707,6 +707,13 @@
       "text": "USB-C port Off at boot"
     },
     {
+      "id": "usb-port-control-data-reenable",
+      "why": "While port control holds a USB data disable request (svc, a device owner), the port reports DATA_STATUS_DISABLED_FORCE, so UsbManager passes the re-enable on and the stored mode comes back; before, the HAL's status said enabled and the re-enable never arrived.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "port status reports DATA_STATUS_DISABLED_FORCE for %s"
+    },
+    {
       "id": "usb-port-control-off-text",
       "why": "Off turns off USB data and the charger input on the FP6, while the ADSP firmware still runs Type-C and USB PD, so Settings names what Off turns off.",
       "type": "zip_contains",

@@ -863,7 +863,9 @@ entry point), the protections in current builds, what remains, and the status.
     ueventd, which the platform lets write all of sysfs); the USB HAL may
     not.
   - Lockdown and device-policy requests to stop USB data become port states
-    (data off, charging kept).
+    (data off, charging kept). While such a request holds, the port reports
+    data as force-disabled, so the later re-enable arrives and the stored
+    mode comes back.
 - **Remaining:**
   - Differs from GrapheneOS on Pixels: Type-C and USB PD run in Qualcomm's
     charger firmware, and the OS has no switch for them (the Type-C driver
