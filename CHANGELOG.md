@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Threat model statuses: items built and phone-checked on 2026-10-06 are marked
+  so (eSIM manager, boot control, SHA-256 hashtrees, serials, factory
+  Bluetooth address, thermal HAL, Updater build).
 - Stop selecting the stock primary audio HAL, PAL, AGM with its HIDL
   service and ALSA plugins, audioadsprpcd and its init file: the device
   builds them from Fairphone's published FP6 sources (DiamaneOS forks
