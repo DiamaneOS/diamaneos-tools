@@ -1,9 +1,12 @@
 """Package a built FP6 test image set: one coherent set from target-files.
 
-The build's target-files archive is the image authority: its IMAGES/ were made
-together by the build (the AVB descriptors match them), and super.img is built
-from the same archive. Nothing is repacked. The wipe images are generated
-deterministically, and build.json records what the set was made from.
+The build's target-files archive is the image authority for the OS: its IMAGES/
+were made together by the build (the AVB descriptors match them), and super.img
+is built from the same archive. Nothing is repacked. The firmware is
+Fairphone's, copied byte for byte from the factory package the vendor step
+authenticated and checked against the hashes the firmware inventory pins. The
+wipe and reset images are generated deterministically, and build.json records
+what the set was made from.
 """
 from __future__ import annotations
 
@@ -14,13 +17,13 @@ from pathlib import Path, PurePosixPath
 import shutil
 import zipfile
 
-from . import product_inputs
+from . import firmware, product_inputs
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError
 
 SUMS = 'SHA256SUMS'
 # The parts of config/fp6-build.json packaging depends on.
-PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot')
+PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot', 'firmware')
 RECORD = 'build.json'
 TARGET_FILES_COPY = 'target-files.zip'
 # The resolved manifest (repo manifest -r) of the source the set was built from.
@@ -30,6 +33,22 @@ MANIFEST_COPY = 'resolved-manifest.xml'
 def image_names(config: dict) -> list[str]:
     images = config['images']
     return images['bootloader'] + images['logical'] + images['extra']
+
+
+def reserved_names(config: dict) -> set[str]:
+    """Files of an image set that are not stock firmware."""
+    names = {f'{n}.img' for n in image_names(config) + ['super']}
+    names |= {i['image'] for i in config['wipe']['images'].values()}
+    names |= {i['image'] for i in config['firmware']['reset'].values()}
+    return names | {RECORD, SUMS, TARGET_FILES_COPY, MANIFEST_COPY}
+
+
+def check_firmware_names(names, config: dict) -> None:
+    """Stock firmware keeps its stock file names; none may take the place of an
+    image DiamaneOS builds or generates (the stock pvmfw.img, for one)."""
+    clashes = sorted(set(names) & reserved_names(config))
+    if clashes:
+        raise BuildStepError('stock firmware would replace ' + ', '.join(clashes) + ' in the image set')
 
 
 def build_id(outputs: dict) -> str:
@@ -63,15 +82,20 @@ def check_sums(directory: Path) -> bool:
     return files == set(sums) and all(bw.sha_file(directory / n) == d for n, d in sums.items())
 
 
-def same_build(directory: Path, android_outputs: dict) -> bool:
+def same_build(directory: Path, android_outputs: dict, firmware_plan: dict | None = None) -> bool:
     """An existing image set may be reused only if it is intact and was made
-    from exactly this build's target-files and identity."""
+    from exactly this build's target-files and identity, with this firmware."""
     if not check_sums(directory):
         return False
     try:
         record = json.loads((directory / RECORD).read_bytes())
     except (OSError, ValueError):
         return False
+    if firmware_plan is not None:
+        carried = record.get('firmware') or {}
+        if (carried.get('release') != firmware_plan['release'] or carried.get('steps') != firmware_plan['steps']
+                or carried.get('images') != {n: i['sha256'] for n, i in firmware_plan['images'].items()}):
+            return False
     return (record.get('target_files', {}).get('sha256') == android_outputs['target_files_sha256']
             and record.get('build_identity') == android_outputs['build_identity'])
 
@@ -134,14 +158,28 @@ def check_wipe_against_fstab(fstab: str, wipe: dict) -> None:
         raise BuildStepError('the metadata image type does not match the device fstab')
 
 
+def factory_package(ws) -> Path:
+    """The factory package the vendor step authenticated."""
+    vendor = ws.passed('vendor')
+    name = vendor['outputs'].get('factory_zip') if vendor else None
+    path = Path(name) if name else None
+    if path is None or not path.is_file():
+        raise BuildStepError('packaging needs the factory package the vendor step used: the firmware comes from it'
+                             + (f' ({path.name} is gone)' if path else '') + '; run "diamaneos build vendor" again')
+    return path
+
+
 def plan(ctx):
     from .build_steps import StepPlan, find_target_files  # noqa: F401  (StepPlan type)
     ws, config = ctx.workspace, ctx.config
     android = ws.passed('android')
+    vendor = ws.passed('vendor')
+    inventory = ctx.firmware_inventory or firmware.load_inventory()
     code = bw.sha_file(Path(__file__))
     inputs = None if android is None else {
         'android': android['outputs'], 'build_config': bw.digest({k: config.get(k) for k in PACKAGE_CONFIG}),
-        'code': code}
+        'code': code, 'firmware': {'inventory': bw.digest(inventory), 'code': bw.sha_file(Path(firmware.__file__)),
+                                   'factory_sha256': vendor['outputs'].get('factory_sha256') if vendor else None}}
     names = image_names(config)
     wipe = config['wipe']
     state = {}
@@ -157,8 +195,21 @@ def plan(ctx):
         target_files = ws.root / out['target_files']
         if bw.sha_file(target_files) != out['target_files_sha256']:
             raise BuildStepError('the target-files archive changed after the build; run "diamaneos build android" again')
+        try:
+            firmware_plan = firmware.plan(inventory, config['firmware'])
+        except firmware.FirmwareError as error:
+            raise BuildStepError(f'the firmware inventory is inconsistent: {error}') from error
+        stock_build = ctx.environment['device_inputs']['selected_stock_build']
+        if firmware_plan['release'] != stock_build:
+            raise BuildStepError(f'the firmware inventory selects {firmware_plan["release"]}, but the vendor files '
+                                 f'come from {stock_build}: firmware and vendor files must come from one release')
+        problems = firmware.anti_rollback_problems(inventory, firmware_plan['release'])
+        if problems:
+            raise BuildStepError('the firmware would lower a Qualcomm anti-rollback version: ' + '; '.join(problems))
+        check_firmware_names(firmware_plan['images'], config)
         state.update(target_files=target_files, identifier=identifier, final=final, partial=partial,
-                     reuse=final.is_dir() and same_build(final, out))
+                     firmware_plan=firmware_plan,
+                     reuse=final.is_dir() and same_build(final, out, firmware_plan))
         if final.exists() and not state['reuse']:
             raise BuildStepError(f'{final} exists but is not this build (its record or SHA256SUMS differ); '
                                  'move it aside')
@@ -181,6 +232,25 @@ def plan(ctx):
             fstab = archive.read(wipe['fstab']).decode('utf-8', 'replace')
         check_wipe_against_fstab(fstab, wipe)
 
+    def firmware_images():
+        if state['reuse']:
+            return
+        factory = factory_package(ws)
+        try:
+            firmware.stage(factory, inventory, state['firmware_plan'], state['partial'])
+        except firmware.FirmwareError as error:
+            raise BuildStepError(f'stock firmware: {error}') from error
+        reset = {}
+        for name, image in config['firmware']['reset'].items():
+            size = stock_partition_size(factory, image['partition_label'])
+            if size != image['bytes']:
+                raise BuildStepError(f'the {name} image is {image["bytes"]} bytes but the stock partition table '
+                                     f'says {size}')
+            path = state['partial'] / image['image']
+            zeros(path, image['bytes'])
+            reset[name] = {'file': image['image'], 'sha256': bw.sha_file(path)}
+        state['firmware_record'] = firmware.record(state['firmware_plan'], inventory, reset)
+
     def super_image():
         if state['reuse']:
             return
@@ -198,21 +268,15 @@ def plan(ctx):
         for name, image in images.items():
             if image['kind'] == 'zeros':
                 zeros(state['partial'] / image['image'], image['bytes'])
-        vendor = ws.passed('vendor')
-        factory_name = vendor['outputs'].get('factory_zip') if vendor else None
-        factory = Path(factory_name) if factory_name else None
+        factory = factory_package(ws)
         checked = {}
         for name, image in images.items():
-            if image.get('partition_label') and factory and factory.is_file():
+            if image.get('partition_label'):
                 size = stock_partition_size(factory, image['partition_label'])
                 if size != image['bytes']:
                     raise BuildStepError(f'the {name} image is {image["bytes"]} bytes but the stock partition '
                                          f'table says {size}')
                 checked[name] = True
-        unchecked = sorted(n for n, i in images.items() if i.get('partition_label') and n not in checked)
-        if unchecked:
-            ctx.echo('  note: the factory package is gone, so the size of the ' + ', '.join(unchecked)
-                     + ' image was not checked against the stock partition table')
         state['partition_table_checked'] = checked
         frp = state['partial'] / images['frp']['image']
         frp_image(frp, images['frp']['bytes'])
@@ -265,6 +329,7 @@ def plan(ctx):
                                 for k, v in wipe['images'].items()}},
             'flash': {'slot': config['slot'], 'bootloader': config['images']['bootloader'],
                       'logical': config['images']['logical']},
+            'firmware': dict(state['firmware_record'], validated=config['firmware']['validated']),
         }
         bw.write_atomic(state['partial'] / RECORD, bw.encoded(value), 0o640)
         write_sums(state['partial'])
@@ -282,6 +347,8 @@ def plan(ctx):
 
     actions = [Action('Check the target-files archive recorded by the build', func=prepare),
                Action('Export the partition images from target-files', func=export),
+               Action('Copy the stock firmware from the factory package, checked against the inventory, and make '
+                      'the modem file system reset images', func=firmware_images),
                Action('Build super.img', func=super_image),
                Action('Make the wipe images (userdata, metadata, FRP, misc)', func=wipe_images),
                Action('Write build.json and SHA256SUMS', func=record),

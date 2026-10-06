@@ -3,6 +3,7 @@
   "scope": "Per-image identity of the firmware in the official Fairphone FP6 factory packages that DiamaneOS tracks. Read from the archives only; nothing here was read from a phone. See docs/FIRMWARE.md.",
   "selected_build": "FP6.QREL.16.111.0",
   "previous_build": "FP6.QREL.16.100.0",
+  "fastboot_versions": "Per release, fastboot_versions holds the version-bootloader and version-baseband values fastboot getvar reports on a phone running that release, or null where none is recorded. flash-steps refuses firmware steps for a phone that reports values its stated release does not record.",
   "stock_flash_script": {
     "sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
     "identical_in_both_builds": true,
@@ -346,6 +347,7 @@
       "zip_crc": "PASS",
       "embedded_sha256sums": "76/76 match",
       "flash_script_sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
+      "fastboot_versions": null,
       "images": {
         "firmware": {
           "BTFM.bin": {
@@ -1070,6 +1072,7 @@
       "zip_crc": "PASS",
       "embedded_sha256sums": "76/76 match",
       "flash_script_sha256": "9dd60caefbaa811e610d52ccfe3747b2ae2f1ef493e609b3bdd1508b609ca736",
+      "fastboot_versions": null,
       "images": {
         "firmware": {
           "BTFM.bin": {

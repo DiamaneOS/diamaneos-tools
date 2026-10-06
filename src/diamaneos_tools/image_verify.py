@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from . import build_workspace as bw
+from . import firmware
 from .build_workspace import Action, CheckFailed
 
 ROOT = bw.ROOT
@@ -679,9 +680,11 @@ def validate_rules(document: dict) -> list:
 
 class Verification:
     def __init__(self, images: Path, record: dict, target_files: TargetFiles, tools: Tools, config: dict,
-                 kernel_dir: Path | None, vendor_dir: Path | None, packaging: dict | None, src: Path):
+                 kernel_dir: Path | None, vendor_dir: Path | None, packaging: dict | None, src: Path,
+                 firmware_inventory: dict | None = None):
         self.images, self.record, self.tf, self.tools, self.config = images, record, target_files, tools, config
         self.kernel_dir, self.vendor_dir, self.packaging, self.src = kernel_dir, vendor_dir, packaging, src
+        self.firmware_inventory = firmware_inventory or firmware.load_inventory()
         self.kernel_problem = ''
         self.sources = Sources(target_files, kernel_dir, images)
         self.variant = record['variant']
@@ -1114,6 +1117,44 @@ def check_wipe(v):
     return not problems, '; '.join(problems)
 
 
+def check_firmware(v):
+    carried = v.record.get('firmware')
+    if not carried:
+        return False, 'the image set carries no firmware'
+    problems = firmware.check_set(v.images, carried, v.firmware_inventory, v.config['firmware'],
+                                  v.record['stock_build'])
+    return not problems, '; '.join(problems)
+
+
+def check_firmware_ota(v):
+    """An A/B update carries the whole A/B firmware of the release, byte for
+    byte, or none of it: a partial set would mix two releases' firmware."""
+    expected = firmware.plan(v.firmware_inventory, v.config['firmware'])
+    wanted = firmware.ab_partitions(expected)
+    listed = set(v.tf.read('META/ab_partitions.txt').decode().split())
+    if not listed & set(wanted):
+        return True, 'the OTA partition list names no firmware partition'
+    missing = sorted(set(wanted) - listed)
+    if missing:
+        return False, 'the OTA partition list names only part of the A/B firmware; missing: ' + ', '.join(missing)
+    image_of = {s['partition'][:-2]: s['image'] for s in expected['steps'] if s['partition'].endswith('_a')}
+    problems = []
+    for partition in wanted:
+        # The release tools take IMAGES/ first, then RADIO/.
+        member = next((m for m in (f'IMAGES/{partition}.img', f'RADIO/{partition}.img') if m in v.tf.infos), None)
+        if member is None:
+            problems.append(f'target-files lacks the {partition} image')
+            continue
+        digest = hashlib.sha256()
+        with v.tf.archive.open(v.tf.infos[member]) as stream:
+            for chunk in iter(lambda: stream.read(16 * 1024 * 1024), b''):
+                digest.update(chunk)
+        image = image_of[partition]
+        if digest.hexdigest() != expected['images'][image]['sha256']:
+            problems.append(f'{member} is not the stock {image}')
+    return not problems, '; '.join(problems)
+
+
 GENERIC = [
     ('record', 'The image set matches its build record and is marked as a test build that must never be locked.', check_record),
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
@@ -1131,18 +1172,25 @@ GENERIC = [
     ('bootconfig', 'Required bootconfig present; nothing overrides SELinux.', check_bootconfig),
     ('adb-keys', 'No pre-trusted adb key.', check_adb_keys),
     ('wipe-images', 'The wipe images are the declared deterministic images.', check_wipe),
+    ('firmware', 'The set carries every firmware image of the stock release its vendor files come from, byte for '
+     'byte as the firmware inventory pins it, with the stock flash order and the declared modem file system reset '
+     'images; no image lowers a Qualcomm anti-rollback version.', check_firmware),
+    ('firmware-ota', 'An A/B update built from this target-files carries the whole A/B firmware of that release, '
+     'byte for byte, or none of it.', check_firmware_ota),
 ]
 
 
 def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: Path | None,
-           vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '') -> dict:
+           vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '',
+           firmware_inventory: dict | None = None) -> dict:
     from .image_package import check_sums
     record = json.loads((images / 'build.json').read_bytes())
     results_head = [{'id': 'sums', 'status': 'PASS' if check_sums(images) else 'FAIL',
                      'why': 'Every file matches SHA256SUMS.', 'detail': ''}]
     target_files = TargetFiles(images / record['target_files']['file'])
     try:
-        v = Verification(images, record, target_files, tools, config, kernel_dir, vendor_dir, packaging, src)
+        v = Verification(images, record, target_files, tools, config, kernel_dir, vendor_dir, packaging, src,
+                         firmware_inventory)
         v.kernel_problem = kernel_problem
         for check_id, why, func in GENERIC:
             v.add(check_id, why, lambda func=func: func(v))
@@ -1167,9 +1215,12 @@ def plan(ctx):
     ws = ctx.workspace
     package = ws.passed('package')
     checks_raw = (ROOT / 'config/fp6-image-checks.json').read_bytes()
+    inventory = ctx.firmware_inventory or firmware.load_inventory()
     inputs = None if package is None else {
         'package': package['outputs'], 'checks_sha256': hashlib.sha256(checks_raw).hexdigest(),
-        'code': bw.sha_file(Path(__file__))}
+        'code': bw.sha_file(Path(__file__)),
+        'firmware': {'inventory': bw.digest(inventory), 'policy': bw.digest(ctx.config['firmware']),
+                     'code': bw.sha_file(Path(firmware.__file__))}}
     state = {}
 
     def run():
@@ -1182,7 +1233,7 @@ def plan(ctx):
         kernel_dir, kernel_problem = kernel_prebuilts(ws.src, record)
         vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
         report = verify(images, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'), kernel_dir,
-                        vendor_dir, packaging, ws.src, kernel_problem)
+                        vendor_dir, packaging, ws.src, kernel_problem, inventory)
         path = ws.images / (package['outputs']['build_id'] + '.verify.json')
         bw.write_atomic(path, bw.encoded(report))
         state.update(report=report, path=path)
