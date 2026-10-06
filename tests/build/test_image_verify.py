@@ -103,6 +103,17 @@ class RuleTests(unittest.TestCase):
         self.addCleanup(h.tf.close)
         return h
 
+    def test_files_not_stock(self):
+        stock = hashlib.sha256(b'stock').hexdigest()
+        v = self.harness({'VENDOR/lib64/libsource.so': b'source', 'VENDOR/lib64/libstock.so': b'stock'})
+        self.assertTrue(subject.rule_files_not_stock({'files': {'VENDOR/lib64/libsource.so': stock}}, v)[0])
+        ok, detail = subject.rule_files_not_stock({'files': {'VENDOR/lib64/libstock.so': stock}}, v)
+        self.assertFalse(ok)
+        self.assertIn('is the stock file', detail)
+        ok, detail = subject.rule_files_not_stock({'files': {'VENDOR/lib64/libmissing.so': stock}}, v)
+        self.assertFalse(ok)
+        self.assertIn('missing', detail)
+
     def test_file_presence_absence_and_symlinks(self):
         v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
                          symlinks={'VENDOR/etc/link.xml': 'target.xml'})
