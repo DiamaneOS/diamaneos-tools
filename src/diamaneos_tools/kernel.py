@@ -24,6 +24,7 @@ from .vendor_extract import sha, relative
 from .vendor import ROOT, load_json, VendorError, encoded
 
 KMI = '--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom'
+STAMP = '--config=stamp'
 # The GrapheneOS common kernel changes the GKI configuration and does not keep
 # a comparable recorded GKI ABI, so no ABI comparison is run: every module is
 # built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
@@ -563,12 +564,15 @@ def build(root, jobs, timeout, profile='production'):
             save(); return out
         def bazel(name, args):
             return command(name, [work / 'tools/bazel', '--batch', *args])
-        flags = ['--jobs=' + str(jobs), KMI]
+        # Stamped like GrapheneOS and Pixel kernels: the version names the source
+        # commit (-g<hash>) and the build date is the commit's, so it stays
+        # reproducible. Unstamped Kleaf builds say -maybe-dirty and 1970.
+        flags = ['--jobs=' + str(jobs), KMI, STAMP]
         save()
         try:
             bazel('core-build', ['build', *flags, *CORE, *IMPLICIT])
             # Capture only top-level configured outputs; other transitions can be unbuilt.
-            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
+            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, STAMP, '--output=files',
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
             execution, core = output_files(work, paths)
@@ -607,7 +611,7 @@ def build(root, jobs, timeout, profile='production'):
             warnings = [w for name in ('core-build', 'external-modules')
                         for w in kernel_layout.visibility_warnings((run / (name + '.log')).read_bytes())]
             require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + '; '.join(warnings[:5]))
-            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, '--output=files',
+            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, STAMP, '--output=files',
                           'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
             (run / 'module-paths.txt').write_text(paths)
             _, external = output_files(work, paths)
