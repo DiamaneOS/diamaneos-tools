@@ -831,7 +831,7 @@
         },
         {
           "path": "vendor/qcom/opensource/qmi-framework",
-          "revision": "a360139409ce90eab743453eccc7eb11d5646166"
+          "revision": "c41394e6462ac51eb22a0c91abc6bc32959ed6e6"
         },
         {
           "path": "vendor/qcom/opensource/core-utils",

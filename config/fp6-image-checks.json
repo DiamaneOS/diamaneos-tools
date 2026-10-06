@@ -2842,8 +2842,8 @@
       ],
       "contains": [
         "not loading %s",
-        "\u0000libgnss.so\u0000",
-        "\u0000libloc_api_v02.so\u0000"
+        "libgnss.so",
+        "libloc_api_v02.so"
       ]
     },
     {
@@ -2879,12 +2879,12 @@
         "VENDOR/lib64/libqti_vndfwk_detect_vendor.so"
       ],
       "contains": [
-        "\u0000__cfi_check\u0000"
+        "__cfi_check"
       ]
     },
     {
       "id": "gnss-integer-overflow-sanitizer",
-      "why": "The HAL, its IGnss implementation and the QMI LOC client, which parse the framework's requests and the modem's reports, are built with the integer overflow sanitizer, as Qualcomm's own builds are.",
+      "why": "The HAL, its IGnss implementation and the QMI LOC client, which parse the framework's requests and the modem's reports, are built with the integer overflow sanitizer (they carry its runtime), as Qualcomm's own builds are.",
       "type": "text",
       "files": [
         "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
@@ -2892,7 +2892,7 @@
         "VENDOR/lib64/libloc_api_v02.so"
       ],
       "contains": [
-        "\u0000__ubsan_handle_add_overflow_minimal"
+        "ubsan"
       ]
     },
     {
