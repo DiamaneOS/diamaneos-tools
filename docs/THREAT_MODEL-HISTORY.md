@@ -485,6 +485,18 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   - Fairphone's published SHA-256 for FP6.QREL.16.111.0 matches the pinned
     archive (-52); the capability record marks protected VMs unsupported
     under Gunyah (-84).
+- **2026-10-06:** eSIM downloads, implemented, not yet built.
+  - The eSIM manager downloads profiles (SGP.22 v2 consumer download) through
+    Android's ES10b card commands and its own ES9+ client; it gains network
+    access, no camera permission and no policy change (priv_app).
+  - Network only after the user agrees to contact the named server, or for
+    its own profiles' notifications after the user's change; HTTPS trusts
+    only the GSMA production CI roots the eUICC also lists.
+  - The framework's eUICC transport logged every eUICC command and answer in
+    full at verbose level on all builds (ICCIDs; during a download the
+    matching ID, the IMEI and the EID); its tags stay at info (-181).
+  - Phone checks: the ISD-R channel, the profile list and turning a profile
+    off and on work.
 
 ## IMS integration notes
 
