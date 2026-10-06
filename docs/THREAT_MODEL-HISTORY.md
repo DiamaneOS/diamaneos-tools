@@ -439,6 +439,17 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   and LTE-only controls and the radio log redaction were checked on the
   phone, debugfs is not mountable on the phone, and the kernel cannot run
   SELinux permissive.
+- **2026-10-06:** audio effects, implemented, not yet built. AOSP's effect
+  proxy creates both halves of an offloadable effect and sends every command
+  to both, so with offload playback off every app's equalizer, bass boost,
+  virtualizer, reverb and visualizer parameters still reached Qualcomm's
+  closed offload effect bundle and visualizer (-175). Our effects
+  configuration lists only AOSP's software effects and the two closed
+  libraries are no longer shipped; the stock HAL loads them only if present.
+  Qualcomm's VoIP echo-cancellation and noise-suppression descriptors and its
+  volume listener are built from CodeLinaro source, identical to Fairphone's
+  published FP6 audio sources. VoIP capture keeps the DSP's tuned echo
+  cancellation instead of AOSP's software canceller.
 
 ## IMS integration notes
 
