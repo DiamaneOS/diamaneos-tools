@@ -376,6 +376,57 @@ class RuleTests(unittest.TestCase):
                 members = {k: v for k, v in {**good, **change}.items() if v is not None}
                 self.assertFalse(check(rule_id, members))
 
+    def test_bluetooth_factory_address_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        imeiprovd, bt_rc = 'VENDOR/etc/init/imeiprovd.rc', 'VENDOR/etc/init/init.fp6.bluetooth.rc'
+        contexts, plat, vendor = ('VENDOR/etc/selinux/vendor_property_contexts', 'SYSTEM/etc/selinux/plat_sepolicy.cil',
+                                  'VENDOR/etc/selinux/vendor_sepolicy.cil')
+        vendor_cil = (b'(type vendor_diamaneos_bt_address_prop)\n(type vendor_bluetooth_address_prop)\n'
+                      b'(typeattributeset property_type (vendor_diamaneos_bt_address_prop vendor_bluetooth_address_prop))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_bt_address_prop (property_service (set)))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_bt_address_prop (file (read getattr map open)))\n'
+                      b'(allow vendor_init vendor_diamaneos_bt_address_prop (file (read getattr map open)))\n'
+                      b'(allow vendor_init vendor_bluetooth_address_prop (property_service (set)))\n'
+                      b'(allow vendor_init vendor_bluetooth_address_prop (file (read getattr map open)))\n'
+                      b'(allow hal_bluetooth_default vendor_bluetooth_address_prop (file (read getattr map open)))\n')
+        good = {
+            imeiprovd: b'service vendor.imeiprovd-bt /vendor/bin/imeiprovd --bt-address\n    oneshot\n\n'
+                       b'on post-fs\n    start vendor.imeiprovd-bt\n',
+            bt_rc: b'on property:ro.vendor.diamaneos.bt.factory_address=*\n'
+                   b'    setprop ro.vendor.bt.boot.macaddr ${ro.vendor.diamaneos.bt.factory_address}\n',
+            contexts: b'ro.vendor.diamaneos.bt.factory_address u:object_r:vendor_diamaneos_bt_address_prop:s0 exact string\n'
+                      b'ro.vendor.bt.boot.macaddr   u:object_r:vendor_bluetooth_address_prop:s0 exact string\n',
+            plat: (b'(type init)\n(type dumpstate)\n(type vendor_init)\n(type rild)\n(type hal_bluetooth_default)\n'
+                   b'(type diamaneos_imeiprov)\n(allow init property_type (property_service (set)))\n'
+                   b'(allow init property_type (file (read open)))\n(allow dumpstate property_type (file (read open)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('bluetooth-factory-address-service', 'bluetooth-factory-address-copy', 'bluetooth-factory-address-contexts',
+               'bluetooth-factory-address-setter', 'bluetooth-factory-address-readers', 'bluetooth-hal-address-setter',
+               'bluetooth-hal-address-readers')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('bluetooth-factory-address-service', {imeiprovd: good[imeiprovd].replace(b'start', b'stop')}),
+                ('bluetooth-factory-address-copy', {bt_rc: None}),
+                ('bluetooth-factory-address-copy', {bt_rc: b'on property:ro.vendor.trace.btmac=*\n'
+                                                           b'    setprop ro.vendor.bt.boot.macaddr ${ro.vendor.trace.btmac}\n'}),
+                ('bluetooth-factory-address-contexts', {contexts: good[contexts].replace(
+                    b'vendor_bluetooth_address_prop', b'vendor_default_prop')}),
+                ('bluetooth-factory-address-setter', {vendor: vendor_cil + b'(allow hal_bluetooth_default '
+                                                      b'vendor_diamaneos_bt_address_prop (property_service (set)))\n'}),
+                ('bluetooth-factory-address-readers', {vendor: vendor_cil + b'(allow rild property_type (file (read)))\n'}),
+                ('bluetooth-hal-address-setter', {vendor: vendor_cil + b'(allow hal_bluetooth_default '
+                                                  b'vendor_bluetooth_address_prop (property_service (set)))\n'}),
+                ('bluetooth-hal-address-readers', {vendor: vendor_cil + b'(allow rild vendor_bluetooth_address_prop '
+                                                   b'(file (read open)))\n'}),
+                ('bluetooth-hal-address-readers', {vendor: vendor_cil.replace(b'(type vendor_bluetooth_address_prop)\n', b'')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'

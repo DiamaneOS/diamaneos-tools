@@ -746,6 +746,138 @@
       ]
     },
     {
+      "id": "bluetooth-factory-address-service",
+      "why": "imeiprovd reads the factory Bluetooth address from the traceability partition early in boot, in its own one-shot service, so the HCI implementation does not generate one (finding -177).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/imeiprovd.rc"
+      ],
+      "lines": [
+        "service vendor.imeiprovd-bt /vendor/bin/imeiprovd --bt-address",
+        "    start vendor.imeiprovd-bt"
+      ]
+    },
+    {
+      "id": "bluetooth-factory-address-copy",
+      "why": "The Bluetooth init rc copies the factory address to the property the HCI implementation reads before its generated-address fallback, as stock tctd.rc does.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.bluetooth.rc"
+      ],
+      "lines": [
+        "on property:ro.vendor.diamaneos.bt.factory_address=*",
+        "    setprop ro.vendor.bt.boot.macaddr ${ro.vendor.diamaneos.bt.factory_address}"
+      ]
+    },
+    {
+      "id": "bluetooth-factory-address-contexts",
+      "why": "Both Bluetooth address properties have their own vendor-internal types, instead of vendor_default_prop, which every vendor domain may read.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "regex": [
+        "^ro\\.vendor\\.diamaneos\\.bt\\.factory_address\\s+u:object_r:vendor_diamaneos_bt_address_prop:s0\\s+exact\\s+string\\s*$",
+        "^ro\\.vendor\\.bt\\.boot\\.macaddr\\s+u:object_r:vendor_bluetooth_address_prop:s0\\s+exact\\s+string\\s*$"
+      ]
+    },
+    {
+      "id": "bluetooth-factory-address-setter",
+      "why": "Only imeiprovd (and init, which may set any property) can set the factory Bluetooth address property.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_bt_address_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "diamaneos_imeiprov",
+        "init"
+      ]
+    },
+    {
+      "id": "bluetooth-factory-address-readers",
+      "why": "Only imeiprovd, vendor_init (the copy trigger), init and dumpstate (which reads every property) can read the factory Bluetooth address property.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_bt_address_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "diamaneos_imeiprov",
+        "dumpstate",
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "bluetooth-hal-address-setter",
+      "why": "Only vendor_init (the copy trigger) and init can set the address property the HCI implementation reads.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_bluetooth_address_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "bluetooth-hal-address-readers",
+      "why": "Only the Bluetooth HAL, vendor_init, init and dumpstate can read the address property the HCI implementation reads.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_bluetooth_address_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "dumpstate",
+        "hal_bluetooth_default",
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
       "id": "soc-serial-label",
       "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
       "type": "text",

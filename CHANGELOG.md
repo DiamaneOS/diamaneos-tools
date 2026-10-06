@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Image checks and threat model for the factory Bluetooth address: imeiprovd's
+  `--bt-address` service (`bluetooth-factory-address-service`), the copy to
+  `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc
+  (`bluetooth-factory-address-copy`), both properties' own vendor-internal
+  types (`bluetooth-factory-address-contexts`), and who may set and read them
+  (`bluetooth-factory-address-setter`, `-readers`,
+  `bluetooth-hal-address-setter`, `-readers`).
 - Image checks and threat model for the device's third hardening batch:
   SHA-256 dm-verity hash trees for every logical partition (the `avb-chain`
   check, `avb.hashtree_algorithm`), the boot control HAL as its own user
