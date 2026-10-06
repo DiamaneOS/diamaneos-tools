@@ -2701,6 +2701,78 @@
       ]
     },
     {
+      "id": "download-reboot-refused",
+      "why": "The download-mode driver ignores the \"edl\" and \"qcom_dload\" reboot reasons and drops the regulator handling only EDL reboots used (finding -17).",
+      "type": "binary_count",
+      "file": "kernel:modules/qcom-dload-mode.ko",
+      "patterns": [
+        {
+          "text": "qcom,dload-mode",
+          "min": 1
+        },
+        {
+          "text": "\u0000edl\u0000",
+          "count": 0
+        },
+        {
+          "text": "Regulator enable failed",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "usb-events-from-ucsi",
+      "why": "The USB controller takes connect and role events from UCSI through its role switch and port graph, has no extcon, and the EUD debugger node is disabled (finding -18).",
+      "type": "devicetree",
+      "file": "kernel:dtbs/fp6.dtb",
+      "checks": [
+        {
+          "node": "/soc/ssusb@a600000",
+          "property": "usb-role-switch"
+        },
+        {
+          "node": "/soc/ssusb@a600000",
+          "property": "extcon",
+          "absent": true
+        },
+        {
+          "node": "/soc/qcom,pmic_glink/qcom,ucsi/connector/port/endpoint",
+          "property": "remote-endpoint"
+        },
+        {
+          "node": "/soc/qcom,msm-eud@88e0000",
+          "property": "status",
+          "string": "disabled"
+        }
+      ]
+    },
+    {
+      "id": "usb-events-from-ucsi-volcano",
+      "why": "As usb-events-from-ucsi, for the generic Volcano tree that matches the same board ID.",
+      "type": "devicetree",
+      "file": "kernel:dtbs/volcano.dtb",
+      "checks": [
+        {
+          "node": "/soc/ssusb@a600000",
+          "property": "usb-role-switch"
+        },
+        {
+          "node": "/soc/ssusb@a600000",
+          "property": "extcon",
+          "absent": true
+        },
+        {
+          "node": "/soc/qcom,pmic_glink/qcom,ucsi/connector/port/endpoint",
+          "property": "remote-endpoint"
+        },
+        {
+          "node": "/soc/qcom,msm-eud@88e0000",
+          "property": "status",
+          "string": "disabled"
+        }
+      ]
+    },
+    {
       "id": "debuggable-property",
       "why": "ro.debuggable follows the variant.",
       "type": "properties",

@@ -177,11 +177,11 @@ class KernelDenyListTests(unittest.TestCase):
 
     def test_committed_recipe_keeps_denied_modules_out(self):
         denied = kernel.denied_modules(self.recipe)
-        for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko'):
+        for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko', 'eud.ko'):
             self.assertIn(name, denied)
-        # Kept on purpose: USB waits for the EUD extcon, glink_probe imports
-        # qcom_glink_spss, KGSL imports coresight and the audio machine driver wcd937x.
-        for name in ('eud.ko', 'qcom_glink_spss.ko', 'coresight.ko', 'wcd937x_dlkm.ko'):
+        # Kept on purpose: glink_probe imports qcom_glink_spss, KGSL imports
+        # coresight and the audio machine driver wcd937x.
+        for name in ('qcom_glink_spss.ko', 'coresight.ko', 'wcd937x_dlkm.ko'):
             self.assertNotIn(name, denied)
             self.assertTrue(any(name in names for names in self.recipe['partitions'].values()))
 
@@ -248,6 +248,7 @@ class KernelSymbolRuleTests(unittest.TestCase):
     def test_committed_rules_parse(self):
         self.assertEqual({'register_kretprobe': ['dwc3-msm.ko']}, kernel.import_allowlist(self.recipe))
         self.assertEqual([], kernel.forbidden_symbols(self.recipe))
+        self.assertEqual(['names_command_line'], kernel.required_symbols(self.recipe))
 
     def test_import_allowlist_requires_exact_importers(self):
         undefined = {'dwc3-msm.ko': {'register_kretprobe', 'printk'}, 'other.ko': {'printk'}}
@@ -267,6 +268,15 @@ class KernelSymbolRuleTests(unittest.TestCase):
         with self.assertRaisesRegex(kernel.KernelError, 'param_name_len'):
             kernel.check_forbidden_symbols('ffffffc080001000 t param_name_len\n', ['param_name_len'])
 
+    def test_required_symbols_must_be_in_the_system_map(self):
+        kernel.check_required_symbols('ffffffc082000000 d names_command_line\n', ['names_command_line'])
+        # ThinLTO's suffix for a promoted static symbol still counts.
+        kernel.check_required_symbols('ffffffc082000000 d names_command_line.llvm.123\n', ['names_command_line'])
+        for system_map in ('ffffffc080000000 T _text\n', 'ffffffc082000000 d names_command_line2\n'):
+            with self.subTest(system_map=system_map):
+                with self.assertRaisesRegex(kernel.KernelError, 'required kernel symbol missing: names_command_line'):
+                    kernel.check_required_symbols(system_map, ['names_command_line'])
+
     def test_rules_need_reasons_and_safe_names(self):
         for rules in ({'register_kretprobe': {'modules': ['x.ko'], 'reason': ' '}},
                       {'bad symbol': {'modules': ['x.ko'], 'reason': 'r'}},
@@ -275,6 +285,10 @@ class KernelSymbolRuleTests(unittest.TestCase):
                 self.assertRaises(kernel.KernelError, kernel.import_allowlist, {'module_import_allowlist': rules})
         self.assertRaises(kernel.KernelError, kernel.forbidden_symbols,
                           {'forbidden_symbols': [{'symbol': 'x', 'reason': ''}]})
+        for rules in ([{'symbol': 'x', 'reason': ''}], [{'symbol': 'bad symbol', 'reason': 'r'}],
+                      [{'symbol': 'x', 'reason': 'r', 'extra': 1}], {'symbol': 'x'}):
+            with self.subTest(required=rules):
+                self.assertRaises(kernel.KernelError, kernel.required_symbols, {'required_symbols': rules})
 
     def test_clang_comes_from_the_pinned_build_constants(self):
         with tempfile.TemporaryDirectory() as temp:

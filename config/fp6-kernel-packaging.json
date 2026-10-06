@@ -93,7 +93,6 @@
       "dwc3-msm.ko",
       "dynpf_scmi.ko",
       "emkit_info.ko",
-      "eud.ko",
       "focaltech_fp.ko",
       "fsa4480-i2c.ko",
       "gcc-cliffs.ko",
@@ -380,7 +379,6 @@
       "dwc3-msm.ko",
       "dynpf_scmi.ko",
       "eswin_ts.ko",
-      "eud.ko",
       "focaltech_fp.ko",
       "frpc-adsprpc.ko",
       "fsa4480-i2c.ko",
@@ -837,7 +835,6 @@
       "pmic-glink-debug.ko",
       "mem-hooks.ko",
       "qcom_stats.ko",
-      "eud.ko",
       "llcc-qcom.ko",
       "llcc_perfmon.ko",
       "boot_stats.ko",
@@ -1043,7 +1040,6 @@
       "pmic-glink-debug.ko",
       "mem-hooks.ko",
       "qcom_stats.ko",
-      "eud.ko",
       "llcc-qcom.ko",
       "llcc_perfmon.ko",
       "boot_stats.ko",
@@ -1391,6 +1387,12 @@
         "f_fs_ipc_log.ko"
       ],
       "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on a development build. Debug only, imported by nothing (finding -18)."
+    },
+    {
+      "modules": [
+        "eud.ko"
+      ],
+      "reason": "Qualcomm's embedded USB debugger (EUD): debug access over USB. Its device-tree node is disabled, and the USB controller takes its connect and role events from UCSI, not from an EUD extcon (finding -18)."
     }
   ],
   "dtb_count": 14,
@@ -1403,5 +1405,11 @@
       "reason": "KPROBES stays on only for the dwc3-msm USB hooks (finding -111); any other kretprobe user is new and needs review."
     }
   },
-  "forbidden_symbols": []
+  "forbidden_symbols": [],
+  "required_symbols": [
+    {
+      "symbol": "names_command_line",
+      "reason": "/proc/cmdline shows parameter names only, keeping module option values; without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line (finding -112)."
+    }
+  ]
 }

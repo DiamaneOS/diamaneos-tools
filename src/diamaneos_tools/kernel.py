@@ -408,6 +408,18 @@ def forbidden_symbols(recipe):
     return [rule['symbol'] for rule in rules]
 
 
+def required_symbols(recipe):
+    """Kernel symbols the built Image must have, with the reason: each marks a
+    DiamaneOS change that a rebase or a merge could drop without notice."""
+    rules = recipe.get('required_symbols', [])
+    require(isinstance(rules, list), 'invalid required symbol list')
+    for rule in rules:
+        require(isinstance(rule, dict) and set(rule) == {'symbol', 'reason'}
+                and isinstance(rule['symbol'], str) and SYMBOL_NAME.fullmatch(rule['symbol'])
+                and isinstance(rule['reason'], str) and rule['reason'].strip(), 'invalid required symbol')
+    return [rule['symbol'] for rule in rules]
+
+
 def undefined_symbols(nm_output):
     """Names `nm -u` lists as undefined."""
     return {line.split()[-1] for line in nm_output.splitlines() if line.split()[:1] == ['U']}
@@ -424,6 +436,13 @@ def check_forbidden_symbols(system_map, symbols):
     present = {line.split()[2] for line in system_map.splitlines() if len(line.split()) >= 3}
     found = sorted(set(symbols) & present)
     require(not found, 'forbidden kernel symbol present: ' + ', '.join(found))
+
+
+def check_required_symbols(system_map, symbols):
+    # ThinLTO renames a promoted static symbol to <name>.llvm.<hash>.
+    present = {line.split()[2].split('.llvm.')[0] for line in system_map.splitlines() if len(line.split()) >= 3}
+    missing = sorted(set(symbols) - present)
+    require(not missing, 'required kernel symbol missing: ' + ', '.join(missing))
 
 
 def output_files(work, paths):
@@ -535,6 +554,7 @@ def build(root, jobs, timeout, profile='production'):
     denied = denied_modules(recipe)
     allowlist = import_allowlist(recipe)
     forbidden = forbidden_symbols(recipe)
+    required = required_symbols(recipe)
     with locked(root):
         preparation = prepared(root, plan)
         shared_headers(root)
@@ -589,13 +609,14 @@ def build(root, jobs, timeout, profile='production'):
                 checked = kernel_config.check(config.read_bytes(), policy, profile)
                 (run / report).write_bytes(encoded(checked))
                 require(checked['status'] == 'PASS', label + ' configuration regressed')
-            # QRTR lives in the vendor kernel configuration; the GKI Image
-            # deliberately has no QRTR. Check the role guard where it is built.
+            # QRTR and Qualcomm's download-mode driver live in the vendor
+            # kernel configuration only (the GKI Image has neither): check the
+            # IMS role guard and the panic dump default where they are built.
             vendor_policy = load_json(ROOT / 'config/kernel-vendor-policy-fp6.json')
             checked = kernel_config.check(one(vendor_core, '.config', '/fps_gki/').read_bytes(),
                                           vendor_policy, profile)
             (run / 'vendor-role-kernel-config.json').write_bytes(encoded(checked))
-            require(checked['status'] == 'PASS', 'vendor IMS ownership configuration regressed')
+            require(checked['status'] == 'PASS', 'vendor kernel configuration regressed')
             query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
             found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
             require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')
@@ -696,13 +717,14 @@ def build(root, jobs, timeout, profile='production'):
                          core + external, one(core, 'vmlinux', '/common/kernel_aarch64/'),
                          module_metadata, call, require)
             # Symbol rules moved from the per-build checks: which modules may
-            # import a symbol, and symbols that must not exist in the Image.
+            # import a symbol, and symbols that must or must not exist in the Image.
             nm = clang_bin(work) / 'llvm-nm'
             check_module_imports({name: candidate / 'modules' / name for name in selected}, allowlist,
                                  lambda path: undefined_symbols(call([nm, '-u', path], cwd=work)))
             system_map = vmlinux.parent / 'System.map'
             require(system_map.is_file(), 'System.map missing next to the packaged kernel')
             check_forbidden_symbols(system_map.read_text(errors='replace'), forbidden)
+            check_required_symbols(system_map.read_text(errors='replace'), required)
             verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
             for p in candidate.rglob('*'):
                 if p.is_file(): p.chmod(0o640)
@@ -712,6 +734,7 @@ def build(root, jobs, timeout, profile='production'):
             result.update(status='PASS', module_count=len(selected), denied_module_count=len(denied),
                           dtb_count=len(dtbs), dtbo_count=len(dtbos),
                           import_rules_checked=len(allowlist), forbidden_symbols_checked=len(forbidden),
+                          required_symbols_checked=len(required),
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
                           layout_scan_sha256=sha(run / 'layout-scan.json'),
