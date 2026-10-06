@@ -12,21 +12,30 @@ with GrapheneOS as its upstream OS base.
 
 ## Licence
 
-Original DiamaneOS code, documentation and artwork in this repository are
-licensed under [Apache-2.0](LICENSE), except where another licence is
-identified. Third-party design assets moved out of this repository with the
-interface design and branding, whose sources carry their licence notices and are
-not public; see [NOTICE](NOTICE).
-
-The copyright licence is separate from use of the DiamaneOS name and logo as
-trademarks; see section 6 of the Apache licence. Referenced upstream projects
-and externally installed dependencies retain their own licences.
+- Original DiamaneOS code, documentation and artwork here are
+  [Apache-2.0](LICENSE) unless another licence is identified.
+- Third-party design assets are not in this repository: they live with the
+  interface design and branding sources, which carry their licence notices and
+  are not public ([NOTICE](NOTICE)).
+- The copyright licence does not cover the DiamaneOS name and logo as
+  trademarks (Apache licence, section 6).
+- Referenced upstream projects and externally installed dependencies keep their
+  own licences.
 
 ## Workspace and tools
 
-Clone into any directory. Commands in this repository are run from its root unless stated otherwise. `WORK_ROOT` in repository maps is a configurable parent of related checkouts, not a required path on a maintainer's computer. `TOOLS_ROOT` is this checkout; `PRIVATE_ROOT` is a caller-selected directory outside public repositories for private records. `OFFLINE_ROOT` refers to isolated release-signing storage and is not a development checkout.
+Clone into any directory; run commands from the repository root unless stated
+otherwise.
 
-Use Git, Python 3 and the official Android platform tools (`adb` and `fastboot`). Put tools on `PATH` or supply the documented executable option. Full Android builds run on Linux from a `repo` checkout of the [DiamaneOS manifest](https://github.com/DiamaneOS/platform_manifest), which includes these tools at `tools/diamaneos`: `tools/diamaneos/bin/diamaneos build all` ([BUILDING.md](docs/BUILDING.md)). Running host-side fixtures does not require a full OS checkout or device.
+- `WORK_ROOT` in repository maps: a configurable parent of related checkouts,
+  not a required path.
+- `TOOLS_ROOT`: this checkout.
+- `PRIVATE_ROOT`: a caller-selected directory outside public repositories for
+  private records.
+- `OFFLINE_ROOT`: isolated release-signing storage, not a development checkout.
+
+Needs Git, Python 3 and the official Android platform tools (`adb`, `fastboot`),
+on `PATH` or given through the documented executable option:
 
 ```sh
 git --version
@@ -34,6 +43,12 @@ python3 --version
 adb --version
 fastboot --version
 ```
+
+Host-side fixtures need no full OS checkout or device. Full Android builds run
+on Linux from a `repo` checkout of the
+[DiamaneOS manifest](https://github.com/DiamaneOS/platform_manifest), which
+includes these tools at `tools/diamaneos`: `tools/diamaneos/bin/diamaneos build
+all` ([BUILDING.md](docs/BUILDING.md)).
 
 ## Documentation
 
@@ -43,11 +58,12 @@ fastboot --version
 - [FP6 firmware inventory](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
-- [Repository map](config/repositories.json) — checkout discovery and lifecycle
-  state only, not a release lock. Exact multi-repository build inputs are
-  recorded by the build or release manifest that consumes them.
+- [Repository map](config/repositories.json): checkout discovery and lifecycle
+  state only, not a release lock; the consuming build or release manifest
+  records exact multi-repository build inputs.
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
 - Interface design and branding sources are not public.
 
-Only implemented commands can be run; unresolved evidence is identified in the component contracts.
+Only implemented commands can be run; the component contracts identify
+unresolved evidence.
