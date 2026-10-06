@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Image checks for the factory Wi-Fi MAC in logs (-180): on user builds netd
+  logs warnings and up (`netd-calls-not-logged-user`) and the supplicant info
+  and up (`supplicant-debug-not-logged-user`); threat model identifiers row
+  now lists which logs still carry the MAC.
 - Image checks and threat model for the factory Wi-Fi MAC (-180): imeiprovd's
   `--wlan-mac` service and its firmware tree, which init waits for at post-fs
   (`wlan-factory-mac-service`), ueventd's firmware directory
