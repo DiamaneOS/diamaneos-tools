@@ -2520,10 +2520,11 @@
     },
     {
       "id": "esim-lpa-apk",
-      "why": "The eSIM manager asks for its two privileged permissions and no network access (the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
+      "why": "The eSIM manager asks for its two privileged permissions and network access for eSIM downloads, and nothing else (no camera; the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
       "type": "apk",
       "path": "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
       "permissions": [
+        "android.permission.INTERNET",
         "android.permission.READ_PRIVILEGED_PHONE_STATE",
         "android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS",
         "de.diamaneos.euicc.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
@@ -2544,6 +2545,17 @@
         "<privapp-permissions package=\"de.diamaneos.euicc\">",
         "<permission name=\"android.permission.READ_PRIVILEGED_PHONE_STATE\" />",
         "<permission name=\"android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS\" />"
+      ]
+    },
+    {
+      "id": "esim-apdu-not-logged",
+      "why": "The framework's eUICC transport logs every eUICC command and answer in full at verbose level (ICCIDs; during a download the matching ID, the IMEI and the EID); these tags stay at info (finding -181).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "log.tag.TransApdu=I",
+        "log.tag.ApduSender-0=I",
+        "log.tag.ApduSender-1=I"
       ]
     },
     {
