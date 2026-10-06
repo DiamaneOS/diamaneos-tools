@@ -405,6 +405,13 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   threads; the effect is on speed, battery and heat, with no access to data
   (-172). The camera streaming modes, which capped the little cores CamX runs
   on, are gone from the power HAL configuration.
+- **2026-10-06:** an 8-hour idle capture of every interface (Wi-Fi and
+  mobile data, enforcing) showed no connection from vendor code to any third
+  party: only the carriers' Wi-Fi calling and VoLTE tunnels and DNS,
+  GrapheneOS's connectivity and app update checks, and local network traffic.
+  Integrity lockdown observed on the phone (tracing, per-app CPU time and
+  lmkd's memory events run); the camera boosts end within about 1 s, when the
+  camera releases them.
 
 ## IMS integration notes
 
