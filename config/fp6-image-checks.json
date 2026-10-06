@@ -1595,6 +1595,96 @@
       ]
     },
     {
+      "id": "gallery",
+      "why": "LineageOS's Glimpse is the gallery, with its own overlay that names it the system gallery, its sysconfig files and the notices of its bundled libraries; Gallery2 stays installed for its crop screen.",
+      "type": "files_present",
+      "paths": [
+        "PRODUCT/app/Glimpse/Glimpse.apk",
+        "PRODUCT/overlay/GlimpseFrameworksBaseOverlay.apk",
+        "PRODUCT/etc/sysconfig/initial-package-stopped-states-org.lineageos.glimpse.xml",
+        "PRODUCT/etc/sysconfig/preinstalled-packages-org.lineageos.glimpse.xml",
+        "PRODUCT/etc/notices/glimpse-libraries.txt",
+        "PRODUCT/app/Gallery2/Gallery2.apk",
+        "PRODUCT/etc/sysconfig/diamaneos-gallery2-crop-only.xml"
+      ]
+    },
+    {
+      "id": "gallery-role",
+      "why": "Glimpse holds the system gallery role (config_systemGallery), which gives it write access to all photos and videos.",
+      "type": "overlay",
+      "apk": "PRODUCT/overlay/GlimpseFrameworksBaseOverlay.apk",
+      "values": {
+        "string/config_systemGallery": "\"org.lineageos.glimpse\""
+      },
+      "target": "android"
+    },
+    {
+      "id": "gallery-permissions",
+      "why": "Glimpse asks for its media and wallpaper permissions and nothing more: no INTERNET, so the gallery that can change every photo and video has no network access (the network state and wake lock come from media3, the last one from AndroidX). It is not platform-signed.",
+      "type": "apk",
+      "path": "PRODUCT/app/Glimpse/Glimpse.apk",
+      "permissions": [
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.MANAGE_MEDIA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.SET_WALLPAPER",
+        "android.permission.WAKE_LOCK",
+        "org.lineageos.glimpse.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk"
+    },
+    {
+      "id": "gallery2-crop-only",
+      "why": "Gallery2 keeps only its crop screen, the crop handler of the profile photo picker: a component override turns off its launcher entry, viewer, picker, editor and every other component, and leaves the crop screen on.",
+      "type": "text",
+      "files": [
+        "PRODUCT/etc/sysconfig/diamaneos-gallery2-crop-only.xml"
+      ],
+      "contains": [
+        "<component-override package=\"com.android.gallery3d\">",
+        "<component class=\"com.android.gallery3d.app.GalleryActivity\" enabled=\"false\" />",
+        "<component class=\"com.android.gallery3d.app.MovieActivity\" enabled=\"false\" />",
+        "<component class=\"com.android.gallery3d.filtershow.FilterShowActivity\" enabled=\"false\" />",
+        "<component class=\"com.android.gallery3d.app.Wallpaper\" enabled=\"false\" />",
+        "<component class=\"com.android.gallery3d.provider.GalleryProvider\" enabled=\"false\" />"
+      ],
+      "absent_regex": [
+        "<component class=\"com\\.android\\.gallery3d\\.filtershow\\.crop\\.CropActivity\""
+      ]
+    },
+    {
+      "id": "screenshot-editor",
+      "why": "LineageOS's Canvas edits screenshots: SystemUI's preferred editor is Canvas's edit screen.",
+      "type": "files_present",
+      "paths": [
+        "PRODUCT/app/Canvas/Canvas.apk",
+        "PRODUCT/overlay/DiamaneOSScreenshotEditorOverlay.apk"
+      ]
+    },
+    {
+      "id": "screenshot-editor-overlay",
+      "why": "Edit on a screenshot opens Canvas.",
+      "type": "overlay",
+      "apk": "PRODUCT/overlay/DiamaneOSScreenshotEditorOverlay.apk",
+      "values": {
+        "string/config_preferredScreenshotEditor": "\"org.lineageos.canvas/org.lineageos.canvas.MainActivity\""
+      },
+      "target": "com.android.systemui"
+    },
+    {
+      "id": "screenshot-editor-permissions",
+      "why": "Canvas asks for no permission except AndroidX's own receiver permission, and is not platform-signed.",
+      "type": "apk",
+      "path": "PRODUCT/app/Canvas/Canvas.apk",
+      "permissions": [
+        "org.lineageos.canvas.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk"
+    },
+    {
       "id": "no-updater",
       "why": "Only official builds include the Updater; other builds ask no update server.",
       "official": false,

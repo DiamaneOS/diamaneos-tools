@@ -351,8 +351,9 @@ how a fork follows upstream or why one that ships nothing is kept. `sources`
 are pinned inputs that are not forked: the GrapheneOS release, the repo
 launcher, Fairphone's source manifest, the Qualcomm SELinux policy, the stock
 factory image, the platform repositories the manifest takes straight from
-CodeLinaro, Fairphone or linux-msm, the LineageOS power HAL projects it takes
-unmodified through DiamaneOS mirrors, AOSP's nos host libraries, and the
+CodeLinaro, Fairphone or linux-msm, the LineageOS power HAL projects and
+Canvas (the screenshot editor) it takes unmodified through DiamaneOS mirrors,
+AOSP's nos host libraries, and the
 upstream projects imported into the kernel repository. Each names the file and field that hold its pin, so the registry
 never repeats a revision. `newer` patterns name the branches or tags that would
 supersede a followed reference, such as Fairphone's next
