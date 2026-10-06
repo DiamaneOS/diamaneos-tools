@@ -1536,6 +1536,34 @@
       "target": "com.android.wifi.resources"
     },
     {
+      "id": "wifi-no-magic-packet-wake",
+      "why": "No wake-on-LAN: the qcacld driver takes its wake setting from this file (it ignores the supplicant's WoWLAN triggers), and 2 keeps pattern wake-ups but not the magic packet; the parser stops at END.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini"
+      ],
+      "regex": [
+        "^gEnableWoW=2\\nEND$"
+      ],
+      "absent_regex": [
+        "^\\s*gEnableWoW\\s*=\\s*[013]"
+      ]
+    },
+    {
+      "id": "wifi-no-wowlan-triggers",
+      "why": "The station supplicant overlay asks for no WoWLAN triggers (stock's asked for the magic packet).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/wifi/wpa_supplicant_overlay.conf"
+      ],
+      "contains": [
+        "p2p_disabled=1"
+      ],
+      "absent_regex": [
+        "^\\s*wowlan_triggers\\s*="
+      ]
+    },
+    {
       "id": "ncm-gadget",
       "why": "The NCM gadget function and compositions exist.",
       "type": "text",

@@ -458,6 +458,12 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   has no network access, downloads nothing and logs no identifiers. Slot 1 is
   marked as the built-in eUICC. Statement corrected: duress erases eSIM
   profiles through the framework, not through an LPA.
+- **2026-10-06:** Wi-Fi, implemented, not yet built. The qcacld driver takes
+  its wake-on-WLAN setting from its configuration file and ignores the
+  supplicant's WoWLAN triggers; stock left it at the default, magic packet and
+  pattern match, so any peer on the network could wake the phone. The
+  generated configuration sets `gEnableWoW=2` (pattern wake-ups only), and the
+  supplicant overlay no longer asks for the magic packet (-76).
 
 ## IMS integration notes
 

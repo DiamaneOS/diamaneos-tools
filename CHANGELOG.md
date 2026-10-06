@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The vendor generator sets `gEnableWoW=2` in the stock QCA6750 driver
+  configuration (pinned input and result, `WIFI_CONFIG_REWRITES`): the driver
+  no longer wakes the phone on a wake-on-LAN magic packet, which stock left
+  on; pattern wake-ups stay. Image checks `wifi-no-magic-packet-wake` and
+  `wifi-no-wowlan-triggers`; threat model updated.
 - Image checks and threat model for the Bluetooth HCI service's seccomp
   filter: the policy is installed (`bluetooth-seccomp-policy`), the service
   reads it (`bluetooth-service-applies-seccomp`), and its fixed rules hold:
