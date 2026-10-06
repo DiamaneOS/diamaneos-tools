@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- USB-C port control: the triggers check now requires the user-build
+  controller cut at early-boot (before the charger input) and still refuses
+  it on debuggable builds; only the port states and that boot cut may turn
+  data off, and only ports_enabled may turn it on. The threat model says
+  user builds start every boot with data and charging off.
 - USB-C port control: the triggers check also covers the boot cut (user
   builds suspend the charger input once the charger firmware is up and again
   at boot, debuggable builds write 0, nothing at boot cuts the controller or
