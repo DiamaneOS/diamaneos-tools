@@ -627,6 +627,17 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AServiceManager_addService']}, v)[0])
         self.assertFalse(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AIBinder_new']}, v)[0])
 
+    def test_audio_cfi_rules(self):
+        rules = [r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                 if r['id'].startswith('audio-') and r['id'].endswith('-cfi')]
+        self.assertEqual(11, len(rules))
+        cfi = '   7: 0000000000004000    64 FUNC    GLOBAL DEFAULT   12 __cfi_check\n'
+        plain = '   7: 0000000000004000    64 FUNC    GLOBAL DEFAULT   12 HMI\n'
+        for rule in rules:
+            for dump, expected in [(cfi, True), (plain, False)]:
+                v = self.harness({rule['path']: b'elf'}, tools=FakeTools({('llvm-readelf',): dump}))
+                self.assertEqual(expected, subject.rule_elf_exports(rule, v)[0], rule['id'])
+
     def test_overlay_array_membership(self):
         dump = ('Package name=x\n'
                 '    resource 0x7f030000 array/config_highRefreshRateBlacklist\n'

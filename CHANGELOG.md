@@ -17,7 +17,8 @@
   source-built file (`audio-*-not-stock`), exports (`audio-hal-exports`,
   `audio-pal-exports`, the plugin entry points), links (`audio-pal-links`,
   `audio-agm-links`, `audio-hal-links`), speaker protection on in the
-  resource manager configuration (`audio-speaker-protection-on`), and
+  resource manager configuration (`audio-speaker-protection-on`), CFI in
+  every source-built audio binary (`audio-*-cfi`), and
   `audio-declared` now requires that PAL is not declared.
 
 - Kernel hardening, pinned at kernel_qcom-6.1 6fed659 (common kernel

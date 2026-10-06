@@ -533,6 +533,105 @@
       ]
     },
     {
+      "id": "audio-hal-cfi",
+      "why": "VENDOR/lib64/hw/audio.primary.volcano.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/hw/audio.primary.volcano.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-pal-cfi",
+      "why": "VENDOR/lib64/libar-pal.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libar-pal.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-cfi",
+      "why": "VENDOR/lib64/libagm.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-client-cfi",
+      "why": "VENDOR/lib64/libagmclient.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagmclient.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-sndcard-parser-cfi",
+      "why": "VENDOR/lib64/libsndcardparser.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libsndcardparser.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-pcm-plugin-cfi",
+      "why": "VENDOR/lib64/libagm_pcm_plugin.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_pcm_plugin.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-mixer-plugin-cfi",
+      "why": "VENDOR/lib64/libagm_mixer_plugin.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_mixer_plugin.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-compress-plugin-cfi",
+      "why": "VENDOR/lib64/libagm_compress_plugin.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libagm_compress_plugin.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-hidl-cfi",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-agm-hidl-impl-cfi",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "audio-adsprpcd-cfi",
+      "why": "VENDOR/bin/audioadsprpcd is built with control-flow integrity, as the stock blob (it exports the CFI check function).",
+      "type": "elf_exports",
+      "path": "VENDOR/bin/audioadsprpcd",
+      "symbols": [
+        "__cfi_check"
+      ]
+    },
+    {
       "id": "audio-declared",
       "why": "AGM is declared in the vendor manifest; the HAL registers no PAL HIDL service.",
       "type": "text",
