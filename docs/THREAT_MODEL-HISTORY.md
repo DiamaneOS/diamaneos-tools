@@ -422,6 +422,14 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   release-keys, or whose OTA certificates include a public AOSP test key,
   checks for updates but downloads and installs none. GrapheneOS's
   `OFFICIAL_BUILD` stays refused.
+- **2026-10-06:** privacy hardening (implemented, not yet built). The SoC
+  serial number gets its own SELinux type that no vendor rule grants (no
+  shipped program reads it) and ueventd makes it root-only: the platform's
+  sysfs-wide read rules still name some HAL domains, which run as their own
+  users, so only root platform daemons can open it. The thermal HAL runs as
+  system without capabilities. nicmd keeps its IPsec state dump: it installs
+  the Wi-Fi calling states the modem negotiates and dumps all states to
+  delete its own, so under integrity lockdown it can read every state's keys.
 
 ## IMS integration notes
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Threat model and image checks for the device's privacy hardening: the SoC
+  serial number's own SELinux type (`soc-serial-label`), its root-only mode
+  (`soc-serial-root-only`) and the thermal HAL running as system
+  (`thermal-hal-as-system`, `thermal-hal-trip-nodes`). The new
+  `sepolicy_sources` check type expands attributes across the platform,
+  mapping and vendor policies and fails when any domain outside a list may
+  use a permission on a type; `soc-serial-readers` uses it for the serial.
+  The threat model also states why nicmd can read every IPsec state's keys.
 - `build all --official` builds official images: the Android build gets
   `DIAMANEOS_OFFICIAL_BUILD=true`, which adds the DiamaneOS Updater fork
   (DiamaneOS/platform_packages_apps_Updater). Other builds run with the

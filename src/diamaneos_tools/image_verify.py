@@ -426,6 +426,72 @@ def rule_sepolicy_allows(rule, v):
     return False, f'{rule["source"]} may not {rule["perm"]} {rule["target"]}'
 
 
+def cil_attribute_sets(text: str) -> dict:
+    """Like cil_attributes, but an attribute set in several files (the platform
+    and the vendor policy both add to sysfs_type) keeps every expression."""
+    result = {}
+    for match in re.finditer(r'^\(typeattributeset (\S+) (.*)\)$', text, re.M):
+        single = cil_attributes(match.group(0))
+        result.setdefault(match.group(1), []).append(single[match.group(1)])
+    return result
+
+
+def cil_expand(name: str, attributes: dict, types: set, memo: dict) -> set:
+    """The types an attribute (or a type) stands for, through nested and/or/not.
+    attributes maps a name to the list of expressions that add to it."""
+    if name in memo:
+        return memo[name]
+    memo[name] = set()  # cycle guard
+    if name not in attributes:
+        memo[name] = {name} if name in types else set()
+        return memo[name]
+
+    def evaluate(expr):
+        if isinstance(expr, str):
+            return set(types) if expr == 'all' else cil_expand(expr, attributes, types, memo)
+        if expr and expr[0] == 'and':
+            result = evaluate(expr[1])
+            for e in expr[2:]:
+                result &= evaluate(e)
+            return result
+        if expr and expr[0] == 'or':
+            return set().union(*(evaluate(e) for e in expr[1:]))
+        if expr and expr[0] == 'not':
+            return set(types) - set().union(*(evaluate(e) for e in expr[1:]))
+        if expr and expr[0] == 'all':
+            return set(types)
+        return set().union(*(evaluate(e) for e in expr)) if expr else set()
+    memo[name] = set().union(*(evaluate(e) for e in attributes[name]))
+    return memo[name]
+
+
+def rule_sepolicy_sources(rule, v):
+    """Every domain the combined policy lets use a permission on a type is listed.
+
+    Reads the platform, mapping and vendor CIL files the rule names (globs
+    allowed; versioned compatibility files *.compat.cil are skipped) and expands
+    attributes on both sides, so platform rules on attributes such as sysfs_type
+    count too.
+    """
+    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
+    if not names:
+        return False, 'no files match ' + ', '.join(rule['files'])
+    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    attributes = cil_attribute_sets(text)
+    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    if rule['target'] not in types:
+        return False, rule['target'] + ' is not a type in the policy'
+    memo, sources = {}, set()
+    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+        src, target, cls, perms = match.groups()
+        if cls != rule['cls'] or rule['perm'] not in perms.split() or target == 'self':
+            continue
+        if rule['target'] in cil_expand(target, attributes, types, memo):
+            sources |= cil_expand(src, attributes, types, memo)
+    others = sorted(sources - set(rule['allowed']))
+    return not others, ('also ' + ', '.join(others)) if others else 'only ' + ', '.join(sorted(sources))
+
+
 def rule_overlay(rule, v):
     with v.tools.scratch() as temporary:
         apk = v.tf.extract(rule['apk'], Path(temporary))
@@ -677,7 +743,7 @@ def rule_file_metadata(rule, v):
 RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
-         'overlay': rule_overlay, 'apk': rule_apk, 'elf_exports': rule_elf_exports,
+         'sepolicy_sources': rule_sepolicy_sources, 'overlay': rule_overlay, 'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
          'file_metadata': rule_file_metadata, 'codec2_abi_guard': rule_codec2_abi_guard}

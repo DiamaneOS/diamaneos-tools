@@ -597,6 +597,66 @@
       ]
     },
     {
+      "id": "soc-serial-label",
+      "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(genfscon sysfs \"/devices/soc0/serial_number\" (u object_r vendor_sysfs_soc_serial ((s0) (s0))))"
+      ],
+      "absent_regex": [
+        "^\\(allow \\S+ vendor_sysfs_soc_serial "
+      ]
+    },
+    {
+      "id": "soc-serial-readers",
+      "why": "Only the platform domains whose sysfs-wide read the platform policy fixes may read the SoC serial number; no vendor service may.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_sysfs_soc_serial",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "apexd",
+        "hal_bluetooth_btlinux",
+        "hal_bluetooth_default",
+        "hal_radio_config_default",
+        "hal_radio_default",
+        "hal_wifi_default",
+        "hal_wifi_supplicant_default",
+        "init",
+        "rild",
+        "tee",
+        "ueventd",
+        "vendor_init",
+        "vold",
+        "wpa_supplicant_macsec"
+      ]
+    },
+    {
+      "id": "soc-serial-root-only",
+      "why": "ueventd makes the SoC serial number root-only, so the non-root services the platform policy lets read sysfs cannot open it.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/sys/devices/soc0\\s+serial_number\\s+0400\\s+root\\s+root\\s*$"
+      ]
+    },
+    {
       "id": "keymaster-messages-on-odm",
       "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path.",
       "type": "files_present",
@@ -900,6 +960,37 @@
       "absent_regex": [
         "^\\(allow hal_power_default(_[0-9]+)? (sysfs_devices_system_cpu|vendor_sysfs_kgsl|vendor_proc_walt|proc|sysfs)(_[0-9]+)? \\(file \\([^)]*\\b(write|append)\\b",
         "^\\(allow hal_power_default(_[0-9]+)? vendor_power_prop(_[0-9]+)? \\(property_service "
+      ]
+    },
+    {
+      "id": "thermal-hal-as-system",
+      "why": "The thermal HAL runs as system without capabilities: our init file overrides the module service, which runs as root.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.thermal.rc"
+      ],
+      "lines": [
+        "service vendor.thermal-hal /vendor/bin/hw/android.hardware.thermal-service.qti",
+        "    interface aidl android.hardware.thermal.IThermal/default",
+        "    user system",
+        "    group system",
+        "    override"
+      ],
+      "absent_regex": [
+        "^\\s+user root",
+        "^\\s+capabilities"
+      ]
+    },
+    {
+      "id": "thermal-hal-trip-nodes",
+      "why": "The thermal HAL, as system, can still set the next severity threshold of each zone it monitors; the nodes stay root-owned for the thermal engine.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/sys/devices/virtual/thermal/thermal_zone\\*\\s+trip_point_1_temp\\s+0664\\s+root\\s+system\\s*$",
+        "^/sys/devices/virtual/thermal/thermal_zone\\*\\s+trip_point_1_hyst\\s+0664\\s+root\\s+system\\s*$"
       ]
     },
     {
