@@ -784,7 +784,7 @@ entry point), the protections in current builds, what remains, and the status.
   (debuggable builds keep it; implemented, not yet built); in builds up to the 2026-10-05 build the SoC
   serial is readable by 16 system and vendor domains through platform sysfs read
   grants and imported Qualcomm rules (no app domain); the Wi-Fi driver uses the
-  factory MAC, as stock and Pixels do (implemented, not yet built; earlier
+  factory MAC, as stock and Pixels do (checked on the phone 2026-10-06; earlier
   builds used the chip's generic Qualcomm address); Android records it as the
   factory MAC, shows it in `dumpsys wifi` and bug reports and logs it once when
   it records it, as on GrapheneOS; since the 2026-10-05 build Wi-Fi joins
@@ -826,7 +826,8 @@ entry point), the protections in current builds, what remains, and the status.
   but no child processes, Unix sockets only, no memory both writable and
   executable, kill only as SIGKILL (the implementation's restart after a
   controller failure); a call outside the list stops the service (SIGSYS;
-  init restarts it) (implemented, not yet built).
+  init restarts it) (checked on the phone 2026-10-06: pairing, music and a
+  headset call in trap mode).
   No service context lets the HAL register the ANT or SAR interfaces
   (since the 2026-10-06 build).
 - **Remaining:** controller firmware and HAL unpatchable by the project; no MTE;
@@ -835,7 +836,7 @@ entry point), the protections in current builds, what remains, and the status.
 - **Status:** Bring-up (not qualified): with our own HCI service, pairing,
   music (AAC) and a headset call (mSBC) work, and the seccomp filter in log
   mode saw no call outside its list; the adapter uses the factory address
-  (owner test 2026-10-06). The enforcing filter is untested. Unverified:
+  (owner test 2026-10-06). Unverified:
   Bluetooth and audio bring-up (FP6-043, FP6-044), debug exposure and component
   removal (FP6-060, FP6-061).
 
@@ -860,9 +861,10 @@ entry point), the protections in current builds, what remains, and the status.
 - **Protection:** station-only features exposed to Android (no hotspot, since
   hostapd is not shipped; no Wi-Fi Direct or Aware); source-built Wi-Fi HAL and
   driver; MAC randomization; no wake-on-LAN: the driver configuration turns the
-  magic-packet wake-up off and the supplicant asks for none (implemented, not
-  yet built); the hardware address is the factory MAC, written for the driver
-  at every boot from the traceability partition (implemented, not yet built).
+  magic-packet wake-up off and the supplicant asks for none (since the
+  2026-10-06 build); the hardware address is the factory MAC, written for the driver
+  at every boot from the traceability partition (checked on the phone
+  2026-10-06).
 - **Remaining:** builds before 2026-10-05 had no Wi-Fi capability overlay, so
   the Wi-Fi service treated the hardware as unable to randomise its MAC address
   and the phone joined networks with a globally administered (hardware)
