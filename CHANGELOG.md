@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Image checks for the device's second hardening batch: the UFS serial
+  numbers' root-only mode (`ufs-serial-root-only`), the Bluetooth HCI log
+  tags (`bluetooth-address-not-logged`), the removed colour service policy
+  (`no-display-colour-policy`), no adb over the network
+  (`no-adb-over-network`) and the Codec2 service's encoder-only target
+  specification (`media-target-variant`, `media-target-variant-readable`).
+  Kernel policy v11 also requires PROC_KCORE, KGDB, KEXEC, KEXEC_FILE and
+  HIBERNATION off; the published kernel already has them off. The threat
+  model records the changes and corrects statements on eSIM, OEM unlocking,
+  the 2G controls, the radio log, debugfs and permissive mode.
 - Threat model and image checks for the device's privacy hardening: the SoC
   serial number's own SELinux type (`soc-serial-label`), its root-only mode
   (`soc-serial-root-only`) and the thermal HAL running as system

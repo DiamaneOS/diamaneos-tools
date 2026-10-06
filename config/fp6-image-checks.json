@@ -434,6 +434,26 @@
       ]
     },
     {
+      "id": "no-adb-over-network",
+      "why": "Nothing turns on adb over the network: no TCP port or TLS server property in the build properties or vendor and odm init files.",
+      "type": "text",
+      "files": [
+        "SYSTEM/build.prop",
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "VENDOR/build.prop",
+        "ODM/etc/build.prop",
+        "VENDOR/etc/init/**",
+        "ODM/etc/init/**"
+      ],
+      "match": "all",
+      "optional": true,
+      "absent_regex": [
+        "(service|persist)\\.adb\\.tcp\\.port",
+        "persist\\.adb\\.tls_server\\.enable"
+      ]
+    },
+    {
       "id": "oem-unlocking",
       "why": "OEM unlocking managed by the OS, as stock.",
       "type": "properties",
@@ -597,6 +617,16 @@
       ]
     },
     {
+      "id": "bluetooth-address-not-logged",
+      "why": "The stock HCI implementation's firmware-download tags log warnings only: at info level they print the Bluetooth address at every Bluetooth start.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "log.tag.vendor.qti.bluetooth@1.1-patch_dl_manager=W",
+        "log.tag.vendor.qti.bluetooth@1.1-nvm_tags_manager=W"
+      ]
+    },
+    {
       "id": "soc-serial-label",
       "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
       "type": "text",
@@ -654,6 +684,19 @@
       ],
       "regex": [
         "^/sys/devices/soc0\\s+serial_number\\s+0400\\s+root\\s+root\\s*$"
+      ]
+    },
+    {
+      "id": "ufs-serial-root-only",
+      "why": "ueventd makes the UFS storage's serial number and its LUNs' SCSI serial and identification pages root-only; their generic sysfs label is readable by the fingerprint HAL, the composer and other non-root services.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/sys/devices/platform/soc/1d84000\\.ufshc\\s+string_descriptors/serial_number\\s+0400\\s+root\\s+root\\s*$",
+        "^/sys/devices/platform/soc/1d84000\\.ufshc/host0/target0:0:0/0:0:0:\\*\\s+vpd_pg80\\s+0400\\s+root\\s+root\\s*$",
+        "^/sys/devices/platform/soc/1d84000\\.ufshc/host0/target0:0:0/0:0:0:\\*\\s+vpd_pg83\\s+0400\\s+root\\s+root\\s*$"
       ]
     },
     {
@@ -1585,6 +1628,21 @@
       ]
     },
     {
+      "id": "no-display-colour-policy",
+      "why": "The removed colour service has no domain, executable label or service context left, so no rule lets anything run or call it.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "VENDOR/etc/selinux/vendor_service_contexts"
+      ],
+      "match": "all",
+      "absent": [
+        "vendor_hal_display_color_default",
+        "vendor_hal_display_color_aidl_service"
+      ]
+    },
+    {
       "id": "display-colour-libraries-kept",
       "why": "The composer loads the colour manager (panel calibration) and dlopens libsdm-disp-vndapis itself.",
       "type": "files_present",
@@ -2333,6 +2391,27 @@
           "min": 1
         }
       ]
+    },
+    {
+      "id": "media-target-variant",
+      "why": "The Codec2 service finds the encoder-only target specification through vendor.media.target_variant; without it the library registers every codec, decoders included.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "vendor.media.target_variant=_volcano_v1"
+      ]
+    },
+    {
+      "id": "media-target-variant-readable",
+      "why": "The Codec2 service may read vendor.media.target_variant; a denied read would make it fall back to registering every codec.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "mediacodec",
+      "target": "vendor_video_prop",
+      "cls": "file",
+      "perm": "read"
     },
     {
       "id": "media-no-c2audio",

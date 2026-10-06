@@ -430,6 +430,15 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   system without capabilities. nicmd keeps its IPsec state dump: it installs
   the Wi-Fi calling states the modem negotiates and dumps all states to
   delete its own, so under integrity lockdown it can read every state's keys.
+  The UFS storage serial numbers become root-only too, the stock Bluetooth
+  HCI implementation's address logging is turned down, the unused
+  secure-processor and display colour service grants are removed,
+  neverallows guard the fingerprint HAL's data label, and the kernel policy
+  pins kcore, KGDB, kexec and hibernation off. Statements corrected: the
+  stock LPA is no longer shipped, OEM unlocking is managed by the OS, the 2G
+  and LTE-only controls and the radio log redaction were checked on the
+  phone, debugfs is not mountable on the phone, and the kernel cannot run
+  SELinux permissive.
 
 ## IMS integration notes
 

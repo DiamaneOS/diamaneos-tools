@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "id": "fp6-android14-6-1-kernel-policy-v10",
+  "id": "fp6-android14-6-1-kernel-policy-v11",
   "baseline": {
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_CFI_PERMISSIVE": "n",
@@ -26,6 +26,11 @@
     "CONFIG_TIPC_DIAG": "n",
     "CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY": "y",
     "CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY": "n",
+    "CONFIG_PROC_KCORE": "n",
+    "CONFIG_KGDB": "n",
+    "CONFIG_KEXEC": "n",
+    "CONFIG_KEXEC_FILE": "n",
+    "CONFIG_HIBERNATION": "n",
     "CONFIG_USERFAULTFD": "y",
     "CONFIG_IO_URING": "y",
     "CONFIG_UNICODE": "y",
