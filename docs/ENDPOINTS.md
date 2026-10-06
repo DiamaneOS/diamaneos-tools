@@ -40,9 +40,9 @@ directly; this claims no search of every upstream file.
 - `releases.diamaneos.de` is the OS update server. Only official builds
   (`DIAMANEOS_OFFICIAL_BUILD=true`) include its client, the DiamaneOS Updater
   fork, which asks for `/{DEVICE}-{channel}` (`FP6-stable` by default) over TLS
-  pinned to the ISRG roots. The server is not live: the name resolves only
-  through the domain's catch-all record, to the registrar's forwarding host,
-  which refuses HTTPS (2026-10-06). Every check fails, the Updater backs off up
+  pinned to the ISRG roots. The server is not live: the name has no address
+  record (a TXT-only placeholder), so the lookup fails and nothing is contacted
+  (2026-10-06). Every check fails, the Updater backs off up
   to its six-hour interval and installs nothing; an answer that is not update
   information fails the check too. A build signed with public test keys never
   downloads or installs an update, whatever the server offers.
