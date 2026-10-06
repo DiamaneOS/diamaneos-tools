@@ -1016,6 +1016,32 @@ def sensors_config(path, data):
     return derived
 
 
+# The qcacld driver takes its wake-on-WLAN setting from this file and ignores
+# the supplicant's WoWLAN triggers. Stock leaves gEnableWoW at the driver
+# default 3 (magic packet and pattern match), so any peer on the network can
+# wake the phone with a magic packet. 2 keeps the pattern wake-ups and drops
+# the magic packet.
+WIFI_CONFIG_REWRITES = {
+    'vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini': {
+        'source_sha256': '08b2b77f0f3e10ebf4a8b3ef5394d3900e485077260d069d238d4b8733c84c9e',
+        'sha256': '9ec6ad5e13b9bdfceb6fb3c2ae9ca3dc4b3dceff8b0717fd776e81fd0cdbab81',
+        'reason': 'No wake-on-LAN magic packet: gEnableWoW=2 keeps pattern wake-ups only'},
+}
+
+
+def wifi_config(path, data):
+    """Pinned addition of gEnableWoW=2 before the END marker the driver's parser stops at."""
+    rule = WIFI_CONFIG_REWRITES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('Wi-Fi configuration differs from reviewed EU stock input')
+    if re.search(rb'^\s*gEnableWoW\s*=', data, re.M) or len(re.findall(rb'^END$', data, re.M)) != 1:
+        raise VendorError('Wi-Fi configuration differs from reviewed EU stock input')
+    derived = re.sub(rb'^END$', b'gEnableWoW=2\nEND', data, count=1, flags=re.M)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived Wi-Fi configuration differs from reviewed result')
+    return derived
+
+
 GNSS_CONFIG_REWRITES = {
     'vendor/etc/izat.conf': {
         'source_sha256': 'faaf2906fb7520b8c348e4f47e797d4a0b574d332cd647cc0c251a3352352c4f',
@@ -1272,6 +1298,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
             for path, rewrite in SENSORS_CONFIG_REWRITES.items():
                 config = tree / 'files' / path
                 config.write_bytes(sensors_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            for path, rewrite in WIFI_CONFIG_REWRITES.items():
+                config = tree / 'files' / path
+                config.write_bytes(wifi_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in GNSS_CONFIG_REWRITES.items():
                 config = tree / 'files' / path

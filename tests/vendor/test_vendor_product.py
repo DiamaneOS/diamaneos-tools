@@ -1096,6 +1096,30 @@ class NativeProductTests(unittest.TestCase):
             with self.assertRaises(VendorError):
                 vendor_product.sensors_config(path, other)
 
+    def test_wifi_config_drops_only_the_magic_packet_wake(self):
+        # gEnableWoW goes in before the END marker the driver's parser stops at;
+        # 2 keeps pattern wake-ups and drops the magic packet.
+        path = 'vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini'
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        rule = vendor_product.WIFI_CONFIG_REWRITES[path]
+        self.assertEqual(rule['source_sha256'], row['sha256'])
+        self.assertNotEqual(rule['sha256'], rule['source_sha256'])
+        with self.assertRaises(VendorError):
+            vendor_product.wifi_config(path, b'gDot11Mode=0\nEND\n')
+
+        def patched(stock):
+            derived = stock.replace(b'\nEND\n', b'\ngEnableWoW=2\nEND\n')
+            return dict(rule, source_sha256=hashlib.sha256(stock).hexdigest(),
+                        sha256=hashlib.sha256(derived).hexdigest())
+        stock = b'# overrides\ngDot11Mode=0\nEND\n\n# Note: nothing is read past END\n'
+        with mock.patch.dict(vendor_product.WIFI_CONFIG_REWRITES, {path: patched(stock)}):
+            self.assertEqual(b'# overrides\ngDot11Mode=0\ngEnableWoW=2\nEND\n\n# Note: nothing is read past END\n',
+                             vendor_product.wifi_config(path, stock))
+        for other in (b'gEnableWoW=3\nEND\n', b'gDot11Mode=0\n', b'END\nEND\n'):
+            with mock.patch.dict(vendor_product.WIFI_CONFIG_REWRITES, {path: patched(other)}):
+                with self.assertRaises(VendorError):
+                    vendor_product.wifi_config(path, other)
+
     def test_offline_camera_service_is_linked_but_not_declared(self):
         # The CHI override and libchifeature2 link the offline camera library,
         # so it stays; its service has no client, so neither its VINTF

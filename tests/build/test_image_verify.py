@@ -230,6 +230,20 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_text(rules['no-display-colour-policy'], self.harness(
             dict(policy, **{'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(type vendor_hal_display_color_default)\n'})))[0])
 
+    def test_wifi_wake_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ini = 'VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini'
+        overlay = 'VENDOR/etc/wifi/wpa_supplicant_overlay.conf'
+        good = {ini: b'gDot11Mode=0\ngEnableWoW=2\nEND\n\n# Note\n',
+                overlay: b'disable_scan_offload=1\np2p_disabled=1\n'}
+        for rule_id in ('wifi-no-magic-packet-wake', 'wifi-no-wowlan-triggers'):
+            self.assertTrue(subject.rule_text(rules[rule_id], self.harness(good))[0], rule_id)
+        for members in ({ini: b'gDot11Mode=0\nEND\n'}, {ini: b'gEnableWoW=3\ngEnableWoW=2\nEND\n'},
+                        {ini: b'END\ngEnableWoW=2\n'}):
+            self.assertFalse(subject.rule_text(rules['wifi-no-magic-packet-wake'], self.harness(members))[0])
+        self.assertFalse(subject.rule_text(rules['wifi-no-wowlan-triggers'], self.harness(
+            {overlay: good[overlay] + b'wowlan_triggers=magic_pkt\n'}))[0])
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')
