@@ -729,7 +729,7 @@
     },
     {
       "id": "no-wlan-mac-link",
-      "why": "No wlan_mac.bin link into persist; the kernel may not read it.",
+      "why": "No wlan_mac.bin in /vendor/firmware: the kernel's own firmware path and ueventd both look there before /mnt/vendor/wlan_mac/, so a file or link there would replace the factory MAC file.",
       "type": "files_absent",
       "paths": [
         "VENDOR/firmware/wlan/qca_cld/qca6750/wlan_mac.bin"
@@ -873,6 +873,129 @@
       "allowed": [
         "dumpstate",
         "hal_bluetooth_default",
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-service",
+      "why": "imeiprovd writes the WLAN driver's factory MAC file from the traceability partition in its own one-shot service, which init waits for at post-fs, before early-boot starts the Wi-Fi processor (finding -180).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/imeiprovd.rc"
+      ],
+      "lines": [
+        "service vendor.imeiprovd-wlan /vendor/bin/imeiprovd --wlan-mac",
+        "    mkdir /mnt/vendor/wlan_mac 0710 root vendor_imeiprov",
+        "    mkdir /mnt/vendor/wlan_mac/wlan 0710 root vendor_imeiprov",
+        "    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld 0710 root vendor_imeiprov",
+        "    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld/qca6750 0700 vendor_imeiprov vendor_imeiprov"
+      ],
+      "regex": [
+        "^on post-fs\\n(?:(?:    .*)?\\n)*?    exec_start vendor\\.imeiprovd-wlan$"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-firmware-dir",
+      "why": "ueventd looks for firmware in the factory MAC tree, so the driver's request for wlan/qca_cld/qca6750/wlan_mac.bin finds imeiprovd's file (the kernel's own firmware path does not reach it; firmware-fallback keeps the sysfs fallback on).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "lines": [
+        "firmware_directories /mnt/vendor/wlan_mac/"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-label",
+      "why": "The factory MAC tree has its own type, which only imeiprovd may write and only ueventd may read.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/mnt/vendor/wlan_mac\\(/\\.\\*\\)\\?\\s+u:object_r:vendor_diamaneos_wlan_mac_file:s0\\s*$"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-driver-config",
+      "why": "The QCA6750 driver reads its MAC file only with this option, as on stock.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini"
+      ],
+      "lines": [
+        "read_mac_addr_from_mac_file=1"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-readers",
+      "why": "Only ueventd (which serves it to the driver), init and vendor_init can read the factory Wi-Fi MAC file.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_wlan_mac_file",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "init",
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-writers",
+      "why": "Only imeiprovd, init and vendor_init can write the factory Wi-Fi MAC file.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_wlan_mac_file",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "diamaneos_imeiprov",
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "wlan-factory-mac-creators",
+      "why": "Only imeiprovd, init and vendor_init can create the factory Wi-Fi MAC file.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_wlan_mac_file",
+      "cls": "file",
+      "perm": "create",
+      "allowed": [
+        "diamaneos_imeiprov",
         "init",
         "vendor_init"
       ]

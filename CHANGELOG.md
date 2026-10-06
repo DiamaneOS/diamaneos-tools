@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Image checks and threat model for the factory Wi-Fi MAC (-180): imeiprovd's
+  `--wlan-mac` service and its firmware tree, which init waits for at post-fs
+  (`wlan-factory-mac-service`), ueventd's firmware directory
+  (`-firmware-dir`), the tree's own label (`-label`), the driver option that
+  reads the file (`-driver-config`), and who may read, write and create it
+  (`-readers`, `-writers`, `-creators`). `no-wlan-mac-link` now says why
+  nothing may shadow the file.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc
