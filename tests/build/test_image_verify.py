@@ -491,6 +491,14 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(check('supplicant-debug-not-logged-user', {**good, vendor: b'ro.vendor.x=1\n'}))
         self.assertFalse(subject.rule_applies(rules['netd-calls-not-logged-user'], 'userdebug', False))
 
+    def test_wlan_driver_own_mac_not_logged(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule, ko = rules['wlan-driver-own-mac-not-logged'], 'VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko'
+        check = lambda data: subject.RULES[rule['type']](rule, self.harness({ko: data}))[0]
+        self.assertTrue(check(b'\x7fELF..%s: %d: txrx_peer NULL!! peer_id %u\x00..'))
+        self.assertFalse(check(b'\x7fELF..%s: %d: txrx_peer NULL!! peer mac_addr(%02x:%02x:%02x:**:**:%02x)\x00'))
+        self.assertFalse(check(b'\x7fELF..no such line\x00'))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'
