@@ -101,6 +101,8 @@ class Context:
     build_number: str | None = None
     # A recorded resolved manifest to reproduce (build sync --resolved-manifest).
     pinned: source_sync.PinnedManifest | None = None
+    # The stock firmware inventory (default: config/fp6-firmware-inventory.json).
+    firmware_inventory: dict | None = None
     cache: dict = field(default_factory=dict)
 
     @property

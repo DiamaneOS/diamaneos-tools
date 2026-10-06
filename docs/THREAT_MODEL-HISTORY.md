@@ -412,6 +412,16 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   Integrity lockdown observed on the phone (tracing, per-app CPU time and
   lmkd's memory events run); the camera boosts end within about 1 s, when the
   camera releases them.
+- **2026-10-06:** firmware delivery. Image sets carry Fairphone's firmware of
+  the release the vendor files come from, copied from the authenticated factory
+  package and checked against the per-image hashes when packaged and verified.
+  `flash-steps` writes it before the OS, in the stock order and on both slots
+  (the OS stays on slot a), with the modem file system emptied so the modem
+  restores its factory backup, only over an older release and never over a
+  newer one. The FP6 bootloader reports no firmware version, so the phone's
+  release comes from the user or the earlier image set. No OTA carries
+  firmware; verify refuses an A/B partition list with only part of it.
+  Implemented, not yet built or tested on a phone.
 
 ## IMS integration notes
 
