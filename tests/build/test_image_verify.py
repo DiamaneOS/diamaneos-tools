@@ -430,6 +430,57 @@ class RuleTests(unittest.TestCase):
                 members = {k: v for k, v in {**good, **change}.items() if v is not None}
                 self.assertFalse(check(rule_id, members))
 
+    def test_wlan_factory_mac_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc, ueventd, fc = 'VENDOR/etc/init/imeiprovd.rc', 'VENDOR/etc/ueventd.rc', 'VENDOR/etc/selinux/vendor_file_contexts'
+        ini, plat, vendor = ('VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini', 'SYSTEM/etc/selinux/plat_sepolicy.cil',
+                             'VENDOR/etc/selinux/vendor_sepolicy.cil')
+        vendor_cil = (b'(type vendor_diamaneos_wlan_mac_file)\n(typeattributeset file_type (vendor_diamaneos_wlan_mac_file))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_wlan_mac_file (file (write create open)))\n'
+                      b'(allow ueventd vendor_diamaneos_wlan_mac_file (file (read getattr open)))\n')
+        good = {
+            rc: (b'service vendor.imeiprovd-wlan /vendor/bin/imeiprovd --wlan-mac\n    oneshot\n    disabled\n\n'
+                 b'on post-fs\n    start vendor.imeiprovd-bt\n    # The firmware tree.\n'
+                 b'    mkdir /mnt/vendor/wlan_mac 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld/qca6750 0700 vendor_imeiprov vendor_imeiprov\n'
+                 b'    exec_start vendor.imeiprovd-wlan\n'),
+            ueventd: b'firmware_directories /vendor/firmware_mnt/image/\nfirmware_directories /mnt/vendor/wlan_mac/\n',
+            fc: b'/mnt/vendor/wlan_mac(/.*)?   u:object_r:vendor_diamaneos_wlan_mac_file:s0\n',
+            ini: b'gEnableWoW=2\nread_mac_addr_from_mac_file=1\n',
+            plat: (b'(type init)\n(type vendor_init)\n(type ueventd)\n(type rild)\n(type diamaneos_imeiprov)\n'
+                   b'(allow init file_type (file (read write create open)))\n'
+                   b'(allow vendor_init file_type (file (read write create open)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('wlan-factory-mac-service', 'wlan-factory-mac-firmware-dir', 'wlan-factory-mac-label',
+               'wlan-factory-mac-driver-config', 'wlan-factory-mac-readers', 'wlan-factory-mac-writers',
+               'wlan-factory-mac-creators')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'exec_start vendor.imeiprovd-wlan',
+                                                                   b'start vendor.imeiprovd-wlan')}),
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'on post-fs\n', b'on boot\n')}),
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'qca6750 0700', b'qca6750 0777')}),
+                ('wlan-factory-mac-firmware-dir', {ueventd: b'firmware_directories /vendor/firmware_mnt/image/\n'}),
+                ('wlan-factory-mac-label', {fc: b'/mnt/vendor(/.*)?   u:object_r:mnt_vendor_file:s0\n'}),
+                ('wlan-factory-mac-driver-config', {ini: b'read_mac_addr_from_mac_file=0\n'}),
+                ('wlan-factory-mac-readers', {vendor: vendor_cil + b'(allow rild file_type (file (read)))\n'}),
+                ('wlan-factory-mac-readers', {vendor: vendor_cil + b'(allow diamaneos_imeiprov '
+                                              b'vendor_diamaneos_wlan_mac_file (file (read)))\n'}),
+                ('wlan-factory-mac-writers', {vendor: vendor_cil + b'(allow ueventd vendor_diamaneos_wlan_mac_file '
+                                              b'(file (write)))\n'}),
+                ('wlan-factory-mac-creators', {vendor: vendor_cil + b'(allow rild vendor_diamaneos_wlan_mac_file '
+                                               b'(file (create)))\n'}),
+                ('wlan-factory-mac-creators', {vendor: vendor_cil.replace(b'(type vendor_diamaneos_wlan_mac_file)\n', b'')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'

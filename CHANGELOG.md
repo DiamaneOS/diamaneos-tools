@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Image checks and threat model for the factory Wi-Fi MAC (-180): imeiprovd's
+  `--wlan-mac` service and its firmware tree, which init waits for at post-fs
+  (`wlan-factory-mac-service`), ueventd's firmware directory
+  (`-firmware-dir`), the tree's own label (`-label`), the driver option that
+  reads the file (`-driver-config`), and who may read, write and create it
+  (`-readers`, `-writers`, `-creators`). `no-wlan-mac-link` now says why
+  nothing may shadow the file.
 - Threat model: user builds silence the camera HAL's log tag, which logged the
   camera module serials.
 - Image check `bluetooth-seccomp-enforced`: the Bluetooth HCI service is built
