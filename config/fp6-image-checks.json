@@ -1001,6 +1001,30 @@
       ]
     },
     {
+      "id": "netd-calls-not-logged-user",
+      "why": "On user builds netd logs warnings and errors only: its info lines log every binder call with its results, and the interface configuration calls carry the factory Wi-Fi MAC (-180).",
+      "type": "properties",
+      "file": "PRODUCT/etc/build.prop",
+      "equals": [
+        "log.tag.netd=W"
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
+      "id": "supplicant-debug-not-logged-user",
+      "why": "On user builds the supplicant logs info and up only: at debug level it logs its own address at every Wi-Fi start, the factory MAC (-180).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "log.tag.wpa_supplicant=I"
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
       "id": "soc-serial-label",
       "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
       "type": "text",
