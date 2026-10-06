@@ -1098,48 +1098,6 @@
       "perm": "write"
     },
     {
-      "id": "power-hal-bus-limits",
-      "why": "The power HAL may write the relabelled DDR and L3 floors it raises for launches and touch interaction.",
-      "type": "sepolicy_allows",
-      "files": [
-        "VENDOR/etc/selinux/vendor_sepolicy.cil"
-      ],
-      "source": "hal_power_default",
-      "target": "vendor_sysfs_bus_dcvs_limit",
-      "cls": "file",
-      "perm": "write"
-    },
-    {
-      "id": "power-hal-bus-labels",
-      "why": "Only the two memory-bus floors get the power HAL's bus type; the rest of bus_dcvs keeps the platform CPU label.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/selinux/vendor_sepolicy.cil"
-      ],
-      "lines": [
-        "(genfscon sysfs \"/devices/system/cpu/bus_dcvs/DDR/24091000.qcom,bwmon-ddr/min_freq\" (u object_r vendor_sysfs_bus_dcvs_limit ((s0) (s0))))",
-        "(genfscon sysfs \"/devices/system/cpu/bus_dcvs/L3/soc:qcom,memlat:l3:prime/min_freq\" (u object_r vendor_sysfs_bus_dcvs_limit ((s0) (s0))))"
-      ],
-      "absent_regex": [
-        "^\\(genfscon sysfs \"/devices/system/cpu/bus_dcvs\"? "
-      ]
-    },
-    {
-      "id": "power-hal-bus-owner",
-      "why": "Init hands the power HAL only the two memory-bus floor nodes in bus_dcvs.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/init/init.fp6.power.rc"
-      ],
-      "lines": [
-        "    chown system system /sys/devices/system/cpu/bus_dcvs/DDR/24091000.qcom,bwmon-ddr/min_freq",
-        "    chown system system /sys/devices/system/cpu/bus_dcvs/L3/soc:qcom,memlat:l3:prime/min_freq"
-      ],
-      "absent_regex": [
-        "^\\s+chown \\S+ \\S+ /sys/devices/system/cpu/bus_dcvs/(?!DDR/24091000\\.qcom,bwmon-ddr/min_freq$|L3/soc:qcom,memlat:l3:prime/min_freq$)\\S+$"
-      ]
-    },
-    {
       "id": "power-hal-sched-boost-property",
       "why": "The power HAL may set its sched_boost request property.",
       "type": "sepolicy_allows",
