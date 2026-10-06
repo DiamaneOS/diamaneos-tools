@@ -376,6 +376,47 @@ class RuleTests(unittest.TestCase):
         # A value that only appears under a different resource is not a match.
         self.assertFalse(rule(['app.grapheneos.absent']))
 
+    def test_overlay_integer_and_multi_item_arrays(self):
+        dump = ('Package name=x\n'
+                '    resource 0x7f010000 array/non_removable_euicc_slots\n'
+                '      () (array) size=1\n'
+                '        [1]\n'
+                '    resource 0x7f010001 array/config_autoBrightnessLevels\n'
+                '      () (array) size=6\n'
+                '        [2, 4, 10, 20, \n'
+                '         40, -1]\n'
+                '    resource 0x7f010002 array/config_telephonyEuiccDeviceCapabilities\n'
+                '      () (array) size=3\n'
+                '        ["gsm,9", "utran,10", \n'
+                '         "eutran,16"]\n')
+        self.assertEqual(['1'], subject.aapt2_array(dump, 'array/non_removable_euicc_slots'))
+        self.assertEqual(['2', '4', '10', '20', '40', '-1'],
+                         subject.aapt2_array(dump, 'array/config_autoBrightnessLevels'))
+        self.assertEqual(['gsm,9', 'utran,10', 'eutran,16'],
+                         subject.aapt2_array(dump, 'array/config_telephonyEuiccDeviceCapabilities'))
+
+    def test_apk_manifest_patterns(self):
+        def tree(app, service):
+            return ('N: android=http://schemas.android.com/apk/res/android (line=2)\n'
+                    '  E: manifest (line=2)\n'
+                    '      E: application (line=22)\n'
+                    '        A: http://schemas.android.com/apk/res/android:label(0x01010001)=@0x7f0b0000\n'
+                    f'        A: http://schemas.android.com/apk/res/android:enabled(0x0101000e)={app}\n'
+                    '          E: service (line=30)\n'
+                    f'            A: http://schemas.android.com/apk/res/android:enabled(0x0101000e)={service}\n')
+        disabled = (r'^\s*E: application \(line=\d+\)\n(?:\s*A: .*\n)*?'
+                    r'\s*A: http://schemas\.android\.com/apk/res/android:enabled\(0x0101000e\)=false$')
+        rule = {'path': 'SYSTEM_EXT/priv-app/A/A.apk', 'permissions': ['android.permission.X'],
+                'manifest_regex': [disabled]}
+        for manifest, expected in ((tree('false', 'true'), True),
+                                   # A disabled component does not count for the application.
+                                   (tree('true', 'false'), False)):
+            tools = FakeTools({('aapt2', 'permissions'): "uses-permission: name='android.permission.X'\n",
+                               ('aapt2', 'xmltree'): manifest})
+            v = self.harness({'SYSTEM_EXT/priv-app/A/A.apk': b'apk'}, tools=tools)
+            ok, detail = subject.rule_apk(rule, v)
+            self.assertEqual(expected, ok, detail)
+
     def test_codec2_graphicbuffer_abi_guard(self):
         rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
                 'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],
@@ -775,6 +816,15 @@ class ConfigTests(unittest.TestCase):
         endpoints = json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']
         host = next(e['replacement_host'] for e in endpoints if e['id'] == 'os-updates')
         self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
+
+    def test_esim_manager_ships_off_without_network_and_unplatform_signed(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        apk = rules['esim-lpa-apk']
+        self.assertNotIn('android.permission.INTERNET', apk['permissions'])
+        self.assertIn('android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS', apk['permissions'])
+        self.assertTrue(any('enabled' in pattern and '=false' in pattern for pattern in apk['manifest_regex']))
+        self.assertEqual('SYSTEM/framework/framework-res.apk', apk['not_signed_like'])
+        self.assertEqual({'array/non_removable_euicc_slots': ['1']}, rules['esim-builtin-slot']['arrays'])
 
     def test_record_official_must_be_true_or_false(self):
         root = Path(tempfile.mkdtemp()); self.addCleanup(lambda: __import__('shutil').rmtree(root))

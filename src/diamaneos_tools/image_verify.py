@@ -291,9 +291,10 @@ def aapt2_value(dump: str, name: str) -> str | None:
 
 
 def aapt2_array(dump: str, name: str) -> list[str]:
-    """The quoted string items of an array resource, in order. aapt2 prints the
-    items as indented lines after the ``resource ... array/<name>`` line, each
-    carrying a "quoted" value, up to the next resource entry."""
+    """The items of an array resource, in order, as strings. aapt2 prints the
+    items on indented lines after the ``resource ... array/<name>`` line, up to
+    the next resource entry: "quoted" strings (one or several per line), or
+    integers in brackets (``[1, 2,`` continued on the next lines)."""
     lines = dump.splitlines()
     items: list[str] = []
     for index, line in enumerate(lines):
@@ -301,9 +302,11 @@ def aapt2_array(dump: str, name: str) -> list[str]:
             for following in lines[index + 1:]:
                 if re.search(r'\bresource 0x', following):
                     break
-                match = re.search(r'"((?:[^"\\]|\\.)*)"', following)
-                if match:
-                    items.append(match.group(1))
+                quoted = re.findall(r'"((?:[^"\\]|\\.)*)"', following)
+                if quoted:
+                    items += quoted
+                elif re.fullmatch(r'\s*\[?-?[0-9]+(?:,\s*-?[0-9]+)*,?\s*\]?\s*', following):
+                    items += re.findall(r'-?[0-9]+', following)
             break
     return items
 
@@ -524,6 +527,10 @@ def rule_apk(rule, v):
         requested = sorted(re.findall(r"^uses-permission: name='([^']+)'", dump, re.M))
         if requested != sorted(rule['permissions']):
             problems.append('requests ' + ', '.join(requested))
+        if rule.get('manifest_regex'):
+            tree = v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk])
+            problems += ['manifest does not match ' + pattern for pattern in rule['manifest_regex']
+                         if not re.search(pattern, tree, re.M)]
         if rule.get('not_signed_like'):
             other_dir = directory / 'other'
             other_dir.mkdir()

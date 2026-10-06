@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Image checks and threat model for DiamaneOS's own eSIM manager: the app
+  and its allowlist (`esim-lpa`), its permissions, no network access, the
+  package disabled until eSIM support is turned on and no platform signature
+  (`esim-lpa-apk`, with the new `manifest_regex` field of `apk` checks), the
+  allowlist's two privileged permissions (`esim-lpa-allowlist`) and slot 1 as
+  the built-in eUICC (`esim-builtin-slot`). `overlay` checks now read integer
+  arrays and several strings on one line. The repository map lists
+  DiamaneOS/platform_packages_apps_DiamaneOSEuicc.
 - Stop selecting the stock audio_effects.xml and Qualcomm's four effect
   libraries. The device installs its own effects configuration (AOSP software
   effects, no DSP offload halves) and builds the VoIP pre-processing

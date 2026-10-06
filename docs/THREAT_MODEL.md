@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revision: 2026-10-06 (audio effects, implemented, not yet built: apps' equalizer, bass boost, virtualizer, reverb and visualizer run only in AOSP's software effects; Qualcomm's closed offload effect bundle and visualizer, which received every app's effect parameters, are no longer shipped (-175); its VoIP echo-cancellation and noise-suppression descriptors and its volume listener are built from source); 2026-10-06 (power HAL: it may also write the DDR and L3 memory-bus floors, which it raises during app launches and touch interaction as stock's perf daemon did; implemented, not yet built); 2026-10-06 (privacy hardening, implemented, not yet built: the SoC serial number is root-only with its own SELinux type that no vendor service may read, and a build check lists every domain that may; the thermal HAL runs as system without capabilities; nicmd, which installs the Wi-Fi calling IPsec states for the modem, dumps every IPsec state to remove its own, so it can read the keys of all of them; the UFS storage serial numbers are root-only; the stock Bluetooth HCI implementation no longer logs the Bluetooth address; the unused secure-processor and display colour service grants are gone; neverallows guard the fingerprint HAL's data label; the kernel policy also requires kcore, KGDB, kexec and hibernation off; statements on eSIM, OEM unlocking, the 2G controls, the radio log, debugfs and permissive mode brought up to date); 2026-10-06 (USB-C: the built kernel has the deny-new-USB hook, data can go off while charging continues, no external accessory contacts, and a non-debuggable build would have no USB data until port control is wired up); 2026-10-06 (official builds: DiamaneOS's own build flag adds the Updater fork, which asks DiamaneOS's update server; that server is not live, so every check fails and later checks back off, and a build signed with public test keys never downloads or installs an update; implemented, not yet built); 2026-10-06 (an idle night's network capture: no vendor connection to any third party; integrity lockdown and the camera boosts observed on the phone); 2026-10-05 (camera performance hints: the stock camera's open, close and snapshot hints reach the power HAL as boosts of at most 5 s, ended early when the camera releases them; for this the camera provider is a power HAL client, which SELinux cannot limit to those boosts, so code running in the provider can make any power HAL request: CPU and GPU frequency limits, the scheduler boost, tap-to-wake and uclamp on hint-session threads, with no access to data; the camera streaming modes no longer cap the little cores; implemented, not yet built); 2026-10-05 (kernel lockdown at integrity level instead of confidentiality, owner decision, so Android's per-app CPU time and lmkd's memory-event listener work; kprobes from user space and BPF kernel-memory reads are then limited by SELinux instead: on user builds only init may write kprobe_events and only bpfloader may load BPF programs, on userdebug builds the adb root shell and the tracing tools can place kprobes; IPsec keys are no longer blanked in XFRM state dumps; implemented, not yet built); 2026-10-05 (source and build outputs: a build can be reproduced from the resolved manifest its image set records; its manifest commit must be in the manifest branch's history and the file may choose only project commits; a shallow sync fetches the largest prebuilt projects itself; implemented, not yet used for a build); 2026-10-05 (Log Viewer reports go to the DiamaneOS issue tracker; built and checked on the phone: the power and power stats HALs, the camera seccomp loader, the OpenCL removal; the IMEI tool writes the IMEIs at boot; Bluetooth uses a random persistent address; hardware video: the stock Qualcomm Codec2 service is enabled for the hardware encoders only, decoding stays in the sandboxed software codecs; the stock codec library was built against Android 14, where GraphicBuffer is 256 bytes, so rather than overflow the service heap on Android 17 its GraphicBuffer is replaced by a fail-closed Android 14 sized one, and a build check proves the 256-byte allocations bind the 256-byte object, finding -115; built: camera recording uses the hardware encoder); 2026-10-05 (a power stats HAL of our own reports SoC and remote-processor sleep time from the qcom_stats driver: own user, no capabilities, the only process that may open the driver's node, and only its seven read commands; cellular: 2G protection and LTE-only checked on the phone; camera: the stock camera provider runs under a seccomp filter set up before its main(), so before CamX loads: threads but no child processes, Unix and QRTR sockets only, no writable and executable memory; for now calls outside the list are logged, not blocked; implemented, not yet built); 2026-10-05 (camera: the Adreno OpenCL runtime and compiler, about 34 MB selected only for the camera, and the software chromatic-aberration library that links the runtime are no longer shipped; implemented, not yet built); 2026-10-05 (public-text pass: statuses brought up to date: Bluetooth pairing, music and a headset call work with our own HCI service; calls with audio work through the call-audio bridge, which also holds the call-audio control permission; compressed music is decoded in software; the -153 fix, the debugfs mount refusal, the location logging changes, the vendor patch level and the public build commands are in builds; the IMS evidence states what exists instead of release gates); 2026-10-05 (Qualcomm's closed perf2 daemon, which ran as root with a broad policy, and its client libraries are no longer shipped: LineageOS's open libperfmgr power HAL replaces it and the CodeLinaro power HAL, running as system with CAP_SYS_NICE only in a narrow domain that may write only the CPU and GPU frequency limits it is handed; a no-op perf client ends the camera's perf2 lookups; implemented, not yet built); 2026-10-05 (cellular hardening, source review: the 2G and LTE-only settings reach the modem's network preference, not yet re-checked on the phone; the radio software answers "not supported" to the null-cipher control and predates cellular security notifications, so Settings hides both; Settings offers Android's network-type list instead of the stock list of CDMA world modes, implemented, not yet built); 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
+Revision: 2026-10-06 (eSIM, implemented, not yet built: DiamaneOS's own eSIM manager, off until the user turns on eSIM support, lists, turns on and off, renames and deletes the profiles on the eUICC and erases them on request, through Android's own eUICC card commands; no network access and no downloads; whether the radio daemon opens a channel to the eUICC's management applet is untested; slot 1 is marked as the built-in eUICC); 2026-10-06 (audio effects, implemented, not yet built: apps' equalizer, bass boost, virtualizer, reverb and visualizer run only in AOSP's software effects; Qualcomm's closed offload effect bundle and visualizer, which received every app's effect parameters, are no longer shipped (-175); its VoIP echo-cancellation and noise-suppression descriptors and its volume listener are built from source); 2026-10-06 (power HAL: it may also write the DDR and L3 memory-bus floors, which it raises during app launches and touch interaction as stock's perf daemon did; implemented, not yet built); 2026-10-06 (privacy hardening, implemented, not yet built: the SoC serial number is root-only with its own SELinux type that no vendor service may read, and a build check lists every domain that may; the thermal HAL runs as system without capabilities; nicmd, which installs the Wi-Fi calling IPsec states for the modem, dumps every IPsec state to remove its own, so it can read the keys of all of them; the UFS storage serial numbers are root-only; the stock Bluetooth HCI implementation no longer logs the Bluetooth address; the unused secure-processor and display colour service grants are gone; neverallows guard the fingerprint HAL's data label; the kernel policy also requires kcore, KGDB, kexec and hibernation off; statements on eSIM, OEM unlocking, the 2G controls, the radio log, debugfs and permissive mode brought up to date); 2026-10-06 (USB-C: the built kernel has the deny-new-USB hook, data can go off while charging continues, no external accessory contacts, and a non-debuggable build would have no USB data until port control is wired up); 2026-10-06 (official builds: DiamaneOS's own build flag adds the Updater fork, which asks DiamaneOS's update server; that server is not live, so every check fails and later checks back off, and a build signed with public test keys never downloads or installs an update; implemented, not yet built); 2026-10-06 (an idle night's network capture: no vendor connection to any third party; integrity lockdown and the camera boosts observed on the phone); 2026-10-05 (camera performance hints: the stock camera's open, close and snapshot hints reach the power HAL as boosts of at most 5 s, ended early when the camera releases them; for this the camera provider is a power HAL client, which SELinux cannot limit to those boosts, so code running in the provider can make any power HAL request: CPU and GPU frequency limits, the scheduler boost, tap-to-wake and uclamp on hint-session threads, with no access to data; the camera streaming modes no longer cap the little cores; implemented, not yet built); 2026-10-05 (kernel lockdown at integrity level instead of confidentiality, owner decision, so Android's per-app CPU time and lmkd's memory-event listener work; kprobes from user space and BPF kernel-memory reads are then limited by SELinux instead: on user builds only init may write kprobe_events and only bpfloader may load BPF programs, on userdebug builds the adb root shell and the tracing tools can place kprobes; IPsec keys are no longer blanked in XFRM state dumps; implemented, not yet built); 2026-10-05 (source and build outputs: a build can be reproduced from the resolved manifest its image set records; its manifest commit must be in the manifest branch's history and the file may choose only project commits; a shallow sync fetches the largest prebuilt projects itself; implemented, not yet used for a build); 2026-10-05 (Log Viewer reports go to the DiamaneOS issue tracker; built and checked on the phone: the power and power stats HALs, the camera seccomp loader, the OpenCL removal; the IMEI tool writes the IMEIs at boot; Bluetooth uses a random persistent address; hardware video: the stock Qualcomm Codec2 service is enabled for the hardware encoders only, decoding stays in the sandboxed software codecs; the stock codec library was built against Android 14, where GraphicBuffer is 256 bytes, so rather than overflow the service heap on Android 17 its GraphicBuffer is replaced by a fail-closed Android 14 sized one, and a build check proves the 256-byte allocations bind the 256-byte object, finding -115; built: camera recording uses the hardware encoder); 2026-10-05 (a power stats HAL of our own reports SoC and remote-processor sleep time from the qcom_stats driver: own user, no capabilities, the only process that may open the driver's node, and only its seven read commands; cellular: 2G protection and LTE-only checked on the phone; camera: the stock camera provider runs under a seccomp filter set up before its main(), so before CamX loads: threads but no child processes, Unix and QRTR sockets only, no writable and executable memory; for now calls outside the list are logged, not blocked; implemented, not yet built); 2026-10-05 (camera: the Adreno OpenCL runtime and compiler, about 34 MB selected only for the camera, and the software chromatic-aberration library that links the runtime are no longer shipped; implemented, not yet built); 2026-10-05 (public-text pass: statuses brought up to date: Bluetooth pairing, music and a headset call work with our own HCI service; calls with audio work through the call-audio bridge, which also holds the call-audio control permission; compressed music is decoded in software; the -153 fix, the debugfs mount refusal, the location logging changes, the vendor patch level and the public build commands are in builds; the IMS evidence states what exists instead of release gates); 2026-10-05 (Qualcomm's closed perf2 daemon, which ran as root with a broad policy, and its client libraries are no longer shipped: LineageOS's open libperfmgr power HAL replaces it and the CodeLinaro power HAL, running as system with CAP_SYS_NICE only in a narrow domain that may write only the CPU and GPU frequency limits it is handed; a no-op perf client ends the camera's perf2 lookups; implemented, not yet built); 2026-10-05 (cellular hardening, source review: the 2G and LTE-only settings reach the modem's network preference, not yet re-checked on the phone; the radio software answers "not supported" to the null-cipher control and predates cellular security notifications, so Settings hides both; Settings offers Android's network-type list instead of the stock list of CDMA world modes, implemented, not yet built); 2026-10-05 (the modem's TFTP file server and the protection-domain mapper are the open-source linux-msm tqftpserv and pd-mapper instead of Qualcomm's closed daemons, which started as root: own users, no capabilities, narrow SELinux domains; the file server is our fork with upstream's pending memory and path fixes, deletes only files in its own directory and follows no symbolic links there; its read-write data moves from persist to /data, so a factory reset clears it; Qualcomm's QRTR library stays for its stock users; implemented, not yet built); 2026-10-05 (unused closed vendor entry points: the camera provider no longer declares or registers the offline camera service, the display colour service is no longer installed, our own Bluetooth HCI service replaces the stock one, so its eight unregistered FM, ANT, SAR, config-store and TPI libraries are gone, and the dynamic-sensor (HID) sub-HAL is no longer shipped or loaded; built and checked on the phone: camera, Bluetooth on/off and sensors work, Bluetooth pairing not yet tested); 2026-10-05 (the vendor patch level is read from the stock vendor image and checked in every image set; built and shown in Settings); 2026-10-05 (-170: Wi-Fi joined networks with the hardware MAC address because no Wi-Fi capability overlay was installed; overlay and image check added, randomised address seen on the phone; QRTR: local senders kept off the IMS DCM port, per-client lookup cap, remote DCM records refused, QRTR tunnel device kept out of the kernel; DCM daemon error handling and publication on lookup timeout; in-call TTY, hearing-aid, voice-quality and Bluetooth voice keys limited to their platform owners; entitlement applies every provisioning setting and caps Retry-After; built; IMS calls over cellular and Wi-Fi passed on the phone); 2026-10-04 (source and build outputs: builds follow the DiamaneOS manifest branch and record the resolved manifest, the maintainer verifies GrapheneOS's signed tag when merging a release, and the kernel comes from the published prebuilts); 2026-10-03 (the Colour icon style: keys only for listed system apps, the style setting; the Paper wallpaper service); 2026-10-01 (-153: a vendor-private colour sensor readable without the Sensors permission; fix implemented, not yet built); 2026-10-01 (SELinux triage of the remaining denials, implemented, not yet built); 2026-10-01 (kernel, implemented, not yet built: debugfs no longer mountable, -114; the Wi-Fi platform driver logs no MAC address, -112); 2026-10-01 (location logging, -95: warning-level GNSS engine logs and the serving cell redacted in the radio log, implemented, not yet built); 2026-10-01 (decision and test notes stated as plain facts, review notes shortened; no change in substance); 2026-10-01 (location's own privacy chip; -151 and -152 fixed: a camera or microphone start during a location-only dot and a sensor joining during a chip now show; the system font); 2026-10-01 (trimmed to the current state); 2026-10-01 (contradictions resolved with current facts; statuses updated from the 2026-09-26 and 2026-09-27 phone tests); 2026-10-01 (shortened; revision history and IMS integration notes moved to [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md), Tally shell rules to [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md); no change in substance); 2026-09-30 (public build commands: what they enforce and their limits); 2026-09-30 (rewritten for readability; no change in substance). Earlier revisions: [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or Fairphone.
 
@@ -139,8 +139,8 @@ installer and explicitly authorized shell installs; a debuggable-only override i
 not a production allowance. OEM signatures alone therefore do not permit ordinary
 apps to install these updates. The first-party catalog uses GrapheneOS's update
 sources; production signing and locked verified boot do not exist, and development
-test keys are public. eSIM profile management is not available; an inactive LPA
-is omitted.
+test keys are public. eSIM profiles are managed by DiamaneOS's own LPA, off by
+default (implemented, not yet built); no stock LPA is shipped.
 The [IMS integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) preserve
 historical evidence without making it acceptance of this later source cut.
 
@@ -251,7 +251,7 @@ entry point), the protections in current builds, what remains, and the status.
 | Cellular | [SMS, SIM applets, broadcast alerts, carrier configuration](#sms-sim-applets-broadcast-alerts-carrier-configuration) | Accepted limitation (inherited) |
 | Cellular | [Application processor and user data](#application-processor-and-user-data) | Bring-up (not qualified) |
 | Cellular | [Telephony control and subscriber data](#telephony-control-and-subscriber-data) | Bring-up (not qualified) |
-| Cellular | [eSIM profiles and download sessions](#esim-profiles-and-download-sessions) | Bring-up (not qualified) |
+| Cellular | [eSIM profiles](#esim-profiles) | Bring-up (not qualified) |
 | Cellular | [Radio-off expectation, location privacy](#radio-off-expectation-location-privacy) | Bring-up (not qualified) |
 | Location | [Location history](#location-history) | Bring-up (not qualified) |
 | Apps | [App and user data](#app-and-user-data) | Bring-up (not qualified) |
@@ -293,8 +293,8 @@ entry point), the protections in current builds, what remains, and the status.
   captive-portal and DNS checks, HTTPS time, the CT list, key and DRM
   provisioning, app and browser updates, OS update checks (official builds),
   network location and geocoding (when on), Auditor remote verification and
-  sample submission (opt-in), and phone-side eSIM (SM-DP+/SM-DS) and carrier
-  entitlement connections.
+  sample submission (opt-in), and carrier entitlement connections. The eSIM
+  manager makes no connections (no eSIM downloads).
 - **Protection:** no telemetry or GMS; since the 2026-09-26 build, the build
   properties keep Fairphone's stock product identity (brand, product, device,
   model), as GrapheneOS keeps Google's.
@@ -491,7 +491,11 @@ entry point), the protections in current builds, what remains, and the status.
   holds the normal audio-settings permission and DiamaneOS's platform-owned
   call-audio control permission (no audio-routing or capture permission, no
   network); its domain reaches only the radio daemon's call-audio service and the
-  audio server.
+  audio server. The eSIM manager holds two privileged permissions (embedded
+  subscription control and privileged phone state, exact allowlist), no
+  network access, runs in the platform's privileged-app domain and is bound
+  only by the phone process; the phone process takes eUICC card commands only
+  from the active LPA.
 - **Remaining:** closed code parses untrusted input; the update path of
   presigned vendor apps is not locked; enforcing since the 2026-09-26 build
   (both SIMs in service), not qualified per subsystem.
@@ -500,21 +504,44 @@ entry point), the protections in current builds, what remains, and the status.
   on development builds (last on the 2026-10-05 build). Unverified: telephony
   bring-up (FP6-044), enforcing runs (no owning task yet).
 
-#### eSIM profiles and download sessions
+#### eSIM profiles
 
-- **Threat:** TLS interceptor, thief or examiner after reset, or coercer, via
-  LPA connections to eSIM servers and profiles retained in the eUICC.
-- **Protection:** installed profiles work as SIMs without an LPA (GrapheneOS
-  baseline). The stock Qualcomm LPA, which could not list profiles on the FP6
-  (the stock radio daemon cannot decode the modem's reply), is not shipped, nor
-  its libraries and grants (an image check keeps them out). OpenEUICC is not
-  included (GrapheneOS os-issue-tracker #6275 and #2631). GSMA SGP.22 mutual
-  authentication.
-- **Remaining:** without an LPA, Android treats an eSIM as a physical SIM:
-  none can be added, switched or deleted from Android, and factory reset and
-  duress cannot reach the eUICC.
-- **Status:** Bring-up (not qualified): the stock LPA could not list
-  profiles (phone test 2026-09-27) and is no longer shipped.
+- **Threat:** thief or examiner after reset, coercer, or a malicious app or
+  compromised modem, via profiles retained in the eUICC and the LPA's card
+  access.
+- **Protection:**
+  - Installed profiles work as SIMs with or without an LPA (GrapheneOS
+    baseline).
+  - DiamaneOS's own eSIM manager (Apache-2.0, Kotlin, no native code) ships
+    disabled. Settings > Network & internet > eSIM support enables it and
+    restarts the phone, as GrapheneOS does for Google's LPA.
+  - When on, it lists, turns on and off, renames and deletes profiles and
+    erases them when Android asks. The card commands are Android's own
+    (EuiccCardController over the radio's logical channels). Every change is
+    confirmed on its screen, which ignores taps while another app covers it.
+  - No network access, no downloads, no analytics, no user data stored; it
+    never logs the EID, ICCIDs or IMSIs.
+  - Android marks slot 1 as the built-in eUICC (stock leaves this unset).
+  - No stock Qualcomm LPA, its libraries or grants (image check). OpenEUICC is
+    not included (GrapheneOS os-issue-tracker #6275 and #2631).
+- **Remaining:**
+  - Whether the radio daemon opens a logical channel to the eUICC's
+    management applet (ISD-R) is untested; without it the manager can neither
+    list nor change profiles.
+  - New eSIMs cannot be added (no downloads).
+  - Turning off or deleting a profile does not notify the carrier: the
+    eUICC keeps those notifications queued, and a carrier may not release a
+    deleted profile.
+  - A factory reset keeps profiles: Android asks the LPA to erase them only on
+    an installation that has downloaded a profile. Duress erases the profiles
+    through the framework directly, without the LPA (inherited, untested on
+    the FP6).
+  - Android's eUICC code logs the EID on debuggable builds and on some card
+    error paths on all builds; the manager checks the slot first to keep
+    those paths rare (-176).
+- **Status:** Bring-up (not qualified): implemented, not yet built; host unit
+  tests pass. Unverified on the phone: the switch, the profile list, the
+  ISD-R channel, eSIM erase (FP6-089).
 
 #### Radio-off expectation, location privacy
 
@@ -925,8 +952,9 @@ entry point), the protections in current builds, what remains, and the status.
   buttons.
 - **Protection:** duress credential and wipe (inherited).
 - **Remaining:** duress key destruction relies on TEE key deletion and flash
-  erase, not a secure element; eSIM erase depends on the LPA; eSIM profiles may
-  survive.
+  erase, not a secure element; duress erases eSIM profiles through the
+  framework, which needs the radio's channel to the eUICC (untested); eSIM
+  profiles may survive.
 - **Status:** Bring-up (not qualified): inherited code present, untested on the
   FP6. Unverified: duress test with synthetic data (FP6-046), eSIM erase
   (FP6-089).
@@ -1444,10 +1472,11 @@ Decisions that define current behaviour:
 
 - **2G (2026-09-25):** 2G stays allowed by default (AOSP/GrapheneOS default);
   "2G network protection" and LTE-only are offered as opt-in hardening.
-- **eSIM (2026-09-27, 2026-10-04):** OpenEUICC is not used (GrapheneOS
-  os-issue-tracker #6275 and #2631). The stock LPA cannot list profiles on the
-  FP6, so it is not shipped; eSIM follows GrapheneOS (installed profiles keep
-  working).
+- **eSIM (2026-09-27, 2026-10-04, 2026-10-06):** OpenEUICC is not used
+  (GrapheneOS os-issue-tracker #6275 and #2631). The stock LPA cannot list
+  profiles on the FP6, so it is not shipped. DiamaneOS's own LPA sits behind
+  GrapheneOS's eSIM support switch, off by default; installed profiles keep
+  working either way.
 - **Build identity (2026-09-26):** build properties and fingerprint keep
   Fairphone's stock product identity, as GrapheneOS keeps Google's, after Google
   blocked the DiamaneOS-branded identity as an uncertified device; DiamaneOS
@@ -1549,6 +1578,8 @@ BFU, USB, EDL and lock screen, duress). Device-dependent claims stay unverified 
   over Wi-Fi; **DCM** broker and daemon: the source-built service that brings up
   IMS data connections (Android-side app, vendor-side service).
 - **eUICC / LPA:** the eSIM chip / the app that manages its profiles.
+- **ISD-R:** the eUICC's management applet, which the LPA's card commands
+  address.
 - **SUPL, PSDS, XTRA:** GNSS assistance from a network server, predicted
   satellite data, Qualcomm's assistance service.
 - **EDL:** Qualcomm's low-level flashing mode, needing a signed programmer.
