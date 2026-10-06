@@ -11,15 +11,15 @@ rules](THREAT_MODEL.md#how-this-document-is-maintained).
 
 ## Lock screen and biometric prompt
 
-- The bouncer's window, state machine, input handling and the system keyboard
-  stay upstream. Its look changes only through resources and visual-only code
-  behind the Tally flag, each change with two reviewers, and that code only
-  draws: key shape and corner radius, digit and message typeface, password field
-  and button styling (including the field's fade while entry is off).
-- Input, keyboard, key order, GrapheneOS's PIN scrambling, lockout, throttling,
-  the duress and wipe counters, and protection from screenshots and screen
-  recording stay GrapheneOS's. No custom keyboard or show-passphrase key without
-  a reviewed decision.
+- The bouncer's window, state machine, input handling, system keyboard, key
+  order, GrapheneOS's PIN scrambling, lockout, throttling, the duress and wipe
+  counters, and protection from screenshots and screen recording stay
+  GrapheneOS's. No custom keyboard or show-passphrase key without a reviewed
+  decision.
+- The bouncer's look changes only through resources and visual-only code
+  behind the Tally flag, and that code only draws: key shape and corner radius,
+  digit and message typeface, password field and button styling (including the
+  field's fade while entry is off).
 - The biometric prompt keeps the credential fallback, confirm-required, cancel
   on back and outside tap, and obscured-touch protection. The power menu keeps
   Lockdown and its lock-screen filtering. The lock-screen camera key opens only
@@ -29,12 +29,15 @@ rules](THREAT_MODEL.md#how-this-document-is-maintained).
 
 ## Transitions
 
-Tested at animation scales 1x and 0.5x: while locked or with an app over the
-lock screen, back and close lead only to the lock screen, never Home or an app
-snapshot (tested from the secure camera and a ringing alarm); the shell's input
-consumer takes the catch gesture, so touches never reach an animating app;
-permission-grant, restricted-setting, package-installer, USB, biometric and
-bouncer windows keep stock or shorter enter animations.
+Tested at animation scales 1x and 0.5x:
+
+- While locked or with an app over the lock screen, back and close lead only to
+  the lock screen, never Home or an app snapshot (tested from the secure camera
+  and a ringing alarm).
+- The shell's input consumer takes the catch gesture, so touches never reach an
+  animating app.
+- Permission-grant, restricted-setting, package-installer, USB, biometric and
+  bouncer windows keep stock or shorter enter animations.
 
 ## Quick Settings and the shade
 
@@ -60,34 +63,38 @@ bouncer windows keep stock or shorter enter animations.
 
 - SystemUI tells only the current user's recents app, checked by uid, which apps
   the Active apps dialog would let the user stop (package and user, current user
-  and its profiles, in memory only); Launcher3 gets no new permission. Every
-  Stop re-runs the dialog's checks at that moment: lock screen dismissed,
+  and its profiles, in memory only); Launcher3 gets no new permission.
+- Every Stop re-runs the dialog's checks at that moment: lock screen dismissed,
   foreground service running, user in the current profiles, and no platform
   exemption hiding the dialog's Stop button (system uid, system allow-list,
   device and profile owners, protected and device-admin packages, persistent
   processes, default dialer, system modules; the platform's list of stoppable
   system apps is the exception). Only then does SystemUI ask the platform to
-  stop the app, as the dialog does. The two new SystemUI-proxy methods accept
-  calls only from the recents app's uid in the current user and do nothing with
-  the Tally flag off.
+  stop the app, as the dialog does.
+- The two new SystemUI-proxy methods accept calls only from the recents app's
+  uid in the current user and do nothing with the Tally flag off.
 - Launcher3 sets SystemUI's listener only while Recents is open and removes it
   on close, keeps the list in memory only, offers Stop only for a card the user
   swiped away, named by that card's own task (package and user), and never stops
   an app itself; its manifests, permissions and privileged-app allow-list stay
   upstream. The Stop key and row refuse touches through another window over them
   and ignore taps within 0.5 s of the row appearing or changing.
-- Limits: SystemUI cannot tell whether, or on which app, the user tapped Stop
-  and trusts the recents app for that. The recents app can already stop apps in
-  its own user with its own permission; through SystemUI it can also stop
-  dialog-stoppable apps in the current user's work profile or private space, and
-  learns which run a foreground service. An app with two exemption reasons (for
-  example a carrier-privileged device admin) can get a Stop button, in the
-  dialog and Recents alike. Stop sits in the launcher's window, where app
-  overlays can cover it; a window over another part of the launcher
-  (picture-in-picture, a chat bubble) does not block a tap on it, since refusing
-  those would break Stop whenever one shows. The listener binder is not
-  caller-checked (like Launcher's other SystemUI listeners), but a forged list
-  only decides which swiped apps get a row, and SystemUI re-checks every Stop.
+- Limits:
+  - SystemUI cannot tell whether, or on which app, the user tapped Stop and
+    trusts the recents app for that.
+  - The recents app can already stop apps in its own user with its own
+    permission; through SystemUI it can also stop dialog-stoppable apps in the
+    current user's work profile or private space, and learns which run a
+    foreground service.
+  - An app with two exemption reasons (for example a carrier-privileged device
+    admin) can get a Stop button, in the dialog and Recents alike.
+  - Stop sits in the launcher's window, where app overlays can cover it; a
+    window over another part of the launcher (picture-in-picture, a chat
+    bubble) does not block a tap on it, since refusing those would break Stop
+    whenever one shows.
+  - The listener binder is not caller-checked (like Launcher's other SystemUI
+    listeners), but a forged list only decides which swiped apps get a row, and
+    SystemUI re-checks every Stop.
 
 ## Settings switches
 
@@ -193,15 +200,14 @@ DiamaneOS's own (the original authors stay in the fork's history); targetSdk 37.
   services, public intent API, widgets, notifications), not every UI line; four
   imported commits are marked tool-assisted (notification styling, a channel ID,
   the promoted-notification permission, icons; no security effect).
-- A security review of the forks found two issues, both fixed in a later
-  2026-09-30 test build: -148 (medium): the fork treated audio modes that any
-  app with the normal MODIFY_AUDIO_SETTINGS can set as a phone call, so another
-  app could stop a ringing alarm or turn alarms and timers down to the in-call
-  tone; now only modes needing MODIFY_PHONE_STATE count, so a call that only
-  rings no longer silences an alarm. -149: the alarms database moved from
-  version 8 to 12, which GrapheneOS's Clock cannot open again, so going back
-  would silently stop alarms; it now stays at version 8, and earlier builds'
-  databases go back to it with their alarms.
+- Fixed review findings:
+  - -148 (medium): only audio modes needing MODIFY_PHONE_STATE count as a phone
+    call. Modes any app with the normal MODIFY_AUDIO_SETTINGS can set do not, so
+    another app cannot stop a ringing alarm or turn alarms and timers down to
+    the in-call tone, and a call that only rings does not silence an alarm.
+  - -149: the alarms database stays at version 8. Version 12, which
+    GrapheneOS's Clock cannot open, would make going back silently stop alarms;
+    earlier builds' databases go back to version 8 with their alarms.
 
 ## Calculator
 
