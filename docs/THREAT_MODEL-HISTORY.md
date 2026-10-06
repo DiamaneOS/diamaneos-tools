@@ -489,7 +489,7 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
 ## IMS integration notes
 
 These notes record how the IMS containment evolved. The current state is in [IMS
-status](THREAT_MODEL.md#ims-status-2026-09-28).
+status](THREAT_MODEL.md#ims-development-evidence).
 
 ### Candidate update (2026-09-27)
 

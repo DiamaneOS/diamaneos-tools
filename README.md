@@ -57,12 +57,19 @@ all` ([BUILDING.md](docs/BUILDING.md)).
 - [Testing and command setup](docs/TESTING.md)
 - [FP6 firmware inventory](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
+- [FP6 kernel build and capability contract](docs/FP6-KERNEL.md)
+- [Reconstruct FP6 development build inputs](docs/FP6-PREPARATION.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Endpoint contracts](docs/ENDPOINTS.md)
+- [Signing roles and offline release boundary](docs/SIGNING.md)
+- [Carrier configuration and modem-backed Wi-Fi calling](docs/CARRIER-INTEGRATION.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Repository map](config/repositories.json): checkout discovery and lifecycle
   state only, not a release lock; the consuming build or release manifest
   records exact multi-repository build inputs.
 - [Verified stock recovery inputs](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
+- [Tally shell rules](docs/THREAT_MODEL-TALLY.md)
 - Interface design and branding sources are not public.
 
 Only implemented commands can be run; the component contracts identify
