@@ -255,6 +255,25 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AServiceManager_addService']}, v)[0])
         self.assertFalse(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AIBinder_new']}, v)[0])
 
+    def test_overlay_array_membership(self):
+        dump = ('Package name=x\n'
+                '    resource 0x7f030000 array/config_highRefreshRateBlacklist\n'
+                '      () (no config)\n'
+                '        (string8) "app.grapheneos.camera"\n'
+                '        (string8) "com.example.other"\n'
+                '    resource 0x7f040000 string/decoy\n'
+                '      () "app.grapheneos.absent"\n')
+        self.assertEqual(subject.aapt2_array(dump, 'array/config_highRefreshRateBlacklist'),
+                         ['app.grapheneos.camera', 'com.example.other'])
+        v = self.harness({'VENDOR/overlay/o.apk': b'apk'},
+                         tools=FakeTools({('aapt2', 'resources'): dump}))
+        rule = lambda items: subject.rule_overlay(
+            {'apk': 'VENDOR/overlay/o.apk',
+             'arrays': {'array/config_highRefreshRateBlacklist': items}}, v)[0]
+        self.assertTrue(rule(['app.grapheneos.camera']))
+        # A value that only appears under a different resource is not a match.
+        self.assertFalse(rule(['app.grapheneos.absent']))
+
     def test_codec2_graphicbuffer_abi_guard(self):
         rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
                 'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],

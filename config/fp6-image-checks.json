@@ -99,6 +99,26 @@
       ]
     },
     {
+      "id": "camera-refresh-cap",
+      "why": "The panel is pinned to 60 Hz while the camera previews: the GPU-composed 4:3 preview overruns the composite deadline at a higher refresh and janks. Done with the high-refresh denylist, the only knob that caps the physical mode.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "arrays": {
+        "array/config_highRefreshRateBlacklist": [
+          "app.grapheneos.camera"
+        ]
+      }
+    },
+    {
+      "id": "camera-ubwc-preview",
+      "why": "The camera preview is allocated UBWC so the display can compose it (16:9 within the 1088-line inline-rotation limit); without this every preview frame is composed on the GPU.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "persist.vendor.camera.outputFormat=1"
+      ]
+    },
+    {
       "id": "audio-stack",
       "why": "Stock audio user space with the AOSP service and adapters; no placeholder HAL.",
       "type": "files_present",

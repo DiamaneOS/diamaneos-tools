@@ -290,6 +290,24 @@ def aapt2_value(dump: str, name: str) -> str | None:
     return None
 
 
+def aapt2_array(dump: str, name: str) -> list[str]:
+    """The quoted string items of an array resource, in order. aapt2 prints the
+    items as indented lines after the ``resource ... array/<name>`` line, each
+    carrying a "quoted" value, up to the next resource entry."""
+    lines = dump.splitlines()
+    items: list[str] = []
+    for index, line in enumerate(lines):
+        if line.rstrip().endswith(' ' + name):
+            for following in lines[index + 1:]:
+                if re.search(r'\bresource 0x', following):
+                    break
+                match = re.search(r'"((?:[^"\\]|\\.)*)"', following)
+                if match:
+                    items.append(match.group(1))
+            break
+    return items
+
+
 # --------------------------------------------------------- rule engine
 
 def property_lines(data: bytes) -> list[tuple[str, str]]:
@@ -414,6 +432,11 @@ def rule_overlay(rule, v):
         dump = v.tools.run('aapt2', ['dump', 'resources', apk])
         problems = [f'{name} is {aapt2_value(dump, name)!r} (want {want!r})'
                     for name, want in sorted(rule.get('values', {}).items()) if aapt2_value(dump, name) != want]
+        for name, wanted in sorted(rule.get('arrays', {}).items()):
+            have = aapt2_array(dump, name)
+            missing = [item for item in wanted if item not in have]
+            if missing:
+                problems.append(f'{name} is missing {missing} (has {have})')
         if rule.get('target'):
             manifest = v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk])
             if f'"{rule["target"]}"' not in manifest:
