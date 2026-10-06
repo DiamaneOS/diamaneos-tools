@@ -819,6 +819,104 @@
       ]
     },
     {
+      "id": "boot-hal-own-user",
+      "why": "init starts the boot control HAL as its own user with CAP_SYS_RAWIO only (the UFS BSG ioctl that switches the boot LUN needs it); stock runs it as root with every capability.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/android.hardware.boot-service.qti.rc"
+      ],
+      "regex": [
+        "^service vendor\\.boot-qti /vendor/bin/hw/android\\.hardware\\.boot-service\\.qti\\n    class early_hal\\n    user vendor_bootctl\\n    group vendor_bootctl\\n    capabilities SYS_RAWIO\\n"
+      ],
+      "absent_regex": [
+        "^\\s+(user|group)\\s.*\\b(root|system)\\b"
+      ]
+    },
+    {
+      "id": "boot-hal-users",
+      "why": "The boot control HAL has its own vendor user and group.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/passwd",
+        "VENDOR/etc/group"
+      ],
+      "regex": [
+        "^vendor_bootctl:[^:]*:2996:"
+      ]
+    },
+    {
+      "id": "boot-hal-nodes",
+      "why": "ueventd gives the boot control HAL's group the GPT disks of the A/B LUNs (sdb: xbl_a, sdc: xbl_b, sde: the rest), misc and the UFS BSG node; the other LUNs, userdata's among them, keep the root-only default.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/block/sdb\\s+0660\\s+root\\s+vendor_bootctl\\s*$",
+        "^/dev/block/sdc\\s+0660\\s+root\\s+vendor_bootctl\\s*$",
+        "^/dev/block/sde\\s+0660\\s+root\\s+vendor_bootctl\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/misc\\s+0660\\s+root\\s+vendor_bootctl\\s*$",
+        "^/dev/ufs-bsg\\*\\s+0660\\s+root\\s+vendor_bootctl\\s*$"
+      ],
+      "absent_regex": [
+        "^/dev/block/sd[adf]\\s",
+        "^/dev/block/sd[a-z]?\\*"
+      ]
+    },
+    {
+      "id": "eud-enable-label",
+      "why": "The switch that turns Qualcomm's embedded USB debugger on has its own type instead of the generic sysfs label, which vold, the USB HAL and vfio_handler may write.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "lines": [
+        "(genfscon sysfs \"/module/eud/parameters/enable\" (u object_r vendor_sysfs_eud_enable ((s0) (s0))))"
+      ],
+      "absent_regex": [
+        "^\\(allow \\S+ vendor_sysfs_eud_enable \\(file \\([^)]*\\b(write|append)\\b"
+      ]
+    },
+    {
+      "id": "eud-enable-writers",
+      "why": "Only the platform's sysfs-wide writers, ueventd and vendor_init, may write the EUD switch; they act only on the reviewed ueventd and init files (eud-stays-off).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_sysfs_eud_enable",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "eud-stays-off",
+      "why": "No init file writes 1 to the EUD switch and no module options turn it on (the bootconfig check also refuses eud.enable on the command line).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/**",
+        "ODM/etc/init/**",
+        "VENDOR/lib/modules/*.options",
+        "VENDOR_DLKM/lib/modules/*.options"
+      ],
+      "optional": true,
+      "absent_regex": [
+        "eud/parameters/enable\\s+1",
+        "^\\s*options\\s+eud\\s.*\\benable=1"
+      ]
+    },
+    {
       "id": "keymaster-messages-on-odm",
       "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path.",
       "type": "files_present",
@@ -1801,6 +1899,18 @@
       ]
     },
     {
+      "id": "gralloc-no-libubwcp",
+      "why": "UBWC-P support is compiled out of the source-built gralloc, so it does not load libubwcp: every process that maps buffers would otherwise try, and outside the vendor HALs log a denial.",
+      "type": "text",
+      "files": [
+        "VENDOR/lib64/libgrallocutils.so",
+        "VENDOR/lib64/libgralloccore.so"
+      ],
+      "absent": [
+        "libubwcp.so"
+      ]
+    },
+    {
       "id": "bluetooth-own-service",
       "why": "Our Bluetooth service registers the stock HCI implementation; init starts it in the Bluetooth HAL domain.",
       "type": "files_present",
@@ -1887,6 +1997,19 @@
       ],
       "absent_regex": [
         "^\\s*(execve|execveat|ptrace|process_vm_writev|clone3|vfork|fork)\\s*:"
+      ]
+    },
+    {
+      "id": "no-bluetooth-value-add-contexts",
+      "why": "No hwservice context maps the ANT, ANT HCI or Bluetooth SAR interfaces, whose libraries are gone, to the Bluetooth HAL's label; unmapped, nobody may register them.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_hwservice_contexts"
+      ],
+      "absent": [
+        "com.dsi.ant::IAnt",
+        "com.qualcomm.qti.ant::IAntHci",
+        "vendor.qti.hardware.bluetooth_sar::IBluetoothSar"
       ]
     },
     {

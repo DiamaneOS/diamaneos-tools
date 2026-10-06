@@ -82,14 +82,17 @@
       "init_boot",
       "recovery"
     ],
-    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level; the versions live in the AVB properties, as on stock. The device configuration asks mkbootimg for zeros; the Android release tools that rebuild the images from target-files must keep them."
+    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level; the versions live in the AVB properties, as on stock. The device configuration asks mkbootimg for zeros; the Android release tools that rebuild the images from target-files must keep them.",
+    "hashtree_algorithm": "sha256",
+    "hashtree_reason": "Every logical partition's dm-verity hash tree uses SHA-256, as on stock; avbtool still defaults to SHA-1, so the device configuration asks for SHA-256."
   },
   "bootconfig": {
     "required": [
       "androidboot.hardware=qcom"
     ],
     "forbidden_keys": [
-      "androidboot.selinux"
+      "androidboot.selinux",
+      "eud.enable"
     ]
   },
   "wipe": {

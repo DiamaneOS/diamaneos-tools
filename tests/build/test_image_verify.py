@@ -216,6 +216,64 @@ class RuleTests(unittest.TestCase):
         for rule_id in ('soc-serial-root-only', 'thermal-hal-as-system', 'soc-serial-label', 'ufs-serial-root-only'):
             self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
 
+    def test_boot_hal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc = (b'# Runs as its own user with CAP_SYS_RAWIO only.\n'
+              b'service vendor.boot-qti /vendor/bin/hw/android.hardware.boot-service.qti\n'
+              b'    class early_hal\n    user vendor_bootctl\n    group vendor_bootctl\n    capabilities SYS_RAWIO\n')
+        ueventd = (b'/dev/block/sdb            0660   root       vendor_bootctl\n'
+                   b'/dev/block/sdc            0660   root       vendor_bootctl\n'
+                   b'/dev/block/sde            0660   root       vendor_bootctl\n'
+                   b'/dev/block/platform/soc/1d84000.ufshc/by-name/misc   0660   root   vendor_bootctl\n'
+                   b'/dev/ufs-bsg*             0660   root       vendor_bootctl\n')
+        good = {'VENDOR/etc/init/android.hardware.boot-service.qti.rc': rc, 'VENDOR/etc/ueventd.rc': ueventd,
+                'VENDOR/etc/passwd': b'vendor_bootctl::2996:2996::/:\n', 'VENDOR/etc/group': b'vendor_bootctl::2996:\n'}
+        for rule_id in ('boot-hal-own-user', 'boot-hal-users', 'boot-hal-nodes'):
+            self.assertTrue(subject.rule_text(rules[rule_id], self.harness(good))[0], rule_id)
+        for rule_id, name, data in (
+                ('boot-hal-own-user', 'VENDOR/etc/init/android.hardware.boot-service.qti.rc',
+                 rc.replace(b'user vendor_bootctl', b'user root')),
+                ('boot-hal-own-user', 'VENDOR/etc/init/android.hardware.boot-service.qti.rc',
+                 rc.replace(b'    capabilities SYS_RAWIO\n', b'')),
+                ('boot-hal-nodes', 'VENDOR/etc/ueventd.rc', ueventd + b'/dev/block/sda            0660   root   vendor_bootctl\n'),
+                ('boot-hal-nodes', 'VENDOR/etc/ueventd.rc', ueventd.replace(b'/dev/block/sde ', b'/dev/block/sdf ')),
+                ('boot-hal-users', 'VENDOR/etc/group', b'vendor_other::2996:\n')):
+            self.assertFalse(subject.rule_text(rules[rule_id], self.harness(dict(good, **{name: data})))[0], rule_id)
+
+    def test_eud_bluetooth_contexts_and_gralloc_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        cil = b'(genfscon sysfs "/module/eud/parameters/enable" (u object_r vendor_sysfs_eud_enable ((s0) (s0))))\n'
+        v = self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil': cil,
+                          'VENDOR/etc/init/init.qcom.rc': b'on boot\n    write /sys/module/x/parameters/y 1\n',
+                          'VENDOR/etc/selinux/vendor_hwservice_contexts':
+                              b'vendor.qti.hardware.fm::IFmHci u:object_r:vendor_hal_fm_hwservice:s0\n',
+                          'VENDOR/lib64/libgrallocutils.so': b'\x7fELF qdgralloc',
+                          'VENDOR/lib64/libgralloccore.so': b'\x7fELF qdgralloc'})
+        for rule_id in ('eud-enable-label', 'eud-stays-off', 'no-bluetooth-value-add-contexts', 'gralloc-no-libubwcp'):
+            self.assertTrue(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        v = self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil':
+                              cil + b'(allow vendor_hal_usb_qti vendor_sysfs_eud_enable (file (open write)))\n',
+                          'VENDOR/etc/init/init.qcom.rc': b'on boot\n    write /sys/module/eud/parameters/enable 1\n',
+                          'VENDOR/etc/selinux/vendor_hwservice_contexts':
+                              b'com.dsi.ant::IAnt u:object_r:hal_bluetooth_hwservice:s0\n',
+                          'VENDOR/lib64/libgrallocutils.so': b'\x7fELF libubwcp.so\x00',
+                          'VENDOR/lib64/libgralloccore.so': b'\x7fELF'})
+        for rule_id in ('eud-enable-label', 'eud-stays-off', 'no-bluetooth-value-add-contexts', 'gralloc-no-libubwcp'):
+            self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        self.assertFalse(subject.rule_text(rules['eud-stays-off'], self.harness(
+            {'VENDOR_DLKM/lib/modules/modules.options': b'options eud enable=1\n'}))[0])
+        plat = (b'(type ueventd)\n(type vendor_init)\n(type vold)\n(type sysfs)\n'
+                b'(typeattributeset sysfs_type (sysfs))\n'
+                b'(allow ueventd sysfs_type (file (open write)))\n(allow vendor_init sysfs_type (file (write)))\n'
+                b'(allow vold sysfs (file (open write)))\n')
+        vendor = b'(type vendor_sysfs_eud_enable)\n(typeattributeset sysfs_type (vendor_sysfs_eud_enable))\n'
+        writers = rules['eud-enable-writers']
+        policy = {name: b'' for name in writers['files'] if '*' not in name}
+        policy.update({'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor})
+        self.assertTrue(subject.rule_sepolicy_sources(writers, self.harness(policy))[0])
+        policy['VENDOR/etc/selinux/vendor_sepolicy.cil'] = vendor + b'(allow vold vendor_sysfs_eud_enable (file (write)))\n'
+        self.assertFalse(subject.rule_sepolicy_sources(writers, self.harness(policy))[0])
+
     def test_adb_network_and_display_colour_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
@@ -518,6 +576,18 @@ class ParserTests(unittest.TestCase):
                 '      Rollback Index Location: 1\n      Flags:                   0\n')
         self.assertEqual({'boot': (3, 0), 'recovery': (1, 0)}, subject.avb_chains(info))
 
+    def test_avb_hashtree_algorithms(self):
+        def tree(name, algorithm):
+            return ('    Hashtree descriptor:\n      Version of dm-verity:  1\n      Image Size:            4096 bytes\n'
+                    f'      Hash Algorithm:        {algorithm}\n      Partition Name:        {name}\n'
+                    '      Salt:                  00\n      Root Digest:           00\n      Flags:                 0\n')
+        info = ('Descriptors:\n    Chain Partition descriptor:\n      Partition Name:          boot\n'
+                '      Rollback Index Location: 3\n      Flags:                   0\n'
+                "    Prop: com.android.build.vendor.os_version -> '17'\n"
+                '    Hash descriptor:\n      Hash Algorithm:        sha256\n      Partition Name:        dtbo\n'
+                + tree('vendor', 'sha1') + tree('odm', 'sha256'))
+        self.assertEqual({'vendor': 'sha1', 'odm': 'sha256'}, subject.avb_hashtrees(info))
+
     def test_sparse_expansion(self):
         block = 4096
         body = b'A' * block
@@ -587,6 +657,37 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('release tools', detail)
 
+
+    def test_avb_check_requires_sha256_hashtrees(self):
+        def tree(name, algorithm):
+            return (f'    Hashtree descriptor:\n      Hash Algorithm:        {algorithm}\n'
+                    f'      Partition Name:        {name}\n')
+        chains = ''.join(f'    Chain Partition descriptor:\n      Partition Name:          {name}\n'
+                         f'      Rollback Index Location: {location}\n      Flags:                   0\n'
+                         for name, location in (('recovery', 1), ('vbmeta_system', 2), ('boot', 3), ('init_boot', 4)))
+        system = ['system', 'system_ext', 'product']
+
+        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm')):
+            def avbtool(args):
+                if args[0] == 'verify_image':
+                    return ''
+                if str(args[-1]).endswith('vbmeta_system.img'):
+                    return ('    Hash descriptor:\n      Partition Name:        pvmfw\n'
+                            + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in system))
+                return chains + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in vendor)
+            return FakeTools({('avbtool',): avbtool})
+
+        def check(tools):
+            v = self.harness({}, tools=tools)
+            v.src = self.root
+            return subject.check_avb(v)
+        self.assertEqual((True, ''), check(outputs({})))
+        ok, detail = check(outputs({'vendor': 'sha1'}))
+        self.assertFalse(ok)
+        self.assertIn('vendor (sha1)', detail)
+        ok, detail = check(outputs({}, vendor=('vendor', 'odm', 'vendor_dlkm')))
+        self.assertFalse(ok)
+        self.assertIn('hashtrees for', detail)
 
     def test_kernel_binding(self):
         kernel = self.root / 'kernel'

@@ -39,7 +39,7 @@
       "archive": "FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
       "archive_size_bytes": 3761633302,
       "archive_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
-      "archive_hash_source": "Two complete local reads of the official download on 2026-09-30. Fairphone had not yet published a SHA-256 for this package; the download matched the MD5 in the official host's object metadata, the full ZIP CRC passed and all 76 embedded declared hashes matched.",
+      "archive_hash_source": "Two complete local reads of the official download on 2026-09-30: the download matched the MD5 in the official host's object metadata, the full ZIP CRC passed and all 76 embedded declared hashes matched. Fairphone's manual-install article (updated 2026-10-02, checked 2026-10-06) publishes the same SHA-256.",
       "previous_build": "FP6.QREL.16.100.0",
       "previous_archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
       "installed_observation": "Not yet installed on the phone. The phone runs FP6.QREL.16.100.0, observed as Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build.",
