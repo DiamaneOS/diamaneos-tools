@@ -321,12 +321,15 @@ entry point), the protections in current builds, what remains, and the status.
     night: an 8-hour capture of every interface (Wi-Fi and mobile data,
     enforcing) showed only the carriers' Wi-Fi calling and VoLTE tunnels and
     DNS, GrapheneOS's connectivity and app update checks, and local network
-    traffic. Active use is unmeasured.
+    traffic. Scripted active use (browser, camera, gallery, app store, Wi-Fi
+    scan, Bluetooth) showed only the apps' own traffic. A GNSS fix (SUPL,
+    PSDS) is unmeasured.
 - **Status:** Not implemented: DiamaneOS endpoints (FP6-100, FP6-102 to FP6-112,
   FP6-103, FP6-106), the update server (FP6-128). Observed (static): no contacted host in the selected closed
   files except GNSS cloud hosts removed by pinned configuration. Observed (idle,
   one night on the 2026-10-05 build): no connection from vendor code to any
-  third party. Unverified: egress during active use.
+  third party; the same in a scripted active-use run. Unverified: egress during
+  a GNSS fix.
 
 #### DNS privacy
 
