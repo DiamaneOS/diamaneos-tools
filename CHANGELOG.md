@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- USB-C port control: new check `usb-port-control-data-reenable` (the port
+  reports data as force-disabled while a data disable request holds, so a
+  re-enable from `svc` or a device owner arrives). Threat model updated.
 - USB-C port control: the triggers check now requires the user-build
   controller cut at early-boot (before the charger input) and still refuses
   it on debuggable builds; only the port states and that boot cut may turn

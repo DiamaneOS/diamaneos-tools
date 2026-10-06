@@ -321,10 +321,13 @@ class RuleTests(unittest.TestCase):
         jar = io.BytesIO()
         with zipfile.ZipFile(jar, 'w') as inner:
             inner.writestr('classes3.dex', b'dex\x00debug.diamaneos.usb_port_security.test\x00'
-                                          b'USB-C port Off at boot\x00')
+                                          b'USB-C port Off at boot\x00'
+                                          b'port status reports DATA_STATUS_DISABLED_FORCE for %s\x00')
         self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-debug-guards'], self.harness(
             {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
         self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-off-at-boot'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-data-reenable'], self.harness(
             {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
         clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
                  'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}
