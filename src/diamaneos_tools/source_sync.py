@@ -176,6 +176,8 @@ def load_pinned(resolved_path: Path, build_json_path: Path | None, manifest_comm
         if part('environment', 'sha256') != environment_sha256:
             notes.append('build.json was made with another build environment file; the source identity and the '
                          'build number will differ')
+        if record.get('official') is True:
+            notes.append('build.json records an official build; build it with --official to make the same images')
         recorded_tools = part('tools', 'commit')
         if tools_commit and recorded_tools != tools_commit:
             notes.append(f'build.json records tools commit {shown(recorded_tools, build.SHA1_RE)}, this checkout is '

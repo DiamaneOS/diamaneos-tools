@@ -412,6 +412,16 @@ Revision: 2026-09-30 (rewritten for readability; no change in substance); 2026-0
   Integrity lockdown observed on the phone (tracing, per-app CPU time and
   lmkd's memory events run); the camera boosts end within about 1 s, when the
   camera releases them.
+- **2026-10-06:** official builds, implemented, not yet built:
+  `DIAMANEOS_OFFICIAL_BUILD` (DiamaneOS's builder, `build --official`) adds
+  the DiamaneOS fork of GrapheneOS's Updater. It asks `releases.diamaneos.de`
+  over TLS pinned to the ISRG roots; that server is not live, so every check
+  fails, and failed checks back off from 4 minutes to 6 hours instead of
+  retrying every 4 minutes. An answer that is not update information fails
+  the check instead of crashing the Updater. A build that is not tagged
+  release-keys, or whose OTA certificates include a public AOSP test key,
+  checks for updates but downloads and installs none. GrapheneOS's
+  `OFFICIAL_BUILD` stays refused.
 
 ## IMS integration notes
 

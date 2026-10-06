@@ -23,8 +23,9 @@ state.
 Each endpoint's `source_refs` point into `sources`, which record repository,
 full commit, file path, symbol locators and the retrieved file's SHA-256 (open
 `repository/blob/revision/path`). They were retrieved over HTTPS on 2026-09-11,
-and on 2026-09-26 for the network-location, geocoder and attestation contracts
-and Vanadium's (the GrapheneOS browser's) own connectivity checks; hashes make
+on 2026-09-26 for the network-location, geocoder and attestation contracts
+and Vanadium's (the GrapheneOS browser's) own connectivity checks, and on
+2026-10-06 for the DiamaneOS Updater fork; hashes make
 the review reproducible, not a future release authentic. `manifest-pin` means
 the revision agrees with the reviewed source manifest; `research-pin` is a
 separately resolved AppStore or Vanadium revision and **not** proof that a given
@@ -36,6 +37,15 @@ directly; this claims no search of every upstream file.
 
 ## Protocol boundaries
 
+- `releases.diamaneos.de` is the OS update server. Only official builds
+  (`DIAMANEOS_OFFICIAL_BUILD=true`) include its client, the DiamaneOS Updater
+  fork, which asks for `/{DEVICE}-{channel}` (`FP6-stable` by default) over TLS
+  pinned to the ISRG roots. The server is not live: the name resolves only
+  through the domain's catch-all record, to the registrar's forwarding host,
+  which refuses HTTPS (2026-10-06). Every check fails, the Updater backs off up
+  to its six-hour interval and installs nothing; an answer that is not update
+  information fails the check too. A build signed with public test keys never
+  downloads or installs an update, whatever the server offers.
 - `update.vanadium.app` and `dl.vanadium.app` serve Chromium components;
   browser APKs come from the AppStore catalog. Version 2 renames their IDs to
   `browser-component-check` and `browser-component-download`; consumers

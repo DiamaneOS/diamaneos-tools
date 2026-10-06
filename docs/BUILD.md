@@ -46,6 +46,15 @@ starts. A second command on the same workspace fails at once
 (`.workspace.lock`). `--dry-run` prints every command and changes nothing.
 Any failure is recorded in the step's state with a plain message.
 
+**Official builds.** `build all --official` (or `build android --official`)
+gives the Android build `DIAMANEOS_OFFICIAL_BUILD=true`; every other build runs
+with the variable removed from the environment, as GrapheneOS's
+`OFFICIAL_BUILD` always is. The choice is an Android input, part of the build
+identity, and recorded as `official` in `build.json`; the workspace remembers
+it (`state/official`) until `--no-official`. The image checks marked
+`official` require the Updater, its permissions and its server URL in official
+builds, and its absence in the others.
+
 **Shallow sync.** `build sync --shallow` passes `--depth=1` to `repo init` and
 `-c --no-tags` to `repo sync`, so only the resolved commits are fetched. The
 workspace remembers the choice (`state/shallow`), so a later `build all` stays
@@ -156,8 +165,9 @@ target-files and `vendor.img` equal to the one the vendor generation read from
 the stock vendor image; no permissive domain beyond the
 variant's; the bootconfig; no pre-trusted adb key; the wipe images. Then every
 rule in `config/fp6-image-checks.json`: the per-build device checks, each with
-the reason it exists and, where it matters, the variants it applies to. The
-report carries the image set's `SHA256SUMS` digest.
+the reason it exists and, where it matters, the variants it applies to and
+whether it checks official builds or the others. The report carries the image
+set's `SHA256SUMS` digest.
 
 **Flash steps.** `diamaneos flash-steps` prints commands only for a test build
 whose set matches its `SHA256SUMS` and whose verify report belongs to that set
@@ -200,9 +210,11 @@ names. Its checks:
 
 The sync state records the reproduction (`pinned_manifest`, which the new
 set's `build.json` carries in `source`). A later `build all` keeps that source;
-`build sync` moves to the branch head again. A different tools commit gives
-the same source identity, but another build identity and image directory name,
-because the build identity includes the tools commit.
+`build sync` moves to the branch head again. An official build's `build.json`
+says so (`official`), and the sync notes it: reproduce it with `--official`.
+A different tools commit gives the same source identity, but another build
+identity and image directory name, because the build identity includes the
+tools commit.
 
 **Other environments.** `--environment FILE` selects another environment file:
 a copy of the FP6 environment with another manifest branch, or with
@@ -646,6 +658,10 @@ inherit the Pixel device-common file: it adds Pixel kernel paths, Trusty,
 pVM firmware and device-specific init/overlays. Keep the GrapheneOS
 `OFFICIAL_BUILD` flag unset; in this release it adds the upstream OS updater.
 A DiamaneOS release identity must not reuse that flag as an update-policy switch.
+DiamaneOS's own flag works the same way: `DIAMANEOS_OFFICIAL_BUILD=true`, read
+by `vendor/diamaneos/product.mk`, adds the DiamaneOS Updater fork; any other
+value stops the build. `build all --official` sets it (see
+[the build commands](#the-build-commands)).
 
 Preserve distinct API identities from the selected stock input: the device's
 first API level is 35, while the board/vendor API and VNDK are 34. A newer

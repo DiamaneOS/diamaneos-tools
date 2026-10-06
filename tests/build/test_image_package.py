@@ -72,6 +72,7 @@ class PackageTests(unittest.TestCase):
         self.assertTrue(image_package.check_sums(directory))
         record = json.loads((directory / 'build.json').read_text())
         self.assertIs(False, record['release'])
+        self.assertIs(False, record['official'])
         self.assertEqual('public-test-keys', record['signing'])
         self.assertTrue(record['never_lock'])
         self.assertEqual(b'boot image', (directory / 'boot.img').read_bytes())
@@ -86,6 +87,16 @@ class PackageTests(unittest.TestCase):
                           'resolved_sha256': bw.sha_file(directory / 'resolved-manifest.xml')}, record['manifest'])
         self.assertEqual({'path': 'device/fairphone/FP6-kernel', 'commit': 'b' * 40}, record['kernel_prebuilts'])
         self.assertNotIn('kernel', record['generated_inputs'])
+
+    def test_an_official_build_says_so_in_its_record(self):
+        android = self.ctx.workspace.passed('android')
+        android['outputs']['official'] = True
+        self.ctx.workspace.write_state('android', android)
+        outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
+        self.assertIs(True, record['official'])
+        self.assertEqual('public-test-keys', record['signing'])
+        self.assertIn('installs none while the build is signed with public test keys', record['notice'])
 
     def test_missing_factory_archive_does_not_probe_inaccessible_working_directory(self):
         self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',

@@ -109,6 +109,13 @@ Give `build all` the same `--variant` each time; a different one rebuilds
 Android. A single step, such as `build verify`, uses the variant Android was
 built with.
 
+DiamaneOS's own builder adds `--official`: the image then includes the
+Updater, which checks DiamaneOS's update server (`releases.diamaneos.de`) for
+updates. Leave it off for your own builds. The workspace remembers it, so
+later commands there build official images too, until `--no-official`. An
+official build that is signed with the public test keys, as every build of
+these commands is, checks for updates but downloads and installs none.
+
 At the end it prints where the images are, for example
 `~/diamaneos-build/images/20261003-user-3f9a1c2b7d`. The directory also holds
 `build.json`, which records exactly what the build was made from (the manifest
