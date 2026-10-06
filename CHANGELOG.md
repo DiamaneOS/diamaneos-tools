@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Image checks and threat model for the Bluetooth HCI service's seccomp
+  filter: the policy is installed (`bluetooth-seccomp-policy`), the service
+  reads it (`bluetooth-service-applies-seccomp`), and its fixed rules hold:
+  threads only, Unix sockets only, kill only as SIGKILL, no writable and
+  executable mappings, no exec, ptrace or clone3 (`bluetooth-seccomp-rules`).
 - Image checks and threat model for DiamaneOS's own eSIM manager: the app
   and its allowlist (`esim-lpa`), its permissions, no network access, the
   package disabled until eSIM support is turned on and no platform signature

@@ -1824,6 +1824,44 @@
       ]
     },
     {
+      "id": "bluetooth-seccomp-policy",
+      "why": "The Bluetooth HCI service's system call list is installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/etc/seccomp_policy/bluetooth-hci.policy"
+      ]
+    },
+    {
+      "id": "bluetooth-service-applies-seccomp",
+      "why": "Our Bluetooth service compiles the installed policy and installs it as a seccomp filter before it loads the closed HCI implementation; it aborts if it cannot, so it never runs unconfined.",
+      "type": "binary_count",
+      "file": "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
+      "patterns": [
+        {
+          "text": "/vendor/etc/seccomp_policy/bluetooth-hci.policy\u0000",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "bluetooth-seccomp-rules",
+      "why": "The Bluetooth HCI service may start threads but no processes (clone3 hides its flags from the filter), open only Unix sockets, send only SIGKILL with kill (the HCI implementation's restart after a controller failure) and never map memory writable and executable; it may not run programs or trace or write other processes.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/seccomp_policy/bluetooth-hci.policy"
+      ],
+      "lines": [
+        "clone: arg0 & 0x10000",
+        "socket: arg0 == 1; return 97",
+        "kill: arg1 == 9",
+        "mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE",
+        "mprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE"
+      ],
+      "absent_regex": [
+        "^\\s*(execve|execveat|ptrace|process_vm_writev|clone3|vfork|fork)\\s*:"
+      ]
+    },
+    {
       "id": "call-audio-service-isolation",
       "why": "Both radio call-audio instances use the dedicated protected service label rather than the shared IMS label.",
       "type": "text",
