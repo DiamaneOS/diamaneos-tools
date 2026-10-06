@@ -811,11 +811,11 @@ def board_config(patch):
             'VENDOR_SECURITY_PATCH := ' + patch + '\n').encode()
 
 
+# Not selected: the stock audio_effects.xml and its four Qualcomm effect
+# libraries. The device installs its own effects configuration (AOSP software
+# effects, no DSP offload halves) and builds the VoIP pre-processing
+# descriptors and volume listener from source (device audio/effects).
 AUDIO_CONFIG_REWRITES = {
-    'vendor/etc/audio/sku_volcano/audio_effects.xml': {
-        'source_sha256': '6de7bf739222d27f88adb1a95fa6f010e0d1c151b60d0a3da5603dbf0c74d1fe',
-        'sha256': '04990d1f19e82641c50c00c66dbddb3be06811ad817a9f73bbbde8e78109b856',
-        'reason': 'Defer closed AudioSphere and Quasar effects'},
     'vendor/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml': {
         'source_sha256': 'ad423c0311b365759c692c64bc5f25ddca7ee788e8b769f2d53f8e801d4e3513',
         'sha256': 'e507aa16508f03f8550b49e11ec7440bf32b68e1c29648a28bd27bd3f00d0f5e',
@@ -852,15 +852,12 @@ def bluetooth_software_audio_policy(data):
 
 
 def audio_config(path, data):
-    """Pinned removal of deferred closed effects, sound-trigger and Bluetooth offload configuration."""
+    """Pinned removal of sound-trigger and Bluetooth offload configuration."""
     rule = AUDIO_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('audio configuration differs from reviewed EU stock input')
     if path.endswith('/audio_policy_configuration.xml'):
         derived = bluetooth_software_audio_policy(data)
-    elif path.endswith('/audio_effects.xml'):
-        derived = re.sub(rb'^.*<(?:library|effect) name="(?:audiosphere|quasar)"[^\n]*\n',
-                         b'', data, flags=re.M)
     else:
         derived = data.replace(b'<param key="context_manager_enable" value ="true" />',
                                b'<param key="context_manager_enable" value ="false" />')

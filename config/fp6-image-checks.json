@@ -128,7 +128,6 @@
         "VENDOR/lib64/libagm.so",
         "VENDOR/lib64/libar-gsl.so",
         "VENDOR/lib64/libagm_pcm_plugin.so",
-        "VENDOR/lib64/soundfx/libqcompostprocbundle.so",
         "VENDOR/bin/audioadsprpcd",
         "VENDOR/bin/hw/android.hardware.audio.service",
         "VENDOR/lib64/hw/android.hardware.audio@7.1-impl.so",
@@ -149,6 +148,126 @@
       "type": "files_absent",
       "paths": [
         "VENDOR/apex/com.android.hardware.audio.apex"
+      ]
+    },
+    {
+      "id": "audio-effects-closed-absent",
+      "why": "Qualcomm's closed offload effect bundle and visualizer are not shipped, so apps' equalizer, bass boost, virtualizer, reverb and visualizer parameters reach only AOSP effects. The stock HAL loads them only if the files exist.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/soundfx/libqcompostprocbundle.so",
+        "VENDOR/lib64/soundfx/libqcomvisualizer.so"
+      ]
+    },
+    {
+      "id": "audio-effects-closed-unreferenced",
+      "why": "No configuration on the paths the effects factory reads names the closed offload bundle or visualizer.",
+      "type": "text",
+      "files": [
+        "ODM/etc/**",
+        "VENDOR/etc/**",
+        "SYSTEM/etc/**"
+      ],
+      "absent": [
+        "libqcompostprocbundle",
+        "libqcomvisualizer"
+      ]
+    },
+    {
+      "id": "audio-effects-config",
+      "why": "Our effects configuration: AOSP software effects without DSP offload halves or the proxy, Qualcomm's VoIP AEC and NS descriptors (the DSP's tuned echo cancellation, not AOSP's software AEC) and the volume listeners.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/audio/sku_volcano/audio_effects.xml"
+      ],
+      "contains": [
+        "path=\"libbundlewrapper.so\"",
+        "path=\"libreverbwrapper.so\"",
+        "path=\"libvisualizer.so\"",
+        "path=\"libdownmix.so\"",
+        "path=\"libldnhncr.so\"",
+        "path=\"libdynproc.so\"",
+        "path=\"libqcomvoiceprocessing.so\"",
+        "path=\"libvolumelistener.so\"",
+        "uuid=\"0f8d0d2a-59e5-45fe-b6e4-248c8a799109\"",
+        "uuid=\"1d97bb0b-9e2f-4403-9ae3-58c2554306f8\"",
+        "<stream type=\"voice_communication\">"
+      ],
+      "absent": [
+        "<effectProxy",
+        "<libhw",
+        "libeffectproxy",
+        "hw_acc",
+        "libaudiopreprocessing",
+        "libasphere",
+        "libquasar"
+      ]
+    },
+    {
+      "id": "audio-effects-source-built",
+      "why": "The VoIP pre-processing descriptors and the volume listener are installed under their stock names.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/soundfx/libqcomvoiceprocessing.so",
+        "VENDOR/lib64/soundfx/libvolumelistener.so"
+      ]
+    },
+    {
+      "id": "audio-voice-processing-exports",
+      "why": "The VoIP pre-processing library exports the effect library entry point.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/soundfx/libqcomvoiceprocessing.so",
+      "symbols": [
+        "AELI"
+      ]
+    },
+    {
+      "id": "audio-voice-processing-not-stock",
+      "why": "The VoIP pre-processing library is our source build, not the stock blob (its build ID).",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/soundfx/libqcomvoiceprocessing.so",
+      "patterns": [
+        {
+          "hex": "0544f65efee165554f0b09f8f8eaf294",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "audio-volume-listener-exports",
+      "why": "The volume listener exports the effect library entry point.",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/soundfx/libvolumelistener.so",
+      "symbols": [
+        "AELI"
+      ]
+    },
+    {
+      "id": "audio-volume-listener-source",
+      "why": "The volume listener is our source build, not the stock blob (its build ID), links no closed PAL library and opens the stock volcano HAL for gain-dependent calibration.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/soundfx/libvolumelistener.so",
+      "patterns": [
+        {
+          "hex": "7eb370162f230575e91bed1399cdc6ea",
+          "count": 0
+        },
+        {
+          "text": "libar-pal.so",
+          "count": 0
+        },
+        {
+          "text": "/vendor/lib64/hw/audio.primary.%s.so\u0000",
+          "min": 1
+        },
+        {
+          "text": "volcano\u0000",
+          "min": 1
+        },
+        {
+          "text": "audio_hw_send_gain_dep_calibration\u0000",
+          "min": 1
+        }
       ]
     },
     {

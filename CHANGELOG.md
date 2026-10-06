@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Stop selecting the stock audio_effects.xml and Qualcomm's four effect
+  libraries. The device installs its own effects configuration (AOSP software
+  effects, no DSP offload halves) and builds the VoIP pre-processing
+  descriptors and the volume listener from CodeLinaro source, which
+  `config/forks.json` follows (`qualcomm-audio-effects`); the closed
+  offload effect bundle and visualizer leave the image. Image checks require
+  their absence (`audio-effects-closed-absent`,
+  `audio-effects-closed-unreferenced`), the configuration
+  (`audio-effects-config`) and the source-built libraries
+  (`audio-effects-source-built`, `audio-voice-processing-exports`,
+  `audio-voice-processing-not-stock`, `audio-volume-listener-exports`,
+  `audio-volume-listener-source`).
 - Image checks for the device's second hardening batch: the UFS serial
   numbers' root-only mode (`ufs-serial-root-only`), the Bluetooth HCI log
   tags (`bluetooth-address-not-logged`), the removed colour service policy

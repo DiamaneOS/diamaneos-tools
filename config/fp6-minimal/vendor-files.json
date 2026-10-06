@@ -4740,92 +4740,6 @@
       }
     },
     {
-      "input": "vendor/lib64/soundfx/libqcompostprocbundle.so",
-      "path": "vendor/lib64/soundfx/libqcompostprocbundle.so",
-      "sha256": "959a2d417d76c65fafbcb8485843c0027afbe42fb768f815efec06f6d83d8758",
-      "bytes": 66072,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [
-        "vendor/lib64/libar-pal.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/soundfx/libqcomvisualizer.so",
-      "path": "vendor/lib64/soundfx/libqcomvisualizer.so",
-      "sha256": "8ad571c0a38526e924fcc053e6e3dbb5eda4927f08358fa8c85835365ebcacbd",
-      "bytes": 40752,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [
-        "vendor/lib64/libar-pal.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/soundfx/libqcomvoiceprocessing.so",
-      "path": "vendor/lib64/soundfx/libqcomvoiceprocessing.so",
-      "sha256": "ce81a88dde08ff485980756e61d9b67bba54d4447bb4f65afd5544401921075b",
-      "bytes": 28008,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/soundfx/libvolumelistener.so",
-      "path": "vendor/lib64/soundfx/libvolumelistener.so",
-      "sha256": "1a4b34183e66dc03b565bbcc695b57f1950d42e4789be70ddf212ef376a44e62",
-      "bytes": 36576,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [
-        "vendor/lib64/libar-pal.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock AudioReach userspace library or configuration for the primary audio HAL, PAL and AGM.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
       "input": "vendor/lib64/libar-pal.so",
       "path": "vendor/lib64/libar-pal.so",
       "sha256": "7f801ed948fb045dbf325abbf30cf6c55ac3161215733cb162286a75f20538e1",
@@ -5361,26 +5275,6 @@
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
       "purpose": "Exact EU stock audio configuration.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_configs_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/etc/audio/sku_volcano/audio_effects.xml",
-      "path": "vendor/etc/audio/sku_volcano/audio_effects.xml",
-      "sha256": "6de7bf739222d27f88adb1a95fa6f010e0d1c151b60d0a3da5603dbf0c74d1fe",
-      "bytes": 8959,
-      "component_id": "audio-stack",
-      "inventory_ref": "userspace_hal_families:audio",
-      "dependencies": [],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock effects configuration without the closed AudioSphere and Quasar effects (reviewed derivation).",
       "metadata": {
         "uid": 0,
         "gid": 0,

@@ -265,6 +265,32 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn('"fp6_stock_vendor_lib64_libqrtr"', block)
             self.assertNotIn('"libqrtr"', block)
 
+    def test_stock_effects_config_and_effect_libraries_are_not_selected(self):
+        # The device installs its own audio_effects.xml (AOSP software effects,
+        # no DSP offload halves) and builds the VoIP pre-processing descriptors
+        # and the volume listener from source. The stock config and all four
+        # Qualcomm effect libraries leave the selection, including the offload
+        # bundle and visualizer that received every app's effect commands.
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        recipe_paths = {r['path'] for r in self.recipe['files']}
+        elf_paths = {f['path'] for f in self.selection['files']}
+        for stem in ['libqcompostprocbundle', 'libqcomvisualizer', 'libqcomvoiceprocessing', 'libvolumelistener']:
+            path = 'vendor/lib64/soundfx/' + stem + '.so'
+            self.assertNotIn(path, recipe_paths)
+            self.assertNotIn(path, elf_paths)
+            self.assertNotIn(path, self.selection['roots'])
+            self.assertFalse([e for e in self.selection['edges'] if path in (e['consumer'], e.get('provider'))])
+            self.assertNotIn('fp6_stock_vendor_lib64_soundfx_' + stem, modules)
+        config = 'vendor/etc/audio/sku_volcano/audio_effects.xml'
+        self.assertNotIn(config, recipe_paths)
+        self.assertNotIn(config, vendor_product.AUDIO_CONFIG_REWRITES)
+        self.assertNotIn(b'audio_effects.xml', rendered['device-vendor.mk'])
+        self.assertNotIn(b'soundfx', rendered['Android.bp'])
+        # The stock HAL stays; it opens the offload bundle and visualizer only
+        # if the files exist.
+        self.assertIn('vendor/lib64/hw/audio.primary.volcano.so', recipe_paths)
+
     def test_allocator_v1_is_installed_not_linked(self):
         out = self.render()
         bp = out['Android.bp'].decode()

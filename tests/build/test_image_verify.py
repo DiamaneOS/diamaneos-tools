@@ -247,6 +247,42 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok(cil + b'(allow hal_power_default hal_camera_default (process (setsched)))\n'))
         self.assertFalse(ok(cil.replace(b'(typeattributeset hal_power_client (hal_camera_default))\n', b'')))
 
+    def test_audio_effects_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        cfg, fx = 'VENDOR/etc/audio/sku_volcano/audio_effects.xml', 'VENDOR/lib64/soundfx/'
+        config = b''.join(b'<library name="l" path="%s.so"/>\n' % stem for stem in (
+            b'libbundlewrapper', b'libreverbwrapper', b'libvisualizer', b'libdownmix', b'libldnhncr', b'libdynproc',
+            b'libqcomvoiceprocessing', b'libvolumelistener'))
+        config += (b'<effect name="aec" library="voice_processing" uuid="0f8d0d2a-59e5-45fe-b6e4-248c8a799109"/>\n'
+                   b'<effect name="ns" library="voice_processing" uuid="1d97bb0b-9e2f-4403-9ae3-58c2554306f8"/>\n'
+                   b'<preprocess><stream type="voice_communication"><apply effect="aec"/></stream></preprocess>\n')
+        voice = b'\x7fELF liblog.so\0AELI\0Qualcomm Fluence\0'
+        listener = (b'\x7fELF liblog.so\0/vendor/lib64/hw/audio.primary.%s.so\0volcano\0'
+                    b'audio_hw_send_gain_dep_calibration\0')
+        good = {cfg: config, fx + 'libqcomvoiceprocessing.so': voice, fx + 'libvolumelistener.so': listener}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('audio-effects-closed-absent', 'audio-effects-closed-unreferenced', 'audio-effects-config',
+                        'audio-effects-source-built', 'audio-voice-processing-not-stock',
+                        'audio-volume-listener-source'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        # Each stock piece fails its rule.
+        for rule_id, change in [
+                ('audio-effects-closed-absent', {fx + 'libqcompostprocbundle.so': b'x'}),
+                ('audio-effects-closed-absent', {fx + 'libqcomvisualizer.so': b'x'}),
+                ('audio-effects-closed-unreferenced', {'ODM/etc/audio_effects.xml': b'path="libqcomvisualizer.so"'}),
+                ('audio-effects-config', {cfg: config + b'<effectProxy name="eq"><libhw library="offload_bundle"/>'}),
+                ('audio-effects-config', {cfg: config.replace(b'libqcomvoiceprocessing', b'libaudiopreprocessing')}),
+                ('audio-effects-source-built', {fx + 'libvolumelistener.so': None}),
+                ('audio-voice-processing-not-stock',
+                 {fx + 'libqcomvoiceprocessing.so': voice + bytes.fromhex('0544f65efee165554f0b09f8f8eaf294')}),
+                ('audio-volume-listener-source',
+                 {fx + 'libvolumelistener.so': listener + bytes.fromhex('7eb370162f230575e91bed1399cdc6ea')}),
+                ('audio-volume-listener-source', {fx + 'libvolumelistener.so': listener + b'libar-pal.so\0'}),
+                ('audio-volume-listener-source', {fx + 'libvolumelistener.so': listener.replace(b'volcano', b'lahaina')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
     def test_component_override_must_be_the_only_one(self):
         override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
                     b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'
