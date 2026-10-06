@@ -317,9 +317,9 @@ entry point), the protections in current builds, what remains, and the status.
   - Official builds ask `releases.diamaneos.de` for updates every 6 hours; a
     failed check retries after 4 minutes, each retry waiting twice as long, up
     to 6 hours. Each request names the model and release channel and reveals
-    the IP address. The server is not live: the name resolves only through the
-    domain's catch-all record, to the registrar's forwarding host, which sees
-    each connection attempt and refuses it (implemented, not yet built).
+    the IP address. The server is not live: the name has no address record,
+    so every check fails at the name lookup and no server is contacted
+    (observed on the 2026-10-06 build).
   - "No telemetry" in closed vendor files rests on a static scan and one idle
     night: an 8-hour capture of every interface (Wi-Fi and mobile data,
     enforcing) showed only the carriers' Wi-Fi calling and VoLTE tunnels and
