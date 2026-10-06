@@ -1522,8 +1522,8 @@ lag](#shell-fork-rebase-lag-grapheneos-security-fixes-under-the-tally-shell),
 and the per-component rules in [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md):
 lock screen and biometric prompt, transitions, Quick Settings and the shade,
 Recents' Stop, Settings switches, Home and All apps, Settings search, Clock,
-Calculator, recovery titles, motion, the Settings homepage, branding, and rules
-learned from findings.
+Calculator, recovery titles, motion, the Settings homepage, branding, the
+Moments switch, and rules learned from findings.
 
 ## Decision record
 
