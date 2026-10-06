@@ -164,6 +164,54 @@ class RuleTests(unittest.TestCase):
         v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil + b'(allow untrusted_app vendor_hal_audio_internal_hwservice (hwservice_manager (find)))\n'})
         self.assertFalse(subject.rule_sepolicy_exclusive(exclusive, v)[0])
 
+    def test_sepolicy_sources_expands_attributes_across_files(self):
+        plat = (b'(type apexd)\n(type vold)\n(type sysfs)\n(type sysfs_batteryinfo)\n'
+                b'(typeattributeset sysfs_type (sysfs sysfs_batteryinfo))\n'
+                b'(typeattributeset base_typeattr_1 (and (sysfs_type ) (not (sysfs_batteryinfo ))))\n'
+                b'(allow apexd sysfs_type (file (read open)))\n'
+                b'(allow vold base_typeattr_1 (file (read open)))\n')
+        mapping = b'(typeattributeset sysfs_type_202604 (sysfs_type))\n'
+        vendor = (b'(type vendor_serial)\n(type vendor_other)\n(type hal_x_default)\n(type hal_y_default)\n'
+                  b'(typeattributeset sysfs_type (vendor_serial vendor_other))\n'
+                  b'(typeattributeset base_typeattr_2 (and (sysfs_type ) (not (vendor_serial ))))\n'
+                  b'(allow hal_x_default base_typeattr_2 (file (read open)))\n'
+                  b'(allow hal_y_default vendor_other (file (read open)))\n')
+        members = {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat,
+                   'SYSTEM/etc/selinux/mapping/202604.cil': mapping,
+                   'SYSTEM/etc/selinux/mapping/202604.compat.cil': b'(allow hal_y_default sysfs_type (file (read)))\n',
+                   'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor}
+        rule = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil', 'SYSTEM/etc/selinux/mapping/*.cil',
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil'],
+                'target': 'vendor_serial', 'cls': 'file', 'perm': 'read', 'allowed': ['apexd', 'vold']}
+        self.assertTrue(subject.rule_sepolicy_sources(rule, self.harness(members))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(dict(rule, allowed=['apexd']), self.harness(members))[0])
+        leaky = dict(members)
+        leaky['VENDOR/etc/selinux/vendor_sepolicy.cil'] = vendor + b'(allow hal_y_default sysfs_type (file (read)))\n'
+        ok, detail = subject.rule_sepolicy_sources(rule, self.harness(leaky))
+        self.assertFalse(ok)
+        self.assertIn('hal_y_default', detail)
+        self.assertFalse(subject.rule_sepolicy_sources(dict(rule, target='absent_type'), self.harness(members))[0])
+
+    def test_soc_serial_and_thermal_hal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ueventd = (b'/sys/devices/soc0         serial_number    0400   root   root\n'
+                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_temp   0664   root   system\n'
+                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_hyst   0664   root   system\n')
+        rc = (b'service vendor.thermal-hal /vendor/bin/hw/android.hardware.thermal-service.qti\n'
+              b'    interface aidl android.hardware.thermal.IThermal/default\n'
+              b'    class hal\n    user system\n    group system\n    override\n')
+        cil = b'(genfscon sysfs "/devices/soc0/serial_number" (u object_r vendor_sysfs_soc_serial ((s0) (s0))))\n'
+        v = self.harness({'VENDOR/etc/ueventd.rc': ueventd, 'VENDOR/etc/init/init.fp6.thermal.rc': rc,
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil': cil})
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-trip-nodes', 'thermal-hal-as-system', 'soc-serial-label'):
+            self.assertTrue(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        v = self.harness({'VENDOR/etc/ueventd.rc': ueventd.replace(b'0400', b'0444'),
+                          'VENDOR/etc/init/init.fp6.thermal.rc': rc.replace(b'user system', b'user root'),
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil':
+                              cil + b'(allow hal_graphics_composer_default vendor_sysfs_soc_serial (file (read)))\n'})
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-as-system', 'soc-serial-label'):
+            self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')
