@@ -727,6 +727,7 @@
           },
           "vm-bootsys.img": {
             "bytes": 515846748,
+            "sparse": true,
             "sha256": "4c04bd9eb8f6caa96525302c4cefe6ba537eadd660a1367525b61dd64edff1d0",
             "fastboot_partitions": [
               "vm-bootsys_a",
@@ -736,6 +737,7 @@
           },
           "vm-persist.img": {
             "bytes": 125218988,
+            "sparse": true,
             "sha256": "b7a0bed51bf112bda03ae47c96e9d8333de37466c5c06aae5598c0167747dc5c",
             "fastboot_partitions": [
               "vm-persist"
@@ -1451,6 +1453,7 @@
           },
           "vm-bootsys.img": {
             "bytes": 515846748,
+            "sparse": true,
             "sha256": "4c04bd9eb8f6caa96525302c4cefe6ba537eadd660a1367525b61dd64edff1d0",
             "fastboot_partitions": [
               "vm-bootsys_a",
@@ -1460,6 +1463,7 @@
           },
           "vm-persist.img": {
             "bytes": 125218988,
+            "sparse": true,
             "sha256": "b7a0bed51bf112bda03ae47c96e9d8333de37466c5c06aae5598c0167747dc5c",
             "fastboot_partitions": [
               "vm-persist"

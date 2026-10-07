@@ -430,6 +430,101 @@ class RuleTests(unittest.TestCase):
                 members = {k: v for k, v in {**good, **change}.items() if v is not None}
                 self.assertFalse(check(rule_id, members))
 
+    def test_firmware_release_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc, ueventd = 'VENDOR/etc/init/fwrelease.rc', 'VENDOR/etc/ueventd.rc'
+        contexts, properties = 'VENDOR/etc/selinux/vendor_file_contexts', 'VENDOR/etc/selinux/vendor_property_contexts'
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        checked = ['abl', 'aop', 'aop_config', 'bluetooth', 'cpucp', 'cpucp_dtb', 'devcfg', 'dsp', 'featenabler', 'hyp',
+                   'imagefv', 'keymaster', 'modem', 'multiimgoem', 'qupfw', 'shrm', 'tz', 'uefi', 'uefisecapp', 'xbl',
+                   'xbl_config', 'xbl_ramdump']
+        relabelled = [n for n in checked if n not in ('bluetooth', 'modem', 'uefi', 'uefisecapp', 'xbl')]
+        ufs = '/dev/block/platform/soc/1d84000.ufshc/by-name/'
+        nodes = ''.join(f'{ufs}{n}_{s}   0640   root   vendor_fwrelease\n' for n in checked for s in 'ab')
+        labels = ''.join(f'{ufs}{n}_[ab]      u:object_r:vendor_firmware_image_block_device:s0\n' for n in relabelled)
+        labels += ''.join(f'{ufs}{n}_[ab]      u:object_r:vendor_custom_ab_block_device:s0\n'
+                          for n in ('vbmeta', 'dtbo', 'pvmfw', 'multiimgqti', 'qweslicstore'))
+        labels += '/(vendor|system/vendor)/bin/fwrelease    u:object_r:vendor_fwrelease_exec:s0\n'
+        blocks = ('vendor_firmware_image_block_device', 'vendor_modem_block_device', 'vendor_uefi_block_device',
+                  'vendor_xbl_block_device')
+        vendor_cil = (''.join(f'(type {t})\n' for t in blocks + ('vendor_diamaneos_firmware_release_prop',))
+                      + '(typeattributeset property_type (vendor_diamaneos_firmware_release_prop))\n'
+                      + '(typeattributeset dev_type (' + ' '.join(blocks) + '))\n'
+                      + '(allow vendor_fwrelease vendor_diamaneos_firmware_release_prop (property_service (set)))\n'
+                      + '(allow vendor_fwrelease vendor_diamaneos_firmware_release_prop (file (read getattr map open)))\n'
+                      + '(allow system_app vendor_diamaneos_firmware_release_prop (file (read getattr map open)))\n'
+                      + '(allow update_engine_common dev_type (blk_file (ioctl read write getattr open)))\n'
+                      + ''.join(f'(allow vendor_fwrelease {t} (blk_file (open read)))\n' for t in blocks)
+                      + '(allow hal_bootctl_default vendor_xbl_block_device (blk_file (read write open)))\n'
+                      + '(allow tee vendor_xbl_block_device (blk_file (read)))\n').encode()
+        good = {
+            'VENDOR/bin/fwrelease': b'\x7fELF', 'VENDOR/etc/diamaneos/firmware-releases.txt': b'image ...\n',
+            rc: b'on property:sys.boot_completed=1\n    start vendor.fwrelease\n\n'
+                b'# The group lets it read the firmware partitions.\n'
+                b'service vendor.fwrelease /vendor/bin/fwrelease ${ro.boot.slot_suffix}\n'
+                b'    user vendor_fwrelease\n    group vendor_fwrelease\n    capabilities\n    ioprio idle 7\n'
+                b'    priority 19\n    timeout_period 60\n    oneshot\n    disabled\n',
+            ueventd: (f'# fwrelease (vendor_fwrelease) reads these.\n{ufs}traceability   0440   root   vendor_imeiprov\n'
+                      + nodes).encode(),
+            contexts: labels.encode(),
+            properties: b'ro.vendor.diamaneos.firmware_release u:object_r:vendor_diamaneos_firmware_release_prop:s0 '
+                        b'exact string\n',
+            plat: (b'(type init)\n(type dumpstate)\n(type vendor_init)\n(type system_app)\n(type shell)\n(type rild)\n'
+                   b'(type update_engine)\n(type tee)\n(type hal_bootctl_default)\n(type vendor_fwrelease)\n'
+                   b'(typeattributeset update_engine_common (update_engine))\n'
+                   b'(allow init property_type (property_service (set)))\n(allow init property_type (file (read open)))\n'
+                   b'(allow dumpstate property_type (file (read open)))\n(allow init dev_type (blk_file (read open)))\n'
+                   b'(allow shell dev_type (blk_file (getattr)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('firmware-release-present', 'firmware-release-service', 'firmware-release-nodes',
+               'firmware-release-labels', 'firmware-release-property', 'firmware-release-setter',
+               'firmware-release-readers', 'firmware-image-readers', 'firmware-image-writers',
+               'firmware-modem-image-readers', 'firmware-uefi-image-readers', 'firmware-xbl-image-readers')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        grant = lambda rule: {vendor: vendor_cil + rule.encode() + b'\n'}
+        for rule_id, change in [
+                ('firmware-release-present', {'VENDOR/etc/diamaneos/firmware-releases.txt': None}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    ioprio idle 7\n', b'')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    timeout_period 60\n', b'')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'${ro.boot.slot_suffix}', b'_a')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    capabilities\n', b'    capabilities SYS_RAWIO\n')}),
+                ('firmware-release-service', {rc: good[rc] + b'    class main\n'}),
+                ('firmware-release-service', {rc: good[rc] + b'    group vendor_fwrelease system\n'}),
+                ('firmware-release-service', {rc: good[rc].replace(b'sys.boot_completed=1', b'vendor.fwrelease=1')}),
+                ('firmware-release-nodes', {ueventd: good[ueventd].replace(f'{ufs}tz_b   0640'.encode(),
+                                                                          f'{ufs}tz_b   0660'.encode())}),
+                ('firmware-release-nodes', {ueventd: good[ueventd].replace(f'{ufs}xbl_a   0640   root   vendor_fwrelease\n'
+                                                                          .encode(), b'')}),
+                ('firmware-release-nodes', {ueventd: good[ueventd] + f'{ufs}vbmeta_a   0640   root   vendor_fwrelease\n'
+                                            .encode()}),
+                ('firmware-release-nodes', {ueventd: good[ueventd] + b'/dev/block/sdb   0640   root   vendor_fwrelease\n'}),
+                ('firmware-release-labels', {contexts: good[contexts].replace(
+                    f'{ufs}tz_[ab]      u:object_r:vendor_firmware_image_block_device'.encode(),
+                    f'{ufs}tz_[ab]      u:object_r:vendor_custom_ab_block_device'.encode())}),
+                ('firmware-release-labels', {contexts: good[contexts].replace(
+                    f'{ufs}vbmeta_[ab]      u:object_r:vendor_custom_ab_block_device'.encode(),
+                    f'{ufs}vbmeta_[ab]      u:object_r:vendor_firmware_image_block_device'.encode())}),
+                ('firmware-release-property', {properties: good[properties].replace(b'exact string', b'exact enum mixed')}),
+                ('firmware-release-setter', grant('(allow rild vendor_diamaneos_firmware_release_prop '
+                                                  '(property_service (set)))')),
+                ('firmware-release-readers', grant('(allow shell vendor_diamaneos_firmware_release_prop (file (read)))')),
+                ('firmware-release-readers', grant('(allow rild property_type (file (read)))')),
+                ('firmware-image-readers', grant('(allow rild vendor_firmware_image_block_device (blk_file (read)))')),
+                ('firmware-image-readers', grant('(allow shell dev_type (blk_file (read)))')),
+                ('firmware-image-writers', grant('(allow vendor_fwrelease vendor_firmware_image_block_device '
+                                                 '(blk_file (write)))')),
+                ('firmware-image-writers', {vendor: vendor_cil.replace(b'(type vendor_firmware_image_block_device)\n', b'')}),
+                ('firmware-modem-image-readers', grant('(allow rild vendor_modem_block_device (blk_file (read)))')),
+                ('firmware-uefi-image-readers', grant('(allow rild vendor_uefi_block_device (blk_file (read)))')),
+                ('firmware-xbl-image-readers', grant('(allow rild vendor_xbl_block_device (blk_file (read)))'))]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
     def test_audio_source_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         lib, hal = 'VENDOR/lib64/', 'VENDOR/lib64/hw/audio.primary.volcano.so'
@@ -1054,6 +1149,39 @@ class GenericCheckTests(unittest.TestCase):
         v = self.harness({'VENDOR/build.prop': prop})
         v.vendor_dir = None
         self.assertFalse(subject.check_vendor_patch_level(v)[0])
+
+    def test_firmware_release_table_matches_the_inventory(self):
+        from diamaneos_tools import firmware_release
+        inventory = json.loads((ROOT / 'config/fp6-firmware-inventory.json').read_text())
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        table = firmware_release.table(inventory, config['firmware_release'])
+        stale = table.replace(b' 16.111.0 ', b' 16.110.0 ')
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+        image = {'table': table}
+
+        def debugfs(args):
+            command = str(args[1])
+            if command.startswith('dump '):
+                self.assertEqual('/etc/diamaneos/firmware-releases.txt', command.split()[1])
+                Path(command.split()[2]).write_bytes(image['table'])
+            return 'Type: regular\n'
+
+        def check(members):
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.check_firmware_release_table(v)
+        member = 'VENDOR/etc/diamaneos/firmware-releases.txt'
+        self.assertEqual((True, 'releases 16.100.0, 16.111.0'), check({member: table}))
+        ok, detail = check({member: stale})
+        self.assertFalse(ok)
+        self.assertIn(member + ' differs', detail)
+        image['table'] = stale
+        ok, detail = check({member: table})
+        self.assertFalse(ok)
+        self.assertEqual('vendor.img differs from the inventory', detail)
+        image['table'] = table
+        with self.assertRaises(FileNotFoundError):
+            check({})
+        self.assertIn('firmware-release-table', [check_id for check_id, _, _ in subject.GENERIC])
 
     def test_super_holds_exactly_the_logical_images(self):
         logical = json.loads((ROOT / 'config/fp6-build.json').read_text())['images']['logical']

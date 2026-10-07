@@ -1364,6 +1364,312 @@
       ]
     },
     {
+      "id": "firmware-release-present",
+      "why": "fwrelease, its init rc and the firmware release table it checks the firmware partitions against.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/fwrelease",
+        "VENDOR/etc/init/fwrelease.rc",
+        "VENDOR/etc/diamaneos/firmware-releases.txt"
+      ]
+    },
+    {
+      "id": "firmware-release-service",
+      "why": "fwrelease runs once after boot completes, for the booted slot only, as its own user without capabilities, at idle I/O and the lowest CPU priority, and is stopped after 60 s.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/fwrelease.rc"
+      ],
+      "lines": [
+        "service vendor.fwrelease /vendor/bin/fwrelease ${ro.boot.slot_suffix}",
+        "    user vendor_fwrelease",
+        "    group vendor_fwrelease",
+        "    capabilities",
+        "    ioprio idle 7",
+        "    priority 19",
+        "    timeout_period 60",
+        "    oneshot",
+        "    disabled"
+      ],
+      "regex": [
+        "^on property:sys\\.boot_completed=1\\n    start vendor\\.fwrelease$"
+      ],
+      "absent_regex": [
+        "^\\s*(class|seclabel|socket|setenv|file)\\b",
+        "^\\s*group .*\\b(root|system|vendor_bootctl)\\b"
+      ]
+    },
+    {
+      "id": "firmware-release-nodes",
+      "why": "Only fwrelease's group may read the 44 firmware partition nodes of both slots; owner root keeps write access for update_engine, which has no CAP_DAC_OVERRIDE. No other node is given to the group.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "lines": [
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/abl_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/abl_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/aop_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/aop_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/aop_config_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/aop_config_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/bluetooth_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/bluetooth_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/cpucp_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/cpucp_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/cpucp_dtb_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/cpucp_dtb_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/devcfg_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/devcfg_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/dsp_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/dsp_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/featenabler_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/featenabler_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/hyp_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/hyp_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/imagefv_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/imagefv_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/keymaster_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/keymaster_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/modem_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/modem_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/multiimgoem_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/multiimgoem_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/qupfw_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/qupfw_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/shrm_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/shrm_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/tz_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/tz_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/uefi_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/uefi_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/uefisecapp_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/uefisecapp_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_config_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_config_b   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_ramdump_a   0640   root   vendor_fwrelease",
+        "/dev/block/platform/soc/1d84000.ufshc/by-name/xbl_ramdump_b   0640   root   vendor_fwrelease"
+      ],
+      "absent_regex": [
+        "^(?!#)(?!/dev/block/platform/soc/1d84000\\.ufshc/by-name/(abl|aop|aop_config|bluetooth|cpucp|cpucp_dtb|devcfg|dsp|featenabler|hyp|imagefv|keymaster|modem|multiimgoem|qupfw|shrm|tz|uefi|uefisecapp|xbl|xbl_config|xbl_ramdump)_[ab]   0640   root   vendor_fwrelease$).*vendor_fwrelease"
+      ]
+    },
+    {
+      "id": "firmware-release-labels",
+      "why": "The 17 firmware partitions of vendor_custom_ab_block_device that fwrelease checks have their own type, so it cannot read vbmeta, dtbo, pvmfw, multiimgqti or qweslicstore; fwrelease runs in its own domain.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/abl_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/aop_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/aop_config_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/cpucp_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/cpucp_dtb_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/devcfg_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/dsp_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/featenabler_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/hyp_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/imagefv_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/keymaster_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/multiimgoem_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/qupfw_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/shrm_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/tz_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/xbl_config_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/xbl_ramdump_\\[ab\\]\\s+u:object_r:vendor_firmware_image_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/vbmeta_\\[ab\\]\\s+u:object_r:vendor_custom_ab_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/dtbo_\\[ab\\]\\s+u:object_r:vendor_custom_ab_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/pvmfw_\\[ab\\]\\s+u:object_r:vendor_custom_ab_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/multiimgqti_\\[ab\\]\\s+u:object_r:vendor_custom_ab_block_device:s0\\s*$",
+        "^/dev/block/platform/soc/1d84000\\.ufshc/by-name/qweslicstore_\\[ab\\]\\s+u:object_r:vendor_custom_ab_block_device:s0\\s*$",
+        "^/\\(vendor\\|system/vendor\\)/bin/fwrelease\\s+u:object_r:vendor_fwrelease_exec:s0\\s*$"
+      ]
+    },
+    {
+      "id": "firmware-release-property",
+      "why": "The firmware release property has its own type, readable outside vendor (Settings) and set only within it.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "regex": [
+        "^ro\\.vendor\\.diamaneos\\.firmware_release\\s+u:object_r:vendor_diamaneos_firmware_release_prop:s0\\s+exact\\s+string\\s*$"
+      ]
+    },
+    {
+      "id": "firmware-release-setter",
+      "why": "Only fwrelease (and init, which may set any property) can set the firmware release property.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_firmware_release_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "vendor_fwrelease"
+      ]
+    },
+    {
+      "id": "firmware-release-readers",
+      "why": "Only Settings, fwrelease, init, vendor_init and dumpstate (which reads every property) can read the firmware release property; shell cannot.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_firmware_release_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "dumpstate",
+        "init",
+        "system_app",
+        "vendor_fwrelease",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "firmware-image-readers",
+      "why": "Who may read the relabelled firmware partitions: the old label's readers (init, update_engine) and fwrelease. Not a neverallow: that would hit init's and recovery's platform grants.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_firmware_image_block_device",
+      "cls": "blk_file",
+      "perm": "read",
+      "allowed": [
+        "init",
+        "update_engine",
+        "vendor_fwrelease"
+      ]
+    },
+    {
+      "id": "firmware-image-writers",
+      "why": "Only update_engine can write the relabelled firmware partitions, as with the old label (fastbootd in recovery too).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_firmware_image_block_device",
+      "cls": "blk_file",
+      "perm": "write",
+      "allowed": [
+        "update_engine"
+      ]
+    },
+    {
+      "id": "firmware-modem-image-readers",
+      "why": "Who may read the modem and Bluetooth partitions: init, update_engine and fwrelease.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_modem_block_device",
+      "cls": "blk_file",
+      "perm": "read",
+      "allowed": [
+        "init",
+        "update_engine",
+        "vendor_fwrelease"
+      ]
+    },
+    {
+      "id": "firmware-uefi-image-readers",
+      "why": "Who may read the uefi and uefisecapp partitions: init, update_engine and fwrelease.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_uefi_block_device",
+      "cls": "blk_file",
+      "perm": "read",
+      "allowed": [
+        "init",
+        "update_engine",
+        "vendor_fwrelease"
+      ]
+    },
+    {
+      "id": "firmware-xbl-image-readers",
+      "why": "Who may read the XBL partitions and their LUNs: init, update_engine, boot control, the TEE listener (which may not open them) and fwrelease, which ueventd keeps off the LUNs.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_xbl_block_device",
+      "cls": "blk_file",
+      "perm": "read",
+      "allowed": [
+        "hal_bootctl_default",
+        "init",
+        "tee",
+        "update_engine",
+        "vendor_fwrelease"
+      ]
+    },
+    {
       "id": "soc-serial-label",
       "why": "The SoC serial number has its own type, which no vendor rule names, instead of the soc0 directory's label.",
       "type": "text",

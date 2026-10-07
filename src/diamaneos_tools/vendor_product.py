@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from . import carrier_data, safe_json, vendor_files
+from . import carrier_data, firmware_release, safe_json, vendor_files
 from .vendor import VendorError, encoded
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -819,6 +819,16 @@ def board_config(patch):
             'VENDOR_SECURITY_PATCH := ' + patch + '\n').encode()
 
 
+# The firmware release table (firmware_release.py) sits at the tree root, next
+# to the build files, and device-vendor.mk installs it for fwrelease.
+FIRMWARE_TABLE = 'firmware-releases.txt'
+
+
+def firmware_table_copy():
+    return ('PRODUCT_COPY_FILES += vendor/fairphone/FP6/' + FIRMWARE_TABLE + ':$(TARGET_COPY_OUT_VENDOR)/'
+            + firmware_release.TABLE_PATH.removeprefix('vendor/') + '\n').encode()
+
+
 # Not selected: the stock audio_effects.xml and its four Qualcomm effect
 # libraries. The device installs its own effects configuration (AOSP software
 # effects, no DSP offload halves) and builds the VoIP pre-processing
@@ -1205,14 +1215,20 @@ def media_config(path, data):
     return derived
 
 
-def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=None, release_date=None):
+def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_releases, aapt2=None,
+             release_date=None):
     vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
+    if not isinstance(firmware_releases, bytes) or not firmware_releases:
+        raise VendorError('the vendor product needs the firmware release table')
+    rendered[FIRMWARE_TABLE] = firmware_releases
+    rendered['device-vendor.mk'] += firmware_table_copy()
     provenance = {'operation': 'fp6-native-product-generation',
                   'scope': 'private-bringup',
                   'recipe_sha256': hashlib.sha256(encoded(recipe)).hexdigest(),
                   'elf_selection_sha256': hashlib.sha256(encoded(selection)).hexdigest(),
                   'renderer_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                  'firmware_releases_sha256': hashlib.sha256(firmware_releases).hexdigest(),
                   'notice_kind': notice_kind, 'native_or_device_accepted': False}
     has_carrier_data = any(row['path'] == carrier_data.APK_PATH for row in recipe['files'])
     if has_carrier_data:
@@ -1376,7 +1392,8 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, aapt2=Non
                 os.replace(link, current)
     return dict(operation='fp6-native-product-generation', status='PASS',
                 generation_sha256=identity, inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(),
-                vendor_security_patch=vendor_patch, scope='private-bringup', native_or_device_accepted=False)
+                vendor_security_patch=vendor_patch, firmware_releases_sha256=provenance['firmware_releases_sha256'],
+                scope='private-bringup', native_or_device_accepted=False)
 
 
 def release_date_of(stock, inventory):
@@ -1396,8 +1413,11 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         stock = safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json')
+        firmware = firmware_release.table(safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json'),
+                                          safe_json.load_json(ROOT / 'config/fp6-build.json')['firmware_release'])
         result = generate(safe_json.load_json(args.recipe), safe_json.load_json(args.selection),
             args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2, stock=stock,
+            firmware_releases=firmware,
             release_date=release_date_of(stock, safe_json.load_json(ROOT / 'config/stock-inputs.json')))
         print(json.dumps(result, indent=2))
         return 0
