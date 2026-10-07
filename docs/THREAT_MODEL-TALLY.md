@@ -294,7 +294,10 @@ Lockdown, or nothing.
   get a SecurityException. Only the internal input device present since boot
   counts; a USB, Bluetooth or later-added device sending the same switch code
   is ignored. The kernel's reports only prompt a fresh read of that device, so
-  repeats change nothing. Root and adb (sendevent) are above this boundary.
+  repeats change nothing. After an input buffer overrun the input reader
+  reports switches whose state changed while events were dropped, and SystemUI
+  reads the position again at boot completion and on each wake-up, so a flip is
+  not lost. Root and adb (sendevent) are above this boundary.
 - What apps can see: the choices and the "Moments on" flag are system settings
   that only Settings, SystemUI and Launcher can read (GrapheneOS's protected
   settings); what the switch changed lives in SystemUI's own storage. Apps can
@@ -308,14 +311,21 @@ Lockdown, or nothing.
 - Sliding back undoes only what the switch changed, and only where the setting
   is still as the switch left it. Camera and microphone blocking is the
   software sensor-privacy toggle and is labelled so, never as a hardware
-  cut-off.
+  cut-off. The FP6 offers these toggles (as GrapheneOS's Pixels do: the
+  framework blocks the camera and microphone app ops and the camera service
+  blocks or mutes cameras, whatever the HALs do); where a phone lacks them the
+  action is not offered. Lockdown is offered only with a PIN, pattern or
+  password. The toast names only what took effect, never a change the phone
+  could not make.
 - Accidental flips: a short settle time, a haptic tick and a toast on each
   flip, and a "Nothing" choice. Before setup completes the switch does nothing;
   until the user chooses an action or moves the switch, it only posts one
   notice.
 - Home during Moments is a page built in memory with editing locked, so the
   stored Home layout is never written; work profile and private space are
-  hidden while it is on.
+  hidden while it is on. Home search still offers Settings results and the
+  search hand-offs to other apps during Moments: the Home filter is a focus
+  aid, not a restriction; paused apps stay blocked wherever they are opened.
 - Unrelated: the FP6's hall sensor sends unmapped key codes to the focused app
   (already tracked); the Moments switch does not use it.
 
