@@ -10,6 +10,10 @@ build the next.
 
 One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md only says when it was last revised.
 
+### 2026-10-07
+
+- Radio isolation reviewed: own reserved memory per radio core and SMMU on the shared data paths (device tree and the running phone); the cores' own access limits are in closed firmware and cannot be checked from Android.
+
 ### 2026-10-06
 
 - Statuses: items built and phone-checked today are marked so.
