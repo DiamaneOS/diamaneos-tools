@@ -16,6 +16,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-07
 
+- eUICC card ID redacted in the eSIM card error logs, implemented, not yet built.
 - Fairphone's own AVB keys in 16.111.0 are not AOSP's public test keys.
 - Sandboxed Google Play's crash notice reports to the DiamaneOS issue tracker, not GrapheneOS's: GmsCompat fork; implemented, not yet built.
 - Firmware release in Settings, implemented, not yet built: Settings names the Fairphone firmware release the booted slot runs, or shows mixed or unknown, from hashes of its 22 A/B firmware partitions against the inventory, so the vendor patch level no longer stands for the firmware; the service that hashes them has no capabilities and may only read those partitions, which get their own SELinux type, and set one property that only Settings reads, not shell.
