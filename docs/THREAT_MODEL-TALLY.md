@@ -330,6 +330,36 @@ Lockdown, or nothing.
 - Unrelated: the FP6's hall sensor sends unmapped key codes to the focused app
   (already tracked); the Moments switch does not use it.
 
+## Screenshots: Delete and Canvas's Done
+
+Implemented, not yet built.
+
+- SystemUI's screenshot preview gets Delete (phones only). It deletes only the
+  screenshot SystemUI just saved, with SystemUI's own media access, as the
+  long screenshot flow already does with its original, and closes the
+  preview. No undo; the file is deleted, not trashed.
+- Canvas, the screenshot editor, is a fork: for a screenshot from SystemUI's
+  Edit, Done replaces Save (Save, Copy and delete, Delete). Canvas treats a
+  request as a screenshot only with SystemUI's screenshot edit source, a write
+  grant and a MediaStore link whose folder is Pictures/Screenshots; anything
+  else keeps Canvas's flow. An app could fake the edit source, but only for an
+  item it granted write access to, which it could already delete itself.
+- Deleting uses only the granted link. If MediaStore refuses, the system's own
+  delete dialog asks the user. Canvas gets no new permission and still has no network
+  access.
+- Copy and delete writes the image (edited, or the original bytes) to one file
+  in Canvas's private storage and puts a link to it on the clipboard; Canvas's
+  file provider shares only that folder. The clipboard grants read access to
+  the app that pastes, and Android revokes those grants when the clip changes.
+  Each copy gets a new name and removes the previous file, so an older grant
+  never reads a newer copy. Android clears the clipboard after an hour; Canvas
+  removes copies older than an hour when it next starts, so a copy can stay on
+  disk, unreadable to other apps, until then. The clipboard holds the image
+  the user chose to copy, as with any copied image; the deleted screenshot is
+  otherwise gone.
+- If the copy fails, nothing is deleted. Closing an edited screenshot asks
+  (Save, Discard, Delete); closing an unedited one keeps it untouched.
+
 ## Rules learned from findings
 
 Findings are described in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md).

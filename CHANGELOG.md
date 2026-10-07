@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Canvas (the screenshot editor) is now a fork (`canvas`, replacing the
+  pinned source `lineage-canvas`): for a screenshot from SystemUI's Edit, Done
+  replaces Save (Save, Copy and delete, Delete). The threat model's Tally rules
+  cover it and the screenshot preview's new Delete.
 - Register LineageOS's Glimpse (the gallery) as a fork without network
   access (`glimpse`) and Canvas (the screenshot editor) as a pinned source
   used unmodified through a DiamaneOS mirror (`lineage-canvas`). The overlay
