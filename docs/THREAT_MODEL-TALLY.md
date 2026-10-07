@@ -309,15 +309,47 @@ Lockdown, or nothing.
   unlock, as GrapheneOS's tiles do. Lockdown ends only with the user's
   credential, never with the switch.
 - Sliding back undoes only what the switch changed, and only where the setting
-  is still as the switch left it. Camera and microphone blocking is the
-  software sensor-privacy toggle and is labelled so, never as a hardware
-  cut-off. The FP6 offers these toggles (as GrapheneOS's Pixels do: the
+  is still as the switch left it. Camera blocking is the software
+  sensor-privacy toggle and is labelled so, never as a hardware cut-off;
+  microphone blocking is the same toggle, plus the kernel floor below when it
+  is armed. The FP6 offers these toggles (as GrapheneOS's Pixels do: the
   framework blocks the camera and microphone app ops and the camera service
   blocks or mutes cameras, whatever the HALs do); where a phone lacks them the
   action is not offered. Lockdown is its own action, enabled only with a PIN,
   pattern or password; an earlier airplane-and-Lockdown choice becomes Lockdown
   only when Lockdown was on and a screen lock exists, otherwise airplane mode. The toast names only what took effect, never a change the phone
   could not make.
+- Kernel floor for the microphones (implemented, not yet built): when the
+  owner chose "Camera and microphone off", the kernel also blocks the built-in
+  microphones while the switch is down.
+  - A small kernel driver owns the switch's line and trusts only its level,
+    never input events; it cannot be unbound, unloaded or disabled from
+    sysfs. A move down applies at once; a failed read blocks.
+  - The audio codec drivers then hold every capture path muted at its source
+    (the decimators) and keep the microphones' supply (mic bias) off:
+    recording, the call uplink and voice activation all get silence. Streams
+    keep running, so apps see silence, not errors. Mixer settings, Android
+    services and a compromised audio HAL cannot undo it; moving the switch
+    back restores the earlier settings.
+  - The kernel learns the choice once per boot: init writes it early in boot
+    and the kernel refuses every later write, so compromised Android code
+    cannot disarm it until the next restart. A changed choice reaches the
+    kernel after a restart (the Moments page says so; Android's block changes
+    at once). Until init writes it, the kernel blocks while the switch is down
+    whatever the choice.
+  - Android shows the kernel block as a hardware microphone toggle: an app's
+    access prompt says to slide the switch back and offers no Unblock. The
+    microphone comes back as soon as the switch moves up, also on the lock
+    screen, since the kernel cannot wait for the unlock.
+  - Emergency calls have no microphone while the switch is down. The kernel
+    makes no exception: only Android knows a call is an emergency, so an
+    exception would let compromised Android code lift the block. The Moments
+    page says so.
+  - Not covered: USB and Bluetooth headset microphones and the cameras
+    (Android's toggles only); code running on the audio DSP, which shares the
+    codec's bus; a kernel exploit. Whoever can change the owner's Moments
+    choice (Settings, or a compromised system server) changes what the kernel
+    arms at the next boot.
 - Accidental flips: a short settle time, a haptic tick and a toast on each
   flip, and a "Nothing" choice. Before setup completes the switch does nothing;
   until the user chooses an action or moves the switch, it only posts one

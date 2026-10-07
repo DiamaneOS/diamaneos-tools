@@ -3262,6 +3262,133 @@
       ]
     },
     {
+      "id": "privacy-switch-devicetree",
+      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys no longer has it, and nothing can disable it from sysfs (finding -189).",
+      "type": "devicetree",
+      "file": "kernel:dtbs/fp6.dtb",
+      "checks": [
+        {
+          "node": "/soc/privacy-switch",
+          "property": "compatible",
+          "string": "de.diamaneos,privacy-switch"
+        },
+        {
+          "node": "/soc/privacy-switch",
+          "property": "de.diamaneos,blocking-value",
+          "cells": [
+            0
+          ]
+        },
+        {
+          "node": "/soc/privacy-switch",
+          "property": "linux,can-disable",
+          "absent": true
+        },
+        {
+          "node": "/soc",
+          "child_absent": "gpio_keys"
+        }
+      ]
+    },
+    {
+      "id": "privacy-switch-module",
+      "why": "The privacy switch driver is built with its device-tree match and its sysfs directory.",
+      "type": "binary_count",
+      "file": "kernel:modules/diamaneos_privsw.ko",
+      "patterns": [
+        {
+          "text": "de.diamaneos,privacy-switch",
+          "min": 1
+        },
+        {
+          "text": "privacy_switch",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "privacy-switch-lpass-client",
+      "why": "The LPASS codec driver holds the decimators muted while the privacy switch blocks the microphones.",
+      "type": "binary_count",
+      "file": "kernel:modules/lpass_cdc_dlkm.ko",
+      "patterns": [
+        {
+          "text": "privsw_register_client",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "privacy-switch-wcd-client",
+      "why": "The WCD9378 codec driver keeps the mic biases off while the privacy switch blocks the microphones.",
+      "type": "binary_count",
+      "file": "kernel:modules/wcd9378_dlkm.ko",
+      "patterns": [
+        {
+          "text": "privsw_register_client",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "privacy-switch-sealed-at-boot",
+      "why": "init writes the owner's kernel floor policy once, after the persistent properties load; the kernel refuses later writes.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/init/init.privacy_switch.rc"
+      ],
+      "contains": [
+        "on post-fs-data\n    write /sys/kernel/privacy_switch/policy ${persist.diamaneos.privacy_switch.policy:-0}\n"
+      ]
+    },
+    {
+      "id": "privacy-switch-policy-writers",
+      "why": "Only init writes the kernel floor policy; the platform also lets ueventd and vendor_init write every sysfs file.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "sysfs_privacy_switch_policy",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "init",
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "privacy-switch-policy-property",
+      "why": "Only system_server (and init, which may set any property) sets the kernel floor policy for the next boot.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "privacy_switch_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "system_server"
+      ]
+    },
+    {
       "id": "debuggable-property",
       "why": "ro.debuggable follows the variant.",
       "type": "properties",

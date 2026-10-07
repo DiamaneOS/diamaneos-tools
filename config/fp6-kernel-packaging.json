@@ -85,6 +85,7 @@
       "debugcc-cliffs.ko",
       "debugcc-pineapple.ko",
       "debugcc-volcano.ko",
+      "diamaneos_privsw.ko",
       "dispcc-pineapple.ko",
       "dispcc-volcano.ko",
       "dmesg_dumper.ko",
@@ -684,6 +685,7 @@
       "icc-debug.ko",
       "icc-test.ko",
       "emkit_info.ko",
+      "diamaneos_privsw.ko",
       "qrtr.ko",
       "qrtr-gunyah.ko"
     ],

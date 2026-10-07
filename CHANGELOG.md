@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The Moments switch's kernel floor for the microphones: the kernel packaging
+  loads the privacy switch driver (`diamaneos_privsw.ko`) from the vendor
+  ramdisk. Image checks: the switch's device-tree node belongs to the driver
+  and cannot be disabled from sysfs (`privacy-switch-devicetree`), the driver
+  and both audio codec clients are built (`privacy-switch-module`,
+  `privacy-switch-lpass-client`, `privacy-switch-wcd-client`), init seals the
+  policy once per boot (`privacy-switch-sealed-at-boot`), and only init writes
+  it and only system_server sets its property (`privacy-switch-policy-writers`,
+  `privacy-switch-policy-property`). The threat model's Tally rules describe
+  it.
 - CamX camera core dumps are off (`camxoverridesettings.txt`: text, binary and
   their offline logging). Each camera recovery wrote 3–4 MB of camera state,
   metadata and logs to `/data/vendor/camera/coredump`, and writing one could

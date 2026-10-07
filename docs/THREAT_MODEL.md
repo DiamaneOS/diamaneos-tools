@@ -743,6 +743,11 @@ entry point), the protections in current builds, what remains, and the status.
   SurfaceFlinger or
   system_server threads through a hint session: an effect on speed, battery
   and heat, with no access to data (-172);
+  the camera sensor device nodes share one SELinux label with the video codec
+  and other video nodes, so another HAL's grant to that label also reaches
+  them (-188); the camera HAL programs the camera image processor through
+  command buffers the kernel runs unchecked (-191); the speaker amplifiers'
+  raw register files are root-writable under the generic sysfs label (-190);
   Android 14 ABI vendor code on Android 17; per-file purpose partly generic;
   closed code updated only through Fairphone stock releases. The closed
   Qualcomm sensors sub-HAL lists a vendor-private ambient colour (RGB) sensor
