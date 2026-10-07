@@ -886,8 +886,9 @@ CAMERA_CONFIG_REWRITES = {
                   'provider with cameraserver'},
     'vendor/etc/camera/camxoverridesettings.txt': {
         'source_sha256': '620b6aeb7fc0e57cb19971f0c64796563ccfb9439dba2ddb4151cd314d9ad3af',
-        'sha256': 'ce093a922922fd98360fb93aefe436971adf24e1c46b23e0b6dedff2172891ee',
-        'reason': 'Turn off CamX camera core dumps (text, binary and their offline logging): they keep '
+        'sha256': '3f14767a69002a3ea96ca5999704d7f69459f13434bed015b613dd5b559cb994',
+        'reason': 'Turn off CamX camera core dumps (text, binary, their offline logging and the dumps '
+                  'framework dump requests trigger): they keep '
                   'camera state, metadata and logs in /data/vendor/camera/coredump, and writing one after '
                   'a recovery can hang the provider'},
 }
@@ -898,7 +899,9 @@ CAMX_NO_CORE_DUMPS = (
     b'enableCameraCoreDumpText=FALSE\n'
     b'enableCameraCoreDumpBinary=FALSE\n'
     b'enableCoredumpOfflineTextLogging=FALSE\n'
-    b'enableCoredumpOfflineBinaryLogging=FALSE\n')
+    b'enableCoredumpOfflineBinaryLogging=FALSE\n'
+    b'# A framework dump request (dumpsys media.camera) still made an empty DumpOnly_* folder.\n'
+    b'enableFwkDump=FALSE\n')
 
 
 def camera_config(path, data):
