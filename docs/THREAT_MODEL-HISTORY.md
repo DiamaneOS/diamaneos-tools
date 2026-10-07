@@ -611,6 +611,9 @@ Longer notes for some revisions, oldest first.
     deny list (-18). The USB controller drops its EUD extcon and takes connect
     and role events from UCSI only, as it already did for every event but
     EUD's own spoofed connects.
+- **2026-10-07:** Moments switch: airplane mode and Lockdown are separate
+  actions (the combined one left airplane mode stuck on without a screen lock);
+  Lockdown is enabled only with a screen lock. Implemented, not yet built.
 
 ## IMS integration notes
 

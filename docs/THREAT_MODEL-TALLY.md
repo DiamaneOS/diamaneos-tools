@@ -286,7 +286,7 @@ boot animation, is the DiamaneOS mark. Neither carries state.
 Implemented, not yet built. The FP6's side slider drives one action the user
 picks in Settings > System > Gestures > Moments switch: Moments (the user's own
 Do Not Disturb, Home with only chosen apps, chosen apps paused, optional grey
-screen), camera and microphone access off, silent mode, airplane mode and/or
+screen), camera and microphone access off, silent mode, airplane mode,
 Lockdown, or nothing.
 
 - Reading the switch: the input service reports it only through three hidden
@@ -314,8 +314,9 @@ Lockdown, or nothing.
   cut-off. The FP6 offers these toggles (as GrapheneOS's Pixels do: the
   framework blocks the camera and microphone app ops and the camera service
   blocks or mutes cameras, whatever the HALs do); where a phone lacks them the
-  action is not offered. Lockdown is offered only with a PIN, pattern or
-  password. The toast names only what took effect, never a change the phone
+  action is not offered. Lockdown is its own action, enabled only with a PIN,
+  pattern or password; an earlier airplane-and-Lockdown choice becomes Lockdown
+  only when Lockdown was on and a screen lock exists, otherwise airplane mode. The toast names only what took effect, never a change the phone
   could not make.
 - Accidental flips: a short settle time, a haptic tick and a toast on each
   flip, and a "Nothing" choice. Before setup completes the switch does nothing;
