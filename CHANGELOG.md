@@ -83,6 +83,12 @@
   instead of the MAC when a peer has no receive state
   (`wlan-driver-own-mac-not-logged`). Threat model identifiers row: which logs
   still carry the MAC; the Wi-Fi service no longer logs it.
+- Threat model and image checks for eSIM downloads (implemented, not yet
+  built): the eSIM manager's permissions now include network access and still
+  no camera (`esim-lpa-apk`), and the framework's eUICC transport log tags
+  stay at info (`esim-apdu-not-logged`, -181). The eSIM section records what
+  the downloads send, the GSMA CI-only TLS trust, the notification rule and
+  the phone checks of the profile list and of turning a profile off and on.
 - Image checks and threat model for the factory Wi-Fi MAC (-180): imeiprovd's
   `--wlan-mac` service and its firmware tree, which init waits for at post-fs
   (`wlan-factory-mac-service`), ueventd's firmware directory

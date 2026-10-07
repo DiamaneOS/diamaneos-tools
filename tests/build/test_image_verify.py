@@ -1340,11 +1340,16 @@ class ConfigTests(unittest.TestCase):
         host = next(e['replacement_host'] for e in endpoints if e['id'] == 'os-updates')
         self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
 
-    def test_esim_manager_ships_off_without_network_and_unplatform_signed(self):
+    def test_esim_manager_ships_off_with_network_only_and_unplatform_signed(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         apk = rules['esim-lpa-apk']
-        self.assertNotIn('android.permission.INTERNET', apk['permissions'])
+        # Network for downloads; no camera (QR codes come from the camera app as text).
+        self.assertIn('android.permission.INTERNET', apk['permissions'])
+        self.assertNotIn('android.permission.CAMERA', apk['permissions'])
+        self.assertEqual(4, len(apk['permissions']))
         self.assertIn('android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS', apk['permissions'])
+        self.assertEqual(['log.tag.ApduSender-0=I', 'log.tag.ApduSender-1=I', 'log.tag.TransApdu=I'],
+                         sorted(rules['esim-apdu-not-logged']['equals']))
         self.assertTrue(any('enabled' in pattern and '=false' in pattern for pattern in apk['manifest_regex']))
         self.assertEqual('SYSTEM/framework/framework-res.apk', apk['not_signed_like'])
         self.assertEqual({'array/non_removable_euicc_slots': ['1']}, rules['esim-builtin-slot']['arrays'])
