@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Pin kernel_qcom-6.1 a3da4d2 on top of 6fed659: XFRM state dumps show IPsec
+  keys as zeros again (`xfrm_redact()` always true; the common kernel has the
+  same change, 9f7417fb1da2). Integrity lockdown does not cover
+  LOCKDOWN_XFRM_SECRET; GrapheneOS's confidentiality lockdown does. Threat
+  model and kernel notes updated (-173).
 - Threat model statuses: items built and phone-checked on 2026-10-06 are marked
   so (eSIM manager, boot control, SHA-256 hashtrees, serials, factory
   Bluetooth address, thermal HAL, Updater build).
