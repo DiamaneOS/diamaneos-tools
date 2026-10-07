@@ -57,7 +57,7 @@ From `kernel_platform`, with `KLEAF_REPO_MANIFEST` naming the resolved manifest
 (paths relative to that directory), run the non-consolidate targets:
 
 ```sh
-tools/bazel build --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom \
+tools/bazel build --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom --config=stamp \
   //common:kernel_aarch64 //msm-kernel:fps_gki \
   //msm-kernel:fps_gki_abi //common:kernel_aarch64_abi
 tools/bazel run --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom \
@@ -66,7 +66,10 @@ tools/bazel query --output=label \
   'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
 ```
 
-Keep the queried list, require the audio and qcacld WLAN targets, and build
+`--config=stamp` makes the version name the source commit (`-g<hash>`) and
+the build date the commit's (reproducible); without it Kleaf reports
+`-maybe-dirty` and 1970. The output queries use the same flag. Keep the
+queried list, require the audio and qcacld WLAN targets, and build
 exactly that list with the same flag, bounded concurrency and wall time, the
 workspace lock held and commands, revisions and exit status recorded. The
 vendor ABI rule has no STG baseline at this pin, so an empty vendor diff is no
