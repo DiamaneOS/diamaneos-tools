@@ -1093,6 +1093,67 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn('misc image is not the declared zeros', detail)
 
 
+class FirmwareCheckTests(unittest.TestCase):
+    def setUp(self):
+        from diamaneos_tools import firmware
+        from tests.build.test_firmware import RELEASE, synthetic_firmware
+        self.firmware = firmware
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        (self.root / 'stock').mkdir()
+        self.inventory, self.policy, archive, self.data = synthetic_firmware(self.root / 'stock')
+        self.plan = firmware.plan(self.inventory, self.policy)
+        firmware.stage(archive, self.inventory, self.plan, self.root)
+        reset = {}
+        for name, image in self.policy['reset'].items():
+            (self.root / image['image']).write_bytes(bytes(image['bytes']))
+            reset[name] = {'file': image['image'], 'sha256': hashlib.sha256(bytes(image['bytes'])).hexdigest()}
+        self.record = {'stock_build': RELEASE, 'firmware': dict(firmware.record(self.plan, self.inventory, reset),
+                                                                validated=False)}
+
+    def harness(self, members):
+        v = Harness(self.root, members)
+        self.addCleanup(v.tf.close)
+        v.record, v.firmware_inventory = self.record, self.inventory
+        v.config['firmware'] = self.policy
+        return v
+
+    def test_the_set_carries_the_complete_exact_firmware(self):
+        v = self.harness({})
+        self.assertEqual((True, ''), subject.check_firmware(v))
+        (self.root / 'NON-HLOS.bin').write_bytes(b'modem from elsewhere')
+        ok, detail = subject.check_firmware(v)
+        self.assertFalse(ok)
+        self.assertIn('NON-HLOS.bin differs from the inventory', detail)
+        v.record = {'stock_build': self.record['stock_build']}
+        self.assertEqual((False, 'the image set carries no firmware'), subject.check_firmware(v))
+
+    def test_an_ota_carries_all_ab_firmware_or_none(self):
+        os_only = b'boot\nsystem\nvendor\npvmfw\n'
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only}))
+        self.assertTrue(ok)
+        self.assertIn('names no firmware partition', detail)
+        radio = {'RADIO/abl.img': self.data['abl.elf'], 'RADIO/modem.img': self.data['NON-HLOS.bin'],
+                 'RADIO/studybk.img': self.data['study.img'], 'IMAGES/xbl.img': self.data['xbl_s.melf']}
+        listed = os_only + b'abl\nmodem\nstudybk\nxbl\n'
+        self.assertEqual((True, ''), subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **radio})))
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only + b'modem\n', **radio}))
+        self.assertFalse(ok)
+        self.assertIn('missing: abl, studybk, xbl', detail)
+        changed = dict(radio, **{'RADIO/modem.img': b'other modem'})
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
+        self.assertFalse(ok)
+        self.assertIn('RADIO/modem.img is not the stock NON-HLOS.bin', detail)
+        del changed['RADIO/modem.img']
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
+        self.assertIn('lacks the modem image', detail)
+
+    def test_both_checks_run_on_every_image_set(self):
+        ids = [check_id for check_id, _, _ in subject.GENERIC]
+        self.assertIn('firmware', ids)
+        self.assertIn('firmware-ota', ids)
+
+
 class ConfigTests(unittest.TestCase):
     def test_committed_checks_are_valid_and_explained(self):
         document = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())

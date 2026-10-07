@@ -144,32 +144,50 @@ Read these rules first:
 - Never run `fastboot -w` or `fastboot erase`. When a wipe is needed, the
   printed steps flash empty images instead, as Fairphone's own factory
   package does.
-- Everything goes to slot a.
-- The phone's firmware must come from the stock release the build's vendor
-  files come from (`FP6.QREL.16.111.0` today). Never install firmware older
-  than the phone already runs.
+- The OS goes to slot a only. The firmware steps write both slots of each A/B
+  firmware partition, as Fairphone's own flash does.
+- Never install firmware older than the phone already runs. `flash-steps`
+  refuses to.
 
 If you flash from another computer, copy the whole image directory there.
 
+**Firmware.** Each image set carries Fairphone's firmware of the release its
+vendor files come from (`FP6.QREL.16.111.0` today). `flash-steps` writes it
+first when the phone runs older firmware, prints no firmware steps when the
+phone runs that release, and stops when it runs a newer one. The FP6 bootloader
+does not report its firmware, so name it with `--phone-firmware`: the build
+number in Settings > About phone on stock Android, or the firmware the last
+DiamaneOS flash steps installed (`--since` reads it from that image set). For
+firmware steps, also save the phone's state in the bootloader and pass it with
+`--phone`:
+
+```sh
+{ fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1
+```
+
+`--no-firmware` leaves the firmware as it is. The firmware steps are not yet
+tested on a phone, and the printed steps say so.
+
 **First install** (from stock Android or another system):
 
-1. Unlock the bootloader as
+1. Note the build number in Settings > About phone, for example
+   `FP6.QREL.16.100.0`.
+2. Unlock the bootloader as
    [Fairphone describes](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-to-unlock-or-lock-your-Fairphone-s-bootloader),
-   including `fastboot flashing unlock_critical`, because the next step writes
+   including `fastboot flashing unlock_critical`, because the steps write
    firmware.
-2. Install Fairphone's stock factory package for that release with
-   [Fairphone's instructions](https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone).
-   It writes the firmware.
-3. Print the flash steps and run them:
+3. In the bootloader, save the phone's state as above, then print the flash
+   steps and run them:
 
    ```sh
-   tools/diamaneos/bin/diamaneos flash-steps --wipe
+   tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware FP6.QREL.16.100.0
    ```
 
 The wipe erases everything on the phone. It flashes empty userdata, metadata
 and misc images and Fairphone's factory FRP image, so factory reset protection
-is cleared and OEM unlocking stays allowed. The wipe is not yet tested on a
-phone, and the printed steps say so.
+is cleared and OEM unlocking stays allowed; unless you pass `--no-firmware`, it
+also writes Fairphone's empty logfs and vm-persist images. The wipe is not yet
+tested on a phone, and the printed steps say so.
 
 **Updating** a phone that already runs a DiamaneOS test build:
 
@@ -177,12 +195,14 @@ phone, and the printed steps say so.
 tools/diamaneos/bin/diamaneos flash-steps --since ~/diamaneos-build/images/<previous build>
 ```
 
-This prints only the images that changed. Without `--since` it prints them
-all.
+This prints only the images that changed, and the firmware only when the new
+set carries newer firmware than the earlier one (then add `--phone`). An earlier
+image set without firmware does not say what the phone runs; add
+`--phone-firmware`. Without `--since` it prints every image.
 
-**Back to stock:** install Fairphone's factory package as in step 2 of the
-first install. Relock only after stock is back, and only with the checks in
-the installer's
+**Back to stock:** install Fairphone's factory package with
+[Fairphone's instructions](https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone).
+Relock only after stock is back, and only with the checks in the installer's
 [recovery preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-preflight.md).
 
 ## When something goes wrong

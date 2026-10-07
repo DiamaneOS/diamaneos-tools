@@ -55,7 +55,7 @@ all` ([BUILDING.md](docs/BUILDING.md)).
 - [Build DiamaneOS for the Fairphone 6](docs/BUILDING.md)
 - [Build reference](docs/BUILD.md)
 - [Testing and command setup](docs/TESTING.md)
-- [FP6 firmware inventory](docs/FIRMWARE.md)
+- [FP6 firmware](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
 - [FP6 kernel build and capability contract](docs/FP6-KERNEL.md)
 - [Reconstruct FP6 development build inputs](docs/FP6-PREPARATION.md)

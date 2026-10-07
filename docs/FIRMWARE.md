@@ -1,19 +1,22 @@
-# FP6 firmware inventory
+# FP6 firmware
 
 The Fairphone 6's closed firmware (boot chain, TrustZone, modem, signal
-processors) and its recent changes; nothing here was read from a phone.
+processors), how DiamaneOS delivers it, and its recent changes.
 
 ## Current state
 
-DiamaneOS flashes only the OS partitions (boot, init_boot, vendor_boot, dtbo,
-recovery, vbmeta, vbmeta_system, super, pvmfw); firmware keeps whatever the last
-stock factory flash or OTA wrote, so it can lag the stock release the vendor
-files come from.
+DiamaneOS image sets carry Fairphone's firmware of the stock release their
+vendor files come from (`FP6.QREL.16.111.0`), byte for byte, and
+`diamaneos flash-steps` writes it before the OS when the phone runs older
+firmware ([Delivery](#delivery)). No OTA carries firmware. No image set with
+firmware has been built or flashed yet (`firmware.validated` in
+`config/fp6-build.json`); until one is, a phone keeps the firmware of its last
+stock flash.
 [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json)
 lists every image of the selected `FP6.QREL.16.111.0` and previous
 `FP6.QREL.16.100.0` factory packages with size and SHA-256, plus Qualcomm
 version strings, signing metadata, AVB rollback data, the Wi-Fi firmware files
-and the stock flash order.
+and the stock flash order; it was read from the archives, not from a phone.
 
 ## Partitions and sources
 
@@ -59,6 +62,72 @@ amplifiers) ships in the vendor image via
 5. erases `misc`, `modemst1` and `modemst2` (the modem's runtime settings copy,
    restored from its backup);
 6. selects slot a, then tries `fastboot oem reset-rollback` and accepts failure.
+
+## Delivery
+
+**Image set.** `build package` copies every firmware image except the stock
+`pvmfw.img` out of the factory package the vendor step authenticated, under its
+stock name. The package must be the inventory's package of the release (size
+and SHA-256), and each image must match its own pinned size and SHA-256. The
+step refuses firmware of another release than the vendor files' and any image
+with a lower Qualcomm anti-rollback version than an older inventoried release.
+`build.json` records the release, the package, each image's hash and the flash
+steps; `build verify` checks all of it again against the inventory (check
+`firmware`).
+
+**Flash steps.** The firmware steps come first, in the stock script's order.
+What DiamaneOS keeps of that script (reasons in the `firmware` block of
+`config/fp6-build.json`):
+
+| Stock step | DiamaneOS |
+| --- | --- |
+| A/B firmware, `_a` and `_b` | Same, both slots, stock order |
+| `storsec`, `toolsfv`, `study`, `studybk_a/b` | Same |
+| `logfs`, `vm-persist` (empty images) | Only with `--wipe`: they hold state, which an A/B update never touches either |
+| Stock `pvmfw` on both slots | DiamaneOS's own pvmfw, slot a, with the OS |
+| OS images on both slots | Slot a only |
+| `userdata`, `metadata`, `frp` | With `--wipe`; FRP image identical to stock |
+| `erase misc` | Zeros, with `--wipe` only: misc holds the OS's boot messages |
+| `erase modemst1`, `modemst2` | Zeros over both whole partitions, right after the firmware, whenever firmware is written |
+| `--set-active=a` | Same |
+| `oem reset-rollback` | Dropped: it weakens rollback protection, and test builds stay unlocked |
+| Unlock checks | From the saved phone state, plus product and bootloader mode |
+
+With both modem file system copies empty, the modem rebuilds its file system
+from its factory backup (`fsg`) when it next starts, so new modem firmware and
+its carrier profiles start from that backup, as after Fairphone's own flash.
+
+**Slots.** The OS goes to slot a only, but each A/B firmware partition gets the
+same image on both slots, as Fairphone's flash writes it. Older firmware left on
+slot b would run after any later switch to b (`fastboot --set-active=b`, the
+bootloader's fallback after failed boots, or an update that lands on b): firmware
+older than the phone has already run, next to state the newer firmware wrote in
+partitions both slots share (`storsec`, the modem file system, secure storage).
+Slot b holds no OS after a DiamaneOS flash (`super` gets slot a only), so its old
+firmware is no fallback either way. As with Fairphone's flash, there is then no
+firmware fallback slot: a failed firmware write is fixed by running the steps
+again from the bootloader, or by Fairphone's factory package.
+
+**Never older firmware.** The FP6 bootloader reports empty `version-bootloader`
+and `version-baseband` (stock firmware, September 2026), and 16.100.0 and
+16.111.0 share every Qualcomm version string, so the phone cannot say which
+release it runs. `flash-steps` takes the release from `--phone-firmware` (the
+stock build number) or from the image set given with `--since`, compares build
+numbers, and stops if the phone runs a newer release than the image set
+carries. For the same release it prints no firmware steps (`--rewrite-firmware` writes it again, for example
+to bring slot b and the single partitions up to it); `--no-firmware` leaves the
+firmware alone. If a phone reports version values, they must be the ones the
+inventory records for the stated release (`fastboot_versions`; none recorded),
+or `flash-steps` refuses. Firmware steps also need the saved output of
+`fastboot getvar all` and `fastboot oem device-info` (`--phone`): an FP6,
+unlocked, with unlocked critical partitions, in the bootloader rather than
+fastbootd.
+
+**OTA.** No OTA carries firmware: DiamaneOS builds none, and the device's
+`AB_OTA_PARTITIONS` lists only OS partitions. `build verify` fails a
+target-files archive whose A/B partition list names only part of the 24 A/B
+firmware partitions or carries other bytes than stock's for them (check
+`firmware-ota`), so an update holds the whole firmware of one release or none.
 
 ## Changes from 16.100.0 to 16.111.0
 
@@ -109,11 +178,14 @@ pinned to a revision that has it, not yet tested on a phone.
   fuses or protected storage) is 1 in both releases.
 - Never downgrade firmware: it is untested even at equal anti-rollback version,
   and the stock flash script is the only supported way back to stock.
+  `flash-steps` refuses firmware steps towards an older stock release.
 
 ## Verification
 
 - The factory package matches its pinned SHA-256 and Fairphone's published value
   (for 16.111.0 not yet published on 2026-09-30), and its own checksum list.
+- Each firmware image in an image set matches the inventory's SHA-256, at
+  packaging and again in `build verify`; `SHA256SUMS` covers the set.
 - On the phone, Qualcomm secure boot checks each image against the SoC's OEM
   key; AVB covers only the OS partitions and pvmfw, so byte-exact stock images
   keep firmware authentic.

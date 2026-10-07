@@ -32,8 +32,9 @@ rules).
    current Pixels; the selected closed files recorded in `config/fp6-minimal/vendor-files.json` include large parsers of
    untrusted input, and the closed GPU driver and shader compilers run in every
    app ([details](#camera-microphone-sensor-streams-device-integrity)).
-3. **Unpatchable firmware** that lags Android Security Bulletins: no firmware
-   update path exists, and firmware stays at the last flashed stock release
+3. **Unpatchable firmware** that lags Android Security Bulletins: the project
+   cannot build or patch it; `flash-steps` installs the firmware of the vendor
+   files' stock release over older firmware, but no OTA carries firmware
    ([details](#firmware-security)).
 4. **Credentials rest on the TEE:** no StrongBox or Weaver; throttling
    unverified; no passphrase policy; fingerprint class not measured
@@ -92,7 +93,9 @@ personal accounts and sensitive data stay off them.
   remain; Qualcomm's embedded USB debugger (EUD) is off by default (not
   checked on the phone); its device-tree node is disabled and its driver is
   not shipped (checked on the phone 2026-10-06).
-- **Firmware:** the last flashed stock release.
+- **Firmware:** the last flashed stock firmware. Image sets from the current
+  tools carry the vendor files' stock release for `flash-steps` to install
+  (none built or tested on a phone yet).
 
 ### IMS development evidence
 
@@ -1089,16 +1092,33 @@ entry point), the protections in current builds, what remains, and the status.
   modem, DSP, Wi-Fi and Bluetooth firmware, or peripheral controller firmware
   files in `/vendor/firmware`.
 - **Protection:** per-image firmware inventory with hashes
-  ([`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json));
-  controller firmware files are exact, hash-pinned stock files.
-- **Remaining:** the project cannot build or sign firmware; no firmware update
-  path; firmware lags ASB; Gunyah and its trusted VMs are closed. As on stock,
-  the NFC HAL may update its controller from its firmware file. Since the
-  2026-09-27 build, the touch driver writes its file to the touch controller
-  whenever versions differ or the controller's version is unreadable, checking
-  only the header, so verified boot is what keeps that file authentic.
-- **Status:** Observed gap: firmware stays at the last flashed stock release.
-  Unverified: firmware review (FP6-206), stock input verification (FP6-040).
+  ([`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json)).
+  In the tools, in no build yet: every image set carries the firmware of the
+  stock release its vendor files come from, copied byte for byte from the authenticated factory package and
+  checked against those hashes when packaged and again by `build verify`, with
+  no image below an older release's Qualcomm anti-rollback version.
+  `flash-steps` writes it before the OS, in Fairphone's order and on both slots,
+  so a later slot switch cannot fall back to older firmware; it prints firmware
+  steps only over an older release and stops for a newer one, and only for a
+  saved bootloader state showing an unlocked FP6 with unlocked critical
+  partitions. Controller firmware files are exact, hash-pinned stock files.
+- **Remaining:** the project cannot build or sign firmware; firmware lags ASB
+  until Fairphone ships a release and DiamaneOS selects it; no OTA carries
+  firmware (`build verify` refuses an A/B partition list with only part of it).
+  The FP6 bootloader does not report its firmware version, so the downgrade
+  check relies on the release the user states or the earlier image set; a wrong
+  statement can let older firmware through, which the boot chain's
+  anti-rollback (version 1 in both inventoried releases) does not stop. With
+  both slots written there is no firmware fallback slot during a flash, as with
+  Fairphone's flash. Gunyah and its trusted VMs are closed. As on stock, the NFC
+  HAL may update its controller from its firmware file. Since the 2026-09-27
+  build, the touch driver writes its file to the touch controller whenever
+  versions differ or the controller's version is unreadable, checking only the
+  header, so verified boot is what keeps that file authentic.
+- **Status:** Observed gap: a phone keeps the firmware of its last stock flash;
+  firmware delivery through image sets and `flash-steps` is in the tools
+  (2026-10-06), in no build yet and untested on a phone. Unverified: firmware
+  review (FP6-206), stock input verification (FP6-040).
 
 #### Keys, Gatekeeper throttling, fingerprint templates
 
@@ -1287,6 +1307,9 @@ entry point), the protections in current builds, what remains, and the status.
 - **Protection:** `flash-steps` prints commands only for an image set whose
   verify report matches it and passed, and prints the never-lock rule first for
   test-key builds ([OS integrity](#os-integrity-on-a-released-locked-build)).
+  In the tools, in no build yet: firmware enters an image set only from the
+  factory package with the pinned SHA-256, each image matching its own pinned
+  hash ([Firmware security](#firmware-security)).
 - **Remaining:** no installer and no key enrolment exist; stock restore inputs
   are authenticated by the vendor's published hash, not a signature.
 - **Status:** Not implemented: installers and key enrolment.
@@ -1498,8 +1521,9 @@ VPN, and what a locked phone shows.
   capability (a software fallback is not automatically safer than proprietary
   hardware-backed code).
 - **Firmware:** hashed per image in
-  [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json),
-  not delivered by DiamaneOS.
+  [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json);
+  image sets carry those exact images of the vendor files' release, which
+  `flash-steps` installs ([FIRMWARE.md](FIRMWARE.md)); OTAs carry none.
 - **Licences and records:** imported or modified open-source code stays
   fail-closed on per-file licence, notice, attribution and corresponding-source
   obligations. Exact source revisions, interfaces and experiments are in

@@ -11,19 +11,27 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
-from diamaneos_tools import build_steps as steps, build_workspace as bw, image_package
+from diamaneos_tools import build_steps as steps, build_workspace as bw, firmware, image_package
+from tests.build.test_firmware import synthetic_firmware
 
 FSTAB = '''/dev/block/by-name/metadata /metadata f2fs noatime wait,check,formattable,first_stage_mount
 /dev/block/bootdevice/by-name/userdata /data f2fs noatime latemount,wait,check,formattable,quota
 '''
 
 
-def fixture_workspace(root: Path, variant='user'):
-    """A workspace whose android step passed, with a synthetic target-files."""
+def fixture_workspace(root: Path, variant='user', **firmware_options):
+    """A workspace whose vendor and android steps passed, with a synthetic
+    target-files and a synthetic factory package that its firmware inventory pins."""
     ctx = steps.make_context(argparse.Namespace(
         workspace=str(root / 'ws'), environment=None, variant=variant, jobs=None, allow_network=True,
         factory_zip=None, shallow=False), lambda *a: None)
     ws, config = ctx.workspace, ctx.config
+    (root / 'stock').mkdir(parents=True)
+    inventory, policy, archive, _ = synthetic_firmware(root / 'stock', **firmware_options)
+    ctx.firmware_inventory = inventory
+    config['firmware'] = policy
+    ws.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v', 'outputs': {
+        'factory_zip': str(archive), 'factory_sha256': inventory['releases'][inventory['selected_build']]['archive']['sha256']}})
     product = ctx.out / 'target/product/FP6/obj/PACKAGING/target_files_intermediates'
     product.mkdir(parents=True)
     target_files = product / 'FP6-target_files.zip'
@@ -98,7 +106,9 @@ class PackageTests(unittest.TestCase):
         self.assertEqual('public-test-keys', record['signing'])
         self.assertIn('installs none while the build is signed with public test keys', record['notice'])
 
-    def test_missing_factory_archive_does_not_probe_inaccessible_working_directory(self):
+    def test_missing_factory_archive_is_refused_without_probing_the_working_directory(self):
+        # The firmware comes from the factory package, so packaging needs it;
+        # a vendor record without one must not make the step look at '.'.
         self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
                                                   'outputs': {'generation': 'authenticated'}})
         original = Path.is_file
@@ -107,9 +117,8 @@ class PackageTests(unittest.TestCase):
                 raise PermissionError('inherited working directory is inaccessible')
             return original(path)
         with patch.object(Path, 'is_file', is_file):
-            outputs = run_plan(self.ctx, image_package.plan(self.ctx))
-        record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
-        self.assertEqual({}, record['wipe']['partition_table_checked'])
+            with self.assertRaisesRegex(bw.BuildStepError, 'needs the factory package'):
+                run_plan(self.ctx, image_package.plan(self.ctx))
 
     def test_build_record_names_the_factory_package_without_its_path(self):
         record = image_package.public_vendor_outputs(
@@ -159,8 +168,7 @@ class PackageTests(unittest.TestCase):
             archive.writestr('FP6-factory/images/rawprogram0.xml', table)
         self.assertEqual(1048576, image_package.stock_partition_size(factory, 'misc'))
         self.assertIsNone(image_package.stock_partition_size(factory, 'absent'))
-        self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
-                                                  'outputs': {'factory_zip': str(factory)}})
+        # The fixture's factory package gives misc 256 sectors of 4096 bytes.
         outputs = run_plan(self.ctx, image_package.plan(self.ctx))
         directory = self.ctx.workspace.root / outputs['directory']
         self.assertEqual(bytes(1048576), (directory / 'misc.img').read_bytes())
@@ -169,14 +177,60 @@ class PackageTests(unittest.TestCase):
         self.assertIn('misc', record['wipe']['images'])
 
     def test_misc_size_disagreeing_with_the_stock_table_is_refused(self):
-        factory = self.root / 'factory.zip'
-        with zipfile.ZipFile(factory, 'w') as archive:
-            archive.writestr('FP6-factory/images/rawprogram0.xml',
-                             '<data><program num_partition_sectors="512" label="misc" SECTOR_SIZE_IN_BYTES="4096"/></data>')
-        self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
-                                                  'outputs': {'factory_zip': str(factory)}})
+        ctx = fixture_workspace(self.root / 'other', misc_sectors=512)
         with self.assertRaisesRegex(bw.BuildStepError, 'stock partition table says 2097152'):
+            run_plan(ctx, image_package.plan(ctx))
+
+    def test_package_carries_the_exact_stock_firmware(self):
+        outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        directory = self.ctx.workspace.root / outputs['directory']
+        inventory, policy = self.ctx.firmware_inventory, self.ctx.config['firmware']
+        plan = firmware.plan(inventory, policy)
+        record = json.loads((directory / 'build.json').read_text())
+        self.assertEqual('FP6.QREL.16.111.0', record['firmware']['release'])
+        self.assertEqual(record['stock_build'], record['firmware']['release'])
+        sums = image_package.read_sums(directory)
+        for name, identity in plan['images'].items():
+            self.assertEqual(identity['sha256'], bw.sha_file(directory / name))
+            self.assertEqual(identity['sha256'], sums[name])
+        self.assertEqual(plan['steps'], record['firmware']['steps'])
+        # Our own pvmfw, not the stock one.
+        self.assertEqual(b'pvmfw image', (directory / 'pvmfw.img').read_bytes())
+        for name, image in policy['reset'].items():
+            self.assertEqual(bytes(image['bytes']), (directory / image['image']).read_bytes())
+            self.assertEqual({'file': image['image'], 'sha256': sums[image['image']]}, record['firmware']['reset'][name])
+        self.assertEqual([], firmware.check_set(directory, record['firmware'], inventory, policy, record['stock_build']))
+
+    def test_firmware_from_another_package_is_refused(self):
+        release = self.ctx.firmware_inventory['selected_build']
+        self.ctx.firmware_inventory['releases'][release]['archive']['sha256'] = '0' * 64
+        with self.assertRaisesRegex(bw.BuildStepError, 'not the factory package of FP6.QREL.16.111.0'):
             run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_firmware_of_another_release_than_the_vendor_files_is_refused(self):
+        inventory = self.ctx.firmware_inventory
+        inventory['selected_build'] = inventory['previous_build']
+        with self.assertRaisesRegex(bw.BuildStepError, 'vendor files come from FP6.QREL.16.111.0'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_reset_size_disagreeing_with_the_stock_table_is_refused(self):
+        ctx = fixture_workspace(self.root / 'other', reset_sectors=3)
+        with self.assertRaisesRegex(bw.BuildStepError, 'modemst1 image is 8192 bytes but the stock partition table says 12288'):
+            run_plan(ctx, image_package.plan(ctx))
+
+    def test_a_published_set_with_other_firmware_is_not_reused(self):
+        run_plan(self.ctx, image_package.plan(self.ctx))
+        release = self.ctx.firmware_inventory['selected_build']
+        self.ctx.firmware_inventory['releases'][release]['images']['firmware']['abl.elf']['sha256'] = 'a' * 64
+        with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_firmware_names_never_replace_an_os_image(self):
+        image_package.check_firmware_names(['abl.elf', 'NON-HLOS.bin'], self.ctx.config)
+        for name in ('pvmfw.img', 'boot.img', 'super.img', 'misc.img', 'modemst1.img', 'build.json', 'SHA256SUMS'):
+            with self.subTest(name):
+                with self.assertRaisesRegex(bw.BuildStepError, name):
+                    image_package.check_firmware_names(['abl.elf', name], self.ctx.config)
 
     def test_wipe_images_match_the_stock_frp_and_the_device_fstab(self):
         frp = self.root / 'frp.img'

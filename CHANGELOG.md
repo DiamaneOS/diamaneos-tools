@@ -164,6 +164,19 @@
   permissions and the DiamaneOS update server in official builds and its
   absence in the others. The OS update endpoint contract names the fork as
   its client.
+- Deliver the FP6 firmware with the image set. `build package` copies
+  Fairphone's firmware of the vendor files' release (`FP6.QREL.16.111.0`) out
+  of the authenticated factory package, every image checked against
+  `config/fp6-firmware-inventory.json`, and makes zero images for the modem file
+  system. `flash-steps` writes the firmware first, in the stock order and on
+  both slots, then empties the modem file system, and only over older
+  firmware: the phone's release comes from `--phone-firmware` or `--since`,
+  because the FP6 bootloader does not report it; firmware steps need the
+  phone's saved bootloader state (`--phone`); a newer release on the phone
+  stops the command. `--no-firmware` and `--rewrite-firmware` skip or repeat
+  the firmware. `build verify` checks the firmware and refuses an A/B
+  partition list that carries only part of it. Not yet built or tested on a
+  phone (docs/FIRMWARE.md).
 - Threat model and image checks for the camera's performance hints, which
   the device now passes to the power HAL: the camera provider becomes a power
   HAL client. `camera-power-client` checks that it is the only vendor domain

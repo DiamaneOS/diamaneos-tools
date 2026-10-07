@@ -28,6 +28,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-06
 
+- Firmware delivery, implemented, not yet built or tested on a phone: image sets carry Fairphone's exact firmware of the vendor files' release, checked against the per-image hashes when packaged and verified; flash-steps writes it first, in the stock order and on both slots, only over older firmware and never over newer, taking the phone's release from the user or the earlier image set because the FP6 bootloader does not report it; no OTA carries firmware, and verify refuses an A/B partition list with only part of it.
 - Moments switch, implemented, not yet built: the side slider's state reaches only SystemUI through a signature permission and only from the internal device; its settings are readable only by Settings, SystemUI and Launcher; it raises protection at once and lowers it only after the unlock; see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 - Statuses: items built and phone-checked today are marked so.
 - Audio HAL, PAL and AGM, implemented, not yet built: built from Fairphone's published FP6 sources with control-flow integrity and the integer overflow sanitizer, as stock, so the HAL's setParameters keys, stream I/O and USB audio descriptor text are handled in code we can patch; the HAL registers no PAL HIDL service, and that service, the memory logger and the dynamic logging library are not shipped; the HAL no longer answers the factory speaker queries or accepts the factory speaker protection modes, and ignores voice UI keys without a sound trigger HAL, which closes parameter-query bugs any app could reach (-178); the graph services, their tuning server, the voice UI interface and the deadline manager stay closed in the same process; the Awinic calibration code Fairphone publishes without a licence is compiled into PAL as in stock; PAL's speaker protection calls it at each speaker start to apply the per-unit calibration.
@@ -658,6 +659,16 @@ Longer notes for some revisions, oldest first.
 - **2026-10-07:** Moments switch: the user may turn off the note for a
   blocked camera or microphone (silent block; still no prompt). Implemented,
   not yet built.
+- **2026-10-06:** firmware delivery. Image sets carry Fairphone's firmware of
+  the release the vendor files come from, copied from the authenticated factory
+  package and checked against the per-image hashes when packaged and verified.
+  `flash-steps` writes it before the OS, in the stock order and on both slots
+  (the OS stays on slot a), with the modem file system emptied so the modem
+  restores its factory backup, only over an older release and never over a
+  newer one. The FP6 bootloader reports no firmware version, so the phone's
+  release comes from the user or the earlier image set. No OTA carries
+  firmware; verify refuses an A/B partition list with only part of it.
+  Implemented, not yet built or tested on a phone.
 
 ## IMS integration notes
 
