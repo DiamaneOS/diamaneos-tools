@@ -324,8 +324,10 @@ Lockdown, or nothing.
   the switch blocks the camera or microphone, the platform's "Unblock" prompt
   (an activity over the app, which pauses it and stops a recording) is
   suppressed for that sensor through the platform's reminder suppression, and
-  a short toast names what the switch blocks, at most once every ten seconds.
-  Apps get black frames and silence without interruption. A block counts as
+  a short toast names what the switch blocks, at most once every ten seconds;
+  the user may turn the toast off for a silent block (the status bar's privacy
+  indicators stay as stock). Apps get black frames and silence without
+  interruption. A block counts as
   the switch's only from system state: the kernel floor's hardware toggle, or
   a software block the switch made (its record) that nobody has lifted since.
   A block the user made in Quick Settings or Settings keeps GrapheneOS's
