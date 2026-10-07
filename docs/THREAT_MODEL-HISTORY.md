@@ -28,6 +28,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-06
 
+- eSIM downloads, implemented, not yet built: the eSIM manager downloads profiles (SGP.22 consumer download, with confirmation code and an explicit SM-DS search) after the user agrees to contact the named server; HTTPS to that server only, trusting only the GSMA CI roots it ships that the eUICC also lists; notifications only for profiles it downloaded; the framework's eUICC transport no longer logs eUICC commands in full (-181).
 - GNSS, implemented, not yet built: the HAL, its IGnss implementation and the location libraries are built from CodeLinaro source instead of Qualcomm's closed builds, with the public QMI framework's client linked in, so the GNSS process loads no closed code, and with CFI and the integer overflow sanitizer as in Qualcomm's builds; the libraries load only the GNSS adapter and the QMI LOC API, so Qualcomm's IZat, XTRA, NTRIP and other add-on libraries cannot load, and the HAL opens no socket for the XTRA and DGNSS daemons; SUPL and PSDS settings work as before.
 - Wi-Fi MAC in logs, implemented, not yet built: on user builds netd logs no info lines and the supplicant no debug lines, which carried the factory MAC; the Wi-Fi service no longer prints it when it records it or fails to set it, and the Wi-Fi driver's error line at Wi-Fi start prints a peer id instead of four of its six octets.
 - USB-C port control, implemented, not yet built: the framework setting is on, and init triggers turn USB data off and on with the USB controller's data switch, which only vendor_init may write; user builds default to charging-only when locked, as GrapheneOS; Off also turns off charging while the OS runs, as on Pixels, through the charger firmware's input suspend, which only vendor_init may write; user builds start every boot with USB data and charging off until the stored mode applies, as Pixels do; charging powered off, in charger mode, fastboot, fastbootd and recovery is unaffected; unlike Pixels, Off leaves Type-C and USB PD running in Qualcomm firmware and the boot cut starts once that firmware is up; debuggable builds reset a restrictive mode at boot and ignore the lock modes while USB debugging is on.
@@ -684,6 +685,18 @@ Longer notes for some revisions, oldest first.
   control a user
   build had no USB data at all. On debuggable builds a restrictive mode is
   reset at boot and the lock modes do nothing while USB debugging is on.
+- **2026-10-06:** eSIM downloads, implemented, not yet built.
+  - The eSIM manager downloads profiles (SGP.22 v2 consumer download) through
+    Android's ES10b card commands and its own ES9+ client; it gains network
+    access, no camera permission and no policy change (priv_app).
+  - Network only after the user agrees to contact the named server, or for
+    its own profiles' notifications after the user's change; HTTPS trusts
+    only the GSMA production CI roots the eUICC also lists.
+  - The framework's eUICC transport logged every eUICC command and answer in
+    full at verbose level on all builds (ICCIDs; during a download the
+    matching ID, the IMEI and the EID); its tags stay at info (-181).
+  - Phone checks: the ISD-R channel, the profile list and turning a profile
+    off and on work.
 
 ## IMS integration notes
 

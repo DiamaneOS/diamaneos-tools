@@ -146,9 +146,10 @@ installer and explicitly authorized shell installs; a debuggable-only override i
 not a production allowance. OEM signatures alone therefore do not permit ordinary
 apps to install these updates. The first-party catalog uses GrapheneOS's update
 sources; production signing and locked verified boot do not exist, and development
-test keys are public. eSIM profiles are managed by DiamaneOS's own LPA, off by
-default (checked on the phone 2026-10-06: profile list, turning a profile off
-and on); no stock LPA is shipped.
+test keys are public. eSIM profiles are managed and downloaded by DiamaneOS's own
+LPA, off by default (checked on the phone 2026-10-06: profile list, turning a
+profile off and on; downloads implemented, not yet built); no stock LPA is
+shipped.
 The [IMS integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) preserve
 historical evidence without making it acceptance of this later source cut.
 
@@ -302,7 +303,8 @@ entry point), the protections in current builds, what remains, and the status.
   provisioning, app and browser updates, OS update checks (official builds),
   network location and geocoding (when on), Auditor remote verification and
   sample submission (opt-in), and carrier entitlement connections. The eSIM
-  manager makes no connections (no eSIM downloads).
+  manager connects only to the eSIM server of a download, check or search the
+  user starts, and to the servers of its own profiles' notifications.
 - **Protection:** no telemetry or GMS; since the 2026-09-26 build, the build
   properties keep Fairphone's stock product identity (brand, product, device,
   model), as GrapheneOS keeps Google's.
@@ -502,10 +504,10 @@ entry point), the protections in current builds, what remains, and the status.
   call-audio control permission (no audio-routing or capture permission, no
   network); its domain reaches only the radio daemon's call-audio service and the
   audio server. The eSIM manager holds two privileged permissions (embedded
-  subscription control and privileged phone state, exact allowlist), no
-  network access, runs in the platform's privileged-app domain and is bound
-  only by the phone process; the phone process takes eUICC card commands only
-  from the active LPA.
+  subscription control and privileged phone state, exact allowlist) and
+  network access for eSIM downloads, runs in the platform's privileged-app
+  domain and is bound only by the phone process; the phone process takes eUICC
+  card commands only from the active LPA.
 - **Remaining:** closed code parses untrusted input; the update path of
   presigned vendor apps is not locked; enforcing since the 2026-09-26 build
   (both SIMs in service), not qualified per subsystem.
@@ -516,42 +518,67 @@ entry point), the protections in current builds, what remains, and the status.
 
 #### eSIM profiles
 
-- **Threat:** thief or examiner after reset, coercer, or a malicious app or
-  compromised modem, via profiles retained in the eUICC and the LPA's card
-  access.
+- **Threat:** thief or examiner after reset, coercer, a malicious app or
+  compromised modem via profiles retained in the eUICC and the LPA's card
+  access; a network attacker or a rogue server during a download.
 - **Protection:**
   - Installed profiles work as SIMs with or without an LPA (GrapheneOS
     baseline).
   - DiamaneOS's own eSIM manager (Apache-2.0, Kotlin, no native code) ships
     disabled. Settings > Network & internet > eSIM support enables it and
     restarts the phone, as GrapheneOS does for Google's LPA.
-  - When on, it lists, turns on and off, renames and deletes profiles and
-    erases them when Android asks. The card commands are Android's own
-    (EuiccCardController over the radio's logical channels). Every change is
-    confirmed on its screen, which ignores taps while another app covers it.
-  - No network access, no downloads, no analytics, no user data stored; it
-    never logs the EID, ICCIDs or IMSIs.
+  - When on, it lists, turns on and off, renames, deletes and downloads
+    profiles (SGP.22 v2 consumer download: activation code, confirmation code,
+    SM-DS search) and erases them when Android asks. The card commands are
+    Android's own (EuiccCardController over the radio's logical channels).
+    Every change is confirmed on its screen, which ignores taps while another
+    app covers it.
+  - Network only for a download, a check or a search the user starts, after a
+    dialog that names the server and what it receives (EID, IMEI, model code,
+    radio capabilities), and for the notifications of profiles it downloaded,
+    right after the user's own change. Other apps' download requests and
+    Android's server lookups are refused. No analytics.
+  - HTTPS to the server in the code only (port 443, no redirects). TLS trusts
+    only the two GSMA production CI roots it ships that the eUICC also lists:
+    never system or user CAs, never a test CI. The server's certificate must
+    carry the SGP.22 TLS role, server use and its host name; the eUICC checks
+    the server's own signatures. Responses are size-limited and parsed
+    strictly.
+  - Stopping before the package download cancels as "postponed", which keeps
+    the operator's order usable; a dry run checks a code's server without
+    sending the code.
+  - Stores only salted hashes of the ICCIDs it installed. No camera permission:
+    QR codes are read by the camera app and pasted. Codes stay out of
+    screenshots and the recents preview.
+  - Never logs the EID, ICCIDs, IMSIs, codes or servers. The framework's
+    eUICC transport logs eUICC commands and answers in full at verbose level;
+    those tags stay at info (-181, image check).
   - Android marks slot 1 as the built-in eUICC (stock leaves this unset).
   - No stock Qualcomm LPA, its libraries or grants (image check). OpenEUICC is
     not included (GrapheneOS os-issue-tracker #6275 and #2631).
 - **Remaining:**
-  - Whether the radio daemon opens a logical channel to the eUICC's
-    management applet (ISD-R) is untested; without it the manager can neither
-    list nor change profiles.
-  - New eSIMs cannot be added (no downloads).
-  - Turning off or deleting a profile does not notify the carrier: the
-    eUICC keeps those notifications queued, and a carrier may not release a
-    deleted profile.
-  - A factory reset keeps profiles: Android asks the LPA to erase them only on
-    an installation that has downloaded a profile. Duress erases the profiles
-    through the framework directly, without the LPA (inherited, untested on
-    the FP6).
+  - Downloads are untested on the phone; the FP6 eUICC's SGP.22 version and CI
+    list are not yet read.
+  - Android's card command always puts the IMEI in the device information the
+    eUICC signs for the server (SGP.22 allows it).
+  - Server data is parsed in a privileged process with network and eUICC
+    access (Kotlin parsers only). Certificate revocation is not checked
+    (optional for the LPA in SGP.22).
+  - Notifications of profiles not downloaded here stay queued until the user
+    removes them; a carrier may not release a deleted profile without them.
+  - A factory reset erases eSIMs only after Android recorded a download (the
+    manager's downloads count) or with developer options on. Duress erases the
+    profiles through the framework directly, without the LPA (inherited,
+    untested on the FP6).
   - Android's eUICC code logs the EID on debuggable builds and on some card
-    error paths on all builds; the manager checks the slot first to keep
-    those paths rare (-176).
+    error paths on all builds; the manager checks the slot first to keep those
+    paths rare (-176). Debuggable builds also log eUICC command data in the
+    radio log.
 - **Status:** Bring-up (not qualified): checked on the phone (2026-10-06): the
   switch, the ISD-R channel, the profile list, and turning a profile off and
-  on. Unverified: rename, delete, eSIM erase (FP6-089).
+  on. Downloads, checks, search and notifications implemented, not yet built;
+  host unit tests pass. Unverified on the phone: rename, delete, downloads,
+  eSIM erase (FP6-089).
 
 #### Radio-off expectation, location privacy
 
@@ -1630,7 +1657,8 @@ Decisions that define current behaviour:
   (GrapheneOS os-issue-tracker #6275 and #2631). The stock LPA cannot list
   profiles on the FP6, so it is not shipped. DiamaneOS's own LPA sits behind
   GrapheneOS's eSIM support switch, off by default; installed profiles keep
-  working either way.
+  working either way. It sends notifications only for profiles it downloaded,
+  and trusts only GSMA CI roots for its eSIM servers.
 - **Build identity (2026-09-26):** build properties and fingerprint keep
   Fairphone's stock product identity, as GrapheneOS keeps Google's, after Google
   blocked the DiamaneOS-branded identity as an uncertified device; DiamaneOS
