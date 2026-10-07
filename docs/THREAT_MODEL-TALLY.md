@@ -328,7 +328,8 @@ Lockdown, or nothing.
   the user may turn the toast off for a silent block (the status bar's privacy
   indicators stay as stock). Apps get black frames and silence without
   interruption. A block counts as
-  the switch's only from system state: the kernel floor's hardware toggle, or
+  the switch's only from system state: the kernel floor's block (which Android
+  shows as its hardware-toggle state), or
   a software block the switch made (its record) that nobody has lifted since.
   A block the user made in Quick Settings or Settings keeps GrapheneOS's
   prompt. The suppression is tied to SystemUI's process and ends if it dies.
@@ -348,11 +349,11 @@ Lockdown, or nothing.
     and the kernel refuses every later write, so compromised Android code
     cannot disarm it until the next restart. A changed choice reaches the
     kernel after a restart; Android's block changes at once. The Moments page
-    says which applies, from the kernel's own report: "restart to turn on
-    hardware protection" when the choice is not yet armed, or that the
-    microphone stays hardware-muted until a restart after another choice. The
-    first time the switch is down in a boot where only Android blocks the
-    microphone, one notification says so. Until init writes it, the kernel
+    says which applies, from the kernel's own report: that a restart lets the
+    switch also lock the microphone off below Android when the choice is not
+    yet armed, or that the microphone stays locked off until a restart after
+    another choice. The first time the switch is down in a boot where only
+    Android blocks the microphone, one notification says so. Until init writes it, the kernel
     blocks while the switch is down whatever the choice.
   - Android shows the kernel block as a hardware microphone toggle; an app's
     access gets the switch's toast, not a prompt (above). The
