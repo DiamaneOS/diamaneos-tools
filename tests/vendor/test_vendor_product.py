@@ -1146,8 +1146,7 @@ class NativeProductTests(unittest.TestCase):
             derived = vendor_product.camera_config(path, source)
         self.assertEqual(expected, derived)
         for key in (b'enableCameraCoreDumpText', b'enableCameraCoreDumpBinary',
-                    b'enableCoredumpOfflineTextLogging', b'enableCoredumpOfflineBinaryLogging',
-                    b'enableFwkDump'):
+                    b'enableCoredumpOfflineTextLogging', b'enableCoredumpOfflineBinaryLogging'):
             self.assertIn(b'\n' + key + b'=FALSE\n', derived)
 
     def test_sensors_config_loads_only_the_qualcomm_sub_hal(self):
