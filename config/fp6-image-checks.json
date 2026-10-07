@@ -2459,6 +2459,20 @@
       ]
     },
     {
+      "id": "camera-no-core-dumps",
+      "why": "The CamX overrides turn off camera core dumps: they keep camera state, metadata and logs in /data/vendor/camera/coredump, and writing one after a recovery can hang the camera provider.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/camera/camxoverridesettings.txt"
+      ],
+      "contains": [
+        "enableCameraCoreDumpText=FALSE",
+        "enableCameraCoreDumpBinary=FALSE",
+        "enableCoredumpOfflineTextLogging=FALSE",
+        "enableCoredumpOfflineBinaryLogging=FALSE"
+      ]
+    },
+    {
       "id": "camera-provider-restarts-with-cameraserver",
       "why": "The camera provider is in class cameraWatchdog, which init restarts with cameraserver, so a provider left with a hung camera session does not outlive a cameraserver restart.",
       "type": "text",

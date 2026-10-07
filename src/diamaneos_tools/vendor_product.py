@@ -884,14 +884,38 @@ CAMERA_CONFIG_REWRITES = {
                   'and wakelock; drop the undeclared offline camera, postproc and AON interface lines and the '
                   'cam_event_inject fault-injection chown; add class cameraWatchdog so init restarts the '
                   'provider with cameraserver'},
+    'vendor/etc/camera/camxoverridesettings.txt': {
+        'source_sha256': '620b6aeb7fc0e57cb19971f0c64796563ccfb9439dba2ddb4151cd314d9ad3af',
+        'sha256': 'ce093a922922fd98360fb93aefe436971adf24e1c46b23e0b6dedff2172891ee',
+        'reason': 'Turn off CamX camera core dumps (text, binary and their offline logging): they keep '
+                  'camera state, metadata and logs in /data/vendor/camera/coredump, and writing one after '
+                  'a recovery can hang the provider'},
 }
+
+CAMX_NO_CORE_DUMPS = (
+    b'\n# DiamaneOS: no camera core dumps. They hold camera state, metadata and logs in\n'
+    b'# /data/vendor/camera/coredump, and writing one after a recovery can hang the provider.\n'
+    b'enableCameraCoreDumpText=FALSE\n'
+    b'enableCameraCoreDumpBinary=FALSE\n'
+    b'enableCoredumpOfflineTextLogging=FALSE\n'
+    b'enableCoredumpOfflineBinaryLogging=FALSE\n')
 
 
 def camera_config(path, data):
-    """Pinned reduction of the stock camera provider service definition."""
+    """Pinned reductions of the stock camera provider service definition and CamX overrides."""
     rule = CAMERA_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('camera configuration differs from reviewed EU stock input')
+    if path.endswith('/camxoverridesettings.txt'):
+        derived = data + CAMX_NO_CORE_DUMPS
+    else:
+        derived = camera_provider_rc(data)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived camera configuration differs from reviewed result')
+    return derived
+
+
+def camera_provider_rc(data):
     # The offline camera service is not declared (LIBRARY_VINTF), so the
     # provider does not advertise it either.
     derived = re.sub(rb'^    interface aidl vendor\.qti\.hardware\.camera\.offlinecamera\.IOfflineCameraService/default\n',
@@ -903,11 +927,8 @@ def camera_config(path, data):
     # cameraserver.rc restarts class cameraWatchdog with cameraserver, so a provider left with a
     # hung session (CamX close() that never returns) restarts with it, as AOSP intends.
     derived = derived.replace(b'    class hal\n', b'    class hal cameraWatchdog\n')
-    derived = re.sub(rb'\non boot\n    chown cameraserver camera /sys/module/camera/parameters/cam_event_inject\n\Z',
-                     b'', derived)
-    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
-        raise VendorError('derived camera configuration differs from reviewed result')
-    return derived
+    return re.sub(rb'\non boot\n    chown cameraserver camera /sys/module/camera/parameters/cam_event_inject\n\Z',
+                  b'', derived)
 
 
 TELEPHONY_CONFIG_REWRITES = {

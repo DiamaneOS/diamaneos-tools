@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- CamX camera core dumps are off (`camxoverridesettings.txt`: text, binary and
+  their offline logging). Each camera recovery wrote 3–4 MB of camera state,
+  metadata and logs to `/data/vendor/camera/coredump`, and writing one could
+  hang the provider. Image check `camera-no-core-dumps`.
 - The camera provider joins init's `cameraWatchdog` class, so it restarts
   whenever cameraserver restarts (cameraserver.rc), as AOSP intends: a
   provider left with a hung camera session no longer outlives a cameraserver
