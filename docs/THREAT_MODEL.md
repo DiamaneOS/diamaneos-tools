@@ -1203,9 +1203,10 @@ entry point), the protections in current builds, what remains, and the status.
   versions differ or the controller's version is unreadable, checking only the
   header, so verified boot is what keeps that file authentic.
 - **Status:** Observed gap: a phone keeps the firmware of its last stock flash;
-  firmware delivery through image sets and `flash-steps` is in the tools
-  (2026-10-06), in no build yet and untested on a phone. Unverified: firmware
-  review (FP6-206), stock input verification (FP6-040).
+  Settings names that release from partition hashes (implemented, not yet
+  built); firmware delivery through image sets and `flash-steps` is in the
+  tools (2026-10-06), in no build yet and untested on a phone. Unverified:
+  firmware review (FP6-206), stock input verification (FP6-040).
 
 #### Keys, Gatekeeper throttling, fingerprint templates
 
@@ -1358,7 +1359,9 @@ entry point), the protections in current builds, what remains, and the status.
   available upstream releases; no automated upstream intake. The vendor patch
   level a build reports is the one the stock vendor image of its vendor files
   sets, read at build time and checked in every image set (since the
-  2026-10-05 build; Settings shows it as the vendor security update).
+  2026-10-05 build; Settings shows it as the vendor security update). The
+  firmware can be older: Settings also shows the installed Fairphone firmware
+  release (implemented, not yet built).
 
 #### Shell fork rebase lag: GrapheneOS security fixes under the Tally shell
 

@@ -160,6 +160,34 @@
       "the OS on slot b": "The OS goes to slot a only."
     }
   },
+  "firmware_release": {
+    "scope": "The table fwrelease (device firmware/) checks the booted slot's firmware partitions against, to report the installed Fairphone release in Settings. The vendor step writes it from config/fp6-firmware-inventory.json into vendor/etc/diamaneos/firmware-releases.txt; every firmware image of the inventory not listed here is checked, and must be an A/B, non-sparse image.",
+    "release_prefix": "FP6.QREL.",
+    "not_checked": {
+      "pvmfw.img": {
+        "reason": "DiamaneOS builds and flashes its own pvmfw; the stock image is never on the phone."
+      },
+      "vm-bootsys.img": {
+        "reason": "A sparse image, so the partition does not hold its bytes. Identical in every release, so it tells none apart; the build fails if that changes.",
+        "identical": true
+      },
+      "vm-persist.img": {
+        "reason": "The trusted VM's data, written at run time."
+      },
+      "logfs_ufs_8mb.bin": {
+        "reason": "The boot log filesystem, written at run time."
+      },
+      "study.img": {
+        "reason": "Fairphone's study partitions, written at run time."
+      },
+      "storsec.mbn": {
+        "reason": "A single copy that an A/B update never writes, so it would read mixed after every firmware update. Its generic block_device label is also kept from other domains by an AOSP neverallow."
+      },
+      "tools.fv": {
+        "reason": "A single copy that an A/B update never writes, so it would read mixed after every firmware update. Its generic block_device label is also kept from other domains by an AOSP neverallow."
+      }
+    }
+  },
   "shallow_prefetch": {
     "projects": [
       "prebuilts/clang/host/linux-x86",

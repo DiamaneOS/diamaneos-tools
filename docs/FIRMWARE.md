@@ -18,6 +18,19 @@ lists every image of the selected `FP6.QREL.16.111.0` and previous
 version strings, signing metadata, AVB rollback data, the Wi-Fi firmware files
 and the stock flash order; it was read from the archives, not from a phone.
 
+Settings shows which release the booted slot's firmware is (About phone >
+Android version > Fairphone firmware; implemented, not yet built). The phone
+cannot say itself: every Qualcomm version string is the same in 16.100.0 and
+16.111.0. So `fwrelease` (device `firmware/`) hashes the slot's 22 A/B firmware
+partitions once per boot and compares them with a table the vendor step writes
+from the inventory (`/vendor/etc/diamaneos/firmware-releases.txt`; the images
+left out, each with its reason, are under `firmware_release` in
+`config/fp6-build.json`).
+
+- "Mixed releases": the partitions come from different releases.
+- "Unknown": a partition matches no release in the inventory, for example
+  15.x firmware or a stock OTA that wrote other bytes.
+
 ## Partitions and sources
 
 Qualcomm and Fairphone build and sign all firmware; DiamaneOS must ship the
