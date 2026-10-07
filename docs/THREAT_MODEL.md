@@ -1169,6 +1169,10 @@ entry point), the protections in current builds, what remains, and the status.
   the test key (-68). The `flash-steps` wipe writes Fairphone's factory
   FRP image (clearing factory reset protection and keeping OEM unlocking
   allowed) and zeros misc, as Fairphone's own factory flash does.
+  A locked phone also boots, as the stock OS, any images signed with
+  Fairphone's own AVB keys; in 16.111.0 those (vbmeta and vbmeta_system)
+  are not AOSP's public test keys. Whether the chip's secure-boot root is a
+  production key is unchecked.
 - **Status:** Observed (2026-10-06 builds): SHA-256 hashtrees, as on stock (an
   image check requires it). Observed gap (bring-up images): release-style
   rollback indexes and a public test key. Observed (bring-up): AVB chain built
