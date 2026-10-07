@@ -16,6 +16,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-07
 
+- Sandboxed Google Play's crash notice reports to the DiamaneOS issue tracker, not GrapheneOS's: GmsCompat fork; implemented, not yet built.
 - Firmware release in Settings, implemented, not yet built: Settings names the Fairphone firmware release the booted slot runs, or shows mixed or unknown, from hashes of its 22 A/B firmware partitions against the inventory, so the vendor patch level no longer stands for the firmware; the service that hashes them has no capabilities and may only read those partitions, which get their own SELinux type, and set one property that only Settings reads, not shell.
 - Camera blocking on the FP6, implemented, not yet built: the camera HAL has no working mute, so with camera access off or the Moments switch blocking the camera, apps are disconnected and new opens fail as camera disabled, AOSP's path for such cameras, instead of black frames; Canvas's Copy and delete shows no clipboard preview, only for the system Canvas with its marker.
 - Moments switch kernel floor for the cameras, implemented, not yet built: the camera driver holds every known image sensor on its test pattern while the switch is down, and the laser range finder does not range; the image processor firmware stays outside it (-192); see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
