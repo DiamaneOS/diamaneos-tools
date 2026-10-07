@@ -366,6 +366,19 @@
       ]
     },
     {
+      "package": "app.grapheneos.speechservices",
+      "prebuilt": {
+        "project": "external/SpeechServices",
+        "revision": "c63d8d3ddc37a582ddda3e0325e63c2d4b573b24",
+        "evidence": "aapt2 dump resources prebuilt/arm64/app-release.apk (versionCode 3): string/app_name has the default configuration only; no <overlayable>",
+        "resources": {
+          "string": [
+            "app_name"
+          ]
+        }
+      }
+    },
+    {
       "package": "com.android.dialer",
       "sources": [
         {

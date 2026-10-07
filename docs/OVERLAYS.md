@@ -69,6 +69,11 @@ entries list each directory from the module's `resource_dirs` and those of
 every Android library it links via `static_libs` at the release, never a
 wildcard (an unlinked directory would hide a `missing` resource). An
 unregistered target is an error and needs a reviewed entry.
+A presigned app (a prebuilt APK, such as Speech Services) has no resource
+sources: its entry lists the default-configuration resources read from the
+APK with `aapt2 dump resources`, the evidence, and the project revision they
+were read at; a different revision in the manifest is a target error until
+the resources are read again.
 
 **Target sources**, one of:
 
