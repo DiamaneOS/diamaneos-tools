@@ -931,6 +931,55 @@ class GitSourceTests(Fixture):
         self.assertIn('does not match the build environment', stderr)
 
 
+class PrebuiltTargetTests(unittest.TestCase):
+    """A presigned app's resources come from the registry, pinned to a project revision."""
+
+    REVISION = 'c63d8d3ddc37a582ddda3e0325e63c2d4b573b24'
+
+    class Source:
+        def __init__(self, revision):
+            self.revision = revision
+
+        def describe(self, project):
+            return {'available': True, 'name': project, 'revision': self.revision, 'url': 'x'}
+
+    def target(self, **changes):
+        prebuilt = {'project': 'external/SpeechServices', 'revision': self.REVISION,
+                    'evidence': 'aapt2 dump resources', 'resources': {'string': ['app_name']}}
+        prebuilt.update(changes)
+        return {'package': 'app.grapheneos.speechservices', 'prebuilt': prebuilt}
+
+    def load(self, target):
+        data = json.loads((FIXTURES / 'config.json').read_text())
+        data['targets'].append(target)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'config.json'
+            path.write_text(json.dumps(data))
+            return overlays.load_config(path)
+
+    def test_committed_registry_has_the_speech_services_prebuilt(self):
+        target = overlays.load_config()['targets']['app.grapheneos.speechservices']
+        self.assertEqual(target['prebuilt']['resources'], {'string': ['app_name']})
+
+    def test_declared_resources_at_the_pinned_revision(self):
+        target = self.load(self.target())['targets']['app.grapheneos.speechservices']
+        resources, problems, _ = overlays.load_target(target, self.Source(self.REVISION))
+        self.assertEqual(problems, [])
+        self.assertEqual(resources.entries, {('string', 'app_name'): {'': {None}}})
+
+    def test_moved_prebuilt_is_a_target_problem(self):
+        target = self.load(self.target())['targets']['app.grapheneos.speechservices']
+        _, problems, _ = overlays.load_target(target, self.Source('0' * 40))
+        self.assertEqual(len(problems), 1)
+        self.assertIn('read its resources again', problems[0])
+
+    def test_invalid_prebuilt_entries_are_refused(self):
+        for bad in (self.target(evidence=''), self.target(revision='main'), self.target(resources={}),
+                    self.target(resources={'string': []}), dict(self.target(), sources=[])):
+            with self.assertRaises(overlays.OverlayCheckError):
+                self.load(bad)
+
+
 class CommandLineTests(unittest.TestCase):
     def run_cli(self, *arguments):
         return subprocess.run([str(ROOT / 'bin/diamaneos'), 'overlays', 'check', *arguments],
