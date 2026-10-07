@@ -621,6 +621,11 @@ Longer notes for some revisions, oldest first.
   a hardware microphone toggle; emergency calls have no microphone while the
   switch is down. The switch can no longer be disabled from sysfs (-189).
   Rules in [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
+- **2026-10-07:** Moments switch: while the switch blocks the camera or
+  microphone, the platform's access prompt is suppressed for that sensor and a
+  short toast shows instead (the prompt paused the camera app and broke the
+  recording); a block the user made keeps the prompt. Implemented, not yet
+  built.
 
 ## IMS integration notes
 
