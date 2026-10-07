@@ -817,10 +817,16 @@ entry point), the protections in current builds, what remains, and the status.
   grants and imported Qualcomm rules (no app domain); the Wi-Fi driver uses the
   factory MAC, as stock and Pixels do (checked on the phone 2026-10-06; earlier
   builds used the chip's generic Qualcomm address); Android records it as the
-  factory MAC, shows it in `dumpsys wifi` and bug reports and logs it once when
-  it records it, as on GrapheneOS; since the 2026-10-05 build Wi-Fi joins
-  networks with a randomised address (-170: earlier builds used the hardware
-  address); a flash dump reveals persist data.
+  factory MAC and shows it in `dumpsys wifi`, `dumpsys netd` and bug reports,
+  as on GrapheneOS; netd's info lines and the supplicant's debug lines carry
+  it at every Wi-Fi start on debuggable builds only (user builds do not log
+  those levels); the Wi-Fi service's lines when it records the MAC or fails to
+  set it, and the driver's error line as Wi-Fi starts, no longer print it (all
+  implemented, not yet built); with Wi-Fi verbose logging on, the Wi-Fi
+  service logs the address each connection uses, which is the factory MAC only
+  for a network set to use it; since the 2026-10-05 build Wi-Fi joins networks
+  with a randomised address (-170: earlier builds used the hardware address); a
+  flash dump reveals persist data.
 - **Status:** Observed gap (bring-up): some hardware serials exposed as system
   properties on permissive builds; whether enforcing builds deny the read is not
   yet shown. Unverified: enforcing
