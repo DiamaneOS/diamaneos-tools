@@ -570,10 +570,11 @@ entry point), the protections in current builds, what remains, and the status.
     manager's downloads count) or with developer options on. Duress erases the
     profiles through the framework directly, without the LPA (inherited,
     untested on the FP6).
-  - Android's eUICC code logs the EID on debuggable builds and on some card
-    error paths on all builds; the manager checks the slot first to keep those
-    paths rare (-176). Debuggable builds also log eUICC command data in the
-    radio log.
+  - Android's eUICC code logs the EID on debuggable builds. Its card error
+    paths log only a redacted value (**** on user builds, a hash otherwise;
+    telephony fork, implemented, not yet built), and the manager checks the
+    slot first to keep those paths rare (-176). Debuggable builds also log
+    eUICC command data in the radio log.
 - **Status:** Bring-up (not qualified): checked on the phone (2026-10-06): the
   switch, the ISD-R channel, the profile list, and turning a profile off and
   on. Downloads, checks, search and notifications implemented, not yet built;
