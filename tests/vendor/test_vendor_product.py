@@ -1130,6 +1130,25 @@ class NativeProductTests(unittest.TestCase):
         with self.assertRaises(VendorError):
             vendor_product.camera_config(path, b'service vendor.camera-provider /vendor/bin/hw/x\n')
 
+    def test_camx_override_rewrite_is_pinned_to_the_recipe(self):
+        path = 'vendor/etc/camera/camxoverridesettings.txt'
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        self.assertEqual(vendor_product.CAMERA_CONFIG_REWRITES[path]['source_sha256'], row['sha256'])
+        with self.assertRaises(VendorError):
+            vendor_product.camera_config(path, b'enableTOFInterface=TRUE\n')
+
+    def test_camx_override_turns_core_dumps_off(self):
+        path = 'vendor/etc/camera/camxoverridesettings.txt'
+        source = b'enableTOFInterface=TRUE\nenableHealthMonitor=FALSE\n'
+        expected = source + vendor_product.CAMX_NO_CORE_DUMPS
+        rule = {'source_sha256': hashlib.sha256(source).hexdigest(), 'sha256': hashlib.sha256(expected).hexdigest()}
+        with mock.patch.dict(vendor_product.CAMERA_CONFIG_REWRITES, {path: rule}):
+            derived = vendor_product.camera_config(path, source)
+        self.assertEqual(expected, derived)
+        for key in (b'enableCameraCoreDumpText', b'enableCameraCoreDumpBinary',
+                    b'enableCoredumpOfflineTextLogging', b'enableCoredumpOfflineBinaryLogging'):
+            self.assertIn(b'\n' + key + b'=FALSE\n', derived)
+
     def test_sensors_config_loads_only_the_qualcomm_sub_hal(self):
         # The stock list is just two library names; the dynamic-sensor (HID)
         # sub-HAL is dropped and the AOSP module is not installed (device.mk).
