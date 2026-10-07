@@ -109,6 +109,9 @@
   libgps.utils, the linked-in QMI client, no cloud host names, the service's
   activation, no location socket and the HAL's policy. The threat model
   records the change.
+- Kernel builds are stamped (`--config=stamp`): the kernel version names the
+  source commit and the build date is the commit's, instead of
+  `-maybe-dirty` and 1970.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc
