@@ -588,6 +588,14 @@ Longer notes for some revisions, oldest first.
   protected system settings readable by Settings, SystemUI and Launcher; it
   raises protection at once and lowers it after the unlock. Rules in
   [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
+- **2026-10-07:** Moments switch fixes after the build-14 phone test,
+  implemented, not yet built. The FP6 offers the software camera and
+  microphone access toggles (Settings, Quick Settings and the switch's action),
+  enforced by the framework's app ops and the camera service as on Pixels; the
+  switch's action was a silent no-op before and said it worked. Lockdown is
+  offered only with a screen lock. A switch change in the frame the input
+  reader drops after a buffer overrun is now reported; the first flip after
+  each boot was lost before.
 - **2026-10-06:** kernel hardening, implemented, not yet built.
   - /proc/cmdline shows parameter names only once init starts; module options
     keep their values because Android's modprobe reads them there (the
