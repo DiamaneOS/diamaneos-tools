@@ -899,6 +899,7 @@
       "focaltech_fp.ko",
       "pm8941-pwrkey.ko",
       "qcom-hv-haptics.ko",
+      "diamaneos_privsw.ko",
       "stmvl53l1.ko",
       "i2c-msm-geni.ko",
       "i3c-master-msm-geni.ko",

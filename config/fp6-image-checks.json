@@ -3331,6 +3331,46 @@
       ]
     },
     {
+      "id": "privacy-switch-camera-client",
+      "why": "The camera driver holds every known image sensor on its test pattern at the CCI while the privacy switch blocks the cameras.",
+      "type": "binary_count",
+      "file": "kernel:modules/camera.ko",
+      "patterns": [
+        {
+          "text": "privsw_register_client",
+          "min": 1
+        },
+        {
+          "text": "camera floor:",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "privacy-switch-tof-client",
+      "why": "The laser range finder (a presence sensor) does not range while the privacy switch blocks the cameras.",
+      "type": "binary_count",
+      "file": "kernel:modules/stmvl53l1.ko",
+      "patterns": [
+        {
+          "text": "privsw_register_client",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "camera-no-cdm-reach-probe",
+      "why": "The CDM reach probe (CONFIG_SPECTRA_CDM_REACH_PROBE) is for test builds only: it lets root make the camera's command DMA write a chosen register.",
+      "type": "binary_count",
+      "file": "kernel:modules/camera.ko",
+      "patterns": [
+        {
+          "text": "cdm_reach_probe",
+          "count": 0
+        }
+      ]
+    },
+    {
       "id": "privacy-switch-sealed-at-boot",
       "why": "init writes the owner's kernel floor policy once, after the persistent properties load; the kernel refuses later writes.",
       "type": "text",

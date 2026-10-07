@@ -333,9 +333,11 @@ Lockdown, or nothing.
   a software block the switch made (its record) that nobody has lifted since.
   A block the user made in Quick Settings or Settings keeps GrapheneOS's
   prompt. The suppression is tied to SystemUI's process and ends if it dies.
-- Kernel floor for the microphones (implemented, not yet built): when the
-  owner chose "Camera and microphone off", the kernel also blocks the built-in
-  microphones while the switch is down.
+- Kernel floor (microphones implemented and built; cameras implemented, not
+  yet built): when the owner chose "Camera and microphone off", the kernel
+  also blocks the built-in microphones and cameras while the switch is down.
+  The ultrawide camera shows its colour-bar test pattern rather than black
+  (accepted: no scene content reaches the app).
   - A small kernel driver owns the switch's line and trusts only its level,
     never input events; it cannot be unbound, unloaded or disabled from
     sysfs. A move down applies at once; a failed read blocks.
@@ -345,6 +347,16 @@ Lockdown, or nothing.
     keep running, so apps see silence, not errors. Mixer settings, Android
     services and a compromised audio HAL cannot undo it; moving the switch
     back restores the earlier settings.
+  - Cameras: every image sensor register write passes the camera driver's
+    I2C controller (CCI), whichever camera device sends it. While blocked,
+    each known sensor (rear, ultrawide/macro, front) is held on its test
+    pattern: writes that would turn the pattern off are changed, writes that
+    would move a sensor to another bus address are dropped, and the pattern
+    is written again after every write and at once on the switch move.
+    Streams keep their mode and timing, so apps get frames (a black or
+    synthetic image), not errors; moving the switch back restores the camera
+    software's own values. The laser range finder (a presence sensor) does
+    not range while blocked. Android shows a hardware camera toggle.
   - The kernel learns the choice once per boot: init writes it early in boot
     and the kernel refuses every later write, so compromised Android code
     cannot disarm it until the next restart. A changed choice reaches the
@@ -363,9 +375,14 @@ Lockdown, or nothing.
     makes no exception: only Android knows a call is an emergency, so an
     exception would let compromised Android code lift the block. The Moments
     page says so.
-  - Not covered: USB and Bluetooth headset microphones and the cameras
+  - Not covered: USB and Bluetooth headset microphones and USB cameras
     (Android's toggles only); code running on the audio DSP, which shares the
-    codec's bus; a kernel exploit. Whoever can change the owner's Moments
+    codec's bus; the camera image processor's firmware (ICP) and the command
+    buffers it runs for the camera software, which the kernel does not check;
+    sensor registers outside the known pattern and address registers, and
+    sensor firmware patches; a kernel exploit. Whether the camera software's
+    unchecked image-pipeline command buffers can reach the sensor bus is not
+    yet measured; the kernel's addressing suggests not (-191). Whoever can change the owner's Moments
     choice (Settings, or a compromised system server) changes what the kernel
     arms at the next boot.
 - Accidental flips: a short settle time, a haptic tick and a toast on each
