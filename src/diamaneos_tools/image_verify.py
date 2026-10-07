@@ -333,6 +333,18 @@ def rule_files_absent(rule, v):
     return not present, 'present: ' + ', '.join(present) if present else ''
 
 
+def rule_files_not_stock(rule, v):
+    """Each file is present and is not the stock file with the listed SHA-256,
+    for files that a source build now provides at the stock path."""
+    problems = []
+    for path, stock_sha256 in sorted(rule['files'].items()):
+        if not v.tf.exists(path):
+            problems.append('missing ' + path)
+        elif hashlib.sha256(v.tf.read(path)).hexdigest() == stock_sha256:
+            problems.append(path + ' is the stock file')
+    return not problems, '; '.join(problems)
+
+
 def rule_symlink(rule, v):
     if not v.tf.is_symlink(rule['path']):
         return False, rule['path'] + ' is not a symlink'
@@ -752,7 +764,8 @@ def rule_file_metadata(rule, v):
     return not problems, '; '.join(problems)
 
 
-RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent, 'symlink': rule_symlink,
+RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
+         'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
          'sepolicy_sources': rule_sepolicy_sources, 'overlay': rule_overlay, 'apk': rule_apk, 'elf_exports': rule_elf_exports,

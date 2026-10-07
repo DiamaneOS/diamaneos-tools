@@ -95,6 +95,20 @@
 - Image check `bluetooth-seccomp-enforced`: the Bluetooth HCI service is built
   in trap mode, so a call outside its seccomp list stops the service. Threat
   model: enforcing filter, factory address in use, ANT/SAR contexts built.
+- Stop selecting Qualcomm's GNSS HAL, its IGnss implementation and its six
+  location libraries, and the GNSS and health interface libraries, init file
+  and VINTF fragment only they used. The device builds them from CodeLinaro
+  source (manifest `hardware/qcom/gps`, `vendor/qcom/opensource/location` and
+  `vendor/qcom/opensource/qmi-framework` forks, `vendor/qcom/opensource/core-utils`
+  pinned); the stock gps.conf, izat.conf (pinned edits) and sap.conf stay.
+  `config/forks.json` and `config/repositories.json` list the three forks and
+  core-utils. The new `files_not_stock` check type fails when a file still has
+  a listed stock SHA-256. Image checks require the source HAL files
+  (`gnss-source-hal`, `no-stock-gnss-hal`), CFI and the integer overflow
+  sanitizer as in Qualcomm's builds, the library allowlist with dlopen only in
+  libgps.utils, the linked-in QMI client, no cloud host names, the service's
+  activation, no location socket and the HAL's policy. The threat model
+  records the change.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc
