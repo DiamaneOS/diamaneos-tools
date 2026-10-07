@@ -3876,6 +3876,188 @@
       ]
     },
     {
+      "id": "gnss-source-hal",
+      "why": "The GNSS HAL, its IGnss implementation and location libraries, and the HAL's init and VINTF files are the CodeLinaro source builds (device gnss/gnss.mk).",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/liblocation_api.so",
+        "VENDOR/lib64/libgnss.so",
+        "VENDOR/lib64/libloc_core.so",
+        "VENDOR/lib64/libgps.utils.so",
+        "VENDOR/lib64/libloc_api_v02.so",
+        "VENDOR/lib64/libqti_vndfwk_detect_vendor.so",
+        "VENDOR/etc/init/android.hardware.gnss-aidl-service-qti.rc",
+        "VENDOR/etc/vintf/manifest/android.hardware.gnss-aidl-service-qti.xml"
+      ]
+    },
+    {
+      "id": "no-stock-gnss-hal",
+      "why": "None of the eight GNSS files is Qualcomm's closed stock build.",
+      "type": "files_not_stock",
+      "files": {
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti": "206e2a535385841ca9024b328c7f39210b16164f590ed20bb7943463c16066a2",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so": "fb6937bd0a588565c1c3e9adc157280b4846d477b061c17f23bc5c378959fdd2",
+        "VENDOR/lib64/liblocation_api.so": "73ed45ca84277bd9de28256969b73c9b10c1f1eabd30565d8d7920a9a772428c",
+        "VENDOR/lib64/libgnss.so": "dd44b0c01c4a312956cebdd4400fde9305bbde8ca762603518c95da1ac39ae29",
+        "VENDOR/lib64/libloc_core.so": "78db5b8f773b6f19742e3c138ac61f065b456cd991a108feb358480fe090ccfb",
+        "VENDOR/lib64/libgps.utils.so": "2be12115c43c8fc129a1a18fdb7d5be8fe6bfed2a0ce1006f661279d2a623bca",
+        "VENDOR/lib64/libloc_api_v02.so": "a3f4d7f3c26d5e93a70b65df9a4a0088f41e3bb25d4129a0306d1db1f63a0eb5",
+        "VENDOR/lib64/libqti_vndfwk_detect_vendor.so": "0197b7e827e745ba81fc101b1dc4f902bc41ef958e3c3459459ce6234e419258"
+      }
+    },
+    {
+      "id": "gnss-loads-only-its-libraries",
+      "why": "The location libraries load only libgnss and libloc_api_v02: libgps.utils holds the allowlist function and the two names, and refuses every other name, such as Qualcomm's IZat, XTRA, NTRIP, engine-hub, diagnostic, batching and geofence libraries.",
+      "type": "text",
+      "files": [
+        "VENDOR/lib64/libgps.utils.so"
+      ],
+      "contains": [
+        "not loading %s",
+        "libgnss.so",
+        "libloc_api_v02.so"
+      ]
+    },
+    {
+      "id": "gnss-dlopen-only-in-utils",
+      "why": "Only libgps.utils, through its allowlist, calls dlopen: no other GNSS file imports dlopen or android_dlopen_ext, so none can load a library around the allowlist.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/liblocation_api.so",
+        "VENDOR/lib64/libgnss.so",
+        "VENDOR/lib64/libloc_core.so",
+        "VENDOR/lib64/libloc_api_v02.so",
+        "VENDOR/lib64/libqti_vndfwk_detect_vendor.so"
+      ],
+      "absent": [
+        "\u0000dlopen\u0000",
+        "\u0000android_dlopen_ext\u0000"
+      ]
+    },
+    {
+      "id": "gnss-cfi",
+      "why": "Every GNSS file is built with CFI, as Qualcomm's own builds are (device CFI_INCLUDE_PATHS).",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/liblocation_api.so",
+        "VENDOR/lib64/libgnss.so",
+        "VENDOR/lib64/libloc_core.so",
+        "VENDOR/lib64/libgps.utils.so",
+        "VENDOR/lib64/libloc_api_v02.so",
+        "VENDOR/lib64/libqti_vndfwk_detect_vendor.so"
+      ],
+      "contains": [
+        "__cfi_check"
+      ]
+    },
+    {
+      "id": "gnss-integer-overflow-sanitizer",
+      "why": "The HAL, its IGnss implementation and the QMI LOC client, which parse the framework's requests and the modem's reports, are built with the integer overflow sanitizer (they carry its runtime), as Qualcomm's own builds are.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/libloc_api_v02.so"
+      ],
+      "contains": [
+        "ubsan"
+      ]
+    },
+    {
+      "id": "gnss-qmi-client-linked-in",
+      "why": "libloc_api_v02 has the public QMI framework's client linked in and loads none of Qualcomm's QMI libraries.",
+      "type": "text",
+      "files": [
+        "VENDOR/lib64/libloc_api_v02.so"
+      ],
+      "contains": [
+        "QCCI: "
+      ],
+      "absent": [
+        "libqmi_cci.so",
+        "libqmi_common_so.so",
+        "libqmi_encdec.so",
+        "libqmi_csi.so"
+      ]
+    },
+    {
+      "id": "gnss-no-cloud-hosts",
+      "why": "No GNSS file names a Qualcomm assistance or cloud host.",
+      "type": "text",
+      "files": [
+        "VENDOR/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/liblocation_api.so",
+        "VENDOR/lib64/libgnss.so",
+        "VENDOR/lib64/libloc_core.so",
+        "VENDOR/lib64/libgps.utils.so",
+        "VENDOR/lib64/libloc_api_v02.so",
+        "VENDOR/lib64/libqti_vndfwk_detect_vendor.so"
+      ],
+      "absent": [
+        "xtracloud",
+        "izatcloud",
+        "gpsonextra"
+      ]
+    },
+    {
+      "id": "gnss-service-activation",
+      "why": "The GNSS service registers only IGnss/default and runs as gps with groups system and gps: no Qualcomm location service, radio, diagnostic or secure-processor group, no capability.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/android.hardware.gnss-aidl-service-qti.rc"
+      ],
+      "lines": [
+        "service gnss_service /vendor/bin/hw/android.hardware.gnss-aidl-service-qti",
+        "    interface aidl android.hardware.gnss.IGnss/default",
+        "    user gps",
+        "    group system gps"
+      ],
+      "absent": [
+        "ILocAidlGnss",
+        "radio",
+        "vendor_qti_diag",
+        "vendor_ssgtzd",
+        "capabilities",
+        "inet"
+      ]
+    },
+    {
+      "id": "gnss-no-location-socket",
+      "why": "The HAL serves no socket in /dev/socket/location (it existed only for the XTRA and DGNSS daemons); only its state directory is created.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.gnss.rc"
+      ],
+      "lines": [
+        "    mkdir /data/vendor/location 0770 gps gps"
+      ],
+      "absent": [
+        "mkdir /dev/socket/location"
+      ]
+    },
+    {
+      "id": "gnss-hal-policy",
+      "why": "The GNSS HAL domain reaches the modem over QRTR only: no socket in /dev/socket/location, no network socket and no capability.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(allow vendor_hal_gnss_qti (self|vendor_hal_gnss_qti) \\(qipcrtr_socket "
+      ],
+      "absent_regex": [
+        "^\\(allow vendor_hal_gnss_qti vendor_location_socket ",
+        "^\\(allow vendor_hal_gnss_qti (self|vendor_hal_gnss_qti) \\((capability|capability2|cap_userns|cap2_userns|tcp_socket|udp_socket|rawip_socket|packet_socket|tipc_socket|netlink_route_socket) "
+      ]
+    },
+    {
       "id": "media-codec2-service",
       "why": "The hardware video encoder service and its Codec2 libraries are installed with the device rc and manifest (encoders only); the Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",

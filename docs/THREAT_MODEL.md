@@ -570,26 +570,31 @@ entry point), the protections in current builds, what remains, and the status.
 - **Threat:** vendor cloud, assistance-server operator, carrier or local log
   reader, via GNSS HAL configuration, SUPL, PSDS, control-plane positioning and
   logs.
-- **Protection:** Qualcomm cloud, XTRA and crowdsourcing paths excluded by
-  pinned configuration; PSDS off; SUPL user-selectable (Off, proxy, standard);
-  network location and geocoder off by default; IMS geolocation has no network
-  geocoder.
+- **Protection:** the GNSS HAL and its location libraries are built from
+  CodeLinaro source: they load only the GNSS adapter and the QMI LOC API, so
+  Qualcomm's IZat, XTRA and NTRIP libraries cannot load, and the HAL serves no
+  socket to assistance daemons; Qualcomm cloud, XTRA and crowdsourcing paths
+  also excluded by pinned configuration; PSDS off; SUPL user-selectable (Off,
+  proxy, standard); network location and geocoder off by default; IMS
+  geolocation has no network geocoder.
 - **Remaining:** SUPL defaults to the GrapheneOS proxy; "standard" SUPL goes
   straight to the carrier-configured server (Google's, on the carrier tested so
-  far); SUPL requests carry cell information; control-plane positioning runs in
-  the modem; GNSS engine state on persist survives reset. Builds before the
-  2026-10-01 build logged the GNSS engine at info level and wrote the
-  serving-cell identity to the radio log on every registration poll (about twice
-  a second on one SIM), readable over adb and in bug reports. With the
-  redaction, the radio log still shows the
-  physical cell ID and channel, as AOSP does, and development builds show the
-  redacted fields as unsalted hashes (AOSP behaviour; user builds hide them).
+  far); SUPL requests carry cell information; the SUPL client and the GNSS
+  engine are modem firmware: the HAL passes the server address and asks for the
+  data connection, but cannot change what the modem sends; control-plane
+  positioning runs in the modem; GNSS engine state on persist survives reset.
+  Builds before the 2026-10-01 build logged the GNSS engine at info level and
+  wrote the serving-cell identity to the radio log on every registration poll
+  (about twice a second on one SIM), readable over adb and in bug reports.
+  With the redaction, the radio log still shows the physical cell ID and
+  channel, as AOSP does, and development builds show the redacted fields as
+  unsalted hashes (AOSP behaviour; user builds hide them).
 - **Status:** Bring-up (not qualified): cloud paths absent and pinned; no GNSS
   fix recorded; warning-level GNSS engine logs and a radio log that redacts the
   serving-cell identity like the framework's other cell logs are in builds
   since the 2026-10-01 build; on the 2026-10-05 build the radio log showed cell
-  identities only as hashes. Unverified: assisted GNSS
-  (FP6-103), GNSS bring-up tests (FP6-045).
+  identities only as hashes. Source-built HAL: implemented, not yet built.
+  Unverified: assisted GNSS (FP6-103), GNSS bring-up tests (FP6-045).
 
 ### Malicious and over-permissioned apps
 
@@ -662,7 +667,7 @@ entry point), the protections in current builds, what remains, and the status.
 #### Camera, microphone, sensor streams, device integrity
 
 - **Threat:** malicious app or remote content reaching closed vendor code
-  through a platform service: camera, media, display, audio, sensors, GNSS, NFC
+  through a platform service: camera, media, display, audio, sensors, NFC
   and Bluetooth HAL interfaces (the hardware video encoder service, which every
   app except isolated processes can call); same-process GPU libraries; persist
   and vendor data files parsed by closed code.
@@ -670,7 +675,11 @@ entry point), the protections in current builds, what remains, and the status.
   grants bound to each service domain; a closed HAL's internal endpoints
   reachable only from its own process (audio since the 2026-09-26 build); fewer
   service users, groups and capabilities; tight device-node permissions;
-  Qualcomm diagnostics, telemetry and factory services excluded. Closed
+  Qualcomm diagnostics, telemetry and factory services excluded. The GNSS
+  HAL and its location libraries, which parse SUPL and network-initiated
+  requests, injected data and the modem's QMI LOC reports, are CodeLinaro
+  source builds with CFI and, on the parsers, the integer overflow sanitizer,
+  as Qualcomm's own builds (implemented, not yet built). Closed
   services with no client are not shipped or not registered: the display
   colour service, which any platform app could start, is not installed; the
   camera provider's offline camera service has no VINTF declaration and no
@@ -1554,10 +1563,10 @@ VPN, and what a locked phone shows.
   modules meet the selected KMI/UAPI, or that binaries reproduce stock.
 - **Closed components:** the camera, radio and IMS, secure-world, sensor, DRM
   and much of the graphics and media runtime depend on proprietary userspace or
-  firmware. The bring-up selection holds 686 closed stock files (about 340 MB):
+  firmware. The bring-up selection holds 671 closed stock files (about 336 MB):
   camera 211, radio and IMS 154, sensors 84, display and GPU 74, audio 17,
   credentials 36, video encoding 31, remote-processor services 24, thermal 7,
-  plus smaller Bluetooth, NFC, GNSS and fingerprint sets.
+  plus smaller Bluetooth, NFC, GNSS configuration and fingerprint sets.
 - **Stock input:** `FP6.QREL.16.111.0` for the EU (`FP6.QREL.16.100.0` until
   2026-09-30); its verified factory package is the authoritative extraction
   input. Vendor generation uses an explicit per-file recipe (partition, path,
