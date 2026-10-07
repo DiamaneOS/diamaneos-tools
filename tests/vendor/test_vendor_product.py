@@ -1188,7 +1188,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertIn('"fp6_stock_vendor_lib64_vendor.qti.hardware.camera.offlinecamera-service-impl"',
                       block[:block.index('}\n')])
 
-    def test_camera_provider_rc_drops_the_offline_camera_interface(self):
+    def test_camera_provider_rc_drops_the_offline_camera_interface_and_restarts_with_cameraserver(self):
         path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
         source = (b'service vendor.camera-provider /vendor/bin/hw/vendor.qti.camera.provider-service_64\n'
                   b'    interface aidl android.hardware.camera.provider.ICameraProvider/vendor_qti/0\n'
@@ -1197,7 +1197,7 @@ class NativeProductTests(unittest.TestCase):
                   b'    class hal\n')
         expected = (b'service vendor.camera-provider /vendor/bin/hw/vendor.qti.camera.provider-service_64\n'
                     b'    interface aidl android.hardware.camera.provider.ICameraProvider/vendor_qti/0\n'
-                    b'    class hal\n')
+                    b'    class hal cameraWatchdog\n')
         rule = {'source_sha256': hashlib.sha256(source).hexdigest(), 'sha256': hashlib.sha256(expected).hexdigest()}
         with mock.patch.dict(vendor_product.CAMERA_CONFIG_REWRITES, {path: rule}):
             self.assertEqual(expected, vendor_product.camera_config(path, source))
