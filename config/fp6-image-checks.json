@@ -2469,7 +2469,8 @@
         "enableCameraCoreDumpText=FALSE",
         "enableCameraCoreDumpBinary=FALSE",
         "enableCoredumpOfflineTextLogging=FALSE",
-        "enableCoredumpOfflineBinaryLogging=FALSE"
+        "enableCoredumpOfflineBinaryLogging=FALSE",
+        "enableFwkDump=FALSE"
       ]
     },
     {
