@@ -293,6 +293,16 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_ThemePicker"
     },
     {
+      "checkout_path": "WORK_ROOT/os/packages/apps/GmsCompat",
+      "id": "gmscompat",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_GmsCompat.git",
+      "revision": null,
+      "slug": "platform_packages_apps_GmsCompat",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_GmsCompat"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/packages/apps/LogViewer",
       "id": "log-viewer",
       "publication": "public-source",

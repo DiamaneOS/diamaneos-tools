@@ -844,7 +844,8 @@ entry point), the protections in current builds, what remains, and the status.
   log subscriber identifiers (ICCID, IMSI, phone number) in full in the radio
   log, as AOSP does, so their logs and bug reports hold them; Log Viewer's
   Report button (system error notifications) copies the log to the clipboard and
-  opens the public DiamaneOS issue tracker, so identifiers reach it only if the
+  opens the public DiamaneOS issue tracker, and so does sandboxed Google Play's
+  crash notice (implemented, not yet built), so identifiers reach it only if the
   user pastes them; the stock camera HAL logs camera module serial numbers at
   every start, at error level, so user builds silence its whole log tag
   (debuggable builds keep it; since the 2026-10-06 builds, effective on user
