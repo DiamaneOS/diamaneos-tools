@@ -1319,13 +1319,13 @@ entry point), the protections in current builds, what remains, and the status.
   available before first unlock, allow them in backups and ignore the
   no-learning flag.
 - **Status:** Bring-up (not qualified): the keyboard fork is in the manifest and
-  the test builds. On two 2026-09-30 test builds old copies stayed on the
-  update's first boot until the keyboard started or the phone was unlocked
-  (-150); a later one deletes them at the locked boot, verified on the FP6
-  (planted word lists gone before the first unlock). The rest of the phone check
-  was inconclusive (learned words are off by default, password fields never
-  compose). Unverified: keyboard fork tests and phone checks (no owning task
-  yet).
+  the test builds. Verified on the FP6: planted device-encrypted word lists are
+  deleted at the locked boot, before the first unlock. With learning turned on,
+  a word typed in a normal field is learned, suggested and stored only in
+  credential-encrypted storage; a word typed in a no-learning field is neither
+  learned nor stored, and learned words are not suggested there; turning
+  learning off deletes the learned list. Unverified: the keyboard fork's tests,
+  password fields, and personal and contact words on the phone.
 
 #### Privacy indicators and disclosures under the Tally shell
 
