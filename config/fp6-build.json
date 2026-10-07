@@ -125,8 +125,39 @@
         "kind": "zeros",
         "bytes": 1048576,
         "partition_label": "misc",
-        "reason": "As Fairphone's factory flash clears misc (the bootloader message, such as a pending recovery command), but by flashing zeros of the whole partition instead of fastboot erase. The size is the stock partition table's: 256 sectors of 4096 bytes in FP6.QREL.16.111.0; build package checks it against the factory package's partition table when that package is in the workspace."
+        "reason": "As Fairphone's factory flash clears misc (the bootloader message, such as a pending recovery command), but by flashing zeros of the whole partition instead of fastboot erase. The size is the stock partition table's: 256 sectors of 4096 bytes in FP6.QREL.16.111.0; build package checks it against the factory package's partition table."
       }
+    }
+  },
+  "firmware": {
+    "validated": false,
+    "slots": "Each A/B firmware partition gets the same stock image on both slots, as Fairphone's own flash writes it; the OS still goes to slot a only. Older firmware left on slot b would run after any later switch to b (fastboot --set-active=b, the bootloader's fallback after failed boots, or an update that lands on b): firmware older than the phone has already run, next to state the newer firmware wrote in partitions both slots share (storsec, the modem file system, secure storage). Slot b holds no OS after a DiamaneOS flash (super gets slot a only), so its old firmware is no fallback either way.",
+    "excluded": {
+      "pvmfw.img": "DiamaneOS builds pvmfw from source and flashes it with the OS, chained from vbmeta_system."
+    },
+    "wipe_only": {
+      "logfs_ufs_8mb.bin": "An empty log filesystem for logfs, the single partition the firmware keeps logs in. Stock writes it on every flash; DiamaneOS writes it only with a wipe, as an A/B update never writes it.",
+      "vm-persist.img": "An empty filesystem for vm-persist, the single partition the trusted VMs keep their data in. Stock writes it on every flash; DiamaneOS writes it only with a wipe, as an A/B update never writes it."
+    },
+    "reset": {
+      "modemst1": {
+        "image": "modemst1.img",
+        "kind": "zeros",
+        "bytes": 10485760,
+        "partition_label": "modemst1"
+      },
+      "modemst2": {
+        "image": "modemst2.img",
+        "kind": "zeros",
+        "bytes": 10485760,
+        "partition_label": "modemst2"
+      }
+    },
+    "reset_reason": "As Fairphone's factory flash erases modemst1 and modemst2, the two working copies of the modem file system, but by flashing zeros over each whole partition instead of fastboot erase. With both copies empty the modem rebuilds its file system from the factory backup (fsg) when it next starts, so new modem firmware and its carrier profiles start from that backup instead of state older firmware wrote. Written right after the firmware, only when the firmware steps run. The sizes are the stock partition table's: 2560 sectors of 4096 bytes each in FP6.QREL.16.111.0; build package checks them against the factory package.",
+    "dropped": {
+      "erase misc": "misc holds the OS's boot messages (a pending recovery command, the state of an unfinished update), not firmware state, so DiamaneOS zeros it only with a wipe.",
+      "oem reset-rollback": "Resets the AVB rollback indexes the bootloader stores. DiamaneOS has no reason to weaken rollback protection, and test builds stay unlocked, where the indexes are not enforced.",
+      "the OS on slot b": "The OS goes to slot a only."
     }
   },
   "shallow_prefetch": {
