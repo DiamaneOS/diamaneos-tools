@@ -626,6 +626,11 @@ Longer notes for some revisions, oldest first.
   short toast shows instead (the prompt paused the camera app and broke the
   recording); a block the user made keeps the prompt. Implemented, not yet
   built.
+- **2026-10-07:** Moments switch: when "Camera and microphone off" is chosen
+  but the kernel was sealed without the microphone, the page asks for a
+  restart and one notification per boot says only Android blocks the
+  microphone; with another choice while the kernel still blocks, the page says
+  so. Read from the kernel's state file. Implemented, not yet built.
 
 ## IMS integration notes
 
