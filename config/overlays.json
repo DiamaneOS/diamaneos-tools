@@ -84,7 +84,11 @@
       "app.grapheneos.setupwizard": {
         "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
         "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording)",
-        "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\""
+        "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\"",
+        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device; otherwise unchanged"
+      },
+      "app.grapheneos.speechservices": {
+        "app_name": "rebrand: \"Speech Services\" instead of \"GrapheneOS Speech Services\" (owner, 2026-10-07)"
       },
       "com.android.customization.themes": {
         "bundle_name_rainbow1": "name of the Sodium colour preset",
@@ -367,6 +371,19 @@
           ]
         }
       ]
+    },
+    {
+      "package": "app.grapheneos.speechservices",
+      "prebuilt": {
+        "project": "external/SpeechServices",
+        "revision": "c63d8d3ddc37a582ddda3e0325e63c2d4b573b24",
+        "evidence": "aapt2 dump resources prebuilt/arm64/app-release.apk (versionCode 3): string/app_name has the default configuration only; no <overlayable>",
+        "resources": {
+          "string": [
+            "app_name"
+          ]
+        }
+      }
     },
     {
       "package": "com.android.dialer",
