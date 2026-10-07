@@ -125,6 +125,35 @@
   the built-in eUICC (`esim-builtin-slot`). `overlay` checks now read integer
   arrays and several strings on one line. The repository map lists
   DiamaneOS/platform_packages_apps_DiamaneOSEuicc.
+- USB-C port control: new check `usb-port-control-data-reenable` (the port
+  reports data as force-disabled while a data disable request holds, so a
+  re-enable from `svc` or a device owner arrives). Threat model updated.
+- USB-C port control: the triggers check now requires the user-build
+  controller cut at early-boot (before the charger input) and still refuses
+  it on debuggable builds; only the port states and that boot cut may turn
+  data off, and only ports_enabled may turn it on. The threat model says
+  user builds start every boot with data and charging off.
+- USB-C port control: the triggers check also covers the boot cut (user
+  builds suspend the charger input once the charger firmware is up and again
+  at boot, debuggable builds write 0, nothing at boot cuts the controller or
+  lifts the input). The threat model states the boot cut and the two
+  differences from Pixels (Type-C and USB PD stay on in Off; the boot cut
+  starts once the charger firmware is up).
+- Threat model and image checks for USB-C port control Off turning off
+  charging: the triggers check now also covers the charger input suspend
+  (Off sets it after the data cut; every other state, boot, charger mode and
+  shutdown lift it), its own SELinux type and writers
+  (`usb-port-control-input-suspend-label`,
+  `usb-port-control-input-suspend-writers`), Off applied at boot
+  (`usb-port-control-off-at-boot`) and the new Off summary
+  (`usb-port-control-off-text`).
+- Threat model and image checks for USB-C port control: the framework
+  setting (`usb-port-control`), the port-state triggers
+  (`usb-port-control-triggers`), the data switch's own SELinux type and its
+  writers (`usb-port-control-label`, `usb-port-control-writers`), the
+  debuggable-build guards in the framework (`usb-port-control-debug-guards`),
+  the FP6 Off summary (`usb-port-control-off-text`) and Android's advanced
+  protection USB hook staying off (`usb-data-protection-unset`).
 - Stop selecting the stock audio_effects.xml and Qualcomm's four effect
   libraries. The device installs its own effects configuration (AOSP software
   effects, no DSP offload halves) and builds the VoIP pre-processing

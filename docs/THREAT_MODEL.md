@@ -43,7 +43,9 @@ rules).
    bypasses network controls; no fake-base-station detection or null-cipher
    control; the 2G and LTE-only controls reach the modem (checked on the phone)
    ([details](#call-and-sms-content-subscriber-identity-coarse-location)).
-6. **No USB-C port control** ([details](#locked-device-data-kernel-integrity)).
+6. **USB-C port control not yet built or checked on the phone;** Off cuts
+   data and charging, but Qualcomm firmware still runs Type-C and USB PD
+   ([details](#locked-device-data-kernel-integrity)).
 7. **Attestation fails** ([details](#hardware-limits-and-evidence)).
 8. **Supply chain:** one-person review; builds take the DiamaneOS manifest
    branch without checking a signature; every FP6 build so far ran on one host,
@@ -915,20 +917,63 @@ entry point), the protections in current builds, what remains, and the status.
 - **Threat:** malicious USB device or host, forensic tool or malicious charger,
   via USB-C data lines (host and gadget roles), USB descriptors, USB PD and
   charger firmware.
-- **Protection:** not implemented: GrapheneOS USB-C port control is not wired up
-  on the FP6 (the framework flag is off; no device trigger).
+- **Protection:** GrapheneOS USB-C port control (implemented, not yet built):
+  - Modes: Off, Charging-only, Charging-only when locked (with or without
+    the before-first-unlock exemption) and On. User builds default to
+    Charging-only when locked, as GrapheneOS, so USB data is off before
+    first unlock; the mode takes effect at boot.
+  - The framework sets the kernel's deny-new-USB hook, which refuses new
+    connections, and the port state. Init triggers turn USB data off with
+    the USB controller's data switch for Off and Charging-only, and when the
+    port is unplugged while locked; at unlock data comes back.
+  - Off also turns off charging while the OS runs, as on Pixels: after the
+    data cut, init suspends the charger input in Qualcomm's charger firmware,
+    so the phone draws no current from the port and runs on its battery.
+  - User builds start every normal boot with USB data and charging off, as
+    GrapheneOS starts Pixels with the port off: at early-boot init turns the
+    USB controller off and, as soon as the charger firmware is up, suspends
+    the input. When system_server starts, the stored mode turns them back on
+    as it allows (On: both; Charging-only modes: charging; Off: neither).
+    New connections are refused from first-stage init. Debuggable builds
+    keep the port on at boot.
+  - The input suspend is runtime state: every mode but Off lifts it, and so
+    do charger mode and shutdown; the firmware restarts with every boot. So
+    the phone charges when powered off, in charger mode, fastboot, fastbootd
+    and recovery.
+  - Only vendor_init writes the data switch and the input suspend (and
+    ueventd, which the platform lets write all of sysfs); the USB HAL may
+    not.
+  - Lockdown and device-policy requests to stop USB data become port states
+    (data off, charging kept). While such a request holds, the port reports
+    data as force-disabled, so the later re-enable arrives and the stored
+    mode comes back.
 - **Remaining:**
-  - The built kernel has GrapheneOS's deny-new-USB hook, and the USB
-    controller can turn data off while charging continues; nothing uses
-    either yet.
+  - Differs from GrapheneOS on Pixels: Type-C and USB PD run in Qualcomm's
+    charger firmware, and the OS has no switch for them (the Type-C driver
+    offers only role swaps), so in Off the port still attaches, negotiates
+    USB PD with a charger and may still power an attached accessory
+    (unverified). Pixels turn the Type-C pins off, so nothing attaches.
+  - Differs from Pixels at boot: a user build charges until the charger
+    firmware is up in early second-stage init, and its USB controller runs
+    until early-boot, with new connections refused from first-stage init
+    (Pixels: both off once the Type-C driver loads in first-stage init).
+  - A user build that never reaches system_server (a boot loop) does not
+    charge while Android boots, as on Pixels; powered off, in charger mode,
+    fastboot and recovery it charges.
+  - When port control turns the port off and on to make devices reconnect
+    (unlock after a connection while locked, leaving Charging-only),
+    charging also pauses for about 1.5 s, as on Pixels.
+  - Unverified: that a reboot or power-off without init's shutdown step
+    clears the input suspend, what the charger firmware does with it after
+    the firmware restarts by itself, and how soon after boot the firmware
+    takes init's boot write.
+  - A connection made before the phone locked stays up until unplugged
+    (Charging-only when locked, as GrapheneOS).
+  - Debuggable builds only: a restrictive mode is reset to On at boot, and
+    the lock modes do nothing while USB debugging is on, unless a test
+    property that a reboot clears is set.
   - The port is USB 2.0 only (no display or other alternate modes); the FP6
     has no external accessory contacts.
-  - Charger negotiation runs in Qualcomm firmware, so the OS cannot stop
-    charging, only data.
-  - Lockdown from the power menu likely turns USB data off through the USB
-    HAL (not checked on the phone).
-  - A non-debuggable build would block new USB connections at every boot with
-    nothing to lift it, so it would have no USB data at all.
   - Qualcomm's embedded USB debugger (EUD) is off by default (not checked on
     the phone); its device-tree node is disabled and its driver is not
     shipped, so the system cannot turn it on. The USB controller takes its
@@ -937,10 +982,10 @@ entry point), the protections in current builds, what remains, and the status.
     connects (checked on the phone 2026-10-06).
   - Debug USB functions present; broad USB host drivers loaded; the USB
     descriptor carries the device serial; closed charger firmware.
-- **Status:** Observed gap: port control absent. Bring-up (not qualified):
-  userspace gadget configuration reviewed. Unverified: debug exposure audit
-  (FP6-060), USB modes (FP6-045), hardware USB data disable (no owning task
-  yet).
+- **Status:** Implemented, not yet built: port control, including Off's
+  charging cut. Bring-up (not qualified): userspace gadget configuration
+  reviewed. Unverified: port control, the data switch and the input suspend
+  on the phone, debug exposure audit (FP6-060), USB modes (FP6-045).
 
 ### Physical access to a powered-on, locked device (AFU)
 
@@ -949,11 +994,11 @@ entry point), the protections in current builds, what remains, and the status.
 - **Threat:** forensic tools, via USB, the lock screen, and firmware download
   and dump modes.
 - **Protection:** inactivity auto-reboot (inherited); panic RAM dumps off.
-- **Remaining:** no USB-C port control; builds up to the 2026-10-06 builds
-  honour download and dump reboots; the kernel keeps a minidump on panic,
-  retrieval path unverified; EDL stays reachable with physical access (the
-  hardware keys) and a signed programmer; no forensic-proof claim.
-- **Status:** Observed gap: port control absent. Checked on the phone
+- **Remaining:** USB-C port control not yet built; builds up to the 2026-10-06
+  builds honour download and dump reboots; the kernel keeps a minidump on
+  panic, retrieval path unverified; EDL stays reachable with physical access
+  (the hardware keys) and a signed programmer; no forensic-proof claim.
+- **Status:** Implemented, not yet built: port control. Checked on the phone
   (2026-10-06): the running system cannot reboot into emergency download or dump mode
   (reboots ignore those reasons and restart normally) or turn panic dumps on
   (the download-mode parameters and files are read-only). Observed (bring-up):

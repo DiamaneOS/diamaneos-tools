@@ -28,6 +28,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-06
 
+- USB-C port control, implemented, not yet built: the framework setting is on, and init triggers turn USB data off and on with the USB controller's data switch, which only vendor_init may write; user builds default to charging-only when locked, as GrapheneOS; Off also turns off charging while the OS runs, as on Pixels, through the charger firmware's input suspend, which only vendor_init may write; user builds start every boot with USB data and charging off until the stored mode applies, as Pixels do; charging powered off, in charger mode, fastboot, fastbootd and recovery is unaffected; unlike Pixels, Off leaves Type-C and USB PD running in Qualcomm firmware and the boot cut starts once that firmware is up; debuggable builds reset a restrictive mode at boot and ignore the lock modes while USB debugging is on.
 - Firmware delivery, implemented, not yet built or tested on a phone: image sets carry Fairphone's exact firmware of the vendor files' release, checked against the per-image hashes when packaged and verified; flash-steps writes it first, in the stock order and on both slots, only over older firmware and never over newer, taking the phone's release from the user or the earlier image set because the FP6 bootloader does not report it; no OTA carries firmware, and verify refuses an A/B partition list with only part of it.
 - Moments switch, implemented, not yet built: the side slider's state reaches only SystemUI through a signature permission and only from the internal device; its settings are readable only by Settings, SystemUI and Launcher; it raises protection at once and lowers it only after the unlock; see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 - Statuses: items built and phone-checked today are marked so.
@@ -669,6 +670,18 @@ Longer notes for some revisions, oldest first.
   release comes from the user or the earlier image set. No OTA carries
   firmware; verify refuses an A/B partition list with only part of it.
   Implemented, not yet built or tested on a phone.
+- **2026-10-06:** USB-C port control (implemented, not yet built). The
+  framework setting is on, and init triggers map GrapheneOS's port states to
+  the USB controller's data switch, which gets its own SELinux type that only
+  vendor_init may write. Off also turns off charging while the OS runs, as
+  on Pixels: init suspends the charger input in Qualcomm's charger firmware,
+  which also only vendor_init may write; every other mode, boot, charger
+  mode and shutdown turn it back on. User builds start every boot with
+  USB data and charging off until the stored mode applies, as Pixels do. Unlike Pixels,
+  Type-C and USB PD keep running in Qualcomm firmware in Off. Without port
+  control a user
+  build had no USB data at all. On debuggable builds a restrictive mode is
+  reset at boot and the lock modes do nothing while USB debugging is on.
 
 ## IMS integration notes
 
