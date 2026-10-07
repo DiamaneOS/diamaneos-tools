@@ -1123,6 +1123,18 @@ class NativeProductTests(unittest.TestCase):
         vendor_product.iso_date(release, 'release date')
         self.assertIsNone(vendor_product.release_date_of(dict(stock, archive_sha256='0' * 64), inventory))
 
+    def test_firmware_release_table_is_installed_in_the_vendor_image(self):
+        self.assertEqual(b'PRODUCT_COPY_FILES += vendor/fairphone/FP6/firmware-releases.txt:'
+                         b'$(TARGET_COPY_OUT_VENDOR)/etc/diamaneos/firmware-releases.txt\n',
+                         vendor_product.firmware_table_copy())
+        # Rendering alone has no table; the generation needs one.
+        self.assertNotIn(vendor_product.FIRMWARE_TABLE, self.render())
+        stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
+        for table in (b'', None, 'image tz 16.111.0 1 ' + '0' * 64 + '\n'):
+            with self.subTest(table=table), self.assertRaisesRegex(VendorError, 'firmware release table'):
+                vendor_product.generate(self.recipe, self.selection, ROOT / 'missing', ROOT / 'missing',
+                                        notice_kind='legacy_proprietary', stock=stock, firmware_releases=table)
+
     def test_camera_provider_rc_rewrite_is_pinned_to_the_recipe(self):
         path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
         row = next(r for r in self.recipe['files'] if r['path'] == path)

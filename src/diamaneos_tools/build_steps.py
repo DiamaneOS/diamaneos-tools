@@ -45,9 +45,9 @@ KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-packaging.json', 'kerne
                   'kernel-vendor-policy-fp6.json')
 KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py')
 VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minimal/vendor-files.json',
-                  'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json')
+                  'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json', 'fp6-firmware-inventory.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
-               'carrier_data.py', 'safe_json.py')
+               'carrier_data.py', 'firmware_release.py', 'safe_json.py')
 # The parts of config/fp6-build.json each step depends on; editing another
 # part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
@@ -507,7 +507,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
     inputs = None if sync is None else {
         'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(VENDOR_RECIPES),
         'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
-        'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER}
+        'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER,
+        'firmware_release': config_subset(config, ('firmware_release',))}
     # A fixed build number and the sources' own date: without them the build
     # stamps the current date into the tools (aapt2's version string), their
     # hashes reach the vendor inventory, and the same sources would give a
@@ -549,12 +550,15 @@ def plan_vendor(ctx: Context) -> StepPlan:
             recipe, selection, pins, 'recorded')
 
     def product():
-        from . import safe_json, vendor_product
+        from . import firmware_release, safe_json, vendor_product
+        firmware = firmware_release.table(safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json'),
+                                          config['firmware_release'])
         ctx.cache['product'] = vendor_product.generate(
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
-            aapt2=ctx.host_bin / 'aapt2', stock=recipe, release_date=archive.get('release_date'))
+            aapt2=ctx.host_bin / 'aapt2', stock=recipe, firmware_releases=firmware,
+            release_date=archive.get('release_date'))
 
     actions = [host_tools,
                Action(f'Download the Fairphone factory package {archive["filename"]} and check its SHA-256',
