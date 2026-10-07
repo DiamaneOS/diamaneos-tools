@@ -44,6 +44,19 @@
   (`gallery2-crop-only`), and Canvas with its overlay and no permission
   beyond AndroidX's own (`screenshot-editor`, `screenshot-editor-overlay`,
   `screenshot-editor-permissions`).
+- Firmware release table for Settings (device `fwrelease`): the vendor step
+  writes `vendor/etc/diamaneos/firmware-releases.txt` from the firmware
+  inventory (`firmware_release.py`; one line per A/B partition and release,
+  image length and SHA-256, newest release first). The images left out, each
+  with its reason, are under `firmware_release` in `config/fp6-build.json`;
+  the table fails on a single-copy or sparse checked image, releases with
+  different images, a changed "identical" exclusion and an exclusion without
+  a reason. The inventory marks its two sparse images and joins the vendor
+  step's inputs. Checks: `firmware-release-table` (the image's table equals
+  the regenerated one) and image checks for the binary, its rc options, the
+  44 ueventd nodes, the relabel, the property context, who sets and reads the
+  property and who reads or writes the firmware partitions. Threat model and
+  FIRMWARE.md updated. Implemented, not yet built.
 - Threat model statuses: items built and phone-checked on 2026-10-06 are marked
   so (eSIM manager, boot control, SHA-256 hashtrees, serials, factory
   Bluetooth address, thermal HAL, Updater build).

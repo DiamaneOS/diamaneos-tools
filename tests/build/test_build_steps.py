@@ -303,6 +303,21 @@ class PlanTests(unittest.TestCase):
         self.assertEqual('1791172325', tools.env['BUILD_DATETIME'])
         self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, plan.inputs['host_tools_build_number'])
 
+    def test_vendor_step_depends_on_the_firmware_inventory_and_table_config(self):
+        # The vendor tree carries the firmware release table, so a new release
+        # in the inventory or a changed exclusion makes a new generation.
+        ctx = self.context()
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
+                                           'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1):
+            plan = steps.plan_vendor(ctx)
+            self.assertIn('fp6-firmware-inventory.json', plan.inputs['recipes'])
+            self.assertIn('firmware_release.py', plan.inputs['code'])
+            config = json.loads(json.dumps(ctx.config))
+            config['firmware_release']['not_checked']['tz.mbn'] = {'reason': 'test'}
+            changed = steps.plan_vendor(replace(ctx, config=config))
+        self.assertNotEqual(plan.inputs['firmware_release'], changed.inputs['firmware_release'])
+
     def test_build_all_follows_the_manifest_branch(self):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         environment['manifest']['revision'] = 'a' * 40
