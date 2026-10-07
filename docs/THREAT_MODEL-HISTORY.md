@@ -614,6 +614,13 @@ Longer notes for some revisions, oldest first.
 - **2026-10-07:** Moments switch: airplane mode and Lockdown are separate
   actions (the combined one left airplane mode stuck on without a screen lock);
   Lockdown is enabled only with a screen lock. Implemented, not yet built.
+- **2026-10-07:** Moments switch kernel floor, implemented, not yet built.
+  With "Camera and microphone off" chosen, the kernel mutes the built-in
+  microphones at the codec and keeps their bias off while the switch is down;
+  the choice is sealed in the kernel once per boot; Android shows the block as
+  a hardware microphone toggle; emergency calls have no microphone while the
+  switch is down. The switch can no longer be disabled from sysfs (-189).
+  Rules in [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 
 ## IMS integration notes
 
