@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revised 2026-10-06. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
+Revised 2026-10-08. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or Fairphone.
 

@@ -10,8 +10,25 @@ build the next.
 
 One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md only says when it was last revised.
 
+### 2026-10-08
+
+- Statuses: built and phone-checked: the Moments switch's camera block (apps lose the camera; recording stops, its sound after the switch is silent), its restart notice and Restart action, the kernel camera and microphone floor, the keyboard's learned, personal and contact words only in credential-encrypted storage, incognito and password fields, and Canvas's Copy and delete without a clipboard preview.
+
+### 2026-10-07
+
+- Camera blocking on the FP6, implemented, not yet built: the camera HAL has no working mute, so with camera access off or the Moments switch blocking the camera, apps are disconnected and new opens fail as camera disabled, AOSP's path for such cameras, instead of black frames; Canvas's Copy and delete shows no clipboard preview, only for the system Canvas with its marker.
+- Moments switch kernel floor for the cameras, implemented, not yet built: the camera driver holds every known image sensor on its test pattern while the switch is down, and the laser range finder does not range; the image processor firmware stays outside it (-192); see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
+- Moments switch: the note for a blocked camera or microphone can be turned off for a silent block; implemented, not yet built.
+- Moments switch: the page and one notification per boot say when only Android blocks the microphone until a restart, read from the kernel's own state; implemented, not yet built.
+- Moments switch: no access prompt while the switch blocks the camera or microphone, a short toast instead, so recordings continue with black frames and silence; the user's own blocks keep the prompt; implemented, not yet built.
+- Moments switch kernel floor, implemented, not yet built: with "Camera and microphone off" chosen, the kernel mutes the built-in microphones at the codec and keeps their bias off while the switch is down, whatever Android asks; the choice is sealed in the kernel once per boot; Android shows it as a hardware microphone toggle; emergency calls have no microphone while the switch is down; headset microphones and the cameras stay software-blocked; see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
+- Screenshots, implemented, not yet built: the screenshot preview's Delete removes only the screenshot SystemUI just saved; Canvas, now a fork, offers Done (Save, Copy and delete, Delete) for screenshots from SystemUI's Edit, deletes only through the link it was granted, and puts copies on the clipboard as one private file with a new name each time; no new permissions; see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#screenshots-delete-and-canvass-done).
+- Moments switch: airplane mode and Lockdown are separate actions, Lockdown enabled only with a screen lock; implemented, not yet built.
+- Moments switch fixes from a phone test, implemented, not yet built: camera and microphone access toggles turned on for the FP6 as on Pixels; the switch's toast names only what took effect; Lockdown offered only with a screen lock; the input reader no longer loses a switch change after a buffer overrun.
+
 ### 2026-10-06
 
+- Moments switch, implemented, not yet built: the side slider's state reaches only SystemUI through a signature permission and only from the internal device; its settings are readable only by Settings, SystemUI and Launcher; it raises protection at once and lowers it only after the unlock; see [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 - Statuses: items built and phone-checked today are marked so.
 - Audio HAL, PAL and AGM, implemented, not yet built: built from Fairphone's published FP6 sources with control-flow integrity and the integer overflow sanitizer, as stock, so the HAL's setParameters keys, stream I/O and USB audio descriptor text are handled in code we can patch; the HAL registers no PAL HIDL service, and that service, the memory logger and the dynamic logging library are not shipped; the HAL no longer answers the factory speaker queries or accepts the factory speaker protection modes, and ignores voice UI keys without a sound trigger HAL, which closes parameter-query bugs any app could reach (-178); the graph services, their tuning server, the voice UI interface and the deadline manager stay closed in the same process; the Awinic calibration code Fairphone publishes without a licence is compiled into PAL as in stock; PAL's speaker protection calls it at each speaker start to apply the per-unit calibration.
 - Kernel hardening, implemented, not yet built: /proc/cmdline, which bug reports copy, shows parameter names only, keeping only module options' values for Android's modprobe, so the hardware identifier the bootloader passes no longer reaches bug reports; the running system can no longer reboot into Qualcomm's emergency download or RAM dump modes or turn dumps on; the EUD debugger's device-tree node is off and its driver is no longer shipped, and USB takes its connect and role events from the Type-C port controller only.
@@ -588,7 +605,7 @@ Longer notes for some revisions, oldest first.
   protected system settings readable by Settings, SystemUI and Launcher; it
   raises protection at once and lowers it after the unlock. Rules in
   [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
-- **2026-10-07:** Moments switch fixes after the build-14 phone test,
+- **2026-10-07:** Moments switch fixes after a phone test,
   implemented, not yet built. The FP6 offers the software camera and
   microphone access toggles (Settings, Quick Settings and the switch's action),
   enforced by the framework's app ops and the camera service as on Pixels; the
