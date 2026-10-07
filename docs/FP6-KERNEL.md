@@ -236,10 +236,11 @@ default, `debugfs_tracing_debug`:
   Traceur, `simpleperf_boot`, `profcollectd` and the atrace HAL write it.
 
 BPF programs may now read kernel memory, but only `bpfloader` may load them.
-IPsec keys are no longer blanked in XFRM state dumps, which SELinux allows only
-netd, system_server, the network stack, `netutils_wrapper`, dumpstate and
-Qualcomm's nicmd (checked in the compiled user and userdebug policies of the
-2026-10-05 builds). Enforcing USER policy replaces none of these settings.
+IPsec keys stay blanked in XFRM state dumps: integrity lockdown does not cover
+LOCKDOWN_XFRM_SECRET, so both trees make `xfrm_redact()` always true
+(kernel_common-6.1 9f7417fb1da2, msm-6.1 a3da4d2). SELinux allows the dump
+only to netd, system_server, the network stack, `netutils_wrapper`, dumpstate
+and Qualcomm's nicmd, which needs only SPIs to delete its own states. Enforcing USER policy replaces none of these settings.
 Current artifacts use development AVB identities, not release, relock or
 production-signing inputs.
 
