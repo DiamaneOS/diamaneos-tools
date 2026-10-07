@@ -314,7 +314,9 @@ Lockdown, or nothing.
   microphone blocking is the same toggle, plus the kernel floor below when it
   is armed. The FP6 offers these toggles (as GrapheneOS's Pixels do: the
   framework blocks the camera and microphone app ops and the camera service
-  blocks or mutes cameras, whatever the HALs do); where a phone lacks them the
+  blocks or mutes cameras, whatever the HALs do; the FP6's camera HAL has no
+  working mute, so there the camera service disconnects apps and refuses new
+  opens, AOSP's path for such cameras); where a phone lacks them the
   action is not offered. Lockdown is its own action, enabled only with a PIN,
   pattern or password; an earlier airplane-and-Lockdown choice becomes Lockdown
   only when Lockdown was on and a screen lock exists, otherwise airplane mode.
@@ -326,8 +328,9 @@ Lockdown, or nothing.
   suppressed for that sensor through the platform's reminder suppression, and
   a short toast names what the switch blocks, at most once every ten seconds;
   the user may turn the toast off for a silent block (the status bar's privacy
-  indicators stay as stock). Apps get black frames and silence without
-  interruption. A block counts as
+  indicators stay as stock). Apps get silence from the microphone without
+  interruption; on the FP6 they lose the camera (camera disabled), so they can
+  tell it is blocked. A block counts as
   the switch's only from system state: the kernel floor's block (which Android
   shows as its hardware-toggle state), or
   a software block the switch made (its record) that nobody has lifted since.
@@ -424,6 +427,10 @@ Implemented, not yet built.
   disk, unreadable to other apps, until then. The clipboard holds the image
   the user chose to copy, as with any copied image; the deleted screenshot is
   otherwise gone.
+- SystemUI shows no clipboard preview for this copy (Canvas shows a short
+  "Copied" note instead): only a clip that Android records as set by the
+  system app Canvas and that carries DiamaneOS's quiet-copy marker skips the
+  preview; the marker from any other app has no effect.
 - If the copy fails, nothing is deleted. Closing an edited screenshot asks
   (Save, Discard, Delete); closing an unedited one keeps it untouched.
 
