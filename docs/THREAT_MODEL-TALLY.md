@@ -317,8 +317,19 @@ Lockdown, or nothing.
   blocks or mutes cameras, whatever the HALs do); where a phone lacks them the
   action is not offered. Lockdown is its own action, enabled only with a PIN,
   pattern or password; an earlier airplane-and-Lockdown choice becomes Lockdown
-  only when Lockdown was on and a screen lock exists, otherwise airplane mode. The toast names only what took effect, never a change the phone
-  could not make.
+  only when Lockdown was on and a screen lock exists, otherwise airplane mode.
+  The toast names only what took effect, never a change the phone could not
+  make.
+- No access prompt for the switch's own block (differs from GrapheneOS): while
+  the switch blocks the camera or microphone, the platform's "Unblock" prompt
+  (an activity over the app, which pauses it and stops a recording) is
+  suppressed for that sensor through the platform's reminder suppression, and
+  a short toast names what the switch blocks, at most once every ten seconds.
+  Apps get black frames and silence without interruption. A block counts as
+  the switch's only from system state: the kernel floor's hardware toggle, or
+  a software block the switch made (its record) that nobody has lifted since.
+  A block the user made in Quick Settings or Settings keeps GrapheneOS's
+  prompt. The suppression is tied to SystemUI's process and ends if it dies.
 - Kernel floor for the microphones (implemented, not yet built): when the
   owner chose "Camera and microphone off", the kernel also blocks the built-in
   microphones while the switch is down.
@@ -337,8 +348,8 @@ Lockdown, or nothing.
     kernel after a restart (the Moments page says so; Android's block changes
     at once). Until init writes it, the kernel blocks while the switch is down
     whatever the choice.
-  - Android shows the kernel block as a hardware microphone toggle: an app's
-    access prompt says to slide the switch back and offers no Unblock. The
+  - Android shows the kernel block as a hardware microphone toggle; an app's
+    access gets the switch's toast, not a prompt (above). The
     microphone comes back as soon as the switch moves up, also on the lock
     screen, since the kernel cannot wait for the unlock.
   - Emergency calls have no microphone while the switch is down. The kernel
