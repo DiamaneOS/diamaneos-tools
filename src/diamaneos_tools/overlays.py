@@ -465,6 +465,19 @@ def load_product_rules(rules):
     }
 
 
+def _check_prebuilt(package, target):
+    """A presigned app has no resource sources: the registry lists the default-configuration
+    resources read from its APK (aapt2 dump resources) at a pinned project revision."""
+    prebuilt = target['prebuilt']
+    declared = prebuilt.get('resources') if isinstance(prebuilt, dict) else None
+    if ('sources' in target or not isinstance(prebuilt, dict) or not _safe(prebuilt.get('project'))
+            or not SHA1.match(prebuilt.get('revision') or '') or not isinstance(prebuilt.get('evidence'), str)
+            or not prebuilt['evidence'] or not isinstance(declared, dict) or not declared
+            or not all(isinstance(t, str) and isinstance(n, list) and n and all(isinstance(x, str) for x in n)
+                       for t, n in declared.items())):
+        raise OverlayCheckError(f'invalid prebuilt target {package}')
+
+
 def load_config(path=CONFIG):
     data = read_json(path)
     if data.get('schema_version') != 1:
@@ -497,6 +510,10 @@ def load_config(path=CONFIG):
         package = target.get('package') if isinstance(target, dict) else None
         if not isinstance(package, str) or not PACKAGE.match(package) or package in targets:
             raise OverlayCheckError(f'invalid or duplicate target: {package}')
+        if 'prebuilt' in target:
+            _check_prebuilt(package, target)
+            targets[package] = target
+            continue
         sources = target.get('sources')
         if not isinstance(sources, list) or not sources:
             raise OverlayCheckError(f'target {package} needs sources')
@@ -1027,6 +1044,20 @@ def tag_verifier(release, allowed_signers):
 def load_target(target, source):
     """Resources of one registered target and the problems reading its sources."""
     resources, problems, used = Resources(), [], []
+    if 'prebuilt' in target:
+        prebuilt = target['prebuilt']
+        project = prebuilt['project']
+        description = dict(source.describe(project), project=project, prebuilt=prebuilt['revision'])
+        used.append(description)
+        if not description['available']:
+            problems.append(f'project {project}: {description["reason"]}')
+        elif description.get('revision', prebuilt['revision']) != prebuilt['revision']:
+            problems.append(f'prebuilt {project} is at {description["revision"]}, the registry lists '
+                            f'{prebuilt["revision"]}: read its resources again (aapt2 dump resources)')
+        for rtype, names in prebuilt['resources'].items():
+            for name in names:
+                resources.add(rtype, name, '')
+        return resources, problems, used
     for entry in target['sources']:
         project = entry['project']
         description = dict(source.describe(project), project=project, res=list(entry['res']))
