@@ -879,10 +879,11 @@ def audio_config(path, data):
 CAMERA_CONFIG_REWRITES = {
     'vendor/etc/init/vendor.qti.camera.provider-service_64.rc': {
         'source_sha256': 'ccc0c2b945c1be4fee8061ddc519d090c2c8f76ea70b3c733b11429eb20175f8',
-        'sha256': '39c85b1ae77d82f3cea2956a2ea779aa49f736f6c972bee09a48401df1a10b58',
+        'sha256': 'da955f72ded8e2d93776745149958b7f421c158ce54365330e629828af6e496d',
         'reason': 'Limit camera provider groups to camera, media (secure FastRPC node), oem_2907 (thermal) '
                   'and wakelock; drop the undeclared offline camera, postproc and AON interface lines and the '
-                  'cam_event_inject fault-injection chown'},
+                  'cam_event_inject fault-injection chown; add class cameraWatchdog so init restarts the '
+                  'provider with cameraserver'},
 }
 
 
@@ -899,6 +900,9 @@ def camera_config(path, data):
                      b'', derived, flags=re.M)
     derived = derived.replace(b'    group audio camera input drmrpc oem_2907 oem_2912 wakelock\n',
                               b'    group camera media oem_2907 wakelock\n')
+    # cameraserver.rc restarts class cameraWatchdog with cameraserver, so a provider left with a
+    # hung session (CamX close() that never returns) restarts with it, as AOSP intends.
+    derived = derived.replace(b'    class hal\n', b'    class hal cameraWatchdog\n')
     derived = re.sub(rb'\non boot\n    chown cameraserver camera /sys/module/camera/parameters/cam_event_inject\n\Z',
                      b'', derived)
     if hashlib.sha256(derived).hexdigest() != rule['sha256']:

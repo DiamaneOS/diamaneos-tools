@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The camera provider joins init's `cameraWatchdog` class, so it restarts
+  whenever cameraserver restarts (cameraserver.rc), as AOSP intends: a
+  provider left with a hung camera session no longer outlives a cameraserver
+  restart. Image check `camera-provider-restarts-with-cameraserver`.
 - Canvas (the screenshot editor) is now a fork (`canvas`, replacing the
   pinned source `lineage-canvas`): for a screenshot from SystemUI's Edit, Done
   replaces Save (Save, Copy and delete, Delete). The threat model's Tally rules

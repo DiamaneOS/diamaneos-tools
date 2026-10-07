@@ -2459,6 +2459,17 @@
       ]
     },
     {
+      "id": "camera-provider-restarts-with-cameraserver",
+      "why": "The camera provider is in class cameraWatchdog, which init restarts with cameraserver, so a provider left with a hung camera session does not outlive a cameraserver restart.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/vendor.qti.camera.provider-service_64.rc"
+      ],
+      "contains": [
+        "class hal cameraWatchdog"
+      ]
+    },
+    {
       "id": "no-offline-camera-service",
       "why": "No manifest, matrix or provider service definition names the offline camera service.",
       "type": "text",
