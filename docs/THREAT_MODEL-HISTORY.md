@@ -621,6 +621,13 @@ Longer notes for some revisions, oldest first.
   a hardware microphone toggle; emergency calls have no microphone while the
   switch is down. The switch can no longer be disabled from sysfs (-189).
   Rules in [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
+- **2026-10-07:** Moments switch kernel floor for the cameras, implemented, not
+  yet built. With "Camera and microphone off" chosen, the camera driver holds
+  every known image sensor on its test pattern while the switch is down, and
+  the laser range finder does not range; Android shows a hardware camera
+  toggle. Residuals: the image processor's firmware (-192) and the unmeasured
+  command DMA reach (-191). Rules in
+  [THREAT_MODEL-TALLY.md](THREAT_MODEL-TALLY.md#moments-switch).
 - **2026-10-07:** Moments switch: while the switch blocks the camera or
   microphone, the platform's access prompt is suppressed for that sensor and a
   short toast shows instead (the prompt paused the camera app and broke the

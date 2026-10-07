@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The Moments switch's kernel floor for the cameras: the switch driver loads
+  in recovery too (the laser range finder's driver needs it). Image checks:
+  the camera driver and the range finder register with it
+  (`privacy-switch-camera-client`, `privacy-switch-tof-client`), and
+  camera.ko has no CDM reach probe (`camera-no-cdm-reach-probe`). The threat
+  model's Tally rules describe the camera floor and its residuals.
 - The Moments switch's kernel floor for the microphones: the kernel packaging
   loads the privacy switch driver (`diamaneos_privsw.ko`) from the vendor
   ramdisk. Image checks: the switch's device-tree node belongs to the driver
