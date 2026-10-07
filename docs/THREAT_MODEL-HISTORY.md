@@ -631,6 +631,9 @@ Longer notes for some revisions, oldest first.
   restart and one notification per boot says only Android blocks the
   microphone; with another choice while the kernel still blocks, the page says
   so. Read from the kernel's state file. Implemented, not yet built.
+- **2026-10-07:** Moments switch: the user may turn off the note for a
+  blocked camera or microphone (silent block; still no prompt). Implemented,
+  not yet built.
 
 ## IMS integration notes
 
