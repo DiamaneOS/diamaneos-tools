@@ -1314,7 +1314,9 @@ entry point), the protections in current builds, what remains, and the status.
   no-learning and password fields never learned from or shown learned words; no
   typed or personal data in logs; unused network, account and sync permissions
   and dormant entry points removed; no network permission (already true).
-- **Remaining:** the recent-emoji list stays readable before first unlock.
+- **Remaining:** the recent-emoji list stays readable before first unlock. A
+  personal-dictionary word deleted while the keyboard is not running stays
+  suggested and stored.
   Builds without the fork (the inherited keyboard) keep these words in storage
   available before first unlock, allow them in backups and ignore the
   no-learning flag.
@@ -1324,8 +1326,11 @@ entry point), the protections in current builds, what remains, and the status.
   a word typed in a normal field is learned, suggested and stored only in
   credential-encrypted storage; a word typed in a no-learning field is neither
   learned nor stored, and learned words are not suggested there; turning
-  learning off deletes the learned list. Unverified: the keyboard fork's tests,
-  password fields, and personal and contact words on the phone.
+  learning off deletes the learned list. Password fields show no suggestions,
+  teach nothing and, when hidden, show no key previews. Personal and contact
+  words are suggested and stored only in credential-encrypted storage; revoking
+  contacts access deletes the contact list. Unverified: the keyboard fork's
+  tests.
 
 #### Privacy indicators and disclosures under the Tally shell
 
