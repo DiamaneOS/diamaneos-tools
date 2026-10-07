@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-- CamX camera core dumps are off (`camxoverridesettings.txt`: text, binary,
-  their offline logging, and the dumps that `dumpsys media.camera` triggers,
-  which left an empty folder each). Each camera recovery wrote 3–4 MB of
-  camera state, metadata and logs to `/data/vendor/camera/coredump`, and
-  writing one could hang the provider. Image check `camera-no-core-dumps`.
+- CamX camera core dumps are off (`camxoverridesettings.txt`: text, binary and
+  their offline logging). Each camera recovery wrote 3–4 MB of camera state,
+  metadata and logs to `/data/vendor/camera/coredump`, and writing one could
+  hang the provider. Image check `camera-no-core-dumps`. CamX still created
+  an empty folder there for every `dumpsys media.camera`; image check
+  `camera-core-dump-dir-closed` requires the device to close the directory
+  to the provider.
 - The camera provider joins init's `cameraWatchdog` class, so it restarts
   whenever cameraserver restarts (cameraserver.rc), as AOSP intends: a
   provider left with a hung camera session no longer outlives a cameraserver

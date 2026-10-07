@@ -2469,8 +2469,18 @@
         "enableCameraCoreDumpText=FALSE",
         "enableCameraCoreDumpBinary=FALSE",
         "enableCoredumpOfflineTextLogging=FALSE",
-        "enableCoredumpOfflineBinaryLogging=FALSE",
-        "enableFwkDump=FALSE"
+        "enableCoredumpOfflineBinaryLogging=FALSE"
+      ]
+    },
+    {
+      "id": "camera-core-dump-dir-closed",
+      "why": "CamX creates an empty dump folder for every dumpsys media.camera even with its core dumps off; init makes the dump directory system-owned and read-only so the camera provider cannot write there.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.camera.rc"
+      ],
+      "contains": [
+        "mkdir /data/vendor/camera/coredump 0500 system system"
       ]
     },
     {
