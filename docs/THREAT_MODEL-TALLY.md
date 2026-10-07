@@ -345,9 +345,13 @@ Lockdown, or nothing.
   - The kernel learns the choice once per boot: init writes it early in boot
     and the kernel refuses every later write, so compromised Android code
     cannot disarm it until the next restart. A changed choice reaches the
-    kernel after a restart (the Moments page says so; Android's block changes
-    at once). Until init writes it, the kernel blocks while the switch is down
-    whatever the choice.
+    kernel after a restart; Android's block changes at once. The Moments page
+    says which applies, from the kernel's own report: "restart to turn on
+    hardware protection" when the choice is not yet armed, or that the
+    microphone stays hardware-muted until a restart after another choice. The
+    first time the switch is down in a boot where only Android blocks the
+    microphone, one notification says so. Until init writes it, the kernel
+    blocks while the switch is down whatever the choice.
   - Android shows the kernel block as a hardware microphone toggle; an app's
     access gets the switch's toast, not a prompt (above). The
     microphone comes back as soon as the switch moves up, also on the lock
