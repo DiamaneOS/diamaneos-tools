@@ -1499,6 +1499,20 @@ class ConfigTests(unittest.TestCase):
         host = next(e['replacement_host'] for e in endpoints if e['id'] == 'os-updates')
         self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
 
+    def test_official_builds_need_the_camera_filter_in_trap_mode(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        camera, bluetooth = rules['camera-provider-seccomp-enforced'], rules['bluetooth-seccomp-enforced']
+        self.assertIs(True, camera['official'])
+        self.assertEqual('VENDOR/lib64/libcamxjail.so', camera['file'])
+        self.assertEqual(bluetooth['patterns'], camera['patterns'])
+        self.assertFalse(subject.rule_applies(camera, 'user', False))
+        self.assertTrue(subject.rule_applies(camera, 'user', True))
+        with tempfile.TemporaryDirectory() as temp:
+            for mode, ok in ((b'log-only', False), (b'trap', True)):
+                v = Harness(Path(temp), {camera['file']: b'\x7fELF filter installed (%s)\x00' + mode + b'\x00'})
+                self.addCleanup(v.tf.close)
+                self.assertEqual(ok, subject.rule_binary_count(camera, v)[0], mode)
+
     def test_esim_manager_ships_off_with_network_only_and_unplatform_signed(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         apk = rules['esim-lpa-apk']

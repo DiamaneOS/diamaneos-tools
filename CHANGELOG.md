@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Image check `camera-provider-seccomp-enforced`: an official build must not
+  ship the camera provider's seccomp filter in log-only mode. Threat model
+  updated.
 - `build package` reuses an image set only after rehashing every listed file and
   matching the recorded packaging config (`packaging_config_sha256`). Image
   directories from earlier tools with the same build ID must be moved aside
