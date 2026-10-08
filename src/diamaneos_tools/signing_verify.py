@@ -57,6 +57,9 @@ EXPECTED_PROOFS = {
     "factory-archive-signature", "release-record-signature",
     "valid-key-verification", "wrong-key-rejection", "restart-recovery",
 }
+# docs/SIGNING.md: the release manifest is signed in this namespace; the
+# factory archive signature is a separate signature in another one.
+RELEASE_RECORD_NAMESPACE = "diamaneos-dummy-release-record"
 METADATA_MEMBERS = (
     "META/apkcerts.txt", "META/apexkeys.txt", "META/misc_info.txt",
 )
@@ -845,9 +848,18 @@ def verify_dummy_result(result_path, artifact_root, config):
             return errors[:MAX_ERRORS]
 
     for proof in result["proofs"]:
+        if not proof["evidence_refs"]:
+            errors.append("dummy proof refers to no artifact")
         if not set(proof["evidence_refs"]) <= artifact_ids:
             errors.append("dummy proof refers to an unknown artifact")
 
+    release, factory = result["release_record_proof"], result["factory_archive_proof"]
+    if release["namespace"] != RELEASE_RECORD_NAMESPACE:
+        errors.append("dummy release record is not signed in the release-record namespace")
+    if (factory["namespace"] == release["namespace"]
+            or factory["manifest_path"] == release["manifest_path"]
+            or factory["signature_path"] == release["signature_path"]):
+        errors.append("dummy factory archive proof reuses the release record signature")
     _verify_ssh_proof(root, result["factory_archive_proof"],
                       "factory archive", errors)
     _verify_ssh_proof(root, result["release_record_proof"],
@@ -944,6 +956,9 @@ def main(argv=None):
             "artifact_root_verified": True,
             "valid_key_verification": "PASS",
             "wrong_key_rejection": "PASS",
+            # The APK, APEX, AVB and OTA proofs are the run's own statements,
+            # bound to their artifacts by hash; this command does not redo them.
+            "artifact_signatures_verified": False,
         }, indent=2, sort_keys=True))
         return 0
     except SigningError as error:

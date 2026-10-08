@@ -398,6 +398,12 @@ class SigningVerifyTest(unittest.TestCase):
             "ssh-keygen", "-Y", "sign", "-f", str(key),
             "-n", "diamaneos-dummy-release-record", str(manifest)
         ], check=True, capture_output=True, timeout=20)
+        factory = root / "factory-archive.zip"
+        factory.write_bytes(b"dummy factory archive\n")
+        subprocess.run([
+            "ssh-keygen", "-Y", "sign", "-f", str(key),
+            "-n", "diamaneos-dummy-factory-images", str(factory)
+        ], check=True, capture_output=True, timeout=20)
         allowed = root / "allowed-signers"
         wrong = root / "wrong-allowed-signers"
         allowed.write_text("dummy-release " + (root / "release-record.pub").read_text())
@@ -407,6 +413,8 @@ class SigningVerifyTest(unittest.TestCase):
         for identifier, path in (
                 ("manifest", manifest),
                 ("manifest-signature", root / "release-manifest.json.sig"),
+                ("factory-archive", factory),
+                ("factory-archive-signature", root / "factory-archive.zip.sig"),
                 ("allowed-signers", allowed),
                 ("wrong-allowed-signers", wrong)):
             artifacts.append({
@@ -445,12 +453,12 @@ class SigningVerifyTest(unittest.TestCase):
                 "namespace": "diamaneos-dummy-release-record",
             },
             "factory_archive_proof": {
-                "manifest_path": manifest.name,
-                "signature_path": "release-manifest.json.sig",
+                "manifest_path": factory.name,
+                "signature_path": "factory-archive.zip.sig",
                 "allowed_signers_path": allowed.name,
                 "wrong_allowed_signers_path": wrong.name,
                 "identity": "dummy-release",
-                "namespace": "diamaneos-dummy-release-record",
+                "namespace": "diamaneos-dummy-factory-images",
             },
         }
         result_path = root / "result.json"
@@ -478,6 +486,25 @@ class SigningVerifyTest(unittest.TestCase):
             result_path.write_text(json.dumps(result))
             self.assertTrue(api.verify_dummy_result(
                 result_path, Path(temp) / "fresh", self.config))
+
+    def test_dummy_result_rejects_reused_or_misplaced_signatures(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result_path = self._make_signed_result(temp)
+            valid = json.loads(result_path.read_text())
+
+            def errors(change):
+                result = copy.deepcopy(valid)
+                change(result)
+                result_path.write_text(json.dumps(result))
+                return api.verify_dummy_result(result_path, temp, self.config)
+            # One release-record signature standing for the factory archive too.
+            self.assertIn("dummy factory archive proof reuses the release record signature",
+                          errors(lambda r: r.update(factory_archive_proof=r["release_record_proof"])))
+            self.assertIn("dummy release record is not signed in the release-record namespace",
+                          errors(lambda r: r["release_record_proof"].update(namespace="other")))
+            self.assertIn("dummy proof refers to no artifact",
+                          errors(lambda r: r["proofs"][0].update(evidence_refs=[])))
+            self.assertEqual([], errors(lambda r: None))
 
     def test_cli_validation_is_read_only(self):
         path = TOOLS / "config" / "signing-roles.json"

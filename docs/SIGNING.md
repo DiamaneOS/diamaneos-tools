@@ -158,9 +158,12 @@ bin/diamaneos signing verify \
 ```
 
 It refuses absolute or traversing paths, symlinks, missing files, duplicate
-proof/artifact identifiers, altered hashes, incomplete proofs,
-production-material claims and a mismatched source binding. A PASS covers only
-that disposable run.
+proof/artifact identifiers, altered hashes, incomplete proofs or proofs with no
+artifact, a release record outside its namespace, a factory-archive proof that
+reuses the release-record signature, production-material claims and a
+mismatched source binding. It does not redo the APK, APEX, AVB or OTA
+verification: those proofs are the run's own results, bound by hash
+(`artifact_signatures_verified: false`). A PASS covers only that disposable run.
 
 ## Change and recovery rules
 
