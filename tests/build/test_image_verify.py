@@ -1535,6 +1535,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(bluetooth['patterns'], camera['patterns'])
         self.assertFalse(subject.rule_applies(camera, 'user', False))
         self.assertTrue(subject.rule_applies(camera, 'user', True))
+        # Official userdebug test builds may still log while the profile is collected.
+        self.assertFalse(subject.rule_applies(camera, 'userdebug', True))
         with tempfile.TemporaryDirectory() as temp:
             for mode, ok in ((b'log-only', False), (b'trap', True)):
                 v = Harness(Path(temp), {camera['file']: b'\x7fELF filter installed (%s)\x00' + mode + b'\x00'})

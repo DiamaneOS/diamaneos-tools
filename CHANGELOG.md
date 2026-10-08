@@ -24,9 +24,10 @@
   packaged them (`packaging_tools`); `reproducible` needs both clean and equal.
   Older Android states count as not reproducible until rebuilt. BUILD.md and
   threat model updated.
-- Image check `camera-provider-seccomp-enforced`: an official build must not
-  ship the camera provider's seccomp filter in log-only mode. Threat model
-  updated.
+- Image check `camera-provider-seccomp-enforced`: an official user build (a
+  release) must not ship the camera provider's seccomp filter in log-only mode;
+  official userdebug test builds may, while the profile is collected. Threat
+  model updated.
 - `build package` reuses an image set only after rehashing every listed file and
   matching the recorded packaging config (`packaging_config_sha256`). Image
   directories from earlier tools with the same build ID must be moved aside

@@ -3093,8 +3093,11 @@
     },
     {
       "id": "camera-provider-seccomp-enforced",
-      "why": "Official builds load the camera provider's filter in trap mode: a call outside its list stops the provider instead of only being logged. Other builds may run it log-only while its system call list is collected.",
+      "why": "Official user builds (releases) load the camera provider's filter in trap mode: a call outside its list stops the provider instead of only being logged. Test builds, official userdebug ones included, may run it log-only while its system call list is collected.",
       "official": true,
+      "variants": [
+        "user"
+      ],
       "type": "binary_count",
       "file": "VENDOR/lib64/libcamxjail.so",
       "patterns": [
