@@ -686,12 +686,15 @@ def plan_android(ctx: Context) -> StepPlan:
         target_files = find_target_files(ctx)
         target_sha256 = bw.sha_file(target_files)
         isolation = 'off' if ctx.allow_network else 'on'
-        # The image set's identity: what the build was made from and how.
+        # The image set's identity: what the build was made from and how. The
+        # tools that built it are kept, so packaging records them, not its own.
+        tools = product_inputs.tools_identity()
         build_identity = bw.digest({'source_identity': identity, 'build_number': number,
-                                    'network_isolation': isolation, 'tools': product_inputs.tools_identity(),
+                                    'network_isolation': isolation, 'tools': tools,
                                     'target_files_sha256': target_sha256})
         return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
+                'tools': tools,
                 'build_datetime': datetime,
                 'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
                 'descriptor_sha256': ctx.cache['postflight']['generated_input_descriptor_sha256'],

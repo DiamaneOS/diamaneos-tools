@@ -305,7 +305,10 @@ def plan(ctx):
         shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
-        tools = product_inputs.tools_identity()
+        # The tools that built the Android images are in their build identity;
+        # packaging may run from a later checkout and is recorded beside them.
+        tools = out.get('tools') or {'commit': None, 'clean': None}
+        packaging_tools = product_inputs.tools_identity()
         official = out.get('official') is True
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
@@ -317,7 +320,9 @@ def plan(ctx):
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),
-            'tools': tools, 'reproducible': bool(tools.get('clean')),
+            'tools': tools, 'packaging_tools': packaging_tools,
+            'reproducible': bool(tools.get('clean') and packaging_tools.get('clean')
+                                 and tools.get('commit') == packaging_tools.get('commit')),
             'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
             'source': sync['outputs'],
             'manifest': {'url': sync['outputs'].get('manifest_url'), 'branch': sync['outputs'].get('manifest_branch'),

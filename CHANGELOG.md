@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `build.json` records the tools that built the images (`tools`) and those that
+  packaged them (`packaging_tools`); `reproducible` needs both clean and equal.
+  Older Android states count as not reproducible until rebuilt. BUILD.md and
+  threat model updated.
 - Image check `camera-provider-seccomp-enforced`: an official build must not
   ship the camera provider's seccomp filter in log-only mode. Threat model
   updated.

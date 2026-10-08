@@ -177,6 +177,24 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'changed after the build'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
+    def test_the_record_names_the_tools_that_built_the_images(self):
+        producer, other = {'commit': 'a' * 40, 'clean': True}, {'commit': 'b' * 40, 'clean': True}
+        cases = ((producer, producer, True), (producer, other, False), (None, producer, False),
+                 ({'commit': 'a' * 40, 'clean': False}, {'commit': 'a' * 40, 'clean': False}, False))
+        for number, (built, packaging, reproducible) in enumerate(cases):
+            with self.subTest(built=built, packaging=packaging):
+                ctx = fixture_workspace(self.root / str(number))
+                android = ctx.workspace.passed('android')
+                if built:
+                    android['outputs']['tools'] = built
+                ctx.workspace.write_state('android', android)
+                with patch.object(image_package.product_inputs, 'tools_identity', return_value=packaging):
+                    outputs = run_plan(ctx, image_package.plan(ctx))
+                record = json.loads((ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
+                self.assertEqual(built or {'commit': None, 'clean': None}, record['tools'])
+                self.assertEqual(packaging, record['packaging_tools'])
+                self.assertIs(reproducible, record['reproducible'])
+
     def test_misc_is_zeros_sized_from_the_stock_partition_table(self):
         factory = self.root / 'factory.zip'
         table = ('<data><zeroout start_sector="9544" num_partition_sectors="256" label="misc" SECTOR_SIZE_IN_BYTES="4096"/>'
