@@ -57,6 +57,13 @@
   44 ueventd nodes, the relabel, the property context, who sets and reads the
   property and who reads or writes the firmware partitions. Threat model and
   FIRMWARE.md updated. Implemented, not yet built.
+- Pin kernel_qcom-6.1 c583aca: XFRM state dumps show IPsec keys as zeros
+  again (`xfrm_redact()` always true in both trees; the common kernel
+  submodule moves to kernel_common-6.1 9f7417fb1da2, the GKI image's source).
+  Integrity lockdown does not cover LOCKDOWN_XFRM_SECRET; GrapheneOS's
+  confidentiality lockdown does. The pin also carries the WLAN driver's log
+  line without the MAC (`wlan-driver-own-mac-not-logged`). Threat model and
+  kernel notes updated (-173).
 - Threat model statuses: items built and phone-checked on 2026-10-06 are marked
   so (eSIM manager, boot control, SHA-256 hashtrees, serials, factory
   Bluetooth address, thermal HAL, Updater build).

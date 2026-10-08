@@ -670,12 +670,13 @@ entry point), the protections in current builds, what remains, and the status.
     builds SELinux lets only init write it; on userdebug builds the adb root
     shell (permissive) and the tracing tools' domains can, the adb shell even
     without root. BPF programs may read kernel memory, but only bpfloader loads
-    them. IPsec keys appear in XFRM state dumps, which SELinux allows only
-    netd, system_server, the network stack, netutils_wrapper, dumpstate and
-    Qualcomm's nicmd. nicmd needs the dump for Wi-Fi calling: the modem
-    negotiates the tunnel, nicmd installs its IPsec states over Wi-Fi and, at
-    teardown or rekey, dumps every state to find and delete its own, so it
-    can read the keys of every IPsec state on the device, including VPNs'.
+    them. XFRM state dumps, which SELinux allows only netd, system_server,
+    the network stack, netutils_wrapper, dumpstate and Qualcomm's nicmd, show
+    IPsec keys as zeros: the kernel redacts them always, as confidentiality
+    lockdown does on GrapheneOS (implemented, not yet built). nicmd needs the
+    dump for Wi-Fi calling: the modem negotiates the tunnel, nicmd installs
+    its IPsec states over Wi-Fi and, at teardown or rekey, dumps every state
+    to find and delete its own by SPI.
   - Every app reaches the kernel's userfaultfd code (ART's garbage collector
     needs it), but apps are forced into user-mode-only mode
     (`vm.unprivileged_userfaultfd=0`, `/dev/userfaultfd` root-only and

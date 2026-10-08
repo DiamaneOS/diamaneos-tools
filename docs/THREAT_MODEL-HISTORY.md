@@ -16,6 +16,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-07
 
+- IPsec keys redacted in XFRM state dumps again, as on GrapheneOS, implemented, not yet built.
 - eUICC card ID redacted in the eSIM card error logs, implemented, not yet built.
 - Fairphone's own AVB keys in 16.111.0 are not AOSP's public test keys.
 - Sandboxed Google Play's crash notice reports to the DiamaneOS issue tracker, not GrapheneOS's: GmsCompat fork; implemented, not yet built.
