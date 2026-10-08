@@ -68,7 +68,11 @@ tools/bazel query --output=label \
 
 `--config=stamp` makes the version name the source commit (`-g<hash>`) and
 the build date the commit's (reproducible); without it Kleaf reports
-`-maybe-dirty` and 1970. The output queries use the same flag. Keep the
+`-maybe-dirty` and 1970. The tools set `SOURCE_DATE_EPOCH` to the pinned
+kernel_qcom commit's time for the whole build. Kleaf would otherwise date each
+tree by its own commit, and the RANDSTRUCT seed derives from that date
+(`scripts/gen-randstruct-seed.sh`), so the core kernel and the vendor modules
+would get different structure layouts. The output queries use the same flag. Keep the
 queried list, require the audio and qcacld WLAN targets, and build
 exactly that list with the same flag, bounded concurrency and wall time, the
 workspace lock held and commands, revisions and exit status recorded. The
