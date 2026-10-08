@@ -303,6 +303,56 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_GmsCompat"
     },
     {
+      "checkout_path": "WORK_ROOT/os/frameworks/av",
+      "id": "frameworks-av",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_frameworks_av.git",
+      "revision": null,
+      "slug": "platform_frameworks_av",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_frameworks_av"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/DocumentsUI",
+      "id": "documentsui",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_DocumentsUI.git",
+      "revision": null,
+      "slug": "platform_packages_apps_DocumentsUI",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_DocumentsUI"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/modules/Wifi",
+      "id": "wifi-module",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_modules_Wifi.git",
+      "revision": null,
+      "slug": "platform_packages_modules_Wifi",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_modules_Wifi"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/apps/Auditor",
+      "id": "auditor",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/Auditor.git",
+      "revision": null,
+      "slug": "Auditor",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/Auditor"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/services/AttestationServer",
+      "id": "attestation-server",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/AttestationServer.git",
+      "revision": null,
+      "slug": "AttestationServer",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/AttestationServer"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/packages/apps/NetworkLocation",
       "id": "network-location",
       "publication": "public-source",
