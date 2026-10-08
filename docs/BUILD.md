@@ -408,8 +408,9 @@ bin/diamaneos forks update <id> --ref <tag>   # our patches on the new tag, as u
 
 `update` works like GrapheneOS's own rebases: the new upstream release is the
 base and our commits are replayed on it.
-- **Our patches** are the commits after the tag or commit the fork is pinned to,
-  not after the merge-base. Upstreams that rewrite their history between
+- **Our patches** are the commits after the tag or commit the fork is pinned to
+  (for a fork that follows a branch: after the newest upstream release tag its
+  branch contains), not after the merge-base. Upstreams that rewrite their history between
   releases (GrapheneOS's kernel, rebased onto each LTS update) would otherwise
   make their own older commits look like ours.
 - **Merges are dropped** and their commits replayed one by one. A merge that

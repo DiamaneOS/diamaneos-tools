@@ -159,10 +159,22 @@ def pinned_base(repo, fork, branch):
     (GrapheneOS rebases its kernel patches onto each LTS update) would otherwise make their old commits
     look like ours: the merge-base with the new release lies before them.
     """
-    if fork['upstream']['kind'] not in ('tag', 'commit'):
+    kind = fork['upstream']['kind']
+    if kind in ('tag', 'commit'):
+        pinned = fetch(repo, fork)
+        return pinned if is_ancestor(repo, pinned, branch) else None
+    pattern = (fork.get('newer') or {}).get('tags')
+    if kind != 'branch' or not pattern:
         return None
-    pinned = fetch(repo, fork)
-    return pinned if is_ancestor(repo, pinned, branch) else None
+    # A fork that follows a branch: the newest upstream release tag the fork branch contains.
+    git(repo, 'fetch', '--quiet', '--no-tags', '--force', fork['upstream']['url'],
+        '+refs/tags/*:refs/diamaneos/upstream-tags/*')
+    names = git(repo, 'for-each-ref', '--format=%(refname:strip=3)', 'refs/diamaneos/upstream-tags/').stdout.split()
+    for name in sorted((n for n in names if re.fullmatch(pattern, n)), key=order_key, reverse=True):
+        commit = git(repo, 'rev-parse', f'refs/diamaneos/upstream-tags/{name}^{{commit}}').stdout.strip()
+        if is_ancestor(repo, commit, branch):
+            return commit
+    return None
 
 
 def update(root, fork, ref=None, today=None):
@@ -175,7 +187,8 @@ def update(root, fork, ref=None, today=None):
     if not (repo / '.git').exists():
         raise ForkError(f'fork clone missing: {repo}')
     branch = fork['branch']
-    pinned = pinned_base(repo, fork, branch) if ref and ref != fork['upstream']['ref'] else None
+    pinned = pinned_base(repo, fork, branch) if fork['upstream']['kind'] == 'branch' or (
+        ref and ref != fork['upstream']['ref']) else None
     upstream = fetch(repo, fork, ref)
     base = pinned or git(repo, 'merge-base', branch, upstream, check=False).stdout.strip()
     if not base:
