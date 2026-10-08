@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `build` refuses a checkout where a project pinned to a commit in the manifest
+  is at another commit (a local commit no longer passes as the manifest's
+  source).
 - `build verify` reads only the needed prefix of a sparse image and checks its
   header and chunk sizes, so a malformed `metadata.img` cannot make it allocate
   the declared size.

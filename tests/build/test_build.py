@@ -322,11 +322,14 @@ class BranchCheckoutTests(unittest.TestCase):
         fixture_repository(self.manifests, "default.xml", self.resolved.decode())
         git(self.manifests, "remote", "add", "origin", self.config["manifest"]["url"])
         git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
+        self.declared = self.resolved
         original = build._run
 
         def fixture_run(command, cwd=None, env=None, timeout=120):
             if command[:3] == ["repo", "manifest", "-r"]:
                 return subprocess.CompletedProcess(command, 0, self.resolved, b"")
+            if command == ["repo", "manifest"]:
+                return subprocess.CompletedProcess(command, 0, self.declared, b"")
             if "verify-tag" in command:
                 return subprocess.CompletedProcess(command, 0, b"", b"Good signature\n")
             return original(command, cwd=cwd, env=env, timeout=timeout)
@@ -404,6 +407,18 @@ class BranchCheckoutTests(unittest.TestCase):
         (local / "diamaneos.xml").write_text("<manifest/>")
         with self.assertRaisesRegex(build.BuildError, "local manifests"):
             self.verify()
+
+    def test_a_clean_project_off_its_manifest_pin_fails(self):
+        pinned = rev(self.project)
+        git(self.project, "commit", "-q", "--allow-empty", "-m", "local")
+        # repo manifest -r records the commit the project is at.
+        self.resolved = self.resolved.replace(pinned.encode(), rev(self.project).encode())
+        with self.assertRaisesRegex(build.BuildError, "not at the commits the manifest pins: device/example"):
+            self.verify()
+        # A project that follows a branch may be at any clean commit.
+        self.declared = self.declared.replace(f"revision='{pinned}' upstream='android17'".encode(),
+                                              b"revision='android17'")
+        self.assertTrue(self.verify()["source_clean"])
 
     def test_remote_without_https_fails(self):
         self.resolved = self.resolved.replace(b"https://example.invalid/", b"git://example.invalid/")
