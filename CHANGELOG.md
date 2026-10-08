@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `build verify` checks every file the vendor generation's recipe selects; a
+  missing file or an empty selection fails.
 - Every `build` command checks the environment's project input hashes and that
   its stock build and factory hash match `fp6-stock-image-recipe.json`.
 - `build.json` records the tools that built the images (`tools`) and those that

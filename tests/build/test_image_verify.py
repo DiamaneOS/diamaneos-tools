@@ -1269,19 +1269,33 @@ class GenericCheckTests(unittest.TestCase):
         for rel, data in files.items():
             (vendor / 'files' / rel).parent.mkdir(parents=True, exist_ok=True)
             (vendor / 'files' / rel).write_bytes(data)
+        recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(data).hexdigest()} for rel, data in files.items()]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
         (vendor / 'provenance.json').write_text(json.dumps({'source_interface_replacements': ['vendor/lib64/libreplaced.so'],
-                                                            'uninstalled_optional_libraries': []}))
+                                                            'uninstalled_optional_libraries': [], 'derived_files': []}))
         members = {'VENDOR/firmware/touch.bin': b'fw', 'ODM/lib64/libkeymaster_messages.so': b'km',
                    'VENDOR/lib64/libreplaced.so': b'source build'}
-        v = self.harness(members)
-        v.vendor_dir = vendor
-        self.assertTrue(subject.check_vendor(v)[0])
-        members['VENDOR/firmware/touch.bin'] = b'changed'
-        v = self.harness(members)
-        v.vendor_dir = vendor
-        ok, detail = subject.check_vendor(v)
+
+        def check(members=members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '2 files'), check())
+        ok, detail = check(dict(members, **{'VENDOR/firmware/touch.bin': b'changed'}))
         self.assertFalse(ok)
         self.assertIn('differs VENDOR/firmware/touch.bin', detail)
+        # A file the recipe selects must be in the generation with its bytes.
+        (vendor / 'files/vendor/firmware/touch.bin').write_bytes(b'other')
+        self.assertIn('vendor generation lacks the selected vendor/firmware/touch.bin', check()[1])
+        (vendor / 'files/vendor/firmware/touch.bin').unlink()
+        self.assertIn('vendor generation lacks the selected vendor/firmware/touch.bin', check()[1])
+        import shutil
+        shutil.rmtree(vendor / 'files')
+        ok, detail = check()
+        self.assertFalse(ok)
+        self.assertIn('lacks the selected vendor/lib64/libkeymaster_messages.so', detail)
+        (vendor / 'recipe.json').write_text(json.dumps({'files': []}))
+        self.assertEqual((False, 'the vendor generation selects no files'), check())
 
     def test_vendor_patch_level_matches_the_stock_value(self):
         vendor = self.root / 'vendor'
