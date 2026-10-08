@@ -104,6 +104,23 @@ class ForkTests(unittest.TestCase):
         self.assertEqual((result['state'], result['rebased_patches'], result['commits']), ('prepared', 1, 1))
         self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'upstream patch v2')
 
+    def test_branch_fork_replays_only_patches_after_its_newest_contained_release_tag(self):
+        # Upstream branch with release tag 2026092500 carrying an upstream patch; the fork adds ours.
+        run(self.upstream, 'checkout', '-q', 'odm/rc')
+        commit(self.upstream, 'up.txt', 'v1\n', 'upstream own patch')
+        run(self.upstream, 'tag', '2026092500')
+        run(self.fork_repo, 'fetch', '-q', str(self.upstream), 'odm/rc')
+        run(self.fork_repo, 'reset', '-q', '--hard', 'FETCH_HEAD')
+        commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        # Upstream rewrites its branch: new base, its patch again.
+        run(self.upstream, 'checkout', '-q', '-B', 'odm/rc', self.first)
+        commit(self.upstream, 'b.txt', 'two\n', 'new base')
+        commit(self.upstream, 'up.txt', 'v2\n', 'upstream own patch')
+        self.fork['newer'] = {'tags': '^([0-9]{10})$'}
+        result = forks.update(self.root, self.fork, today=datetime.date(2026, 10, 8))
+        self.assertEqual((result['state'], result['rebased_patches'], result['commits']), ('prepared', 1, 1))
+        self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'v2')
+
     def test_fixup_commits_fold_into_their_feature(self):
         commit(self.fork_repo, 'feature.txt', 'one\n', 'Add the feature')
         commit(self.fork_repo, 'other.txt', 'x\n', 'Another change')
