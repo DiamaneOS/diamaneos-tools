@@ -121,6 +121,20 @@ class ForkTests(unittest.TestCase):
         self.assertEqual((result['state'], result['rebased_patches'], result['commits']), ('prepared', 1, 1))
         self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'v2')
 
+    def test_blobless_clone_fetches_upstream_blobless(self):
+        run(self.upstream, 'config', 'uploadpack.allowfilter', 'true')
+        run(self.upstream, 'config', 'uploadpack.allowanysha1inwant', 'true')
+        partial = self.root / 'partial'
+        run(self.root, 'clone', '-q', '--filter=blob:none', '-b', 'odm/rc', 'file://' + str(self.upstream), 'partial')
+        run(partial, 'checkout', '-q', '-b', 'android17')
+        commit(partial, 'ours.txt', 'patch\n', 'our patch')
+        new = self.advance_upstream('big.txt', 'upstream file\n')
+        fork = dict(self.fork, slug='partial', upstream=dict(self.fork['upstream'], url='file://' + str(self.upstream)))
+        result = forks.update(self.root, fork, today=datetime.date(2026, 10, 8))
+        self.assertEqual((result['state'], result['rebased_patches']), ('prepared', 1))
+        self.assertEqual(run(partial, 'config', '--get', 'remote.diamaneos-upstream.promisor'), 'true')
+        self.assertEqual(run(partial, 'rev-parse', result['candidate'] + '~1'), new)
+
     def test_fixup_commits_fold_into_their_feature(self):
         commit(self.fork_repo, 'feature.txt', 'one\n', 'Add the feature')
         commit(self.fork_repo, 'other.txt', 'x\n', 'Another change')

@@ -122,7 +122,19 @@ def fetch(repo, fork, ref=None, kind=None):
     if not REF.match(ref):
         raise ForkError('invalid upstream reference')
     source = {'branch': 'refs/heads/', 'tag': 'refs/tags/', 'commit': ''}[kind] + ref
-    git(repo, 'fetch', '--quiet', '--no-tags', fork['upstream']['url'], source)
+    if git(repo, 'config', '--get', 'remote.origin.promisor', check=False).stdout.strip() == 'true':
+        # A blobless clone: fetch the upstream blobless too, through a second promisor remote, so the
+        # rebase downloads only the files our patches touch instead of the upstream's whole history.
+        remote = 'diamaneos-upstream'
+        if git(repo, 'remote', 'get-url', remote, check=False).returncode != 0:
+            git(repo, 'remote', 'add', remote, fork['upstream']['url'])
+        else:
+            git(repo, 'remote', 'set-url', remote, fork['upstream']['url'])
+        git(repo, 'config', f'remote.{remote}.promisor', 'true')
+        git(repo, 'config', f'remote.{remote}.partialclonefilter', 'blob:none')
+        git(repo, 'fetch', '--quiet', '--no-tags', '--filter=blob:none', remote, source)
+    else:
+        git(repo, 'fetch', '--quiet', '--no-tags', fork['upstream']['url'], source)
     commit = git(repo, 'rev-parse', 'FETCH_HEAD^{commit}').stdout.strip()
     if kind == 'commit' and commit != ref:
         raise ForkError('fetched commit does not match the requested hash')
@@ -167,8 +179,9 @@ def pinned_base(repo, fork, branch):
     if kind != 'branch' or not pattern:
         return None
     # A fork that follows a branch: the newest upstream release tag the fork branch contains.
-    git(repo, 'fetch', '--quiet', '--no-tags', '--force', fork['upstream']['url'],
-        '+refs/tags/*:refs/diamaneos/upstream-tags/*')
+    partial = git(repo, 'config', '--get', 'remote.origin.promisor', check=False).stdout.strip() == 'true'
+    git(repo, 'fetch', '--quiet', '--no-tags', '--force', *(['--filter=blob:none'] if partial else []),
+        fork['upstream']['url'], '+refs/tags/*:refs/diamaneos/upstream-tags/*')
     names = git(repo, 'for-each-ref', '--format=%(refname:strip=3)', 'refs/diamaneos/upstream-tags/').stdout.split()
     for name in sorted((n for n in names if re.fullmatch(pattern, n)), key=order_key, reverse=True):
         commit = git(repo, 'rev-parse', f'refs/diamaneos/upstream-tags/{name}^{{commit}}').stdout.strip()
