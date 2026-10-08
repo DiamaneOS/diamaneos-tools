@@ -1549,7 +1549,9 @@ class ConfigTests(unittest.TestCase):
         # Network for downloads; no camera (QR codes come from the camera app as text).
         self.assertIn('android.permission.INTERNET', apk['permissions'])
         self.assertNotIn('android.permission.CAMERA', apk['permissions'])
-        self.assertEqual(4, len(apk['permissions']))
+        # Normal permission: the Add eSIM windows hide other apps' overlays.
+        self.assertIn('android.permission.HIDE_OVERLAY_WINDOWS', apk['permissions'])
+        self.assertEqual(5, len(apk['permissions']))
         self.assertIn('android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS', apk['permissions'])
         self.assertEqual(['log.tag.ApduSender-0=I', 'log.tag.ApduSender-1=I', 'log.tag.TransApdu=I'],
                          sorted(rules['esim-apdu-not-logged']['equals']))

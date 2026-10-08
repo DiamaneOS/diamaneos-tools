@@ -3542,10 +3542,11 @@
     },
     {
       "id": "esim-lpa-apk",
-      "why": "The eSIM manager asks for its two privileged permissions and network access for eSIM downloads, and nothing else (no camera; the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
+      "why": "The eSIM manager asks for its two privileged permissions, network access for eSIM downloads and hiding other apps' overlays over its Add eSIM windows, and nothing else (no camera; the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
       "type": "apk",
       "path": "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
       "permissions": [
+        "android.permission.HIDE_OVERLAY_WINDOWS",
         "android.permission.INTERNET",
         "android.permission.READ_PRIVILEGED_PHONE_STATE",
         "android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS",
