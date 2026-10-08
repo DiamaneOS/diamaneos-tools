@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `build package` reuses an image set only after rehashing every listed file and
+  matching the recorded packaging config (`packaging_config_sha256`). Image
+  directories from earlier tools with the same build ID must be moved aside
+  once.
 - `flash-steps` and the verify cache accept only a complete passing report bound
   to the image set (every generic check present once and PASS, totals
   consistent).
