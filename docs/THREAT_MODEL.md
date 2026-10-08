@@ -323,8 +323,8 @@ entry point), the protections in current builds, what remains, and the status.
     rebuilding it.
   - With network location on (the setup wizard's location switch turns it on),
     nearby Wi-Fi and cell identifiers go to GrapheneOS's relay for Apple's
-    location service, geocoding queries to GrapheneOS's server under a
-    GrapheneOS user agent.
+    location service. The geocoder offers only OpenStreetMap's public service
+    (opt-in, off by default); its queries carry a GrapheneOS user agent.
   - Auditor's opt-in remote features use GrapheneOS's attestation service;
     sample submission sends the full system property list.
   - CT enforcement fails open once the CT list is over 70 days old, so mirror
