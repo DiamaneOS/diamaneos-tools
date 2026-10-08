@@ -351,6 +351,11 @@ def plan_sync(ctx: Context) -> StepPlan:
             ctx.echo(f'    removed the empty git directories of {len(cleared)} projects: ' + ', '.join(cleared[:10])
                      + (' and more' if len(cleared) > 10 else ''))
 
+    def clear_renamed():
+        removed = source_sync.clear_renamed(ws.src, source_sync.manifest_projects(repo_manifest()))
+        for path, old, new in removed:
+            ctx.echo(f'    {path}: now {new} (was {old}); the clean old checkout was removed')
+
     def prefetch():
         targets = source_sync.prefetch_targets(pinned.data if pinned else repo_manifest(), settings['projects'],
                                                ctx.echo)
@@ -400,6 +405,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                    + ', '.join(settings['projects']), func=prefetch, network=True),
         ]
     actions += [
+        Action('Remove clean checkouts of projects the manifest now takes from another repository at the same '
+               'path, so repo checks out the new one', func=clear_renamed),
         Action('Download the source' + (' at the pinned resolved manifest' if pinned else ''),
                argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}', '--retry-fetches=4']
                + (['-c', '--no-tags'] if ctx.shallow else []) + (['-m', ctx.pinned_manifest] if pinned else []),

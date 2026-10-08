@@ -68,6 +68,10 @@ command. The checkout then has no history, which saves roughly half of the
 download and of the disk space; moving to a newer GrapheneOS release later
 downloads more. The workspace remembers the choice.
 
+A newer release can take a project from another repository at the same path
+(GrapheneOS forking an AOSP project). `diamaneos build` removes the clean old
+checkout before syncing; a plain `repo sync` needs `--force-sync <path>` for it.
+
 The manifest commits are signed by a DiamaneOS maintainer. The maintainer keys
 are not published; with an allowed-signers file that lists them:
 

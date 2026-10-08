@@ -2,6 +2,7 @@
 large prebuilt projects. Local repositories only; nothing uses the network."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -360,6 +361,61 @@ class PrefetchTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'prebuilts/misc: the depth-1 fetch did not finish in 2'):
             ss.prefetch(self.src, [bad, good], settings, self.lines.append)
         self.assertTrue((ss.git_directories(self.src, good)[1] / 'shallow').is_file())
+
+
+class RenamedProjectTests(unittest.TestCase):
+    """A project the manifest now takes from another repository at the same path."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.src = Path(temp.name).resolve()
+        self.projects = ss.manifest_projects(
+            b'<manifest><remote name="r" fetch="https://example.invalid/"/><default remote="r" revision="main"/>'
+            b'<project name="platform_external_icu" path="external/icu"/>'
+            b'<project name="platform/system/core" path="system/core"/>'
+            b'<project name="vendor_x" path="vendor/x"/><project name="vendor_x_sub" path="vendor/x/sub"/></manifest>')
+
+    def checkout(self, path, name):
+        """repo's layout: the git directory's objects link to the named project's object directory."""
+        gitdir = self.src / '.repo/projects' / (path + '.git')
+        objdir = self.src / '.repo/project-objects' / (name + '.git')
+        (objdir / 'objects').mkdir(parents=True)
+        gitdir.mkdir(parents=True)
+        (gitdir / 'objects').symlink_to(os.path.relpath(objdir / 'objects', gitdir))
+        (self.src / path).mkdir(parents=True, exist_ok=True)
+        (self.src / path / 'file.c').write_text('x\n')
+        return gitdir, objdir
+
+    def status(self, output):
+        calls = []
+        def run(argv, timeout=3600):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, output, '')
+        return run, calls
+
+    def test_clean_checkout_of_the_old_project_is_removed(self):
+        gitdir, old_objects = self.checkout('external/icu', 'platform/external/icu')
+        self.checkout('system/core', 'platform/system/core')
+        run, calls = self.status('')
+        removed = ss.clear_renamed(self.src, self.projects, run=run)
+        self.assertEqual([('external/icu', 'platform/external/icu', 'platform_external_icu')], removed)
+        self.assertFalse(gitdir.exists() or (self.src / 'external/icu').exists())
+        self.assertTrue(old_objects.is_dir())
+        self.assertTrue((self.src / 'system/core/file.c').is_file())
+        self.assertEqual(1, len(calls))
+        self.assertEqual([], ss.clear_renamed(self.src, self.projects, run=run))
+
+    def test_changed_or_nesting_checkout_stops_the_sync(self):
+        self.checkout('external/icu', 'platform/external/icu')
+        run, _ = self.status(' M file.c\n')
+        with self.assertRaisesRegex(bw.BuildStepError, 'external/icu: .* has changes'):
+            ss.clear_renamed(self.src, self.projects, run=run)
+        self.assertTrue((self.src / 'external/icu/file.c').is_file())
+        (self.src / 'external/icu').rename(self.src / 'kept')
+        self.checkout('vendor/x', 'old_vendor_x')
+        with self.assertRaisesRegex(bw.BuildStepError, 'vendor/x: .* nested'):
+            ss.clear_renamed(self.src, {k: v for k, v in self.projects.items() if k != 'external/icu'},
+                             run=self.status('')[0])
 
 
 class HalfInitialisedTests(unittest.TestCase):
