@@ -142,7 +142,7 @@
     },
     {
       "name": "geocoder",
-      "default": "Off. DiamaneOS hosts no geocoder; users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly; GrapheneOS's geocoding server is not offered. The client (GrapheneOS's NetworkLocation app) sends the User-Agent \"GrapheneOS geocoder 1\".",
+      "default": "Off. DiamaneOS hosts no geocoder; users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly; GrapheneOS's geocoding server is not offered. The client (DiamaneOS's fork of GrapheneOS's NetworkLocation app) sends the User-Agent \"DiamaneOS geocoder 1\".",
       "jurisdiction": "non-eu-direct-exception",
       "disclosure": "Run by the OpenStreetMap Foundation, registered in England and Wales (UK). When the user opts in, OpenStreetMap sees the device IP, the searched text or the queried coordinates (usually the user's own location), the language and the User-Agent; no DiamaneOS server is in the path. Use stays within OpenStreetMap's Nominatim usage policy (identify the app, low request rate, attribution). Ask the OpenStreetMap Foundation before it becomes anything more than an opt-in.",
       "owner_task": "FP6-103"
@@ -645,8 +645,8 @@
     },
     {
       "id": "geocoder-client",
-      "repository": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation",
-      "revision": "474472e844069392236782df2568db1f404945d0",
+      "repository": "https://github.com/DiamaneOS/platform_packages_apps_NetworkLocation",
+      "revision": "e9cdf6972daf312e4d19cd56cbfd96730ad998f6",
       "path": "src/app/grapheneos/geocoder/NominatimGeocoder.kt",
       "symbols": [
         "forwardGeocode",
@@ -654,9 +654,9 @@
         "getServerBaseUrl",
         "USER_AGENT_VERSION"
       ],
-      "sha256": "5d70696f2b01c2d99dddfee6ca332e9d70c3f71231d3314e30f91d168938259f",
+      "sha256": "9e1c19b10bc15f5d4cd51056c3ccc6d05505b2d89bd9f6d16a8783146c71a909",
       "role": "manifest-pin",
-      "observed_on": "2026-09-26"
+      "observed_on": "2026-10-08"
     },
     {
       "id": "geocoder-settings",
