@@ -82,14 +82,18 @@ def check_sums(directory: Path) -> bool:
     return files == set(sums) and all(bw.sha_file(directory / n) == d for n, d in sums.items())
 
 
-def same_build(directory: Path, android_outputs: dict, firmware_plan: dict | None = None) -> bool:
+def same_build(directory: Path, android_outputs: dict, firmware_plan: dict | None = None,
+               config_sha256: str | None = None) -> bool:
     """An existing image set may be reused only if it is intact and was made
-    from exactly this build's target-files and identity, with this firmware."""
+    from exactly this build's target-files and identity, with this firmware
+    and this packaging configuration (images, wipe, slot, firmware policy)."""
     if not check_sums(directory):
         return False
     try:
         record = json.loads((directory / RECORD).read_bytes())
     except (OSError, ValueError):
+        return False
+    if config_sha256 is not None and record.get('packaging_config_sha256') != config_sha256:
         return False
     if firmware_plan is not None:
         carried = record.get('firmware') or {}
@@ -209,10 +213,10 @@ def plan(ctx):
         check_firmware_names(firmware_plan['images'], config)
         state.update(target_files=target_files, identifier=identifier, final=final, partial=partial,
                      firmware_plan=firmware_plan,
-                     reuse=final.is_dir() and same_build(final, out, firmware_plan))
+                     reuse=final.is_dir() and same_build(final, out, firmware_plan, inputs['build_config']))
         if final.exists() and not state['reuse']:
-            raise BuildStepError(f'{final} exists but is not this build (its record or SHA256SUMS differ); '
-                                 'move it aside')
+            raise BuildStepError(f'{final} exists but is not this build (its record, packaging configuration or '
+                                 'SHA256SUMS differ); move it aside')
         if partial.exists():
             shutil.rmtree(partial)
         if not state['reuse']:
@@ -333,6 +337,7 @@ def plan(ctx):
                                 for k, v in wipe['images'].items()}},
             'flash': {'slot': config['slot'], 'bootloader': config['images']['bootloader'],
                       'logical': config['images']['logical']},
+            'packaging_config_sha256': inputs['build_config'],
             'firmware': dict(state['firmware_record'], validated=config['firmware']['validated']),
         }
         bw.write_atomic(state['partial'] / RECORD, bw.encoded(value), 0o640)
@@ -363,7 +368,14 @@ def plan(ctx):
                 'sums_sha256': bw.sha_file(state['final'] / SUMS)}
 
     def valid(previous):
+        # Every listed file, not only the list: hashed once per command.
         directory = ws.root / previous['outputs']['directory']
-        return directory.is_dir() and bw.sha_file(directory / SUMS) == previous['outputs']['sums_sha256']
+        if not directory.is_dir() or bw.sha_file(directory / SUMS) != previous['outputs']['sums_sha256']:
+            return False
+        checked = ctx.cache.setdefault('package_sums_checked', {})
+        key = (str(directory), previous['outputs']['sums_sha256'])
+        if key not in checked:
+            checked[key] = check_sums(directory)
+        return checked[key]
 
     return StepPlan('package', inputs, actions, outputs, valid, waiting_for=None if android else 'android')

@@ -151,6 +151,24 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(b'new boot image', (ws.root / second['directory'] / 'boot.img').read_bytes())
         self.assertEqual(b'boot image', (ws.root / first['directory'] / 'boot.img').read_bytes())
 
+    def test_a_changed_packaging_configuration_never_reuses_an_image_set(self):
+        first = run_plan(self.ctx, image_package.plan(self.ctx))
+        record = json.loads((self.ctx.workspace.root / first['directory'] / 'build.json').read_text())
+        self.assertFalse(record['wipe']['validated'])
+        self.ctx.config['wipe']['validated'] = True
+        with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_a_package_step_with_a_changed_image_is_stale(self):
+        outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        previous = {'outputs': outputs}
+        self.assertTrue(image_package.plan(self.ctx).valid(previous))
+        boot = self.ctx.workspace.root / outputs['directory'] / 'boot.img'
+        os.chmod(boot, 0o640)
+        boot.write_bytes(b'corrupt')
+        self.ctx.cache.clear()
+        self.assertFalse(image_package.plan(self.ctx).valid(previous))
+
     def test_changed_target_files_is_refused(self):
         path = self.ctx.workspace.root / self.ctx.workspace.passed('android')['outputs']['target_files']
         os.chmod(path, 0o640)
