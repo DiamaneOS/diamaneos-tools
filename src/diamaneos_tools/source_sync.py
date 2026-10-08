@@ -462,3 +462,39 @@ def clear_half_initialised(source: Path, projects: dict) -> list:
                 worktree.rmdir()
         cleared.append(path)
     return cleared
+
+
+def clear_renamed(source: Path, projects: dict, run=git) -> list:
+    """Remove the checkouts of projects the manifest now takes from another repository at the same path.
+
+    A GrapheneOS release that forks a former AOSP project keeps its path but changes its name; repo then
+    refuses to reuse the work tree, whose git directory still points at the old project's objects
+    ("--force-sync not enabled"). A clean work tree with no project nested in it is removed with its git
+    directory, so the sync checks out the new project; the old objects stay. A changed work tree stops
+    the sync. Returns (path, old name, new name) per removed project.
+    """
+    objects_root = os.path.normpath(source / '.repo/project-objects')
+    removed = []
+    for path, project in sorted(projects.items()):
+        gitdir, objdir = git_directories(source, project)
+        link = gitdir / 'objects'
+        if not link.is_symlink() or gitdir.is_symlink():
+            continue
+        target = os.path.normpath(os.path.join(gitdir, os.readlink(link)))
+        if target == os.path.normpath(objdir / 'objects') or not target.startswith(objects_root + os.sep):
+            continue
+        old = os.path.relpath(os.path.dirname(target), objects_root).removesuffix('.git')
+        worktree = source / path
+        if any(p.startswith(path + '/') for p in projects):
+            raise BuildStepError(f'{path}: the manifest now takes it from {project.name} instead of {old}, and '
+                                 'other projects are nested in it; move it aside by hand')
+        if worktree.is_dir():
+            status = run(['-C', worktree, 'status', '--porcelain', '--untracked-files=all'])
+            if status.returncode != 0 or status.stdout.strip():
+                raise BuildStepError(f'{path}: the manifest now takes it from {project.name} instead of {old}, '
+                                     'and its work tree has changes: ' + (tail(status) if status.returncode else
+                                                                          status.stdout.strip()[:200]))
+            shutil.rmtree(worktree)
+        shutil.rmtree(gitdir)
+        removed.append((path, old, project.name))
+    return removed
