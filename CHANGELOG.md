@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Pin kernel_qcom-6.1 218a201: both kernels force lockdown at confidentiality
+  level again, as GrapheneOS does (kernel_common-6.1 3c6b978a1968, msm-6.1
+  7b29b55; owner decision). Kernel policy v12 requires confidentiality and fails
+  integrity or none. tracefs is empty and BPF kernel-memory reads are refused,
+  so per-app CPU time and lmkd's memory events stop, as on GrapheneOS's Pixels.
+  Kernel notes and threat model updated.
 - The Moments switch's kernel floor for the cameras: the switch driver loads
   in recovery too (the laser range finder's driver needs it). Image checks:
   the camera driver and the range finder register with it
@@ -57,7 +63,7 @@
   44 ueventd nodes, the relabel, the property context, who sets and reads the
   property and who reads or writes the firmware partitions. Threat model and
   FIRMWARE.md updated. Implemented, not yet built.
-- Pin kernel_qcom-6.1 c583aca: XFRM state dumps show IPsec keys as zeros
+- Kernel (kernel_qcom-6.1 c583aca): XFRM state dumps show IPsec keys as zeros
   again (`xfrm_redact()` always true in both trees; the common kernel
   submodule moves to kernel_common-6.1 9f7417fb1da2, the GKI image's source).
   Integrity lockdown does not cover LOCKDOWN_XFRM_SECRET; GrapheneOS's
