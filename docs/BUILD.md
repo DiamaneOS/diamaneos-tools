@@ -412,8 +412,12 @@ base and our commits are replayed on it.
   not after the merge-base. Upstreams that rewrite their history between
   releases (GrapheneOS's kernel, rebased onto each LTS update) would otherwise
   make their own older commits look like ours.
-- **Merges are dropped.** Primary branches take commits directly, so history
-  stays linear and every commit applies on its parent.
+- **Merges are dropped** and their commits replayed one by one. A merge that
+  resolved a conflict between two topics loses that resolution, which then
+  comes back as a conflict in our own files. Bring a topic in by rebasing it
+  onto the primary branch and fast-forwarding, so no merge carries a resolution.
+- **Recorded resolutions:** the update workspace keeps git's rerere records, so
+  a conflict resolved in one rebase resolves itself in the next.
 - **`fixup!` commits fold** into the commit whose title they repeat
   (`fixup! <title>`, git's autosquash), so a feature stays one commit across
   releases. Name follow-up fixes that way.
