@@ -111,7 +111,9 @@ def attr(element, name, any_namespace=True):
 
 
 def java_int(text):
-    if text is None or not JAVA_INT.fullmatch(text):
+    """Integer.parseInt: Character.digit reads one UTF-16 unit at a time, so a
+    digit outside the Basic Multilingual Plane (a surrogate pair) is no digit."""
+    if text is None or not JAVA_INT.fullmatch(text) or any(ord(c) > 0xFFFF for c in text):
         return None
     value = int(text)
     return value if -2**31 <= value < 2**31 else None
