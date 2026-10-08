@@ -72,7 +72,13 @@ the build date the commit's (reproducible); without it Kleaf reports
 kernel_qcom commit's time for the whole build. Kleaf would otherwise date each
 tree by its own commit, and the RANDSTRUCT seed derives from that date
 (`scripts/gen-randstruct-seed.sh`), so the core kernel and the vendor modules
-would get different structure layouts. The output queries use the same flag. Keep the
+would get different structure layouts. Each tree's version still names its
+own commit: the Image (and the GKI modules) the common kernel's, the vendor
+modules the kernel_qcom commit's. The kernel accepts that for modules with
+symbol CRCs (it compares the vermagic after the release); the tools require
+the Image's release to name the pinned common commit, every module's release to
+be the Image's or the same base with the pinned kernel_qcom commit, and one
+identical remainder. The output queries use the same flag. Keep the
 queried list, require the audio and qcacld WLAN targets, and build
 exactly that list with the same flag, bounded concurrency and wall time, the
 workspace lock held and commands, revisions and exit status recorded. The

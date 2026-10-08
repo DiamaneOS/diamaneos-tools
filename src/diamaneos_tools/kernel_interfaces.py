@@ -8,7 +8,11 @@ def name(value):
     return Path(value).name.removesuffix('.ko').replace('-', '_')
 
 
-def review(modules, symbols, selected, *, protection=None, signed=()):
+def review(modules, symbols, selected, *, protection=None, signed=(), releases=None):
+    """releases: the Image's release, and the base and commit a vendor-tree release has.
+    Stamped builds name each tree's own commit (-g<hash>), so a module may carry the
+    Image's release or the vendor tree's; the kernel then compares only the rest of
+    the vermagic, and only for modules with symbol CRCs."""
     issues = []
     by_name = {}
     for module in modules:
@@ -23,8 +27,25 @@ def review(modules, symbols, selected, *, protection=None, signed=()):
     if missing:
         return {'status': 'FAIL', 'issues': [{'missing_modules': missing}]}
     versions = {v for n in selected for v in by_name[n]['metadata'].get('vermagic', [])}
-    if len(versions) != 1 or not all(len(by_name[n]['metadata'].get('vermagic', [])) == 1 for n in selected):
-        issues.append({'check': 'vermagic', 'values': sorted(versions)})
+    single = all(len(by_name[n]['metadata'].get('vermagic', [])) == 1 for n in selected)
+    if releases is None:
+        if len(versions) != 1 or not single:
+            issues.append({'check': 'vermagic', 'values': sorted(versions)})
+    else:
+        tails = {v.partition(' ')[2] for v in versions}
+        if not single or len(tails) != 1:
+            issues.append({'check': 'vermagic', 'values': sorted(versions)})
+        for n in sorted(selected):
+            for v in by_name[n]['metadata'].get('vermagic', []):
+                release = v.partition(' ')[0]
+                head, _, stamp = release.rpartition('-g')
+                vendor = (head == releases['vendor_base'] and len(stamp) >= 12
+                          and releases['vendor_commit'].startswith(stamp))
+                if release != releases['image'] and not vendor:
+                    issues.append({'module': n, 'check': 'vermagic-release', 'value': release})
+                elif release != releases['image'] and not by_name[n]['required_symbols']:
+                    # The kernel ignores the release part only for modules with CRCs.
+                    issues.append({'module': n, 'check': 'vermagic-release-without-crcs', 'value': release})
     providers = defaultdict(set)
     for symbol in symbols:
         owner = name(symbol['owner'])
@@ -106,7 +127,7 @@ def read_symbol_tables(outputs):
                                 export=fields[3], namespace=fields[4] if len(fields)==5 else '', table=str(p)))
     return symbols
 
-def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require):
+def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require, releases=None):
     """Bind selected module CRCs/namespaces and signatures to the built GKI ELF."""
     import re
     import tempfile
@@ -183,7 +204,7 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require)
             signed.append(filename)
     if protection is None:
         require(sorted(signed) == sorted(selected), 'unsigned module with forced module signatures')
-    result = review(modules, symbols, selected, protection=protection, signed=signed)
+    result = review(modules, symbols, selected, protection=protection, signed=signed, releases=releases)
     result.update(builtin_certificate_sha256=sha(der),vmlinux_sha256=sha(vmlinux),signed_module_count=len(signed),
                   module_protection='gki-protected-exports' if protection else 'forced-signatures')
     (run/'module-interfaces.json').write_bytes(encoded(result))
