@@ -732,6 +732,18 @@
       ]
     },
     {
+      "id": "fstab-update-safety",
+      "why": "Userdata checkpointing rolls back a failed update's /data writes, and /metadata (keys, checkpoint state) is written synchronously, as on Pixels.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/fstab.qcom"
+      ],
+      "contains": [
+        "checkpoint=fs",
+        "noatime,nosuid,nodev,discard,sync"
+      ]
+    },
+    {
       "id": "zram",
       "why": "zram swap stays configured.",
       "type": "text",
