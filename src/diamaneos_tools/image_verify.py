@@ -217,26 +217,42 @@ def parse_dtb(data: bytes) -> dict:
 
 
 def sparse_to_raw(data: bytes, limit: int | None = None) -> bytes:
-    """Expand an Android sparse image (enough of it for header checks)."""
+    """Expand an Android sparse image (enough of it for header checks).
+
+    With ``limit`` no more than ``limit`` bytes are ever made, whatever sizes
+    the image declares; chunk sizes must agree with the header."""
     magic, _, _, header_size, chunk_header, block, blocks, chunks, _ = struct.unpack_from('<IHHHHIIII', data, 0)
     if magic != SPARSE_MAGIC:
         return data if limit is None else data[:limit]
+    if header_size < 28 or chunk_header < 12 or not block or block % 4:
+        raise ValueError('malformed sparse header')
     out = bytearray()
     offset = header_size
     for _ in range(chunks):
+        if limit is not None and len(out) >= limit:
+            break
         kind, _, count, total = struct.unpack_from('<HHII', data, offset)
+        if total < chunk_header or offset + total > len(data):
+            raise ValueError('truncated sparse chunk')
         body = data[offset + chunk_header:offset + total]
         offset += total
         size = count * block
+        want = size if limit is None else min(size, limit - len(out))
         if kind == 0xCAC1:
-            out += body
+            if len(body) != size:
+                raise ValueError('sparse raw chunk size differs from its block count')
+            out += body[:want]
         elif kind == 0xCAC2:
-            out += body[:4] * (size // 4)
+            if len(body) != 4:
+                raise ValueError('sparse fill chunk is not 4 bytes')
+            out += body * (want // 4) + body[:want % 4]
         elif kind == 0xCAC3:
-            out += bytes(size)
-        if limit is not None and len(out) >= limit:
-            return bytes(out[:limit])
-    return bytes(out)
+            if body:
+                raise ValueError('sparse skip chunk has data')
+            out += bytes(want)
+        elif kind != 0xCAC4:
+            raise ValueError('unknown sparse chunk type')
+    return bytes(out) if limit is None else bytes(out[:limit])
 
 
 def cil_attributes(text: str) -> dict:

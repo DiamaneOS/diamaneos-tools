@@ -1019,6 +1019,37 @@ class ParserTests(unittest.TestCase):
         raw = subject.sparse_to_raw(image)
         self.assertEqual(4 * block, len(raw))
         self.assertEqual(body + bytes(2 * block) + b'B' * block, raw)
+        self.assertEqual(raw[:block + 10], subject.sparse_to_raw(image, limit=block + 10))
+        self.assertEqual(raw[:3 * block + 6], subject.sparse_to_raw(image, limit=3 * block + 6))
+
+    def test_sparse_expansion_stops_at_the_limit_and_checks_chunk_sizes(self):
+        import tracemalloc
+        block = 4096
+        header = lambda chunks: struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, block,
+                                            16384, chunks, 0)
+        # 40 bytes that declare 64 MiB (any size would do; this one stays safe to run if the
+        # bound breaks): a header check reads 4096 bytes of it.
+        for chunk in (struct.pack('<HHII', 0xCAC3, 0, 16384, 12),
+                      struct.pack('<HHII', 0xCAC2, 0, 16384, 16) + b'FILL'):
+            image = header(1) + chunk
+            tracemalloc.start()
+            try:
+                raw = subject.sparse_to_raw(image, limit=4096)
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+            self.assertEqual(4096, len(raw))
+            self.assertLess(peak, 1024 * 1024)
+        bad = {'zero block size': struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, 0, 1, 1, 0)
+                                  + struct.pack('<HHII', 0xCAC3, 0, 1, 12),
+               'truncated chunk': header(1) + struct.pack('<HHII', 0xCAC1, 0, 1, 12 + block) + b'A' * 10,
+               'raw size': header(1) + struct.pack('<HHII', 0xCAC1, 0, 2, 12 + block) + b'A' * block,
+               'fill size': header(1) + struct.pack('<HHII', 0xCAC2, 0, 1, 20) + b'FILLFILL',
+               'unknown chunk': header(1) + struct.pack('<HHII', 0xCAC9, 0, 1, 12),
+               'missing chunk': header(2) + struct.pack('<HHII', 0xCAC3, 0, 1, 12)}
+        for name, image in bad.items():
+            with self.subTest(name), self.assertRaises((ValueError, struct.error)):
+                subject.sparse_to_raw(image, limit=2 * block)
 
     def test_tool_scratch_and_tmpdir_stay_in_the_workspace(self):
         with tempfile.TemporaryDirectory() as temp:
