@@ -180,8 +180,10 @@
   activation, no location socket and the HAL's policy. The threat model
   records the change.
 - Kernel builds are stamped (`--config=stamp`): the kernel version names the
-  source commit and the build date is the commit's, instead of
-  `-maybe-dirty` and 1970.
+  source commit and the build date is the pinned kernel_qcom commit's, instead
+  of `-maybe-dirty` and 1970. One `SOURCE_DATE_EPOCH` covers every kernel tree:
+  per-tree commit dates gave the core kernel and the vendor modules different
+  RANDSTRUCT seeds, which the layout scan refused.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc

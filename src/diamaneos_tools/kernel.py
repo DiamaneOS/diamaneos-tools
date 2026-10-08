@@ -545,6 +545,13 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
     (candidate / 'device-kernel.mk').write_text('# Generated source-built kernel.\nPRODUCT_COPY_FILES += device/fairphone/FP6-kernel/Image:kernel\n')
 
 
+def source_date_epoch(repository, commit):
+    """The commit time of the pinned kernel commit, as Kleaf's SOURCE_DATE_EPOCH."""
+    value = git(repository, 'log', '-1', '--pretty=%ct', commit)
+    require(value.isdigit() and int(value) > 0, 'invalid commit time for ' + commit)
+    return value
+
+
 def build(root, jobs, timeout, profile='production'):
     missing = [name for name in ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl')
                if shutil.which(name) is None]
@@ -576,6 +583,11 @@ def build(root, jobs, timeout, profile='production'):
             'EXT_MODULES', 'VARIANT', 'MAKEFLAGS', 'LD_PRELOAD', 'LD_LIBRARY_PATH')}
         env.update(KLEAF_REPO_MANIFEST=str(root / 'resolved-manifest.xml'),
                    KLEAF_MAKE_JOBS=str(jobs), LC_ALL='C')
+        # One build date for every kernel tree. Stamped Kleaf builds otherwise take
+        # each tree's own commit date, and the RANDSTRUCT seed derives from that
+        # date (scripts/gen-randstruct-seed.sh), so the core kernel and the vendor
+        # modules would get different structure layouts.
+        env['SOURCE_DATE_EPOCH'] = source_date_epoch(root, preparation['source_commit'])
         def command(name, argv, custom_env=None, seconds=None):
             result['phase'] = name; save(); print(name, flush=True)
             log = run / (name + '.log')
@@ -585,7 +597,7 @@ def build(root, jobs, timeout, profile='production'):
         def bazel(name, args):
             return command(name, [work / 'tools/bazel', '--batch', *args])
         # Stamped like GrapheneOS and Pixel kernels: the version names the source
-        # commit (-g<hash>) and the build date is the commit's, so it stays
+        # commit (-g<hash>) and the build date is the pinned commit's, so it stays
         # reproducible. Unstamped Kleaf builds say -maybe-dirty and 1970.
         flags = ['--jobs=' + str(jobs), KMI, STAMP]
         save()

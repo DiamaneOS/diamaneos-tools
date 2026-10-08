@@ -300,3 +300,22 @@ class KernelSymbolRuleTests(unittest.TestCase):
             (work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin').mkdir(parents=True)
             (work / 'prebuilts/clang/host/linux-x86/clang-r999/bin').mkdir(parents=True)
             self.assertEqual(work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin', kernel.clang_bin(work))
+
+
+class SourceDateEpochTests(unittest.TestCase):
+    """Every kernel tree gets the pinned commit's date, so RANDSTRUCT seeds match."""
+
+    def test_is_the_pinned_commits_time(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / 'kernel'
+            commit = repository(root, {'Makefile': 'VERSION = 6\n'})
+            self.assertEqual(run_git(root, 'log', '-1', '--pretty=%ct', commit),
+                             kernel.source_date_epoch(root, commit))
+            self.assertGreater(int(kernel.source_date_epoch(root, commit)), 0)
+
+    def test_unknown_commit_is_refused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / 'kernel'
+            repository(root, {'Makefile': 'VERSION = 6\n'})
+            with self.assertRaises(Exception):
+                kernel.source_date_epoch(root, '0' * 40)
