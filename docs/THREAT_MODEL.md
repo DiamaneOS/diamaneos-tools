@@ -779,7 +779,8 @@ entry point), the protections in current builds, what remains, and the status.
   library installs before the provider's main(), so before CamX is loaded:
   threads but no child processes, Unix and QRTR sockets only, no memory both
   writable and executable; the provider does not start without it. For now
-  calls outside the list are logged and allowed.
+  calls outside the list are logged and allowed; image verification refuses
+  an official build whose filter only logs.
 - **Remaining:** large closed parsers (camera about 185 MB) without MTE; most
   closed daemons without seccomp, and the camera provider's filter does not
   block yet; the closed thermal engine runs as root, as on stock; the power
