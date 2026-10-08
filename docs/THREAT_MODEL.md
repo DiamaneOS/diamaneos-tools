@@ -1293,7 +1293,8 @@ entry point), the protections in current builds, what remains, and the status.
     the user can.
   - Host packages are recorded, not pinned; a build with `--allow-network`
     compiles with network access (recorded for the kernel, vendor and Android
-    steps); a modified tools checkout is recorded as not reproducible.
+    steps); a modified tools checkout, or packaging by another tools commit
+    than the build, is recorded as not reproducible.
   - The manifest branch, the DiamaneOS branches it follows and the tools in it
     (`tools/diamaneos`, branch `main`) are not tagged or signature-checked at
     build time: a builder takes what the branches hold when it syncs, so a

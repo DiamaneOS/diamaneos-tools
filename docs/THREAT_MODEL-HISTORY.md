@@ -12,6 +12,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-08
 
+- Build records name the tools that built the images and those that packaged them; a set counts as reproducible only when both are clean and the same.
 - Camera seccomp gate: image verification refuses an official build whose camera provider filter only logs; development builds keep logging until the camera profile is collected. Implemented, not yet built.
 - Kernel lockdown at confidentiality level again, as GrapheneOS ships it (owner decision), implemented, not yet built: user space can neither modify nor read the running kernel; tracefs is empty and kprobes from user space and BPF kernel-memory reads are refused, so per-app CPU time and lmkd's memory-event listener do not start, as on GrapheneOS's Pixels; IPsec keys in XFRM dumps are redacted by lockdown and by both kernels' own redaction.
 - Statuses: built and phone-checked: the Moments switch's camera block (apps lose the camera; recording stops, its sound after the switch is silent), its restart notice and Restart action, the kernel camera and microphone floor, the keyboard's learned, personal and contact words only in credential-encrypted storage, incognito and password fields, and Canvas's Copy and delete without a clipboard preview.

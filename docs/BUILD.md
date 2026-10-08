@@ -202,7 +202,9 @@ manifest, so they are the same on every host. A kernel rebuilt from source
 matches the prebuilts except for the module signatures and the certificate the
 kernel embeds, because each kernel build makes a new module-signing key. The
 partitions are expected to be identical between hosts; a second host's build
-has to show it. A modified tools checkout is recorded as not reproducible.
+has to show it. `build.json` names the tools commit that built the Android
+images and the one that packaged them; a modified tools checkout, or packaging
+by another commit than the build, is recorded as not reproducible.
 
 **Reproducing a build.** `build sync --resolved-manifest DIR/resolved-manifest.xml
 --build-json DIR/build.json` syncs the source of the image set in `DIR`
