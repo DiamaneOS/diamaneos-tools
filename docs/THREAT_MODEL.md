@@ -39,7 +39,8 @@ rules).
 4. **Credentials rest on the TEE:** no StrongBox or Weaver; throttling
    unverified; no passphrase policy; fingerprint class not measured
    ([details](#bfu-user-data)).
-5. **The modem is outside Android's control:** isolation assumed; its traffic
+5. **The modem is outside Android's control:** its isolation is set by closed
+   firmware; its traffic
    bypasses network controls; no fake-base-station detection or null-cipher
    control; the 2G and LTE-only controls reach the modem (checked on the phone)
    ([details](#call-and-sms-content-subscriber-identity-coarse-location)).
@@ -180,7 +181,7 @@ historical evidence without making it acceptance of this later source cut.
   Bluetooth firmware come from Fairphone and Qualcomm; the project cannot build
   or patch it.
 - Baseband exploitation beyond what SoC isolation provides; on the FP6 that
-  isolation is assumed, not verified.
+  isolation is set by closed firmware Android cannot check.
 - Detection of fake base stations, null-cipher sessions or identity requests:
   the current Qualcomm radio software does not support it.
 - Traffic the modem sends by itself (IMS, SUPL, control-plane location), which
@@ -214,8 +215,13 @@ historical evidence without making it acceptance of this later source cut.
 - **No pKVM:** on current firmware the kernel runs under Qualcomm's Gunyah
   hypervisor, not KVM, so Android protected VMs are unavailable (observed on a
   bring-up build).
-- **Radio isolation:** SoC-level isolation of the modem from the application
-  processor is assumed and unverified. USB-C port control, the fingerprint class
+- **Radio isolation:** the modem, Wi-Fi core and DSPs run from their own
+  reserved memory (no-map; TrustZone authenticates and loads them, the
+  hypervisor switches ownership), and their shared data paths (IPA, Wi-Fi DMA,
+  FastRPC) sit behind the apps SMMU (device tree and the running phone,
+  2026-10-07; no SMMU faults or subsystem crashes logged). What the cores
+  themselves may access is enforced in closed Qualcomm firmware and cannot be
+  checked from Android. USB-C port control, the fingerprint class
   and firmware patch lag are under [Locked-device
   data](#locked-device-data-kernel-integrity), [AFU
   unlock](#afu-unlock-auth-bound-keys) and [Firmware
@@ -481,8 +487,9 @@ entry point), the protections in current builds, what remains, and the status.
   files and follows no symbolic links. The file server is a fork carrying
   upstream's pending fixes for memory errors and a path escape the modem could
   trigger, with host tests for them.
-- **Remaining:** modem firmware unpatchable by the project and behind ASB; SoC
-  isolation (SMMU, memory protection) assumed, not verified; silent modem
+- **Remaining:** modem firmware unpatchable by the project and behind ASB; what the
+  modem may access is enforced in closed firmware and cannot be checked from
+  Android (its memory and data paths are separated in the device tree); silent modem
   restarts hide crash-and-retry attacks; modem state in its own partitions
   survives factory reset, its file-server data in /data does not. Both daemons parse modem-supplied data in C, contained by
   their domains; QRTR has no per-service access control, so either can reach
