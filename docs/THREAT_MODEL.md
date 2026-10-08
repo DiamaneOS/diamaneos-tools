@@ -148,9 +148,8 @@ not a production allowance. OEM signatures alone therefore do not permit ordinar
 apps to install these updates. The first-party catalog uses GrapheneOS's update
 sources; production signing and locked verified boot do not exist, and development
 test keys are public. eSIM profiles are managed and downloaded by DiamaneOS's own
-LPA, off by default (checked on the phone 2026-10-06: profile list, turning a
-profile off and on; downloads implemented, not yet built); no stock LPA is
-shipped.
+LPA, off by default (checked on the phone: profile list, turning a profile off
+and on on 2026-10-06; a download on 2026-10-08); no stock LPA is shipped.
 The [IMS integration notes](THREAT_MODEL-HISTORY.md#ims-integration-notes) preserve
 historical evidence without making it acceptance of this later source cut.
 
@@ -555,8 +554,12 @@ entry point), the protections in current builds, what remains, and the status.
     the operator's order usable; a dry run checks a code's server without
     sending the code.
   - Stores only salted hashes of the ICCIDs it installed. No camera permission:
-    QR codes are read by the camera app and pasted. Codes stay out of
-    screenshots and the recents preview.
+    the camera app's QR scanner reads codes, and its "Open with" hands an
+    `LPA:` code to Add eSIM, or the user pastes it. Any app on the phone can
+    hand over a code that way, web pages can't; it only fills in the code,
+    and the user still agrees before anything connects. Codes stay out of
+    screenshots and the recents preview; the Add eSIM windows hide other
+    apps' overlays.
   - Never logs the EID, ICCIDs, IMSIs, codes or servers. The framework's
     eUICC transport logs eUICC commands and answers in full at verbose level;
     those tags stay at info (-181, image check).
@@ -564,8 +567,8 @@ entry point), the protections in current builds, what remains, and the status.
   - No stock Qualcomm LPA, its libraries or grants (image check). OpenEUICC is
     not included (GrapheneOS os-issue-tracker #6275 and #2631).
 - **Remaining:**
-  - Downloads are untested on the phone; the FP6 eUICC's SGP.22 version and CI
-    list are not yet read.
+  - One download checked on the phone (2026-10-08); the FP6 eUICC reports
+    SGP.22 2.2.2. Its CI list is not yet read.
   - Android's card command always puts the IMEI in the device information the
     eUICC signs for the server (SGP.22 allows it).
   - Server data is parsed in a privileged process with network and eUICC
