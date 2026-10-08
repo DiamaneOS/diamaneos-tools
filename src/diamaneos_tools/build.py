@@ -671,6 +671,36 @@ def verify_repo_tool(config: dict, source: Path) -> dict:
     }
 
 
+def verify_pinned_revisions(declared_xml: bytes, rows) -> None:
+    """Projects the manifest pins to a commit are checked out at that commit.
+
+    ``repo manifest -r`` records each project's checked-out commit, so it
+    cannot show a project moved off its pin; the declared manifest
+    (``repo manifest``) names the pins. Projects that follow a branch or tag
+    are not pinned here.
+    """
+    if len(declared_xml) > MAX_MANIFEST_BYTES:
+        raise BuildError("manifest exceeds its byte limit")
+    try:
+        root = ET.fromstring(declared_xml)
+    except ET.ParseError:
+        raise BuildError("manifest is not valid XML") from None
+    remotes = {remote.get("name"): remote.get("revision") for remote in root.findall("remote")}
+    default = root.find("default")
+    default = default.attrib if default is not None else {}
+    resolved = {path: revision for path, _name, _remote, revision in rows}
+    moved = []
+    for project in root.findall("project"):
+        path = project.get("path", project.get("name"))
+        revision = (project.get("revision") or remotes.get(project.get("remote", default.get("remote")))
+                    or default.get("revision"))
+        if revision and SHA1_RE.fullmatch(revision) and resolved.get(path) != revision:
+            moved.append(path)
+    if moved:
+        raise BuildError("source projects are not at the commits the manifest pins: "
+                         + ", ".join(moved[:20]))
+
+
 def verify_projects(source: Path, rows) -> None:
     """Every project is checked out at its resolved commit with nothing changed."""
     dirty = []
@@ -746,7 +776,8 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
 
     The builder trusts the declared manifest branch: the resolved manifest
     (``repo manifest -r``) is the record of what was built. Every project
-    must be clean at its resolved commit, and nothing outside the projects,
+    must be clean at its resolved commit, a project the manifest pins to a
+    commit must be at that commit, and nothing outside the projects,
     their copy/link files and the bound generated inputs may exist.
     ``resolved_path`` receives the resolved manifest. ``manifest_commit``
     replaces the branch-head check when the checkout reproduces a recorded
@@ -761,6 +792,7 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     if any(not remote.get("fetch", "").startswith("https://")
            for remote in ET.fromstring(resolved).findall("remote")):
         raise BuildError("resolved manifest fetches from a remote without HTTPS")
+    verify_pinned_revisions(repo_manifest(source, resolved=False), rows)
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     verify_source_layout(config, source, rows, resolved, resolved, generated)
     verify_projects(source, rows)
