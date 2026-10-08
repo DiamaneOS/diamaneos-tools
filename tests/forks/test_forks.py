@@ -86,6 +86,30 @@ class ForkTests(unittest.TestCase):
         self.assertNotIn('update/', run(self.fork_repo, 'branch', '--list'))
         self.assertEqual(run(self.fork_repo, 'worktree', 'list').count('\n'), 0)
 
+    def test_recorded_resolution_settles_a_repeated_conflict(self):
+        commit(self.fork_repo, 'a.txt', 'ours\n', 'our change')
+        self.advance_upstream('a.txt', 'theirs\n')
+        records = Path(self.tmp.name) / 'rerere'
+        result = forks.update(self.root, self.fork, rerere=records, today=datetime.date(2026, 10, 8))
+        self.assertEqual(result['state'], 'conflict')
+        # Resolve it once by hand in a scratch worktree; rerere records the resolution.
+        scratch = Path(self.tmp.name) / 'scratch'
+        run(self.fork_repo, 'worktree', 'add', '-q', '--detach', str(scratch), 'android17')
+        subprocess.run(['git', '-C', str(scratch), 'rebase', '-q', 'refs/diamaneos/upstream'], capture_output=True)
+        Path(scratch, 'a.txt').write_text('both\n')
+        run(scratch, 'add', 'a.txt')
+        run(scratch, 'rerere')
+        run(scratch, 'rebase', '--abort')
+        run(self.fork_repo, 'worktree', 'remove', '--force', str(scratch))
+        forks.save_resolutions(self.fork_repo, records / 'hal')
+        # A fresh clone gets the resolution only from the records directory.
+        run(self.root, 'clone', '-q', '-b', 'android17', str(self.fork_repo), 'hal2')
+        clone = dict(self.fork, slug='hal2')
+        os.rename(records / 'hal', records / 'hal2')
+        result = forks.update(self.root, clone, rerere=records, today=datetime.date(2026, 10, 8))
+        self.assertEqual((result['state'], result['rerere_resolved']), ('prepared', ['a.txt']))
+        self.assertEqual(run(self.root / 'hal2', 'show', result['candidate'] + ':a.txt'), 'both')
+
     def test_rewritten_upstream_replays_only_patches_after_the_pin(self):
         # Upstream release v1 carries its own patch; the fork adds ours on v1.
         run(self.upstream, 'checkout', '-q', 'odm/rc')

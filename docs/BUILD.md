@@ -403,7 +403,7 @@ project lists the releases a commit contains.
 ```sh
 bin/diamaneos forks check           # remote refs only; exit 1 when something moved
 bin/diamaneos forks status --fetch  # commits behind and patches carried, per fork
-bin/diamaneos forks update <id> --ref <tag>   # our patches on the new tag, as update/<date>-<commit>
+bin/diamaneos forks update <id> --ref <tag> [--rerere DIR]   # our patches on the new tag, as update/<date>-<commit>
 ```
 
 `update` works like GrapheneOS's own rebases: the new upstream release is the
@@ -417,8 +417,11 @@ base and our commits are replayed on it.
   resolved a conflict between two topics loses that resolution, which then
   comes back as a conflict in our own files. Bring a topic in by rebasing it
   onto the primary branch and fast-forwarding, so no merge carries a resolution.
-- **Recorded resolutions:** the update workspace keeps git's rerere records, so
-  a conflict resolved in one rebase resolves itself in the next.
+- **Recorded resolutions:** `--rerere DIR` loads git's rerere records from
+  `DIR/<fork slug>` before the rebase and saves new ones back, so a conflict
+  resolved once resolves itself in later rebases, also in a fresh clone. A stop
+  that recorded resolutions fully settle continues; the result lists those files
+  as `rerere_resolved`. Review them like any other resolution.
 - **`fixup!` commits fold** into the commit whose title they repeat
   (`fixup! <title>`, git's autosquash), so a feature stays one commit across
   releases. Name follow-up fixes that way.

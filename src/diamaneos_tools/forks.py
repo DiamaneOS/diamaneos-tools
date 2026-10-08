@@ -8,7 +8,8 @@ contains.
 status: fetch (optionally) each fork's upstream reference and report how many
 upstream commits the fork lacks and how many DiamaneOS patches it carries.
 update: rebase the fork's patches onto a newer upstream reference into a new
-local candidate branch. The fork branch is never moved and nothing is pushed;
+local candidate branch. With --rerere, recorded conflict resolutions are loaded
+first, used for repeated conflicts, and saved back with any new ones. The fork branch is never moved and nothing is pushed;
 adopt a candidate only after it builds and passes review.
 """
 import argparse
@@ -17,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 
@@ -190,11 +192,31 @@ def pinned_base(repo, fork, branch):
     return None
 
 
-def update(root, fork, ref=None, today=None):
+def rerere_cache(repo):
+    return Path(git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir').stdout.strip()) / 'rr-cache'
+
+
+def load_resolutions(repo, records):
+    """Turn on rerere and copy recorded resolutions (one directory per conflict) into the clone."""
+    git(repo, 'config', 'rerere.enabled', 'true')
+    git(repo, 'config', 'rerere.autoupdate', 'true')
+    if records.is_dir():
+        shutil.copytree(records, rerere_cache(repo), dirs_exist_ok=True)
+
+
+def save_resolutions(repo, records):
+    cache = rerere_cache(repo)
+    if cache.is_dir() and any(cache.iterdir()):
+        shutil.copytree(cache, records, dirs_exist_ok=True)
+
+
+def update(root, fork, ref=None, today=None, rerere=None):
     """Apply our patches (the commits after the pin) on top of the new upstream reference.
 
     Like GrapheneOS: the new release is the base and our commits are replayed on it, merges dropped and
     `fixup!` commits folded into the commit they name (autosquash). The fork branch is never moved.
+    rerere: a directory of recorded resolutions (one subdirectory per fork slug). A stop whose every
+    conflict a recorded resolution settles continues; the files are reported as rerere_resolved.
     """
     repo = Path(root) / fork['slug']
     if not (repo / '.git').exists():
@@ -211,6 +233,9 @@ def update(root, fork, ref=None, today=None):
     candidate = f'update/{stamp}-{upstream[:12]}'
     if git(repo, 'rev-parse', '--verify', '-q', f'refs/heads/{candidate}', check=False).stdout.strip():
         raise ForkError(f'candidate branch already exists: {candidate}')
+    records = Path(rerere) / fork['slug'] if rerere else None
+    if records:
+        load_resolutions(repo, records)
     if not patches:
         git(repo, 'branch', candidate, upstream)
         return {'id': fork['id'], 'candidate': candidate, 'upstream': upstream, 'rebased_patches': 0, 'state': 'prepared'}
@@ -221,6 +246,18 @@ def update(root, fork, ref=None, today=None):
             # A non-interactive interactive rebase: only for --autosquash.
             rebase = git(work, '-c', 'sequence.editor=true', 'rebase', '--quiet', '--interactive', '--autosquash',
                          '--onto', upstream, base, check=False)
+            resolved = []
+            for _ in range(len(patches)):
+                # rerere.autoupdate stages a recorded resolution; continue only when nothing is left unmerged.
+                if rebase.returncode == 0 or not records or git(work, 'diff', '--name-only', '--diff-filter=U').stdout.split():
+                    break
+                found = re.findall(r"(?:Resolved|Staged) '(.+?)' using previous resolution", rebase.stdout + rebase.stderr)
+                if not found:
+                    break
+                resolved += found
+                rebase = git(work, '-c', 'core.editor=true', 'rebase', '--continue', check=False)
+            if records:
+                save_resolutions(repo, records)
             if rebase.returncode != 0:
                 conflicts = git(work, 'diff', '--name-only', '--diff-filter=U').stdout.split()
                 git(work, 'rebase', '--abort', check=False)
@@ -232,8 +269,11 @@ def update(root, fork, ref=None, today=None):
             if work.exists():
                 git(repo, 'worktree', 'remove', '--force', str(work), check=False)
     commits = int(git(repo, 'rev-list', '--count', '--no-merges', f'{upstream}..{candidate}').stdout)
-    return {'id': fork['id'], 'candidate': candidate, 'upstream': upstream, 'base': base,
-            'rebased_patches': len(patches), 'commits': commits, 'state': 'prepared'}
+    result = {'id': fork['id'], 'candidate': candidate, 'upstream': upstream, 'base': base,
+              'rebased_patches': len(patches), 'commits': commits, 'state': 'prepared'}
+    if resolved:
+        result['rerere_resolved'] = sorted(set(resolved))
+    return result
 
 
 def remote_refs(url):
@@ -413,6 +453,8 @@ def main(argv=None):
     prepare = commands.add_parser('update')
     prepare.add_argument('id')
     prepare.add_argument('--ref', help='upstream branch, tag or full commit hash to move to')
+    prepare.add_argument('--rerere', type=Path, metavar='DIR',
+                         help='recorded conflict resolutions, DIR/<fork slug>: loaded first, saved back after')
     args = parser.parse_args(argv)
     try:
         registry, sources = load_registry(args.config)
@@ -432,7 +474,7 @@ def main(argv=None):
             return 0
         if args.id not in forks:
             raise ForkError('unknown fork: ' + args.id)
-        result = update(args.root, forks[args.id], args.ref)
+        result = update(args.root, forks[args.id], args.ref, rerere=args.rerere)
         print(json.dumps(result, indent=2))
         return 0 if result['state'] == 'prepared' else 1
     except (ForkError, OSError, ValueError) as error:
