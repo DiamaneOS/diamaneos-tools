@@ -72,8 +72,10 @@ file path, symbol locators and the retrieved file's SHA-256 (open
   seeds GNSS: in an indoor FP6 test on 2026-09-26, GPS alone had no fix for
   several minutes; with Apple directly, the first network fix came about 35 s
   after the request and GPS locked about 1 s later.
-- `nominatim.grapheneos.org` answers Android Geocoder queries; DiamaneOS hosts
-  no geocoder. `client_defaults` discloses direct use of OpenStreetMap's public
+- `nominatim.grapheneos.org` answers Android Geocoder queries on GrapheneOS; DiamaneOS
+  offers neither it nor a geocoder of its own: Settings > Location > Location services >
+  Geocoder is OpenStreetMap or Off (default Off). The client sends GrapheneOS's
+  User-Agent, "GrapheneOS geocoder 1". `client_defaults` discloses direct use of OpenStreetMap's public
   Nominatim, which sees the device IP and searched text or coordinates, as a
   non-EU direct exception like the Swiss Private DNS default. The validator
   requires that entry and rejects a geocoder relay or service entry. Direct use

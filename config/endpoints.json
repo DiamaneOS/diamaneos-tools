@@ -142,7 +142,7 @@
     },
     {
       "name": "geocoder",
-      "default": "Off. DiamaneOS hosts no geocoder; users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly, with a DiamaneOS User-Agent.",
+      "default": "Off. DiamaneOS hosts no geocoder; users may opt in to OpenStreetMap's public Nominatim (nominatim.openstreetmap.org) directly; GrapheneOS's geocoding server is not offered. The client (GrapheneOS's NetworkLocation app) sends the User-Agent \"GrapheneOS geocoder 1\".",
       "jurisdiction": "non-eu-direct-exception",
       "disclosure": "Run by the OpenStreetMap Foundation, registered in England and Wales (UK). When the user opts in, OpenStreetMap sees the device IP, the searched text or the queried coordinates (usually the user's own location), the language and the User-Agent; no DiamaneOS server is in the path. Use stays within OpenStreetMap's Nominatim usage policy (identify the app, low request rate, attribution). Ask the OpenStreetMap Foundation before it becomes anything more than an opt-in.",
       "owner_task": "FP6-103"
@@ -660,17 +660,17 @@
     },
     {
       "id": "geocoder-settings",
-      "repository": "https://github.com/GrapheneOS/platform_frameworks_base",
-      "revision": "a03842a01c0bbaca70ebd58a53b49cbacfe7e4fb",
+      "repository": "https://github.com/DiamaneOS/platform_frameworks_base",
+      "revision": "522f01142d736e0540cfa5bd24e77a0bd245087e",
       "path": "core/java/android/ext/settings/GeocoderSettings.java",
       "symbols": [
         "GEOCODER_SETTING",
         "GEOCODER_DISABLED",
-        "GEOCODER_SERVER_GRAPHENEOS"
+        "GEOCODER_SERVER_OPENSTREETMAP"
       ],
-      "sha256": "533b296069983fa136b18f5837d88d6cea12c59685c5146dafd4d47943088657",
+      "sha256": "5d686e3edcacf8d99f44caa9541b33c3a4153ceb50c0ae96f62c7b6c68cdf3e9",
       "role": "manifest-pin",
-      "observed_on": "2026-09-26"
+      "observed_on": "2026-10-08"
     },
     {
       "id": "auditor-remote",
