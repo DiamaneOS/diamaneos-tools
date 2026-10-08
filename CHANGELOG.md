@@ -183,7 +183,10 @@
   source commit and the build date is the pinned kernel_qcom commit's, instead
   of `-maybe-dirty` and 1970. One `SOURCE_DATE_EPOCH` covers every kernel tree:
   per-tree commit dates gave the core kernel and the vendor modules different
-  RANDSTRUCT seeds, which the layout scan refused.
+  RANDSTRUCT seeds, which the layout scan refused. Releases keep naming each
+  tree's commit: the module check accepts the Image's release (the pinned common
+  commit) or the vendor tree's (the pinned kernel_qcom commit) with one identical
+  vermagic remainder, as the kernel does for modules with symbol CRCs.
 - Image checks and threat model for the factory Bluetooth address: imeiprovd's
   `--bt-address` service (`bluetooth-factory-address-service`), the copy to
   `ro.vendor.bt.boot.macaddr` in the Bluetooth init rc

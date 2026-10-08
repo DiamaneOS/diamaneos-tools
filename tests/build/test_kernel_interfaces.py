@@ -54,6 +54,29 @@ class SelectedKernelTests(unittest.TestCase):
     def test_vermagic_disagreement(self):
         self.modules[0]['metadata']['vermagic']=['other']
         self.assertEqual('vermagic', self.run_review()['issues'][0]['check'])
+    def stamped(self, wlan, audio):
+        self.modules[0]['metadata']['vermagic']=[wlan]
+        self.modules[1]['metadata']['vermagic']=[audio]
+        releases = dict(image='6.1.177-android14-11-g464c017656bd', vendor_base='6.1.177-android14-11',
+                        vendor_commit='1711bb81f140ff2a59e55821b4a8356e62faaeba')
+        return module.review(self.modules, self.symbols, {'wlan', 'audio_dsp'}, releases=releases)
+    def test_stamped_vendor_and_image_releases_with_crcs_pass(self):
+        rest = ' SMP preempt mod_unload modversions aarch64RANDSTRUCT_x'
+        result = self.stamped('6.1.177-android14-11-g1711bb81f140' + rest, '6.1.177-android14-11-g464c017656bd' + rest)
+        self.assertEqual('PASS', result['status'])
+    def test_stamped_release_of_another_commit_is_refused(self):
+        rest = ' SMP preempt mod_unload modversions aarch64RANDSTRUCT_x'
+        result = self.stamped('6.1.177-android14-11-gdeadbeef0000' + rest, '6.1.177-android14-11-g464c017656bd' + rest)
+        self.assertEqual('vermagic-release', result['issues'][0]['check'])
+    def test_stamped_releases_with_different_flags_are_refused(self):
+        result = self.stamped('6.1.177-android14-11-g1711bb81f140 SMP aarch64RANDSTRUCT_x',
+                              '6.1.177-android14-11-g464c017656bd SMP aarch64RANDSTRUCT_y')
+        self.assertEqual('vermagic', result['issues'][0]['check'])
+    def test_vendor_release_needs_symbol_crcs(self):
+        rest = ' SMP preempt mod_unload modversions aarch64RANDSTRUCT_x'
+        self.modules[0]['required_symbols'] = []
+        result = self.stamped('6.1.177-android14-11-g1711bb81f140' + rest, '6.1.177-android14-11-g464c017656bd' + rest)
+        self.assertIn('vermagic-release-without-crcs', [i['check'] for i in result['issues']])
     def test_gpl_export_requires_compatible_license(self):
         self.modules[0]['metadata']['license']=['Proprietary']
         self.assertEqual('gpl-only-export-with-incompatible-module-license', self.run_review()['issues'][0]['check'])

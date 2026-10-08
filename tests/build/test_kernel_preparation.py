@@ -319,3 +319,27 @@ class SourceDateEpochTests(unittest.TestCase):
             repository(root, {'Makefile': 'VERSION = 6\n'})
             with self.assertRaises(Exception):
                 kernel.source_date_epoch(root, '0' * 40)
+
+
+class KernelReleaseTests(unittest.TestCase):
+    """Stamped releases come from the banner and must name the pinned commit."""
+
+    def test_banner_release_and_stamp(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vmlinux = Path(temp) / 'vmlinux'
+            vmlinux.write_bytes(b'\0Linux version 6.1.177-android14-11-g464c017656bd (build-user@build-host) #1\0')
+            release = kernel.kernel_release(vmlinux)
+            self.assertEqual('6.1.177-android14-11-g464c017656bd', release)
+            self.assertTrue(kernel.stamped_by(release, '464c017656bdd9c4c3e66cfda15ce826a4d9596d'))
+            self.assertFalse(kernel.stamped_by(release, '1711bb81f140ff2a59e55821b4a8356e62faaeba'))
+            self.assertFalse(kernel.stamped_by('6.1.177-android14-11-maybe-dirty', '464c017656bd' + '0' * 28))
+
+    def test_missing_or_conflicting_banner_is_refused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vmlinux = Path(temp) / 'vmlinux'
+            vmlinux.write_bytes(b'no banner')
+            with self.assertRaises(Exception):
+                kernel.kernel_release(vmlinux)
+            vmlinux.write_bytes(b'Linux version 6.1.1-a (x) Linux version 6.1.2-b (x)')
+            with self.assertRaises(Exception):
+                kernel.kernel_release(vmlinux)

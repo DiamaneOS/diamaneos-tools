@@ -545,6 +545,20 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
     (candidate / 'device-kernel.mk').write_text('# Generated source-built kernel.\nPRODUCT_COPY_FILES += device/fairphone/FP6-kernel/Image:kernel\n')
 
 
+def kernel_release(vmlinux):
+    """The release a vmlinux reports, from its Linux version banner."""
+    data = Path(vmlinux).read_bytes()
+    found = set(re.findall(rb'Linux version ([0-9][!-~]{0,127}) \(', data))
+    require(len(found) == 1, 'missing/ambiguous kernel release in ' + Path(vmlinux).name)
+    return found.pop().decode('ascii')
+
+
+def stamped_by(release, commit):
+    """A stamped release ends in -g<at least 12 hex digits of commit>."""
+    m = re.search(r'-g([0-9a-f]{12,40})$', release)
+    return bool(m) and commit.startswith(m.group(1))
+
+
 def source_date_epoch(repository, commit):
     """The commit time of the pinned kernel commit, as Kleaf's SOURCE_DATE_EPOCH."""
     value = git(repository, 'log', '-1', '--pretty=%ct', commit)
@@ -728,10 +742,18 @@ def build(root, jobs, timeout, profile='production'):
                             gki / 'certs/signing_key.x509', 'sha256'))
             # Check the packaged (stripped and signed) modules against the Image's
             # built-in certificate, symbol CRCs and namespaces.
+            # Stamped builds name each tree's commit: the Image the common kernel's,
+            # the vendor modules the kernel_qcom commit's. Both must be the pins.
+            image_release = kernel_release(vmlinux)
+            require(stamped_by(image_release, preparation['submodules']['kernel_platform/common']),
+                    'Image release does not name the pinned common kernel: ' + image_release)
+            releases = {'image': image_release, 'vendor_base': image_release.rsplit('-g', 1)[0],
+                        'vendor_commit': preparation['source_commit']}
+            result['kernel_releases'] = releases
             from .kernel_interfaces import verify_built
             verify_built(work, run, {name: candidate / 'modules' / name for name in selected},
                          core + external, one(core, 'vmlinux', '/common/kernel_aarch64/'),
-                         module_metadata, call, require)
+                         module_metadata, call, require, releases=releases)
             # Symbol rules moved from the per-build checks: which modules may
             # import a symbol, and symbols that must or must not exist in the Image.
             nm = clang_bin(work) / 'llvm-nm'
