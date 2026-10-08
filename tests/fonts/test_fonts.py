@@ -198,7 +198,8 @@ class Fatal(Check):
 
     def test_numbers_as_java_parses_them(self):
         self.write_fonts()
-        for weight in ('bold', ' 400', '400.0', '1_000', '4e2'):
+        # Mathematical digits (U+1D7DC...) are UTF-16 surrogate pairs: no Java digits.
+        for weight in ('bold', ' 400', '400.0', '1_000', '4e2', '\U0001d7dc\U0001d7d8\U0001d7d8'):
             xml = document(named(f'<font weight="{weight}">Sans-Regular.ttf</font>'))
             self.assertEqual(self.codes(self.files(xml)[1]), ['boot'], weight)
         for weight in ('+400', '0400', '٤٠٠'):
@@ -368,7 +369,7 @@ class Numbers(unittest.TestCase):
     def test_java_int(self):
         self.assertEqual([fonts.java_int(t) for t in ('400', '+400', '-1', '٤٠٠', '2147483647')],
                          [400, 400, -1, 400, 2147483647])
-        for text in (' 400', '1_000', '4.0', '', '2147483648', None):
+        for text in (' 400', '1_000', '4.0', '', '2147483648', None, '\U0001d7dc\U0001d7d8\U0001d7d8', '4\U0001d7d80'):
             self.assertIsNone(fonts.java_int(text), text)
 
     def test_java_float(self):

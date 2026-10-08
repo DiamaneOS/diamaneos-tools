@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fonts check` rejects weights whose digits lie outside the Basic Multilingual
+  Plane, which Android cannot parse.
 - `build verify` compares each kernel module byte for byte with the kernel
   build's copy instead of checking only names, load lists and the signature
   trailer.
