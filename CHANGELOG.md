@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Pin kernel_qcom-6.1 1711bb8: three vendor kernel fixes from a code review: the
+  SPI controller completes full-duplex DMA transfers whose two halves finish in
+  separate interrupts (the touchscreen's controller); the SLIMbus controller
+  keeps its TX buffers alive while the audio DSP restarts (it could free them
+  under a message in flight); the WCD9378 codec probe survives a failed debug
+  allocation. Also comment-only XFRM changes in both trees. Not yet built.
 - `signing verify` no longer passes one signed dummy record for every role:
   fixed namespaces, a separate factory proof, an artifact per proof, and
   `artifact_signatures_verified: false` in its output (SIGNING.md).
