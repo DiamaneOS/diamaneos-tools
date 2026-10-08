@@ -28,6 +28,9 @@ repo sync -j8
 
 Downloads every project of the DiamaneOS manifest, including the build tools
 in `tools/diamaneos`, with the `repo` version they check. Stay in this directory.
+If a later sync stops because a project now comes from another repository at
+the same path, run `repo sync --force-sync PATH` for it; `diamaneos build` does
+that itself.
 
 ## 2. Add the vendor files
 
