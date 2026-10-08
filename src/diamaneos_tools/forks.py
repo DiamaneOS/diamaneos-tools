@@ -152,16 +152,35 @@ def status(root, fork, do_fetch=False):
     return result
 
 
+def pinned_base(repo, fork, branch):
+    """The commit of the tag or commit the fork is based on now (its pin), if the fork branch has it.
+
+    Our patches are the commits after the pin. Upstreams that rewrite their history between releases
+    (GrapheneOS rebases its kernel patches onto each LTS update) would otherwise make their old commits
+    look like ours: the merge-base with the new release lies before them.
+    """
+    if fork['upstream']['kind'] not in ('tag', 'commit'):
+        return None
+    pinned = fetch(repo, fork)
+    return pinned if is_ancestor(repo, pinned, branch) else None
+
+
 def update(root, fork, ref=None, today=None):
+    """Apply our patches (the commits after the pin) on top of the new upstream reference.
+
+    Like GrapheneOS: the new release is the base and our commits are replayed on it, merges dropped and
+    `fixup!` commits folded into the commit they name (autosquash). The fork branch is never moved.
+    """
     repo = Path(root) / fork['slug']
     if not (repo / '.git').exists():
         raise ForkError(f'fork clone missing: {repo}')
-    upstream = fetch(repo, fork, ref)
     branch = fork['branch']
-    base = git(repo, 'merge-base', branch, upstream, check=False).stdout.strip()
+    pinned = pinned_base(repo, fork, branch) if ref and ref != fork['upstream']['ref'] else None
+    upstream = fetch(repo, fork, ref)
+    base = pinned or git(repo, 'merge-base', branch, upstream, check=False).stdout.strip()
     if not base:
         raise ForkError('fork and upstream share no history')
-    patches = git(repo, 'rev-list', '--reverse', '--no-merges', f'{upstream}..{branch}').stdout.split()
+    patches = git(repo, 'rev-list', '--reverse', '--no-merges', f'{base}..{branch}').stdout.split()
     stamp = (today or datetime.date.today()).strftime('%Y%m%d')
     candidate = f'update/{stamp}-{upstream[:12]}'
     if git(repo, 'rev-parse', '--verify', '-q', f'refs/heads/{candidate}', check=False).stdout.strip():
@@ -173,7 +192,9 @@ def update(root, fork, ref=None, today=None):
         work = Path(scratch) / 'work'
         git(repo, 'worktree', 'add', '--quiet', '-b', candidate, str(work), branch)
         try:
-            rebase = git(work, 'rebase', '--quiet', '--onto', upstream, base, check=False)
+            # A non-interactive interactive rebase: only for --autosquash.
+            rebase = git(work, '-c', 'sequence.editor=true', 'rebase', '--quiet', '--interactive', '--autosquash',
+                         '--onto', upstream, base, check=False)
             if rebase.returncode != 0:
                 conflicts = git(work, 'diff', '--name-only', '--diff-filter=U').stdout.split()
                 git(work, 'rebase', '--abort', check=False)
@@ -184,8 +205,9 @@ def update(root, fork, ref=None, today=None):
         finally:
             if work.exists():
                 git(repo, 'worktree', 'remove', '--force', str(work), check=False)
-    return {'id': fork['id'], 'candidate': candidate, 'upstream': upstream,
-            'rebased_patches': len(patches), 'state': 'prepared'}
+    commits = int(git(repo, 'rev-list', '--count', '--no-merges', f'{upstream}..{candidate}').stdout)
+    return {'id': fork['id'], 'candidate': candidate, 'upstream': upstream, 'base': base,
+            'rebased_patches': len(patches), 'commits': commits, 'state': 'prepared'}
 
 
 def remote_refs(url):
