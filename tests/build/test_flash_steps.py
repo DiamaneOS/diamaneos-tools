@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
-from diamaneos_tools import flash_steps, image_package
+from diamaneos_tools import flash_steps, image_package, image_verify
 from tests.build.test_image_package import fixture_workspace, run_plan
 
 # What "fastboot getvar all" and "fastboot oem device-info" print on an
@@ -42,7 +42,13 @@ class FlashStepTests(unittest.TestCase):
         outputs = run_plan(self.ctx, image_package.plan(self.ctx))
         self.directory = self.ctx.workspace.root / outputs['directory']
         self.record = flash_steps.load(self.directory)
-        self.report = {'checks': [{'id': 'record', 'status': 'PASS'}]}
+        self.report = self.passing_report()
+
+    def passing_report(self):
+        checks = [{'id': check, 'status': 'PASS'} for check in image_verify.REQUIRED_CHECKS]
+        return {'schema_version': 1, 'build_id': self.record['build_id'],
+                'sums_sha256': image_package.bw.sha_file(self.directory / 'SHA256SUMS'),
+                'status': 'PASS', 'checked': len(checks), 'failed': 0, 'checks': checks}
 
     def text(self, **kw):
         return '\n'.join(flash_steps.steps(self.directory, self.record, report=self.report, **kw))
@@ -92,9 +98,29 @@ class FlashStepTests(unittest.TestCase):
     def test_unverified_or_failed_sets_are_refused(self):
         with self.assertRaisesRegex(flash_steps.FlashError, 'not been verified'):
             flash_steps.steps(self.directory, self.record, report=None, firmware='skip')
-        failed = {'checks': [{'id': 'boot-header', 'status': 'FAIL'}]}
-        with self.assertRaisesRegex(flash_steps.FlashError, 'boot-header'):
+        failed = self.passing_report()
+        failed['checks'][3]['status'] = 'FAIL'
+        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\)'):
             flash_steps.steps(self.directory, self.record, report=failed)
+
+    def test_empty_partial_or_failed_reports_are_refused(self):
+        def changed(**values):
+            report = self.passing_report()
+            report.update(values)
+            return report
+        checks = self.passing_report()['checks']
+        cases = {'lists no checks': changed(checks=None),
+                 'lacks checks: sums, record': changed(status='FAIL', checks=[], checked=0),
+                 'lacks checks: firmware-ota': changed(checks=checks[:-1], checked=len(checks) - 1),
+                 'lists a check twice': changed(checks=checks + checks[:1], checked=len(checks) + 1),
+                 'does not say that all its checks passed': changed(status='FAIL'),
+                 'unknown format': changed(schema_version=2),
+                 'another image set': changed(sums_sha256='0' * 64)}
+        for message, report in cases.items():
+            with self.subTest(message), self.assertRaisesRegex(flash_steps.FlashError, message):
+                flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
+        self.assertTrue(flash_steps.steps(self.directory, self.record, report=self.passing_report(),
+                                          firmware='skip'))
 
     def test_full_super_fallback_lists_every_logical_partition(self):
         text = self.text(firmware='skip')
@@ -232,8 +258,7 @@ class FlashStepTests(unittest.TestCase):
         phone = self.root / 'phone.txt'
         phone.write_text(PHONE)
         report = self.directory.parent / (self.record['build_id'] + '.verify.json')
-        report.write_text(json.dumps({'build_id': self.record['build_id'], 'checks': self.report['checks'],
-                                      'sums_sha256': image_package.bw.sha_file(self.directory / 'SHA256SUMS')}))
+        report.write_text(json.dumps(self.report))
         import contextlib, io
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):

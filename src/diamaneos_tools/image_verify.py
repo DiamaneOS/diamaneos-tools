@@ -1361,6 +1361,36 @@ GENERIC = [
 ]
 
 
+# The checks every report has, whatever the variant: device rules depend on it.
+REQUIRED_CHECKS = ('sums',) + tuple(check_id for check_id, _, _ in GENERIC)
+
+
+def report_problem(report, build_id: str, sums_sha256: str) -> str:
+    """Why a verify report does not show that this image set passed, or ''.
+
+    Every listed check passed, the generic checks are all there once, and the
+    totals and status agree: an empty or partial report passes nothing."""
+    checks = report.get('checks') if isinstance(report, dict) else None
+    if not isinstance(checks, list) or not all(isinstance(c, dict) for c in checks):
+        return 'the verification report lists no checks'
+    failed = [str(c.get('id')) for c in checks if c.get('status') != 'PASS']
+    if failed:
+        return 'verification failed (' + ', '.join(failed[:20]) + ')'
+    if report.get('schema_version') != 1:
+        return 'the verification report has an unknown format'
+    if report.get('build_id') != build_id or report.get('sums_sha256') != sums_sha256:
+        return 'the verification report belongs to another image set'
+    ids = [c.get('id') for c in checks]
+    missing = [i for i in REQUIRED_CHECKS if i not in ids]
+    if missing:
+        return 'the verification report lacks checks: ' + ', '.join(missing)
+    if len(ids) != len(set(ids)):
+        return 'the verification report lists a check twice'
+    if report.get('status') != 'PASS' or report.get('checked') != len(checks) or report.get('failed') != 0:
+        return 'the verification report does not say that all its checks passed'
+    return ''
+
+
 def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: Path | None,
            vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '',
            firmware_inventory: dict | None = None) -> dict:
@@ -1431,7 +1461,12 @@ def plan(ctx):
                 'report': str(state['path'].relative_to(ws.root))}
 
     def valid(previous):
-        return (ws.root / previous['outputs']['report']).is_file()
+        # The report itself, not only its file, must still show this set passed.
+        try:
+            report = json.loads((ws.root / previous['outputs']['report']).read_bytes())
+        except (OSError, ValueError):
+            return False
+        return not report_problem(report, package['outputs']['build_id'], package['outputs']['sums_sha256'])
 
     return StepPlan('verify', inputs, [Action('Check the exported image set', func=run)], outputs, valid,
                     waiting_for=None if package else 'package')

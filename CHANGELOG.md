@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `flash-steps` and the verify cache accept only a complete passing report bound
+  to the image set (every generic check present once and PASS, totals
+  consistent).
 - `build` refuses a checkout where a project pinned to a commit in the manifest
   is at another commit (a local commit no longer passes as the manifest's
   source).

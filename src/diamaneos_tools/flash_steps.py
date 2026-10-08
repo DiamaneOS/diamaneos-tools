@@ -24,7 +24,8 @@ import textwrap
 
 from . import build_workspace as bw
 from . import firmware as fw
-from .image_package import RECORD, check_sums
+from .image_package import RECORD, SUMS, check_sums
+from .image_verify import report_problem
 
 # The bootloader values flash-steps reads from "fastboot getvar all".
 PHONE_KEYS = ('product', 'unlocked', 'is-userspace', 'version-bootloader', 'version-baseband')
@@ -182,11 +183,11 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
           firmware: str = 'auto') -> list[str]:
     if record.get('release') is not False or record.get('signing') != 'public-test-keys':
         raise FlashError('flash-steps only prints commands for test builds')
-    failed = [c['id'] for c in (report or {}).get('checks', []) if c['status'] != 'PASS']
     if report is None:
         raise FlashError('this image set has not been verified; run "diamaneos build verify" first')
-    if failed:
-        raise FlashError('verification failed (' + ', '.join(failed) + '); do not flash this build')
+    problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS))
+    if problem:
+        raise FlashError(problem + '; do not flash this build (run "diamaneos build verify" again)')
     if firmware not in MODES:
         raise FlashError('unknown firmware mode ' + firmware)
     carried = record.get('firmware')

@@ -1564,6 +1564,26 @@ class VintfAndJdkTests(unittest.TestCase):
         self.assertNotEqual(subject.vintf_declarations(self.STOCK),
                             subject.vintf_declarations(self.STOCK.replace(b'<version>1</version>', b'<version>2</version>')))
 
+    def test_a_verify_step_is_current_only_while_its_report_shows_a_pass(self):
+        from tests.build.test_image_package import fixture_workspace, run_plan
+        from diamaneos_tools import image_package
+        with tempfile.TemporaryDirectory() as temp:
+            ctx = fixture_workspace(Path(temp))
+            package = run_plan(ctx, image_package.plan(ctx))
+            ctx.workspace.write_state('package', {'status': 'PASS', 'inputs_sha256': 'p', 'outputs': package})
+            checks = [{'id': check, 'status': 'PASS'} for check in subject.REQUIRED_CHECKS]
+            report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
+                      'status': 'PASS', 'checked': len(checks), 'failed': 0, 'checks': checks}
+            path = ctx.workspace.images / (package['build_id'] + '.verify.json')
+            previous = {'outputs': {'report': str(path.relative_to(ctx.workspace.root))}}
+            plan = subject.plan(ctx)
+            path.write_text(json.dumps(report))
+            self.assertTrue(plan.valid(previous))
+            path.write_text(json.dumps(dict(report, status='FAIL', checks=[], checked=0)))
+            self.assertFalse(plan.valid(previous))
+            path.write_text('not json')
+            self.assertFalse(plan.valid(previous))
+
     def test_newest_jdk_is_chosen_numerically(self):
         with tempfile.TemporaryDirectory() as temp:
             src = Path(temp)
