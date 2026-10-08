@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `signing verify` no longer passes one signed dummy record for every role:
+  fixed namespaces, a separate factory proof, an artifact per proof, and
+  `artifact_signatures_verified: false` in its output (SIGNING.md).
 - `fonts check` rejects weights whose digits lie outside the Basic Multilingual
   Plane, which Android cannot parse.
 - `build verify` compares each kernel module byte for byte with the kernel
