@@ -16,6 +16,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-07
 
+- Radio isolation reviewed: own reserved memory per radio core and SMMU on the shared data paths (device tree and the running phone); the cores' own access limits are in closed firmware and cannot be checked from Android.
 - IPsec keys redacted in XFRM state dumps again, as on GrapheneOS, implemented, not yet built.
 - eUICC card ID redacted in the eSIM card error logs, implemented, not yet built.
 - Fairphone's own AVB keys in 16.111.0 are not AOSP's public test keys.
