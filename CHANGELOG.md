@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `build verify` compares each kernel module byte for byte with the kernel
+  build's copy instead of checking only names, load lists and the signature
+  trailer.
 - `build verify` checks every file the vendor generation's recipe selects; a
   missing file or an empty selection fails.
 - Every `build` command checks the environment's project input hashes and that

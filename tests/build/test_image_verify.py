@@ -1204,9 +1204,20 @@ class GenericCheckTests(unittest.TestCase):
                    'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\n'}
         packaging = {'denied_modules': [{'modules': ['can.ko'], 'reason': 'no CAN'}],
                      'partitions': {'vendor_dlkm': ['a.ko']}, 'load_lists': {}}
+        (kernel / 'modules').mkdir()
+        for name in ('a.ko', 's.ko', 'r.ko', 'can.ko'):
+            (kernel / 'modules' / name).write_bytes(signed)
         v = self.harness(members)
         v.kernel_dir, v.packaging = kernel, packaging
         self.assertEqual((True, ''), subject.check_modules(v))
+        # Other bytes with an intact signature trailer, or no prebuilt to compare with, fail.
+        (kernel / 'modules/r.ko').write_bytes(b'other' + subject.MODULE_SIGNATURE)
+        ok, detail = subject.check_modules(v)
+        self.assertEqual((False, '1 modules in VENDOR_BOOT/RAMDISK/lib/modules/ differ from the kernel prebuilts: r.ko'),
+                         (ok, detail))
+        (kernel / 'modules/r.ko').unlink()
+        self.assertIn('differ from the kernel prebuilts: r.ko', subject.check_modules(v)[1])
+        (kernel / 'modules/r.ko').write_bytes(signed)
         members['VENDOR_DLKM/lib/modules/can.ko'] = signed
         members['SYSTEM_DLKM/lib/modules/s.ko'] = b'unsigned'
         v = self.harness(members)
@@ -1224,6 +1235,9 @@ class GenericCheckTests(unittest.TestCase):
             'BOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko b-x.ko c.ko d.ko\n')
         signed = b'module' + subject.MODULE_SIGNATURE
         base = {f'VENDOR_DLKM/lib/modules/{n}': signed for n in ('a.ko', 'b-x.ko', 'c.ko', 'd.ko')}
+        (kernel / 'modules').mkdir()
+        for name in ('a.ko', 'b-x.ko', 'c.ko', 'd.ko'):
+            (kernel / 'modules' / name).write_bytes(signed)
         base.update({'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'',
                      'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'',
                      'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b'',
