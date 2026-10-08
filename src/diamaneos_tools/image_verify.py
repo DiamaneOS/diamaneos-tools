@@ -1090,6 +1090,17 @@ def check_modules(v):
             if name.startswith(prefix) and name.endswith('.ko') and not v.tf.read(name).endswith(MODULE_SIGNATURE):
                 problems.append('unsigned module ' + name)
                 break
+        # The build copies modules unstripped (BOARD_DO_NOT_STRIP_*), so each
+        # one is byte for byte the kernel prebuilts' file.
+        differ = []
+        for name in v.tf.names:
+            if name.startswith(prefix) and name.endswith('.ko'):
+                source = v.kernel_dir / 'modules' / PurePosixPath(name).name
+                if source.is_symlink() or not source.is_file() or v.tf.read(name) != source.read_bytes():
+                    differ.append(PurePosixPath(name).name)
+        if differ:
+            problems.append(f'{len(differ)} modules in {prefix} differ from the kernel prebuilts: '
+                            + ', '.join(differ[:5]))
         for load in ('modules.load', 'modules.load.recovery'):
             path = prefix + load
             if path in v.tf.infos and {module_key(l) for l in lines_of(v.tf.read(path)) if l.strip()} & denied:
