@@ -650,9 +650,9 @@ entry point), the protections in current builds, what remains, and the status.
   network-protocol modules and socket families, and the DSP remote-call driver
   (named groups only).
 - **Protection:** GrapheneOS kernel hardening configuration merged into the
-  vendor kernel; lockdown (integrity: user space cannot modify the running
-  kernel; the kernel policy also requires kcore, KGDB, kexec and hibernation
-  off, which would read or replace kernel memory); SELinux socket and device
+  vendor kernel; lockdown at confidentiality level, as on GrapheneOS (user
+  space can neither modify nor read the running kernel; the kernel policy also
+  requires kcore, KGDB, kexec and hibernation off); SELinux socket and device
   restrictions; modules reduced to product
   use (since the 2026-09-27 build no protocol modules without product use: CAN,
   802.15.4/6LoWPAN, the kernel NFC socket family, PPTP/L2TP, the in-kernel
@@ -670,20 +670,18 @@ entry point), the protections in current builds, what remains, and the status.
     user-installed or privileged app reaches it (sockets only for two radio
     daemons, configuration only for system components with the network-admin
     capability, including the network stack module).
-  - Integrity lockdown does not hide kernel memory from privileged processes
-    (confidentiality did, but stopped Android's per-app CPU time accounting and
-    the memory-event OOM listener). With KPROBES on, a process that may write
-    tracefs's kprobe_events can place kprobes that read kernel memory: on user
-    builds SELinux lets only init write it; on userdebug builds the adb root
-    shell (permissive) and the tracing tools' domains can, the adb shell even
-    without root. BPF programs may read kernel memory, but only bpfloader loads
-    them. XFRM state dumps, which SELinux allows only netd, system_server,
-    the network stack, netutils_wrapper, dumpstate and Qualcomm's nicmd, show
-    IPsec keys as zeros: the kernel redacts them always, as confidentiality
-    lockdown does on GrapheneOS (implemented, not yet built). nicmd needs the
-    dump for Wi-Fi calling: the modem negotiates the tunnel, nicmd installs
-    its IPsec states over Wi-Fi and, at teardown or rekey, dumps every state
-    to find and delete its own by SPI.
+  - Confidentiality lockdown also empties tracefs (no Perfetto or atrace
+    system tracing) and refuses kernel-memory reads by BPF programs, so
+    Android's per-app CPU time accounting (per-app CPU use in Battery usage)
+    and lmkd's memory-event OOM listener do not start, as on GrapheneOS's
+    Pixels; lmkd still kills by memory pressure. XFRM state dumps, which
+    SELinux allows only netd, system_server, the network stack,
+    netutils_wrapper, dumpstate and Qualcomm's nicmd, show IPsec keys as zeros:
+    lockdown redacts them, and both kernels also redact them always
+    (implemented, not yet built). nicmd needs the dump for Wi-Fi calling: the
+    modem negotiates the tunnel, nicmd installs its IPsec states over Wi-Fi
+    and, at teardown or rekey, dumps every state to find and delete its own by
+    SPI.
   - Every app reaches the kernel's userfaultfd code (ART's garbage collector
     needs it), but apps are forced into user-mode-only mode
     (`vm.unprivileged_userfaultfd=0`, `/dev/userfaultfd` root-only and
@@ -695,8 +693,9 @@ entry point), the protections in current builds, what remains, and the status.
   matches policy, no shipped module depends on a removed one; phone check
   2026-09-27: no removed module loaded, no symbol errors, configuration values
   as specified); debuggable builds run enforcing since the 2026-09-26 build.
-  Observed (2026-10-05 build): lockdown at integrity, tracing available,
-  per-app CPU time and lmkd's memory events running. Unverified: kernel build (FP6-041),
+  Lockdown at confidentiality again: implemented, not yet built (builds before
+  2026-10-05 ran it, tracing empty; the 2026-10-05 build and later ran
+  integrity). Unverified: kernel build (FP6-041),
   debug exposure and component removal (FP6-060, FP6-061), enforcing runs (no
   owning task yet).
 
@@ -1690,10 +1689,10 @@ Decisions that define current behaviour:
   CONFIG_USERFAULTFD for ART's garbage collector, as GKI, Pixel and GrapheneOS
   do, with the user-mode-only restriction. 2026-09-27: KPROBES stays on, since
   the USB controller glue implements its controller hooks with kretprobes.
-- **Lockdown level (2026-10-05):** integrity instead of confidentiality, so
-  Android's per-app CPU time accounting and lmkd's memory-event listener work;
-  with KPROBES on, kprobes from user space are then limited by SELinux (only
-  init on user builds), not by lockdown.
+- **Lockdown level (2026-10-08):** confidentiality, as GrapheneOS ships it
+  without exceptions; a GrapheneOS Pixel shows the same costs (empty tracefs,
+  no lmkd memory events, no BPF per-app CPU times). Replaces the 2026-10-05
+  choice of integrity, which let privileged processes read kernel memory.
 - **debugfs (2026-09-27):** stays as in the 2026-09-26 build, built in and
   mountable: user builds never mount it, debuggable builds until boot completes,
   SELinux governs access. In this kernel, turning mounts off also removes the

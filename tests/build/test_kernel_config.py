@@ -102,30 +102,30 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_runtime_features_and_lockdown_stay_on(self):
         # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
-        # /data (unicode, f2fs) and integrity lockdown, which keeps user space from
-        # modifying the running kernel.
+        # /data (unicode, f2fs) and confidentiality lockdown, which keeps user space
+        # from modifying or reading the running kernel.
         data = self.config(False)
         for symbol in ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
-                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'):
+                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'):
             with self.subTest(symbol=symbol):
                 changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
                 result = kernel_config.check(changed, self.policy, 'development')
                 self.assertEqual([r['symbol'] for r in result['failures']], [symbol])
 
-    def test_lockdown_level_is_integrity(self):
-        # Confidentiality lockdown empties tracefs and blocks BPF kernel reads, so
-        # per-app CPU time and lmkd's memory events stop; no lockdown lets user space
-        # modify the running kernel. Either choice fails the check.
+    def test_lockdown_level_is_confidentiality(self):
+        # As on GrapheneOS: integrity lockdown lets privileged processes read kernel
+        # memory (kprobes, BPF, XFRM secrets), no lockdown lets them modify it. Either
+        # choice fails the check.
         data = self.config(False)
-        integrity = b'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y'
-        self.assertIn(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set', data)
-        without = data.replace(integrity, b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set')
-        confidentiality = without.replace(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set',
-                                          b'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY=y')
+        confidentiality = b'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY=y'
+        self.assertIn(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set', data)
+        without = data.replace(confidentiality, b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set')
+        integrity = without.replace(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set',
+                                    b'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y')
         none = without + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y'
-        for changed, failing in ((confidentiality, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY',
-                                                    'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY']),
-                                 (none, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'])):
+        for changed, failing in ((integrity, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY',
+                                              'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY']),
+                                 (none, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'])):
             for profile in ('development', 'production'):
                 with self.subTest(failing=failing, profile=profile):
                     result = kernel_config.check(changed, self.policy, profile)
@@ -133,9 +133,9 @@ class KernelConfigTests(unittest.TestCase):
                     self.assertEqual([r['symbol'] for r in result['failures']
                                       if r['symbol'].startswith('CONFIG_LOCK_DOWN_')], failing)
 
-    def test_integrity_lockdown_companions_stay_off(self):
-        # Integrity lockdown does not hide kernel memory from privileged processes;
-        # these interfaces would read or replace it, so each must stay off.
+    def test_lockdown_companions_stay_off(self):
+        # These interfaces would read or replace kernel memory. Lockdown refuses them
+        # at run time; leaving them out of the build keeps them away from a bypass.
         data = self.config(False)
         for symbol in ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE', 'CONFIG_HIBERNATION'):
             self.assertIn(f'# {symbol} is not set'.encode(), data)
