@@ -867,6 +867,18 @@ def make_context(args, echo=print) -> Context:
     build.validate_config(environment)
     if 'manifest' not in environment:
         raise UsageError('the build environment names no source manifest')
+    # What the environment declares about its inputs must be what the tools
+    # use: the project input files and the stock release the vendor step takes.
+    try:
+        build.declared_identity(environment, environment_raw, ROOT)
+    except build.BuildError as error:
+        raise UsageError(f'{environment_path.name}: {error}') from None
+    recipe, _ = bw.load_config('fp6-stock-image-recipe.json')
+    device = environment['device_inputs']
+    if (device['selected_stock_build'], device['selected_stock_factory_sha256']) != \
+            (recipe['stock_build'], recipe['archive_sha256']):
+        raise UsageError(f'{environment_path.name} selects stock {device["selected_stock_build"]}, but the vendor '
+                         f'step uses {recipe["stock_build"]} (config/fp6-stock-image-recipe.json)')
     config, config_raw = bw.load_config('fp6-build.json')
     declared = environment['workspace']
     source, output = Path(declared['source_subdirectory']), Path(declared['output_subdirectory'])

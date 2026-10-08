@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import copy
 from dataclasses import replace
 import hashlib
 import io
@@ -339,6 +340,22 @@ class PlanTests(unittest.TestCase):
                 argv = ['all', '--dry-run', '--workspace', str(ctx.workspace.root)]
                 self.assertEqual(0, steps.main(argv + (['--environment', path] if path else []), self.lines.append))
                 self.assertIn('sync: to run' if follows else 'sync: up to date', self.lines)
+
+    def test_an_environment_must_declare_the_inputs_the_tools_use(self):
+        environment = json.loads((steps.ROOT / 'config/build-environment-fp6.json').read_text())
+        changes = {'stock build': lambda e: e['device_inputs'].update(selected_stock_build='FP6.WRONG.0'),
+                   'factory hash': lambda e: e['device_inputs'].update(selected_stock_factory_sha256='0' * 64),
+                   'project input': lambda e: e['project_inputs'][0].update(sha256='0' * 64)}
+        for name, change in changes.items():
+            with self.subTest(name):
+                changed = copy.deepcopy(environment)
+                change(changed)
+                path = self.root / f'{name}.json'
+                path.write_text(json.dumps(changed))
+                with self.assertRaises(steps.UsageError):
+                    steps.make_context(argparse.Namespace(
+                        workspace=str(self.root / 'ws'), environment=str(path), variant=None, jobs=None,
+                        allow_network=False, factory_zip=None, shallow=False), lambda *a: None)
 
     def test_environment_without_a_manifest_is_refused(self):
         environment = json.loads((ROOT / 'config/build-environment.json').read_text())
