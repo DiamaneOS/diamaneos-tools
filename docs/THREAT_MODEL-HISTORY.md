@@ -12,6 +12,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-08
 
+- Fixes from a code review, implemented, not yet built: the fingerprint HAL frees a failed death link's cookie once, keeps closed sessions away from the module, never removes every enrolment for ID 0 and rejects an overflowing parcel size; the modem's file service keeps a file when a write request is rejected; the IMEI tool accepts the IMEI service only from the modem's node; the Updater recognises public test keys by their key, not their certificate; Recents' Stop refuses taps while another app's window covers part of the screen; the eSIM manager warns before a switch deletes the current profile.
 - Vendor kernel fixes from a code review, implemented, not yet built: an audio DSP restart can no longer free the SLIMbus TX buffers under a message in flight (use after free); the SPI controller completes full-duplex DMA transfers whose halves finish in separate interrupts; the WCD9378 codec probe survives a failed debug allocation.
 - Build records name the tools that built the images and those that packaged them; a set counts as reproducible only when both are clean and the same.
 - Camera seccomp gate: image verification refuses an official build whose camera provider filter only logs; development builds keep logging until the camera profile is collected. Implemented, not yet built.
