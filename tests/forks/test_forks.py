@@ -86,6 +86,35 @@ class ForkTests(unittest.TestCase):
         self.assertNotIn('update/', run(self.fork_repo, 'branch', '--list'))
         self.assertEqual(run(self.fork_repo, 'worktree', 'list').count('\n'), 0)
 
+    def test_rewritten_upstream_replays_only_patches_after_the_pin(self):
+        # Upstream release v1 carries its own patch; the fork adds ours on v1.
+        run(self.upstream, 'checkout', '-q', 'odm/rc')
+        commit(self.upstream, 'up.txt', 'upstream patch v1\n', 'upstream own patch')
+        run(self.upstream, 'tag', 'v1')
+        run(self.fork_repo, 'fetch', '-q', str(self.upstream), 'refs/tags/v1')
+        run(self.fork_repo, 'reset', '-q', '--hard', 'FETCH_HEAD')
+        commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        # v2 rewrites history: a new base with the upstream patch applied again, changed.
+        run(self.upstream, 'checkout', '-q', '--orphan', 'rewritten', self.first)
+        commit(self.upstream, 'b.txt', 'two\n', 'new base')
+        commit(self.upstream, 'up.txt', 'upstream patch v2\n', 'upstream own patch')
+        run(self.upstream, 'tag', 'v2')
+        self.fork['upstream'] = {'url': str(self.upstream), 'ref': 'v1', 'kind': 'tag'}
+        result = forks.update(self.root, self.fork, ref='v2', today=datetime.date(2026, 10, 8))
+        self.assertEqual((result['state'], result['rebased_patches'], result['commits']), ('prepared', 1, 1))
+        self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'upstream patch v2')
+
+    def test_fixup_commits_fold_into_their_feature(self):
+        commit(self.fork_repo, 'feature.txt', 'one\n', 'Add the feature')
+        commit(self.fork_repo, 'other.txt', 'x\n', 'Another change')
+        commit(self.fork_repo, 'feature.txt', 'one fixed\n', 'fixup! Add the feature')
+        self.advance_upstream()
+        result = forks.update(self.root, self.fork, today=datetime.date(2026, 10, 8))
+        self.assertEqual((result['rebased_patches'], result['commits']), (3, 2))
+        log = run(self.fork_repo, 'log', '--format=%s', result['candidate'] + '~2..' + result['candidate'])
+        self.assertEqual(log.splitlines(), ['Another change', 'Add the feature'])
+        self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':feature.txt'), 'one fixed')
+
     def test_commit_reference_must_match(self):
         self.fork['upstream'] = {'url': str(self.upstream), 'ref': self.first, 'kind': 'commit'}
         self.assertEqual(forks.fetch(self.fork_repo, self.fork), self.first)

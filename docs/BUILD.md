@@ -403,8 +403,20 @@ project lists the releases a commit contains.
 ```sh
 bin/diamaneos forks check           # remote refs only; exit 1 when something moved
 bin/diamaneos forks status --fetch  # commits behind and patches carried, per fork
-bin/diamaneos forks update <id>     # rebase our patches into update/<date>-<commit>
+bin/diamaneos forks update <id> --ref <tag>   # our patches on the new tag, as update/<date>-<commit>
 ```
+
+`update` works like GrapheneOS's own rebases: the new upstream release is the
+base and our commits are replayed on it.
+- **Our patches** are the commits after the tag or commit the fork is pinned to,
+  not after the merge-base. Upstreams that rewrite their history between
+  releases (GrapheneOS's kernel, rebased onto each LTS update) would otherwise
+  make their own older commits look like ours.
+- **Merges are dropped.** Primary branches take commits directly, so history
+  stays linear and every commit applies on its parent.
+- **`fixup!` commits fold** into the commit whose title they repeat
+  (`fixup! <title>`, git's autosquash), so a feature stays one commit across
+  releases. Name follow-up fixes that way.
 
 `check` downloads no history. It reads each remote's branch and tag names and
 answers "is this commit already ours?" locally, without fetching missing
