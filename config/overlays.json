@@ -83,7 +83,8 @@
         "network_location_enabled_grapheneos_apple_proxy": "rebrand: the proxy choice names DiamaneOS, whose relay to Apple's location service it now uses (NetworkLocation fork); otherwise unchanged",
         "remote_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose attestation key provisioning proxy it now uses (frameworks/base fork); otherwise unchanged",
         "widevine_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose Widevine provisioning proxy it now uses (frameworks/base fork); otherwise unchanged",
-        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it now uses (Connectivity fork); otherwise unchanged"
+        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it now uses (Connectivity fork); otherwise unchanged",
+        "conn_checks_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose connectivity check servers it now uses (NetworkStack, DnsResolver and Connectivity forks); otherwise unchanged"
       },
       "android": {
         "deprecated_abi_message_grapheneos": "rebrand: the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
