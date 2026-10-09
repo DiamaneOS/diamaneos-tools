@@ -460,9 +460,12 @@ entry point), the protections in current builds, what remains, and the status.
   are acknowledged without display (3GPP rules); SMS are parsed in modem and
   framework; apps given carrier privileges by the SIM can change carrier
   configuration.
-- **Status:** Accepted limitation (inherited). Unverified: telephony bring-up
-  (FP6-044); broadcast alert delivery (the radio daemon implements the channel
-  setup and delivery calls; no alert received yet).
+- **Status:** Accepted limitation (inherited). Observed gap: after the phone
+  starts in airplane mode with Wi-Fi calling, no alert channels are set until
+  the next reboot; the setup is refused while the radio is off and not
+  repeated when airplane mode ends. On a normal start both SIMs accept the
+  channels. Unverified: telephony bring-up (FP6-044); broadcast alert delivery
+  (no alert received yet).
 
 #### Application processor and user data
 
