@@ -1231,9 +1231,9 @@
       "replacement_host": "components-update.diamaneos.de",
       "consumer": "Vanadium Chromium component updater",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Chromium component update discovery, not browser APK updates",
+      "purpose": "Unused (project decision 2026-10-09). DiamaneOS mirrors GrapheneOS-signed Vanadium; its component discovery and downloads keep the publisher endpoints. The reserved DiamaneOS component hosts are disabled.",
       "protocol": "Omaha component check and CRX component delivery. The observed patch rewrites the download hostname in UrlFetcherDownloader::DoStartDownload.",
-      "protocol_status": "blocked",
+      "protocol_status": "unused",
       "path_method": "POST /service/update2 or /service/update2/json",
       "request_fields": [
         "Omaha XML/JSON request with component IDs/versions and client platform metadata; exact accepted body awaits COMPONENT-BIND."
@@ -1242,40 +1242,26 @@
         "Omaha update response naming component package URLs/hashes and update checks; no APK catalog fields."
       ],
       "verification_root": "Preserve Chromium component verification/CUP/CRX trust. Exact component verifier keys and supported Android configuration are activation blockers; upstream APK signing cannot be replaced by editing a signed APK.",
-      "timeout_retry": "Server check 30 s or download 600 s total, 5 s connect, 15 s idle, one attempt, no redirects. Native timeout/retry and full wire fields await pinned Chromium/APK binding.",
-      "cache_freshness": "Metadata is live, no cached successful checks. Download objects staged by scheduler within 2 GiB store; verified bytes immutable, selectors fresh <=24 h. Requests cannot trigger upstream acquisition.",
-      "failure_fallback": "Upstream check outage: HTTP 503; installed components remain subject to native validity. Download miss: 404, never proxy-on-miss. Corrupt/unverified or stale activation data: do not promote, preserve prior verified set; no verifier bypass.",
-      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU TLS termination exposes outer component metadata. Upstream Google sees server IP and protocol metadata on allowed checks; acquisition sees component paths. No forwarding client IP/cookies.",
-      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "timeout_retry": "No DiamaneOS component service or retry. Native Chromium timeout/retry behaviour stays unchanged.",
+      "cache_freshness": "No project component cache or acquisition. Native component freshness remains the unchanged signed browser publisher policy.",
+      "failure_fallback": "No DiamaneOS service is activated. The mirrored signed browser keeps its native publisher endpoints and verification; no DNS redirect, TLS interception or APK rewrite.",
+      "exposed_data": "No component requests are intentionally handled by DiamaneOS. The unchanged signed browser contacts its publisher component endpoints directly; the corresponding upstream policies apply.",
+      "retention": "No project component cache or request logs; retained contract fields are historical protocol reference only.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-105",
-      "status": "blocked-contract",
+      "status": "unused",
       "source_refs": [
         "vanadium-components",
         "network-server"
       ],
       "limits_profile": "component-meta",
-      "upstreams": [
-        {
-          "host": "update.googleapis.com",
-          "operator": "Google",
-          "jurisdiction": "US",
-          "mode": "bounded-proxy",
-          "data": "Component update protocol body; server IP only."
-        }
-      ],
-      "implementation_blockers": [
-        {
-          "id": "COMPONENT-BIND",
-          "owner_task": "FP6-105",
-          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the responsible maintainer; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
-        }
-      ],
+      "upstreams": [],
+      "implementation_blockers": [],
       "example": {
         "kind": "schematic-not-conformance",
         "request": "POST /service/update2 or /service/update2/json",
         "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
-        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+        "expected": "Unused historical protocol reference. No project service, activation gate or native success fixture is required while the signed browser mirroring decision remains in force."
       }
     },
     {
@@ -1284,9 +1270,9 @@
       "replacement_host": "components-download.diamaneos.de",
       "consumer": "Vanadium Chromium component updater",
       "consumer_version": "Exact revisions, paths and symbols in source_refs; research-pin app sources are not accepted shipping APK bindings.",
-      "purpose": "Chromium CRX/delta component bytes, not browser APKs",
+      "purpose": "Unused (project decision 2026-10-09). DiamaneOS mirrors GrapheneOS-signed Vanadium; its component discovery and downloads keep the publisher endpoints. The reserved DiamaneOS component hosts are disabled.",
       "protocol": "Omaha component check and CRX component delivery. The observed patch rewrites the download hostname in UrlFetcherDownloader::DoStartDownload.",
-      "protocol_status": "blocked",
+      "protocol_status": "unused",
       "path_method": "GET /{chrome_component|chromewebstore|diffgen-puffin|release2}/{path}; GET /dl/{path}; GET /edgedl/{path}",
       "request_fields": [
         "Allowlisted component object path; preserve only documented range/conditional headers."
@@ -1295,54 +1281,26 @@
         "Unmodified CRX/delta byte stream, at most 256 MiB project ceiling."
       ],
       "verification_root": "Preserve Chromium component verification/CUP/CRX trust. Exact component verifier keys and supported Android configuration are activation blockers; upstream APK signing cannot be replaced by editing a signed APK.",
-      "timeout_retry": "Server check 30 s or download 600 s total, 5 s connect, 15 s idle, one attempt, no redirects. Native timeout/retry and full wire fields await pinned Chromium/APK binding.",
-      "cache_freshness": "Metadata is live, no cached successful checks. Download objects staged by scheduler within 2 GiB store; verified bytes immutable, selectors fresh <=24 h. Requests cannot trigger upstream acquisition.",
-      "failure_fallback": "Upstream check outage: HTTP 503; installed components remain subject to native validity. Download miss: 404, never proxy-on-miss. Corrupt/unverified or stale activation data: do not promote, preserve prior verified set; no verifier bypass.",
-      "exposed_data": "IP and requested path are visible to the EU service; no project user account is required. EU TLS termination exposes outer component metadata. Upstream Google sees server IP and protocol metadata on allowed checks; acquisition sees component paths. No forwarding client IP/cookies.",
-      "retention": "No access/body/query/header logs. Aggregate counters only: 24 hours, 10 MiB cap per service. Providers and non-project upstreams have their own linked policies; zero project logs does not assert zero upstream retention.",
+      "timeout_retry": "No DiamaneOS component service or retry. Native Chromium timeout/retry behaviour stays unchanged.",
+      "cache_freshness": "No project component cache or acquisition. Native component freshness remains the unchanged signed browser publisher policy.",
+      "failure_fallback": "No DiamaneOS service is activated. The mirrored signed browser keeps its native publisher endpoints and verification; no DNS redirect, TLS interception or APK rewrite.",
+      "exposed_data": "No component requests are intentionally handled by DiamaneOS. The unchanged signed browser contacts its publisher component endpoints directly; the corresponding upstream policies apply.",
+      "retention": "No project component cache or request logs; retained contract fields are historical protocol reference only.",
       "jurisdiction": "eu-proxy-to-non-eu-upstream",
       "owner_task": "FP6-105",
-      "status": "blocked-contract",
+      "status": "unused",
       "source_refs": [
         "vanadium-components",
         "network-server"
       ],
       "limits_profile": "component-bytes",
-      "upstreams": [
-        {
-          "host": "dl.google.com",
-          "operator": "Google",
-          "jurisdiction": "US",
-          "mode": "scheduled-acquisition",
-          "data": "Allowlisted CRX/delta paths; server IP."
-        },
-        {
-          "host": "www.google.com",
-          "operator": "Google",
-          "jurisdiction": "US",
-          "mode": "scheduled-acquisition",
-          "data": "Only /dl/ component paths; server IP."
-        },
-        {
-          "host": "edgedl.me.gvt1.com",
-          "operator": "Google",
-          "jurisdiction": "US",
-          "mode": "scheduled-acquisition",
-          "data": "Only /edgedl/ mapped component paths; server IP."
-        }
-      ],
-      "implementation_blockers": [
-        {
-          "id": "COMPONENT-BIND",
-          "owner_task": "FP6-105",
-          "description": "Bind full Chromium wire schema, CUP/CRX verifier and valid fixtures to the browser APK delivery accepted APK. Prove a supported way to repoint both component hosts while retaining unmodified signed APKs; the observed hardcoded download hostname means APK mirroring alone does not do this. If no supported control exists, escalate the conflict to the responsible maintainer; do not silently rebuild, intercept TLS or leave the inherited endpoints enabled."
-        }
-      ],
+      "upstreams": [],
+      "implementation_blockers": [],
       "example": {
         "kind": "schematic-not-conformance",
         "request": "GET /{chrome_component|chromewebstore|diffgen-puffin|release2}/{path}; GET /dl/{path}; GET /edgedl/{path}",
         "response": "Native verified format described in response_fields; no synthetic cryptographic success fixture is claimed.",
-        "expected": "Owning implementation task must supply a pinned native valid fixture plus corrupt, oversized, stale and outage cases before activation."
+        "expected": "Unused historical protocol reference. No project service, activation gate or native success fixture is required while the signed browser mirroring decision remains in force."
       }
     },
     {

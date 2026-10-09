@@ -126,8 +126,23 @@ class ContractsTest(unittest.TestCase):
         self.inv['endpoints'][0]['protocol_status']='specified'
         self.bad()
 
+    def test_unused_endpoint_cannot_gain_a_relay_or_host(self):
+        unused = next(e for e in self.inv['endpoints'] if e['status']=='unused')
+        hop = next(e['upstreams'][0] for e in self.inv['endpoints'] if e['upstreams'])
+        unused['upstreams']=[copy.deepcopy(hop)]
+        self.bad()
+        self.setUp()
+        unused = next(e for e in self.inv['endpoints'] if e['status']=='unused')
+        self.services['services'].append({'id':unused['id'],'endpoints':[unused['id']],
+            'host':'release-primary','mirror':None,'owner_task':unused['owner_task'],
+            'status':'planned','activation':'blocked-pending-implementation',
+            'credentials':'none-read-only-serving'})
+        self.bad_services()
+
     def test_shared_blocker_cannot_have_two_owners(self):
-        self.inv['endpoints'][3]['implementation_blockers'][0]['owner_task']='FP6-111'
+        original = copy.deepcopy(self.inv['endpoints'][0]['implementation_blockers'][0])
+        conflicting = dict(original, owner_task='FP6-111')
+        self.inv['endpoints'][1]['implementation_blockers']=[conflicting]
         self.bad()
 
     def test_unapproved_domain_and_jurisdiction(self):

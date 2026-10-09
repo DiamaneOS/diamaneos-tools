@@ -194,7 +194,8 @@
         "protocol_status": {
           "enum": [
             "specified",
-            "blocked"
+            "blocked",
+            "unused"
           ],
           "type": "string",
           "minLength": 1
@@ -242,7 +243,8 @@
         "status": {
           "enum": [
             "specified",
-            "blocked-contract"
+            "blocked-contract",
+            "unused"
           ],
           "type": "string",
           "minLength": 1
@@ -350,13 +352,44 @@
                 "minItems": 1
               }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol_status": {
+                "const": "specified"
+              }
+            }
           },
-          "else": {
+          "then": {
             "properties": {
               "status": {
                 "const": "specified"
               },
               "implementation_blockers": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol_status": {
+                "const": "unused"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "unused"
+              },
+              "implementation_blockers": {
+                "maxItems": 0
+              },
+              "upstreams": {
                 "maxItems": 0
               }
             }

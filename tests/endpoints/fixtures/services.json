@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "Service placement and native acceptance gates. Public host roles contain no addresses, accounts or deployment secrets. Host setup receipts remain private; deployed transport alone does not establish device or release acceptance. The geocoder is a direct opt-in and has no hosted service.",
+  "note": "Service placement and native acceptance gates. Public host roles contain no addresses, accounts or deployment secrets. Host setup receipts remain private; deployed transport alone does not establish device or release acceptance. The geocoder is a direct opt-in and has no hosted service. Browser component endpoints are unused and have no project host.",
   "hosts": [
     {
       "id": "release-primary",
@@ -69,30 +69,6 @@
       "host": "release-primary",
       "mirror": "artifact-mirror-non-eu",
       "owner_task": "FP6-110",
-      "status": "planned",
-      "activation": "blocked-pending-implementation",
-      "credentials": "none-read-only-serving"
-    },
-    {
-      "id": "browser-component-check",
-      "endpoints": [
-        "browser-component-check"
-      ],
-      "host": "release-primary",
-      "mirror": null,
-      "owner_task": "FP6-105",
-      "status": "planned",
-      "activation": "blocked-pending-implementation",
-      "credentials": "none-read-only-serving"
-    },
-    {
-      "id": "browser-component-download",
-      "endpoints": [
-        "browser-component-download"
-      ],
-      "host": "release-primary",
-      "mirror": null,
-      "owner_task": "FP6-105",
       "status": "planned",
       "activation": "blocked-pending-implementation",
       "credentials": "none-read-only-serving"

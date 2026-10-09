@@ -227,6 +227,7 @@ def validate_services(inv, services):
     hosts = {h['id']: h for h in services['hosts']}
     providers = {p['layer']: p for p in inv['providers']}
     endpoints = {e['id']: e for e in inv['endpoints']}
+    unhosted = UNHOSTED | {eid for eid, endpoint in endpoints.items() if endpoint['status'] == 'unused'}
     if Counter(h['role'] for h in hosts.values()) != Counter(['release','mirror','dns','attestation','community']):
         errors.append('exactly one release, mirror, DNS, attestation and conditional community role required')
     if len({h['credential_class'] for h in hosts.values()}) != len(hosts):
@@ -265,7 +266,7 @@ def validate_services(inv, services):
             if eid not in endpoints:
                 errors.append('service endpoint reference is missing')
                 continue
-            if eid in UNHOSTED:
+            if eid in unhosted:
                 errors.append('unhosted endpoint must not be assigned to a project host')
             if service['owner_task'] != endpoints[eid]['owner_task']:
                 errors.append('service and endpoint owner disagree')
@@ -277,7 +278,7 @@ def validate_services(inv, services):
                 errors.append('service credential class differs from its state model')
             if bool(service['mirror']) != (eid in PUBLIC_MIRRORS):
                 errors.append('endpoint mirror selection does not match reviewed static scope')
-    if Counter(assigned) != Counter(endpoints.keys() - UNHOSTED):
+    if Counter(assigned) != Counter(endpoints.keys() - unhosted):
         errors.append('each hosted endpoint must be assigned exactly once')
     return errors[:MAX_ERRORS]
 
@@ -301,7 +302,8 @@ def main(argv=None):
         return 2
     blockers = {b['id'] for e in inv['endpoints'] for b in e['implementation_blockers']}
     scope = 'inventory and explicit service selection' if args.services else 'inventory only; service integration not checked'
-    print(f'VALID design: {len(inv["endpoints"])} endpoints; {len(blockers)} owned implementation gates; {scope}.')
+    unused = sum(e["status"] == "unused" for e in inv["endpoints"])
+    print(f'VALID design: {len(inv["endpoints"])} tracked endpoints; {unused} unused; {len(blockers)} owned implementation gates; {scope}.')
     print('No service activation, native-client acceptance or deployment proof implied.')
     return 0
 
