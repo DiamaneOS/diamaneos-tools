@@ -133,6 +133,9 @@ class Context:
     tools_commit: str | None = None
     # The command started again after its sync moved the running tools.
     restarted: bool = False
+    # sync checks the checkout as it is (after a plain "repo sync") instead of
+    # running repo itself: "build vendor" on its own.
+    check_only: bool = False
     cache: dict = field(default_factory=dict)
 
     @property
@@ -345,7 +348,13 @@ def plan_sync(ctx: Context) -> StepPlan:
             ctx.echo('    moved aside: ' + ', '.join(moved))
 
     def check_manifest():
-        build.verify_repo_tool(env, ws.src)
+        try:
+            build.verify_repo_tool(env, ws.src)
+        except build.BuildError as error:
+            if not ctx.check_only:
+                raise
+            raise BuildStepError(f'{error}: the checkout needs the pinned repo tool; run "repo init '
+                                 f'--repo-rev={repo["release_tag"]}" and "repo sync" again') from None
         build.verify_manifest_repository(env, ws.src)
 
     def repo_manifest() -> bytes:
@@ -412,6 +421,7 @@ def plan_sync(ctx: Context) -> StepPlan:
         Action('Check the repo tool and manifest', func=check_manifest,
                detail='the pinned repo tool and its tag, the manifest checkout at the head of the branch'),
     ]
+    check_action = actions[-1]
     if pinned:
         actions += [
             Action('Check out the recorded manifest', func=checkout_recorded, network=True,
@@ -445,6 +455,9 @@ def plan_sync(ctx: Context) -> StepPlan:
         Action('Verify the source tree', func=verify,
                detail='every project at its resolved commit, nothing undeclared; record the resolved manifest'),
     ]
+    if ctx.check_only:
+        # After a plain "repo sync": the checks and the record of a sync, without repo.
+        actions = [check_action] + actions[-2:]
 
     def outputs():
         result = ctx.cache['sync']
@@ -924,7 +937,8 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             ctx.echo(f'{name}: up to date')
             continue
         log = ws.new_log(name)
-        ctx.echo(f'{name}: running (log: {log})')
+        doing = 'checking the checkout' if name == 'sync' and ctx.check_only else 'running'
+        ctx.echo(f'{name}: {doing} (log: {log})')
         record = {'inputs': plan.inputs, 'inputs_sha256': bw.digest(plan.inputs), 'log': str(log)}
         ws.write_state(name, dict(record, status='RUNNING'))
         ctx.cache['log'] = log
@@ -944,7 +958,8 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             raise BuildStepError(f'{name} failed: {message}\nFull log: {log}') from error
         ws.write_state(name, dict(record, status='PASS', outputs=outputs))
         ctx.echo(f'{name}: done')
-        synced_now = synced_now or name == 'sync'
+        # A sync that only checked the checkout moved nothing.
+        synced_now = synced_now or (name == 'sync' and not ctx.check_only)
 
 
 def remember_official(ws: bw.Workspace, official: bool) -> None:
@@ -1100,6 +1115,11 @@ def main(argv=None, echo=print) -> int:
         if args.from_step:
             steps = bw.STEPS[bw.STEPS.index(args.from_step):]
             force = (args.from_step,)
+        elif args.step == 'vendor' and not pinned_sync(ctx.workspace):
+            # After a plain "repo sync": check the checkout as it is and record
+            # it, as "build sync" does after its own repo sync.
+            ctx.check_only = True
+            steps = force = ('sync', 'vendor')
         elif args.step != 'all':
             force = (args.step,)
         elif ctx.pinned:

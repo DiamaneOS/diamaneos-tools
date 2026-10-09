@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `build vendor` on its own works right after a plain `repo sync`: it checks
+  the checkout as `build sync` does after its own `repo sync` (the same
+  checks, local changes named outside official builds) and records it, so
+  no separate `build sync` is needed.
 - BUILDING.md is a short step-by-step guide: `repo init` and `repo sync`,
   `build sync`, `build vendor`, `lunch` and `m`, then `build all` to package
   and check, and `flash-steps`. Host setup, sync options, resuming,

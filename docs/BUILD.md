@@ -78,7 +78,7 @@ pins one manifest commit (`manifest.revision`) does not.
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
 | `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean (local changes only outside official builds, see below), no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync; after a sync that reproduced a resolved manifest it keeps that record. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
 | `android` | Installs (or re-checks) the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash; the factory package and each firmware image against the firmware inventory; the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
@@ -100,10 +100,12 @@ pins one manifest commit (`manifest.revision`) does not.
   `build.json` (exactly what the build was made from: the manifest commit, the
   kernel prebuilts commit, the vendor inputs and more), `resolved-manifest.xml`
   with every project's commit, and `SHA256SUMS`.
-- By hand, after `build sync` and `build vendor`, the usual
-  `source build/envsetup.sh`, `lunch FP6-cur-<variant>` and `m` build Android.
-  The tools package and check only image sets from `build all`; flash only
-  those.
+- By hand, after `repo sync`, `build vendor` checks the checkout itself, so no
+  `build sync` is needed; the checkout must use the pinned `repo` tool
+  (`repo init --repo-rev=v2.65`, the environment's `repo_tool` pin). Then the
+  usual `source build/envsetup.sh`, `lunch FP6-cur-<variant>` and `m` build
+  Android. The tools package and check only image sets from `build all`;
+  flash only those.
 
 **State and resume.** Each step writes `state/<step>.json` with the digest of
 its inputs (the hashes of the configs, and only the parts of
