@@ -111,7 +111,8 @@ its inputs (the hashes of the configs, and only the parts of
 steps), its outputs and its log. `build all` skips a step whose input digest
 is unchanged and whose outputs still verify; a later step runs again only
 when an earlier step's outputs changed. Each step prints its log path when it
-starts. A second command on the same workspace fails at once
+starts, and each action a short title; the log and `--dry-run` have the full
+description and command. A second command on the same workspace fails at once
 (`.workspace.lock`). `--dry-run` prints every command and changes nothing.
 Any failure is recorded in the step's state with a plain message.
 
