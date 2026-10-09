@@ -39,8 +39,8 @@ dependencies in `requirements-dev.txt`.
   tools checkout must contain the commit the sync checked out there
   ([tools and source](#the-build-commands)).
 - **Smaller download.** Add `--depth=1` to `repo init`, use
-  `repo sync -c --no-tags -j8`, and pass `--shallow` to the first `diamaneos`
-  command. The checkout has no history, which saves roughly half of the
+  `repo sync -c --no-tags -j8`, and pass `--shallow` to the first `build sync`
+  or `build all`. The checkout has no history, which saves roughly half of the
   download and of the disk space; moving to a newer GrapheneOS release later
   downloads more. The workspace remembers the choice
   ([shallow sync](#the-build-commands)).

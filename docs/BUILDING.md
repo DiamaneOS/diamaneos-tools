@@ -1,8 +1,7 @@
 # Build DiamaneOS for the Fairphone 6
 
-These steps build a DiamaneOS test image from source and flash it. Test images
-are signed with public test keys: keep the phone's bootloader unlocked while
-one is installed.
+Build a DiamaneOS test image from source and flash it. Test images are signed
+with public test keys: keep the bootloader unlocked while one is installed.
 
 ## Requirements
 
@@ -23,55 +22,48 @@ sudo apt install git git-lfs repo python3 python3-jsonschema gnupg openssh-clien
 
 ```sh
 mkdir -p ~/diamaneos-build/src && cd ~/diamaneos-build/src
-repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17
+repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17 --repo-rev=v2.65
 repo sync -j8
 ```
 
-This downloads every project the DiamaneOS manifest selects, including the
-build tools in `tools/diamaneos`. Run the next commands from this directory.
+Downloads every project of the DiamaneOS manifest, including the build tools
+in `tools/diamaneos`, with the `repo` version they check. Stay in this directory.
 
-## 2. Check the source
-
-```sh
-tools/diamaneos/bin/diamaneos build sync
-```
-
-Syncs again with the pinned `repo` tool and checks the tree: every project at
-the commit the manifest selects, nothing else in it. Local changes are named.
-
-## 3. Add the vendor files
+## 2. Add the vendor files
 
 ```sh
 tools/diamaneos/bin/diamaneos build vendor
 ```
 
-Builds the image tools, downloads Fairphone's factory package and checks its
-SHA-256, then extracts the files DiamaneOS takes from it into
-`vendor/fairphone/FP6`.
+Checks the source (every project at the commit the manifest selects, nothing
+else in the tree; local changes are named), then takes the vendor files from
+Fairphone's factory package, checked by its SHA-256, into `vendor/fairphone/FP6`.
 
-## 4. Build
+## 3. Build
 
 ```sh
 source build/envsetup.sh
 lunch FP6-cur-userdebug
-m
+m target-files-package otatools-package
 ```
 
-The usual Android build. `userdebug` has adb and root debugging for testing;
-`FP6-cur-user` builds a `user` image.
+The usual Android build, plus what step 4 packages and checks; a plain `m`
+builds the images only. `FP6-cur-user` builds a `user` image without root.
 
-## 5. Package and check
+## 4. Package and check
 
 ```sh
-tools/diamaneos/bin/diamaneos build all --variant userdebug
+tools/diamaneos/bin/diamaneos build package
 ```
 
-Packaging and the image checks need `build all`, with the variant of step 4.
-It runs steps 2 to 4 itself, skips what is current, then writes and checks the
-image set. Right after step 1 it is the one command for the whole build; after
-a stop, run it again.
+Checks that `out/` holds this source's build with these vendor files, then
+writes and checks the image set step 5 flashes, marked as built by hand.
 
-## 6. Flash
+**Or in one command:** after step 1, `tools/diamaneos/bin/diamaneos build all
+--variant userdebug` syncs and does steps 2 to 4 itself, compiling without
+network access and checking every step. After a stop, run it again.
+
+## 5. Flash
 
 [Unlock the bootloader](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-to-unlock-or-lock-your-Fairphone-s-bootloader)
 as Fairphone describes, with `fastboot flashing unlock_critical`. Then, in the
@@ -82,15 +74,15 @@ bootloader:
 tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware FP6.QREL.16.100.0
 ```
 
-This prints the fastboot commands for the newest checked image set and runs
-none. `--phone-firmware` is the build number in Settings > About phone; `--wipe`
-erases the phone. Never lock the bootloader, and never run `fastboot -w` or
+This prints, and never runs, the fastboot commands for the newest checked
+image set. `--phone-firmware` is the build number in Settings > About phone;
+`--wipe` erases the phone. Never lock the bootloader or run `fastboot -w` or
 `fastboot erase`. [Flashing](BUILD.md#flashing) covers firmware, updates and
 going back to stock.
 
 ## More detail
 
-- [Build reference](BUILD.md): host setup, sync options, each step's checks and
-  records, `--official`, `build.json`, [troubleshooting](BUILD.md#troubleshooting).
-- [FP6 kernel](FP6-KERNEL.md), [firmware](FIRMWARE.md), [signing](SIGNING.md),
-  [threat model](THREAT_MODEL.md).
+[Build reference](BUILD.md) (host setup, each step, [building by
+hand](BUILD.md#building-by-hand), [troubleshooting](BUILD.md#troubleshooting)),
+[FP6 kernel](FP6-KERNEL.md), [firmware](FIRMWARE.md), [signing](SIGNING.md),
+[threat model](THREAT_MODEL.md).

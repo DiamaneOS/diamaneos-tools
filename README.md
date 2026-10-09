@@ -48,8 +48,9 @@ Host-side fixtures need no full OS checkout or device. Full Android builds run
 on Linux from a `repo` checkout of the
 [DiamaneOS manifest](https://github.com/DiamaneOS/platform_manifest), which
 includes these tools at `tools/diamaneos`; run that copy. The steps are in
-[BUILDING.md](docs/BUILDING.md): `repo sync`, `build sync`, `build vendor`,
-`lunch` and `m`, or `tools/diamaneos/bin/diamaneos build all` in one command.
+[BUILDING.md](docs/BUILDING.md): `repo sync`, `build vendor`, `lunch` and `m`,
+then `build package`, or `tools/diamaneos/bin/diamaneos build all` in one
+command.
 
 ## Documentation
 
