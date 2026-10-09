@@ -46,6 +46,20 @@ starts. A second command on the same workspace fails at once
 (`.workspace.lock`). `--dry-run` prints every command and changes nothing.
 Any failure is recorded in the step's state with a plain message.
 
+**Tools and source.** The vendor selection and the image checks must match the
+device tree, so the tools must match the source. Before the first step after
+`sync`, the command compares its own commit with the commit the sync checked
+out at `tools/diamaneos`:
+
+- The same commit, or a source without that project: nothing to say.
+- Tools that contain that commit (a newer checkout): a note; `build.json`
+  records the tools commit.
+- Tools that do not contain it (an older or diverged checkout): the command
+  stops and names the synced tools to run instead.
+- The sync moved the very checkout the command runs from: the command starts
+  again with the new tools, keeping the sync that just passed, as `repo` does
+  after updating itself.
+
 **Official builds.** `build all --official` (or `build android --official`)
 gives the Android build `DIAMANEOS_OFFICIAL_BUILD=true`; every other build runs
 with the variable removed from the environment, as GrapheneOS's

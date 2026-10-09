@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `build` stops before the vendor step when its tools do not contain the
+  commit the sync checked out at `tools/diamaneos`, and names the tools to run.
+  Older tools select stock files the device tree now builds from source, which
+  failed hours later in Soong as duplicate installs. When the sync moves the
+  checkout the command runs from, the command starts again with the new tools.
 - Pin kernel_qcom-6.1 1711bb8: three vendor kernel fixes from a code review: the
   SPI controller completes full-duplex DMA transfers whose two halves finish in
   separate interrupts (the touchscreen's controller); the SLIMbus controller

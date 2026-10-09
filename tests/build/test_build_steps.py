@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -525,6 +526,123 @@ class PinnedSyncTests(unittest.TestCase):
                     steps.plan_android(ctx).actions[1].func()
                 self.assertEqual(expected, calls[-1])
         self.assertTrue(any('not at the branch head' in line for line in self.lines))
+
+
+def git(path, *args):
+    return subprocess.run(['git', '-C', str(path), '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
+                           '-c', 'commit.gpgsign=false', *args], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+class ToolsSkewTests(unittest.TestCase):
+    """The running tools against the commit the sync checked out at tools/diamaneos."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name).resolve()
+        self.lines = []
+        self.tools = self.root / 'tools'
+        self.tools.mkdir()
+        git(self.tools, 'init', '-q', '-b', 'main')
+        self.commits = []
+        for number in range(2):
+            git(self.tools, 'commit', '-q', '--allow-empty', '-m', f'main {number}')
+            self.commits.append(git(self.tools, 'rev-parse', 'HEAD'))
+        git(self.tools, 'checkout', '-q', '-b', 'topic', self.commits[0])
+        git(self.tools, 'commit', '-q', '--allow-empty', '-m', 'topic on the older main')
+        self.topic = git(self.tools, 'rev-parse', 'HEAD')
+        self.ctx = steps.make_context(arguments(self.root / 'ws'), self.lines.append)
+
+    def synced(self, commit, tools=True):
+        """A passed sync whose resolved manifest has the tools project at ``commit``."""
+        project = f'<project name="diamaneos-tools" path="tools/diamaneos" revision="{commit}"/>' if tools else ''
+        resolved = ('<manifest><remote name="diamaneos" fetch="https://github.com/DiamaneOS/"/>'
+                    '<default remote="diamaneos"/><project name="device_example" path="device/example" '
+                    f'revision="{"b" * 40}"/>{project}</manifest>').encode()
+        bw.write_atomic(self.ctx.resolved_manifest, resolved)
+        self.ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+            'project_map_sha256': 'p', 'manifest_commit': 'm',
+            'resolved_manifest_sha256': hashlib.sha256(resolved).hexdigest()}})
+
+    def skew(self, running, synced_now=False, root=None):
+        ctx = replace(self.ctx, tools_commit=running)
+        return steps.tools_skew(ctx, synced_now, root or self.tools)
+
+    def test_the_source_tools_commit_or_a_newer_one_runs(self):
+        old, new = self.commits
+        self.synced(old)
+        self.assertIsNone(self.skew(old))
+        kind, message = self.skew(new)
+        self.assertEqual('newer', kind)
+        self.assertIn(f'newer than the source\'s tools/diamaneos ({old[:12]})', message)
+        self.synced(old, tools=False)
+        self.assertIsNone(self.skew(new))
+
+    def test_tools_that_lack_the_source_tools_commit_stop_with_one_message(self):
+        old, new = self.commits
+        self.synced(new)
+        for running in (old, self.topic):
+            with self.subTest(running=running):
+                kind, message = self.skew(running)
+                self.assertEqual('stale', kind)
+                self.assertIn(f'commit {running[:12]}) do not contain the source\'s tools/diamaneos commit '
+                              f'{new[:12]}', message)
+                self.assertIn('Run ' + str(self.ctx.workspace.src / 'tools/diamaneos/bin/diamaneos'), message)
+        self.synced('f' * 40)
+        self.assertEqual('stale', self.skew(new)[0])
+        self.assertEqual('unknown', self.skew(None)[0])
+
+    def test_check_tools_stops_notes_or_starts_again(self):
+        old, new = self.commits
+        self.synced(new)
+        stale = replace(self.ctx, tools_commit=old)
+        with patch.object(steps, 'tools_skew', return_value=('stale', 'these tools are old')):
+            with self.assertRaisesRegex(bw.UsageError, 'these tools are old'):
+                steps.check_tools(stale, False)
+            steps.check_tools(stale, False, dry_run=True)
+            self.assertIn('note: these tools are old', self.lines)
+        with patch.object(steps, 'tools_skew', return_value=('moved', 'the sync moved these tools')):
+            with self.assertRaises(steps.ToolsUpdated) as raised:
+                steps.check_tools(stale, True)
+            self.assertEqual(new, raised.exception.commit)
+            with self.assertRaisesRegex(bw.UsageError, 'run the same command again'):
+                steps.check_tools(replace(stale, restarted=True), True)
+
+    def test_a_sync_that_moves_the_running_checkout_restarts_the_command(self):
+        old, new = self.commits
+        self.synced(new)
+        checkout = self.ctx.workspace.src / 'tools/diamaneos'
+        checkout.parent.mkdir(parents=True)
+        checkout.symlink_to(self.tools)
+        self.assertEqual('moved', self.skew(old, synced_now=True, root=checkout)[0])
+        # Without a sync in this command, the recorded sync is only older or newer.
+        self.assertEqual('stale', self.skew(old, synced_now=False, root=checkout)[0])
+        calls = []
+        with patch.object(steps, 'run_steps', side_effect=steps.ToolsUpdated('the sync moved these tools', new)), \
+                patch.object(steps.bw, 'check_host', return_value={'warnings': []}), \
+                patch.object(steps.os, 'execv', side_effect=lambda *a: calls.append(a)), \
+                patch.dict(os.environ):
+            argv = ['all', '--workspace', str(self.ctx.workspace.root)]
+            self.assertEqual(0, steps.main(argv, self.lines.append))
+            self.assertEqual(new, os.environ[steps.RESTARTED])
+        self.assertEqual([(sys.executable, [sys.executable, str(steps.DIAMANEOS), 'build', *argv])], calls)
+        self.assertIn('note: the sync moved these tools; starting again with the new tools', self.lines)
+
+    def test_the_restarted_command_keeps_the_sync_that_moved_the_tools(self):
+        plan = steps.plan_sync(self.ctx)
+        (self.ctx.workspace.src / '.repo').mkdir(parents=True)
+        self.synced(self.ctx.tools_commit or 'a' * 40)
+        state = self.ctx.workspace.passed('sync')
+        self.ctx.workspace.write_state('sync', dict(state, inputs=plan.inputs, inputs_sha256=bw.digest(plan.inputs)))
+        argv = ['all', '--dry-run', '--workspace', str(self.ctx.workspace.root)]
+        for restarted, expected in ((None, 'sync: to run'), (self.ctx.tools_commit, 'sync: up to date')):
+            with self.subTest(restarted=restarted), patch.dict(os.environ):
+                if restarted:
+                    os.environ[steps.RESTARTED] = restarted
+                self.lines.clear()
+                self.assertEqual(0, steps.main(argv, self.lines.append))
+                self.assertIn(expected, self.lines)
+                self.assertNotIn(steps.RESTARTED, os.environ)
 
 
 class RunnerTests(unittest.TestCase):

@@ -71,6 +71,22 @@ OFFICIAL_MARKER = 'official'
 # branch, which for the large prebuilt repositories never finishes. HTTP/1.1
 # and a few retries of the pinned fetch get through.
 GIT_HTTP = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'http.version', 'GIT_CONFIG_VALUE_0': 'HTTP/1.1'}
+# The manifest's copy of these tools. The vendor selection and the image checks
+# must match the device tree the same manifest selects, so the running tools
+# must contain the commit the sync checked out there.
+TOOLS_PROJECT = 'tools/diamaneos'
+# The steps that use the tools' recipes and checks against the synced source.
+TOOLS_CHECKED = ('vendor', 'android', 'package', 'verify')
+# Set for a command that starts again because its sync moved the running tools.
+RESTARTED = 'DIAMANEOS_TOOLS_RESTARTED'
+
+
+class ToolsUpdated(Exception):
+    """The sync moved the tools checkout this command runs from."""
+
+    def __init__(self, message: str, commit: str):
+        super().__init__(message)
+        self.commit = commit
 
 
 def code_hashes(names):
@@ -113,6 +129,10 @@ class Context:
     pinned: source_sync.PinnedManifest | None = None
     # The stock firmware inventory (default: config/fp6-firmware-inventory.json).
     firmware_inventory: dict | None = None
+    # The tools commit this command started with (its code is that commit's).
+    tools_commit: str | None = None
+    # The command started again after its sync moved the running tools.
+    restarted: bool = False
     cache: dict = field(default_factory=dict)
 
     @property
@@ -779,13 +799,67 @@ def check_prerequisites(ctx: Context, name: str, steps) -> None:
                          f'or "diamaneos build all{option}"')
 
 
+def synced_tools(ctx: Context) -> str | None:
+    """The commit of the manifest's tools project in the passed sync, or None."""
+    sync = ctx.workspace.passed('sync')
+    if sync is None:
+        return None
+    try:
+        return project_revision(synced_manifest(ctx, sync), TOOLS_PROJECT)
+    except (BuildStepError, build.BuildError, OSError):
+        return None
+
+
+def tools_skew(ctx: Context, synced_now: bool, root: Path = ROOT) -> tuple[str, str] | None:
+    """How the running tools relate to the commit the sync checked out at
+    tools/diamaneos: None when they are that commit (or the source has no
+    tools project); otherwise a kind and a message. 'moved': the sync of this
+    command moved the checkout these tools run from. 'newer': they contain the
+    commit. 'unknown': their commit is unknown. 'stale': they do not contain it,
+    so their recipes and checks may not match the device tree."""
+    synced, running = synced_tools(ctx), ctx.tools_commit
+    if synced is None or running == synced:
+        return None
+    checkout = ctx.workspace.src / TOOLS_PROJECT
+    if running is None:
+        return 'unknown', f'cannot tell the commit of these tools ({root}); the source\'s {TOOLS_PROJECT} is at {synced}'
+    if synced_now and checkout.resolve() == root.resolve():
+        return 'moved', f'the sync moved these tools from {running[:12]} to {synced[:12]}'
+    if run_git(['-C', root, 'merge-base', '--is-ancestor', synced, running], check=False).returncode == 0:
+        return 'newer', (f'these tools ({running[:12]}) are newer than the source\'s {TOOLS_PROJECT} '
+                         f'({synced[:12]}); build.json records the tools commit')
+    return 'stale', (f'these tools ({root}, commit {running[:12]}) do not contain the source\'s {TOOLS_PROJECT} '
+                     f'commit {synced[:12]}, so their vendor selection and image checks may not match the device '
+                     f'tree. Run {checkout / "bin/diamaneos"} instead, or update this checkout')
+
+
+def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False) -> None:
+    """Stop before a step that uses the tools' recipes when the tools are not
+    the source's; start again with the new tools when the sync moved them."""
+    skew = tools_skew(ctx, synced_now)
+    if skew is None:
+        return
+    kind, message = skew
+    if kind == 'moved':
+        if ctx.restarted:
+            raise UsageError(message + '; run the same command again')
+        raise ToolsUpdated(message, synced_tools(ctx))
+    if kind == 'stale' and not dry_run:
+        raise UsageError(message)
+    ctx.echo('note: ' + message)
+
+
 def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
     ws = ctx.workspace
     runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
     earlier_runs = None
+    synced_now = tools_checked = False
     for name in steps:
         if not dry_run:
             check_prerequisites(ctx, name, steps)
+        if name in TOOLS_CHECKED and not tools_checked:
+            tools_checked = True
+            check_tools(ctx, synced_now, dry_run)
         plan = PLANS[name](ctx)
         passed = ws.passed(name)
         if plan.inputs is None:
@@ -830,6 +904,7 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             raise BuildStepError(f'{name} failed: {message}\nFull log: {log}') from error
         ws.write_state(name, dict(record, status='PASS', outputs=outputs))
         ctx.echo(f'{name}: done')
+        synced_now = synced_now or name == 'sync'
 
 
 def remember_official(ws: bw.Workspace, official: bool) -> None:
@@ -904,13 +979,13 @@ def make_context(args, echo=print) -> Context:
     given = getattr(args, 'official', None)
     official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
     pinned = None
+    tools_commit = product_inputs.tools_identity().get('commit')
     if getattr(args, 'resolved_manifest', None):
         record = getattr(args, 'build_json', None)
         pinned = source_sync.load_pinned(
             Path(args.resolved_manifest), Path(record) if record else None, getattr(args, 'manifest_commit', None),
-            environment, hashlib.sha256(environment_raw).hexdigest(),
-            product_inputs.tools_identity().get('commit') if record else None)
-    return Context(workspace=workspace,
+            environment, hashlib.sha256(environment_raw).hexdigest(), tools_commit if record else None)
+    return Context(workspace=workspace, tools_commit=tools_commit,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
                    official=official, official_given=given is not None, jobs=args.jobs,
@@ -961,7 +1036,10 @@ STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'), 'o
 
 
 def main(argv=None, echo=print) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parser().parse_args(argv)
+    # Set only for the command that starts again after its sync moved the tools.
+    restarted = os.environ.pop(RESTARTED, None)
     try:
         for option, steps in STEP_OPTIONS.items():
             value = getattr(args, option)
@@ -974,6 +1052,7 @@ def main(argv=None, echo=print) -> int:
         if args.resolved_manifest and args.from_step not in (None, 'sync'):
             raise UsageError('--resolved-manifest runs the sync step; it does not go with --from ' + args.from_step)
         ctx = make_context(args, echo)
+        ctx.restarted = restarted is not None
         for note in ctx.pinned.notes if ctx.pinned else ():
             echo('note: ' + note)
         steps = bw.STEPS if args.step == 'all' else (args.step,)
@@ -995,6 +1074,9 @@ def main(argv=None, echo=print) -> int:
             # Like repo sync before a build: move to the branch head. Later
             # steps rerun only if the synced tree changed.
             force = ('sync',)
+        if restarted is not None and restarted == ctx.tools_commit:
+            # The sync that moved these tools has just passed; keep it.
+            force = tuple(step for step in force if step != 'sync')
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
                  'Updater; --no-official turns that off')
@@ -1019,6 +1101,19 @@ def main(argv=None, echo=print) -> int:
             latest = ctx.workspace.images / 'latest'
             if latest.is_symlink():
                 echo(f'Images: {latest.resolve()}\nNext: diamaneos flash-steps --workspace {ctx.workspace.root}')
+        return 0
+    except ToolsUpdated as update:
+        # Like repo after it updates itself: run the command again with the
+        # new tools, so no step mixes their code with the old.
+        echo(f'note: {update}; starting again with the new tools')
+        os.environ[RESTARTED] = update.commit
+        sys.stdout.flush()
+        sys.stderr.flush()
+        try:
+            os.execv(sys.executable, [sys.executable, str(DIAMANEOS), 'build', *argv])
+        except OSError as error:
+            print(f'ERROR: cannot start again ({error}); run the same command again', file=sys.stderr)
+            return 2
         return 0
     except KeyboardInterrupt:
         echo('interrupted; run the same command again to continue')
