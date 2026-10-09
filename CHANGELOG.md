@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `build vendor` also installs the vendor tree at `vendor/fairphone/FP6`, so
+  `source build/envsetup.sh`, `lunch` and `m` can follow without
+  `build inputs`.
 - `build` prints a short title for each action, such as "Fetch large
   prebuilts" or "Verify the source tree"; the step log and `--dry-run` keep
   the full description.

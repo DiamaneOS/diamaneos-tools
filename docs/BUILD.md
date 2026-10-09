@@ -31,8 +31,8 @@ pins one manifest commit (`manifest.revision`) does not.
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
 | `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean (local changes only outside official builds, see below), no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
-| `android` | Installs the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
+| `android` | Installs (or re-checks) the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash; the factory package and each firmware image against the firmware inventory; the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
 
@@ -144,7 +144,7 @@ The image directory is `<date>-<variant>-<build identity>`, and an existing
 directory is reused only when its record names the same target-files and
 identity.
 
-**Generated-input descriptor.** `build inputs` (called by the `android` step)
+**Generated-input descriptor.** `build inputs` (called by the `vendor` and `android` steps)
 writes `.repo/diamaneos-generated-inputs.json`. It binds
 `vendor/fairphone/FP6` to the environment file's hash, the recipe digests the
 vendor generation recorded in its provenance and its complete inventory.
