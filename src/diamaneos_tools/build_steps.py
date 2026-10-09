@@ -399,42 +399,51 @@ def plan_sync(ctx: Context) -> StepPlan:
         ctx.cache['sync'] = result
 
     actions = [
-        Action('Create the source directory' + (' (shallow checkout)' if ctx.shallow else '')
-               + (' and keep the pinned resolved manifest' if pinned else ''), func=create),
-        Action('Move generated inputs and the old manifest overlay out of the way', func=clear),
-        Action(f'Initialise the checkout on the DiamaneOS manifest ({manifest["branch"]})',
+        Action('Prepare the workspace', func=create,
+               detail='create the source directory' + (', shallow checkout' if ctx.shallow else '')
+               + (', keep the pinned resolved manifest' if pinned else '')),
+        Action('Clear old inputs', func=clear,
+               detail='move generated inputs and the old manifest overlay out of the way'),
+        Action('Initialise the checkout', detail=f'the DiamaneOS manifest on {manifest["branch"]}',
                argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]
                     + (['--depth=1'] if ctx.shallow else []),
                cwd=ws.src, network=True, env=GIT_HTTP),
-        Action('Check the repo tool and the manifest checkout', func=check_manifest),
+        Action('Check the repo tool and manifest', func=check_manifest,
+               detail='the pinned repo tool and its tag, the manifest checkout at the head of the branch'),
     ]
     if pinned:
         actions += [
-            Action(f'Check out the recorded manifest commit {pinned.manifest_commit} (a shallow manifest checkout '
-                   f'first fetches the history of {manifest["branch"]})', func=checkout_recorded, network=True),
-            Action(f'Check the manifest checkout is at the recorded commit and that it is in the history of '
-                   f'{manifest["branch"]} (the branch-head check does not apply to a pinned manifest), and that '
-                   'the pinned manifest has that commit\'s projects and remotes', func=check_recorded),
+            Action('Check out the recorded manifest', func=checkout_recorded, network=True,
+                   detail=f'the recorded manifest commit {pinned.manifest_commit}; a shallow manifest checkout '
+                          f'first fetches the history of {manifest["branch"]}'),
+            Action('Check the recorded manifest', func=check_recorded,
+                   detail=f'the manifest checkout is at the recorded commit, in the history of '
+                          f'{manifest["branch"]}, and the pinned manifest has that commit\'s projects and remotes; '
+                          'the branch-head check does not apply to a pinned manifest'),
         ]
     if settings:
         actions += [
-            Action('Remove project git directories an interrupted sync left without data, so repo fetches them '
-                   'shallow again', func=clear_empty),
-            Action(f'Fetch the large prebuilt projects first, one revision each at depth 1, {settings["jobs"]} at a '
-                   f'time; a transfer below {settings["low_speed_limit_bytes"]} bytes/s for '
-                   f'{settings["low_speed_time_seconds"]} s stops, up to {settings["attempts"]} attempts each: '
-                   + ', '.join(settings['projects']), func=prefetch, network=True),
+            Action('Clear interrupted fetches', func=clear_empty,
+                   detail='remove project git directories an interrupted sync left without data, so repo fetches '
+                          'them shallow again'),
+            Action('Fetch large prebuilts', func=prefetch, network=True,
+                   detail=f'the large prebuilt projects first, one revision each at depth 1, {settings["jobs"]} at a '
+                          f'time; a transfer below {settings["low_speed_limit_bytes"]} bytes/s for '
+                          f'{settings["low_speed_time_seconds"]} s stops, up to {settings["attempts"]} attempts each: '
+                          + ', '.join(settings['projects'])),
         ]
     actions += [
-        Action('Remove clean checkouts of projects the manifest now takes from another repository at the same '
-               'path, so repo checks out the new one', func=clear_renamed),
-        Action('Download the source' + (' at the pinned resolved manifest' if pinned else ''),
+        Action('Clear moved projects', func=clear_renamed,
+               detail='remove clean checkouts of projects the manifest now takes from another repository at the '
+                      'same path, so repo checks out the new one'),
+        Action('Download the source', detail='at the pinned resolved manifest' if pinned else '',
                argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}', '--retry-fetches=4']
                + (['-c', '--no-tags'] if ctx.shallow else []) + (['-m', ctx.pinned_manifest] if pinned else []),
                cwd=ws.src, network=True, env=GIT_HTTP),
-        Action('Move stale generated inputs aside', func=retire),
-        Action('Verify the whole source tree and record the resolved manifest', func=verify),
+        Action('Clear stale inputs', func=retire, detail='move stale generated inputs aside'),
+        Action('Verify the source tree', func=verify,
+               detail='every project at its resolved commit, nothing undeclared; record the resolved manifest'),
     ]
 
     def outputs():
@@ -488,8 +497,8 @@ def plan_kernel(ctx: Context) -> StepPlan:
     inputs = {'recipes': config_hashes(KERNEL_RECIPES), 'code': code_hashes(KERNEL_CODE)}
     prepare = [sys.executable, DIAMANEOS, 'kernel', 'prepare', '--workspace', ws.kernel]
     actions = [
-        Action('Prepare the kernel sources at their pinned revisions', argv=prepare, network=True),
-        Action('Build and package the kernel, modules and device trees',
+        Action('Prepare the kernel sources', detail='at their pinned revisions', argv=prepare, network=True),
+        Action('Build the kernel', detail='build and package the kernel, modules and device trees',
                argv=[sys.executable, DIAMANEOS, 'kernel', 'build', '--workspace', ws.kernel,
                      '--jobs', str(ctx.jobs_for(cap=64))], compile=True),
     ]
@@ -564,7 +573,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 raise BuildStepError('cannot read the commit times of the synced sources for the image tools '
                                      f'({error}); run "diamaneos build sync" again') from error
     host_tools = Action(
-        'Build the image tools from the synced source',
+        'Build the image tools', detail='aapt2, simg2img, lpunpack and debugfs_static from the synced source',
         argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
         env=tool_env)
 
@@ -600,11 +609,11 @@ def plan_vendor(ctx: Context) -> StepPlan:
             release_date=archive.get('release_date'))
 
     actions = [host_tools,
-               Action(f'Download the Fairphone factory package {archive["filename"]} and check its SHA-256',
-                      func=fetch, network=True),
-               Action('Check and stage the factory images', func=stage),
-               Action('Extract the selected stock files', func=extract),
-               Action('Generate the vendor product', func=product)]
+               Action('Download the factory package', func=fetch, network=True,
+                      detail=f'Fairphone\'s {archive["filename"]}, checked against its pinned size and SHA-256'),
+               Action('Stage the factory images', func=stage, detail='each image checked against the recipe'),
+               Action('Extract the stock files', func=extract, detail='the stock files the recipe selects'),
+               Action('Generate the vendor tree', func=product, detail='the vendor product from the stock files')]
 
     def outputs():
         product = ctx.cache['product']
@@ -722,10 +731,12 @@ def plan_android(ctx: Context) -> StepPlan:
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname'],
              **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
-    actions = [Action('Install the generated vendor tree', func=install),
-               Action('Verify the source tree and the generated inputs', func=preflight('preflight')),
+    actions = [Action('Install the vendor tree', func=install),
+               Action('Verify the source tree', func=preflight('preflight'),
+                      detail='the source tree and the generated inputs'),
                compile_action,
-               Action('Check the source tree is unchanged after the build', func=preflight('postflight'))]
+               Action('Check the source is unchanged', func=preflight('postflight'),
+                      detail='after the build')]
 
     def outputs():
         before, after = ctx.cache['preflight'], ctx.cache['postflight']

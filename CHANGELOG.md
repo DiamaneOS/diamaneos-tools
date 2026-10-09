@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `build` prints a short title for each action, such as "Fetch large
+  prebuilts" or "Verify the source tree"; the step log and `--dry-run` keep
+  the full description.
 - Builds that are not official accept local changes in source projects, as
   other Android builds do: `sync` and the `android` step warn and name the
   projects, `build.json` lists them (`modified`) and marks the set not

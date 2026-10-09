@@ -259,7 +259,7 @@ def plan(ctx):
         if state['reuse']:
             return
         runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
-        runner.run(Action('Build super.img from the same target-files',
+        runner.run(Action('Run build_super_image', detail='super.img from the same target-files',
                           argv=[ctx.host_bin / 'build_super_image', state['target_files'],
                                 state['partial'] / 'super.img'],
                           env={'PATH': os.pathsep.join([str(ctx.host_bin), os.environ.get('PATH', '')])}),
@@ -288,7 +288,7 @@ def plan(ctx):
             raise BuildStepError('the FRP image differs from the stock factory image')
         metadata = images['metadata']
         runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
-        runner.run(Action('Make the empty metadata filesystem (fixed UUID, time and seed)',
+        runner.run(Action('Run make_f2fs', detail='the empty metadata filesystem, fixed UUID, time and seed',
                           argv=[ctx.host_bin / 'make_f2fs', '-g', 'android', '-r',
                                 '-T', str(android['outputs']['build_datetime']), '-U', metadata['uuid'],
                                 '-l', metadata['label'], '-S', str(metadata['bytes']),
@@ -361,12 +361,13 @@ def plan(ctx):
         temporary.symlink_to(state['identifier'])
         os.replace(temporary, latest)
 
-    actions = [Action('Check the target-files archive recorded by the build', func=prepare),
-               Action('Export the partition images from target-files', func=export),
-               Action('Copy the stock firmware from the factory package, checked against the inventory, and make '
-                      'the modem file system reset images', func=firmware_images),
+    actions = [Action('Check target-files', func=prepare, detail='the target-files archive recorded by the build'),
+               Action('Export the images', func=export, detail='the partition images from target-files'),
+               Action('Copy the firmware', func=firmware_images,
+                      detail='the stock firmware from the factory package, checked against the inventory, and the '
+                             'modem file system reset images'),
                Action('Build super.img', func=super_image),
-               Action('Make the wipe images (userdata, metadata, FRP, misc)', func=wipe_images),
+               Action('Make the wipe images', func=wipe_images, detail='userdata, metadata, FRP, misc'),
                Action('Write build.json and SHA256SUMS', func=record),
                Action('Publish the image directory', func=publish)]
 

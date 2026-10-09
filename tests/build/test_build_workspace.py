@@ -51,6 +51,16 @@ class WorkspaceTests(unittest.TestCase):
             runner.run(bw.Action('Fail', argv=['sh', '-c', 'echo broken; exit 3']), log)
         self.assertIn('broken', log.read_text())
 
+    def test_the_terminal_shows_short_titles_and_the_log_the_detail(self):
+        log, lines = self.root / 'step.log', []
+        runner = bw.Runner(allow_network=True, echo=lines.append)
+        runner.run(bw.Action('Fetch large prebuilts', func=lambda: None, detail='one revision each at depth 1'), log)
+        runner.run(bw.Action('Say hello', argv=['sh', '-c', 'echo hello'], detail='to the log'), log)
+        self.assertEqual(['  Fetch large prebuilts', '  Say hello'], [line for line in lines if 'live output' not in line])
+        text = log.read_text()
+        self.assertIn('## Fetch large prebuilts (one revision each at depth 1)\n', text)
+        self.assertIn("## Say hello (to the log): sh -c 'echo hello'\n", text)
+
     def probe(self, **kw):
         values = dict(system='Linux', machine='x86_64', python=(3, 13), which=lambda c: '/usr/bin/' + c,
                       memory=128 * bw.GIB, free=2000 * bw.GIB, case_sensitive=True, isolation=None,
