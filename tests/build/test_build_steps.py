@@ -320,6 +320,17 @@ class PlanTests(unittest.TestCase):
             changed = steps.plan_vendor(replace(ctx, config=config))
         self.assertNotEqual(plan.inputs['firmware_release'], changed.inputs['firmware_release'])
 
+    def test_the_vendor_step_installs_the_vendor_tree_in_the_source(self):
+        ctx = self.context()
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
+                                           'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1):
+            action = steps.plan_vendor(ctx).actions[-1]
+        self.assertEqual('Install the vendor tree', action.description)
+        with patch.object(steps.product_inputs, 'install') as install:
+            action.func()
+        install.assert_called_once_with(ctx.workspace.src, ctx.workspace.vendor, ctx.environment_path, replace=True)
+
     def test_build_all_follows_the_manifest_branch(self):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         environment['manifest']['revision'] = 'a' * 40

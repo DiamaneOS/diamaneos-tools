@@ -608,12 +608,19 @@ def plan_vendor(ctx: Context) -> StepPlan:
             aapt2=ctx.host_bin / 'aapt2', stock=recipe, firmware_releases=firmware,
             release_date=archive.get('release_date'))
 
+    def install():
+        # So a plain "m" after "build vendor" finds the vendor files; the
+        # android step installs (or re-verifies) the same tree again.
+        product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True)
+
     actions = [host_tools,
                Action('Download the factory package', func=fetch, network=True,
                       detail=f'Fairphone\'s {archive["filename"]}, checked against its pinned size and SHA-256'),
                Action('Stage the factory images', func=stage, detail='each image checked against the recipe'),
                Action('Extract the stock files', func=extract, detail='the stock files the recipe selects'),
-               Action('Generate the vendor tree', func=product, detail='the vendor product from the stock files')]
+               Action('Generate the vendor tree', func=product, detail='the vendor product from the stock files'),
+               Action('Install the vendor tree', func=install,
+                      detail=f'at {product_inputs.DESTINATIONS["vendor"]} in the source tree')]
 
     def outputs():
         product = ctx.cache['product']
