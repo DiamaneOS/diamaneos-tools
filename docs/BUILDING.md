@@ -97,7 +97,8 @@ tools/diamaneos/bin/diamaneos build all --variant userdebug
 
 `build all` first syncs the source to the head of the manifest branch, as
 `repo sync` does, with the pinned `repo` tool, and checks the whole tree: every
-project clean at the commit the manifest selects and nothing else in it. It
+project at the commit the manifest selects and nothing else in it; local
+changes in a project are named and recorded. It
 records the exact commit of every project (`repo manifest -r`). Then it
 downloads Fairphone's factory package and takes the files DiamaneOS needs from
 it (the `vendor` step), builds Android, packages the images and checks them.
@@ -219,7 +220,8 @@ Relock only after stock is back, and only with the checks in the installer's
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
 | `not our ref` during sync | A commit the manifest selects is not published yet. Run the command again after the push. |
 | `holds local manifests the build does not use` | Move the files in `.repo/local_manifests` away; the build uses the manifest alone. |
-| `contains dirty or untracked content` or `undeclared input` | A project or the space between projects was changed. Undo the change (or move it aside) and run the command again. |
+| `contains dirty or untracked content` | An official build, or the manifest checkout (`.repo/manifests`), has local changes. Undo them (or move them aside) and run the command again; other builds only warn about changed projects. |
+| `undeclared input` | Files were added between projects. Move them away and run the command again. |
 | `bytes of body are still expected` during sync | A long download broke off. Run the same command again; sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
 | `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |

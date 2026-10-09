@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revised 2026-10-08. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
+Revised 2026-10-09. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or Fairphone.
 
@@ -1254,8 +1254,10 @@ entry point), the protections in current builds, what remains, and the status.
     commits; DiamaneOS projects follow their `android17` branches. The pinned
     `repo` tool's tag signature is checked. Each build records the resolved
     manifest (every project's commit) in its image set, and a full source
-    preflight (clean projects at their resolved commits, no local manifests,
+    preflight (projects at their resolved commits, no local manifests,
     nothing undeclared) runs at sync and before and after every Android build.
+    Official builds need clean projects; other builds name local changes, list
+    them in `build.json` (`modified`) and mark the set not reproducible.
     Downstream commits are signed, but the public build commands do not verify
     those signatures.
   - Reproducing a recorded build (`build sync --resolved-manifest`) checks out

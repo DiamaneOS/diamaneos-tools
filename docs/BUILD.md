@@ -30,7 +30,7 @@ pins one manifest commit (`manifest.revision`) does not.
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
-| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project clean at its resolved commit, no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
+| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean (local changes only outside official builds, see below), no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
 | `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
 | `android` | Installs the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash; the factory package and each firmware image against the firmware inventory; the wipe images against the device fstab, the stock FRP image and the stock partition table. |
@@ -59,6 +59,21 @@ out at `tools/diamaneos`:
 - The sync moved the very checkout the command runs from: the command starts
   again with the new tools, keeping the sync that just passed, as `repo` does
   after updating itself.
+
+**Local changes.** A build that is not official accepts projects with local
+changes (edited, added or deleted files):
+
+- `sync` and the `android` step print a warning that names them.
+- The sync state and `build.json` list them (`modified`). A digest of the
+  changed files joins the source identity, so a new edit rebuilds Android and
+  gets its own image directory.
+- `build.json` marks the set not reproducible (`reproducible: false`).
+
+`--official` refuses them. Every build still fails on a project the manifest
+pins to a commit at another commit, a changed `.repo/manifests`, local
+manifests and files outside the projects. With an environment that pins one
+manifest commit, `build all` keeps its sync; after an edit, run
+`build all --from sync`.
 
 **Official builds.** `build all --official` (or `build android --official`)
 gives the Android build `DIAMANEOS_OFFICIAL_BUILD=true`; every other build runs

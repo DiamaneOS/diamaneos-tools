@@ -512,7 +512,7 @@ class PinnedSyncTests(unittest.TestCase):
         def checkout(*args, **kw):
             calls.append(kw.get('manifest_commit'))
             return {'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p',
-                    'generated_input_descriptor_sha256': 'd'}
+                    'generated_input_descriptor_sha256': 'd', 'modified': [], 'modified_sha256': None}
         for pinned, expected in ((True, self.commit), (False, None)):
             with self.subTest(pinned=pinned):
                 ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
@@ -526,6 +526,37 @@ class PinnedSyncTests(unittest.TestCase):
                     steps.plan_android(ctx).actions[1].func()
                 self.assertEqual(expected, calls[-1])
         self.assertTrue(any('not at the branch head' in line for line in self.lines))
+
+    def test_android_builds_the_local_changes_the_sync_recorded_unless_official(self):
+        allowed = []
+
+        def checkout(*args, **kw):
+            allowed.append(kw['allow_modified'])
+            return {'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p',
+                    'generated_input_descriptor_sha256': 'd', 'modified': ['device/example'], 'modified_sha256': 'c'}
+        for official in (False, True):
+            ctx = steps.make_context(arguments(self.workspace, official=official), self.lines.append)
+            for recorded in ('c', None):
+                with self.subTest(official=official, recorded=recorded):
+                    ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+                        'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k', 'resolved_manifest_sha256': 'r',
+                        'manifest_commit': self.commit, 'modified_sha256': recorded}})
+                    ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {}})
+                    with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                            patch.object(steps, 'newest_commit_time', return_value=1), \
+                            patch.object(steps.build, 'verify_branch_checkout', side_effect=checkout):
+                        preflight = steps.plan_android(ctx).actions[1].func
+                        if recorded:
+                            preflight()
+                        else:
+                            with self.assertRaisesRegex(bw.BuildStepError, 'local changes are not the ones'):
+                                preflight()
+                    self.assertEqual(not official, allowed[-1])
+        self.assertIn('    warning: local changes in device/example; build.json records them, and --official '
+                      'refuses them', self.lines)
+        # Local changes are a source input only when there are any.
+        self.assertEqual(steps.SOURCE_KEYS, tuple(steps.source_record({'outputs': {'modified_sha256': None}})))
+        self.assertEqual('c', steps.source_record({'outputs': {'modified_sha256': 'c'}})['modified_sha256'])
 
 
 def git(path, *args):

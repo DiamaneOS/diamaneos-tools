@@ -10,6 +10,10 @@ build the next.
 
 One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md only says when it was last revised.
 
+### 2026-10-09
+
+- Builds that are not official accept local changes in source projects: the build warns, `build.json` lists them (`modified`) and marks the set not reproducible; official builds still need clean projects, and every build still refuses a pinned project at another commit, a changed manifest checkout, local manifests and undeclared files.
+
 ### 2026-10-08
 
 - Geocoder: GrapheneOS's geocoding server is no longer offered; Settings offers OpenStreetMap's public service (opt-in) or Off, the default. A stored GrapheneOS choice reads back as Off, and the setup wizard's geocoder switch turns on OpenStreetMap; OpenStreetMap requests name DiamaneOS (NetworkLocation fork). Implemented, not yet built.

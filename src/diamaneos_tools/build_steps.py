@@ -389,7 +389,9 @@ def plan_sync(ctx: Context) -> StepPlan:
     def verify():
         result = build.verify_branch_checkout(env, ws.src, ctx.environment_sha256,
                                               resolved_path=ctx.resolved_manifest,
-                                              manifest_commit=pinned.manifest_commit if pinned else None)
+                                              manifest_commit=pinned.manifest_commit if pinned else None,
+                                              allow_modified=not ctx.official)
+        warn_modified(ctx, result['modified'])
         if pinned and result['resolved_manifest_sha256'] != pinned.sha256:
             raise BuildStepError('the synced source is not the pinned resolved manifest: "repo manifest -r" '
                                  f'gives SHA-256 {result["resolved_manifest_sha256"]}, the pinned manifest has '
@@ -447,7 +449,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                   'resolved_manifest_sha256': result['resolved_manifest_sha256'],
                   'kernel_prebuilts_commit': project_revision(resolved, product_inputs.KERNEL_PREBUILTS),
                   'shallow': ctx.shallow,
-                  'pinned_manifest': pinned.record() if pinned else None}
+                  'pinned_manifest': pinned.record() if pinned else None,
+                  'modified': result['modified'], 'modified_sha256': result['modified_sha256']}
         different = sorted(k for k, v in (pinned.expected_source if pinned else {}).items() if values.get(k) != v)
         if different:
             raise BuildStepError('the synced source differs from the one build.json records: ' + ', '.join(different))
@@ -459,6 +462,13 @@ def plan_sync(ctx: Context) -> StepPlan:
                 and bw.sha_file(path) == state['outputs'].get('resolved_manifest_sha256'))
 
     return StepPlan('sync', inputs, actions, outputs, valid)
+
+
+def warn_modified(ctx: Context, modified) -> None:
+    """Name the projects with local changes a build accepts (not an official one)."""
+    if modified:
+        shown = ', '.join(modified[:20]) + (f' and {len(modified) - 20} more' if len(modified) > 20 else '')
+        ctx.echo(f'    warning: local changes in {shown}; build.json records them, and --official refuses them')
 
 
 def synced_manifest(ctx: Context, sync: dict) -> bytes:
@@ -615,7 +625,12 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
 
 def source_record(sync: dict) -> dict:
-    return {key: sync['outputs'].get(key) for key in SOURCE_KEYS}
+    record = {key: sync['outputs'].get(key) for key in SOURCE_KEYS}
+    # Local changes are a source input only when there are any, so a clean
+    # tree keeps the source identity it had before they were allowed.
+    if sync['outputs'].get('modified_sha256'):
+        record['modified_sha256'] = sync['outputs']['modified_sha256']
+    return record
 
 
 def android_identity(ctx: Context, sync: dict) -> str:
@@ -682,10 +697,15 @@ def plan_android(ctx: Context) -> StepPlan:
                 ctx.echo(f'    the sync reproduced a pinned resolved manifest: checking the manifest checkout is at '
                          f'its recorded commit {commit}, in the branch history, not at the branch head')
             result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256,
-                                                  manifest_commit=commit)
+                                                  manifest_commit=commit, allow_modified=not ctx.official)
             if result['resolved_manifest_sha256'] != sync['outputs']['resolved_manifest_sha256']:
                 raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded; '
                                      'run "diamaneos build sync" again')
+            if result['modified_sha256'] != sync['outputs'].get('modified_sha256'):
+                raise BuildStepError('the local changes are not the ones "diamaneos build sync" recorded; '
+                                     'run "diamaneos build sync" again')
+            if key == 'preflight':
+                warn_modified(ctx, result['modified'])
             ctx.cache[key] = result
         return check
 
@@ -708,7 +728,8 @@ def plan_android(ctx: Context) -> StepPlan:
                Action('Check the source tree is unchanged after the build', func=preflight('postflight'))]
 
     def outputs():
-        if ctx.cache['preflight']['resolved_project_map_sha256'] != ctx.cache['postflight']['resolved_project_map_sha256']:
+        before, after = ctx.cache['preflight'], ctx.cache['postflight']
+        if any(before[key] != after[key] for key in ('resolved_project_map_sha256', 'modified_sha256')):
             raise BuildStepError('the source tree changed during the build')
         target_files = find_target_files(ctx)
         target_sha256 = bw.sha_file(target_files)
@@ -724,7 +745,8 @@ def plan_android(ctx: Context) -> StepPlan:
                 'tools': tools,
                 'build_datetime': datetime,
                 'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
-                'descriptor_sha256': ctx.cache['postflight']['generated_input_descriptor_sha256'],
+                'modified': after['modified'],
+                'descriptor_sha256': after['generated_input_descriptor_sha256'],
                 'network_isolation': isolation}
 
     def valid(state):
