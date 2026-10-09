@@ -4822,7 +4822,7 @@
     },
     {
       "id": "media-codec2-seccomp-loader",
-      "why": "The codec service loads the configuration check and DiamaneOS seccomp loader in place of libavservices_minijail (finding -47): the filter does not depend on the stock binary calling SetUpMinijail.",
+      "why": "The codec service loads DiamaneOS's seccomp filter and codec gate in place of libavservices_minijail (finding -47): the filter does not depend on the stock binary's own policy, and the store offers only the codecs the boot allows.",
       "type": "binary_count",
       "file": "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
       "patterns": [
@@ -4833,12 +4833,30 @@
         {
           "text": "\u0000libavservices_minijail.so\u0000",
           "count": 0
+        },
+        {
+          "text": "\u0000_ZN7android8hardware5media2c24V1_25utils14ComponentStoreC1ERKNSt3__110shared_ptrI16C2ComponentStoreEE\u0000",
+          "count": 1
+        },
+        {
+          "text": "\u0000_ZN7android13SetUpMinijailERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEES8_\u0000",
+          "count": 1
         }
       ]
     },
     {
+      "id": "media-codec2-gate-exports",
+      "why": "The codec gate defines the two calls the service's main() makes through it: SetUpMinijail (filter) and the Codec2 HIDL store constructor (codec allowlist).",
+      "type": "elf_exports",
+      "path": "VENDOR/lib64/libc2hwjail_avservices.so",
+      "symbols": [
+        "_ZN7android13SetUpMinijailERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEES8_",
+        "_ZN7android8hardware5media2c24V1_25utils14ComponentStoreC1ERKNSt3__110shared_ptrI16C2ComponentStoreEE"
+      ]
+    },
+    {
       "id": "media-codec2-seccomp-policy",
-      "why": "The codec service's own seccomp policy allows no process creation or execution, no socket family but AF_UNIX (no network) and no mapping that is writable and executable.",
+      "why": "The codec service's own seccomp policy allows no process creation or execution, no socket family but AF_UNIX (no network) and no mapping that is writable and executable; other calls fail with EPERM.",
       "type": "text",
       "files": [
         "VENDOR/etc/seccomp_policy/codec2-service.policy"

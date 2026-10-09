@@ -347,21 +347,22 @@ NEEDED_REWRITES = {
  # still import its other symbols, which Soong's ELF check resolves only
  # against the listed libraries.
  # Hardware video codec service: its libavservices_minijail.so dependency is
- # renamed to the device's configuration check and seccomp loader
- # (media/seccomp), which links libavservices_minijail in turn (keep_link), so
- # the service's own SetUpMinijail still stacks the stock policy on top. The
- # loader's constructor runs before the service's main(): it stops the service
- # unless the target specification it is about to read names exactly the
- # codecs this boot allows (the Qualcomm library registers every codec when it
- # cannot read it), then installs DiamaneOS's filter whatever the stock binary
- # does. Without the loader the service does not start.
+ # renamed to the device's seccomp filter and codec gate (media/seccomp),
+ # which links libavservices_minijail in turn (keep_link). It comes before
+ # libavservices_minijail and libcodec2_hidl@1.2 in the service's dependency
+ # order, so the service's SetUpMinijail and Codec2 ComponentStore
+ # constructor calls reach it: it installs DiamaneOS's filter (and the stock
+ # one on top), checks the codec configuration (the Qualcomm library
+ # registers every codec when it cannot read it) and builds the store around
+ # a filter that offers only the codecs this boot allows, or none; the store
+ # always registers. Without the library the service does not start.
  'vendor/bin/hw/vendor.qti.media.c2@1.0-service': {
   'needed': 'libavservices_minijail.so', 'replacement': 'libc2hwjail_avservices.so',
   'module': 'libc2hwjail_avservices', 'keep_link': True,
   'source_sha256': '43e2535ccea69a64c7743559ed4e85920395c257d2aec25f82535059745e8da9',
   'sha256': '5e823841aa5a420d27bea9ca0597a9a4cbd0dcbcfaace618a853eda3dcc5ae4a',
-  'reason': 'Check the codec configuration and install the seccomp filter (libc2hwjail_avservices, '
-            'links libavservices_minijail) before the codec service starts'},
+  'reason': 'Install the seccomp filter and offer only the allowed codecs (libc2hwjail_avservices, '
+            'links libavservices_minijail) in the codec service'},
  'vendor/lib64/libcodec2_vndk.so': {
   'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
   'symbols': 'GRAPHICBUFFER_V34_SYMBOLS', 'keep_link': True,
