@@ -27,15 +27,13 @@
               "release",
               "mirror",
               "dns",
-              "community"
+              "community",
+              "attestation"
             ]
           },
           "jurisdiction": {
             "type": "string",
-            "enum": [
-              "DE",
-              "IS"
-            ]
+            "pattern": "^[A-Z]{2}$"
           },
           "provider_layer": {
             "type": "string",
@@ -52,7 +50,7 @@
           "management": {
             "type": "string",
             "enum": [
-              "operator-vpn-and-provider-console",
+              "protected-ssh-and-provider-console",
               "provider-console",
               "separate-community-path"
             ]
@@ -77,7 +75,7 @@
         ],
         "additionalProperties": false
       },
-      "minItems": 4,
+      "minItems": 5,
       "maxItems": 16
     },
     "services": {
@@ -135,7 +133,10 @@
             "const": "blocked-pending-implementation"
           },
           "credentials": {
-            "const": "none-read-only-serving"
+            "enum": [
+              "none-read-only-serving",
+              "isolated-stateful-serving"
+            ]
           }
         },
         "required": [

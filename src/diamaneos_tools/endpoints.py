@@ -38,10 +38,14 @@ APPENDIX_B = {
     'geocoder': 'nominatim.grapheneos.org',
     'attestation': 'attestation.app',
 }
-PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary',
+PROVIDER_LAYERS = {'registrar', 'authoritative-dns', 'vps-primary', 'vps-attestation',
                    'artifact-mirror-non-eu', 'git-primary', 'git-backup',
                    'git-mirror', 'email', 'monitoring', 'cdn', 'object-storage'}
 PUBLIC_MIRRORS = {'os-updates', 'apps-catalog'}
+# ISO country codes, checked against the EU country list on 2026-10-08.
+EU_JURISDICTIONS = frozenset('AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE'.split())
+HOST_PROVIDER_LAYERS = {'release': 'vps-primary', 'mirror': 'artifact-mirror-non-eu',
+                        'dns': 'authoritative-dns', 'attestation': 'vps-attestation'}
 # Reviewed exception (decision 2026-09-26): DiamaneOS hosts no geocoder.
 # The contract stays for coverage; its opt-in goes directly from the device to a
 # disclosed non-EU service, so it has no relay upstream and no service entry.
@@ -223,20 +227,25 @@ def validate_services(inv, services):
     hosts = {h['id']: h for h in services['hosts']}
     providers = {p['layer']: p for p in inv['providers']}
     endpoints = {e['id']: e for e in inv['endpoints']}
-    if Counter(h['role'] for h in hosts.values()) != Counter(['release','mirror','dns','community']):
-        errors.append('exactly one release, mirror, DNS and conditional community role required')
+    if Counter(h['role'] for h in hosts.values()) != Counter(['release','mirror','dns','attestation','community']):
+        errors.append('exactly one release, mirror, DNS, attestation and conditional community role required')
     if len({h['credential_class'] for h in hosts.values()}) != len(hosts):
         errors.append('administration credentials must be distinct per host role')
     for h in hosts.values():
         if h['provider_layer'] not in providers:
             errors.append('host provider reference is missing')
-        if h['role'] in ('release', 'mirror') and h['management'] != 'operator-vpn-and-provider-console':
-            errors.append('release/mirror protected management path is missing')
+        if h['role'] in ('release', 'mirror', 'attestation') and h['management'] != 'protected-ssh-and-provider-console':
+            errors.append('server protected management path is missing')
         if h['role'] == 'community' and (h['management'] != 'separate-community-path' or h['status'] != 'conditional'):
             errors.append('community must remain conditional and isolated')
-        required = {'release':('DE','vps-primary'), 'mirror':('IS','artifact-mirror-non-eu'), 'dns':('DE','authoritative-dns')}.get(h['role'])
-        if required and (h['jurisdiction'],h['provider_layer']) != required:
+        layer = HOST_PROVIDER_LAYERS.get(h['role'])
+        provider = providers.get(layer)
+        if layer and (h['provider_layer'] != layer or provider is None or h['jurisdiction'] != provider['jurisdiction']):
             errors.append('selected host jurisdiction/provider role mismatch')
+        if h['role'] in ('release', 'attestation') and h['jurisdiction'] not in EU_JURISDICTIONS:
+            errors.append('release and attestation hosts must be in the EU')
+        if h['role'] == 'mirror' and h['jurisdiction'] in EU_JURISDICTIONS:
+            errors.append('independent mirror must be outside the EU')
     roles = {h['role']: h for h in hosts.values()}
     if 'release' in roles and 'mirror' in roles:
         first = providers.get(roles['release']['provider_layer'])
@@ -260,8 +269,12 @@ def validate_services(inv, services):
                 errors.append('unhosted endpoint must not be assigned to a project host')
             if service['owner_task'] != endpoints[eid]['owner_task']:
                 errors.append('service and endpoint owner disagree')
-            if h and h['role'] != ('dns' if eid == 'dns-check' else 'release'):
+            authority = {'dns-check': 'dns', 'attestation': 'attestation'}.get(eid, 'release')
+            if h and h['role'] != authority:
                 errors.append('endpoint assigned to wrong authority role')
+            credentials = 'isolated-stateful-serving' if eid == 'attestation' else 'none-read-only-serving'
+            if service['credentials'] != credentials:
+                errors.append('service credential class differs from its state model')
             if bool(service['mirror']) != (eid in PUBLIC_MIRRORS):
                 errors.append('endpoint mirror selection does not match reviewed static scope')
     if Counter(assigned) != Counter(endpoints.keys() - UNHOSTED):
