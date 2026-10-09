@@ -61,7 +61,7 @@ class KernelConfigTests(unittest.TestCase):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
                         good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y',
@@ -76,7 +76,7 @@ class KernelConfigTests(unittest.TestCase):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'# CONFIG_QRTR_TUN is not set\n', b''),
                         good.replace(b'# CONFIG_QRTR_TUN is not set', b'CONFIG_QRTR_TUN=m')):
@@ -90,7 +90,7 @@ class KernelConfigTests(unittest.TestCase):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'# CONFIG_SECURITY_SELINUX_DEVELOP is not set\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         for changed in (good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n', b''),
                         good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set',

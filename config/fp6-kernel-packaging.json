@@ -1413,6 +1413,10 @@
     {
       "symbol": "names_command_line",
       "reason": "/proc/cmdline shows parameter names only, keeping module option values; without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line (finding -112)."
+    },
+    {
+      "symbol": "selinux_enforcing_lock",
+      "reason": "SELinux development mode is on so that an update's first boot can hand the snapshot daemon over before enforcing; once enforcing is on, this lock refuses to turn it off and makes the enforcing mode read-only."
     }
   ]
 }

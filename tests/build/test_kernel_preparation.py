@@ -248,7 +248,7 @@ class KernelSymbolRuleTests(unittest.TestCase):
     def test_committed_rules_parse(self):
         self.assertEqual({'register_kretprobe': ['dwc3-msm.ko']}, kernel.import_allowlist(self.recipe))
         self.assertEqual([], kernel.forbidden_symbols(self.recipe))
-        self.assertEqual(['names_command_line'], kernel.required_symbols(self.recipe))
+        self.assertEqual(['names_command_line', 'selinux_enforcing_lock'], kernel.required_symbols(self.recipe))
 
     def test_import_allowlist_requires_exact_importers(self):
         undefined = {'dwc3-msm.ko': {'register_kretprobe', 'printk'}, 'other.ko': {'printk'}}
