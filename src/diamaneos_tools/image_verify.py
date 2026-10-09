@@ -800,7 +800,25 @@ def rule_apk(rule, v):
             mine, theirs = signer_digests(v, apk), signer_digests(v, other)
             if not mine or not theirs or mine & theirs:
                 problems.append('signed with the same key as ' + rule['not_signed_like'])
+        if rule.get('not_signed_by'):
+            mine = signer_digests(v, apk)
+            if not mine or mine & set(rule['not_signed_by']):
+                problems.append('signed with an excluded key: ' + ', '.join(sorted(mine)))
+        if rule.get('contains') or rule.get('absent'):
+            found = apk_texts(apk, rule.get('contains', []) + rule.get('absent', []))
+            problems += ['does not contain ' + text for text in rule.get('contains', []) if text not in found]
+            problems += ['contains ' + text for text in rule.get('absent', []) if text in found]
     return not problems, '; '.join(problems)
+
+
+def apk_texts(apk: Path, texts: list) -> set:
+    """The texts found in any member of an APK (code, resources, manifest), as UTF-8 or UTF-16."""
+    found = set()
+    with zipfile.ZipFile(apk) as archive:
+        for name in archive.namelist():
+            data = archive.read(name)
+            found |= {t for t in texts if t.encode() in data or t.encode('utf-16-le') in data}
+    return found
 
 
 def rule_elf_exports(rule, v):

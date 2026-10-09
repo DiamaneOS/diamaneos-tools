@@ -200,3 +200,45 @@ PYTHONPATH=src "$VENV/bin/python" -m unittest tests.signing.test_native_signatur
 perform cryptographic verification. Policy code compares native results with external trust;
 it contains no signature parser. Controlled orchestration fixtures do not establish
 cryptographic or device acceptance.
+
+## Presigned apps
+
+The App Store and Auditor are presigned prebuilts ([BUILD.md](BUILD.md),
+"Building the apps"): signing the OS leaves them as they are. Each has its own
+key, apart from the OS keys, so an OS key rotation never breaks app updates or
+Auditor pairings, and an app key cannot sign the OS. Android accepts an app
+update only from the key of the installed copy, so these keys never change.
+
+| Key | Kind | Its public half goes to |
+| --- | --- | --- |
+| `appstore` | RSA-4096 app key, PKCS#12 | certificate SHA-256: `release_signer` of `appstore` in `config/apps.json`; `signatures` of `app.grapheneos.apps` in the app repository |
+| `auditor` | RSA-4096 app key, PKCS#12 | certificate SHA-256: `release_signer` of `auditor`; `AUDITOR_APP_SIGNATURE_DIGEST_RELEASE` in the Auditor and AttestationServer forks; `read_additional_security_state_known_signers` in frameworks/base; `signatures` of `app.attestation.auditor` in the app repository |
+| `apps.0` | signify Ed25519, generation 0 | `repo-public-key.pub` in the App Store fork (the whole `apps.0.pub`) |
+
+On the offline signer, with `keytool` (OpenJDK), `signify-openbsd` and the
+build tools' `apksigner.jar` (36.1.0, SHA-256
+`71e18adf733f5e112d1f062dbe6b0c2eb439a4d7c773d083c42a703c66f56df1`, the one
+the builds are checked with):
+
+```sh
+keytool -genkeypair -keystore appstore.p12 -storetype PKCS12 -alias appstore \
+  -keyalg RSA -keysize 4096 -sigalg SHA512withRSA -validity 10000 -dname CN=DiamaneOS
+keytool -genkeypair -keystore auditor.p12 -storetype PKCS12 -alias auditor \
+  -keyalg RSA -keysize 4096 -sigalg SHA512withRSA -validity 10000 -dname CN=DiamaneOS
+keytool -exportcert -keystore appstore.p12 -alias appstore | sha256sum   # likewise auditor
+signify-openbsd -G -c "DiamaneOS app repository key 0" -p apps.0.pub -s apps.0.sec
+```
+
+Sign the unsigned APK of an `apps build` run, then check it with
+`apps publish --signed app-release.apk --idsig app-release.apk.idsig`:
+
+```sh
+java -jar apksigner.jar sign --ks appstore.p12 --ks-key-alias appstore \
+  --alignment-preserved --v1-signing-enabled false --v2-signing-enabled true \
+  --v3-signing-enabled false --v4-signing-enabled true \
+  --out app-release.apk app-release-unsigned.apk
+```
+
+The repository metadata is signed with `apps.0.sec` by the app repository's
+`generate.py`, which runs `signify`. Test builds use the DiamaneOS test app
+key and a test catalog key; neither ever signs a release.

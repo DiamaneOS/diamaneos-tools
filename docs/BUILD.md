@@ -128,6 +128,46 @@ with the commit the sync checked out at `tools/diamaneos`:
 - The sync moved the very checkout the command runs from: the command starts again with the new
   tools, keeping the sync that just passed, as `repo` does after updating itself.
 
+**Building the apps.** The App Store and Auditor are Gradle apps that ship as
+presigned prebuilts, as in GrapheneOS: the image takes the APK committed to the
+prebuilt project (`external/AppStore`, `external/Auditor`). `diamaneos apps`
+builds them from our forks at the commits
+[`config/apps.json`](../config/apps.json) pins, in its own directory outside the
+OS tree (`--root`):
+
+- `apps toolchain` installs the pinned Temurin JDK 17 and Android command-line
+  tools 21.0, then the SDK packages (platform 36, build tools 36.1.0, NDK
+  29.0.14206865, which strips the camera libraries). It never accepts the SDK
+  licence: accept it yourself once with the `sdkmanager --licenses` command it
+  prints. Later command-line tools hand over to the Android CLI, which
+  downloads itself and sends usage metrics by default. Android and Java user
+  state stays under the root, not in the home directory.
+- `apps build --app appstore|auditor` checks out the pinned commit and runs
+  `gradlew assembleRelease` in a clean environment with strict dependency
+  verification. It checks the package and version code and records the
+  unsigned APK's SHA-256 in `runs/<app>-<time>/result.json`. Gradle fetches the
+  dependencies the app's verification metadata pins, so this step needs the
+  network.
+- The App Store reads its repository key at build time, with no fallback to
+  GrapheneOS's key; while the fork's `repo-public-key.pub` is a placeholder,
+  only test builds succeed. `--test-key-dir DIR` signs the build with the
+  DiamaneOS test app key (`apps-test.p12`, alias `test`, its password in
+  `keystore-password`) and builds the App Store against the test catalog key
+  (`apps-test.0.pub`). Test keys never sign a release; keep the directory
+  private and outside every repository.
+- `apps publish --run RUN --to CHECKOUT --test` (or `--signed APK --idsig FILE`
+  for a build the owner signed offline) copies the APK and its v4 signature into
+  the prebuilt checkout and updates its README's "This build" lines. It
+  refuses a GrapheneOS signer, a release signer other than `release_signer`,
+  and any APK that is not exactly the run's unsigned APK plus a signing block.
+  It never commits.
+
+With this toolchain, builds of GrapheneOS's App Store 36 and Auditor 92 tags
+are byte for byte GrapheneOS's own prebuilts once the signing block is
+removed. The image checks `app-store-own-build` and `auditor-own-build` reject
+GrapheneOS-signed or platform-signed APKs and APKs that name GrapheneOS's
+servers or repository key.
+
 **Local changes.** A build that is not official accepts projects with local changes (edited, added
 or deleted files):
 

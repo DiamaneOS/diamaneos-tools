@@ -2497,6 +2497,68 @@
       "target": "com.android.settings"
     },
     {
+      "id": "app-store-own-build",
+      "why": "The App Store is DiamaneOS's build of its fork (config/apps.json): signed with neither a GrapheneOS key nor the platform key, it asks the DiamaneOS app repository and carries no GrapheneOS repository host or key, and it asks for the permissions of GrapheneOS's App Store 36 and nothing more.",
+      "type": "apk",
+      "path": "PRODUCT/priv-app/AppStore/AppStore.apk",
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ENFORCE_UPDATE_OWNERSHIP",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.INSTALL_PACKAGES",
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.REQUEST_DELETE_PACKAGES",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
+        "app.grapheneos.apps.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk",
+      "not_signed_by": [
+        "3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b",
+        "990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c"
+      ],
+      "contains": [
+        "https://apps.diamaneos.de"
+      ],
+      "absent": [
+        "apps.grapheneos.org",
+        "RWQtZwEu1br1lMh911L3yPOs97cQb9LOks/ALBbqGl21ul695ocWR/ir"
+      ]
+    },
+    {
+      "id": "auditor-own-build",
+      "why": "Auditor is DiamaneOS's build of its fork (config/apps.json): not signed with a GrapheneOS key or the platform key, remote verification goes to attestation.diamaneos.de and never to attestation.app, and it asks for the permissions of GrapheneOS's Auditor 92 and nothing more.",
+      "type": "apk",
+      "path": "PRODUCT/app/Auditor/Auditor.apk",
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.READ_ADDITIONAL_SECURITY_STATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "app.attestation.auditor.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk",
+      "not_signed_by": [
+        "3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b",
+        "990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c"
+      ],
+      "contains": [
+        "https://attestation.diamaneos.de/auditor/"
+      ],
+      "absent": [
+        "attestation.app"
+      ]
+    },
+    {
       "id": "tap-to-wake",
       "why": "Tap to wake and Tap to check phone: the controller's gesture switch belongs to system (the sensors HAL).",
       "type": "text",

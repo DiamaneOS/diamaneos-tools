@@ -1388,6 +1388,31 @@ class RuleTests(unittest.TestCase):
         self.assertIn('VENDOR/etc/displayconfig/display_id_4630947039571902850.xml',
                       rules['display-stock-config-absent']['paths'])
 
+    def test_apk_signer_exclusion_and_texts(self):
+        def apk(dex, xml):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, 'w', zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr('classes.dex', dex)
+                archive.writestr('res/8G.xml', xml)
+            return data.getvalue()
+        ours = apk(b'\0https://apps.diamaneos.de\0', 'apps.diamaneos.de'.encode('utf-16-le'))
+        theirs = apk(b'\0https://apps.grapheneos.org\0', 'apps.grapheneos.org'.encode('utf-16-le'))
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['app-store-own-build']
+        grapheneos = rule['not_signed_by'][0]
+        permissions = ''.join(f"uses-permission: name='{p}'\n" for p in rule['permissions'])
+        for content, signer, expected in ((ours, 'a' * 64, True), (ours, grapheneos, False),
+                                          (theirs, 'a' * 64, False)):
+            tools = FakeTools({('aapt2', 'permissions'): permissions,
+                               ('apksigner',): lambda args, s=signer: 'Signer #1 certificate SHA-256 digest: '
+                                   + (s if 'AppStore.apk' in str(args[-1]) else 'b' * 64) + '\n'})
+            v = self.harness({rule['path']: content, 'SYSTEM/framework/framework-res.apk': b'apk'}, tools=tools)
+            ok, detail = subject.rule_apk(rule, v)
+            self.assertEqual(expected, ok, detail)
+        self.assertIn('contains apps.grapheneos.org', detail)
+        self.assertIn('does not contain https://apps.diamaneos.de', detail)
+        self.assertIn('https://attestation.diamaneos.de/auditor/', rules['auditor-own-build']['contains'])
+
     def test_apk_manifest_patterns(self):
         def tree(app, service):
             return ('N: android=http://schemas.android.com/apk/res/android (line=2)\n'

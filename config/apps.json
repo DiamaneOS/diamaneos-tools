@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "note": "Apps DiamaneOS builds from its own forks and ships as presigned prebuilts, as GrapheneOS ships its builds of them. diamaneos apps builds each at its pinned commit with this toolchain; publish copies a signed build into the app's prebuilt project. The toolchain reproduces GrapheneOS's own prebuilts of App Store 36 and Auditor 92 byte for byte, apart from the signature. release_signer is the SHA-256 of the app's DiamaneOS release certificate; null means no release key exists yet, so only test builds can be published.",
+  "toolchain": {
+    "jdk": {
+      "version": "17.0.20.1+1",
+      "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20.1_1.tar.gz",
+      "sha256": "3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e"
+    },
+    "cmdline_tools": {
+      "version": "21.0",
+      "url": "https://dl.google.com/android/repository/commandlinetools-linux-15641748_latest.zip",
+      "sha256": "a66d5ef0238fc0162e9c1446602ce0dd41702d4dd7a94d2ce42d12b7f80baf7e",
+      "why": "From 22.0 on, sdkmanager hands over to the Android CLI, which downloads itself and sends usage metrics by default."
+    },
+    "sdk_packages": [
+      "build-tools;36.1.0",
+      "ndk;29.0.14206865",
+      "platforms;android-36"
+    ],
+    "build_tools": "36.1.0"
+  },
+  "grapheneos_signers": [
+    "3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b",
+    "990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c"
+  ],
+  "apps": [
+    {
+      "id": "appstore",
+      "package": "app.grapheneos.apps",
+      "version_code": 3601,
+      "repository": "https://github.com/DiamaneOS/AppStore.git",
+      "commit": "79cbf45e75cefdd435b830ad9b4f043bdafc3b62",
+      "environment": {
+        "REPO_BASE_URL": "https://apps.diamaneos.de",
+        "REPO_KEY_VERSION": "0"
+      },
+      "test_catalog_key": true,
+      "prebuilt": "external/AppStore",
+      "release_signer": null
+    },
+    {
+      "id": "auditor",
+      "package": "app.attestation.auditor",
+      "version_code": 9201,
+      "repository": "https://github.com/DiamaneOS/Auditor.git",
+      "commit": "a89bc82890c38f72fc2b3a4b3ab34e5afa3805c2",
+      "environment": {},
+      "test_catalog_key": false,
+      "prebuilt": "external/Auditor",
+      "release_signer": null
+    }
+  ]
+}
