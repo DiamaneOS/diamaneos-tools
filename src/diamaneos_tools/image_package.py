@@ -312,6 +312,8 @@ def plan(ctx):
         official = out.get('official') is True
         # Projects the Android build took with local changes (never official).
         modified = out.get('modified') or []
+        # "manual": a plain m built the images and "build package" recorded them.
+        android_build = out.get('android_build', 'tools')
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
             'release': False, 'signing': 'public-test-keys', 'never_lock': True,
@@ -322,9 +324,9 @@ def plan(ctx):
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),
-            'tools': tools, 'packaging_tools': packaging_tools, 'modified': modified,
+            'tools': tools, 'packaging_tools': packaging_tools, 'modified': modified, 'android_build': android_build,
             'reproducible': bool(tools.get('clean') and packaging_tools.get('clean') and not modified
-                                 and tools.get('commit') == packaging_tools.get('commit')),
+                                 and android_build == 'tools' and tools.get('commit') == packaging_tools.get('commit')),
             'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
             'source': sync['outputs'],
             'manifest': {'url': sync['outputs'].get('manifest_url'), 'branch': sync['outputs'].get('manifest_branch'),

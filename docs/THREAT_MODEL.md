@@ -1293,6 +1293,10 @@ entry point), the protections in current builds, what remains, and the status.
     filesystem stay reachable, so a socket to a service with network access (a
     container daemon, for example) is a way out, and the build can read whatever
     the user can.
+  - A set packaged from a build by hand (`build package` after `m`) records
+    `out/` as `m` left it: the source and the vendor files are checked, the
+    compile is not (no network isolation; times only for a note);
+    `build.json` marks it `android_build: manual` and not reproducible.
   - Host packages are recorded, not pinned; a build with `--allow-network`
     compiles with network access (recorded for the kernel, vendor and Android
     steps); a modified tools checkout, or packaging by another tools commit

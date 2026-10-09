@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `build package` on its own packages and checks a build by hand: after
+  `lunch` and `m target-files-package otatools-package`, it records `out/` as
+  the Android step when the source, the vendor files and the variant match,
+  without `m` or `installclean`, then runs `package` and `verify`. Otherwise
+  it stops with one message. `build.json` marks such sets
+  `android_build: manual` and not reproducible.
 - `build vendor` on its own works right after a plain `repo sync`: it checks
   the checkout as `build sync` does after its own `repo sync` (the same
   checks, local changes named outside official builds) and records it, so

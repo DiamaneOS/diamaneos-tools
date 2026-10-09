@@ -20,6 +20,7 @@ import subprocess
 import sys
 import urllib.parse
 import urllib.request
+import zipfile
 
 from . import build, product_inputs, source_sync
 from . import build_workspace as bw
@@ -79,6 +80,10 @@ TOOLS_PROJECT = 'tools/diamaneos'
 TOOLS_CHECKED = ('vendor', 'android', 'package', 'verify')
 # Set for a command that starts again because its sync moved the running tools.
 RESTARTED = 'DIAMANEOS_TOOLS_RESTARTED'
+# A build by hand: what packaging and the image checks need from out/.
+MANUAL_TARGETS = 'm target-files-package otatools-package'
+MANUAL_HOST_TOOLS = ('build_super_image', 'make_f2fs', 'avbtool', 'apksigner', 'validate_target_files',
+                     'check_target_files_vintf')
 
 
 class ToolsUpdated(Exception):
@@ -134,8 +139,11 @@ class Context:
     # The command started again after its sync moved the running tools.
     restarted: bool = False
     # sync checks the checkout as it is (after a plain "repo sync") instead of
-    # running repo itself: "build vendor" on its own.
+    # running repo itself: "build vendor" and "build package" on their own.
     check_only: bool = False
+    # android records the build a plain "m" left in out/ instead of building
+    # ("build package" after a manual build).
+    manual: bool = False
     cache: dict = field(default_factory=dict)
 
     @property
@@ -686,6 +694,8 @@ def find_target_files(ctx: Context) -> Path:
 
 
 def plan_android(ctx: Context) -> StepPlan:
+    if ctx.manual:
+        return plan_manual_android(ctx)
     ws, config = ctx.workspace, ctx.config
     sync, vendor = ws.passed('sync'), ws.passed('vendor')
     waiting = next((n for n, s in (('sync', sync), ('vendor', vendor)) if s is None), None)
@@ -787,6 +797,141 @@ def plan_android(ctx: Context) -> StepPlan:
     return StepPlan('android', inputs, actions, outputs, valid, waiting_for=waiting)
 
 
+def build_properties(data: bytes) -> dict:
+    values = {}
+    for line in data.decode('utf-8', 'replace').splitlines():
+        if '=' in line and not line.lstrip().startswith('#'):
+            key, value = line.split('=', 1)
+            values[key.strip()] = value.strip()
+    return values
+
+
+def plan_manual_android(ctx: Context) -> StepPlan:
+    """Record what "m" left in out/ as the Android step, without building.
+
+    The target-files archive must exist, with the host tools packaging and
+    the checks use, carry the vendor tree "build vendor" made, and come with
+    the source "build sync" or "build vendor" checked. The variant comes from
+    out/. build.json marks the set as built by hand.
+    """
+    ws, config = ctx.workspace, ctx.config
+    sync, vendor = ws.passed('sync'), ws.passed('vendor')
+    waiting = next((n for n, s in (('sync', sync), ('vendor', vendor)) if s is None), None)
+    if waiting:
+        return StepPlan('android', None, [], None, lambda state: False, waiting_for=waiting)
+    try:
+        target_files = find_target_files(ctx)
+        with zipfile.ZipFile(target_files) as archive:
+            properties = build_properties(archive.read('SYSTEM/build.prop'))
+    except (BuildStepError, KeyError, OSError, zipfile.BadZipFile) as error:
+        raise UsageError(f'out/ holds no complete {config["product"]} build ({error}); after lunch, build it with '
+                         f'"{MANUAL_TARGETS}"') from None
+    variant = properties.get('ro.build.type')
+    if variant not in config['variants']:
+        raise UsageError(f'out/ holds a build of variant {variant!r}, which {config["product"]} does not have')
+    if ctx.variant_given and ctx.variant != variant:
+        raise UsageError(f'out/ holds a {variant} build, not {ctx.variant}: run lunch '
+                         f'{config["product"]}-{config["release_config"]}-{ctx.variant} and m, or leave out --variant')
+    if ctx.official:
+        raise UsageError('official images come only from "diamaneos build all"; a build by hand is never official')
+    lunch = f'{config["product"]}-{config["release_config"]}-{variant}'
+    inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync), 'vendor': vendor['outputs'],
+              'variant': variant, 'build_config': config_subset(config, ANDROID_CONFIG), 'android_build': 'manual'}
+    state = {}
+
+    def check_out():
+        missing = [tool for tool in MANUAL_HOST_TOOLS if not (ctx.host_bin / tool).is_file()]
+        if missing:
+            raise BuildStepError(f'out/ lacks {", ".join(missing)}; after lunch, build them with "{MANUAL_TARGETS}"')
+
+    def check_source():
+        commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
+        result = ctx.cache.get('sync') or build.verify_branch_checkout(
+            ctx.environment, ws.src, ctx.environment_sha256, manifest_commit=commit, allow_modified=not ctx.official)
+        if (result['resolved_manifest_sha256'], result['modified_sha256']) != (
+                sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256')):
+            raise BuildStepError('the source changed since "diamaneos build vendor" checked it; run it again, then m')
+        state['source'] = result
+
+    def check_vendor_files():
+        from types import SimpleNamespace
+        from . import image_verify
+        generation = vendor['outputs'].get('generation')
+        try:
+            descriptor = json.loads((ws.src / product_inputs.DESCRIPTOR).read_bytes())
+            installed = descriptor['inputs']['vendor']['generation']
+        except (OSError, ValueError, KeyError, TypeError):
+            installed = None
+        if installed != generation:
+            raise BuildStepError('the source has not the vendor tree "diamaneos build vendor" made; run it again, '
+                                 'then m')
+        archive = image_verify.TargetFiles(target_files)
+        try:
+            passed, detail = image_verify.check_vendor(SimpleNamespace(
+                vendor_dir=ws.vendor / 'generations' / generation, tf=archive))
+        finally:
+            archive.close()
+        if not passed:
+            raise BuildStepError(f'out/ was not built with the vendor tree of "diamaneos build vendor" ({detail}); '
+                                 'run m again')
+
+    def check_age():
+        # Times cannot prove what m built, so a newer input is a note, not a stop.
+        built = target_files.stat().st_mtime
+        newer = [path for path in state['source']['modified']
+                 if any(p.stat().st_mtime > built for p in build.changed_files(ws.src / path))]
+        if (ws.state_dir / 'vendor.json').stat().st_mtime > built:
+            newer.insert(0, 'the vendor files')
+        if newer:
+            ctx.echo(f'    note: out/ is older than {", ".join(newer[:10])}; if m has not run since, run it and '
+                     'package again')
+
+    actions = [Action('Check the manual build', func=check_out, detail=f'{lunch} in out/'),
+               Action('Verify the source tree', func=check_source,
+                      detail='the one "build sync" or "build vendor" recorded'),
+               Action('Check the vendor files', func=check_vendor_files,
+                      detail='the images carry the vendor tree "build vendor" made'),
+               Action('Compare times', func=check_age, detail='out/ against the vendor files and local changes')]
+
+    def outputs():
+        result = state['source']
+        try:
+            datetime = int(properties['ro.build.date.utc'])
+        except (KeyError, ValueError):
+            raise BuildStepError('the target-files build.prop has no ro.build.date.utc') from None
+        # The build number m chose (eng.<user>.<date> unless BUILD_NUMBER was set), in the record's characters.
+        number = re.sub(r'[^A-Za-z0-9._-]', '_', properties.get('ro.build.version.incremental') or 'unknown')[:64]
+        current = {'outputs': dict(sync['outputs'], modified_sha256=result['modified_sha256'])}
+        identity = android_identity(replace(ctx, variant=variant), current)
+        target_sha256 = bw.sha_file(target_files)
+        tools = {'commit': None, 'clean': None}
+        build_identity = bw.digest({'source_identity': identity, 'build_number': number, 'network_isolation': 'off',
+                                    'tools': tools, 'target_files_sha256': target_sha256, 'android_build': 'manual'})
+        return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
+                'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
+                'tools': tools, 'build_datetime': datetime, 'variant': variant, 'lunch': lunch, 'official': False,
+                'modified': result['modified'], 'descriptor_sha256': result['generated_input_descriptor_sha256'],
+                'network_isolation': 'off', 'android_build': 'manual'}
+
+    def valid(previous):
+        path = ws.root / previous['outputs']['target_files']
+        return path.is_file() and bw.sha_file(path) == previous['outputs']['target_files_sha256']
+
+    return StepPlan('android', inputs, actions, outputs, valid)
+
+
+def wants_manual_build(ctx: Context) -> bool:
+    """"build package" on its own records a manual build when the Android step
+    has no current record of its own: none, a manual one, or out/ changed."""
+    passed = ctx.workspace.passed('android')
+    if passed is None or (passed.get('inputs') or {}).get('android_build') == 'manual':
+        return True
+    try:
+        return step_status(recorded_context(ctx, 'android'), 'android') != 'current'
+    except (BuildStepError, build.BuildError, ValueError, OSError, KeyError):
+        return True
+
+
 def plan_package(ctx: Context) -> StepPlan:
     from . import image_package
     return image_package.plan(ctx)
@@ -828,6 +973,8 @@ def recorded_context(ctx: Context, name: str) -> Context:
         changes['build_number'] = inputs['build_number']
     if not ctx.official_given and inputs.get('official') is True:
         changes['official'] = True
+    if name == 'android' and inputs.get('android_build') == 'manual':
+        changes['manual'] = True
     return replace(ctx, **changes) if changes else ctx
 
 
@@ -848,6 +995,9 @@ def check_prerequisites(ctx: Context, name: str, steps) -> None:
         else:
             reason = 'is out of date (its inputs changed)'
         option = '' if recorded.variant == ctx.config['default_variant'] else ' --variant ' + recorded.variant
+        if ctx.manual:
+            raise UsageError(f'{dependency} {reason}; run "diamaneos build vendor", then m, then '
+                             '"diamaneos build package" again')
         raise UsageError(f'{dependency} {reason}; run "diamaneos build {dependency}{option}" '
                          f'or "diamaneos build all{option}"')
 
@@ -937,7 +1087,8 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             ctx.echo(f'{name}: up to date')
             continue
         log = ws.new_log(name)
-        doing = 'checking the checkout' if name == 'sync' and ctx.check_only else 'running'
+        doing = 'checking the checkout' if name == 'sync' and ctx.check_only else \
+            'recording the manual build' if name == 'android' and ctx.manual else 'running'
         ctx.echo(f'{name}: {doing} (log: {log})')
         record = {'inputs': plan.inputs, 'inputs_sha256': bw.digest(plan.inputs), 'log': str(log)}
         ws.write_state(name, dict(record, status='RUNNING'))
@@ -1120,6 +1271,11 @@ def main(argv=None, echo=print) -> int:
             # it, as "build sync" does after its own repo sync.
             ctx.check_only = True
             steps = force = ('sync', 'vendor')
+        elif args.step == 'package' and wants_manual_build(ctx):
+            # After a plain "m": record out/ as the Android step, then package
+            # and check the images.
+            ctx.manual, ctx.check_only = True, not pinned_sync(ctx.workspace)
+            steps = force = (('sync',) if ctx.check_only else ()) + ('android', 'package', 'verify')
         elif args.step != 'all':
             force = (args.step,)
         elif ctx.pinned:
@@ -1145,7 +1301,8 @@ def main(argv=None, echo=print) -> int:
             run_steps(ctx, steps, force, dry_run=True)
             return 0
         pending = steps_to_run(ctx, steps, force)
-        need_isolation = not ctx.allow_network and any(s in ('kernel', 'vendor', 'android') for s in pending)
+        compiles = ('kernel', 'vendor') + (() if ctx.manual else ('android',))
+        need_isolation = not ctx.allow_network and any(s in compiles for s in pending)
         with ctx.workspace.lock():
             if ctx.official_given:
                 remember_official(ctx.workspace, ctx.official)

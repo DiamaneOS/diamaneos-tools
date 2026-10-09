@@ -12,6 +12,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-09
 
+- Builds by hand: `build package` after a plain `m` records `out/` as the Android build after checking the source and the vendor files; the compile is not isolated or watched, so `build.json` marks the set `android_build: manual` and not reproducible. `build all` still builds Android itself.
 - Builds that are not official accept local changes in source projects: the build warns, `build.json` lists them (`modified`) and marks the set not reproducible; official builds still need clean projects, and every build still refuses a pinned project at another commit, a changed manifest checkout, local manifests and undeclared files.
 
 ### 2026-10-08

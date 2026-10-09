@@ -63,7 +63,8 @@ dependencies in `requirements-dev.txt`.
 (`~/diamaneos-build`, or `--workspace`, or `DIAMANEOS_WORKSPACE`); the source
 is its `src` directory. Each step can also run on its own; it then always runs
 again, and it refuses to start while an earlier step it consumes has not run
-or is out of date.
+or is out of date (`build vendor` and `build package` check or record those
+steps themselves: [building by hand](#building-by-hand)).
 
 The build environment ([`config/build-environment-fp6.json`](../config/build-environment-fp6.json))
 names the source: the DiamaneOS manifest
@@ -100,12 +101,7 @@ pins one manifest commit (`manifest.revision`) does not.
   `build.json` (exactly what the build was made from: the manifest commit, the
   kernel prebuilts commit, the vendor inputs and more), `resolved-manifest.xml`
   with every project's commit, and `SHA256SUMS`.
-- By hand, after `repo sync`, `build vendor` checks the checkout itself, so no
-  `build sync` is needed; the checkout must use the pinned `repo` tool
-  (`repo init --repo-rev=v2.65`, the environment's `repo_tool` pin). Then the
-  usual `source build/envsetup.sh`, `lunch FP6-cur-<variant>` and `m` build
-  Android. The tools package and check only image sets from `build all`;
-  flash only those.
+- To build by hand instead, see [building by hand](#building-by-hand).
 
 **State and resume.** Each step writes `state/<step>.json` with the digest of
 its inputs (the hashes of the configs, and only the parts of
@@ -348,6 +344,38 @@ a copy of the FP6 environment with another manifest branch, or with
 `manifest.revision` set to build one manifest commit. `DIAMANEOS_BUILD_NUMBER`
 overrides the build number.
 
+### Building by hand
+
+The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`,
+`build vendor`, `lunch` and `m`, then `build package`.
+
+- `build vendor` on its own checks the checkout as `sync` does after its
+  `repo sync`, runs no `repo` command and records it as the sync. The checkout
+  must use the pinned `repo` tool (`repo init --repo-rev=v2.65`, the
+  environment's `repo_tool` pin).
+- `m target-files-package otatools-package` builds the images, the
+  target-files archive and the host tools that packaging and the checks use; a
+  plain `m` builds the images only.
+- `build package` on its own, when the Android step has no current record of
+  its own, checks the checkout again and records the build in `out/` as the
+  Android step, with no `m` and no `installclean`. Then it packages and
+  checks the set (`package`, then `verify`).
+- It stops, with one message, when:
+  - `out/` lacks the target-files archive or a host tool;
+  - `out/` holds another variant than `--variant` asks for (without
+    `--variant`, the variant comes from `out/`);
+  - the source changed since `build vendor` checked it, or holds another
+    vendor tree;
+  - the images do not carry the vendor generation's files byte for byte (the
+    `vendor-binding` check of `verify`);
+  - the workspace builds official images, which come only from `build all`.
+- Times cannot prove what `m` built: `out/` older than the last
+  `build vendor` or a local change is a note, not a stop.
+- `build.json` marks the set `android_build: manual` (`tools` for builds the
+  tools ran), with the build number and date from its `build.prop`,
+  `network_isolation: off`, no tools commit and `reproducible: false`.
+  `build all` never reuses a manual record; it builds Android itself.
+
 ## Flashing
 
 For test builds only. The rules:
@@ -416,6 +444,9 @@ Relock only after stock is back, and only with the checks in the installer's
 | --- | --- |
 | `this host cannot run the build` | It lists everything that is missing. Fix those and run the command again. |
 | `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
+| `repo implementation commit does not match the pin` | The checkout uses another `repo` tool: run `repo init --repo-rev=v2.65` and `repo sync`, then the command again. |
+| `out/ holds no complete FP6 build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
+| `the source changed since "diamaneos build vendor" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can; otherwise add `--allow-network`, and `build.json` records that the build had network access. |
 | `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source. Run the copy it names (`src/tools/diamaneos/bin/diamaneos`), or update your tools checkout. |
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
