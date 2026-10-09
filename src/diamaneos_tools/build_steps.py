@@ -818,7 +818,9 @@ def plan_manual_android(ctx: Context) -> StepPlan:
     sync, vendor = ws.passed('sync'), ws.passed('vendor')
     waiting = next((n for n, s in (('sync', sync), ('vendor', vendor)) if s is None), None)
     if waiting:
-        return StepPlan('android', None, [], None, lambda state: False, waiting_for=waiting)
+        titles = ('Check the manual build', 'Verify the source tree', 'Check the vendor files', 'Compare times')
+        return StepPlan('android', None, [Action(title) for title in titles], None, lambda state: False,
+                        waiting_for=waiting)
     try:
         target_files = find_target_files(ctx)
         with zipfile.ZipFile(target_files) as archive:
