@@ -109,6 +109,12 @@ def load_forks(forks):
             raise ForkError(f"invalid fork entry: {fork.get('id')}")
         if upstream['kind'] == 'commit' and not re.fullmatch(r'[0-9a-f]{40}', upstream['ref']):
             raise ForkError(f"commit reference must be a full hash: {fork['id']}")
+        if fork.get('scope', 'android') not in ('android', 'server'):
+            raise ForkError(f"invalid fork scope: {fork['id']}")
+        if 'upstream_revision' in fork and (upstream['kind'] != 'branch' or
+                not isinstance(fork['upstream_revision'], str) or
+                not re.fullmatch(r'[0-9a-f]{40}', fork['upstream_revision'])):
+            raise ForkError(f"invalid adopted upstream revision: {fork['id']}")
         for kind, pattern in fork.get('newer', {}).items():
             if kind not in ('branches', 'tags'):
                 raise ForkError(f"invalid newer reference kind: {fork['id']}")
@@ -351,12 +357,20 @@ def is_ancestor(repo, commit, branch):
 def check_fork(root, fork, refs):
     upstream = fork['upstream']
     result = {'id': fork['id'], 'type': 'fork', 'follows': upstream['ref']}
+    if fork.get('scope') == 'server':
+        result['scope'] = 'server'
     if upstream['kind'] == 'branch':
         head = refs.get('refs/heads/' + upstream['ref'])
         if head is None:
             result['state'] = 'followed-branch-missing'
         else:
-            contained = is_ancestor(Path(root) / fork['slug'], head, fork['branch'])
+            if 'upstream_revision' in fork:
+                # Server branch adoption is recorded explicitly, so CI needs no
+                # checkout and a later upstream force-push is still reported.
+                result['pin'] = fork['upstream_revision']
+                contained = head == fork['upstream_revision']
+            else:
+                contained = is_ancestor(Path(root) / fork['slug'], head, fork['branch'])
             result['upstream_head'] = head
             result['state'] = {None: 'clone-missing', True: 'current', False: 'update-available'}[contained]
     elif upstream['kind'] == 'tag':
@@ -437,7 +451,10 @@ def check(root, forks, sources, lister=remote_refs):
                 needs_refs = kind == 'fork' or entry['follow']['kind'] != 'manual'
                 results.append(checker(root, entry, refs(url) if needs_refs else {}))
             except (ForkError, subprocess.TimeoutExpired, KeyError, ValueError) as error:
-                results.append({'id': entry['id'], 'type': kind, 'state': 'error', 'error': str(error)})
+                result = {'id': entry['id'], 'type': kind, 'state': 'error', 'error': str(error)}
+                if entry.get('scope') == 'server':
+                    result['scope'] = 'server'
+                results.append(result)
     return results
 
 

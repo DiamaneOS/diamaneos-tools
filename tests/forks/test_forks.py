@@ -298,6 +298,22 @@ class ForkTests(unittest.TestCase):
         self.assertEqual('update-available', result['state'])
         self.assertEqual(run(self.upstream, 'rev-parse', 'odm/rc'), result['upstream_head'])
 
+    def test_recorded_server_adoption_needs_no_clone_and_preserves_lookup_failure(self):
+        server = dict(self.fork, scope='server', upstream_revision=self.first)
+        missing = Path(self.tmp.name) / 'no-checkouts'
+        result = forks.check(missing, [server], [], self.lister())[0]
+        self.assertEqual(('current', 'server', self.first),
+                         (result['state'], result['scope'], result['pin']))
+        self.advance_upstream()
+        self.assertEqual('update-available', forks.check(missing, [server], [], self.lister())[0]['state'])
+        def unavailable(url):
+            raise forks.ForkError('synthetic lookup failure')
+        failed = forks.check(missing, [server], [], unavailable)[0]
+        self.assertEqual(('error', 'server'), (failed['state'], failed['scope']))
+        for invalid in ('abc', 7):
+            with self.subTest(invalid=invalid), self.assertRaises(forks.ForkError):
+                forks.load_forks([dict(server, upstream_revision=invalid)])
+
     def test_check_reports_newer_branch(self):
         self.fork['newer'] = {'branches': r'^release/([0-9]+)$'}
         self.fork['upstream']['ref'] = 'release/16'

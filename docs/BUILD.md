@@ -360,9 +360,15 @@ exact commit of each project is known afterwards.
 
 ## Upstream tracking
 
-[`config/forks.json`](../config/forks.json) lists every upstream the build
-uses. `forks` are the repositories DiamaneOS forks and patches: the forks the
-DiamaneOS manifest selects and the common kernel (`kernel_common-6.1`). A fork
+[`config/forks.json`](../config/forks.json) lists the upstreams used by builds
+and server deployments. `forks` are the repositories DiamaneOS forks and patches:
+the forks the DiamaneOS manifest selects, the common kernel (`kernel_common-6.1`),
+and the server forks. Server entries have `scope: "server"`, branch `main`, and
+an `upstream_revision` recording the adopted upstream commit. Checks compare it
+with the upstream branch head without needing a clone. Update that field only
+when adopting reviewed source; deployment and phone acceptance remain separate.
+Server forks are not selected by the Android manifest or release-tag rebase.
+A fork
 exists only where DiamaneOS changes the code. A fork that stops carrying a
 needed change leaves the registry, the manifest takes the upstream project
 unmodified, and `config/repositories.json` marks it `retired` while it is still

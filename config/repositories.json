@@ -60,7 +60,7 @@
       "revision": null,
       "slug": "infrastructure",
       "state": "active",
-      "upstream_url": null
+      "upstream_url": "https://github.com/GrapheneOS/infrastructure"
     },
     {
       "checkout_path": "WORK_ROOT/website",
@@ -343,7 +343,7 @@
       "upstream_url": "https://github.com/GrapheneOS/Auditor"
     },
     {
-      "checkout_path": "WORK_ROOT/os/services/AttestationServer",
+      "checkout_path": "WORK_ROOT/AttestationServer",
       "id": "attestation-server",
       "publication": "public-source",
       "remote_url": "https://github.com/DiamaneOS/AttestationServer.git",
@@ -551,6 +551,36 @@
       "slug": "platform_packages_modules_Connectivity",
       "state": "active",
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_modules_Connectivity"
+    },
+    {
+      "checkout_path": "WORK_ROOT/network-services",
+      "id": "server-network-services",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/network-services.git",
+      "revision": null,
+      "slug": "network-services",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/grapheneos.org"
+    },
+    {
+      "checkout_path": "WORK_ROOT/releases.diamaneos.de",
+      "id": "server-releases",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/releases.diamaneos.de.git",
+      "revision": null,
+      "slug": "releases.diamaneos.de",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/releases.grapheneos.org"
+    },
+    {
+      "checkout_path": "WORK_ROOT/apps.diamaneos.de",
+      "id": "server-apps",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/apps.diamaneos.de.git",
+      "revision": null,
+      "slug": "apps.diamaneos.de",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/apps.grapheneos.org"
     }
   ],
   "schema_version": 1
