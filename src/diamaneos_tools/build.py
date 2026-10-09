@@ -701,6 +701,25 @@ def verify_pinned_revisions(declared_xml: bytes, rows) -> None:
                          + ", ".join(moved[:20]))
 
 
+def _status_entries(checkout: Path, status: bytes):
+    """(entry, path) for each entry of ``git status --porcelain=v1 -z``."""
+    entries = iter(status.split(b"\0"))
+    for entry in entries:
+        if not entry:
+            continue
+        if any(code in entry[:2] for code in (b"R", b"C")):
+            next(entries, None)  # The old path of a rename or copy.
+        yield entry, checkout / os.fsdecode(entry[3:])
+
+
+def changed_files(checkout: Path) -> list:
+    """The files of a project's local changes that exist (not deleted ones)."""
+    status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1", "-z",
+                   "--untracked-files=all"]).stdout
+    return [path for _entry, path in _status_entries(checkout, status)
+            if path.is_file() or path.is_symlink()]
+
+
 def changes_digest(checkout: Path, status: bytes) -> str:
     """SHA-256 of a project's local changes as the build sees them.
 
@@ -709,13 +728,7 @@ def changes_digest(checkout: Path, status: bytes) -> str:
     target, or a marker for a directory or a deleted path.
     """
     digest = hashlib.sha256()
-    entries = iter(status.split(b"\0"))
-    for entry in entries:
-        if not entry:
-            continue
-        if any(code in entry[:2] for code in (b"R", b"C")):
-            next(entries, None)  # The old path of a rename or copy.
-        target = checkout / os.fsdecode(entry[3:])
+    for entry, target in _status_entries(checkout, status):
         if target.is_symlink():
             content = b"link " + os.fsencode(os.readlink(target))
         elif target.is_file():
