@@ -1359,6 +1359,34 @@ class GenericCheckTests(unittest.TestCase):
         (vendor / 'recipe.json').write_text(json.dumps({'files': []}))
         self.assertEqual((False, 'the vendor generation selects no files'), check())
 
+    def test_vendor_binding_checks_files_derived_under_a_new_path(self):
+        # A file the generator derives from a selected file under a new path
+        # (hardware video decoding's codec list) is checked like the others.
+        vendor = self.root / 'vendor'
+        files = {'vendor/etc/codecs.xml': b'stock', 'vendor/etc/codecs_hwdec.xml': b'derived'}
+        for rel, data in files.items():
+            (vendor / 'files' / rel).parent.mkdir(parents=True, exist_ok=True)
+            (vendor / 'files' / rel).write_bytes(data)
+        sha = {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
+        (vendor / 'recipe.json').write_text(json.dumps({'files': [{'path': 'vendor/etc/codecs.xml',
+                                                                   'sha256': sha['vendor/etc/codecs.xml']}]}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [
+            {'path': 'vendor/etc/codecs_hwdec.xml', 'from': 'vendor/etc/codecs.xml',
+             'sha256': sha['vendor/etc/codecs_hwdec.xml']},
+            {'path': 'vendor/etc/unrelated.xml', 'sha256': sha['vendor/etc/codecs_hwdec.xml']}]}))
+
+        def check(members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '2 files'), check({'VENDOR/etc/codecs.xml': b'stock',
+                                                   'VENDOR/etc/codecs_hwdec.xml': b'derived'}))
+        ok, detail = check({'VENDOR/etc/codecs.xml': b'stock'})
+        self.assertFalse(ok)
+        self.assertIn('missing VENDOR/etc/codecs_hwdec.xml', detail)
+        ok, detail = check({'VENDOR/etc/codecs.xml': b'stock', 'VENDOR/etc/codecs_hwdec.xml': b'other'})
+        self.assertIn('differs VENDOR/etc/codecs_hwdec.xml', detail)
+
     def test_vendor_patch_level_matches_the_stock_value(self):
         vendor = self.root / 'vendor'
         vendor.mkdir()
