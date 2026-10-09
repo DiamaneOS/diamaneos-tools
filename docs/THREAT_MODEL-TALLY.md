@@ -116,10 +116,9 @@ Tested at animation scales 1x and 0.5x:
 - Switches wait for the system: the thumb moves at the tap; the lamp lights only
   while the switch is checked and the setting's own state reports on (Wi-Fi,
   Bluetooth, hotspot and tethering, NFC, Battery Saver, from state their
-  controllers already read; the FP6 has no Wi-Fi hotspot, so that lamp stays
-  dark there), so no lamp shows on for something off. Turning off darkens it at
-  once; a failed change goes back unlit and accessibility reports the checked
-  state, both as stock.
+  controllers already read), so no lamp shows on for something off. Turning
+  off darkens it at once; a failed change goes back unlit and accessibility
+  reports the checked state, both as stock.
 - Switch rows lose their own ripple and focus highlight (the switch shows both).
   Restricted switches keep their code, including window-wide obscured-touch
   filtering.

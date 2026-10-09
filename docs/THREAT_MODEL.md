@@ -939,13 +939,20 @@ entry point), the protections in current builds, what remains, and the status.
 
 #### Wi-Fi MAC (tracking), device integrity
 
-- **Threat:** passive Wi-Fi observer, malicious access point or LAN peer, via
-  probe requests, association, Wi-Fi driver and firmware, and wake-on-LAN.
-- **Protection:** station-only features exposed to Android (no hotspot, since
-  hostapd is not shipped; no Wi-Fi Direct or Aware); source-built Wi-Fi HAL and
-  driver; MAC randomization; no wake-on-LAN: the driver configuration turns the
-  magic-packet wake-up off and the supplicant asks for none (since the
-  2026-10-06 build); the hardware address is the factory MAC, written for the driver
+- **Threat:** passive Wi-Fi observer, malicious access point, hotspot client,
+  nearby Wi-Fi Direct or Aware device, or LAN peer, via probe requests,
+  association, Wi-Fi driver and firmware, and wake-on-LAN.
+- **Protection:** current builds expose only station features to Android.
+  Implemented, not yet built: hotspot, Wi-Fi Direct and Wi-Fi Aware, as
+  GrapheneOS has them on Pixels. hostapd is AOSP's, in its own SELinux domain
+  with no device rules; the hotspot stays off until turned on and turns off
+  after 10 minutes without clients; Wi-Fi Direct starts only on an app's
+  request and stops after 2.5 minutes idle; Aware runs only while an app is
+  attached; the hotspot takes a new random address at each start and Wi-Fi
+  Direct random addresses (the image check requires both declarations).
+  Source-built Wi-Fi HAL and driver; MAC randomization; no wake-on-LAN: the
+  driver configuration turns the magic-packet wake-up off and the supplicant
+  asks for none (since the 2026-10-06 build); the hardware address is the factory MAC, written for the driver
   at every boot from the traceability partition (checked on the phone
   2026-10-06).
 - **Remaining:** builds before 2026-10-05 had no Wi-Fi capability overlay, so
@@ -957,10 +964,12 @@ entry point), the protections in current builds, what remains, and the status.
   Wi-Fi firmware on the over-the-air path; on builds without the wake-on-LAN
   change a LAN peer can wake the device with a magic packet; the factory MAC is
   sent only where Android does not randomise (networks set to use the device
-  MAC), and scans and Wi-Fi Direct use random addresses only if the driver's
-  randomisation works (not yet checked on the phone); on Wi-Fi networks
-  used for Android Auto the device sends a DHCP hostname derived from the device
-  name (inherited default).
+  MAC), and scans, Wi-Fi Direct and the hotspot use random addresses only if
+  the driver's randomisation works (not yet checked on the phone); once built,
+  hostapd and the supplicant's Wi-Fi Direct code also parse frames from
+  hotspot clients and nearby devices, next to the driver and firmware; on
+  Wi-Fi networks used for Android Auto the device sends a DHCP hostname
+  derived from the device name (inherited default).
 - **Status:** Bring-up (not qualified): randomised association address seen
   on the phone (2026-10-05 build). Unverified: connectivity bring-up (FP6-043).
 

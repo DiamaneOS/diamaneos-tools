@@ -14,6 +14,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 - Builds by hand: `build package` after a plain `m` records `out/` as the Android build after checking the source and the vendor files; the compile is not isolated or watched, so `build.json` marks the set `android_build: manual` and not reproducible. `build all` still builds Android itself.
 - Builds that are not official accept local changes in source projects: the build warns, `build.json` lists them (`modified`) and marks the set not reproducible; official builds still need clean projects, and every build still refuses a pinned project at another commit, a changed manifest checkout, local manifests and undeclared files.
+- Hotspot, Wi-Fi Direct and Wi-Fi Aware, as GrapheneOS has them on Pixels, implemented, not yet built: AOSP's hostapd in its own SELinux domain with no device rules; the hotspot takes a new random address at each start and Wi-Fi Direct random addresses; image checks require hostapd (not stock's), the Direct and Aware feature files, the Aware interface, both randomisation declarations and, on user builds, hostapd at info level. The Tally switch lamps no longer note a missing hotspot.
 
 ### 2026-10-08
 
