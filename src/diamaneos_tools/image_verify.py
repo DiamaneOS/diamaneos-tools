@@ -731,15 +731,26 @@ def rule_component_override(rule, v):
 
 
 def rule_zip_contains(rule, v):
+    """A text in a file or in one of its dex files; texts in 'absent' must be in neither."""
     data = v.tf.read(rule['file'])
+    dex = []
+
+    def dex_files():
+        if not dex:
+            with zipfile.ZipFile(__import__('io').BytesIO(data)) as inner:
+                dex.extend(inner.read(name) for name in inner.namelist()
+                           if name.startswith('classes') and name.endswith('.dex'))
+            dex.append(b'')
+        return dex
+
+    problems = []
     needle = rule['text'].encode()
-    if needle in data:
-        return True, ''
-    with zipfile.ZipFile(__import__('io').BytesIO(data)) as inner:
-        for name in inner.namelist():
-            if name.startswith('classes') and name.endswith('.dex') and needle in inner.read(name):
-                return True, ''
-    return False, 'does not contain ' + rule['text']
+    if needle not in data and not any(needle in blob for blob in dex_files()):
+        problems.append('does not contain ' + rule['text'])
+    for text in rule.get('absent', []):
+        if text.encode() in data or any(text.encode() in blob for blob in dex_files()):
+            problems.append('contains ' + text)
+    return not problems, '; '.join(problems)
 
 
 def image_file(v, image: str, path: str, directory: Path) -> tuple[str, bytes]:
