@@ -190,10 +190,14 @@ class Action:
     network: bool = False
     # Compile actions run in a network namespace (see Runner.isolated).
     compile: bool = False
+    # What the action does in more words. The log and the dry run show it;
+    # the terminal shows only the short description.
+    detail: str = ''
 
     def text(self, isolated: bool) -> str:
+        title = f'{self.description} ({self.detail})' if self.detail else self.description
         if self.argv is None:
-            return self.description
+            return title
         prefix = ' '.join([f'-u {name}' for name in self.unset] + [f'{k}={shlex.quote(str(v))}' for k, v in sorted(self.env.items())])
         prefix = 'env ' + prefix if prefix else ''
         argv = [str(a) for a in self.argv]
@@ -201,7 +205,7 @@ class Action:
             argv = ISOLATION + argv
         command = shlex.join(argv)
         where = f'(in {self.cwd}) ' if self.cwd else ''
-        return f'{self.description}: {where}{prefix + " " if prefix else ""}{command}'
+        return f'{title}: {where}{prefix + " " if prefix else ""}{command}'
 
 
 def tool_path(path: str | None = None) -> str:

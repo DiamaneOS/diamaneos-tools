@@ -437,7 +437,7 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertEqual(0, code)
         text = '\n'.join(self.lines)
         self.assertIn('repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17', text)
-        self.assertIn(f'Check out the recorded manifest commit {self.commit}', text)
+        self.assertIn(f'Check out the recorded manifest (the recorded manifest commit {self.commit}', text)
         self.assertIn('in the history of android17', text)
         self.assertIn('the branch-head check does not apply to a pinned manifest', text)
         self.assertIn('--retry-fetches=4 -m ' + str(self.workspace / 'state/pinned-manifest.xml'), text)
@@ -448,11 +448,13 @@ class PinnedSyncTests(unittest.TestCase):
         ctx = steps.make_context(arguments(self.workspace, shallow=True, resolved_manifest=str(self.resolved),
                                            build_json=None, manifest_commit=self.commit), self.lines.append)
         plan = steps.plan_sync(ctx)
-        network = [a.description for a in plan.actions if a.network]
+        network = [a for a in plan.actions if a.network]
         self.assertEqual(4, len(network))
-        self.assertTrue(network[1].startswith('Check out the recorded manifest commit'))
-        self.assertTrue(network[2].startswith('Fetch the large prebuilt projects first, one revision each at depth 1'))
-        self.assertIn('below 1000 bytes/s for 300 s stops, up to 8 attempts each', network[2])
+        self.assertEqual(['Check out the recorded manifest', 'Fetch large prebuilts'],
+                         [a.description for a in network[1:3]])
+        # The terminal shows the short title; the log and the dry run add the detail.
+        self.assertTrue(network[2].detail.startswith('the large prebuilt projects first, one revision each at depth 1'))
+        self.assertIn('below 1000 bytes/s for 300 s stops, up to 8 attempts each', network[2].text(False))
         sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
         self.assertEqual(['-c', '--no-tags', '-m', ctx.pinned_manifest], sync.argv[-4:])
         self.assertEqual(steps.plan_sync(steps.make_context(arguments(self.workspace), print)).inputs, plan.inputs)
