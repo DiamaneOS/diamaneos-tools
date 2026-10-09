@@ -222,6 +222,26 @@ class ContractsTest(unittest.TestCase):
         next(s for s in self.services['services'] if s['id']=='dns-check')['host']='release-primary'
         self.bad_services()
 
+    def test_attestation_cannot_share_the_release_host_or_read_only_state_model(self):
+        service = next(s for s in self.services['services'] if s['id']=='attestation')
+        service['host']='release-primary'
+        self.bad_services()
+        self.setUp()
+        service = next(s for s in self.services['services'] if s['id']=='attestation')
+        service['credentials']='none-read-only-serving'
+        self.bad_services()
+
+    def test_selected_regions_preserve_eu_services_and_non_eu_mirror(self):
+        mirror = next(h for h in self.services['hosts'] if h['role']=='mirror')
+        mirror['jurisdiction']='DE'
+        next(p for p in self.inv['providers'] if p['layer']=='artifact-mirror-non-eu')['jurisdiction']='DE'
+        self.bad_services()
+        self.setUp()
+        attestation = next(h for h in self.services['hosts'] if h['role']=='attestation')
+        attestation['jurisdiction']='CA'
+        next(p for p in self.inv['providers'] if p['layer']=='vps-attestation')['jurisdiction']='CA'
+        self.bad_services()
+
     def test_unhosted_geocoder_has_no_project_host(self):
         # Decision 2026-09-26: no DiamaneOS geocoder; opt-in goes direct.
         message='unhosted endpoint must not be assigned to a project host'

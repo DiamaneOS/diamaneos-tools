@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "note": "endpoint contract design minimal role selection; deployment remains infrastructure staging and endpoint owners. No host addresses, credentials, provisioning or live isolation proof claimed. The geocoder contract has no service entry: DiamaneOS hosts no geocoder, and its opt-in goes directly from the device to OpenStreetMap.",
+  "note": "Service placement and native acceptance gates. Public host roles contain no addresses, accounts or deployment secrets. Host setup receipts remain private; deployed transport alone does not establish device or release acceptance. The geocoder is a direct opt-in and has no hosted service.",
   "hosts": [
     {
       "id": "release-primary",
@@ -8,16 +8,25 @@
       "jurisdiction": "DE",
       "provider_layer": "vps-primary",
       "credential_class": "release-admin",
-      "management": "operator-vpn-and-provider-console",
+      "management": "protected-ssh-and-provider-console",
       "status": "planned"
     },
     {
       "id": "artifact-mirror-non-eu",
       "role": "mirror",
-      "jurisdiction": "IS",
+      "jurisdiction": "CA",
       "provider_layer": "artifact-mirror-non-eu",
       "credential_class": "mirror-admin",
-      "management": "operator-vpn-and-provider-console",
+      "management": "protected-ssh-and-provider-console",
+      "status": "planned"
+    },
+    {
+      "id": "attestation-primary",
+      "role": "attestation",
+      "jurisdiction": "FR",
+      "provider_layer": "vps-attestation",
+      "credential_class": "attestation-admin",
+      "management": "protected-ssh-and-provider-console",
       "status": "planned"
     },
     {
@@ -213,12 +222,12 @@
       "endpoints": [
         "attestation"
       ],
-      "host": "release-primary",
+      "host": "attestation-primary",
       "mirror": null,
       "owner_task": "FP6-106",
       "status": "planned",
       "activation": "blocked-pending-implementation",
-      "credentials": "none-read-only-serving"
+      "credentials": "isolated-stateful-serving"
     }
   ],
   "management_policy": {

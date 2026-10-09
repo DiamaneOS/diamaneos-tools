@@ -32,11 +32,20 @@
     },
     {
       "layer": "artifact-mirror-non-eu",
-      "candidate": "VPS provider in Iceland, independent of the primary",
-      "jurisdiction": "IS",
+      "candidate": "VPS provider in Canada, independent of the primary",
+      "jurisdiction": "CA",
       "status": "selected-candidate",
       "verify_at": "FP6-101",
-      "reviewed_on": "2026-09-11",
+      "reviewed_on": "2026-10-08",
+      "evidence_urls": []
+    },
+    {
+      "layer": "vps-attestation",
+      "candidate": "Separate attestation VPS in France",
+      "jurisdiction": "FR",
+      "status": "selected-candidate",
+      "verify_at": "FP6-101",
+      "reviewed_on": "2026-10-08",
       "evidence_urls": []
     },
     {
@@ -85,7 +94,7 @@
     {
       "layer": "monitoring",
       "candidate": "Self-hosted on primary, with independent external checks on mirror",
-      "jurisdiction": "DE-IS",
+      "jurisdiction": "DE-CA",
       "status": "planned",
       "verify_at": "FP6-101",
       "reviewed_on": "2026-09-11",
@@ -114,9 +123,9 @@
   ],
   "topology": {
     "eu_primary": "Project HTTP/TCP delivery uses the primary in Germany with TLS on own servers and no CDN. Authoritative DNS is separately administered and uses global Anycast; the chosen recursive DNS default and upstream acquisition jurisdictions are disclosed separately.",
-    "non_eu_mirror": "The independent mirror in Iceland serves identical verified release objects, proof bundles and recovery/site copy. Separate provider account and SSH identities; no private signing keys. Canonical selector publication and mirror freshness are checked separately; a first installer still needs an independently obtained verification root.",
+    "non_eu_mirror": "The independent mirror in Canada serves identical verified release objects, proof bundles and recovery/site copy. Separate provider account and SSH identities; no private signing keys. Canonical selector publication and mirror freshness are checked separately; a first installer still needs an independently obtained verification root.",
     "community_separation": "Community/federation hosts and credentials are separate from release/update infrastructure . A community-host compromise cannot administer release infrastructure: distinct hosts, distinct credentials, no shared admin path, no release secrets on community hosts.",
-    "management_path": "Operator workstation -> distinct host-scoped SSH identities over protected management VPN; provider console is an independent recovery path. Community accounts, federation login, git tokens and serving processes cannot use either path. infrastructure staging proves denied access and recovery; no addresses or secret values in public configuration."
+    "management_path": "Operator workstation -> distinct host-scoped SSH identities over a protected management VPN or a source-restricted SSH path; provider console is an independent recovery path. Community accounts, federation login, git tokens and serving processes cannot use either path. infrastructure staging proves denied access and recovery; no addresses or secret values in public configuration."
   },
   "client_defaults": [
     {
