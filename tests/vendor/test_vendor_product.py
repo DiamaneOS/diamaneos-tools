@@ -484,7 +484,8 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('c2_manifest_vendor', bp + make)
         shared = block[block.index('shared_libs:'):].split('\n')[0]
         for name in ['"android.hardware.media.c2@1.2"', '"libavservices_minijail"', '"libhidltransport"',
-                     '"fp6_stock_vendor_lib64_libcodec2_hidl@1.2"', '"fp6_stock_vendor_lib64_libcodec2_vndk"']:
+                     '"fp6_stock_vendor_lib64_libcodec2_hidl@1.2"', '"fp6_stock_vendor_lib64_libcodec2_vndk"',
+                     '"libc2hwjail_avservices"']:
             self.assertIn(name, shared)
         required = block[block.index('required:'):].split('\n')[0]
         for stem in ['libqcodec2_core', 'libqcodec2_v4l2codec', 'libqcodec2_imgtxrfilter']:
@@ -542,6 +543,10 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
         for name in ['media_codecs_volcano_qv0.xml', 'init.qti.media', 'c2audio']:
             self.assertNotIn(name, make)
+        # The hardware-decoding variant (device media/media.mk) is installed
+        # next to the encoder-only one.
+        for path in ['media_codecs_volcano_v1_hwdec.xml', 'media_volcano_v1_hwdec/video_system_specs.json']:
+            self.assertIn('vendor/fairphone/FP6/files/vendor/etc/' + path + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + path, make)
         self.assertIn('vendor/firmware/vpu20_2v.mbn:$(TARGET_COPY_OUT_VENDOR)/firmware/vpu20_2v.mbn', make)
         owners = {r['path']: r['component_id'] for r in self.recipe['files']}
         self.assertEqual('graphics-display-media', owners['vendor/bin/hw/vendor.qti.media.c2@1.0-service'])
@@ -563,6 +568,78 @@ class NativeProductTests(unittest.TestCase):
         self.assertTrue(all(name.startswith('c2.qti.') and name.split('.')[3] == 'encoder'
                             for name in vendor_product.MEDIA_ENCODERS))
         self.assertFalse([n for n in vendor_product.MEDIA_ENCODERS if 'secure' in n or 'decoder' in n])
+
+    def test_codec_service_links_the_configuration_check_and_seccomp_loader(self):
+        path = 'vendor/bin/hw/vendor.qti.media.c2@1.0-service'
+        rewrite = vendor_product.NEEDED_REWRITES[path]
+        row = next(r for r in self.recipe['files'] if r['path'] == path)
+        self.assertEqual(rewrite['source_sha256'], row['sha256'])
+        self.assertEqual(('libavservices_minijail.so', 'libc2hwjail_avservices.so', 'libc2hwjail_avservices'),
+                         (rewrite['needed'], rewrite['replacement'], rewrite['module']))
+        # The loader links libavservices_minijail, where the service's own
+        # SetUpMinijail import still resolves.
+        self.assertTrue(rewrite['keep_link'])
+        self.assertNotIn('symbols', rewrite)
+
+    def test_media_hardware_decoding_variant_binds_the_selected_stock_configs(self):
+        # Hardware video decoding (off by default): a second pinned pair from the
+        # same stock rows, with the three non-secure decoders and nothing else.
+        rows = {r['path']: r for r in self.recipe['files']}
+        self.assertEqual(set(vendor_product.MEDIA_HWDEC_COPIES),
+                         {'vendor/etc/media_codecs_volcano_v1_hwdec.xml',
+                          'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json'})
+        for path, rule in vendor_product.MEDIA_HWDEC_COPIES.items():
+            self.assertNotIn(path, rows)
+            self.assertIn(rule['from'], vendor_product.MEDIA_CONFIG_REWRITES)
+            self.assertEqual(rule['source_sha256'], rows[rule['from']]['sha256'])
+            self.assertEqual(rule['source_sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['source_sha256'])
+            self.assertNotEqual(rule['sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['sha256'])
+            with self.assertRaises(VendorError): vendor_product.media_hwdec_config(path, b'unreviewed')
+        self.assertEqual(('c2.qti.avc.decoder', 'c2.qti.hevc.decoder', 'c2.qti.vp9.decoder'),
+                         vendor_product.MEDIA_HW_DECODERS)
+        self.assertFalse([n for n in vendor_product.MEDIA_HW_DECODERS if 'secure' in n or 'low_latency' in n])
+
+    def test_media_codec_list_with_hardware_decoders_keeps_only_the_allowed_ones(self):
+        def codec(name, kind, extra=''):
+            return ('        <MediaCodec name="%s" type="%s" >\n'
+                    '            <Limit name="size" min="96x96" max="4096x4096" />\n%s'
+                    '        </MediaCodec>\n' % (name, kind, extra))
+        decoders = ''.join(codec(n, 'video/avc') + codec(n + '.low_latency', 'video/avc',
+                                                          '            <Feature name="low-latency" />\n')
+                           + codec(n + '.secure', 'video/avc',
+                                   '            <Feature name="secure-playback" required="true" />\n')
+                           for n in vendor_product.MEDIA_HW_DECODERS)
+        encoders = ''.join(codec(n, 'video/avc') for n in vendor_product.MEDIA_ENCODERS)
+        stock = ('<?xml version="1.0" encoding="utf-8" ?>\n<MediaCodecs>\n'
+                 '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
+                 '    <Encoders>\n' + encoders + '    </Encoders>\n'
+                 '    <Include href="media_codecs_google_c2.xml" />\n</MediaCodecs>\n').encode()
+        derived = vendor_product.media_decoder_codec_list(stock)
+        self.assertNotIn(b'secure', derived)
+        self.assertNotIn(b'low_latency', derived)
+        for name in vendor_product.MEDIA_HW_DECODERS + vendor_product.MEDIA_ENCODERS:
+            self.assertIn(b'"' + name.encode() + b'"', derived)
+        self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <Decoders>')[0])
+        self.assertEqual(stock.split(b'    </Decoders>')[1], derived.split(b'    </Decoders>')[1])
+        # A missing allowed decoder, an unknown one left in Encoders or a second
+        # section is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(b'c2.qti.vp9.decoder"', b'c2.qti.vp8.decoder"'))
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(
+                b'    <Encoders>\n', b'    <Encoders>\n' + codec('c2.qti.av1.decoder.secure', 'video/av01').encode()))
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'))
+
+    def test_media_target_spec_with_hardware_decoders(self):
+        stock = (b'// Qualcomm\n{\n    "Video": {\n'
+                 b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
+                 b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
+        derived = vendor_product.media_encoders_only_target_spec(stock, vendor_product.MEDIA_HW_DECODERS)
+        available, optional = vendor_product.media_target_spec_codecs(derived)
+        self.assertEqual({'decoders': list(vendor_product.MEDIA_HW_DECODERS),
+                          'encoders': list(vendor_product.MEDIA_ENCODERS)}, available)
+        self.assertEqual([], optional)
 
     def test_media_codec_list_keeps_only_hardware_encoders(self):
         encoders = ''.join('        <MediaCodec name="%s" type="video/avc">\n'

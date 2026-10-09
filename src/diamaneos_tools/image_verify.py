@@ -1188,7 +1188,9 @@ def check_vendor(v):
 
     The generation's own recipe names the files, so a missing file fails
     instead of being skipped; each generated file has the recipe's bytes, or
-    the reviewed result where the generator rewrote it."""
+    the reviewed result where the generator rewrote it. Files the generator
+    derives from a selected file under a new path (provenance "from") are
+    checked the same way."""
     if v.vendor_dir is None:
         return False, 'no vendor generation recorded'
     from . import carrier_data, vendor_product
@@ -1196,7 +1198,7 @@ def check_vendor(v):
     recipe = json.loads((v.vendor_dir / 'recipe.json').read_bytes())
     expected = {item['path']: item['sha256'] for item in recipe.get('files', [])}
     expected.update({item['path']: item['sha256'] for item in provenance.get('derived_files', [])
-                     if item['path'] in expected})
+                     if item['path'] in expected or item.get('from') in expected})
     if not expected:
         return False, 'the vendor generation selects no files'
     skipped = set(provenance.get('source_interface_replacements', [])) | set(

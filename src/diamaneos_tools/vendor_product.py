@@ -336,7 +336,8 @@ NEEDED_REWRITES = {
  #   overflows the codec service's heap (finding -115). Its libui.so dependency
  #   is renamed to uiv34.so and its six GraphicBuffer imports to GraphicBufV34
  #   (same lengths; see GRAPHICBUFFER_V34_SYMBOLS), so they bind to uiv34's
- #   Android 14 sized GraphicBuffer (which fails closed) instead. Every other
+ #   Android 14 sized GraphicBuffer instead (which fails closed unless hardware
+ #   video decoding is on, and then wraps Surface buffers as Android 14 did). Every other
  #   libui symbol still comes from the real libui, which uiv34 links.
  # - libcodec2_hidl@1.0-1.2 need GraphicBufferSource::getHGraphicBufferProducer,
  #   which Android 17 dropped on a class whose layout did not change; their
@@ -345,6 +346,22 @@ NEEDED_REWRITES = {
  # Both keep the original library in their Soong shared_libs (keep_link): they
  # still import its other symbols, which Soong's ELF check resolves only
  # against the listed libraries.
+ # Hardware video codec service: its libavservices_minijail.so dependency is
+ # renamed to the device's configuration check and seccomp loader
+ # (media/seccomp), which links libavservices_minijail in turn (keep_link), so
+ # the service's own SetUpMinijail still stacks the stock policy on top. The
+ # loader's constructor runs before the service's main(): it stops the service
+ # unless the target specification it is about to read names exactly the
+ # codecs this boot allows (the Qualcomm library registers every codec when it
+ # cannot read it), then installs DiamaneOS's filter whatever the stock binary
+ # does. Without the loader the service does not start.
+ 'vendor/bin/hw/vendor.qti.media.c2@1.0-service': {
+  'needed': 'libavservices_minijail.so', 'replacement': 'libc2hwjail_avservices.so',
+  'module': 'libc2hwjail_avservices', 'keep_link': True,
+  'source_sha256': '43e2535ccea69a64c7743559ed4e85920395c257d2aec25f82535059745e8da9',
+  'sha256': '5e823841aa5a420d27bea9ca0597a9a4cbd0dcbcfaace618a853eda3dcc5ae4a',
+  'reason': 'Check the codec configuration and install the seccomp filter (libc2hwjail_avservices, '
+            'links libavservices_minijail) before the codec service starts'},
  'vendor/lib64/libcodec2_vndk.so': {
   'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
   'symbols': 'GRAPHICBUFFER_V34_SYMBOLS', 'keep_link': True,
@@ -591,6 +608,13 @@ def render(recipe, selection, notice_kind):
             dep = edge['needed'].removesuffix('.so')
             if dep not in SOURCE_MODULE_DEPENDENCIES or edge['needed'] != dep + '.so':
                 raise VendorError('unreviewed source module dependency')
+            rewrite = NEEDED_REWRITES.get(edge['consumer'])
+            if rewrite and rewrite['needed'] == edge['needed']:
+                # As for platform libraries above (the codec service's minijail
+                # library is a source module).
+                if rewrite.get('keep_link'):
+                    dependencies[edge['consumer']].append(dep)
+                dep = rewrite['module']
         else:
             raise VendorError('unresolved ELF dependency')
         dependencies[edge['consumer']].append(dep)
@@ -756,6 +780,11 @@ def render(recipe, selection, notice_kind):
                 path not in firmware_paths and not path.startswith('vendor/etc/')
                 and not any(p.fullmatch(path) for p in LIB64_DATA)):
             raise VendorError('unclassified Android installation input')
+        make += 'PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/' + path.removeprefix('vendor/') + '\n'
+    # Derived files with no stock row of their own (generate() writes them).
+    for path, rule in sorted(MEDIA_HWDEC_COPIES.items()):
+        if rule['from'] not in rows or path in rows:
+            raise VendorError('hardware decoding configuration has no selected stock input')
         make += 'PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/' + path.removeprefix('vendor/') + '\n'
     return {'Android.bp': text.encode(), 'device-vendor.mk': make.encode(), 'modules.json': encoded(names)}
 
@@ -1145,6 +1174,27 @@ def gnss_config(path, data):
 #   service ever registered one.
 MEDIA_ENCODERS = ('c2.qti.avc.encoder', 'c2.qti.hevc.encoder', 'c2.qti.hevc.encoder.cq',
                   'c2.qti.hevc.encoder.hdr', 'c2.qti.heic.encoder')
+# Hardware video decoding (Settings switch, off by default; device
+# media/media.mk): a second pair of pinned derivations, the _volcano_v1_hwdec
+# variant, which the device selects at boot only when the owner turned the
+# switch on. It adds the three non-secure decoders to both files; the secure
+# (DRM) and low-latency variants stay out. The device's configuration check
+# (media/seccomp) requires exactly these lists in the codec service.
+MEDIA_HW_DECODERS = ('c2.qti.avc.decoder', 'c2.qti.hevc.decoder', 'c2.qti.vp9.decoder')
+MEDIA_HWDEC_COPIES = {
+    'vendor/etc/media_codecs_volcano_v1_hwdec.xml': {
+        'from': 'vendor/etc/media_codecs_volcano_v1.xml',
+        'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
+        'sha256': 'deff1af8eb87870e4f90556cdbd86dace357e696c7ce8617f91be9f0369562a5',
+        'reason': 'Codec list with hardware video decoding on: the hardware encoders and the three '
+                  'non-secure hardware decoders'},
+    'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json': {
+        'from': 'vendor/etc/media_volcano_v1/video_system_specs.json',
+        'source_sha256': '994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09',
+        'sha256': '2797fd3f359a33c14817544ef88ef2870b3552551f9b53112746fdfe103a253a',
+        'reason': 'Target specification with hardware video decoding on: the five hardware encoders and '
+                  'the three non-secure hardware decoders'},
+}
 MEDIA_CONFIG_REWRITES = {
     'vendor/etc/media_codecs_volcano_v1.xml': {
         'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
@@ -1176,6 +1226,36 @@ def media_encoders_only_codec_list(data):
     return derived
 
 
+def media_decoder_codec_list(data):
+    """Keep only the allowed hardware decoders in the codec list; every other byte stays."""
+    section = re.search(rb'\n    <Decoders>\n.*?\n    </Decoders>\n', data, flags=re.S)
+    if section is None or data.count(b'<Decoders>') != 1:
+        raise VendorError('codec list differs from reviewed structure')
+    block = re.compile(rb'        <MediaCodec name="([^"]+)" [^\n]*>\n(?:(?!        </MediaCodec>\n).*\n)*?'
+                       rb'        </MediaCodec>\n')
+    kept, removed = [], []
+    def keep(match):
+        name = match.group(1).decode()
+        (kept if name in MEDIA_HW_DECODERS else removed).append(name)
+        return match.group(0) if name in MEDIA_HW_DECODERS else b''
+    decoders = block.sub(keep, section.group(0))
+    if sorted(kept) != sorted(MEDIA_HW_DECODERS) or not removed:
+        raise VendorError('codec list differs from reviewed structure')
+    derived = data[:section.start()] + decoders + data[section.end():]
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(derived)
+    except ET.ParseError:
+        raise VendorError('derived codec list is not well formed') from None
+    sections = {child.tag: [codec.get('name') for codec in child.iter('MediaCodec')]
+                for child in root if child.tag in ('Decoders', 'Encoders')}
+    if (sorted(sections.get('Decoders', [])) != sorted(MEDIA_HW_DECODERS)
+            or sorted(sections.get('Encoders', [])) != sorted(MEDIA_ENCODERS)
+            or b'secure-playback' in derived or b'.secure' in derived):
+        raise VendorError('derived codec list lists more than the allowed hardware codecs')
+    return derived
+
+
 def media_target_spec_codecs(data):
     """Codec lists of a target specification (JSON with whole-line // comments)."""
     try:
@@ -1189,25 +1269,32 @@ def media_target_spec_codecs(data):
     return video.get('codecs-available'), video.get('OptionalCodecs')
 
 
-def media_encoders_only_target_spec(data):
-    """Add a codecs-available list naming only the hardware encoders."""
+def media_encoders_only_target_spec(data, decoders=()):
+    """Add a codecs-available list naming only the hardware encoders (and the given decoders)."""
     anchor = b'\n        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
     if data.count(anchor) != 1 or b'"codecs-available"' in data:
         raise VendorError('target specification differs from reviewed structure')
-    block = (b'\n        // DiamaneOS: hardware encoders only. libqcodec2_v4l2codec registers\n'
-             b'        // only the codecs listed here (and under "OptionalCodecs", which\n'
-             b'        // stays empty); decoding stays in the platform software codecs.\n'
-             b'        "codecs-available": {\n'
-             b'            "decoders": [\n'
-             b'            ],\n'
+    if decoders:
+        note = (b'\n        // DiamaneOS: hardware video decoding on. libqcodec2_v4l2codec\n'
+                b'        // registers only the codecs listed here (and under "OptionalCodecs",\n'
+                b'        // which stays empty): the hardware encoders and the non-secure\n'
+                b'        // hardware decoders.\n')
+        listed = b'\n' + b',\n'.join(b'                "' + name.encode() + b'"' for name in decoders) + b'\n'
+    else:
+        note = (b'\n        // DiamaneOS: hardware encoders only. libqcodec2_v4l2codec registers\n'
+                b'        // only the codecs listed here (and under "OptionalCodecs", which\n'
+                b'        // stays empty); decoding stays in the platform software codecs.\n')
+        listed = b'\n'
+    block = (note + b'        "codecs-available": {\n'
+             b'            "decoders": [' + listed + b'            ],\n'
              b'            "encoders": [\n'
              + b',\n'.join(b'                "' + name.encode() + b'"' for name in MEDIA_ENCODERS)
              + b'\n            ]\n'
              b'        },\n')
     derived = data.replace(anchor, block + anchor)
     available, optional = media_target_spec_codecs(derived)
-    if available != {'decoders': [], 'encoders': list(MEDIA_ENCODERS)} or optional != []:
-        raise VendorError('derived target specification enables more than the hardware encoders')
+    if available != {'decoders': list(decoders), 'encoders': list(MEDIA_ENCODERS)} or optional != []:
+        raise VendorError('derived target specification enables more than the allowed hardware codecs')
     return derived
 
 
@@ -1220,6 +1307,20 @@ def media_config(path, data):
         derived = media_encoders_only_codec_list(data)
     else:
         derived = media_encoders_only_target_spec(data)
+    if hashlib.sha256(derived).hexdigest() != rule['sha256']:
+        raise VendorError('derived media configuration differs from reviewed result')
+    return derived
+
+
+def media_hwdec_config(path, data):
+    """Pinned hardware-decoding derivation (MEDIA_HWDEC_COPIES) of a stock media configuration."""
+    rule = MEDIA_HWDEC_COPIES[path]
+    if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
+        raise VendorError('media configuration differs from reviewed EU stock input')
+    if path.endswith('.xml'):
+        derived = media_decoder_codec_list(data)
+    else:
+        derived = media_encoders_only_target_spec(data, MEDIA_HW_DECODERS)
     if hashlib.sha256(derived).hexdigest() != rule['sha256']:
         raise VendorError('derived media configuration differs from reviewed result')
     return derived
@@ -1340,6 +1441,13 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
             for path, rewrite in GNSS_CONFIG_REWRITES.items():
                 config = tree / 'files' / path
                 config.write_bytes(gnss_config(path, config.read_bytes()))
+                provenance['derived_files'].append({'path': path, **rewrite})
+            # The hardware-decoding copies derive from the stock bytes, so they
+            # are written before the encoder-only derivation replaces them.
+            for path, rewrite in MEDIA_HWDEC_COPIES.items():
+                copy = tree / 'files' / path
+                copy.parent.mkdir(parents=True, exist_ok=True)
+                copy.write_bytes(media_hwdec_config(path, (tree / 'files' / rewrite['from']).read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in MEDIA_CONFIG_REWRITES.items():
                 config = tree / 'files' / path

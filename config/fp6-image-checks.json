@@ -4579,7 +4579,7 @@
     },
     {
       "id": "media-codec2-service",
-      "why": "The hardware video encoder service and its Codec2 libraries are installed with the device rc and manifest (encoders only); the Android 14 Codec2 framework libraries are on odm.",
+      "why": "The hardware video codec service and its Codec2 libraries are installed with the device rc and manifest, its configuration check and seccomp loader and policy, and both codec configurations (encoders only, and with hardware decoding on); the Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
@@ -4596,7 +4596,13 @@
         "VENDOR/lib64/libstagefright_bqhelper_v34compat.so",
         "VENDOR/etc/init/init.fp6.media.rc",
         "VENDOR/firmware/vpu20_2v.mbn",
-        "VENDOR/etc/seccomp_policy/codec2.vendor.base-arm64.policy"
+        "VENDOR/etc/seccomp_policy/codec2.vendor.base-arm64.policy",
+        "VENDOR/lib64/libc2hwjail_avservices.so",
+        "VENDOR/lib64/libavservices_minijail.so",
+        "VENDOR/etc/seccomp_policy/codec2-service.policy",
+        "VENDOR/etc/seccomp_policy/codec2.vendor.ext-arm64.policy",
+        "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
+        "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json"
       ]
     },
     {
@@ -4688,18 +4694,257 @@
     },
     {
       "id": "media-decoder-node-root-only",
-      "why": "ueventd gives the encoder node to group mediacodec and keeps the Iris decoder node root-only.",
+      "why": "ueventd gives the encoder node to group mediacodec and keeps the Iris decoder node root-only; both are owned by root, so no system-uid process gets them through the owner bits.",
       "type": "binary_count",
       "file": "VENDOR/etc/ueventd.rc",
       "patterns": [
         {
-          "text": "/dev/video33              0660   system     mediacodec",
+          "text": "/dev/video33              0660   root       mediacodec",
           "count": 1
         },
         {
           "text": "/dev/video32              0600   root       root",
           "count": 1
+        },
+        {
+          "text": "/dev/video33              0660   system",
+          "count": 0
         }
+      ]
+    },
+    {
+      "id": "media-hw-decode-default-off",
+      "why": "Hardware video decoding is off unless the owner turned it on: only persist.diamaneos.hw_video_decode=1 selects the decoder variant and opens the decoder node to the codec service, at zygote-start; otherwise the boot state and the codec list stay encoders only.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.media.rc"
+      ],
+      "lines": [
+        "on zygote-start && property:persist.diamaneos.hw_video_decode=1",
+        "    setprop ro.vendor.diamaneos.hw_video_decode 1",
+        "    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec",
+        "    setprop vendor.media.target_variant _volcano_v1_hwdec",
+        "    chown root mediacodec /dev/video32",
+        "    chmod 0660 /dev/video32",
+        "on zygote-start",
+        "    setprop ro.vendor.diamaneos.hw_video_decode 0",
+        "    setprop ro.media.xml_variant.codecs _volcano_v1"
+      ],
+      "absent_regex": [
+        "^on (?!zygote-start).*hw_video_decode",
+        "^on property:persist\\.diamaneos\\.hw_video_decode"
+      ]
+    },
+    {
+      "id": "media-hw-decode-no-build-default",
+      "why": "No build property turns hardware video decoding on or fixes the codec list variant: the rc chooses it at boot from the owner's choice.",
+      "type": "text",
+      "files": [
+        "SYSTEM/build.prop",
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "VENDOR/build.prop",
+        "ODM/etc/build.prop"
+      ],
+      "absent_regex": [
+        "^persist\\.diamaneos\\.hw_video_decode=",
+        "^ro\\.vendor\\.diamaneos\\.hw_video_decode=",
+        "^ro\\.media\\.xml_variant\\.codecs="
+      ]
+    },
+    {
+      "id": "media-hwdec-codec-list",
+      "why": "With hardware video decoding on, the codec list adds only the three non-secure Qualcomm decoders: no secure (DRM) and no low-latency variant.",
+      "type": "binary_count",
+      "file": "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
+      "patterns": [
+        {
+          "text": "<Decoders>",
+          "count": 1
+        },
+        {
+          "text": ".secure",
+          "count": 0
+        },
+        {
+          "text": "secure-playback",
+          "count": 0
+        },
+        {
+          "text": "low_latency",
+          "count": 0
+        },
+        {
+          "text": ".decoder\"",
+          "count": 3
+        },
+        {
+          "text": "\"c2.qti.avc.decoder\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.hevc.decoder\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.vp9.decoder\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.avc.encoder\"",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "media-hwdec-target-spec",
+      "why": "With hardware video decoding on, the Codec2 target specification registers the five encoders and the three non-secure decoders; the optional codec list stays empty.",
+      "type": "binary_count",
+      "file": "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json",
+      "patterns": [
+        {
+          "text": "\"codecs-available\"",
+          "count": 1
+        },
+        {
+          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder\",\n                \"c2.qti.hevc.decoder\",\n                \"c2.qti.vp9.decoder\"\n            ],",
+          "count": 1
+        },
+        {
+          "text": "\"OptionalCodecs\": [\n        ]",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.heic.encoder\"",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "media-codec2-seccomp-loader",
+      "why": "The codec service loads the configuration check and DiamaneOS seccomp loader in place of libavservices_minijail (finding -47): the filter does not depend on the stock binary calling SetUpMinijail.",
+      "type": "binary_count",
+      "file": "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
+      "patterns": [
+        {
+          "text": "\u0000libc2hwjail_avservices.so\u0000",
+          "count": 1
+        },
+        {
+          "text": "\u0000libavservices_minijail.so\u0000",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "media-codec2-seccomp-policy",
+      "why": "The codec service's own seccomp policy allows no process creation or execution, no socket family but AF_UNIX (no network) and no mapping that is writable and executable.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/seccomp_policy/codec2-service.policy"
+      ],
+      "lines": [
+        "clone: arg0 & 0x10000",
+        "socket: arg0 == 1",
+        "mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE",
+        "mprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE"
+      ],
+      "absent_regex": [
+        "^(execve|execveat|clone3|fork|vfork|ptrace|socketpair|bind|listen|accept|accept4|mount|umount2|setns|unshare|pivot_root|bpf|perf_event_open|io_uring_setup|userfaultfd|kexec_load|init_module|finit_module|process_vm_writev|keyctl|add_key)\\s*:"
+      ]
+    },
+    {
+      "id": "media-codec-nodes-label",
+      "why": "The Iris codec nodes have their own SELinux type instead of video_device, which the platform also grants to system_server, surfaceflinger, mediaserver and the camera HALs.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/dev/video32\\s+u:object_r:vendor_video_codec_device:s0$",
+        "^/dev/video33\\s+u:object_r:vendor_video_codec_device:s0$"
+      ]
+    },
+    {
+      "id": "media-codec-nodes-codec-service-only",
+      "why": "Only the codec service may open the Iris codec nodes.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_video_codec_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "mediacodec"
+      ]
+    },
+    {
+      "id": "media-hw-decode-choice-writers",
+      "why": "Only Settings (and init, which may set any property) sets the owner's hardware video decoding choice.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "diamaneos_hw_video_decode_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "system_app"
+      ]
+    },
+    {
+      "id": "media-hw-decode-boot-state-writers",
+      "why": "Only init and vendor_init (media/init.fp6.media.rc, once per boot) set the hardware video decoding state the codec service checks.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_hw_video_decode_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "vendor_init"
+      ]
+    },
+    {
+      "id": "media-hw-decode-property-types",
+      "why": "Both hardware video decoding properties accept only 0 and 1.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_property_contexts",
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "match": "any",
+      "regex": [
+        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$",
+        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$"
       ]
     },
     {
