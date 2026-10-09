@@ -2336,6 +2336,54 @@
       ]
     },
     {
+      "id": "connectivity-check-servers",
+      "why": "Connectivity checks through the default choice ask the DiamaneOS servers: HTTP and HTTPS checks and the HTTP fallback checks.",
+      "type": "overlay",
+      "apk": "SYSTEM/priv-app/NetworkStack/NetworkStack.apk",
+      "values": {
+        "string/default_captive_portal_http_url_grapheneos": "\"http://connectivitycheck.diamaneos.de/generate_204\"",
+        "string/default_captive_portal_https_url_grapheneos": "\"https://connectivitycheck.diamaneos.de/generate_204\""
+      },
+      "arrays": {
+        "array/default_captive_portal_fallback_urls_grapheneos": [
+          "http://online.diamaneos.de/gen_204",
+          "http://online.diamaneos.de/generate_204"
+        ]
+      }
+    },
+    {
+      "id": "connectivity-check-hosts",
+      "why": "NetworkStack's private DNS check asks under dnscheck.diamaneos.de, and none of GrapheneOS's check hosts is left in it.",
+      "type": "zip_contains",
+      "file": "SYSTEM/priv-app/NetworkStack/NetworkStack.apk",
+      "text": "-dnsotls-ds.dnscheck.diamaneos.de",
+      "absent": [
+        "connectivitycheck.grapheneos.network",
+        "grapheneos.online",
+        "dnscheck.grapheneos.org"
+      ]
+    },
+    {
+      "id": "dns-check-resolver-dot",
+      "why": "The resolver's DNS-over-TLS check asks under dnscheck.diamaneos.de, not GrapheneOS's zone. The resolver is in the Tethering APEX.",
+      "type": "zip_contains",
+      "file": "SYSTEM/apex/com.android.tethering.apex",
+      "text": "Using dnscheck.diamaneos.de for test DNS query",
+      "absent": [
+        "dnscheck.grapheneos.org"
+      ]
+    },
+    {
+      "id": "dns-check-resolver-doh",
+      "why": "The resolver's DNS-over-HTTPS check asks under dnscheck.diamaneos.de, not GrapheneOS's zone.",
+      "type": "zip_contains",
+      "file": "SYSTEM/apex/com.android.tethering.apex",
+      "text": "probe_query: using dnscheck.diamaneos.de",
+      "absent": [
+        "dnscheck.grapheneos.org"
+      ]
+    },
+    {
       "id": "service-choice-labels",
       "why": "Settings names DiamaneOS for the server choices that now go to DiamaneOS's servers.",
       "type": "overlay",
@@ -2346,7 +2394,8 @@
         "string/network_location_enabled_grapheneos_apple_proxy": "\"DiamaneOS Apple proxy\"",
         "string/remote_provisioning_enabled_grapheneos_proxy": "\"DiamaneOS proxy\"",
         "string/widevine_provisioning_enabled_grapheneos_proxy": "\"DiamaneOS proxy\"",
-        "string/cert_transparency_dl_grapheneos_server": "\"DiamaneOS server\""
+        "string/cert_transparency_dl_grapheneos_server": "\"DiamaneOS server\"",
+        "string/conn_checks_grapheneos_server": "\"DiamaneOS server\""
       },
       "target": "com.android.settings"
     },

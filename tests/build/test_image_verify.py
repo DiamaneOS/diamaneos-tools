@@ -803,6 +803,23 @@ class RuleTests(unittest.TestCase):
         time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
         self.assertEqual([f'https://{endpoints["time"]["replacement_host"]}/generate_204'], time)
 
+    def test_connectivity_check_rules_name_the_contract_hosts(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        endpoints = {e['id']: e for e in json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']}
+        check, online, dns = (endpoints[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
+        servers = rules['connectivity-check-servers']
+        self.assertEqual({f'"{scheme}://{check["replacement_host"]}/generate_204"' for scheme in ('http', 'https')},
+                         set(servers['values'].values()))
+        self.assertEqual([f'http://{online["replacement_host"]}/{path}' for path in ('gen_204', 'generate_204')],
+                         servers['arrays']['array/default_captive_portal_fallback_urls_grapheneos'])
+        hosts = rules['connectivity-check-hosts']
+        self.assertTrue(hosts['text'].endswith('.' + dns['replacement_host']))
+        self.assertEqual({check['upstream_host'], online['upstream_host'], dns['upstream_host']}, set(hosts['absent']))
+        for rule_id in ('dns-check-resolver-dot', 'dns-check-resolver-doh'):
+            with self.subTest(rule=rule_id):
+                self.assertIn(dns['replacement_host'], rules[rule_id]['text'])
+                self.assertEqual([dns['upstream_host']], rules[rule_id]['absent'])
+
     def test_device_tree_rules(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         ramoops = next(r for r in rules if r['id'] == 'ramoops')
