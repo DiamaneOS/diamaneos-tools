@@ -363,32 +363,43 @@ entry point), the protections in current builds, what remains, and the status.
   reaching the GPU shader compiler, and decoded frames an app re-encodes with
   the hardware video encoder.
 - **Protection:** inherited sandbox, hardened_malloc, exec spawning; Vanadium
-  browser and WebView as mirrored unmodified APKs; media is decoded only by the
-  platform software codecs in their sandboxed process (hardware decoders
-  excluded); the hardware encoder service keeps the stock seccomp sandbox and
-  the platform codec domain, lists and creates encoders only, and has no camera,
-  decoder, DSP or display-configuration device access. The stock Codec2
+  browser and WebView as mirrored unmodified APKs; media is decoded by the
+  platform software codecs in their sandboxed process unless the owner turns on
+  Hardware video decoding (Exploit protection, off by default, from the next
+  boot), which adds the Qualcomm H.264, HEVC and VP9 decoders (no secure or
+  low-latency variant). The hardware codec service keeps the platform codec
+  domain and loads our own seccomp filter and a codec gate before its main():
+  its store offers only the codecs the boot allows (encoders only by default),
+  and none if the codec configuration or the decoder node differs from the
+  boot's state, but it always registers, so nothing waits for it. The codec
+  device nodes have their own SELinux type, open only to the codec service and
+  owned by root; the service has no camera, DSP or display-configuration device
+  access. The stock Codec2
   libraries were built against Android 14, where GraphicBuffer is 256 bytes;
   rather than bind them to Android 17's 3376-byte GraphicBuffer (a heap overflow
   reachable by any app that attaches a surface to a codec), the library's
-  GraphicBuffer is replaced by an Android 14 sized one that fails closed, so the
-  surface-output path returns an error. A build check disassembles the library
-  and confirms the 256-byte allocations bind the 256-byte object.
+  GraphicBuffer is replaced by an Android 14 sized one that fails closed, so a
+  surface attached to the encoder gets an error; with decoding on, the decoders'
+  Surface buffers are wrapped in that object instead. A build check
+  disassembles the library and confirms the 256-byte allocations bind the
+  256-byte object.
 - **Remaining:** no MTE; closed GPU driver and shader compilers in every app
-  process; closed video encoder, video driver and video firmware; the
-  encoder-only codec listing falls back to every codec if the codec's own
-  configuration cannot be read (its codec list and device-node permissions still
-  keep hardware decoders out); the codec applies its seccomp filter itself (seen
-  installed on the phone), so a change in the stock service could drop it; inherited captive-portal WebView; browser component updates still
-  point upstream.
+  process; closed video encoder, video driver and video firmware, and with
+  decoding on the closed hardware decoders parse untrusted media; inherited
+  captive-portal WebView; browser component updates still point upstream.
 - **Status:** Bring-up (not qualified): exec spawning, sandbox permissions and
   browser delivery unvalidated on the FP6. Observed (bring-up): the encoder-only
   hardware codec service runs with its seccomp filter and lists encoders only;
   camera recording in every offered quality (rear and front) uses the hardware
   H.264 encoder; H.264, HEVC, VP9 and AV1 (H.264 and HEVC up to 4K) decode on
   the software decoders, and a surface attached to the hardware encoder gets a
-  clean error instead of a heap overflow (2026-10-06); hardened_malloc active
-  (48-bit VA kernel).
+  clean error instead of a heap overflow (2026-10-06); with decoding off the
+  store offers the 5 encoders only, the decoder node is root-only and the
+  service runs under the seccomp filter; with it on, apps see exactly the
+  hardware H.264, HEVC and VP9 decoders and a video played on the H.264 one; a
+  forced codec configuration mismatch left the store registered with no
+  hardware codec and storage mounted after a framework restart (2026-10-09);
+  hardened_malloc active (48-bit VA kernel).
   Unverified: inherited hardening (FP6-046), debug exposure and component removal
   (FP6-060, FP6-061), DRM limits (FP6-065), browser delivery (FP6-105, FP6-111).
 
