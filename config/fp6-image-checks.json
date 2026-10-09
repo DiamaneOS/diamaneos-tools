@@ -1567,6 +1567,18 @@
       ]
     },
     {
+      "id": "hostapd-debug-not-logged-user",
+      "why": "On user builds hostapd logs info and up only, as the supplicant: with Wi-Fi verbose logging its debug lines carry the hotspot's and its clients' addresses.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "log.tag.hostapd=I"
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
       "id": "wlan-driver-own-mac-not-logged",
       "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the line carried four octets of the factory MAC (-180).",
       "type": "binary_count",
@@ -2934,14 +2946,45 @@
     },
     {
       "id": "wifi-mac-randomisation",
-      "why": "Wi-Fi connects with a randomised MAC address and scans with the screen off.",
+      "why": "Wi-Fi connects, runs the hotspot and uses Wi-Fi Direct with randomised MAC addresses, and scans with the screen off.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6WifiOverlay.apk",
       "values": {
         "bool/config_wifi_connected_mac_randomization_supported": "true",
+        "bool/config_wifi_ap_mac_randomization_supported": "true",
+        "bool/config_wifi_p2p_mac_randomization_supported": "true",
         "bool/config_wifi_background_scan_support": "true"
       },
       "target": "com.android.wifi.resources"
+    },
+    {
+      "id": "wifi-hotspot-direct-aware",
+      "why": "Hotspot, Wi-Fi Direct and Wi-Fi Aware, as GrapheneOS has them on Pixels: hostapd with its init file and VINTF fragment, and the Direct and Aware feature files.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/hostapd",
+        "VENDOR/etc/init/hostapd.android.rc",
+        "VENDOR/etc/vintf/manifest/android.hardware.wifi.hostapd.xml",
+        "VENDOR/etc/permissions/android.hardware.wifi.direct.xml",
+        "VENDOR/etc/permissions/android.hardware.wifi.aware.xml"
+      ]
+    },
+    {
+      "id": "wifi-hostapd-source-built",
+      "why": "hostapd is AOSP's source build, not stock's (FP6.QREL.16.111.0).",
+      "type": "files_not_stock",
+      "files": {
+        "VENDOR/bin/hw/hostapd": "0fd9a00c37bd103e158e53780a88e77c794087c37332b5bd1d7894063b5de87f"
+      }
+    },
+    {
+      "id": "wifi-aware-interface",
+      "why": "Aware uses the driver's own NAN interface, as on stock; without it the Wi-Fi HAL sends the NAN commands on wlan0.",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "wifi.aware.interface=wifi-aware0"
+      ]
     },
     {
       "id": "wifi-no-magic-packet-wake",
