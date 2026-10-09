@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- BUILDING.md shows the plain Android flow: `repo init` and `repo sync`,
+  `build vendor`, `lunch` and `m target-files-package otatools-package`, then
+  `build package`; `build all` is the one-command alternative.
 - `build package` on its own packages and checks a build by hand: after
   `lunch` and `m target-files-package otatools-package`, it records `out/` as
   the Android step when the source, the vendor files and the variant match,
