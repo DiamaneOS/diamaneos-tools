@@ -772,6 +772,37 @@ class RuleTests(unittest.TestCase):
         (self.root / 'Image').write_bytes(b'\x017    %s\nprint_kernel_cmdline_names Unknown kernel command line parameters')
         self.assertFalse(subject.rule_binary_count(mac, v)[0])
 
+    def test_zip_rule_absent_texts(self):
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as inner:
+            inner.writestr('classes.dex', b'dex\x00supl.diamaneos.de\x00')
+            inner.writestr('classes2.dex', b'dex\x00.psds.grapheneos.org\x00')
+        v = self.harness({'SYSTEM/framework/services.jar': jar.getvalue()})
+        rule = {'file': 'SYSTEM/framework/services.jar', 'text': 'supl.diamaneos.de'}
+        self.assertTrue(subject.rule_zip_contains(dict(rule, absent=['supl.grapheneos.org']), v)[0])
+        ok, detail = subject.rule_zip_contains(dict(rule, absent=['.psds.grapheneos.org']), v)
+        self.assertFalse(ok)
+        self.assertEqual('contains .psds.grapheneos.org', detail)
+        ok, detail = subject.rule_zip_contains({'file': 'SYSTEM/framework/services.jar', 'text': 'missing.example'}, v)
+        self.assertFalse(ok)
+        self.assertEqual('does not contain missing.example', detail)
+
+    def test_service_rules_name_the_contract_hosts(self):
+        # The image uses the replacement hosts that the endpoint contracts name, and not GrapheneOS's.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        endpoints = {e['id']: e for e in json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']}
+        for rule_id, endpoint_id in (('supl-proxy', 'supl'), ('psds-server', 'psds-cache'),
+                                     ('rkp-proxy', 'rkp-proxy'), ('widevine-proxy', 'widevine-proxy'),
+                                     ('network-location-relay', 'network-location')):
+            with self.subTest(rule=rule_id):
+                rule, endpoint = rules[rule_id], endpoints[endpoint_id]
+                self.assertEqual('zip_contains', rule['type'])
+                self.assertIn(endpoint['replacement_host'], rule['text'])
+                inherited = endpoint['upstream_host']
+                self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
+        time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
+        self.assertEqual([f'https://{endpoints["time"]["replacement_host"]}/generate_204'], time)
+
     def test_device_tree_rules(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         ramoops = next(r for r in rules if r['id'] == 'ramoops')

@@ -2262,6 +2262,83 @@
       ]
     },
     {
+      "id": "https-time-server",
+      "why": "Network time over HTTPS comes from the DiamaneOS time server, not GrapheneOS's.",
+      "type": "overlay",
+      "apk": "PRODUCT/overlay/DiamaneOSFrameworkOverlay.apk",
+      "arrays": {
+        "array/config_httpsTimeUrls": [
+          "https://time.diamaneos.de/generate_204"
+        ]
+      },
+      "target": "android"
+    },
+    {
+      "id": "supl-proxy",
+      "why": "The SUPL proxy choice, the default, uses the DiamaneOS proxy, not GrapheneOS's.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "supl.diamaneos.de",
+      "absent": [
+        "supl.grapheneos.org"
+      ]
+    },
+    {
+      "id": "psds-server",
+      "why": "The PSDS server choice names the DiamaneOS server for Qualcomm's files, not GrapheneOS's. PSDS stays off on the FP6 while config_gnssPsdsType is empty.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "psds.diamaneos.de",
+      "absent": [
+        ".psds.grapheneos.org"
+      ]
+    },
+    {
+      "id": "rkp-proxy",
+      "why": "Attestation key provisioning through the proxy, the default, uses the DiamaneOS proxy, not GrapheneOS's.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/framework.jar",
+      "text": "https://remoteprovisioning.diamaneos.de/v1",
+      "absent": [
+        "remoteprovisioning.grapheneos.org"
+      ]
+    },
+    {
+      "id": "widevine-proxy",
+      "why": "Widevine provisioning through the proxy, the default, uses the DiamaneOS proxy, not GrapheneOS's.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/framework.jar",
+      "text": "widevineprovisioning.diamaneos.de",
+      "absent": [
+        "widevineprovisioning.grapheneos.org"
+      ]
+    },
+    {
+      "id": "network-location-relay",
+      "why": "The network location proxy choice uses the DiamaneOS relay to Apple's service, not GrapheneOS's.",
+      "type": "zip_contains",
+      "file": "SYSTEM/priv-app/NetworkLocation/NetworkLocation.apk",
+      "text": "https://location.diamaneos.de/clls/wloc",
+      "absent": [
+        "gs-loc.apple.grapheneos.org"
+      ]
+    },
+    {
+      "id": "service-choice-labels",
+      "why": "Settings names DiamaneOS for the server choices that now go to DiamaneOS's servers.",
+      "type": "overlay",
+      "apk": "PRODUCT/overlay/DiamaneOSSettingsOverlay.apk",
+      "values": {
+        "string/supl_enabled_grapheneos_proxy": "\"DiamaneOS proxy\"",
+        "string/psds_enabled_grapheneos_server": "\"DiamaneOS server\"",
+        "string/network_location_enabled_grapheneos_apple_proxy": "\"DiamaneOS Apple proxy\"",
+        "string/remote_provisioning_enabled_grapheneos_proxy": "\"DiamaneOS proxy\"",
+        "string/widevine_provisioning_enabled_grapheneos_proxy": "\"DiamaneOS proxy\"",
+        "string/cert_transparency_dl_grapheneos_server": "\"DiamaneOS server\""
+      },
+      "target": "com.android.settings"
+    },
+    {
       "id": "tap-to-wake",
       "why": "Double-tap to wake: node permissions, label and power HAL access.",
       "type": "text",

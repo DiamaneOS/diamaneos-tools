@@ -53,7 +53,8 @@
         "default_wallpaper": "DiamaneOS default wallpaper",
         "default_wallpaper_component": "Tally's Paper wallpaper in SystemUI as the default wallpaper: grained stone paper, light or dark with the theme",
         "default_lock_wallpaper": "DiamaneOS default lock wallpaper",
-        "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL"
+        "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL",
+        "config_httpsTimeUrls": "network time over HTTPS from the DiamaneOS time server (time.diamaneos.de) instead of GrapheneOS's; the same request, response and TLS checks"
       },
       "com.android.systemui": {
         "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay; SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
@@ -76,7 +77,13 @@
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_consent_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
         "duress_pwd_description": "rebrand: \"DiamaneOS will remain installed\" instead of GrapheneOS; otherwise unchanged",
         "aep_compat_mode_summary": "rebrand: \"DiamaneOS exploit protections\" instead of GrapheneOS; otherwise unchanged",
-        "app_play_integrity_top_intro": "rebrand: DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (reviewed wording)"
+        "app_play_integrity_top_intro": "rebrand: DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (reviewed wording)",
+        "supl_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose SUPL proxy it now uses (frameworks/base fork); otherwise unchanged",
+        "psds_enabled_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose PSDS server it now uses (frameworks/base fork); otherwise unchanged",
+        "network_location_enabled_grapheneos_apple_proxy": "rebrand: the proxy choice names DiamaneOS, whose relay to Apple's location service it now uses (NetworkLocation fork); otherwise unchanged",
+        "remote_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose attestation key provisioning proxy it now uses (frameworks/base fork); otherwise unchanged",
+        "widevine_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose Widevine provisioning proxy it now uses (frameworks/base fork); otherwise unchanged",
+        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it now uses (Connectivity fork); otherwise unchanged"
       },
       "android": {
         "deprecated_abi_message_grapheneos": "rebrand: the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
@@ -85,7 +92,8 @@
         "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
         "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording)",
         "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\"",
-        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device; otherwise unchanged"
+        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device; otherwise unchanged",
+        "network_location_enabled_desc": "rebrand: signal identifiers go to Apple through a DiamaneOS proxy instead of a GrapheneOS proxy; otherwise unchanged"
       },
       "app.grapheneos.speechservices": {
         "app_name": "rebrand: \"Speech Services\" instead of \"GrapheneOS Speech Services\" (owner, 2026-10-07)"
