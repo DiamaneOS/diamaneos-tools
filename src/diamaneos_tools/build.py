@@ -701,9 +701,40 @@ def verify_pinned_revisions(declared_xml: bytes, rows) -> None:
                          + ", ".join(moved[:20]))
 
 
-def verify_projects(source: Path, rows) -> None:
-    """Every project is checked out at its resolved commit with nothing changed."""
-    dirty = []
+def changes_digest(checkout: Path, status: bytes) -> str:
+    """SHA-256 of a project's local changes as the build sees them.
+
+    ``status`` is ``git status --porcelain=v1 -z``. Each changed path counts
+    with its status and its current content: a file's SHA-256, a link's
+    target, or a marker for a directory or a deleted path.
+    """
+    digest = hashlib.sha256()
+    entries = iter(status.split(b"\0"))
+    for entry in entries:
+        if not entry:
+            continue
+        if any(code in entry[:2] for code in (b"R", b"C")):
+            next(entries, None)  # The old path of a rename or copy.
+        target = checkout / os.fsdecode(entry[3:])
+        if target.is_symlink():
+            content = b"link " + os.fsencode(os.readlink(target))
+        elif target.is_file():
+            content = b"file " + sha256_file(target).encode()
+        else:
+            content = b"directory" if target.is_dir() else b"absent"
+        digest.update(entry + b"\0" + content + b"\0")
+    return digest.hexdigest()
+
+
+def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
+    """Every project is checked out at its resolved commit.
+
+    A project with local changes (changed, added or deleted files) fails,
+    unless ``allow_modified``: then the result maps each such project to the
+    digest of its changes. A revision mismatch and a changed manifest
+    checkout always fail.
+    """
+    dirty, modified = [], {}
     for path, _name, _remote, revision in rows:
         checkout = source / path
         if not checkout.is_dir():
@@ -711,9 +742,13 @@ def verify_projects(source: Path, rows) -> None:
         head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
         if head != revision:
             raise BuildError(f"source project revision mismatch: {path}")
-        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1",
+        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1", "-z",
                        "--untracked-files=all"]).stdout
-        if status:
+        if not status:
+            continue
+        if allow_modified:
+            modified[path] = changes_digest(checkout, status)
+        else:
             dirty.append(path)
             if len(dirty) >= 20:
                 break
@@ -724,6 +759,7 @@ def verify_projects(source: Path, rows) -> None:
     if dirty:
         raise BuildError("source checkout contains dirty or untracked content: "
                          + ", ".join(dirty))
+    return modified
 
 
 def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None) -> str:
@@ -771,7 +807,8 @@ def verify_manifest_repository(config: dict, source: Path, manifest_commit: str 
 
 
 def verify_branch_checkout(config: dict, source: Path, environment_sha256: str | None = None,
-                           resolved_path: Path | None = None, manifest_commit: str | None = None) -> dict:
+                           resolved_path: Path | None = None, manifest_commit: str | None = None,
+                           allow_modified: bool = False) -> dict:
     """Verify a checkout of the DiamaneOS manifest (manifest mode).
 
     The builder trusts the declared manifest branch: the resolved manifest
@@ -781,7 +818,9 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     their copy/link files and the bound generated inputs may exist.
     ``resolved_path`` receives the resolved manifest. ``manifest_commit``
     replaces the branch-head check when the checkout reproduces a recorded
-    resolved manifest (see verify_manifest_repository).
+    resolved manifest (see verify_manifest_repository). With
+    ``allow_modified``, projects with local changes pass and are listed in
+    ``modified``, with ``modified_sha256`` binding their changes.
     """
     if "manifest" not in config:
         raise BuildError("the build environment does not declare a manifest")
@@ -795,7 +834,7 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     verify_pinned_revisions(repo_manifest(source, resolved=False), rows)
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     verify_source_layout(config, source, rows, resolved, resolved, generated)
-    verify_projects(source, rows)
+    modified = verify_projects(source, rows, allow_modified)
     if resolved_path is not None:
         resolved_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = resolved_path.with_name(resolved_path.name + ".tmp")
@@ -808,7 +847,9 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
         "resolved_manifest_sha256": sha256_bytes(resolved),
         "resolved_project_count": len(rows),
         "resolved_project_map_sha256": project_map_sha256,
-        "source_clean": True,
+        "source_clean": not modified,
+        "modified": sorted(modified),
+        "modified_sha256": sha256_bytes(json.dumps(modified, sort_keys=True).encode()) if modified else None,
         "source_layout_verified": True,
         "generated_inputs": sorted(generated),
         "generated_input_descriptor_sha256": descriptor_sha256,

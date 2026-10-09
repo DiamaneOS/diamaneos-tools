@@ -310,6 +310,8 @@ def plan(ctx):
         tools = out.get('tools') or {'commit': None, 'clean': None}
         packaging_tools = product_inputs.tools_identity()
         official = out.get('official') is True
+        # Projects the Android build took with local changes (never official).
+        modified = out.get('modified') or []
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
             'release': False, 'signing': 'public-test-keys', 'never_lock': True,
@@ -320,8 +322,8 @@ def plan(ctx):
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),
-            'tools': tools, 'packaging_tools': packaging_tools,
-            'reproducible': bool(tools.get('clean') and packaging_tools.get('clean')
+            'tools': tools, 'packaging_tools': packaging_tools, 'modified': modified,
+            'reproducible': bool(tools.get('clean') and packaging_tools.get('clean') and not modified
                                  and tools.get('commit') == packaging_tools.get('commit')),
             'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
             'source': sync['outputs'],

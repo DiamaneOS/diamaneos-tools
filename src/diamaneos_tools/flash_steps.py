@@ -212,8 +212,8 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                 f'- The phone\'s firmware must come from stock {record["stock_build"]}, the release this',
                 '  build\'s vendor files come from.']
     if not record.get('reproducible', False):
-        out.append('- Built from a modified tools checkout, or packaged by other tools than built it: '
-                   'not reproducible.')
+        out.append('- Built from local source changes or a modified tools checkout, or packaged by other '
+                   'tools than built it: not reproducible.')
     out.append('- Never install firmware older than the phone already runs.')
     if wipe:
         out += ['- This wipes all data on the phone.']

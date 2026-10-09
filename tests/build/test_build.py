@@ -408,6 +408,30 @@ class BranchCheckoutTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "local manifests"):
             self.verify()
 
+    def test_local_changes_pass_only_when_allowed_and_are_bound(self):
+        (self.project / "untracked.txt").write_text("dirty")
+        with self.assertRaisesRegex(build.BuildError, "dirty or untracked content: device/example"):
+            self.verify()
+        first = self.verify(allow_modified=True)
+        self.assertEqual((["device/example"], False), (first["modified"], first["source_clean"]))
+        # The digest follows the content the build sees, untracked or edited.
+        (self.project / "untracked.txt").write_text("other content")
+        second = self.verify(allow_modified=True)
+        (self.project / "untracked.txt").unlink()
+        (self.project / "tracked.txt").write_text("edited\n")
+        edited = self.verify(allow_modified=True)
+        (self.project / "tracked.txt").unlink()
+        deleted = self.verify(allow_modified=True)
+        digests = [result["modified_sha256"] for result in (first, second, edited, deleted)]
+        self.assertEqual(4, len(set(digests)))
+        git(self.project, "checkout", "-q", "--", "tracked.txt")
+        clean = self.verify(allow_modified=True)
+        self.assertEqual(([], None, True), (clean["modified"], clean["modified_sha256"], clean["source_clean"]))
+        # The manifest checkout stays strict.
+        (self.manifests / "local.xml").write_text("<manifest/>")
+        with self.assertRaisesRegex(build.BuildError, "dirty or untracked content: .repo/manifests"):
+            self.verify(allow_modified=True)
+
     def test_a_clean_project_off_its_manifest_pin_fails(self):
         pinned = rev(self.project)
         git(self.project, "commit", "-q", "--allow-empty", "-m", "local")
@@ -415,6 +439,9 @@ class BranchCheckoutTests(unittest.TestCase):
         self.resolved = self.resolved.replace(pinned.encode(), rev(self.project).encode())
         with self.assertRaisesRegex(build.BuildError, "not at the commits the manifest pins: device/example"):
             self.verify()
+        # Allowing local changes does not allow another commit.
+        with self.assertRaisesRegex(build.BuildError, "not at the commits the manifest pins: device/example"):
+            self.verify(allow_modified=True)
         # A project that follows a branch may be at any clean commit.
         self.declared = self.declared.replace(f"revision='{pinned}' upstream='android17'".encode(),
                                               b"revision='android17'")

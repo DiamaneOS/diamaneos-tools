@@ -195,6 +195,19 @@ class SyncFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
             build.verify_branch_checkout(json.loads(self.environment.read_text()), self.src)
 
+    def test_a_sync_with_local_changes_warns_and_records_them_unless_official(self):
+        clean = self.sync()
+        self.assertEqual(([], None), (clean['modified'], clean['modified_sha256']))
+        (self.src / 'device/example/example.mk').write_text('local edit\n')
+        self.lines.clear()
+        changed = self.sync()
+        self.assertEqual(['device/example'], changed['modified'])
+        self.assertTrue(changed['modified_sha256'])
+        self.assertEqual(clean['project_map_sha256'], changed['project_map_sha256'])
+        self.assertTrue(any('warning: local changes in device/example' in line for line in self.lines))
+        with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
+            self.sync(self.context(official=True))
+
     def move_on(self):
         """The branches move after a build: a project and the manifest get new commits."""
         (self.example / 'example.mk').write_text('PRODUCT := changed\n')

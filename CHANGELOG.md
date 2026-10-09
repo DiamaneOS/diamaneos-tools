@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Builds that are not official accept local changes in source projects, as
+  other Android builds do: `sync` and the `android` step warn and name the
+  projects, `build.json` lists them (`modified`) and marks the set not
+  reproducible, and a digest of the changes joins the source identity.
+  `--official` still refuses them; pinned revisions, the manifest checkout
+  and the repo tool stay strict.
 - `build` stops before the vendor step when its tools do not contain the
   commit the sync checked out at `tools/diamaneos`, and names the tools to run.
   Older tools select stock files the device tree now builds from source, which

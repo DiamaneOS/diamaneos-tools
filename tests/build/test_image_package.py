@@ -194,6 +194,18 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(built or {'commit': None, 'clean': None}, record['tools'])
                 self.assertEqual(packaging, record['packaging_tools'])
                 self.assertIs(reproducible, record['reproducible'])
+                self.assertEqual([], record['modified'])
+
+    def test_the_record_lists_local_changes_and_they_are_not_reproducible(self):
+        clean = {'commit': 'a' * 40, 'clean': True}
+        android = self.ctx.workspace.passed('android')
+        android['outputs'].update(tools=clean, modified=['device/fairphone/FP6'])
+        self.ctx.workspace.write_state('android', android)
+        with patch.object(image_package.product_inputs, 'tools_identity', return_value=clean):
+            outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
+        self.assertEqual(['device/fairphone/FP6'], record['modified'])
+        self.assertIs(False, record['reproducible'])
 
     def test_misc_is_zeros_sized_from_the_stock_partition_table(self):
         factory = self.root / 'factory.zip'
