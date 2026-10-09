@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "policy": "Every upstream DiamaneOS builds from. forks: repositories we fork and patch (the forks the DiamaneOS manifest selects on android17, and the common kernel); the fork branch is the pin and upstream is the reference it follows. sources: pinned upstream inputs that are not forked, including the upstream projects imported into kernel_qcom-6.1, whose import record is config/kernel-upstream-fp6.json; pin names the file and field that hold the pinned value. newer (newer_branches, newer_tags for sources): branches or tags that would supersede the followed reference, ordered by their capture group; a source measures newer_tags from the release its pin records (release_field). Fairphone forks and imports track the public-build branch where it exists, otherwise rc; CodeLinaro forks and imports track a release tag, or the newest release branch that contains the pinned commit with its release tags as newer. Checks read remote refs only and never move a branch or push; fork updates are rebased into a local candidate branch for build and review, kernel imports are new commits on the upstream branch of kernel_qcom-6.1 merged into android17, and adopting either is a reviewed, signed change.",
+  "policy": "Every upstream DiamaneOS builds from. forks: repositories we fork and patch (the forks the DiamaneOS manifest selects on android17, and the common kernel); the fork branch is the pin and upstream is the reference it follows. sources: pinned upstream inputs that are not forked, including the upstream projects imported into kernel_qcom-6.1, whose import record is config/kernel-upstream-fp6.json; pin names the file and field that hold the pinned value. newer (newer_branches, newer_tags for sources): branches or tags that would supersede the followed reference, ordered by their capture group; a source measures newer_tags from the release its pin records (release_field). Fairphone forks and imports track the public-build branch where it exists, otherwise rc; CodeLinaro forks and imports track a release tag, or the newest release branch that contains the pinned commit with its release tags as newer. Checks read remote refs only and never move a branch or push; fork updates are rebased into a local candidate branch for build and review, kernel imports are new commits on the upstream branch of kernel_qcom-6.1 merged into android17, and adopting either is a reviewed, signed change. Server forks have scope=server and follow their upstream main independently of Android release tags; upstream_revision records the adopted source base for clone-free checks. Source adoption is separate from deployment and native acceptance.",
   "forks": [
     {
       "id": "connectivity-framework",
@@ -66,7 +66,20 @@
     {"id": "documentsui", "slug": "platform_packages_apps_DocumentsUI", "path": "packages/apps/DocumentsUI", "branch": "android17", "follow_note": "GrapheneOS Files app; DiamaneOS changes. Rebase with each GrapheneOS release tag.", "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_apps_DocumentsUI", "ref": "2026091000", "kind": "tag"}, "newer": {"tags": "^([0-9]{10})$"}},
     {"id": "wifi-module", "slug": "platform_packages_modules_Wifi", "path": "packages/modules/Wifi", "branch": "android17", "follow_note": "GrapheneOS Wi-Fi module; keeps the factory MAC address out of the Wi-Fi log. Rebase with each GrapheneOS release tag.", "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_modules_Wifi", "ref": "2026091000", "kind": "tag"}, "newer": {"tags": "^([0-9]{10})$"}},
     {"id": "auditor", "slug": "Auditor", "path": "", "branch": "android17", "follow_note": "GrapheneOS Auditor app with DiamaneOS changes for the FP6 (not in the image build). Follow GrapheneOS Auditor release tags.", "upstream": {"url": "https://github.com/GrapheneOS/Auditor", "ref": "92", "kind": "tag"}, "newer": {"tags": "^([0-9]+)$"}},
-    {"id": "attestation-server", "slug": "AttestationServer", "path": "", "branch": "main", "follow_note": "GrapheneOS attestation server, no DiamaneOS changes yet; kept for DiamaneOS's attestation service.", "upstream": {"url": "https://github.com/GrapheneOS/AttestationServer", "ref": "main", "kind": "branch"}},
+    {
+      "id": "attestation-server",
+      "slug": "AttestationServer",
+      "path": "servers/AttestationServer",
+      "branch": "main",
+      "follow_note": "FP6-scoped TEE trust policy, distinct Auditor signer pins, sample removal and production privacy controls. Follow server main independently of Android release tags; qualify source adoption and deployment separately.",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/AttestationServer",
+        "ref": "main",
+        "kind": "branch"
+      },
+      "scope": "server",
+      "upstream_revision": "71df6e93efe9830457aacdc267c61b436f864c7f"
+    },
     {"id": "network-location", "slug": "platform_packages_apps_NetworkLocation", "path": "packages/apps/NetworkLocation", "branch": "android17", "follow_note": "GrapheneOS network location and geocoder app; offers no GrapheneOS geocoding server and identifies to OpenStreetMap's Nominatim as DiamaneOS. Rebase with each GrapheneOS release tag.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation", "ref": "2026091000", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
@@ -129,7 +142,63 @@
      "upstream": {"url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/location", "ref": "LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0", "kind": "tag"},
      "newer": {"tags": "^LA\\.VENDOR\\.14\\.3\\.0\\.r1-([0-9]+)-lanai\\.QSSI16\\.0$"}},
     {"id": "qmi-framework", "slug": "vendor_qcom_opensource_qmi-framework", "path": "vendor/qcom/opensource/qmi-framework", "branch": "android17", "follow_note": "Qualcomm's public QMI framework: main with a Soong build of the QMI client, encoder and common types as static libraries (linked into libloc_api_v02), and no /etc configuration read on Android.",
-     "upstream": {"url": "https://github.com/qualcomm/qmi-framework", "ref": "main", "kind": "branch"}}
+     "upstream": {"url": "https://github.com/qualcomm/qmi-framework", "ref": "main", "kind": "branch"}},
+    {
+      "id": "server-infrastructure",
+      "slug": "infrastructure",
+      "path": "servers/infrastructure",
+      "branch": "main",
+      "scope": "server",
+      "upstream_revision": "db6f4e634b4439f3b5e82be983bf043c4fa6b649",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/infrastructure",
+        "ref": "main",
+        "kind": "branch"
+      },
+      "follow_note": "Server source follows its own main branch, independently of Android release tags. Adopt a reviewed upstream commit in the fork, update upstream_revision, and qualify deployment separately; the watch does not deploy."
+    },
+    {
+      "id": "server-network-services",
+      "slug": "network-services",
+      "path": "servers/network-services",
+      "branch": "main",
+      "scope": "server",
+      "upstream_revision": "0a91d03a16b6e3842fd0d0c5c74ce571429867f9",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/grapheneos.org",
+        "ref": "main",
+        "kind": "branch"
+      },
+      "follow_note": "Server source follows its own main branch, independently of Android release tags. Adopt a reviewed upstream commit in the fork, update upstream_revision, and qualify deployment separately; the watch does not deploy."
+    },
+    {
+      "id": "server-releases",
+      "slug": "releases.diamaneos.de",
+      "path": "servers/releases.diamaneos.de",
+      "branch": "main",
+      "scope": "server",
+      "upstream_revision": "ce9f04dadea417e3f433fe29aa028f98cef0e5a9",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/releases.grapheneos.org",
+        "ref": "main",
+        "kind": "branch"
+      },
+      "follow_note": "Server source follows its own main branch, independently of Android release tags. Adopt a reviewed upstream commit in the fork, update upstream_revision, and qualify deployment separately; the watch does not deploy."
+    },
+    {
+      "id": "server-apps",
+      "slug": "apps.diamaneos.de",
+      "path": "servers/apps.diamaneos.de",
+      "branch": "main",
+      "scope": "server",
+      "upstream_revision": "19e3cee815cfb476212136a2e03be6f318837289",
+      "upstream": {
+        "url": "https://github.com/GrapheneOS/apps.grapheneos.org",
+        "ref": "main",
+        "kind": "branch"
+      },
+      "follow_note": "Server source follows its own main branch, independently of Android release tags. Adopt a reviewed upstream commit in the fork, update upstream_revision, and qualify deployment separately; the watch does not deploy."
+    }
   ],
   "sources": [
     {"id": "grapheneos-platform", "description": "GrapheneOS platform release the Android build is based on (authenticated tag).", "url": "https://github.com/GrapheneOS/platform_manifest.git",
