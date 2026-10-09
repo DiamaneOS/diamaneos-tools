@@ -331,6 +331,23 @@ class PlanTests(unittest.TestCase):
             action.func()
         install.assert_called_once_with(ctx.workspace.src, ctx.workspace.vendor, ctx.environment_path, replace=True)
 
+    def test_build_vendor_alone_checks_the_checkout_instead_of_needing_build_sync(self):
+        calls = []
+
+        def capture(ctx, names, force=(), dry_run=False):
+            calls.append((tuple(names), tuple(force), ctx.check_only))
+        with patch.object(steps, 'run_steps', side_effect=capture), \
+                patch.object(steps.bw, 'check_host', return_value={'warnings': []}):
+            for step in ('vendor', 'sync', 'android'):
+                self.assertEqual(0, steps.main([step, '--workspace', str(self.root / 'ws')], self.lines.append))
+        self.assertEqual([(('sync', 'vendor'), ('sync', 'vendor'), True), (('sync',), ('sync',), False),
+                          (('android',), ('android',), False)], calls)
+        # The checking sync runs no repo command.
+        ctx = self.context()
+        ctx.check_only = True
+        self.assertEqual(['Check the repo tool and manifest', 'Clear stale inputs', 'Verify the source tree'],
+                         [action.description for action in steps.plan_sync(ctx).actions])
+
     def test_build_all_follows_the_manifest_branch(self):
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         environment['manifest']['revision'] = 'a' * 40

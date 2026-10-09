@@ -7,6 +7,7 @@ out the kernel prebuilts project at the same path.
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -207,6 +208,30 @@ class SyncFlowTests(unittest.TestCase):
         self.assertTrue(any('warning: local changes in device/example' in line for line in self.lines))
         with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
             self.sync(self.context(official=True))
+
+    def test_build_vendor_checks_a_plain_repo_checkout_and_records_it_like_a_sync(self):
+        synced = self.sync()  # Stands in for a plain "repo init" and "repo sync".
+        shutil.rmtree(self.ctx.workspace.state_dir)
+        ctx = self.context()
+        ctx.check_only = True
+        plan = steps.plan_sync(ctx)
+        self.assertEqual(['Check the repo tool and manifest', 'Clear stale inputs', 'Verify the source tree'],
+                         [action.description for action in plan.actions])
+        self.assertFalse(any(action.argv or action.network for action in plan.actions))
+        checked = self.sync(ctx)
+        for key in steps.SOURCE_KEYS + ('project_count', 'manifest_url', 'manifest_branch', 'modified'):
+            self.assertEqual(synced[key], checked[key], key)
+        self.assertEqual(bw.sha_file(ctx.resolved_manifest), checked['resolved_manifest_sha256'])
+        (self.src / 'device/example/example.mk').write_text('local edit\n')
+        self.assertEqual(['device/example'], self.sync(ctx)['modified'])
+        official = self.context(official=True)
+        official.check_only = True
+        with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
+            self.sync(official)
+        # A checkout made with another repo tool is told how to get the pinned one.
+        git(self.src / '.repo/repo', 'commit', '-q', '--allow-empty', '-m', 'another repo tool')
+        with self.assertRaisesRegex(bw.BuildStepError, 'run "repo init --repo-rev=v-test" and "repo sync" again'):
+            self.sync(ctx)
 
     def move_on(self):
         """The branches move after a build: a project and the manifest get new commits."""
