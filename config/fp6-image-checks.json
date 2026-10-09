@@ -43,7 +43,7 @@
     },
     {
       "id": "sensors-qualcomm-sub-hal-only",
-      "why": "The multi-HAL loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker.",
+      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker. The odm list adds only our tap sub-HAL (tap-check-phone-sub-hal-listed).",
       "type": "text",
       "files": [
         "VENDOR/etc/sensors/hals.conf"
@@ -2401,7 +2401,7 @@
     },
     {
       "id": "tap-to-wake",
-      "why": "Double-tap to wake: node permissions, label and power HAL access.",
+      "why": "Tap to wake and Tap to check phone: the controller's gesture switch belongs to system (the sensors HAL).",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -2422,27 +2422,116 @@
       ]
     },
     {
-      "id": "tap-to-wake-policy",
-      "why": "The power HAL may write the gesture node and search the touch device.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/selinux/vendor_sepolicy.cil"
-      ],
-      "regex": [
-        "^\\(allow hal_power_default vendor_sysfs_touch_gesture \\(file \\([^)]*\\bwrite\\b",
-        "^\\(allow hal_power_default fp_mmitest_sysfs \\(dir \\([^)]*\\bsearch\\b"
+      "id": "tap-to-wake-switch-exclusive",
+      "why": "Only the sensors HAL may write the controller's gesture switch; the power HAL no longer switches the double tap.",
+      "type": "sepolicy_exclusive",
+      "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
+      "target": "vendor_sysfs_touch_gesture",
+      "cls": "file",
+      "allowed": [
+        "hal_sensors_default"
       ]
     },
     {
-      "id": "tap-to-wake-hal",
-      "why": "The power HAL configuration switches the gesture node for Mode::DOUBLE_TAP_TO_WAKE.",
+      "id": "tap-to-wake-not-power-hal",
+      "why": "The power HAL configuration does not switch the double tap: it would wake without the proximity check and fight the sensors HAL over the gesture switch.",
       "type": "text",
       "files": [
         "VENDOR/etc/powerhint.json"
       ],
-      "contains": [
-        "/sys/bus/spi/devices/spi0.0/gesture_wakeup"
+      "absent": [
+        "gesture_wakeup"
       ]
+    },
+    {
+      "id": "tap-check-phone-sub-hal",
+      "why": "Tap to wake and Tap to check phone: our tap sensors sub-HAL and the odm multi-HAL list that loads it.",
+      "type": "files_present",
+      "paths": [
+        "ODM/lib64/hw/sensors.fp6.tap.so",
+        "ODM/etc/sensors/hals.conf"
+      ]
+    },
+    {
+      "id": "tap-check-phone-sub-hal-listed",
+      "why": "The odm multi-HAL list names only the tap sub-HAL.",
+      "type": "text",
+      "files": [
+        "ODM/etc/sensors/hals.conf"
+      ],
+      "lines": [
+        "sensors.fp6.tap.so"
+      ],
+      "absent": [
+        "dynamic_sensor",
+        "sensors.qsh"
+      ]
+    },
+    {
+      "id": "tap-check-phone-node",
+      "why": "The touch controller's tap report is readable by the sensors HAL (system) only.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/sys/bus/spi/devices/spi0\\.0 +wake_gesture +0400 +system +system$"
+      ]
+    },
+    {
+      "id": "tap-check-phone-label",
+      "why": "The tap report has its own label.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "contains": [
+        "u:object_r:vendor_sysfs_touch_wake_gesture:s0"
+      ]
+    },
+    {
+      "id": "tap-check-phone-report-exclusive",
+      "why": "Only the sensors HAL may read the tap report.",
+      "type": "sepolicy_exclusive",
+      "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
+      "target": "vendor_sysfs_touch_wake_gesture",
+      "cls": "file",
+      "allowed": [
+        "hal_sensors_default"
+      ]
+    },
+    {
+      "id": "tap-check-phone-switch",
+      "why": "The sensors HAL may switch the controller's tap gestures.",
+      "type": "sepolicy_allows",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "source": "hal_sensors_default",
+      "target": "vendor_sysfs_touch_gesture",
+      "cls": "file",
+      "perm": "write"
+    },
+    {
+      "id": "tap-check-phone-overlay",
+      "why": "Tap to check phone and Tap to wake use the tap sensors and are off until the user turns them on.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "values": {
+        "string/config_dozeTapSensorType": "\"de.diamaneos.sensor.single_tap\"",
+        "bool/config_dozeTapGestureEnabled": "false",
+        "string/config_dozeDoubleTapSensorType": "\"de.diamaneos.sensor.double_tap\"",
+        "bool/config_dozeDoubleTapGestureEnabled": "false"
+      }
+    },
+    {
+      "id": "tap-check-phone-proximity",
+      "why": "A single or double tap wakes the screen only when the proximity sensor is not covered.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6SystemUIOverlay.apk",
+      "values": {
+        "bool/doze_proximity_check_before_tap": "true"
+      }
     },
     {
       "id": "power-hal",
