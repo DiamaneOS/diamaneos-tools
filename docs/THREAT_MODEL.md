@@ -181,8 +181,6 @@ historical evidence without making it acceptance of this later source cut.
   or patch it.
 - Baseband exploitation beyond what SoC isolation provides; on the FP6 that
   isolation is set by closed firmware Android cannot check.
-- Detection of fake base stations, null-cipher sessions or identity requests:
-  the current Qualcomm radio software does not support it.
 - Traffic the modem sends by itself (IMS, SUPL, control-plane location), which
   Android's network controls do not see.
 - Removal of eSIM profiles, modem state or factory calibration by factory reset;
@@ -443,12 +441,8 @@ entry point), the protections in current builds, what remains, and the status.
   read back has no GSM technologies, and with LTE-only it has LTE alone; calls
   over LTE still work.
 - **Remaining:** 2G stays allowed by default ([decision](#decision-record)), so
-  a downgrade works unless the user opts in. No detection: the radio software
-  answers "not supported" to the null-cipher/integrity control, and its radio
-  network interface is version 2, while cellular security notifications need
-  version 3, so Settings hides both. LTE/NR identity exposure remains.
-- **Status:** Observed gap (radio software): no null-cipher control or security
-  notifications (FP6-084). Bring-up (not qualified): the source review of
+  a downgrade works unless the user opts in. LTE/NR identity exposure remains.
+- **Status:** Bring-up (not qualified): the source review of
   2026-10-05 traces both settings to the modem's preference request; a build
   before 2026-09-26 did not pass the choice to the modem; on the 2026-10-05
   build the modem's own setting read back matched both controls. Unverified:
