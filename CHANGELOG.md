@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The kernel policy requires SELinux development mode (updates boot through
+  it) and the `selinux_enforcing_lock` symbol; the kernel source pin moves to
+  the commit with the lock.
 - BUILDING.md shows the plain Android flow: `repo init` and `repo sync`,
   `build vendor`, `lunch` and `m target-files-package otatools-package`, then
   `build package`; `build all` is the one-command alternative.

@@ -77,8 +77,9 @@ personal accounts and sensitive data stay off them.
   sysfs nodes relabelled before any write grant, nothing new for apps or shell,
   dontaudit rules only for denials checked to be harmless and recorded with
   the device policy, such as the sensors HAL's writes of a factory proximity
-  value that nothing reads); the kernel cannot run SELinux permissive (no
-  development mode); the
+  value that nothing reads); the kernel boots permissive until init turns
+  enforcing on (development mode, needed for an update's first boot), then
+  locks it: `setenforce 0` fails and the enforcing mode is read-only; the
   2026-09-26 build passed the phone feature tests
   enforcing, and every build since runs enforcing. Enforcing runs per subsystem
   are unverified (no owning task yet).
@@ -656,7 +657,8 @@ entry point), the protections in current builds, what remains, and the status.
   restrictions; modules reduced to product
   use (since the 2026-09-27 build no protocol modules without product use: CAN,
   802.15.4/6LoWPAN, the kernel NFC socket family, PPTP/L2TP, the in-kernel
-  Bluetooth stack); no SELinux development mode; dmesg root-only. Profiling
+  Bluetooth stack); SELinux enforcing locked on once set (development mode
+  only for the boot-time handoff); dmesg root-only. Profiling
   work must never weaken lockdown or tracing restrictions in user builds.
 - **Remaining:**
   - No MTE; large vendor driver surface; hardening hand-merged into a vendor

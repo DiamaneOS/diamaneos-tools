@@ -179,8 +179,9 @@ configurations.
 Right after the core build, before any module, `kernel build` checks both the
 GKI configuration (the Image) and the vendor tree's (the modules) against
 [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default
-with the production profile: no SELinux development mode and dmesg restricted
-from boot, plus the baseline hardening. The baseline keeps userfaultfd (ART's
+with the production profile: dmesg restricted from boot, plus the baseline
+hardening, which includes SELinux development mode with the enforcing lock
+(below). The baseline keeps userfaultfd (ART's
 garbage collector; unprivileged users get user-mode-only descriptors), io_uring
 (compressed OTA updates), Unicode casefolding for f2fs and forced lockdown at
 confidentiality level, as on GrapheneOS (integrity or none fails the check), and
@@ -202,13 +203,18 @@ panic dumps RAM, since the running system cannot turn dumps on.
 
 `--config-profile development` checks only the baseline and records the
 profile; the configuration itself always comes from the pinned source commit.
-Neither profile has SELinux development mode, so the kernel cannot go
-permissive: `setenforce 0` fails, and on userdebug
-`androidboot.selinux=permissive` makes init stop fatally. Never combine it with
-the permissive diagnostic vendor_boot images made for the 2026-09-26
-development build. The only fallbacks are reflashing those images or building
-from different sources (the defconfig commit reverted in `kernel_qcom-6.1` and
-`kernel_common-6.1`, and the source pin moved to that commit).
+SELinux development mode is on: the kernel boots permissive, as AOSP expects,
+because the first boot of an update loads the policy while the first-stage
+snapshot daemon still serves `/system` from the kernel domain; init turns
+enforcing on after handing the daemon over. Without development mode the
+policy enforces on load, the daemon's reads are denied and the update cannot
+boot. A kernel patch (`selinux_enforcing_lock`, a required symbol) keeps what
+turning it off gave: once enforcing is on, writes of 0 to
+`/sys/fs/selinux/enforce` fail with `EPERM` and are audited, and the enforcing
+mode sits on a page of its own that is made read-only, so a kernel write cannot
+turn it off either. User builds never go permissive (init refuses it); on
+userdebug, `androidboot.selinux=permissive` keeps the boot permissive because
+enforcing is never turned on.
 
 debugfs keeps its in-kernel API but cannot be mounted
 (`CONFIG_DEBUG_FS_DISALLOW_MOUNT`): the filesystem is never registered and
