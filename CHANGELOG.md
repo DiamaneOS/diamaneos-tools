@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- BUILDING.md is a short step-by-step guide: `repo init` and `repo sync`,
+  `build sync`, `build vendor`, `lunch` and `m`, then `build all` to package
+  and check, and `flash-steps`. Host setup, sync options, resuming,
+  `--official`, `build.json`, flashing and troubleshooting moved to BUILD.md.
 - `build vendor` also installs the vendor tree at `vendor/fairphone/FP6`, so
   `source build/envsetup.sh`, `lunch` and `m` can follow without
   `build inputs`.

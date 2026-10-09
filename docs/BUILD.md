@@ -1,13 +1,61 @@
 # Build reference
 
-To build DiamaneOS, follow [BUILDING.md](BUILDING.md). This page explains how
-the build works and why: the build commands and their records, the manifest
-and the build environment, the generated inputs and packaging. It also covers developing the
-host tools themselves.
+To build DiamaneOS, follow [BUILDING.md](BUILDING.md). This page covers host
+setup, how the build works and why (the build commands and their records, the
+manifest and the build environment, the generated inputs and packaging),
+flashing and troubleshooting. It also covers developing the host tools
+themselves.
 
 The host tools are Python 3 programs and do not require an Android source
 checkout or compilation. Schema conformance tests use the pinned development
 dependencies in `requirements-dev.txt`.
+
+## Host setup
+
+[BUILDING.md](BUILDING.md#requirements) lists the hardware and the packages.
+
+- `repo` is in Debian's `contrib` section: add `contrib` to the `Components:`
+  line in `/etc/apt/sources.list.d/debian.sources` (or to each `deb` line in
+  `/etc/apt/sources.list`) and run `sudo apt update` before the install.
+  Without `contrib`, leave `repo` out and install the `repo` launcher as its
+  [install instructions](https://gerrit.googlesource.com/git-repo#install)
+  describe.
+- The package install is the only step that needs `sudo`; everything else runs
+  as your own user.
+- The build checks the exact free disk space it needs before it starts.
+- Compilation runs with network access off, in an unprivileged user namespace.
+  Debian allows them by default. Some systems restrict them (Ubuntu 24.04 does,
+  through AppArmor); the build then stops and says why.
+- Flashing needs the phone, a USB cable and `fastboot` from the Android
+  platform tools, on any computer.
+
+## Source checkout
+
+- **Workspace.** The tools keep everything in one workspace directory,
+  `~/diamaneos-build` by default, with the source in its `src` directory. For
+  another place, run `repo init` in `DIR/src` and pass `--workspace DIR` to
+  every `diamaneos` command (or set `DIAMANEOS_WORKSPACE`).
+- **Tools.** Run the tools from the source tree (`tools/diamaneos`). Another
+  tools checkout must contain the commit the sync checked out there
+  ([tools and source](#the-build-commands)).
+- **Smaller download.** Add `--depth=1` to `repo init`, use
+  `repo sync -c --no-tags -j8`, and pass `--shallow` to the first `diamaneos`
+  command. The checkout has no history, which saves roughly half of the
+  download and of the disk space; moving to a newer GrapheneOS release later
+  downloads more. The workspace remembers the choice
+  ([shallow sync](#the-build-commands)).
+- **Moved projects.** A newer release can take a project from another
+  repository at the same path (GrapheneOS forking an AOSP project).
+  `diamaneos build` removes the clean old checkout before syncing; a plain
+  `repo sync` needs `--force-sync <path>` for it.
+- **Manifest signatures.** A DiamaneOS maintainer signs the manifest commits.
+  The maintainer keys are not published; with an allowed-signers file that
+  lists them:
+
+  ```sh
+  git -C .repo/manifests -c gpg.ssh.allowedSignersFile=/path/to/diamaneos-allowed-signers \
+    verify-commit HEAD
+  ```
 
 ## The build commands
 
@@ -23,8 +71,7 @@ names the source: the DiamaneOS manifest
 branch. That branch selects every project: GrapheneOS and AOSP projects at the
 exact commits of the GrapheneOS release it is based on, Fairphone and
 CodeLinaro projects at exact commits, the DiamaneOS forks and projects at their
-`android17` branches, the kernel prebuilts and the tools. It is the current
-development line, not a release and not phone-tested as a whole. Because the
+`android17` branches, the kernel prebuilts and the tools. Because the
 branch moves, `build all` starts with `sync` every time; an environment that
 pins one manifest commit (`manifest.revision`) does not.
 
@@ -35,6 +82,28 @@ pins one manifest commit (`manifest.revision`) does not.
 | `android` | Installs (or re-checks) the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash; the factory package and each firmware image against the firmware inventory; the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
+
+**Using `build all`.**
+
+- The first build takes many hours. Each long command prints a `live output`
+  file to follow with `tail -f`.
+- After a stop, run the same command again: finished steps are skipped, and
+  later steps run again only if the synced source changed. `--dry-run` shows
+  what is left without changing anything; `--from vendor` rebuilds without
+  syncing again.
+- `user` is the default variant; `--variant userdebug` builds a test image with
+  adb and root debugging. Give `build all` the same `--variant` each time:
+  another one rebuilds Android. A single step, such as `build verify`, uses the
+  variant Android was built with.
+- At the end it prints the image directory, for example
+  `~/diamaneos-build/images/20261003-user-3f9a1c2b7d`. It holds the images,
+  `build.json` (exactly what the build was made from: the manifest commit, the
+  kernel prebuilts commit, the vendor inputs and more), `resolved-manifest.xml`
+  with every project's commit, and `SHA256SUMS`.
+- By hand, after `build sync` and `build vendor`, the usual
+  `source build/envsetup.sh`, `lunch FP6-cur-<variant>` and `m` build Android.
+  The tools package and check only image sets from `build all`; flash only
+  those.
 
 **State and resume.** Each step writes `state/<step>.json` with the digest of
 its inputs (the hashes of the configs, and only the parts of
@@ -75,7 +144,12 @@ manifests and files outside the projects. With an environment that pins one
 manifest commit, `build all` keeps its sync; after an edit, run
 `build all --from sync`.
 
-**Official builds.** `build all --official` (or `build android --official`)
+**Official builds.** DiamaneOS's own builder adds `--official`: the image then
+includes the Updater, which checks DiamaneOS's update server
+(`releases.diamaneos.de`) for updates. Leave it off for your own builds. An
+official build signed with the public test keys, as every build of these
+commands is, checks for updates but downloads and installs none.
+`build all --official` (or `build android --official`)
 gives the Android build `DIAMANEOS_OFFICIAL_BUILD=true`; every other build runs
 with the variable removed from the environment, as GrapheneOS's
 `OFFICIAL_BUILD` always is. The choice is an Android input, part of the build
@@ -270,6 +344,89 @@ tools commit.
 a copy of the FP6 environment with another manifest branch, or with
 `manifest.revision` set to build one manifest commit. `DIAMANEOS_BUILD_NUMBER`
 overrides the build number.
+
+## Flashing
+
+For test builds only. The rules:
+
+- Never lock the bootloader with a test build installed: never run
+  `fastboot flashing lock` or `fastboot flashing lock_critical`. Anyone can
+  sign images with the public test keys.
+- Never run `fastboot -w` or `fastboot erase`. When a wipe is needed, the
+  printed steps flash empty images instead, as Fairphone's own factory
+  package does.
+- The OS goes to slot a only. The firmware steps write both slots of each A/B
+  firmware partition, as Fairphone's own flash does.
+- Never install firmware older than the phone already runs; `flash-steps`
+  refuses to.
+- To flash from another computer, copy the whole image directory there.
+
+**Firmware.** Each image set carries Fairphone's firmware of the release its
+vendor files come from (`FP6.QREL.16.111.0` today).
+
+- `flash-steps` writes it first when the phone runs older firmware, prints no
+  firmware steps when the phone runs that release, and stops when it runs a
+  newer one.
+- The FP6 bootloader does not report its firmware, so name it with
+  `--phone-firmware`: the build number in Settings > About phone on stock
+  Android, or the firmware the last DiamaneOS flash steps installed (`--since`
+  reads it from that image set).
+- Firmware steps also need the phone's state, saved in the bootloader and
+  passed with `--phone`:
+  `{ fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1`.
+- `--no-firmware` leaves the firmware as it is. The firmware steps are not yet
+  tested on a phone, and the printed steps say so.
+
+**First install** (from stock Android or another system):
+
+1. Note the build number in Settings > About phone, for example
+   `FP6.QREL.16.100.0`.
+2. Unlock the bootloader as
+   [Fairphone describes](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-to-unlock-or-lock-your-Fairphone-s-bootloader),
+   including `fastboot flashing unlock_critical`, because the steps write
+   firmware.
+3. In the bootloader, save the phone's state as above, then print the flash
+   steps and run them:
+   `tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware FP6.QREL.16.100.0`.
+
+The wipe erases everything on the phone. It flashes empty userdata, metadata
+and misc images and Fairphone's factory FRP image, so factory reset protection
+is cleared and OEM unlocking stays allowed; unless you pass `--no-firmware`, it
+also writes Fairphone's empty logfs and vm-persist images. The wipe is not yet
+tested on a phone, and the printed steps say so.
+
+**Updating** a phone that already runs a DiamaneOS test build:
+`tools/diamaneos/bin/diamaneos flash-steps --since ~/diamaneos-build/images/<previous build>`.
+It prints only the images that changed, and the firmware only when the new set
+carries newer firmware than the earlier one (then add `--phone`). An earlier
+image set without firmware does not say what the phone runs; add
+`--phone-firmware`. Without `--since` it prints every image.
+
+**Back to stock:** install Fairphone's factory package with
+[Fairphone's instructions](https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone).
+Relock only after stock is back, and only with the checks in the installer's
+[recovery preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-preflight.md).
+
+## Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| `this host cannot run the build` | It lists everything that is missing. Fix those and run the command again. |
+| `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
+| `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can; otherwise add `--allow-network`, and `build.json` records that the build had network access. |
+| `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source. Run the copy it names (`src/tools/diamaneos/bin/diamaneos`), or update your tools checkout. |
+| A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
+| `not our ref` during sync | A commit the manifest selects is not published yet. Run the command again after the push. |
+| `holds local manifests the build does not use` | Move the files in `.repo/local_manifests` away; the build uses the manifest alone. |
+| `contains dirty or untracked content` | An official build, or the manifest checkout (`.repo/manifests`), has local changes. Undo them (or move them aside) and run the command again; other builds only warn about changed projects. |
+| `undeclared input` | Files were added between projects. Move them away and run the command again. |
+| `bytes of body are still expected` during sync | A long download broke off. Run the same command again; sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
+| `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
+| The disk fills up | Free the space the host check asked for and run the command again. |
+| A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause; finished steps are skipped. |
+| `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. Do not flash that build. |
+| `the verification report belongs to another image set` | Run `tools/diamaneos/bin/diamaneos build verify` again for this set. |
+| Flashing `super` stops after its first part | Use the fastbootd steps printed under the main steps. |
 
 ## Prepare a development checkout
 
