@@ -96,7 +96,7 @@
     ]
   },
   "kernel_arguments": {
-    "forbidden_reason": "Each of these turns a kernel protection off, or copies kernel traces or a debugger onto a console. None is set, so the kernel configuration decides.",
+    "forbidden_reason": "Each of these turns a kernel protection off, copies kernel traces or a debugger onto a console, or changes how the phone restarts (a cold restart clears memory). None is set, so the kernel configuration decides.",
     "forbidden": [
       "kpti",
       "nokaslr",
@@ -122,7 +122,8 @@
       "kgdbwait",
       "sysrq_always_enabled",
       "ftrace_dump_on_oops",
-      "tp_printk"
+      "tp_printk",
+      "reboot"
     ]
   },
   "wipe": {
