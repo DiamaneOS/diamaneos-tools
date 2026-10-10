@@ -48,7 +48,7 @@ KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_
 VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minimal/vendor-files.json',
                   'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json', 'fp6-firmware-inventory.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
-               'carrier_data.py', 'firmware_release.py', 'safe_json.py')
+               'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
 # The parts of config/fp6-build.json each step depends on; editing another
 # part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
@@ -577,7 +577,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
         'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(VENDOR_RECIPES),
         'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
         'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER,
-        'firmware_release': config_subset(config, ('firmware_release',))}
+        'firmware_release': config_subset(config, ('firmware_release',)),
+        'firmware': config_subset(config, ('firmware',))}
     # A fixed build number and the sources' own date: without them the build
     # stamps the current date into the tools (aapt2's version string), their
     # hashes reach the vendor inventory, and the same sources would give a
@@ -620,13 +621,14 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     def product():
         from . import firmware_release, safe_json, vendor_product
-        firmware = firmware_release.table(safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json'),
-                                          config['firmware_release'])
+        inventory = safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json')
         ctx.cache['product'] = vendor_product.generate(
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
             safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
-            aapt2=ctx.host_bin / 'aapt2', stock=recipe, firmware_releases=firmware,
+            aapt2=ctx.host_bin / 'aapt2', stock=recipe,
+            firmware_releases=firmware_release.table(inventory, config['firmware_release']),
+            firmware_inventory=inventory, firmware_policy=config['firmware'], factory_zip=zip_path,
             release_date=archive.get('release_date'))
 
     def install():

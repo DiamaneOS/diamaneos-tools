@@ -8,7 +8,7 @@ DiamaneOS delivers it.
 - DiamaneOS image sets carry Fairphone's firmware of the stock release their vendor files come from
   (`selected_build` in the inventory below), byte for byte, and `diamaneos flash-steps` writes it
   before the OS when the phone runs older firmware ([Delivery](#delivery)).
-- No OTA carries firmware.
+- Every update carries the A/B firmware of that release too ([Delivery](#delivery)).
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
   the selected and the previous factory package (`selected_build`, `previous_build`) with size and
   SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi firmware
@@ -129,12 +129,20 @@ as after Fairphone's own flash.
     device-info` (`--phone`): an FP6, unlocked, with unlocked critical partitions, in the bootloader
     rather than fastbootd.
 
-- **OTA.**
-  - No OTA carries firmware: DiamaneOS builds none, and the device's `AB_OTA_PARTITIONS` lists only
-    OS partitions.
-  - `build verify` fails a target-files archive whose A/B partition list names only part of the
-    A/B firmware partitions or carries other bytes than stock's for them (check `firmware-ota`), so
-    an update holds the whole firmware of one release or none.
+- **Updates.**
+  - Every A/B update carries the A/B firmware of the build's stock release, byte for byte, next to
+    the OS. A locked phone cannot be flashed, so this is how it gets firmware fixes.
+  - The vendor step copies those images from the factory package into the vendor tree (`radio/`).
+    The generated makefiles add them to the update partition list and to the build's update inputs.
+  - An update writes them to the slot it installs, with the OS. The running slot keeps its firmware
+    until the next update.
+  - An update never writes the single-copy partitions (`storsec`, `toolsfv`, `study`, `logfs`,
+    `vm-persist`) or `studybk`, which holds run-time state (`update_skips` in
+    `config/fp6-build.json`). Flashing writes them.
+  - Unlike a flash, an update does not reset the modem file system.
+  - `build verify` fails a target-files archive whose update partition list lacks an A/B firmware
+    partition, names another firmware partition, or carries other bytes than stock's (check
+    `firmware-ota`).
 
 ## Rollback rules
 

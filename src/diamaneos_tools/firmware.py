@@ -52,7 +52,7 @@ def plan(inventory: dict, policy: dict, release: str | None = None) -> dict:
     images = inventory['releases'][release]['images']
     stock = images['firmware']
     known = {name for group in images.values() for name in group}
-    for name in list(policy['excluded']) + list(policy['wipe_only']):
+    for name in list(policy['excluded']) + list(policy['wipe_only']) + list(policy.get('update_skips', {})):
         if name not in stock:
             raise FirmwareError(f'the firmware policy names {name}, which {release} does not have')
     written, steps = {}, []
@@ -85,11 +85,14 @@ def plan(inventory: dict, policy: dict, release: str | None = None) -> dict:
                                   for name, entry in sorted(inventory['releases'].items())}}
 
 
-def ab_partitions(firmware_plan: dict) -> list[str]:
-    """The A/B firmware partitions (without slot suffix): what an A/B update
-    would carry. Single-copy partitions cannot be updated atomically."""
-    names = {s['partition'] for s in firmware_plan['steps']}
-    return sorted(n[:-2] for n in names if n.endswith('_a') and n[:-2] + '_b' in names)
+def update_partitions(firmware_plan: dict, policy: dict) -> dict[str, str]:
+    """What every A/B update carries: each A/B firmware partition (without slot
+    suffix) and its image. Single-copy partitions cannot be updated atomically,
+    and the policy's update_skips hold run-time state."""
+    steps = {s['partition']: s['image'] for s in firmware_plan['steps'] if not s.get('wipe_only')}
+    skipped = set(policy.get('update_skips', {}))
+    return {name[:-2]: image for name, image in sorted(steps.items())
+            if name.endswith('_a') and name[:-2] + '_b' in steps and image not in skipped}
 
 
 def anti_rollback_problems(inventory: dict, release: str) -> list[str]:
