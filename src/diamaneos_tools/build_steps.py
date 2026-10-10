@@ -705,6 +705,20 @@ def otatools_record(ctx: Context) -> dict | None:
     return {'file': str(matches[0].relative_to(ctx.workspace.root)), 'sha256': bw.sha_file(matches[0])}
 
 
+def android_outputs_match(workspace, outputs):
+    """Both recorded archives must still exist with their recorded bytes."""
+    target = workspace.root / outputs['target_files']
+    tool = outputs.get('otatools')
+    if not target.is_file() or bw.sha_file(target) != outputs['target_files_sha256']:
+        return False
+    if outputs.get('official') is True and not tool:
+        return False
+    if tool:
+        path = workspace.root / tool['file']
+        return path.is_file() and not path.is_symlink() and bw.sha_file(path) == tool['sha256']
+    return True
+
+
 def plan_android(ctx: Context) -> StepPlan:
     if ctx.manual:
         return plan_manual_android(ctx)
@@ -804,10 +818,7 @@ def plan_android(ctx: Context) -> StepPlan:
                 'network_isolation': isolation}
 
     def valid(state):
-        path = ws.root / state['outputs']['target_files']
-        tool = state['outputs'].get('otatools')
-        return (path.is_file() and bw.sha_file(path) == state['outputs']['target_files_sha256']
-                and (not tool or bw.sha_file(ws.root / tool['file']) == tool['sha256']))
+        return android_outputs_match(ws, state['outputs'])
 
     return StepPlan('android', inputs, actions, outputs, valid, waiting_for=waiting)
 
@@ -932,8 +943,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
                 'network_isolation': 'off', 'android_build': 'manual'}
 
     def valid(previous):
-        path = ws.root / previous['outputs']['target_files']
-        return path.is_file() and bw.sha_file(path) == previous['outputs']['target_files_sha256']
+        return android_outputs_match(ws, previous['outputs'])
 
     return StepPlan('android', inputs, actions, outputs, valid)
 
