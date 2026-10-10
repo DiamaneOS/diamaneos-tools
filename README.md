@@ -56,7 +56,6 @@ fastboot --version
 - [FP6 kernel build and capability contract](docs/FP6-KERNEL.md)
 - [Reconstruct FP6 development build inputs](docs/FP6-PREPARATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Endpoint contracts](docs/ENDPOINTS.md)
 - [Signing roles and offline release boundary](docs/SIGNING.md)
 - [Carrier configuration and modem-backed Wi-Fi calling](docs/CARRIER-INTEGRATION.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)

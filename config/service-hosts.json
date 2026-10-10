@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "note": "Hosts the image checks compare: the host GrapheneOS uses for a service and the DiamaneOS host that replaces it in the image.",
+  "services": [
+    {
+      "id": "os-updates",
+      "upstream_host": "releases.grapheneos.org",
+      "diamaneos_host": "releases.diamaneos.de"
+    },
+    {
+      "id": "time",
+      "upstream_host": "time.grapheneos.org",
+      "diamaneos_host": "time.diamaneos.de"
+    },
+    {
+      "id": "connectivity-check",
+      "upstream_host": "connectivitycheck.grapheneos.network",
+      "diamaneos_host": "connectivitycheck.diamaneos.de"
+    },
+    {
+      "id": "online-probe",
+      "upstream_host": "grapheneos.online",
+      "diamaneos_host": "online.diamaneos.de"
+    },
+    {
+      "id": "psds-cache",
+      "upstream_host": "qualcomm.psds.grapheneos.org",
+      "diamaneos_host": "psds.diamaneos.de"
+    },
+    {
+      "id": "supl",
+      "upstream_host": "supl.grapheneos.org",
+      "diamaneos_host": "supl.diamaneos.de"
+    },
+    {
+      "id": "rkp-proxy",
+      "upstream_host": "remoteprovisioning.grapheneos.org",
+      "diamaneos_host": "remoteprovisioning.diamaneos.de"
+    },
+    {
+      "id": "widevine-proxy",
+      "upstream_host": "widevineprovisioning.grapheneos.org",
+      "diamaneos_host": "widevineprovisioning.diamaneos.de"
+    },
+    {
+      "id": "dns-check",
+      "upstream_host": "dnscheck.grapheneos.org",
+      "diamaneos_host": "dnscheck.diamaneos.de"
+    },
+    {
+      "id": "network-location",
+      "upstream_host": "gs-loc.apple.grapheneos.org",
+      "diamaneos_host": "location.diamaneos.de"
+    }
+  ]
+}

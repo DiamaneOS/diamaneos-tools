@@ -312,7 +312,6 @@
     `build.json` and remembered by the workspace until `--no-official`.
   - Image checks require the Updater, its permissions and the DiamaneOS update server in official
     builds and its absence in the others.
-  - The OS update endpoint contract names the fork as its client.
 - Deliver the FP6 firmware with the image set.
   - `build package` copies Fairphone's firmware of the vendor files' release (`FP6.QREL.16.111.0`)
     out of the authenticated factory package, every image checked against

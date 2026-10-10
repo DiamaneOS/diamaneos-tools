@@ -14,7 +14,7 @@ follow integration evidence.
 | vendor/firmware | Reproducible input generator | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
 | kernel/modules/dt | Kernel maintainer | Qualcomm CodeLinaro release with GrapheneOS `kernel_common-6.1` merged in; FP6 device trees from Fairphone | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
 | apps/build | Owning feature maintainer | Supported platform APIs | Feature-specific state | No umbrella privileged application |
-| infrastructure | Service maintainer | Endpoint contracts | Bounded serving, staging and monitoring | Privately injected credentials; no release signing keys |
+| infrastructure | Service maintainer | Service definitions | Bounded serving, staging and monitoring | Privately injected credentials; no release signing keys |
 | site/installer | Documentation and installer maintainers | Verified release metadata and recovery requirements | Public guidance and installer flow | Independent verification before destructive operations |
 
 - Platform code owns credential, permission, update and hardware enforcement; shared visual
