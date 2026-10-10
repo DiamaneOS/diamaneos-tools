@@ -191,6 +191,41 @@ class ForkTests(unittest.TestCase):
         self.assertTrue(registry)
         self.assertIn('grapheneos-platform', {s['id'] for s in sources})
 
+    def test_release_reference_is_one_value(self):
+        # GrapheneOS forks follow "@release", read from the FP6 build environment.
+        raw = json.loads((ROOT / 'config/forks.json').read_text())
+        tag = json.loads((ROOT / raw['release']['file']).read_text())['upstream']['release_tag']
+        following = {f['id'] for f in raw['forks'] if f['upstream']['ref'] == '@release'}
+        self.assertGreater(len(following), 20)
+        self.assertEqual({f['upstream']['ref'] for f in forks.load() if f['id'] in following}, {tag})
+        # No fork repeats the tag as a literal.
+        self.assertFalse([f['id'] for f in raw['forks'] if f['upstream']['ref'] == tag])
+
+    def release_registry(self, release, kind='tag'):
+        base = Path(self.tmp.name) / 'repo'
+        (base / 'config').mkdir(parents=True)
+        (base / 'config/env.json').write_text(json.dumps({'upstream': {'release_tag': '2026010100'}}))
+        fork = dict(self.fork, upstream={'url': str(self.upstream), 'ref': '@release', 'kind': kind})
+        data = {'schema_version': 1, 'forks': [fork]}
+        if release is not None:
+            data['release'] = release
+        (base / 'config/forks.json').write_text(json.dumps(data))
+        return base / 'config/forks.json'
+
+    def test_release_reference_resolves(self):
+        path = self.release_registry({'file': 'config/env.json', 'pointer': '/upstream/release_tag'})
+        self.assertEqual(forks.load(path)[0]['upstream']['ref'], '2026010100')
+
+    def test_release_reference_needs_a_valid_entry(self):
+        for release, kind in ((None, 'tag'), ({'file': 'config/missing.json', 'pointer': '/upstream/release_tag'}, 'tag'),
+                              ({'file': 'config/env.json', 'pointer': '/upstream/other'}, 'tag'),
+                              ({'file': 'config/env.json', 'pointer': '/upstream/release_tag'}, 'branch')):
+            with self.subTest(release=release, kind=kind):
+                import shutil
+                shutil.rmtree(Path(self.tmp.name) / 'repo', ignore_errors=True)
+                with self.assertRaises(forks.ForkError):
+                    forks.load(self.release_registry(release, kind))
+
     def test_kernel_imports_match_their_sources(self):
         registry, sources = forks.load_registry()
         # Only the common kernel stays a fork; the other kernel projects are folders of kernel_qcom-6.1.
