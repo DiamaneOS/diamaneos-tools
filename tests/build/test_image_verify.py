@@ -2,6 +2,7 @@ import copy
 import hashlib
 import io
 import json
+import math
 from pathlib import Path
 import stat
 import struct
@@ -941,6 +942,83 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(rule(['app.grapheneos.camera']))
         # A value that only appears under a different resource is not a match.
         self.assertFalse(rule(['app.grapheneos.absent']))
+
+    def display_config(self, rule, nits=lambda n: n, brightness=lambda b: b, manual=None, time_max=86400,
+                       battery_saver='true', plain_top=1.0, doze=True, dimmer='true', overlay_dimmer='true',
+                       overlay_min=None):
+        """A display configuration and overlay dump that follow the rule's
+        measured points, with one thing changed per argument."""
+        levels = rule['levels']
+        backlight = lambda level: math.ceil((level - 1) / (rule['panel_levels'] - 1) * 1e7) / 1e7
+        table = [(backlight(level), value) for level, value in rule['reference']
+                 if levels['floor'] <= level <= levels['top']]
+        low, high = table[0][1], table[-1][1]
+        points = ''.join(f'<brightnessPoint><nits>{nits(n)}</nits><backlight>{bl}</backlight>'
+                         f'<brightness>{brightness((n - low) / (high - low))}</brightness></brightnessPoint>'
+                         for bl, n in table)
+        plain = ''.join(f'<point><value>{bl}</value><nits>{nits(n)}</nits></point>'
+                        for bl, n in [(0.0, rule['reference'][0][1])] + table if bl <= plain_top)
+        xml = f"""<displayConfiguration>
+  <screenBrightnessMap interpolation="linear">{plain}</screenBrightnessMap>
+  <highBrightnessMode enabled="true">
+    <transitionPoint>{backlight(manual or levels['manual'])}</transitionPoint>
+    <minimumLux>{rule['minimum_lux']}</minimumLux>
+    <timing><timeWindowSecs>1800</timeWindowSecs><timeMaxSecs>{time_max}</timeMaxSecs>
+      <timeMinSecs>60</timeMinSecs></timing>
+    <allowInLowPowerMode>{battery_saver}</allowInLowPowerMode>
+  </highBrightnessMode>
+  <evenDimmer enabled="{dimmer}">
+    <transitionPoint>0</transitionPoint>
+    <brightnessMapping>{points}</brightnessMapping>
+    <luxToMinimumNitsMap><point><value>0</value><nits>{low}</nits></point>
+      <point><value>1</value><nits>{low}</nits></point></luxToMinimumNitsMap>
+  </evenDimmer>
+  {f"<defaultDozeBrightness>{backlight(levels['doze'])}</defaultDozeBrightness>" if doze else ''}
+</displayConfiguration>"""
+        dump = ('Package name=x\n    resource 0x7f020000 bool/config_evenDimmerEnabled\n'
+                f'      () {overlay_dimmer}\n'
+                '    resource 0x7f030000 dimen/config_screenBrightnessSettingMaximumFloat\n'
+                f'      () {table[-1][0]:g}\n'
+                '    resource 0x7f030001 dimen/config_screenBrightnessSettingMinimumFloat\n'
+                f'      () {overlay_min or table[0][0]:g}\n')
+        return xml, dump
+
+    def test_display_brightness_table_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['display-brightness-map']
+        levels = [level for level, _ in rule['reference']]
+        self.assertEqual(levels, sorted(set(levels)))
+        self.assertTrue(set(rule['levels'].values()) <= set(levels))
+
+        def check(symlink=False, **changes):
+            xml, dump = self.display_config(rule, **changes)
+            members = {rule['overlay']: b'apk'}
+            v = self.harness(members if symlink else dict(members, **{rule['path']: xml}),
+                             symlinks={rule['path']: 'stock.xml'} if symlink else None,
+                             tools=FakeTools({('aapt2', 'resources'): dump}))
+            return subject.rule_display_config(rule, v)
+
+        self.assertEqual((True, ''), check())
+        for detail, changes in (
+                ('is a symlink', {'symlink': True}),
+                ('no enabled evenDimmer', {'dimmer': 'false'}),
+                # 2047 and 2048 are neighbours: the same nits twice would stop the system at boot.
+                ('nits does not rise strictly', {'nits': lambda n: 757.2 if n == 750.7 else n}),
+                ('brightness is not linear in nits', {'brightness': lambda b: b * b}),
+                ('nits off the measured panel curve', {'nits': lambda n: round(n * 1.05, 4)}),
+                ('the manual range ends at level 3000', {'manual': 3000}),
+                ('sunlight brightness has a time limit', {'time_max': 300}),
+                ('battery saver blocks sunlight brightness', {'battery_saver': 'false'}),
+                ('screenBrightnessMap does not cover', {'plain_top': 0.8}),
+                ('doze brightness is not level 146', {'doze': False}),
+                ('the overlay does not enable evenDimmer', {'overlay_dimmer': 'false'}),
+                ('overlay minimum backlight is 0.0354331', {'overlay_min': 0.035433073})):
+            ok, found = check(**changes)
+            self.assertFalse(ok, detail)
+            self.assertIn(detail, found)
+        self.assertNotIn('display-port-config', rules)
+        self.assertIn('VENDOR/etc/displayconfig/display_id_4630947039571902850.xml',
+                      rules['display-stock-config-absent']['paths'])
 
     def test_overlay_integer_and_multi_item_arrays(self):
         dump = ('Package name=x\n'
