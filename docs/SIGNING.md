@@ -19,17 +19,8 @@ Signing is a typed release transformation, not "sign this path".
 
 ## Pinned roles
 
-The selected `2026091000` manifest resolves these signing authorities:
-
-```text
-script                639cdf6558e7401f8bab1cb8f53546ff4a0c8fef
-build/make            7f0398241bc8c4ef5255a8063befa5045e5cfab4
-development           bf1857fd7d886218a1ea456b94eb7eb15d5c1338
-external/avb          ba2dec4b035b0a3b61c5f8f8a74d86bcd450b1ee
-prebuilts/jdk/jdk21   ef5bcc92586b839ae3dbacc154127092fa4002ec
-system/update_engine  79f478a4f89e701e85fa15dec340bf445342abbd
-tools/apksig          ba4d984e1a360d427307d669d2f789212130e9e8
-```
+[`config/signing-roles.json`](../config/signing-roles.json) records the release and the revisions of
+the signing scripts and tools the contract was checked against; `signing roles` reports a mismatch.
 
 - `make_key` creates RSA-4096 keys and SHA-256 X.509 certificates.
 - The GrapheneOS script defines nine Android certificate roles: `releasekey`, `platform`, `shared`,
