@@ -25,6 +25,10 @@ class SigningInputsTests(unittest.TestCase):
 
     def fixture(self):
         root = self.root
+        self.source = root / 'source'
+        rules = self.source / 'tools/diamaneos/config/fp6-image-checks.json'
+        rules.parent.mkdir(parents=True, exist_ok=True)
+        rules.write_bytes((inputs.ROOT / 'config/fp6-image-checks.json').read_bytes())
         manifest = '<manifest><remote name="up" fetch="https://example.invalid"/><default remote="up"/>'
         for path in sorted(inputs.PROJECTS | {'prebuilts/jdk/jdk25'}):
             manifest += '<project name="' + path + '" path="' + path + '" revision="' + 'a' * 40 + '"/>'
@@ -56,8 +60,11 @@ class SigningInputsTests(unittest.TestCase):
 
     def verify(self, production=True):
         root = self.root
-        return inputs.verified_build(root / 'build.json', root / 'verify.json', root / 'target-files.zip',
-                                     root / 'resolved-manifest.xml', production=production, otatools=root / 'otatools.zip')
+        with patch.object(inputs, 'git_read', side_effect=lambda _root, args:
+                          ('a' * 40).encode() if args[0] == 'rev-parse' else b''):
+            return inputs.verified_build(root / 'build.json', root / 'verify.json', root / 'target-files.zip',
+                                         root / 'resolved-manifest.xml', production=production,
+                                         source_root=self.source, otatools=root / 'otatools.zip')
 
     def test_committed_policy_has_no_release_tag_or_commit(self):
         inputs.validate_config(self.policy)
@@ -183,6 +190,16 @@ class SigningInputsTests(unittest.TestCase):
         path = self.root / 'out.json'
         inputs.write_json(path, {'status': 'PASS'})
         with self.assertRaises(FileExistsError): inputs.write_json(path, {})
+
+    def test_external_inventory_cannot_reference_publication_key_files(self):
+        publication = self.root / 'publication'; publication.mkdir()
+        (publication / 'key').write_bytes(b'controlled public material fixture')
+        keys = native.PublicKeys.__new__(native.PublicKeys)
+        keys.root, keys.files, keys.artifact_root = self.root.resolve(), {}, publication.resolve()
+        with self.assertRaisesRegex(inputs.SigningError, 'inside the publication'):
+            keys.file('publication/key')
+        (self.root / 'external-key').write_bytes(b'controlled external public material fixture')
+        self.assertEqual((self.root / 'external-key').resolve(), keys.file('external-key'))
 
 
 class ArchiveTests(unittest.TestCase):

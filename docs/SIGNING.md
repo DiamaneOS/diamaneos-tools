@@ -15,7 +15,7 @@ per run. A routine source rebase requires no signing-policy edit.
 - The OTA package, payload and payload metadata use the `releasekey` role.
 - Factory archives use Ed25519 OpenSSH signatures in the `factory images` namespace.
 - Release records use the `diamaneos-release-record` namespace.
-- Unknown roles, packages and presigned exceptions are rejected.
+- Unknown roles and presigned exceptions are rejected.
 
 ```sh
 bin/diamaneos signing roles
@@ -34,6 +34,7 @@ official `user` build.
 - Each run reports signing-relevant projects changed since `--previous-result`, before signing.
 - Verification reports and previous results require signatures from the configured external authority.
 - The report binds every applicable device rule and the complete verified image set.
+- Device rules come from the clean tools revision selected by the resolved manifest.
 - A previous result must show successful artifact verification in a compatible mode.
 - The first run reports every signing project.
 
@@ -69,14 +70,15 @@ Use `--previous-result` together with `--previous-signature` for later runs. Ver
 signatures use `diamaneos-build-verification`; previous-result signatures use
 `diamaneos-signing-result`. Both are verified with the configured external SSH authority.
 
-The native signing command is emitted for the accepted input. Its signer must match the build's
-otatools binary. It refuses altered plans, changed target-files and existing output paths.
+The native signing command runs from the verified source root, where certificate replacement reads
+the original certificates. Its signer must match the build's otatools binary. It refuses altered
+plans, changed source, changed target-files and existing output paths.
 
 ```sh
 bin/diamaneos signing command --plan "$PLAN" \
   --target-files "$IMAGES/target-files.zip" \
   --signed-target-files "$SIGNED_TARGET_FILES" \
-  --signer "$OTATOOLS/bin/sign_target_files_apks" --key-dir "$KEY_DIR"
+  --signer "$OTATOOLS/bin/sign_target_files_apks" --key-dir "$KEY_DIR" --source-root "$SOURCE"
 ```
 
 ## Final publication

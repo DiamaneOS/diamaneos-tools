@@ -62,7 +62,8 @@ def member_role(mapping, kind, logical):
 
 
 def prepare(record_path, report_path, target_files, manifest, policy, keys, tools, otatools, previous=None, *, production):
-    provenance = verified_build(record_path, report_path, target_files, manifest, production=production, otatools=otatools)
+    provenance = verified_build(record_path, report_path, target_files, manifest, production=production,
+                                source_root=tools.source, otatools=otatools)
     provenance['source_files'] = source_files(tools.source, provenance['projects'])
     provenance['otatools_sha256'] = sha256_file(otatools)
     provenance['java_sha256'] = sha256_file(tools.java_home / 'bin/java')
@@ -139,7 +140,7 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     return result
 
 
-def signing_command(plan, *, signer, key_dir, source, destination):
+def signing_command(plan, *, signer, key_dir, source, destination, source_root):
     """Return explicit native signing arguments only for the exact accepted input."""
     require(sha256_file(source) == plan['provenance']['target_files_sha256'],
             'Signing input differs from the build that passed build verify')
@@ -150,11 +151,14 @@ def signing_command(plan, *, signer, key_dir, source, destination):
     body = dict(plan)
     digest = body.pop('plan_sha256')
     require(canonical_sha256(body) == digest, 'Signing plan was changed')
+    require(source_files(source_root, plan['provenance']['projects']) == plan['provenance']['source_files'],
+            'Signing source changed after the plan was prepared')
     grouped = defaultdict(list)
     for name, role in plan['roles'].items():
         require(NAME.fullmatch(name), 'Unsafe signing package name')
         grouped[role['container']].append(name)
-    argv = [str(signer), '-o', '-d', str(key_dir)]
+    key_dir = Path(key_dir).resolve()
+    argv = [str(Path(signer).resolve()), '-o', '-d', str(key_dir)]
     for role, names in sorted(grouped.items()):
         require(role in CERT_ROLES | {'PRESIGNED'}, 'Unknown signing role')
         key = '' if role == 'PRESIGNED' else str(Path(key_dir) / role)
@@ -170,4 +174,4 @@ def signing_command(plan, *, signer, key_dir, source, destination):
         require(name in supported, 'Signing tools do not expose this AVB chain override')
         argv += [f'--avb_{name}_key', str(Path(key_dir) / 'avb.pem'),
                  f'--avb_{name}_algorithm', 'SHA256_RSA4096']
-    return argv + [str(source), str(destination)]
+    return argv + [str(Path(source).resolve()), str(Path(destination).resolve())]

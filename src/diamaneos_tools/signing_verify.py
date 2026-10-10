@@ -22,6 +22,8 @@ def validate_plan(plan, policy):
     require(isinstance(plan, dict), 'Signing plan must be a JSON object')
     require(plan.get('schema_version') == 2 and plan.get('mode') in {'production', 'qualification'},
             'Unknown signing plan format')
+    require(all(isinstance(plan.get(key), dict) for key in ('provenance', 'packages', 'roles', 'metadata')),
+            'Signing plan has malformed structured fields')
     body = dict(plan)
     digest = body.pop('plan_sha256', None)
     require(canonical_sha256(body) == digest and plan.get('policy_sha256') == canonical_sha256(policy),
@@ -29,13 +31,13 @@ def validate_plan(plan, policy):
 
 
 @contextmanager
-def native_inputs(otatools, source, keys_path, scratch, production, projects, policy=None):
+def native_inputs(otatools, source, keys_path, scratch, production, projects, policy=None, artifact_root=None):
     before = input_hashes((otatools, keys_path))
     with tempfile.TemporaryDirectory(dir=scratch, prefix='.signing-') as directory:
         work = Path(directory)
         root = za.unpack_tools(otatools, work / 'otatools')
         tools = NativeTools(root, source, work, projects=projects, policy=policy)
-        keys = PublicKeys(keys_path, tools, production=production, policy=policy)
+        keys = PublicKeys(keys_path, tools, production=production, policy=policy, artifact_root=artifact_root)
         yield tools, keys
         recheck_hashes(before)
         require(all(sha256_file(keys.root / name) == digest for name, digest in keys.files.items()),
@@ -265,7 +267,7 @@ def parser():
     prepare.add_argument('--verification-signature', type=Path, required=True)
     prepare.add_argument('--qualification', action='store_true')
     output = commands.add_parser('command', help='print native signing arguments for the accepted input')
-    for name in ('plan', 'target-files', 'signed-target-files', 'key-dir'):
+    for name in ('plan', 'target-files', 'signed-target-files', 'key-dir', 'source-root'):
         output.add_argument('--' + name, type=Path, required=True)
     output.add_argument('--signer', type=Path, required=True)
     output.add_argument('--qualification', action='store_true')
@@ -291,8 +293,9 @@ def main(argv=None):
             plan = load_json(args.plan)
             validate_plan(plan, policy)
             require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Signing mode differs from the plan')
-            print(shlex.join(plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
-                        source=args.target_files, destination=args.signed_target_files)))
+            command = plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
+                        source=args.target_files, destination=args.signed_target_files, source_root=args.source_root)
+            print('(cd -- ' + shlex.quote(str(args.source_root.resolve())) + ' && exec ' + shlex.join(command) + ')')
             return 0
         require(not args.output.exists(), 'Output already exists')
         args.scratch.mkdir(parents=True, exist_ok=True)
@@ -312,7 +315,8 @@ def main(argv=None):
         if args.command == 'prepare':
             production = not args.qualification
             provenance = verified_build(args.build_record, args.verification_report, args.target_files,
-                                        args.resolved_manifest, production=production, otatools=args.otatools)
+                                        args.resolved_manifest, production=production,
+                                        source_root=args.source_root, otatools=args.otatools)
             source_files(args.source_root, provenance['projects'])
         else:
             plan = load_json(args.plan)
@@ -327,7 +331,8 @@ def main(argv=None):
                     'Verification output and scratch must be outside the publication')
             source_files(args.source_root, plan['provenance']['projects'])
         provenance = provenance if args.command == 'prepare' else plan['provenance']
-        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production, provenance['projects'], policy) as (tools, keys):
+        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production,
+                           provenance['projects'], policy, getattr(args, 'artifact_root', None)) as (tools, keys):
             if args.command == 'prepare':
                 factory = keys.inventory['factory']
                 authority = keys.file(factory['allowed_signers'])
@@ -350,7 +355,7 @@ def main(argv=None):
         write_json(args.output, result)
         print('Signing ' + args.command + ': PASS')
         return 0
-    except (SigningError, build.BuildError, OSError, ValueError, KeyError, TypeError, tarfile.TarError) as error:
+    except (SigningError, build.BuildError, OSError, ValueError, KeyError, TypeError, AttributeError, tarfile.TarError) as error:
         print('ERROR: ' + (str(error) if isinstance(error, (SigningError, build.BuildError)) else 'Invalid signing input'), file=sys.stderr)
         diagnostic = getattr(error, 'diagnostic', '')
         if diagnostic and not any(marker in diagnostic for marker in ('PRIVATE KEY', 'AGE-SECRET-KEY-', 'password=', 'password:')):

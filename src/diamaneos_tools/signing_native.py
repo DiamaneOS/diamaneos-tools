@@ -15,16 +15,28 @@ from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
 from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule
 
 
+APK_SIGNER = (r'(?:Signer #1:?|V[12] Signer:|V3\.[012] Signer:'
+              r'(?: \(minSdkVersion=[0-9]{1,10}(?: \(dev release=true\))?, '
+              r'maxSdkVersion=[0-9]{1,10}\))?)')
+
+
+def apk_signer_digests(output, kind):
+    """Read every printed signer, including SDK-restricted scheme signers."""
+    marker = kind + ' SHA-256 digest:'
+    pattern = re.compile(r'^(' + APK_SIGNER + r') ' + re.escape(marker) + r' ([0-9a-fA-F]{64})$')
+    matches = [pattern.fullmatch(line) for line in output.splitlines() if marker in line]
+    require(matches and all(matches), 'APK verifier ' + kind + ' output is unsupported')
+    records = {match[1]: match[2].lower() for match in matches}
+    require(len(records) == len(matches), 'APK verifier repeats a signer digest')
+    return records
+
+
 def apk_certificate_digests(output, expected):
     require(isinstance(expected, str) and SHA256.fullmatch(expected), 'Invalid APK certificate pin')
     lines = output.splitlines()
     require([line for line in lines if line.startswith('Number of signers:')] == ['Number of signers: 1'],
             'APK verifier did not establish exactly one signer')
-    pattern = re.compile(r'^(?:Signer #[1-9][0-9]*|V[1-3](?:\.[0-9]+)? Signer):? '
-                         r'certificate SHA-256 digest: ([0-9a-fA-F]{64})$')
-    matches = [pattern.fullmatch(line) for line in lines if 'certificate SHA-256 digest:' in line]
-    require(matches and all(matches), 'APK verifier certificate output is unsupported')
-    observed = {match[1].lower() for match in matches}
+    observed = set(apk_signer_digests(output, 'certificate').values())
     require(observed == {expected}, 'APK/APEX certificate does not match its declared role')
     return sorted(observed)
 
@@ -67,8 +79,10 @@ class NativeTools:
         output = self.run('apksigner', ['verify', '--verbose', '--print-certs', path])
         result = apk_certificate_digests(output, expected)
         if self.denied_apk_public_keys:
-            digests = re.findall(r'(?m)^Signer #1 public key SHA-256 digest: ([0-9a-fA-F]{64})$', output)
-            require(len(digests) == 1 and digests[0].lower() not in self.denied_apk_public_keys,
+            certificates = apk_signer_digests(output, 'certificate')
+            public = apk_signer_digests(output, 'public key')
+            require(set(public) == set(certificates), 'APK verifier lacks public key coverage for every signer')
+            require(not set(public.values()) & self.denied_apk_public_keys,
                     'Production refuses AOSP public APK test keys')
         return result
 
@@ -177,10 +191,11 @@ class NativeTools:
 
 
 class PublicKeys:
-    def __init__(self, path, tools, *, production, policy=None):
+    def __init__(self, path, tools, *, production, policy=None, artifact_root=None):
         self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
         validate_config(self.policy)
         self.root = Path(path).resolve().parent
+        self.artifact_root = Path(artifact_root).resolve() if artifact_root is not None else None
         self.inventory = load_json(path)
         fields(self.inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
         require(self.inventory['schema_version'] == 2 and isinstance(self.inventory['certificate_roles'], dict)
@@ -214,6 +229,8 @@ class PublicKeys:
 
     def file(self, relative):
         path = safe_file(self.root, relative)
+        require(self.artifact_root is None or not path.resolve().is_relative_to(self.artifact_root),
+                'Expected public material is inside the publication')
         require(path.stat().st_size <= 1024 * 1024, 'Public key input exceeds its bounds')
         require(b'PRIVATE KEY' not in path.read_bytes(), 'Verifier received private key material')
         digest = sha256_file(path)

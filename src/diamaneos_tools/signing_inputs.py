@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 
 from . import build, build_workspace as bw, image_verify, process, safe_json
 
@@ -13,7 +15,7 @@ DEFAULT_CONFIG = ROOT / 'config/signing-roles.json'
 CERT_ROLES = {'releasekey', 'platform', 'shared', 'media', 'networkstack',
               'bluetooth', 'sdk_sandbox', 'gmscompat_lib', 'nfc'}
 PROJECTS = {'script', 'build/make', 'development', 'external/avb',
-            'system/update_engine', 'tools/apksig', 'system/apex'}
+            'system/update_engine', 'tools/apksig', 'system/apex', 'tools/diamaneos'}
 SHA256 = re.compile(r'^[0-9a-f]{64}$')
 NAME = re.compile(r'^[A-Za-z0-9._+-]{1,256}$')
 MAX_JSON = 16 * 1024 * 1024
@@ -134,7 +136,7 @@ def presigned_rule(policy, logical):
     return matches[0] if matches else None
 
 
-def verified_build(record_path, report_path, target_files, resolved_manifest, *, production, otatools=None):
+def verified_build(record_path, report_path, target_files, resolved_manifest, *, production, source_root, otatools=None):
     record = load_json(record_path)
     require(isinstance(record, dict), 'Build record must be a JSON object')
     root = Path(record_path).parent
@@ -143,12 +145,6 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
     require(isinstance(report, dict), 'Build verification report must be a JSON object')
     problem = image_verify.report_problem(report, record.get('build_id'), sha256_file(sums))
     require(not problem, problem or 'Build verification failed')
-    rules = load_json(ROOT / 'config/fp6-image-checks.json')
-    require(report.get('rule_set_sha256') == bw.digest(rules), 'Build verification device rules differ or lack a binding')
-    required = set(image_verify.REQUIRED_CHECKS) | {
-        rule['id'] for rule in image_verify.validate_rules(rules)
-        if image_verify.rule_applies(rule, record.get('variant'), record.get('official') is True)}
-    require(required <= {check['id'] for check in report['checks']}, 'Build verification lacks applicable device checks')
     require(report.get('build_identity') == record.get('build_identity')
             and isinstance(record.get('build_identity'), str) and SHA256.fullmatch(record['build_identity']),
             'Build verification identity mismatch')
@@ -180,6 +176,28 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
     revisions = {path: revision for path, revision in revisions.items()
                  if path in PROJECTS or path.startswith('prebuilts/jdk/')}
     require(any(path.startswith('prebuilts/jdk/') for path in revisions), 'Resolved manifest lacks a JDK')
+    verifier = Path(source_root) / 'tools/diamaneos'
+    require(git_read(verifier, ['rev-parse', 'HEAD']).decode().strip() == revisions['tools/diamaneos']
+            and not git_read(verifier, ['status', '--porcelain', '--untracked-files=all']),
+            'Build verifier source differs from the clean resolved revision')
+    rules = load_json(safe_file(verifier, 'config/fp6-image-checks.json'))
+    require(report.get('rule_set_sha256') == bw.digest(rules), 'Build verification device rules differ or lack a binding')
+    require(isinstance(rules, dict) and rules.get('schema_version') == 1
+            and isinstance(rules.get('rules'), list) and rules['rules'], 'Invalid resolved device rule set')
+    ids = []
+    for rule in rules['rules']:
+        require(isinstance(rule, dict) and isinstance(rule.get('id'), str)
+                and re.fullmatch(r'[a-z0-9][a-z0-9-]{0,63}', rule['id'])
+                and ('official' not in rule or isinstance(rule['official'], bool))
+                and ('variants' not in rule or isinstance(rule['variants'], list)
+                     and set(rule['variants']) <= {'user', 'userdebug', 'eng'}), 'Invalid resolved device rule')
+        ids.append(rule['id'])
+    require(len(ids) == len(set(ids)), 'Duplicate resolved device rule')
+    # The resolved verifier implements rule types; signing requires their complete PASS coverage.
+    required = set(image_verify.REQUIRED_CHECKS) | {
+        rule['id'] for rule in rules['rules']
+        if image_verify.rule_applies(rule, record.get('variant'), record.get('official') is True)}
+    require(required <= {check['id'] for check in report['checks']}, 'Build verification lacks applicable device checks')
     return {'record_sha256': sha256_file(record_path), 'verification_sha256': sha256_file(report_path),
             'manifest_sha256': sha256_file(resolved_manifest), 'projects': revisions,
             'otatools_sha256': tools['sha256'],
@@ -189,16 +207,136 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
             'build_number': record['build_number'], 'build_datetime': record['build_datetime']}
 
 
-def source_files(source, projects):
-    source = Path(source)
+def git_read(root, arguments, *, data=None):
+    return command(['git', '--no-replace-objects', '--literal-pathspecs', '-c', 'core.fsmonitor=false',
+                    '-c', 'core.hooksPath=/dev/null', '-C', root, *arguments],
+                   env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C', 'GIT_CONFIG_GLOBAL': '/dev/null',
+                        'GIT_CONFIG_SYSTEM': '/dev/null', 'GIT_OPTIONAL_LOCKS': '0'}, data=data)
+
+
+def clean_source_projects(source, projects):
     for path, revision in projects.items():
-        head = command(['git', '-C', source / path, 'rev-parse', 'HEAD']).decode().strip()
+        require(isinstance(path, str) and not PurePosixPath(path).is_absolute()
+                and '..' not in PurePosixPath(path).parts and str(PurePosixPath(path)) == path
+                and '\\' not in path and isinstance(revision, str)
+                and re.fullmatch('[0-9a-f]{40}', revision), 'Invalid selected source project')
+        head = git_read(source / path, ['rev-parse', 'HEAD']).decode().strip()
         require(head == revision, 'Signing source differs from the resolved manifest: ' + path)
-        require(not command(['git', '-C', source / path, 'status', '--porcelain', '--untracked-files=all']),
+        require(not git_read(source / path, ['status', '--porcelain', '--untracked-files=all']),
                 'Signing source has unrecorded changes: ' + path)
-    paths = ['script/generate-release.sh', 'script/generate-delta.sh', 'script/common.sh',
-             'build/make/tools/releasetools/check_ota_package_signature.py']
-    return {path: sha256_file(safe_file(source, path)) for path in paths}
+
+
+def source_files(source, projects):
+    """Bind consumed bytes to selected Git blobs, regardless of index stat flags."""
+    source = Path(source).resolve()
+    clean_source_projects(source, projects)
+    paths = {'script/generate-release.sh', 'script/generate-delta.sh', 'script/common.sh',
+             'build/make/tools/releasetools/check_ota_package_signature.py',
+             'tools/diamaneos/config/fp6-image-checks.json'}
+    trees = {}
+    for project, revision in projects.items():
+        wanted = [name[len(project) + 1:] for name in paths if name.startswith(project + '/')]
+        prefix = ('linux-x86' if project.startswith('prebuilts/jdk/') else
+                  'target/product/security' if project == 'build/make' else
+                  'test/data' if project == 'external/avb' else None)
+        if prefix:
+            wanted.append(prefix)
+        if project == 'system/apex':
+            wanted.append('.')
+        if not wanted:
+            continue
+        raw = git_read(source / project, ['ls-tree', '-r', '-z', revision, '--', *wanted])
+        for row in raw.split(b'\0'):
+            if not row:
+                continue
+            header, name = row.decode('utf-8').split('\t', 1)
+            mode, kind, blob = header.split()
+            require(kind == 'blob' and mode in {'100644', '100755', '120000'}
+                    and re.fullmatch('[0-9a-f]{40}', blob), 'Unsupported source Git object')
+            logical = project + '/' + name
+            trees[logical] = (mode, blob)
+            if (project.startswith('prebuilts/jdk/') and name.startswith('linux-x86/')
+                    or project == 'build/make' and name.startswith('target/product/security/') and name.endswith('.x509.pem')
+                    or project == 'system/apex' and name.endswith('.x509.pem')
+                    or project == 'external/avb' and name.startswith('test/data/testkey_rsa') and name.endswith('.pem')):
+                paths.add(logical)
+        # Include ignored/untracked runtime inputs too, so none can bypass Git binding.
+        root = source / project
+        candidates = ((root / 'linux-x86').rglob('*') if project.startswith('prebuilts/jdk/') else
+                      (root / 'target/product/security').glob('*.x509.pem') if project == 'build/make' else
+                      root.rglob('*.x509.pem') if project == 'system/apex' else
+                      (root / 'test/data').glob('testkey_rsa*.pem') if project == 'external/avb' else ())
+        paths.update(str(path.relative_to(source)) for path in candidates if path.is_file() or path.is_symlink())
+    result, snapshots, active = {}, {}, set()
+
+    def state(value):
+        return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+
+    def digest(stream):
+        value = hashlib.sha256()
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            value.update(block)
+        return value.hexdigest()
+
+    def check(logical):
+        if logical in result:
+            return
+        require(logical not in active, 'Source symlink cycle')
+        active.add(logical)
+        owners = [name for name in projects if logical.startswith(name + '/')]
+        require(owners, 'Consumed source file has no selected project')
+        owner = max(owners, key=len)
+        if logical not in trees:
+            relative = logical[len(owner) + 1:]
+            row = git_read(source / owner, ['ls-tree', '-z', projects[owner], '--', relative]).rstrip(b'\0')
+            require(row and b'\0' not in row, 'Consumed source file is absent from selected Git tree')
+            header, name = row.decode('utf-8').split('\t', 1)
+            mode, kind, blob = header.split()
+            require(name == relative and kind == 'blob' and mode in {'100644', '100755', '120000'}
+                    and re.fullmatch('[0-9a-f]{40}', blob), 'Unsupported consumed source Git object')
+            trees[logical] = (mode, blob)
+        mode, expected = trees[logical]
+        if mode == '120000':
+            path = source / logical
+            # Authenticate a declared link and its regular target in selected source.
+            require(not any(parent.is_symlink() for parent in path.parents if parent != source
+                            and parent.is_relative_to(source)), 'Source link has a symlink ancestor')
+            before = path.lstat()
+            require(stat.S_ISLNK(before.st_mode), 'Source file type differs from Git')
+            text = os.fsencode(os.readlink(path))
+            actual = git_read(source / owner, ['hash-object', '--stdin', '--no-filters'], data=text).decode().strip()
+            target = Path(os.path.abspath(path.parent / os.fsdecode(text)))
+            require(target.is_relative_to(source), 'Source link leaves selected files')
+            check(str(target.relative_to(source)))
+            require(state(before) == state(path.lstat()) and text == os.fsencode(os.readlink(path)),
+                    'Source link changed during verification')
+            value = hashlib.sha256(text).hexdigest()
+        else:
+            path = safe_file(source, logical)
+            with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
+                before = os.fstat(stream.fileno())
+                require(stat.S_ISREG(before.st_mode) and before.st_size <= 1024 ** 3,
+                        'Consumed source file is not bounded and regular')
+                value = digest(stream)
+                actual = git_read(source / owner, ['hash-object', '--no-filters', '--', path]).decode().strip()
+                stream.seek(0)
+                require(value == digest(stream) and state(before) == state(os.fstat(stream.fileno()))
+                        == state(safe_file(source, logical).stat()), 'Source bytes changed during verification')
+        require(actual == expected, 'Consumed source bytes differ from selected Git blob: ' + logical)
+        result[logical] = value
+        snapshots[logical] = state(path.lstat())
+        active.remove(logical)
+
+    for logical in sorted(paths):
+        check(logical)
+    clean_source_projects(source, projects)
+    for logical, value in result.items():
+        path = source / logical
+        closing = (hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest() if trees[logical][0] == '120000'
+                   else sha256_file(safe_file(source, logical)))
+        require(closing == value and state(path.lstat()) == snapshots[logical],
+                'Consumed source changed before closing verification')
+    return result
 
 
 def changed_projects(projects, previous=None, *, production=False):

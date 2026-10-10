@@ -3,6 +3,7 @@ import copy
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from diamaneos_tools import signing_inputs as inputs, signing_qualification as api
 
@@ -64,14 +65,19 @@ class SigningPlanTests(unittest.TestCase):
             root = Path(directory); source = root / 'unsigned.zip'; source.write_bytes(b'input')
             signer = root / 'sign_target_files_apks'; signer.write_bytes(b'fixture native signer')
             plan = {'schema_version': 2, 'provenance': {'target_files_sha256': inputs.sha256_file(source),
-                                                      'signer_sha256': inputs.sha256_file(signer)},
+                                                      'signer_sha256': inputs.sha256_file(signer),
+                                                      'projects': {}, 'source_files': {}},
                     'roles': api.role_map(self.metadata, self.policy, {}), 'chains': {'boot': 3}}
             plan['plan_sha256'] = inputs.canonical_sha256(plan)
-            kwargs = {'signer': signer, 'key_dir': '/keys', 'source': source, 'destination': root / 'signed.zip'}
-            command = api.signing_command(plan, **kwargs)
+            kwargs = {'signer': signer, 'key_dir': '/keys', 'source': source, 'destination': root / 'signed.zip',
+                      'source_root': root}
+            with patch.object(api, 'source_files', return_value={}):
+                command = api.signing_command(plan, **kwargs)
             self.assertIn('Platform.apk=/keys/platform', command)
             self.assertIn('Kept.apk=', command)
             self.assertIn('--avb_boot_algorithm', command)
+            with patch.object(api, 'source_files', return_value={'changed': 'a' * 64}), self.assertRaises(inputs.SigningError):
+                api.signing_command(plan, **kwargs)
             source.write_bytes(b'other')
             with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
             source.write_bytes(b'input'); kwargs['destination'].touch()
