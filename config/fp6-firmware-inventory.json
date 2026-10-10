@@ -1792,36 +1792,5 @@
         }
       }
     }
-  },
-  "changes_from_previous": {
-    "BTFM.bin": "filesystem metadata only (all 11 contained files byte-identical)",
-    "NON-HLOS.bin": "contents changed: modem, ADSP and CDSP code/data segments differ with unchanged version strings; WPSS Wi-Fi, IPA and trusted apps re-signed only; 14 carrier MCFG profiles (1&1, Orange, Proximus, AT&T) and the 3 modem_pr/so images changed content; 152 other signed files re-signed only",
-    "XblRamdump.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
-    "abl.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
-    "aop.mbn": "re-signed only (hash/signature segment differs)",
-    "aop_devcfg.mbn": "re-signed only (hash/signature segment differs)",
-    "cpucp.elf": "re-signed only (hash/signature segment differs)",
-    "cpucp_dtbs.elf": "re-signed only (hash/signature segment differs)",
-    "devcfg.mbn": "rebuilt (code/data segments differ; same Qualcomm version string)",
-    "dspso.bin": "one contained file changed (adsp/sns_tppe.so) plus the filesystem journal",
-    "featenabler.mbn": "re-signed only (hash/signature segment differs)",
-    "hypvm.mbn": "re-signed only (hash/signature segment differs)",
-    "imagefv.elf": "re-signed only (hash/signature segment differs)",
-    "keymint.mbn": "re-signed only (hash/signature segment differs)",
-    "logfs_ufs_8mb.bin": "unchanged",
-    "multi_image.mbn": "rebuilt (code/data segments differ; same Qualcomm version string)",
-    "pvmfw.img": "rebuilt (not used: DiamaneOS builds its own pvmfw)",
-    "qupv3fw.elf": "re-signed only (hash/signature segment differs)",
-    "shrm.elf": "re-signed only (hash/signature segment differs)",
-    "storsec.mbn": "re-signed only (hash/signature segment differs)",
-    "study.img": "content timestamps",
-    "tools.fv": "rebuilt (compressed volume differs)",
-    "tz.mbn": "re-signed only (hash/signature segment differs)",
-    "uefi.elf": "rebuilt (code/data segments differ; same Qualcomm version string)",
-    "uefi_sec.mbn": "re-signed only (hash/signature segment differs)",
-    "vm-bootsys.img": "unchanged",
-    "vm-persist.img": "unchanged",
-    "xbl_config.elf": "re-signed only (hash/signature segment differs)",
-    "xbl_s.melf": "container bytes only (signing certificate timestamps; segments identical)"
   }
 }
