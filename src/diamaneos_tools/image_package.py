@@ -41,7 +41,7 @@ def reserved_names(config: dict) -> set[str]:
     names = {f'{n}.img' for n in image_names(config) + ['super']}
     names |= {i['image'] for i in config['wipe']['images'].values()}
     names |= {i['image'] for i in config['firmware']['reset'].values()}
-    return names | {RECORD, SUMS, TARGET_FILES_COPY, MANIFEST_COPY}
+    return names | {RECORD, SUMS, TARGET_FILES_COPY, OTATOOLS_COPY, MANIFEST_COPY}
 
 
 def check_firmware_names(names, config: dict) -> None:

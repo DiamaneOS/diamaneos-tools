@@ -307,7 +307,8 @@ class PackageTests(unittest.TestCase):
 
     def test_firmware_names_never_replace_an_os_image(self):
         image_package.check_firmware_names(['abl.elf', 'NON-HLOS.bin'], self.ctx.config)
-        for name in ('pvmfw.img', 'boot.img', 'super.img', 'misc.img', 'modemst1.img', 'build.json', 'SHA256SUMS'):
+        for name in ('pvmfw.img', 'boot.img', 'super.img', 'misc.img', 'modemst1.img', 'build.json', 'SHA256SUMS',
+                     'otatools.zip'):
             with self.subTest(name):
                 with self.assertRaisesRegex(bw.BuildStepError, name):
                     image_package.check_firmware_names(['abl.elf', name], self.ctx.config)

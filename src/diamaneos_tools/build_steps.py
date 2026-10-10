@@ -702,21 +702,29 @@ def otatools_record(ctx: Context) -> dict | None:
         return None
     if len(matches) != 1:
         raise BuildStepError('expected exactly one otatools archive from the build')
-    return {'file': str(matches[0].relative_to(ctx.workspace.root)), 'sha256': bw.sha_file(matches[0])}
+    try:
+        return {'file': str(matches[0].relative_to(ctx.workspace.root)), 'sha256': bw.sha_file(matches[0])}
+    except (OSError, ValueError) as error:
+        raise BuildStepError('unable to record the build tool archive') from error
 
 
 def android_outputs_match(workspace, outputs):
     """Both recorded archives must still exist with their recorded bytes."""
-    target = workspace.root / outputs['target_files']
-    tool = outputs.get('otatools')
-    if not target.is_file() or bw.sha_file(target) != outputs['target_files_sha256']:
+    try:
+        target = workspace.root / outputs['target_files']
+        tool = outputs.get('otatools')
+        if tool is not None and (not isinstance(tool, dict) or set(tool) != {'file', 'sha256'}):
+            return False
+        if not target.is_file() or target.is_symlink() or bw.sha_file(target) != outputs['target_files_sha256']:
+            return False
+        if outputs.get('official') is True and not tool:
+            return False
+        if tool:
+            path = workspace.root / tool['file']
+            return path.is_file() and not path.is_symlink() and bw.sha_file(path) == tool['sha256']
+        return True
+    except (OSError, KeyError, TypeError, ValueError):
         return False
-    if outputs.get('official') is True and not tool:
-        return False
-    if tool:
-        path = workspace.root / tool['file']
-        return path.is_file() and not path.is_symlink() and bw.sha_file(path) == tool['sha256']
-    return True
 
 
 def plan_android(ctx: Context) -> StepPlan:
