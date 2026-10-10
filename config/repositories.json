@@ -323,6 +323,26 @@
       "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_DocumentsUI"
     },
     {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Dialer",
+      "id": "dialer",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_Dialer.git",
+      "revision": null,
+      "slug": "platform_packages_apps_Dialer",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_Dialer"
+    },
+    {
+      "checkout_path": "WORK_ROOT/os/packages/apps/Contacts",
+      "id": "contacts",
+      "publication": "public-source",
+      "remote_url": "https://github.com/DiamaneOS/platform_packages_apps_Contacts.git",
+      "revision": null,
+      "slug": "platform_packages_apps_Contacts",
+      "state": "active",
+      "upstream_url": "https://github.com/GrapheneOS/platform_packages_apps_Contacts"
+    },
+    {
       "checkout_path": "WORK_ROOT/os/packages/modules/Wifi",
       "id": "wifi-module",
       "publication": "public-source",
