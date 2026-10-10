@@ -746,8 +746,8 @@ stock carrier configuration resources; its hash is recorded in the generated pro
 ```
 
 `NOTICE_KIND` is the reviewed Android build-system licence classification for these inputs; the
-build commands take it from `notice_kind` in `config/fp6-build.json` (`legacy_proprietary`). It
-grants no redistribution right: each user extracts the files from Fairphone's own package.
+build commands take it from `notice_kind` in `config/fp6-build.json` (`legacy_proprietary`). Each
+user extracts the files from Fairphone's own package.
 
 - Staging authenticates the factory ZIP and selected image hashes.
 - Extraction independently authenticates `super.img`, expands the sparse image, unpacks only the

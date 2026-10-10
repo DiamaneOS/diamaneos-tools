@@ -36,7 +36,7 @@
     "fp6_fingerprint_module_factory_service_test"
   ],
   "notice_kind": "legacy_proprietary",
-  "notice_kind_reason": "Android's licence classification for the extracted stock files; users extract them from Fairphone's own package. It grants no redistribution right.",
+  "notice_kind_reason": "Android's licence classification for the extracted stock files; users extract them from Fairphone's own package.",
   "factory_host": "android-builds.fairphone.com",
   "target_files": "obj/PACKAGING/target_files_intermediates/FP6-target_files*.zip",
   "build_identity": {

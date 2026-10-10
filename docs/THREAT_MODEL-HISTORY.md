@@ -219,8 +219,7 @@ was last revised.
     any app could reach (-178).
   - The graph services, their tuning server, the voice UI interface and the deadline manager stay
     closed in the same process.
-  - The Awinic calibration code Fairphone publishes without a licence is compiled into PAL as in
-    stock.
+  - The Awinic calibration code Fairphone publishes is compiled into PAL as in stock.
   - PAL's speaker protection calls it at each speaker start to apply the per-unit calibration.
 - Kernel hardening, implemented, not yet built: /proc/cmdline, which bug reports copy, shows
   parameter names only, keeping only module options' values for Android's modprobe, so the hardware
@@ -957,8 +956,7 @@ Longer notes for some revisions, oldest first.
     36 to 17).
   - The graph services, whose sources Fairphone did not publish, their tuning server (no diag
     access), the voice UI interface and the deadline manager stay closed in the HAL process.
-  - The Awinic calibration code, published without a licence header, is compiled into PAL as in
-    stock.
+  - The Awinic calibration code is compiled into PAL as in stock.
   - Nothing calls it.
   - The amplifier's factory calibration is read by the kernel driver, unchanged.
   - The HAL no longer answers the factory speaker queries or accepts the factory speaker protection
