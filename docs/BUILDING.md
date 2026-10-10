@@ -27,6 +27,9 @@ repo sync -j8
 
 - Downloads every project of the DiamaneOS manifest, including the build tools in `tools/diamaneos`,
   with the `repo` version they check.
+- `--repo-rev` takes that pinned `repo` release: `upstream.repo_tool.release_tag` in
+  `config/build-environment-fp6.json`. The `v2.65` above is an example; a test keeps it equal to
+  the pin.
 - Stay in this directory.
 - If a later sync stops because a project now comes from another repository at the same path, run
   `repo sync --force-sync PATH` for it; `diamaneos build` does that itself.
@@ -73,11 +76,12 @@ as Fairphone describes, with `fastboot flashing unlock_critical`. Then, in the b
 
 ```sh
 { fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1
-tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware FP6.QREL.16.100.0
+tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware <BUILD_NUMBER>
 ```
 
 - This prints, and never runs, the fastboot commands for the newest checked image set.
-- `--phone-firmware` is the build number in Settings > About phone; `--wipe` erases the phone.
+- `--phone-firmware` is the build number in Settings > About phone, for example
+  `FP6.QREL.16.100.0`; `--wipe` erases the phone.
 - Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
 - [Flashing](BUILD.md#flashing) covers firmware, updates and going back to stock.
 
