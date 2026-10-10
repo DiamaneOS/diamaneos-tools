@@ -141,14 +141,6 @@ def validate_sources(data):
             if entry.get("rebuilt_from_source") is not False:
                 errors.append(f"{entry.get('id')}: proprietary firmware called source-built")
 
-    blockers = data.get("blockers", [])
-    blocker_ids = {entry.get("id") for entry in blockers}
-    if len(blocker_ids) != len(blockers):
-        errors.append("duplicate blocker id")
-    for blocker in blockers:
-        if not blocker.get("next_experiment") or not blocker.get("owner"):
-            errors.append(f"{blocker.get('id')}: blocker lacks owner/experiment")
-
     inputs = data.get("inputs", {})
     manifest = inputs.get("fairphone_manifest", {})
     for field in ("target_manifest_sha256", "qssi_manifest_sha256"):

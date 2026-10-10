@@ -1,6 +1,5 @@
 {
   "schema_version": 1,
-  "status": "inventory-complete-with-explicit-integration-gates",
   "observed_at": "2026-09-13",
   "decision_updated_at": "2026-09-30",
   "scope": "Fairphone 6 (FP6), Fairphone Android 16 target source and the selected EU stock firmware",
@@ -42,12 +41,10 @@
       "archive_hash_source": "Two complete local reads of the official download on 2026-09-30: the download matched the MD5 in the official host's object metadata, the full ZIP CRC passed and all 76 embedded declared hashes matched. Fairphone's manual-install article (updated 2026-10-02, checked 2026-10-06) publishes the same SHA-256.",
       "previous_build": "FP6.QREL.16.100.0",
       "previous_archive_sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
-      "installed_observation": "Not yet installed on the phone. The phone runs FP6.QREL.16.100.0, observed as Android 16 / SDK 36 / 2026-08-05 security patch / locked green user build.",
       "runtime_interface_capture_sha256": "4e856f547f44ab879301da5013d67bdbeb93f42450eb57670193eda29ae15577",
       "runtime_interface_capture_build": "FP6.QREL.16.100.0",
       "runtime_interface_capture_note": "Captured on the phone running FP6.QREL.16.100.0. All 117 VINTF XML files it parsed are byte-identical in FP6.QREL.16.111.0; the capture has not been repeated on 16.111.0.",
       "firmware_inventory": "config/fp6-firmware-inventory.json",
-      "raw_partition_hashes": "not collected while the stock device remains locked",
       "generator_role": "Authoritative EU factory-package extraction input; a future OTA source requires its own exact verification. The matching phone is a runtime verifier and optional source only for ordinary readable mounted files."
     },
     "published_binary_packages": {
@@ -59,7 +56,6 @@
     }
   },
   "proprietary_input_strategy": {
-    "implementation_owner": "FP6-040",
     "primary_eu_source": "Verified FP6.QREL.16.111.0 factory package",
     "supplemental_source": "Matching locked stock phone for runtime declarations and ordinary readable mounted files only",
     "manifest_required_fields": [
@@ -102,9 +98,8 @@
       "modem profiles and carrier/regulatory configuration"
     ],
     "selection_rule": "A regional delta may use only an observed trustworthy hardware or boot SKU property, never locale, language, timezone or location.",
-    "validation_resource": "An actual US-region FP6 and independent device evidence; US stays unverified until both are available.",
+    "validation_resource": "An actual US-region FP6 and independent device evidence.",
     "us_factory_expected_sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
-    "us_input_status": "Official expected metadata recorded; archive not downloaded or independently verified by this project.",
     "claim_boundary": "US remains unverified until the exact US stock comparison and candidate hardware/telephony matrix pass on that device.",
     "eu_stock_note": "Fairphone released FP6.QREL.16.111.0 on 2026-09-28 as one build for the Gen. 6 and 6+ with no regional variant listed; the package names no region. It is used as the EU input. The US comparison input is unchanged."
   },
@@ -191,7 +186,7 @@
       "Qualcomm module-to-module symbols and ordering",
       "device-tree bindings and firmware/DSP protocols"
     ],
-    "unresolved": "The exact ACK ancestor and compatibility with the selected GrapheneOS branch are not established by both trees using a 6.1 family. FP6-041 must build, compare ABI/KMI and load every declared module."
+    "unresolved": "The exact ACK ancestor and compatibility with the selected GrapheneOS branch are not established by both trees using a 6.1 family."
   },
   "module_load_contract": {
     "candidate_load_paths": [
@@ -206,7 +201,7 @@
       "vendor_dlkm": "modules/modules.list.vendor_dlkm"
     },
     "ordering_evidence": "Fairphone modules.list.msm.fps plus the reference tree's modules.list.first_stage, modules.list.second_stage, modules.list.system_dlkm and modules.list.vendor_dlkm.",
-    "acceptance_rule": "A family remains incomplete until FP6-041 binds its built .ko files to one declared image/load list and proves successful loading without unresolved symbols."
+    "acceptance_rule": "A family remains incomplete until its built .ko files are bound to one declared image/load list and load without unresolved symbols."
   },
   "module_families": [
     {
@@ -231,7 +226,7 @@
         }
       ],
       "abi_uapi": "GKI 6.1 KMI, Module.symvers, Qualcomm internal exported symbols and generated UAPI headers",
-      "load_path": "mixed first-stage, system_dlkm and vendor_dlkm; exact .ko binding deferred to FP6-041"
+      "load_path": "mixed first-stage, system_dlkm and vendor_dlkm"
     },
     {
       "id": "camera-kernel",
@@ -245,7 +240,7 @@
         }
       ],
       "abi_uapi": "Qualcomm camera UAPI, Synx/MMRM and proprietary camera HAL coupling",
-      "load_path": "/vendor_dlkm/lib/modules candidate; bind exact list in FP6-041"
+      "load_path": "/vendor_dlkm/lib/modules candidate"
     },
     {
       "id": "dataipa",
@@ -495,8 +490,7 @@
       },
       "selection_evidence": "The pinned reference module list places sec_nfc.ko in vendor_dlkm and the selected stock VINTF declares android.hardware.nfc AIDL 1 INfc/default from nfc-service-sec.xml.",
       "abi_uapi": "NFC/eSE ioctl and the selected vendor service",
-      "load_path": "/vendor_dlkm/lib/modules/sec_nfc.ko in the pinned reference image list; reproduce and verify on the built candidate",
-      "unresolved": "The stock service and reference module identify the Samsung path, but the matching generated vendor makefile, userspace binary hashes and custom-build load proof still bind in FP6-040/041."
+      "load_path": "/vendor_dlkm/lib/modules/sec_nfc.ko in the pinned reference image list; reproduce and verify on the built candidate"
     },
     {
       "id": "wlan-qcacld-3.0",
@@ -685,7 +679,7 @@
         "android.hardware.audio.effect@7.0"
       ],
       "abi_uapi": "HIDL audio/effect interfaces, ALSA controls and AudioReach DSP protocol",
-      "load_path": "source-built service/libraries plus generated vendor blobs; exact paths bind in FP6-040",
+      "load_path": "source-built service/libraries plus generated vendor blobs",
       "rebuilt_from_source": "partial: the primary HAL, PAL, AGM and audioadsprpcd are built from these revisions (DiamaneOS forks); the graph services, ACDB and configuration stay stock",
       "note": "graphservices at this revision holds only headers (gsl, acdb, ar_osal, spf); the graph service libraries are not published. st-hal is not built."
     },
@@ -699,7 +693,7 @@
         }
       ],
       "abi_uapi": "stable boot-control HAL and A/B slot metadata",
-      "load_path": "/vendor/bin/hw candidate; exact service manifest binds in FP6-040",
+      "load_path": "/vendor/bin/hw candidate",
       "rebuilt_from_source": true
     },
     {
@@ -713,7 +707,7 @@
         "vendor.qti.hardware.bluetooth_sar@1.1"
       ],
       "abi_uapi": "Android/Qualcomm Bluetooth HALs, bt-kernel transport and controller firmware",
-      "load_path": "generated vendor tree plus bluetooth partition; bind exact services in FP6-040",
+      "load_path": "generated vendor tree plus bluetooth partition",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },
@@ -725,7 +719,7 @@
         "vendor.tcl.camera.algoservice@2 optional framework requirement"
       ],
       "abi_uapi": "Camera provider/framework interfaces, Qualcomm camera UAPI and sensor/DSP firmware",
-      "load_path": "generated vendor tree; bind exact binaries/services in FP6-040",
+      "load_path": "generated vendor tree",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },
@@ -740,7 +734,7 @@
         "vendor.qti.ims.factory@1.1"
       ],
       "abi_uapi": "Android telephony interfaces, Qualcomm QCRIL/QMI/IMS interfaces and modem protocol",
-      "load_path": "generated vendor tree and modem partition; bind exact binaries/services in FP6-040",
+      "load_path": "generated vendor tree and modem partition",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },
@@ -754,7 +748,7 @@
         }
       ],
       "abi_uapi": "fingerprint AIDL/HIDL contract, SPI/input kernel interfaces and trusted-app protocol",
-      "load_path": "generated vendor tree; exact service and trusted-app paths bind in FP6-040",
+      "load_path": "generated vendor tree",
       "rebuilt_from_source": "partial only",
       "provenance_profile": "exact-stock-non-source"
     },
@@ -774,7 +768,7 @@
       "abi_uapi": "stable Gatekeeper/KeyMint interfaces, QSEE/SPU kernel APIs and trusted-app protocol",
       "load_path": "generated vendor tree plus keymaster/tz/spu firmware partitions",
       "rebuilt_from_source": false,
-      "unresolved": "Manifest link files for KeyMint/Weaver are generic availability, not proof that FP6 exposes hardware-backed Weaver or StrongBox. FP6-035 must measure the actual security levels and credential behavior.",
+      "unresolved": "Manifest link files for KeyMint/Weaver are generic availability, not proof that FP6 exposes hardware-backed Weaver or StrongBox.",
       "provenance_profile": "exact-stock-non-source"
     },
     {
@@ -865,7 +859,7 @@
         }
       ],
       "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power HAL is LineageOS libperfmgr (unmodified) with the device's powerhint.json, init file and libqti-perfd-client, which passes the camera's boost hints to the power HAL (device power/)",
-      "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
+      "load_path": "/vendor/bin/hw and vendor libraries",
       "rebuilt_from_source": true
     },
     {
@@ -890,7 +884,7 @@
         "com.dsi.ant@1.0"
       ],
       "abi_uapi": "Vendor HIDL contracts plus DSP, modem and device-specific protocols",
-      "load_path": "generated vendor tree and matching firmware partitions; exact paths bind in FP6-040",
+      "load_path": "generated vendor tree and matching firmware partitions",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },
@@ -912,7 +906,7 @@
       "origin": "proprietary-prebuilt",
       "source_revisions": [],
       "abi_uapi": "Android DRM/Crypto HAL and trusted execution environment",
-      "load_path": "vendor Widevine APEX/libraries; exact paths bind in FP6-040",
+      "load_path": "vendor Widevine APEX/libraries",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source"
     },
@@ -968,7 +962,7 @@
       ],
       "origin": "proprietary-prebuilt",
       "revision": "FP6.QREL.16.111.0",
-      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive; not yet delivered by DiamaneOS",
+      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive",
       "abi_uapi": "boot image headers, AVB chain, SCM/QSEE/SPU protocols and rollback metadata",
       "load_path": "dedicated raw A/B partitions",
       "function": "boot chain, hypervisor, trusted execution, key services and power firmware",
@@ -987,7 +981,7 @@
       ],
       "origin": "proprietary-prebuilt",
       "revision": "FP6.QREL.16.111.0",
-      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive; not yet delivered by DiamaneOS",
+      "hash": "per-image SHA-256, size and version strings in config/fp6-firmware-inventory.json, read from the verified factory archive",
       "abi_uapi": "modem/QMI/IMS, Bluetooth controller, DSP RPC and CPU-control protocols",
       "load_path": "dedicated raw A/B partitions and firmware mount points",
       "function": "cellular, Bluetooth, audio/compute DSP and supporting controllers",
@@ -1002,7 +996,7 @@
       ],
       "origin": "mixed-proprietary-prebuilt-and-opaque-files-in-published-device-tree",
       "revision": "device/fairphone/fps@51648f54c2a7d31fc24833adcae3758cb251966f plus selected stock FP6.QREL.16.111.0",
-      "hash": "device-tree Git revision and outer stock archive SHA-256; per-file hashes bind in FP6-040",
+      "hash": "device-tree Git revision and outer stock archive SHA-256",
       "abi_uapi": "controller-specific audio amplifier, haptics, touch, WLAN and other peripheral protocols",
       "load_path": "/vendor/firmware and /vendor/firmware_mnt/image",
       "function": "runtime firmware/configuration for peripheral controllers",
@@ -1069,96 +1063,13 @@
       "uefi",
       "uefisecapp"
     ],
-    "warning": "Image membership and raw hashes must be regenerated from the selected stock archive. No flashing or publication occurred during this inventory."
+    "warning": "Image membership and raw hashes must be regenerated from the selected stock archive."
   },
-  "blockers": [
-    {
-      "id": "FP6-SRC-001",
-      "rank": 1,
-      "area": "boot/vendor input alignment",
-      "status": "ready-for-generator-implementation",
-      "finding": "The verified QREL.16.111.0 factory archive is the selected exact extraction input (it replaced QREL.16.100.0 on 2026-09-30). The public QREL.16.61.0 packages remain useful historical references but are not selected build inputs.",
-      "next_experiment": "Implement the manifest-driven generator against the verified QREL.16.111.0 factory package, verify every retained file and dependency, and fail closed on any missing, mismatched or unrelated component.",
-      "owner": "FP6-040"
-    },
-    {
-      "id": "FP6-SRC-002",
-      "rank": 2,
-      "area": "framework/vendor compatibility",
-      "status": "blocked-until-build",
-      "finding": "The reference device VINTF target level is 8, but the selected GrapheneOS branch-17 framework has not been built or checked against the FP6 Android 16 vendor matrix.",
-      "next_experiment": "Assemble the minimal product, run assemble_vintf/checkvintf, boot it and run applicable VTS/VINTF checks without disabling enforcement or adding broad shims.",
-      "owner": "FP6-040 and FP6-048"
-    },
-    {
-      "id": "FP6-SRC-003",
-      "rank": 3,
-      "area": "encryption and hardware-backed credentials",
-      "status": "unverified",
-      "finding": "Published generic KeyMint/Weaver integration and an SPU module do not prove the FP6's actual KeyMint, Gatekeeper, Weaver or StrongBox security levels.",
-      "next_experiment": "Bind the actual services from the generated vendor tree, then test FBE metadata encryption, every user/profile credential path, reported security levels, attestation and rollback behavior on the device.",
-      "owner": "FP6-035 and encryption/hardening validation"
-    },
-    {
-      "id": "FP6-SRC-004",
-      "rank": 4,
-      "area": "kernel/module ABI",
-      "status": "unverified",
-      "finding": "Fairphone's kernel, module and device-tree sources are published, but the ACK ancestor, symbol/KMI match and closed-userspace UAPI coupling are not established.",
-      "next_experiment": "Sync exact pins, record ACK ancestry, build the fps GKI and every module, compare ABI/KMI, then verify load lists and hardware smoke tests on the candidate.",
-      "owner": "FP6-041"
-    },
-    {
-      "id": "FP6-SRC-005",
-      "rank": 5,
-      "area": "camera",
-      "status": "unverified",
-      "finding": "Camera kernel source is public, but the camera provider, algorithms, calibration and firmware remain prebuilt and the reference matrix carries a TCL-specific optional algorithm interface.",
-      "next_experiment": "Extract the matching generated vendor set, bind provider/algorithm services and run full lens/mode/video/flash/camera2 and restart tests without copying a Pixel camera stack.",
-      "owner": "FP6-040 and camera/peripheral bring-up"
-    },
-    {
-      "id": "FP6-SRC-006",
-      "rank": 6,
-      "area": "radio and IMS",
-      "status": "unverified",
-      "finding": "QCRIL, QMI and IMS runtime components are proprietary and carrier behavior cannot be inferred from manifest presence.",
-      "next_experiment": "Bind the matching radio/IMS services, validate VINTF, then run the declared dual-SIM/eSIM voice, SMS, data, VoLTE, VoWiFi and 5G matrix with provider variance.",
-      "owner": "FP6-040 and FP6-023"
-    },
-    {
-      "id": "FP6-SRC-007",
-      "rank": 7,
-      "area": "A/B OTA and verified boot",
-      "status": "unverified",
-      "finding": "The reference tree defines A/B partitions and custom AVB keys, but source configuration is not evidence that locked custom-key boot, rollback and full/delta OTA recovery work.",
-      "next_experiment": "Build with dummy keys, verify every image signature/rollback location, then perform authorized locked-device full, delta, interrupted-update and slot-recovery tests.",
-      "owner": "FP6-035, FP6-046 and OTA validation"
-    },
-    {
-      "id": "FP6-SRC-008",
-      "rank": 8,
-      "area": "NFC generated userspace and build binding",
-      "status": "selection-observed-awaiting-generation",
-      "finding": "The selected stock VINTF names nfc-service-sec and the pinned reference maps sec_nfc.ko to vendor_dlkm, selecting the Samsung kernel path from the manifest candidates. Matching QREL.16.100.0 userspace inputs have not yet been generated from the verified stock archive.",
-      "next_experiment": "Trace the matching generated vendor makefile and binary hashes, retain the Samsung path, reject unused NXP/ST driver candidates, then prove module load plus NFC/UICC behavior on the candidate.",
-      "owner": "FP6-040 and FP6-041"
-    },
-    {
-      "id": "FP6-SRC-009",
-      "rank": 9,
-      "area": "EU and US regional compatibility",
-      "status": "unverified",
-      "finding": "EU QREL.16.111.0 is the selected baseline (QREL.16.100.0 before 2026-09-30). US QREL.16.104.0 is a comparison input; no US stock delta or candidate-device result has been accepted.",
-      "next_experiment": "Acquire and verify the exact US stock input, produce a file/partition/firmware/VINTF/carrier-policy delta against the selected EU input, then run the candidate hardware and telephony matrix on a US-region device before claiming shared support.",
-      "owner": "FP6-040 and compatibility/device qualification"
-    }
-  ],
   "provenance_profiles": {
     "exact-stock-non-source": {
       "status": "exact-origin-and-hash-binding-required",
       "evidence": "Generated inputs bind the declared stock build, region, source path, destination path and per-file hash.",
-      "validation": "FP6-040 rejects unexpected versions, hashes, missing files and unrelated substitutions."
+      "validation": "The generator rejects unexpected versions, hashes, missing files and unrelated substitutions."
     }
   }
 }

@@ -223,7 +223,7 @@
      "pin": {"repository": "device_fairphone_FP6", "file": "audio/effects/provenance.json", "pointer": "/revision"}},
     {"id": "fairphone-stock", "description": "Fairphone factory image the vendor blobs and firmware are extracted from.", "url": "https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone",
      "follow": {"kind": "manual", "note": "Not a Git source: compare the published factory build and security patch with the pin (see config/stock-inputs.json official_sources)."},
-     "pin": {"repository": "tools", "file": "config/stock-inputs.json", "pointer": "/current_restore_selection/installed_build"}},
+     "pin": {"repository": "tools", "file": "config/stock-inputs.json", "pointer": "/selected_generator_input/build_id"}},
     {"id": "thermal-hal", "description": "vendor/qcom/opensource/thermal-hal: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://gerrit-public.fairphone.software/platform/hardware/qcom/thermal",
      "follow": {"kind": "branch", "ref": "odm/public-build/target/16/fp6"},
      "pin": {"repository": "manifest", "file": "default.xml", "xml_project_path": "vendor/qcom/opensource/thermal-hal"}},
