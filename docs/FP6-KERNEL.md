@@ -162,9 +162,6 @@ disabling RANDSTRUCT; any upstream kernel, GrapheneOS or Qualcomm merge can rein
 
 ## Configuration policy
 
-Known gap: the configuration checks do not see the device tree's boot arguments, and those of the
-pinned source include `kpti=0` and debugging and tuning options.
-
 - KMI deviation: the hardened kernel uses a 48-bit virtual address space (`CONFIG_ARM64_VA_BITS_48`,
   as in the GrapheneOS release), where the GKI defconfig in Qualcomm's android14-6.1 vendor tree
   defaults to 39 bits.
