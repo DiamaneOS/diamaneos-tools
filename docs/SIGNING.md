@@ -151,8 +151,6 @@ bin/diamaneos signing verify \
   trust cannot share one rotation statement.
 - The AVB root is an especially durable trust anchor; replacing it may need a bootloader unlock and
   data loss.
-- No production key is generated before the complete recoverable key set, wrapping/backup procedure,
-  replacement-token path and restoration rehearsal have their own approved ceremony.
 - Keep the unsigned input, signed target-files, full/incremental OTAs, public identities and
   verification record needed to reproduce a transformation.
 - Never keep a private key in build logs, result JSON or public evidence.

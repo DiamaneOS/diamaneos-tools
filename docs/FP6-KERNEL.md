@@ -90,7 +90,8 @@ tools/bazel query --output=label \
 ## Module packaging
 
 - [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) defines the reviewed
-  development module selection, partition placement and load lists.
+  module selection, partition placement and load lists, and the required merged DTB and DTBO entry
+  counts.
 - Overlaps between system DLKM, vendor DLKM and the vendor ramdisk are intentional (normal/recovery
   availability); each placement is hash-bound.
 - Stripping debug sections from unsigned modules must keep module metadata and symbol versions;
@@ -113,13 +114,21 @@ tools/bazel query --output=label \
   CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the audio machine driver imports
   them; those need a configuration or device-tree change first.
 
+How the phone loads the modules:
+
+- First-stage init loads `modules.load` (or `modules.load.recovery` in recovery) from the vendor
+  ramdisk and skips modules named in that ramdisk's `modules.blocklist`.
+- The recovery list names debug modules, such as `llcc_perfmon`, that only this blocklist keeps
+  out, so the vendor ramdisk must hold the same blocklist as `vendor_dlkm`.
+- Second-stage init loads `vendor_dlkm` in parallel streams, one `modprobe` per
+  `modules.load.<stream>` list from `device/fairphone/FP6/boot/modules`; when the kernel prebuilts
+  change `modules.load`, change those lists with them.
+
 Three symbol rules in the same file run on every build, each with its reason:
 
-- `module_import_allowlist`: the only modules that may import a symbol (today only `dwc3-msm.ko` may
+- `module_import_allowlist`: the only modules that may import a symbol (`dwc3-msm.ko` alone may
   import `register_kretprobe`, the reason KPROBES stays on).
-- `forbidden_symbols`: symbols that must not exist in the built kernel's `System.map` (empty today:
-  `param_name_len`, which `run_init_process` calls after init memory is freed, is no longer an
-  `__init` function).
+- `forbidden_symbols`: symbols that must not exist in the built kernel's `System.map`.
 - `required_symbols`: symbols that must exist there, marking changes a rebase could drop
   (`names_command_line`, the names-only /proc/cmdline; ThinLTO's `.llvm.` suffix counts).
 
@@ -153,14 +162,16 @@ disabling RANDSTRUCT; any upstream kernel, GrapheneOS or Qualcomm merge can rein
 
 ## Configuration policy
 
-Known gap: the effective device-tree boot arguments need production review, as the pinned source
-includes `kpti=0` and debugging/tuning options that configuration checks do not see.
+Known gap: the configuration checks do not see the device tree's boot arguments, and those of the
+pinned source include `kpti=0` and debugging and tuning options.
 
 - KMI deviation: the hardened kernel uses a 48-bit virtual address space (`CONFIG_ARM64_VA_BITS_48`,
   as in the GrapheneOS release), where the GKI defconfig in Qualcomm's android14-6.1 vendor tree
   defaults to 39 bits.
-- The platform's hardened memory allocator needs it ([build
-  reference](BUILD.md#native-fp6-product-integration)).
+- The platform's hardened memory allocator needs it: it reserves an isolated address region per
+  allocation size class when a process starts.
+- That reservation does not fit the 512 GiB user address space of a 39-bit kernel, where every
+  process, first-stage `init` included, aborts at its first allocation.
 - The address-space layout and page-table depth (four levels instead of three) are compiled into the
   kernel and every module, so modules built for a standard GKI kernel, Fairphone's stock modules
   among them, do not fit it:
@@ -170,7 +181,7 @@ includes `kpti=0` and debugging/tuning options that configuration checks do not 
 - Right after the core build, before any module, `kernel build` checks both the GKI configuration
   (the Image) and the vendor tree's (the modules) against
   [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json), by default with the
-  production profile:
+  production profile (reports `kernel-config.json` and `vendor-kernel-config.json`):
   - dmesg restricted from boot, plus the baseline hardening, which includes SELinux development mode
     with the enforcing lock (below).
 - The baseline keeps userfaultfd (ART's garbage collector; unprivileged users get user-mode-only
@@ -192,6 +203,17 @@ panic dumps RAM, since the running system cannot turn dumps on.
 
 - `--config-profile development` checks only the baseline and records the profile; the configuration
   itself always comes from the pinned source commit.
+- `build kernel-config` runs the same check on any effective `.config`:
+
+```sh
+bin/diamaneos build kernel-config --config "$KERNEL_CONFIG" \
+  --policy config/kernel-policy-fp6.json --profile production
+```
+
+- Missing required symbols and duplicate assignments fail; the report binds the configuration and
+  the policy by hash.
+- GKI module protection is distinct from requiring every vendor module to use the GKI signing key.
+
 - SELinux development mode is on: the kernel boots permissive, as AOSP expects, because the first
   boot of an update loads the policy while the first-stage snapshot daemon still serves `/system`
   from the kernel domain.
@@ -208,9 +230,9 @@ panic dumps RAM, since the running system cannot turn dumps on.
 - debugfs keeps its in-kernel API but cannot be mounted (`CONFIG_DEBUG_FS_DISALLOW_MOUNT`): the
   filesystem is never registered and `/sys/kernel/debug` does not exist, so not even root can mount
   it.
-- Upstream broke this mode in Linux 5.12: `debugfs_init()` returned before marking debugfs ready, so
-  every `debugfs_create_*` failed, the display driver failed to bind (no display, boot never
-  completed) and a recovery module's init failed, stopping recovery's first-stage module loading.
+- Since Linux 5.12 this mode returns from `debugfs_init()` before marking debugfs ready, so every
+  `debugfs_create_*` fails: the display driver does not bind and recovery's first-stage module
+  loading stops.
 - Both kernel trees carry the fix in `fs/debugfs/inode.c`.
 - No vendor or recovery init script mounts debugfs and the device policy gives no service access to
   debugfs files.
@@ -223,9 +245,8 @@ panic dumps RAM, since the running system cannot turn dumps on.
   registration failures, so without kprobes they silently vanish.
 - Turning KPROBES off first needs them as explicit calls in both trees.
 
-- Lockdown is forced at confidentiality level, as GrapheneOS ships it (project decision, 2026-10-08;
-  integrity level from 2026-10-05 until then): user space can neither modify the running kernel nor
-  read its memory.
+- Lockdown is forced at confidentiality level, as GrapheneOS ships it: user space can neither modify
+  the running kernel nor read its memory.
 - It also empties tracefs (no Perfetto or atrace system tracing) and refuses kprobes from user space
   and kernel-memory reads by BPF programs, so per-UID CPU time (per-app CPU in Battery usage) and
   lmkd's memevents OOM listener do not start, as on GrapheneOS's Pixels.
@@ -240,8 +261,6 @@ panic dumps RAM, since the running system cannot turn dumps on.
 - SELinux allows the dump only to netd, system_server, the network stack, `netutils_wrapper`,
   dumpstate and Qualcomm's nicmd, which needs only SPIs to delete its own states.
 - Enforcing USER policy replaces none of these settings.
-- Current artifacts use development AVB identities, not release, relock or production-signing
-  inputs.
 
 ## Boot logs
 
@@ -264,8 +283,7 @@ environment listing); kernel parameters keep their values.
     tree.
 - Reboots and kernel crashes are cold by default (`/sys/kernel/reboot/mode` is `cold`, Qualcomm
   download mode off): the PMIC's hard reset clears RAM and the region.
-- A one-off warm reboot on the 2026-09-27 development build kept both zones, so the bootloader does
-  not clear RAM; reboots stay cold.
+- The bootloader does not clear RAM on a warm reboot, which keeps both zones; reboots stay cold.
 - Device-tree bootargs set loglevel=6, so the console zone holds notice-level and worse (warnings,
   errors, panic output), not info lines. ramoops finds the dynamically placed region via the
   reserved-memory lookup.
@@ -303,6 +321,5 @@ replacing the previous set. It refuses to publish when:
 - It rewrites the README's "This build" lines (the `kernel_qcom-6.1` commit and Linux version, the
   tools commit and configuration profile, the module, device tree and overlay counts, the build
   date).
-- It does not commit or push: review the change, add a test note to the README once the set has been
-  tested on a phone, commit and push.
+- It does not commit or push: review the change, then commit and push.
 - The next Android build that syncs the manifest picks up the new commit.
