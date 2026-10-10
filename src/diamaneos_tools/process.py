@@ -141,20 +141,6 @@ def run(argv, timeout_seconds, max_output_bytes=262_144, *, cwd=None,
     return result
 
 
-def text_result(result):
-    return {**result, **{name: result[name].decode("utf-8", "replace")
-                        for name in ("stdout", "stderr")}}
-
-
-def run_bounded(argv, timeout_seconds, max_output_bytes=262_144):
-    """Text-result adapter that raises CommandInterrupted on interruption."""
-    from .errors import CommandInterrupted
-    result = text_result(run(argv, timeout_seconds, max_output_bytes))
-    if result["transport"] == "interrupted":
-        raise CommandInterrupted(result)
-    return result
-
-
 @contextmanager
 def interrupt_on_termination():
     """Let CLI termination unwind owned child groups and release workspace locks."""

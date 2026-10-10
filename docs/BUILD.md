@@ -493,12 +493,6 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
 - These are integration checks, not an accepted ROM or runtime result.
 - The kernel uses 4 KiB pages; the product explicitly selects that page size while keeping prebuilt
   alignment and ELF checks enabled.
-
-The FP6 product environment selects `config/patches-fp6.json` for its Android GPT/UFS, boot-control
-and power adaptations. It records exact upstream/derived commits, changed files and canonical
-full-index diff hashes. The generic environment uses `config/patches.json`. The environment's
-`project_inputs` identifies its ledger.
-
 - The power HAL is LineageOS's libperfmgr, built from source with the device's `power/`
   configuration; Qualcomm's perf2 performance daemon and its client libraries are not selected.
 - The device's `libqti-perfd-client` stands in for the client the stock camera and SDM extension
@@ -564,9 +558,8 @@ bin/diamaneos build preflight --inputs-only
 ```
 
 It validates all committed input records and emits a declared build identity. Changing a tag,
-project-map pin, tool record, stock input or patch inventory changes that identity. It deliberately
-reports the generated FP6 device-input manifest as pending until the generator has produced and
-verified it.
+project-map pin, tool record or stock input changes that identity. It deliberately reports the
+generated FP6 device-input manifest as pending until the generator has produced and verified it.
 
 The FP6 preflight also requires the generated-input descriptor described under [the build
 commands](#the-build-commands).
@@ -1153,18 +1146,11 @@ bin/diamaneos vendor product --inputs "$STOCK_FILES" \
 See [FP6 kernel build and capability contract](FP6-KERNEL.md) for the native build commands,
 interface checks and development/production distinction.
 
-### Patch base and downstream environment identities
+### Build environment identities
 
-- In a patch inventory, `base_environment_id` identifies the upstream source baseline (source-base
-  semantics).
-- It is not the identity of the current host or composed product environment.
-- `base_project_map_sha256` binds that baseline's project map.
-- Each patch binds its workspace, project path, exact base and derived revisions, canonical diff and
-  changed-file set.
 - Advancing a host or product input creates a new build environment identity without silently
   rewriting an accepted environment.
-
-- Freeze these values when selecting a candidate for a recorded build or test.
+- Freeze the environment's values when selecting a candidate for a recorded build or test.
 - Ordinary working edits and documentation changes do not each require another environment ID.
 - When selected build inputs change, update their revisions and derive the affected file/project-map
   hashes together, then validate the complete snapshot.

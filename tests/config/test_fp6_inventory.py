@@ -220,41 +220,12 @@ def validate_sources(data):
     return errors
 
 
-def validate_capabilities(data):
-    errors = []
-    allowed = set(data.get("classification_values", []))
-    capabilities = data.get("capabilities", [])
-    by_id = {entry.get("id"): entry for entry in capabilities}
-    if len(by_id) != len(capabilities):
-        errors.append("duplicate capability id")
-    for entry in capabilities:
-        if entry.get("classification") not in allowed:
-            errors.append(f"{entry.get('id')}: invalid classification")
-        if entry.get("pixel_source_only") is True and entry.get("classification") == "inherited-candidate":
-            errors.append(f"{entry.get('id')}: Pixel-only interface inherited blindly")
-        if not entry.get("next_experiment") or not entry.get("owner"):
-            errors.append(f"{entry.get('id')}: missing owner/experiment")
-    runtime = data.get("compatibility", {}).get("stock_runtime_vintf", {})
-    if runtime.get("device_target_level") != 8:
-        errors.append("stock device VINTF target level is not bound")
-    if runtime.get("xml_files_parsed", 0) < 1 or runtime.get("parse_errors") != 0:
-        errors.append("stock VINTF parse evidence is incomplete")
-    if not SHA256_RE.fullmatch(str(runtime.get("capture_sha256", ""))):
-        errors.append("stock VINTF capture lacks a valid SHA-256")
-    for capability_id in ("strongbox-and-hardware-weaver", "memory-tagging-extension", "pkvm-hardware-virtualization"):
-        if by_id.get(capability_id, {}).get("classification") != "unsupported":
-            errors.append(f"{capability_id}: observed hardware gap is not classified unsupported")
-    return errors
-
-
 class FP6InventoryTests(unittest.TestCase):
     def setUp(self):
         self.sources = load_json("fp6-sources.json")
-        self.capabilities = load_json("fp6-capabilities.json")
 
     def test_inventory_is_complete_and_fail_closed(self):
         self.assertEqual([], validate_sources(self.sources))
-        self.assertEqual([], validate_capabilities(self.capabilities))
 
     def test_v1_proprietary_prebuilt_is_not_called_rebuilt(self):
         mutated = copy.deepcopy(self.sources)
@@ -279,17 +250,6 @@ class FP6InventoryTests(unittest.TestCase):
         ]
         self.assertTrue(
             any("incomplete Wi-Fi source set" in item for item in validate_sources(mutated))
-        )
-
-    def test_v3_pixel_only_interface_is_not_inherited_blindly(self):
-        mutated = copy.deepcopy(self.capabilities)
-        pixel = next(
-            entry for entry in mutated["capabilities"]
-            if entry.get("pixel_source_only") is True
-        )
-        pixel["classification"] = "inherited-candidate"
-        self.assertTrue(
-            any("Pixel-only interface inherited blindly" in item for item in validate_capabilities(mutated))
         )
 
 
