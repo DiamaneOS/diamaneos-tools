@@ -587,6 +587,8 @@ commands](#the-build-commands).
   deployments.
 - `forks` are the repositories DiamaneOS forks and patches: the forks the DiamaneOS manifest
   selects, the common kernel (`kernel_common-6.1`), and the server forks.
+- A fork's branch is its pin; `upstream` is the reference it follows.
+- To add a fork, add its entry here and select the fork in the DiamaneOS manifest.
 - Server entries have `scope: "server"`, branch `main`, and an `upstream_revision` recording the
   adopted upstream commit.
 - Checks compare it with the upstream branch head without needing a clone.
@@ -597,7 +599,8 @@ commands](#the-build-commands).
 - A fork that stops carrying a needed change leaves the registry, and the manifest takes the
   upstream project unmodified.
 - Once such a fork is deleted, builds whose manifests pinned it can no longer be synced from GitHub.
-- A `follow_note` says how a fork follows upstream or why one that ships nothing is kept.
+- A `follow_note` says what a fork changes and, where the reference alone does not show it, how
+  it follows upstream.
 - `sources` are pinned inputs that are not forked:
   - The GrapheneOS release, the repo launcher, Fairphone's source manifest, the Qualcomm SELinux
     policy and the stock factory image.
@@ -608,6 +611,10 @@ commands](#the-build-commands).
 - Each names the file and field that hold its pin, so the registry never repeats a revision.
 - `newer` patterns name the branches or tags that would supersede a followed reference, such as
   Fairphone's next `odm/rc/target/<android>/fp6` branch or the next CodeLinaro release tag.
+- Matches are ordered by the pattern's capture group.
+- Fairphone forks and imports follow the public-build branch where one exists, otherwise `rc`.
+- CodeLinaro forks and imports follow a release tag, or the newest release branch that contains
+  the pinned commit, with its release tags as `newer`.
 
 - The kernel's upstream projects are folders of
   [`kernel_qcom-6.1`](https://github.com/DiamaneOS/kernel_qcom-6.1), except the common kernel
