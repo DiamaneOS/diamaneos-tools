@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 from diamaneos_tools import build
 
-CONFIG_PATH = ROOT / "config" / "build-environment.json"
+CONFIG_PATH = ROOT / "config" / "build-environment-fp6.json"
 
 
 def git(path, *arguments):

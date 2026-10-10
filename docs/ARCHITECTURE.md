@@ -24,8 +24,8 @@ The DiamaneOS manifest is GrapheneOS's manifest at its base release, plus the Di
 Fairphone and CodeLinaro projects, the kernel prebuilts and the tools, minus other devices' kernels.
 
 - FP6 builds follow its `android17` branch, check the whole tree and record the resolved manifest.
-- The generic environment (`config/build-environment.json`) authenticates the GrapheneOS release
-  tag directly.
+- Build preflight and overlay release checks read `config/build-environment-fp6.json`; resolved
+  manifests record the concrete source revisions for each build.
 - The kernel sources are one repository (`kernel_qcom-6.1`), built separately into the published
   prebuilts.
 - Device policy and hardware setup are source-owned by `device/fairphone/FP6`.

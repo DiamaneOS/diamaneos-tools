@@ -56,7 +56,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / 'config/overlays.json'
-ENVIRONMENT = ROOT / 'config/build-environment.json'
+ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
 ANDROID = '{http://schemas.android.com/apk/res/android}'
 ROLES = {'product': {'product'}, 'device': {'vendor', 'odm'}}
 # PackagePartitions order; OverlayConfig applies static overlays in this order,
