@@ -107,6 +107,8 @@ bin/diamaneos signing verify --plan "$PLAN" \
 Verification includes:
 
 - Every APK, APEX container and APEX payload against its assigned external public identity.
+- Native APK package identities and named SELinux certificate selectors against their assigned roles.
+- SELinux certificate replacement, package isolation and policy bytes in the published filesystems.
 - Compressed APEX containers, their original APEX and enclosed APKs.
 - Published partition bytes against signed target-files, including unpacked logical partitions.
 - Exact flat image-archive membership, including all declared firmware, wipe and modem reset files.

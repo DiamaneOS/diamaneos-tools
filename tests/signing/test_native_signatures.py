@@ -91,6 +91,11 @@ class NativeSignatureTests(unittest.TestCase):
             z.write(cls.apex, 'original_apex')
         cls.capex = cls.sign_apk(compressed_unsigned, 'releasekey', cls.root / 'Fixture.capex')
         (content / 'apex').mkdir(); shutil.copyfile(cls.apex, content / 'apex/Fixture.apex')
+        cls.mac_member = 'SYSTEM/etc/selinux/plat_mac_permissions.xml'
+        der = cls.tools.openssl(['x509', '-in', cls.keys_dir / 'releasekey.x509.pem', '-outform', 'DER'])
+        cls.mac_xml = '<policy><signer signature="' + der.hex() + '"><seinfo value="default"/></signer></policy>'
+        mac_path = content / 'etc/selinux/plat_mac_permissions.xml'; mac_path.parent.mkdir(parents=True)
+        mac_path.write_text(cls.mac_xml)
         cls.system.unlink()
         cls.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, cls.system, '8192'])
         cls.tools.run('avbtool', ['add_hashtree_footer', '--image', cls.system, '--partition_size', '67108864',
@@ -108,6 +113,7 @@ class NativeSignatureTests(unittest.TestCase):
             z.write(cls.boot, 'IMAGES/boot.img'); z.write(cls.vbmeta, 'IMAGES/vbmeta.img'); z.write(cls.system, 'IMAGES/system.img')
             z.write(cls.apk, 'SYSTEM/app/Fixture/Fixture.apk')
             z.write(cls.apex, 'SYSTEM/apex/Fixture.apex')
+            z.writestr(cls.mac_member, cls.mac_xml)
             z.writestr('META/apkcerts.txt', 'name="Fixture.apk" certificate="keys/testkey.x509.pem" private_key="keys/testkey.pk8"\n')
             z.writestr('META/apexkeys.txt', 'name="Fixture.apex" container_certificate="module.x509.pem" public_key="module.avbpubkey" private_key="module.pem"')
             z.writestr('META/misc_info.txt', 'ab_update=true\n')
@@ -188,7 +194,8 @@ class NativeSignatureTests(unittest.TestCase):
                       'certificate_sha256': self.keys.fingerprints['releasekey'],
                       'payload_key_sha256': inputs.sha256_file(self.keys.avb())},
             logical + '!/app/Fixture/Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                      'certificate_sha256': self.keys.fingerprints['releasekey']}}}
+                      'certificate_sha256': self.keys.fingerprints['releasekey'],
+                      'package_id': 'de.diamaneos.signingfixture'}}}
         return target, plan
 
     def assert_apex_rejected_at(self, target, plan, boundary):
@@ -424,13 +431,17 @@ class NativeSignatureTests(unittest.TestCase):
                 'provenance': self.provenance, 'changed_projects': [], 'metadata': za.package_metadata_shape(metadata),
                 'roles': {'Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None},
                           'Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb'}},
+                'mac_permissions': {self.mac_member: [{'certificates': [self.keys.fingerprints['releasekey']],
+                                                     'seinfo': 'default', 'packages': {}}]},
                 'packages': {logical: {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                                      'certificate_sha256': self.keys.fingerprints['releasekey']},
+                                      'certificate_sha256': self.keys.fingerprints['releasekey'],
+                                      'package_id': 'de.diamaneos.signingfixture'},
                              'SYSTEM/apex/Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
                                       'certificate_sha256': self.keys.fingerprints['releasekey'],
                                       'payload_key_sha256': inputs.sha256_file(self.keys.avb())},
                              'SYSTEM/apex/Fixture.apex!/app/Fixture/Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                                      'certificate_sha256': self.keys.fingerprints['releasekey']}},
+                                      'certificate_sha256': self.keys.fingerprints['releasekey'],
+                                      'package_id': 'de.diamaneos.signingfixture'}},
                 'partitions': ['boot', 'system', 'vbmeta'], 'chains': {}, 'passthrough_images': {}, 'previous_artifacts': {}}
         plan['plan_sha256'] = inputs.canonical_sha256(plan)
         names = ['target-files.zip', 'images.zip', 'ota.zip', 'factory.tar', 'factory.tar.sig']

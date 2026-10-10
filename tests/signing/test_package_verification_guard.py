@@ -45,6 +45,8 @@ class PackageVerificationGuardTests(unittest.TestCase):
         (self.tools.java_home / 'bin').mkdir(parents=True)
         (self.tools.java_home / 'bin/java').write_bytes(b'controlled provenance fixture')
         self.tools.certificate.side_effect = lambda path: (inputs.sha256_file(path), 'controlled-public-identity')
+        self.tools.package_id.side_effect = lambda path: ('de.diamaneos.standalone' if path.name == 'standalone.apk'
+                                                        else 'de.diamaneos.enclosed')
 
     def packages(self, compressed=False):
         apk_name = 'SYSTEM/app/Standalone/Standalone.apk'
@@ -67,12 +69,12 @@ class PackageVerificationGuardTests(unittest.TestCase):
                              'public_key="module.avbpubkey" private_key="module.pem" partition="system"\n')
         plan = {'metadata': za.package_metadata_shape(za.metadata(target)), 'packages': {
             apk_name: {'kind': 'apk', 'container': 'platform', 'payload': None,
-                       'certificate_sha256': self.fingerprints['platform']},
+                       'certificate_sha256': self.fingerprints['platform'], 'package_id': 'de.diamaneos.standalone'},
             apex_name: {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
                         'certificate_sha256': self.fingerprints['releasekey'],
                         'payload_key_sha256': inputs.sha256_file(self.avb_public)},
             enclosed_name: {'kind': 'apk', 'container': 'shared', 'payload': None,
-                            'certificate_sha256': self.fingerprints['shared']}}}
+                            'certificate_sha256': self.fingerprints['shared'], 'package_id': 'de.diamaneos.enclosed'}}}
         members = [('apk', apk_name, paths['standalone.apk']), ('apex', apex_name, paths['outer.apex'])]
         if compressed:
             members.append(('apex', apex_name, paths['inner.apex']))
@@ -199,7 +201,7 @@ class PackageVerificationGuardTests(unittest.TestCase):
                 'provenance': {'projects': {}, 'source_files': {},
                                'java_sha256': inputs.sha256_file(self.tools.java_home / 'bin/java')},
                 'partitions': ['boot', 'vbmeta'], 'chains': {}, 'passthrough_images': {},
-                'previous_artifacts': {}, 'changed_projects': [], 'public_identities': {}}
+                'previous_artifacts': {}, 'changed_projects': [], 'public_identities': {}, 'mac_permissions': {}}
         description = {'schema_version': 1, 'signed_target_files': 'target-files.zip', 'images_archive': 'images.zip',
                        'ota': [{'file': 'ota.zip', 'source_target_files': None}],
                        'factory_archive': 'factory.tar', 'factory_signature': 'factory.tar.sig',
@@ -218,6 +220,7 @@ class PackageVerificationGuardTests(unittest.TestCase):
         with patch.object(api, 'validate_plan') as validate_plan, \
                 patch.object(api, 'source_files', return_value={}), \
                 patch.object(api, 'verify_packages', return_value=counts) as verify_packages, \
+                patch.object(api.signing_mac, 'verify_mac_permissions', return_value={'files': 1}), \
                 patch.object(api, 'publication_images', return_value=plan['partitions']) as images, \
                 patch.object(api, 'verify_factory_contents') as factory:
             if expect_failure:

@@ -86,6 +86,12 @@ class NativeTools:
                     'Production refuses AOSP public APK test keys')
         return result
 
+    def package_id(self, path):
+        output = self.run('aapt2', ['dump', 'badging', path])
+        names = re.findall(r"(?m)^package: name='([A-Za-z0-9_.]+)' ", output)
+        require(len(names) == 1, 'Native APK package identity is missing or ambiguous')
+        return names[0]
+
     def avb(self, path, expected, *, chains=(), payload=False):
         info = self.run('avbtool', ['info_image', '--image', path])
         require(re.search(r'(?m)^Algorithm:\s+' + re.escape(self.policy['avb_algorithm']) + r'\s*$', info),

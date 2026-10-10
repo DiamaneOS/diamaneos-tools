@@ -237,7 +237,7 @@ class NativeOrchestrationTests(unittest.TestCase):
             root = Path(directory); target = root / 'target.zip'
             logical = 'SYSTEM/app/Fixture/Fixture.apk'
             with zipfile.ZipFile(target, 'w') as archive: archive.writestr(logical, b'accepted')
-            plan = {'packages': {logical: {}}, 'partitions': ['system']}
+            plan = {'packages': {logical: {}}, 'partitions': ['system'], 'mac_permissions': {}}
             tools = Mock(); tools.scratch = root
             def extract(image, destination):
                 path = destination / 'app/Fixture/Fixture.apk'; path.parent.mkdir(parents=True); path.write_bytes(b'changed')

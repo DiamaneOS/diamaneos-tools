@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from . import signing_archive as za
+from . import signing_mac
 from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
                              load_json, require, sha256_file, source_files, verified_build)
 from .signing_inputs import presigned_rule
@@ -91,6 +92,8 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
             continue
         packages[logical] = {'kind': role['kind'], 'container': role['container'], 'payload': role['payload'],
                              'certificate_sha256': keys.fingerprint(role['container'], logical)}
+        if kind == 'apk':
+            packages[logical]['package_id'] = tools.package_id(path)
         if role['container'] == 'PRESIGNED':
             packages[logical]['presigned_sha256'] = sha256_file(path)
             tools.apk(path, packages[logical]['certificate_sha256'])
@@ -132,6 +135,18 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     require(len(logical) == len(set(logical)) and set(logical) <= set(partitions),
             'Dynamic partition list has undeclared partitions')
     result['logical_partitions'] = sorted(logical)
+    result['mac_permissions'] = signing_mac.prepare_mac_permissions(target_files, metadata, roles, keys, tools)
+    identities = {}
+    for package in packages.values():
+        if package['kind'] == 'apk':
+            name, certificate = package['package_id'], package['certificate_sha256']
+            require(name not in identities or identities[name] == certificate, 'APK identity has conflicting signing roles')
+            identities[name] = certificate
+    for policies in result['mac_permissions'].values():
+        for entry in policies:
+            for name in entry['packages']:
+                require(name not in identities or entry['certificates'] == [identities[name]],
+                        'Named MAC selector does not match the APK signing role')
     if previous is not None:
         result['previous_artifacts'] = previous['artifacts']
     else:

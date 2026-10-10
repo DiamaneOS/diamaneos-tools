@@ -11,7 +11,7 @@ import sys
 import tarfile
 import tempfile
 
-from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout
+from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout, signing_mac
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes)
@@ -22,7 +22,7 @@ def validate_plan(plan, policy):
     require(isinstance(plan, dict), 'Signing plan must be a JSON object')
     require(plan.get('schema_version') == 2 and plan.get('mode') in {'production', 'qualification'},
             'Unknown signing plan format')
-    require(all(isinstance(plan.get(key), dict) for key in ('provenance', 'packages', 'roles', 'metadata')),
+    require(all(isinstance(plan.get(key), dict) for key in ('provenance', 'packages', 'roles', 'metadata', 'mac_permissions')),
             'Signing plan has malformed structured fields')
     body = dict(plan)
     digest = body.pop('plan_sha256', None)
@@ -61,6 +61,8 @@ def verify_packages(target_files, plan, tools, keys):
                 require(sha256_file(path) == role['presigned_sha256'], 'Presigned package was changed')
             require(keys.fingerprint(role['container'], logical) == role['certificate_sha256'], 'Package authority changed')
             tools.apk(path, role['certificate_sha256'])
+            if kind == 'apk':
+                require(tools.package_id(path) == role['package_id'], 'Final APK package identity changed')
             observed.add(logical)
         counts[kind] += 1
     require(observed == set(plan['packages']), 'Final target-files lacks planned packages')
@@ -129,7 +131,7 @@ def publication_images(path, target_files, plan, tools, keys):
 
 def verify_installed_packages(images, target_files, plan, tools):
     """Bind verified package bytes to their actual published filesystems."""
-    expected = {name for name in plan['packages'] if '!/' not in name}
+    expected = {name for name in plan['packages'] if '!/' not in name} | set(plan['mac_permissions'])
     prefixes = {'system': 'SYSTEM', 'system_ext': 'SYSTEM_EXT', 'product': 'PRODUCT',
                 'vendor': 'VENDOR', 'odm': 'ODM'}
     require(all(name.split('/')[0] in {prefixes[p] for p in plan['partitions'] if p in prefixes}
@@ -143,7 +145,7 @@ def verify_installed_packages(images, target_files, plan, tools):
                 destination = Path(directory) / 'filesystem'
                 tools.extract_filesystem(images / (partition + '.img'), destination)
                 for path in destination.rglob('*'):
-                    if not path.name.endswith(('.apk', '.apex', '.capex')):
+                    if not path.name.endswith(('.apk', '.apex', '.capex', 'mac_permissions.xml')):
                         continue
                     require(path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(destination.resolve()),
                             'Installed package is an unsafe filesystem entry')
@@ -226,6 +228,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys):
                 'payload': sum(role['kind'] == 'apex' for role in plan['packages'].values())}
     require(isinstance(packages, dict) and packages == coverage and sum(coverage.values()) > 0,
             'Package verification coverage is incomplete')
+    mac = signing_mac.verify_mac_permissions(signed, plan['mac_permissions'])
     partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
     verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
     full = False
@@ -251,7 +254,8 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys):
     return {'schema_version': 2, 'status': 'PASS', 'artifact_signatures_verified': True,
             'mode': plan['mode'], 'plan_sha256': plan['plan_sha256'], 'provenance': plan['provenance'],
             'changed_projects': plan['changed_projects'], 'public_identities': plan['public_identities'],
-            'artifacts': artifacts, 'packages': packages, 'partitions': partitions, 'ota_count': len(publication['ota'])}
+            'artifacts': artifacts, 'packages': packages, 'mac_permissions': mac,
+            'partitions': partitions, 'ota_count': len(publication['ota'])}
 
 
 def parser():
