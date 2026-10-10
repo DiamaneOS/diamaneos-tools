@@ -1374,6 +1374,12 @@
     },
     {
       "modules": [
+        "qseecom_dlkm.ko"
+      ],
+      "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone; qseecom_proxy and hdcp_qseecom_dlkm are other modules and stay."
+    },
+    {
+      "modules": [
         "qcom_spss.ko",
         "qsee_ipc_irq_bridge.ko"
       ],
