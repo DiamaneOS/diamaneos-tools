@@ -162,8 +162,20 @@ def boot_header(data: bytes) -> dict:
     version = struct.unpack_from('<I', data, 40)[0]
     os_field = struct.unpack_from('<I', data, 16 if version >= 3 else 44)[0]
     kernel_size = struct.unpack_from('<I', data, 8)[0]
+    cmdline = data[44:1580] if version >= 3 else data[64:576] + data[608:1632]
     return {'header_version': version, 'os_version_field': os_field, 'kernel_size': kernel_size,
-            'page_size': 4096 if version >= 3 else struct.unpack_from('<I', data, 36)[0]}
+            'page_size': 4096 if version >= 3 else struct.unpack_from('<I', data, 36)[0],
+            'cmdline': text_of(cmdline).replace('\0', ' ')}
+
+
+def vendor_boot_parts(data: bytes) -> tuple[str, bytes]:
+    """The kernel command line and the device tree section of a vendor boot image."""
+    if data[:8] != b'VNDRBOOT':
+        raise ValueError('not a vendor boot image')
+    page, ramdisk = struct.unpack_from('<I', data, 12)[0], struct.unpack_from('<I', data, 24)[0]
+    header, size = struct.unpack_from('<II', data, 2096)
+    start = (-(-header // page) + -(-ramdisk // page)) * page
+    return text_of(data[28:2076]).replace('\0', ' '), data[start:start + size]
 
 
 def boot_kernel(data: bytes) -> bytes:
@@ -214,6 +226,20 @@ def parse_dtb(data: bytes) -> dict:
             return nodes
         else:
             raise ValueError('malformed device tree structure')
+
+
+def device_trees(data: bytes) -> list[dict]:
+    """Every tree of a device tree image: blobs one after another, or an overlay table (dtbo)."""
+    if data[:4] == b'\xd7\xb7\xab\x1e':
+        entry_size, count, first = struct.unpack_from('>III', data, 12)
+        spans = [struct.unpack_from('>II', data, first + index * entry_size) for index in range(count)]
+        return [parse_dtb(data[offset:offset + size]) for size, offset in spans]
+    trees, offset = [], 0
+    while offset < len(data):
+        size = struct.unpack_from('>I', data, offset + 4)[0]
+        trees.append(parse_dtb(data[offset:offset + size]))
+        offset += size
+    return trees
 
 
 def sparse_to_raw(data: bytes, limit: int | None = None) -> bytes:
@@ -1302,6 +1328,32 @@ def check_bootconfig(v):
     return not problems, '; '.join(problems)
 
 
+def check_kernel_arguments(v):
+    forbidden = set(v.config['kernel_arguments']['forbidden'])
+    found = {}
+
+    def scan(source, text):
+        for word in text.split():
+            if word.split('=', 1)[0] in forbidden:
+                found.setdefault(word, []).append(source)
+    for name in ('boot', 'init_boot', 'recovery'):
+        scan(f'{name}.img', boot_header((v.images / f'{name}.img').read_bytes())['cmdline'])
+    cmdline, dtbs = vendor_boot_parts((v.images / 'vendor_boot.img').read_bytes())
+    scan('vendor_boot.img', cmdline)
+    overlays = avb_payload((v.images / 'dtbo.img').read_bytes())
+    for kind, trees in (('device tree', device_trees(dtbs)), ('overlay', device_trees(overlays))):
+        for index, tree in enumerate(trees):
+            for node in tree.values():
+                scan(f'{kind} {index}', text_of(node['props'].get('bootargs', b'')).replace('\0', ' '))
+    # Our bootconfig carries Android keys only; a kernel. key there is a kernel argument too.
+    for line in lines_of(v.tf.read('VENDOR_BOOT/vendor_bootconfig')):
+        if line.lstrip().startswith('kernel'):
+            found.setdefault(line.strip(), []).append('vendor bootconfig')
+    details = [f'{word} in {", ".join(sources[:3])}' + (f' and {len(sources) - 3} more' if len(sources) > 3 else '')
+               for word, sources in sorted(found.items())]
+    return not found, '; '.join(details)
+
+
 def check_adb_keys(v):
     problems = []
     for name in v.tf.names:
@@ -1388,6 +1440,8 @@ GENERIC = [
      'Settings names the installed Fairphone firmware from current hashes.', check_firmware_release_table),
     ('selinux-enforcing', 'No permissive domain beyond the variant\'s allowance.', check_permissive),
     ('bootconfig', 'Required bootconfig present; nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
+    ('kernel-arguments', 'No device tree, overlay, boot image header or bootconfig entry sets a kernel argument '
+     'that turns a protection off.', check_kernel_arguments),
     ('adb-keys', 'No pre-trusted adb key.', check_adb_keys),
     ('wipe-images', 'The wipe images are the declared deterministic images.', check_wipe),
     ('firmware', 'The set carries every firmware image of the stock release its vendor files come from, byte for '
