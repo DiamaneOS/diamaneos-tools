@@ -1,6 +1,6 @@
 # DiamaneOS Threat Model and Product Boundaries
 
-Revised 2026-10-09. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
+Revised 2026-10-10. Every revision is listed in [THREAT_MODEL-HISTORY.md](THREAT_MODEL-HISTORY.md#revisions).
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or Fairphone.
 
@@ -37,7 +37,8 @@ rules).
    files' stock release over older firmware, but no OTA carries firmware
    ([details](#firmware-security)).
 4. **Credentials rest on the TEE:** no StrongBox or Weaver; throttling
-   unverified; no passphrase policy; fingerprint class not measured
+   unverified; no passphrase policy; fingerprint class as the device maker
+   declares it
    ([details](#bfu-user-data)).
 5. **The modem is outside Android's control:** its isolation is set by closed
    firmware; its traffic
@@ -86,8 +87,10 @@ personal accounts and sensitive data stay off them.
 - **Bootloader and keys:** unlocked, public AOSP test keys; OEM unlocking is
   managed by the OS as on stock (Settings shows the toggle; Android's persistent
   data block service keeps the bootloader's unlock-ability flag).
-- **Network endpoints:** inherited GrapheneOS services (connectivity, time, CT
-  list, provisioning proxies, app catalog, SUPL proxy). Official builds, made
+- **Network endpoints:** DiamaneOS's servers for connectivity and DNS checks,
+  time, the CT list, the provisioning proxies, the SUPL proxy and the network
+  location relay (since the 2026-10-09 builds); GrapheneOS's for the app
+  catalog, the browser's own checks and updates, and Auditor. Official builds, made
   by DiamaneOS's builder, also include the Updater, which asks DiamaneOS's
   update server; that server is not live (since the 2026-10-06 builds).
 - **Closed vendor code:** selected Qualcomm/Fairphone inputs are hash-pinned in
@@ -203,7 +206,8 @@ historical evidence without making it acceptance of this later source cut.
   never green; GrapheneOS's Auditor does not support the FP6. Earlier builds did
   not enable remote key provisioning, so attestation was expected to fail. Since
   the 2026-09-26 build, the device sets stock's provisioning properties
-  (requests via the inherited GrapheneOS proxy) and reports the factory
+  (requests went via GrapheneOS's proxy, and go via DiamaneOS's since the
+  2026-10-09 builds) and reports the factory
   attestation IDs. Provisioning reaches the server, but the TEE's certificate
   request fails while the bootloader is unlocked, on stock too: a locked stock
   FP6 produces the request, and the same phone fails the same way once
@@ -255,7 +259,7 @@ entry point), the protections in current builds, what remains, and the status.
 
 | Group | Asset | Status (weakest first) |
 | --- | --- | --- |
-| Remote | [Service metadata and OS identity](#service-metadata-and-os-identity) | Not implemented (DiamaneOS endpoints); Observed (static) |
+| Remote | [Service metadata and OS identity](#service-metadata-and-os-identity) | Bring-up (not qualified); Observed (static) |
 | Remote | [DNS privacy](#dns-privacy) | Not implemented |
 | Remote | [App data from remote exploit](#app-data-from-remote-exploit) | Bring-up (not qualified) |
 | Remote | [Traffic outside Android network policy](#traffic-outside-android-network-policy) | Accepted limitation |
@@ -278,11 +282,11 @@ entry point), the protections in current builds, what remains, and the status.
 | Proximity | [Locked-device data, kernel integrity](#locked-device-data-kernel-integrity) | Observed gap |
 | AFU | [AFU user data](#afu-user-data) | Observed gap |
 | AFU | [Previous boot's kernel log and event logs](#previous-boots-kernel-log-and-event-logs) | Observed (bring-up) |
-| AFU | [AFU unlock, auth-bound keys](#afu-unlock-auth-bound-keys) | Observed gap |
+| AFU | [AFU unlock, auth-bound keys](#afu-unlock-auth-bound-keys) | Bring-up (not qualified) |
 | AFU | [AFU data under coercion or seizure](#afu-data-under-coercion-or-seizure) | Bring-up (not qualified) |
 | BFU | [BFU user data](#bfu-user-data) | Observed gap |
 | BFU | [Device-persistent data outside userdata](#device-persistent-data-outside-userdata) | Observed gap |
-| BFU | [Removable media](#removable-media) | Not implemented |
+| BFU | [Removable media](#removable-media) | Bring-up (not qualified) |
 | Boot and firmware | [OS integrity on a released, locked build](#os-integrity-on-a-released-locked-build) | Observed gap (bring-up images) |
 | Boot and firmware | [Firmware security](#firmware-security) | Observed gap |
 | Boot and firmware | [Keys, Gatekeeper throttling, fingerprint templates](#keys-gatekeeper-throttling-fingerprint-templates) | Observed gap (builds before the 2026-09-26 build) |
@@ -313,15 +317,19 @@ entry point), the protections in current builds, what remains, and the status.
   properties keep Fairphone's stock product identity (brand, product, device,
   model), as GrapheneOS keeps Google's.
 - **Remaining:**
-  - DiamaneOS endpoints are not implemented: builds use the inherited GrapheneOS
-    services ([development state](#current-development-state)).
+  - Connectivity and DNS checks, HTTPS time, the CT list, the SUPL, PSDS, key
+    and Widevine provisioning proxies and the network location relay use
+    DiamaneOS's servers (since the 2026-10-09 builds; image verification
+    refuses a build that names GrapheneOS's hosts for them). The app catalog,
+    the browser's own connectivity check and component updates, and Auditor's
+    opt-in remote verification still use GrapheneOS's.
   - Small-user-base hostnames are a fingerprint; the HTTPS time bootstrap
     resolves outside Private DNS.
-  - The DNS resolver and browser send GrapheneOS probe names even with
-    connectivity checks off; the browser's own checks can be repointed only by
-    rebuilding it.
+  - With connectivity checks off, the DNS resolver still sends its probe names
+    (under `dnscheck.diamaneos.de`) and the browser GrapheneOS's; the browser's
+    own checks can be repointed only by rebuilding it.
   - With network location on (the setup wizard's location switch turns it on),
-    nearby Wi-Fi and cell identifiers go to GrapheneOS's relay for Apple's
+    nearby Wi-Fi and cell identifiers go to DiamaneOS's relay for Apple's
     location service. The geocoder offers only OpenStreetMap's public service
     (opt-in, off by default); its queries name DiamaneOS in the user agent.
   - Auditor's opt-in remote features use GrapheneOS's attestation service;
@@ -341,8 +349,12 @@ entry point), the protections in current builds, what remains, and the status.
     traffic. Scripted active use (browser, camera, gallery, app store, Wi-Fi
     scan, Bluetooth) showed only the apps' own traffic. A GNSS fix (SUPL,
     PSDS) is unmeasured.
-- **Status:** Not implemented: DiamaneOS endpoints (FP6-100, FP6-102 to FP6-112,
-  FP6-103, FP6-106), the update server (FP6-128). Observed (static): no contacted host in the selected closed
+- **Status:** Bring-up (not qualified): DiamaneOS endpoints (FP6-100, FP6-102
+  to FP6-112, FP6-103) in the image since the 2026-10-09 builds; connectivity
+  and DNS checks and HTTPS time seen answered by DiamaneOS's servers on the
+  phone (2026-10-09), the proxies and the relay checked in the image only. Not
+  implemented: DiamaneOS's app catalog and attestation service (FP6-106), the
+  update server (FP6-128). Observed (static): no contacted host in the selected closed
   files except GNSS cloud hosts removed by pinned configuration. Observed (idle,
   one night on the 2026-10-05 build): no connection from vendor code to any
   third party; the same in a scripted active-use run. Unverified: egress during
@@ -1117,15 +1129,15 @@ entry point), the protections in current builds, what remains, and the status.
 - **Protection:** strong authentication after reboot and timeouts; lockout in
   the trusted app; the vendor debug service never registered (kept inside the
   HAL process) and unreachable by policy.
-- **Remaining:** the DiamaneOS fingerprint HAL declares Class 3 (strong) before
-  any spoof testing: a declaration, not a measurement; until spoof testing
-  passes, the fingerprint is not treated as strong authentication.
-- **Status:** Observed gap: class declared, not measured. Bring-up (not
+- **Remaining:** the DiamaneOS fingerprint HAL declares Class 3 (strong), the
+  class Fairphone's stock service declares for the same sensor, matching code
+  and trusted app; spoof resistance rests on Fairphone's qualification and is
+  not measured by DiamaneOS.
+- **Status:** Class as on stock, not measured. Bring-up (not
   qualified): unlock works; the first enforcing boot showed the module needs its
   debug service registered, which the HAL answers in-process since the
   2026-09-26 build (enrolment and unlock work, phone test 2026-09-27).
-  Unverified: fingerprint bring-up (FP6-045), credential validation (FP6-046),
-  spoof testing (no owning task yet).
+  Unverified: fingerprint bring-up (FP6-045), credential validation (FP6-046).
 
 #### AFU data under coercion or seizure
 
@@ -1171,9 +1183,29 @@ entry point), the protections in current builds, what remains, and the status.
 
 #### Removable media
 
-- **Threat:** anyone who takes the microSD card or USB storage.
-- **Protection:** none; removable media are not encrypted.
-- **Status:** Not implemented (FP6-076, FP6-077).
+- **Threat:** anyone who takes the microSD card or USB storage, or hands the
+  phone a tampered card.
+- **Protection:** an admin user can adopt the microSD card as phone storage
+  (GrapheneOS removes adoption; DiamaneOS restores it for the card slot only).
+  An adopted card has dm-default-key AES-256-XTS metadata encryption and
+  file-based encryption with its keys on the phone's own storage; it is ext4
+  with metadata checksums, never f2fs; before every mount `e2fsck` checks it in
+  the untrusted fsck domain with a 10 minute limit, and anything worse than
+  safe repairs leaves it unmounted; it is mounted noexec, nosuid and nodev with
+  errors=remount-ro. It holds shared storage only: apps are never installed on
+  or moved to it. Forgetting a card destroys its keys; formatting, forgetting
+  and making a card portable need an admin user. No adoption while an update's
+  checkpoint is uncommitted.
+- **Remaining:** portable cards and USB drives are not encrypted. Encryption
+  hides contents and file names, not the card's size, layout or that it is
+  adopted, and does not stop someone with the card from corrupting it. The keys
+  are not hardware-wrapped (the card has no inline crypto engine) and go with
+  the phone's data: after a wipe the card is unreadable.
+- **Status:** Bring-up (not qualified; FP6-076, FP6-077). Observed (2026-10-09):
+  adoption works, a raw read of the card's first 8 GB shows neither the test
+  files nor an ext4 superblock, shared storage moved to the card, apps cannot
+  be moved to it, and forgetting a card destroys its keys. Unverified: the
+  checkpoint case, factory reset and duress with an adopted card.
 
 ### Boot chain, firmware and trusted execution
 
