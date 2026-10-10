@@ -52,11 +52,11 @@ properties, `certificate` and resource directories, and it searches every `.mk` 
 and `make_roots` (their repositories) for overlays defined in make.
 
 - **Device**:
-  - `device` in the same file sets `density_dpi` (480 on the FP6, xxhdpi), `smallest_width_dp` (372
-    at the default display size) and `api_level`, which decide which target variants always apply
-    (see `shadowed`).
-  - A larger display-size setting lowers the smallest width, so variants above 372 dp count as never
-    applying.
+  - `device` in the same file sets `density_dpi` and `smallest_width_dp` (at the default display
+    size), and `api_level` the API level; they decide which target variants always apply (see
+    `shadowed`).
+  - A larger display-size setting lowers the smallest width, so variants above the configured width
+    count as never applying.
 
 - **Targets**:
   - Each target package is registered with its APK's source projects (by manifest path) and resource
@@ -85,8 +85,7 @@ and `make_roots` (their repositories) for overlays defined in make.
   accepted.
 - `--manifest FILE` uses a local manifest; the report says whether its digest matches the pinned
   one.
-- A cold fetch of the current targets fills about 35 MB in under a minute; a cached run takes
-  seconds.
+- A cached run needs no network.
 
 - To check a new release, update `config/build-environment.json` first or pass `--allowed-signers
   FILE` (the GrapheneOS `allowed_signers` file whose SHA-256 the build environment pins):
@@ -109,7 +108,7 @@ Errors (exit status 1):
   target's (`ResTable_config::isBetterThan`).
 - An overlay variant equal to or better than the target's best (for example its own `xxhdpi`, or
   `v33` against the target's `v31`) covers the target's variants.
-- Modelled qualifiers:
+- Modelled qualifiers (the examples use the FP6 values in `config/overlays.json`):
   - smallest width: `sw360dp` applies at 372 dp;
   - density: at 480 dpi an `xxhdpi`, `hdpi` or `nodpi` target variant beats an overlay default;
     `anydpi` beats every bucket;

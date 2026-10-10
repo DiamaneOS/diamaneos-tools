@@ -6,28 +6,29 @@ DiamaneOS delivers it.
 ## Overview
 
 - DiamaneOS image sets carry Fairphone's firmware of the stock release their vendor files come from
-  (`FP6.QREL.16.111.0`), byte for byte, and `diamaneos flash-steps` writes it before the OS when the
-  phone runs older firmware ([Delivery](#delivery)).
+  (`selected_build` in the inventory below), byte for byte, and `diamaneos flash-steps` writes it
+  before the OS when the phone runs older firmware ([Delivery](#delivery)).
 - No OTA carries firmware.
 - While `firmware.validated` in `config/fp6-build.json` is false, the printed flash steps say that
   the firmware steps are not yet tested on a phone.
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
-  the selected `FP6.QREL.16.111.0` and previous `FP6.QREL.16.100.0` factory packages with size and
+  the selected and the previous factory package (`selected_build`, `previous_build`) with size and
   SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi firmware
   files and the stock flash order.
 - It was read from the archives, not from a phone.
 
 - Settings shows which release the booted slot's firmware is (About phone > Android version >
   Fairphone firmware).
-- The phone cannot say itself: every Qualcomm version string is the same in 16.100.0 and 16.111.0.
-- So `fwrelease` (device `firmware/`) hashes the slot's 22 A/B firmware partitions once per boot and
+- The phone cannot say itself: releases can share every Qualcomm version string (the inventory
+  records them per image).
+- So `fwrelease` (device `firmware/`) hashes the slot's A/B firmware partitions once per boot and
   compares them with a table the vendor step writes from the inventory
   (`/vendor/etc/diamaneos/firmware-releases.txt`; the images left out, each with its reason, are
   under `firmware_release` in `config/fp6-build.json`).
 
 - "Mixed releases": the partitions come from different releases.
-- "Unknown": a partition matches no release in the inventory, for example 15.x firmware or a stock
-  OTA that wrote other bytes.
+- "Unknown": a partition matches no release in the inventory, for example firmware of a release it
+  does not list or a stock OTA that wrote other bytes.
 
 ## Partitions and sources
 
@@ -57,7 +58,7 @@ version strings.
 
 ## The stock flash script
 
-`flash_fp6_factory.command` is byte-identical in 16.100.0 and 16.111.0. It:
+`flash_fp6_factory.command` (`stock_flash_script` in the inventory records its SHA-256 and order):
 
 1. refuses to run unless `fastboot oem device-info` reports both `Device unlocked: true` and `Device
    critical unlocked: true`, and never locks or unlocks;
@@ -116,9 +117,8 @@ as after Fairphone's own flash.
     fixed by running the steps again from the bootloader, or by Fairphone's factory package.
 
 - **Never older firmware.**
-  - The FP6 bootloader reports empty `version-bootloader` and `version-baseband` (stock firmware,
-    September 2026), and 16.100.0 and 16.111.0 share every Qualcomm version string, so the phone
-    cannot say which release it runs.
+  - The FP6 bootloader reports empty `version-bootloader` and `version-baseband`, and releases can
+    share every Qualcomm version string, so the phone cannot say which release it runs.
   - `flash-steps` takes the release from `--phone-firmware` (the stock build number) or from the
     image set given with `--since`, compares build numbers, and stops if the phone runs a newer
     release than the image set carries.
@@ -126,7 +126,7 @@ as after Fairphone's own flash.
     example to bring slot b and the single partitions up to it).
   - `--no-firmware` leaves the firmware alone.
   - If a phone reports version values, they must be the ones the inventory records for the stated
-    release (`fastboot_versions`; none recorded), or `flash-steps` refuses.
+    release (`fastboot_versions`), or `flash-steps` refuses.
   - Firmware steps also need the saved output of `fastboot getvar all` and `fastboot oem
     device-info` (`--phone`): an FP6, unlocked, with unlocked critical partitions, in the bootloader
     rather than fastbootd.
@@ -134,7 +134,7 @@ as after Fairphone's own flash.
 - **OTA.**
   - No OTA carries firmware: DiamaneOS builds none, and the device's `AB_OTA_PARTITIONS` lists only
     OS partitions.
-  - `build verify` fails a target-files archive whose A/B partition list names only part of the 24
+  - `build verify` fails a target-files archive whose A/B partition list names only part of the
     A/B firmware partitions or carries other bytes than stock's for them (check `firmware-ota`), so
     an update holds the whole firmware of one release or none.
 
@@ -142,13 +142,14 @@ as after Fairphone's own flash.
 
 - The bootloader stores AVB rollback indices at locations 1 (recovery), 2 (vbmeta_system), 3 (boot)
   and 4 (init_boot) and enforces them while locked.
-- Once a locked phone boots stock 16.111.0, locations 2-4 hold 1788566400 and 16.100.0 images no
-  longer boot locked.
+- Once a locked phone boots a stock release, locations 2 to 4 hold that release's index
+  (`avb_rollback_index` in the inventory, the security patch date as Unix time), and images with a
+  lower index no longer boot locked.
 - A DiamaneOS build relocked with its own key must use indices at or above the stored values.
 - The stock script's `oem reset-rollback` (unlocked only) resets them; Fairphone warns that locking
   on older software than before may brick the phone.
 - Qualcomm's own anti-rollback version (signing metadata, enforceable from fuses or protected
-  storage) is 1 in both releases.
+  storage) is recorded in the inventory (`qualcomm_anti_rollback_version`).
 - Never downgrade firmware: it is untested even at equal anti-rollback version, and the stock flash
   script is the only supported way back to stock.
 - `flash-steps` refuses firmware steps towards an older stock release.

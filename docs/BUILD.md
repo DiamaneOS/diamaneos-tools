@@ -187,7 +187,7 @@ or deleted files):
 - **Host check.**
   - Before running, the command checks the host for the steps it will run:
     - Linux on x86_64.
-    - Python 3.11 with `jsonschema` (vendor generation validates its recipes with it).
+    - Python 3.11 or newer with `jsonschema` (vendor generation validates its recipes with it).
     - The commands each step uses (`modinfo` and `modprobe` are also looked up in `/usr/sbin` and
       `/sbin`).
     - RAM (the 32 GiB floor allows 2 GiB for what firmware and the kernel reserve).
@@ -374,8 +374,8 @@ then `build package`.
 
 - `build vendor` on its own checks the checkout as `sync` does after its `repo sync`, runs no `repo`
   command and records it as the sync.
-- The checkout must use the pinned `repo` tool (`repo init --repo-rev=v2.65`, the environment's
-  `repo_tool` pin).
+- The checkout must use the pinned `repo` tool: `repo init --repo-rev=<tag>` with the environment's
+  `repo_tool` release tag, as in [BUILDING.md](BUILDING.md#1-get-the-source).
 - `m target-files-package otatools-package` builds the images, the target-files archive and the host
   tools that packaging and the checks use; a plain `m` builds the images only.
 - `build package` on its own, when the Android step has no current record of its own, checks the
@@ -412,8 +412,8 @@ For test builds only. The rules:
 - Never install firmware older than the phone already runs; `flash-steps` refuses to.
 - To flash from another computer, copy the whole image directory there.
 
-**Firmware.** Each image set carries Fairphone's firmware of the release its vendor files come from
-(`FP6.QREL.16.111.0` today).
+**Firmware.** Each image set carries Fairphone's firmware of the release its vendor files come from,
+named in the set's `build.json`.
 
 - `flash-steps` writes it first when the phone runs older firmware, prints no firmware steps when
   the phone runs that release, and stops when it runs a newer one.
@@ -434,7 +434,7 @@ For test builds only. The rules:
    including `fastboot flashing unlock_critical`, because the steps write firmware.
 3. In the bootloader, save the phone's state as above, then print the flash steps and run them:
    `tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware
-   FP6.QREL.16.100.0`.
+   <BUILD_NUMBER>`.
 
 - The wipe erases everything on the phone.
 - It flashes empty userdata, metadata and misc images and Fairphone's factory FRP image, so factory
@@ -460,7 +460,7 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 | --- | --- |
 | `this host cannot run the build` | It lists everything that is missing. Fix those and run the command again. |
 | `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
-| `repo implementation commit does not match the pin` | The checkout uses another `repo` tool: run `repo init --repo-rev=v2.65` and `repo sync`, then the command again. |
+| `repo implementation commit does not match the pin` | The checkout uses another `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. |
 | `out/ holds no complete FP6 build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
 | `the source changed since "diamaneos build vendor" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can; otherwise add `--allow-network`, and `build.json` records that the build had network access. |
@@ -493,12 +493,12 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 
 - An `upstream` record binds the GrapheneOS tag, tag object, peeled manifest commit, official
   signer-list hash, signer identity, tagged `default.xml`, canonical project commit map and the
-  GPG-verified `repo` v2.65 tag object and commit.
+  GPG-verified `repo` tag object and commit.
 - The file also binds host packages, external tools and project and device input hashes.
-- The Debian `repo` 2.54 package is only the launcher; the self-updating implementation is a
-  separate input and is pinned to commit `35bbf701d04de5c6a71937279bc3d16f6ce36808` instead of its
-  moving `stable` branch.
-- The selected `2026091000` release is explicitly published for generic and other targets.
+- The distribution's `repo` package is only the launcher; the self-updating implementation is a
+  separate input, pinned to a tag and commit (`upstream.repo_tool`) instead of its moving `stable`
+  branch.
+- `release_scope` records the targets GrapheneOS published the release for.
 - A branch name, a GitHub verification badge or an existing download cache is not a substitute for
   the local signature checks.
 
@@ -672,12 +672,13 @@ Run commands from the authenticated tools checkout. Set absolute paths:
 ```sh
 TOOLS_ROOT="$PWD"
 WORK_ROOT="/absolute/path/to/build-work"
-FACTORY_ZIP="/absolute/path/to/FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip"
+FACTORY_ZIP="/absolute/path/to/factory.zip"
 IMAGE_TOOLS="/absolute/path/to/extracted-otatools/bin"
 SOURCE_ROOT="/absolute/path/to/android-source"
 ```
 
-- `FACTORY_ZIP` is the EU factory archive identified by `config/fp6-stock-image-recipe.json`.
+- `FACTORY_ZIP` is the EU factory archive `config/fp6-stock-image-recipe.json` identifies by size
+  and SHA-256.
 - Obtain that exact archive from the download address recorded in `config/stock-inputs.json`.
 - Other regions/builds are not interchangeable.
 - `IMAGE_TOOLS` is a `bin` directory holding `simg2img`, `lpunpack` and `debugfs_static` with their
@@ -706,7 +707,7 @@ stock carrier configuration resources; its hash is recorded in the generated pro
 ```
 
 `NOTICE_KIND` is the Android build-system notice kind for these inputs; the build commands take it
-from `notice_kind` in `config/fp6-build.json` (`legacy_proprietary`).
+from `notice_kind` in `config/fp6-build.json`.
 
 **Staging** (`vendor stage`):
 
@@ -910,7 +911,7 @@ What the device tree (`device/fairphone/FP6`) and the generated vendor tree rely
   board/vendor API and VNDK are 34. A newer framework version does not advance them.
 - Do not copy a platform security-patch value onto unchanged vendor or boot input.
 - Stock is a consistent VNDK 34 vendor.
-- The DiamaneOS vendor is built from the pinned Android 17 source and has no VNDK version: stock
+- The DiamaneOS vendor is built from the pinned Android source and has no VNDK version: stock
   blobs link the current vendor variants of their VNDK core and same-process libraries, which are
   installed in the vendor partition, and reach LLNDK through the platform's
   `/system/etc/llndk.libraries.txt`.

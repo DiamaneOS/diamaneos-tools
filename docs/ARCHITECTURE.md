@@ -36,10 +36,10 @@ Fairphone and CodeLinaro projects, the kernel prebuilts and the tools, minus oth
 
 **Stock input.** Generated vendor content comes from an exact, hash-pinned stock input:
 
-- EU baseline: the verified `FP6.QREL.16.111.0` factory package (selected 2026-09-30; Fairphone
-  released it as one build for all regions), its firmware hashed per image in
+- The factory package selected in `config/stock-inputs.json` (`selected_generator_input`), recorded
+  there as the EU input, with its firmware hashed per image in
   `config/fp6-firmware-inventory.json` ([FIRMWARE.md](FIRMWARE.md)).
-- `FP6.QREL.16.104.0`, the US package, is never an input ([TESTING.md](TESTING.md#regions)).
+- The US package that file lists as excluded is never an input ([TESTING.md](TESTING.md#regions)).
 - The generator reads the factory package only, never a phone: calibration, identity and
   provisioning state must never enter a generated tree.
 

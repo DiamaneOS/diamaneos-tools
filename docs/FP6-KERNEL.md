@@ -9,9 +9,9 @@
 
 ## Sources and workspace
 
-- The kernel follows Qualcomm's CodeLinaro release for this chip
-  (`LA.VENDOR.14.3.0.r1-23400-lanai.QSSI16.0` and the kernel-platform and techpack releases it
-  names), with the GrapheneOS `kernel_common-6.1` release merged into the vendor kernel.
+- The kernel follows Qualcomm's CodeLinaro release for this chip (the release tags recorded per
+  import in `config/kernel-upstream-fp6.json`), with the GrapheneOS `kernel_common-6.1` release
+  merged into the vendor kernel.
 - Fairphone's FP6 changes (the `fps` target, panel, touch, camera and sensor drivers) are part of
   the imported sources; only the device trees, which Qualcomm does not publish for this chip, come
   from Fairphone.
@@ -240,7 +240,7 @@ bin/diamaneos build kernel-config --config "$KERNEL_CONFIG" \
   and dumpstate's mount for the dumpstate HAL now fail harmlessly.
 
 - KPROBES stays on.
-- The USB glue (`dwc3-msm`) implements thirteen controller hooks (pull-up, connection-done, GSI
+- The USB glue (`dwc3-msm`) implements its controller hooks (pull-up, connection-done, GSI
   event buffers, stop handling and others) as kretprobes on the built-in dwc3 core and ignores
   registration failures, so without kprobes they silently vanish.
 - Turning KPROBES off first needs them as explicit calls in both trees.
@@ -255,9 +255,8 @@ bin/diamaneos build kernel-config --config "$KERNEL_CONFIG" \
   `kprobe_events` and only `bpfloader` may load BPF programs.
 
 - IPsec keys stay blanked in XFRM state dumps: lockdown redacts them (LOCKDOWN_XFRM_SECRET), and
-  both trees also make `xfrm_redact()` always true (kernel_common-6.1 9f7417fb1da2, which the
-  `kernel_platform/common` submodule points at for the GKI image; msm-6.1 a3da4d2), so they stay
-  blanked at any lockdown level.
+  both trees also make `xfrm_redact()` always true (the common kernel for the GKI image, the
+  vendor kernel for its modules), so they stay blanked at any lockdown level.
 - SELinux allows the dump only to netd, system_server, the network stack, `netutils_wrapper`,
   dumpstate and Qualcomm's nicmd, which needs only SPIs to delete its own states.
 - Enforcing USER policy replaces none of these settings.
