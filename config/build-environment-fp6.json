@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "environment_id": "fp6-android17-diamaneos-manifest",
-  "scope": "FP6 development line built from the DiamaneOS manifest on its android17 branch: every project at the revision that branch selects, with the published FP6 kernel prebuilts. The manifest is based on the GrapheneOS release recorded in upstream, which also pins the repo tool. Vendor inputs are authenticated. The line builds with the public build commands; it is not phone-tested as a whole.",
+  "scope": "FP6 line built from the DiamaneOS manifest on its android17 branch: every project at the revision that branch selects, with the published FP6 kernel prebuilts. The manifest is based on the GrapheneOS release recorded in upstream, which also pins the repo tool. Vendor inputs are authenticated.",
   "manifest": {
     "url": "https://github.com/DiamaneOS/platform_manifest.git",
     "branch": "android17"
