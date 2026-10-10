@@ -190,7 +190,7 @@ class KernelDenyListTests(unittest.TestCase):
         self.assertIn('qseecom_dlkm.ko', denied)
         self.assertIn('/dev/qseecom', denied['qseecom_dlkm.ko'])
         # Other modules with a similar name are different drivers and stay.
-        for name in ('qseecom_proxy.ko', 'smcinvoke_dlkm.ko', 'hdcp_qseecom_dlkm.ko'):
+        for name in ('qseecom_proxy.ko', 'smcinvoke_dlkm.ko'):
             self.assertNotIn(name, denied)
             self.assertIn(name, self.recipe['partitions']['vendor_dlkm'])
         for key, target in (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
@@ -202,6 +202,25 @@ class KernelDenyListTests(unittest.TestCase):
                     recipe[key][target].append(spelling)
                     self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: ' + spelling,
                                            kernel.denied_modules, recipe)
+
+    def test_hdcp_client_module_is_denied_and_in_no_list(self):
+        denied = kernel.denied_modules(self.recipe)
+        self.assertIn('hdcp_qseecom_dlkm.ko', denied)
+        self.assertIn('DisplayPort', denied['hdcp_qseecom_dlkm.ko'])
+        listed = set().union(*map(set, self.recipe['partitions'].values()), *map(set, self.recipe['load_lists'].values()))
+        self.assertFalse([name for name in listed if 'hdcp' in name])
+        # The display driver and the TEE transport it no longer pulls in stay.
+        for name in ('msm_drm.ko', 'smcinvoke_dlkm.ko', 'qseecom_proxy.ko'):
+            self.assertIn(name, self.recipe['partitions']['vendor_boot'])
+            self.assertIn(name, self.recipe['partitions']['vendor_dlkm'])
+            self.assertIn(name, self.recipe['load_lists']['vendor_boot/modules.load.recovery'])
+        for key, target in (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
+                            ('load_lists', 'vendor_dlkm/modules.load')):
+            with self.subTest(key=key, target=target):
+                recipe = copy.deepcopy(self.recipe)
+                recipe[key][target].append('hdcp_qseecom_dlkm.ko')
+                self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: hdcp_qseecom_dlkm.ko',
+                                       kernel.denied_modules, recipe)
 
     def test_regenerated_list_with_a_denied_module_is_rejected(self):
         for key in ('partitions', 'load_lists'):

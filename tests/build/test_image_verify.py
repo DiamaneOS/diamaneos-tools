@@ -1620,8 +1620,8 @@ class GenericCheckTests(unittest.TestCase):
     def test_legacy_qseecom_module_in_an_image_fails_the_module_check(self):
         packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_text())
         signed = b'module' + subject.MODULE_SIGNATURE
-        for name, denied in (('qseecom_dlkm.ko', True), ('qseecom-dlkm.ko', True), ('hdcp_qseecom_dlkm.ko', False),
-                             ('qseecom_proxy.ko', False)):
+        for name, denied in (('qseecom_dlkm.ko', True), ('qseecom-dlkm.ko', True), ('hdcp_qseecom_dlkm.ko', True),
+                             ('qseecom_proxy.ko', False), ('smcinvoke_dlkm.ko', False)):
             with self.subTest(name=name):
                 kernel = self.root / ('kernel-' + name)
                 (kernel / 'modules').mkdir(parents=True)
@@ -1639,6 +1639,40 @@ class GenericCheckTests(unittest.TestCase):
                 self.assertEqual(not denied, ok, detail)
                 self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/' in detail)
                 self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/modules.load' in detail)
+
+    def test_hdcp_removal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ids = ('no-hdcp-module', 'no-hdcp-module-listed', 'display-driver-without-hdcp',
+               'display-driver-without-hdcp-ramdisk', 'no-hdcp-level-node-rule')
+        dlkm, ramdisk = 'VENDOR_DLKM/lib/modules/', 'VENDOR_BOOT/RAMDISK/lib/modules/'
+        driver = (b'\x7fELF\0dp_display_hdcp_start\0sde_hdcp_state_name\0qcom_scm_mem_protect_sd_ctrl\0'
+                  b'depends=msm_ext_display,sync_fence,msm_hw_fence\0')
+        good = {dlkm + 'msm_drm.ko': driver, ramdisk + 'msm_drm.ko': driver,
+                dlkm + 'modules.load': b'qseecom_proxy.ko\nsmcinvoke_dlkm.ko\nmsm_drm.ko\n',
+                dlkm + 'modules.load.crypto': b'qrng_dlkm.ko\nsmmu_proxy_dlkm.ko\nsmcinvoke_dlkm.ko\n',
+                dlkm + 'modules.dep': b'/vendor_dlkm/lib/modules/msm_drm.ko: /vendor_dlkm/lib/modules/msm_ext_display.ko\n',
+                ramdisk + 'modules.dep': b'/lib/modules/msm_drm.ko: /lib/modules/msm_ext_display.ko\n',
+                ramdisk + 'modules.load.recovery': b'smcinvoke_dlkm.ko\nmsm_drm.ko\n',
+                'VENDOR/etc/ueventd.rc': b'/sys/devices/platform/soc/ae00000.qcom,mdss_mdp power/control 0664 system graphics\n'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        imports = driver + b'hdcp2_app_comm\0hdcp1_start\0'
+        for failing, change in [
+                ('no-hdcp-module', {dlkm + 'hdcp_qseecom_dlkm.ko': b'module'}),
+                ('no-hdcp-module', {ramdisk + 'hdcp_qseecom_dlkm.ko': b'module'}),
+                ('no-hdcp-module-listed', {dlkm + 'modules.load': good[dlkm + 'modules.load'] + b'hdcp_qseecom_dlkm.ko\n'}),
+                ('no-hdcp-module-listed', {dlkm + 'modules.load.crypto': b'hdcp_qseecom_dlkm.ko\n'}),
+                ('no-hdcp-module-listed', {ramdisk + 'modules.dep': b'/lib/modules/msm_drm.ko: /lib/modules/hdcp_qseecom_dlkm.ko\n'}),
+                ('display-driver-without-hdcp', {dlkm + 'msm_drm.ko': driver.replace(b'depends=', b'depends=hdcp_qseecom_dlkm,')}),
+                ('display-driver-without-hdcp', {dlkm + 'msm_drm.ko': imports}),
+                ('display-driver-without-hdcp-ramdisk', {ramdisk + 'msm_drm.ko': imports}),
+                ('no-hdcp-level-node-rule', {'VENDOR/etc/ueventd.rc': good['VENDOR/etc/ueventd.rc']
+                                             + b'/sys/devices/virtual/hdcp/msm_hdcp  min_level_change 0664    system  graphics\n'})]:
+            members = {**good, **change}
+            for rule_id in ids:
+                with self.subTest(rule=rule_id, change=sorted(change)):
+                    self.assertEqual(rule_id != failing, check(rule_id, members))
 
     def test_vendor_load_list_and_streams_follow_the_kernel_prebuilts(self):
         kernel = self.root / 'kernel'
