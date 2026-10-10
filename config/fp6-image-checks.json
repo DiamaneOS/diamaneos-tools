@@ -3447,6 +3447,36 @@
       ]
     },
     {
+      "id": "tee-node-label",
+      "why": "/dev/smcinvoke is the only node with the TEE label: the legacy QSEECom driver and its /dev/qseecom node are not shipped.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/selinux/plat_file_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "match": "any",
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+u:object_r:tee_device:s0[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
+      ]
+    },
+    {
+      "id": "tee-node-owner",
+      "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660, and has no rule for a /dev/qseecom node.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^[ \\t]*/dev/qseecom[ \\t]"
+      ]
+    },
+    {
       "id": "no-offline-camera-declaration",
       "why": "The offline camera service has no client: its stock VINTF declaration is not installed, so servicemanager refuses the registration inside the camera provider.",
       "type": "files_absent",

@@ -521,6 +521,32 @@ class RuleTests(unittest.TestCase):
                 with self.subTest(rule=rule_id, change=sorted(change)):
                     self.assertEqual(rule_id not in failing, check(rule_id, members))
 
+    def test_tee_node_label_and_owner_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        plat, vendor = 'SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'
+        ueventd = 'VENDOR/etc/ueventd.rc'
+        labels = (b'#\n/dev/smcinvoke                                  u:object_r:tee_device:s0\n'
+                  b'/dev/qce                                        u:object_r:vendor_qce_device:s0\n'
+                  b'/vendor/bin/qseecomd            u:object_r:tee_exec:s0\n')
+        nodes = (b'/dev/qce                  0660   system     drmrpc\n'
+                 b'/dev/smcinvoke            0660   system     drmrpc\n')
+        good = {plat: b'/dev/binder   u:object_r:binder_device:s0\n', vendor: labels, ueventd: nodes}
+        check = lambda rule_id, members: subject.rule_text(rules[rule_id], self.harness(members))[0]
+        for rule_id in ('tee-node-label', 'tee-node-owner'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('tee-node-label', {vendor: labels + b'/dev/qseecom       u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {vendor: labels + b'/dev/tee[0-9]*   -c   u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {plat: good[plat] + b'/dev/trusty-ipc-dev0   u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {vendor: labels.replace(b'/dev/smcinvoke ', b'/dev/smcinvoke2')}),
+                ('tee-node-label', {vendor: labels.replace(b'tee_device', b'device')}),
+                ('tee-node-owner', {ueventd: nodes + b'/dev/qseecom              0660   system     drmrpc\n'}),
+                ('tee-node-owner', {ueventd: nodes.replace(b'/dev/smcinvoke            0660', b'/dev/smcinvoke            0666')}),
+                ('tee-node-owner', {ueventd: nodes.replace(b'system     drmrpc\n', b'system     system\n')}),
+                ('tee-node-owner', {ueventd: b'/dev/qce                  0660   system     drmrpc\n'})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                self.assertFalse(check(rule_id, {**good, **change}))
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')
