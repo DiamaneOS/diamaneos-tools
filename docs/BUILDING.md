@@ -85,4 +85,4 @@ tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmw
 
 [Build reference](BUILD.md) (host setup, each step, [building by hand](BUILD.md#building-by-hand),
 [troubleshooting](BUILD.md#troubleshooting)), [FP6 kernel](FP6-KERNEL.md), [firmware](FIRMWARE.md),
-[signing](SIGNING.md), [threat model](THREAT_MODEL.md).
+[signing](SIGNING.md), [terms](TERMS.md).

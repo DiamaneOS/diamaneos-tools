@@ -1,7 +1,7 @@
 # DiamaneOS testing
 
 How to run the tool tests and checks, and what is recorded about the stock Fairphone 6 (FP6). Terms:
-see the [threat model](THREAT_MODEL.md#terms).
+see [TERMS.md](TERMS.md).
 
 ## Run the tool tests
 

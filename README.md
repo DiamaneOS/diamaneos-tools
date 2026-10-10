@@ -59,8 +59,7 @@ fastboot --version
 - [Repository map](config/repositories.json): checkout discovery and lifecycle state only, not a
   release lock; the consuming build or release manifest records exact multi-repository build inputs.
 - [Verified stock factory packages](config/stock-inputs.json)
-- [Threat model and product boundaries](docs/THREAT_MODEL.md)
-- [Tally shell rules](docs/THREAT_MODEL-TALLY.md)
+- [Terms](docs/TERMS.md)
 - Interface design and branding sources are not public.
 
 Only implemented commands can be run.

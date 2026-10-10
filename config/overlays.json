@@ -60,7 +60,7 @@
         "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay; SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
       },
       "com.android.documentsui": {
-        "force_material3": "Material 3 Files; the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review, tests and threat-model row"
+        "force_material3": "Material 3 Files; the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review and tests"
       },
       "com.android.customization.themes": {
         "color_bundles": "the five DiamaneOS colour presets (Sodium, Phosphor, Signal violet, Rose, Lichen) instead of the 17 AOSP ones; an overlay cannot add names, so they reuse the stub keys rainbow1 to rainbow5",

@@ -206,7 +206,6 @@ or deleted files):
     commands lose variables that lead to local agents and buses (`SSH_AUTH_SOCK`, `DBUS_*`,
     `XDG_RUNTIME_DIR`, `DOCKER_HOST` and similar).
   - Unix sockets in the filesystem stay reachable.
-  - See the threat model.
   - If the host has no unprivileged user namespaces the command stops.
   - `--allow-network` builds anyway and records `network_isolation: off` for the kernel, vendor and
     Android steps.
@@ -527,7 +526,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
 - UFS access remains scoped to the boot-control service.
 - Exact revisions and project-map digests bind the selected workspace.
 
-- `config/build-environment.json` is the build-input authority for FP6-033.
+- `config/build-environment.json` is the build-input authority.
 - It binds the selected stable GrapheneOS tag, tag object, peeled manifest commit, official
   signer-list hash, signer identity, tagged `default.xml`, canonical project commit map, the
   GPG-verified `repo` v2.65 tag object/commit, host packages, external tools and project/device

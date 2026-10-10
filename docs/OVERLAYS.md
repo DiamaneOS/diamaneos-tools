@@ -185,8 +185,7 @@ exempt from 3 and 4.
 - `qualifier_waivers`: `{overlay, resource, qualifiers, reason}` for target qualifiers a product
   overlay deliberately leaves to the target (`*` for all).
 
-Adding a name is a review decision: give the reason, and update the threat model in the same change
-if it touches a security or privacy surface.
+Adding a name is a review decision: give the reason.
 
 ## Output and limits
 

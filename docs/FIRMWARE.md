@@ -18,7 +18,7 @@ delivers it, and its recent changes.
 - It was read from the archives, not from a phone.
 
 - Settings shows which release the booted slot's firmware is (About phone > Android version >
-  Fairphone firmware; implemented, not yet built).
+  Fairphone firmware).
 - The phone cannot say itself: every Qualcomm version string is the same in 16.100.0 and 16.111.0.
 - So `fwrelease` (device `firmware/`) hashes the slot's 22 A/B firmware partitions once per boot and
   compares them with a table the vendor step writes from the inventory
