@@ -226,9 +226,10 @@ class KernelPackagingBlocklistTests(unittest.TestCase):
             temp = Path(temp)
             merged = temp / 'merged'; merged.mkdir()
             (merged / 'dtbo.img').write_bytes(b'dtbo')
+            for name in ('fp6.dtb', 'volcano.dtb'): (merged / name).write_bytes(name.encode())
             image = temp / 'Image'; image.write_bytes(b'kernel')
             recipe = {'partitions': {'vendor_boot': [], 'vendor_dlkm': [], 'system_dlkm': []},
-                      'load_lists': {},
+                      'load_lists': {}, 'dtbs': ['fp6.dtb'],
                       'blocklists': {'vendor_boot/modules.blocklist': 'blocklist a\n',
                                      'vendor_dlkm/modules.blocklist': 'blocklist a\n'}}
             candidate = temp / 'candidate'
@@ -239,6 +240,14 @@ class KernelPackagingBlocklistTests(unittest.TestCase):
             self.assertIn('BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := '
                           '$(FP6_KERNEL_PATH)/vendor_dlkm-modules.blocklist\n', board)
             self.assertEqual((candidate / 'vendor_boot-modules.blocklist').read_text(), 'blocklist a\n')
+            # Only the listed device tree ships, not every tree the vendor build makes.
+            self.assertEqual(['fp6.dtb'], [p.name for p in (candidate / 'dtbs').iterdir()])
+
+    def test_only_the_fp6_device_tree_ships(self):
+        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+        self.assertEqual(['fp6.dtb'], kernel.shipped_dtbs(recipe))
+        for bad in (None, [], ['fp6.dtb', 'fp6.dtb'], ['../fp6.dtb'], ['fp6.dtbo']):
+            self.assertRaises(kernel.KernelError, kernel.shipped_dtbs, {'dtbs': bad})
 
 
 class KernelSymbolRuleTests(unittest.TestCase):

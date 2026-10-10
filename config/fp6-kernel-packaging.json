@@ -1398,7 +1398,9 @@
       "reason": "Qualcomm's embedded USB debugger (EUD): debug access over USB. Its device-tree node is disabled, and the USB controller takes its connect and role events from UCSI, not from an EUD extcon."
     }
   ],
-  "dtb_count": 14,
+  "dtbs": [
+    "fp6.dtb"
+  ],
   "dtbo_count": 95,
   "module_import_allowlist": {
     "register_kretprobe": {

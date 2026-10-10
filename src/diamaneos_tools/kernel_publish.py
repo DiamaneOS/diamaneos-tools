@@ -127,7 +127,8 @@ def describe(result, run):
         f'- Tools: [diamaneos-tools]({TOOLS_URL}) at `{tools["commit"][:7]}`, {result["config_profile"]} '
         'kernel configuration.',
         f'- {result.get("module_count")} modules ({result.get("denied_module_count")} left out by policy), '
-        f'{result.get("dtb_count")} device trees, {result.get("dtbo_count")} overlays.',
+        f'{result.get("dtb_count")} device tree{"" if result.get("dtb_count") == 1 else "s"}, '
+        f'{result.get("dtbo_count")} overlays.',
         f'- Built {built.day} {built.strftime("%B")} {built.year}.',
     ]
 

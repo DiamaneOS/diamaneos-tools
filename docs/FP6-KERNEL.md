@@ -90,8 +90,10 @@ tools/bazel query --output=label \
 ## Module packaging
 
 - [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) defines the reviewed
-  module selection, partition placement and load lists, and the required merged DTB and DTBO entry
-  counts.
+  module selection, partition placement and load lists, the device trees that ship and the overlay
+  count.
+- Only `fp6.dtb` ships. The vendor build also makes device trees for other boards and chips; they
+  stay out of the prebuilts.
 - Overlaps between system DLKM, vendor DLKM and the vendor ramdisk are intentional (normal/recovery
   availability); each placement is hash-bound.
 - Stripping debug sections from unsigned modules must keep module metadata and symbol versions;
