@@ -1,4 +1,5 @@
 """Native X.509 representation fixtures; no APK signing or device qualification."""
+import copy
 import hashlib
 import json
 import os
@@ -141,6 +142,35 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
         self.signed_xml(self.replaced(self.xml), {EXT_MEMBER: self.replaced(extra)})
         self.assertEqual(3, self.verify()['package_selectors'])
 
+    def test_identical_system_vendor_global_mapping_retains_both_files(self):
+        vendor = '<policy><signer signature="' + self.hex('old_platform') + '"><seinfo value="platform"/></signer></policy>'
+        member = 'VENDOR/etc/selinux/vendor_mac_permissions.xml'
+        self.original_xml(self.xml, {member: vendor})
+        self.signed_xml(self.replaced(self.xml), {member: self.replaced(vendor)})
+        expected = self.prepare()
+        self.assertEqual({MEMBER, member}, set(expected))
+        self.assertEqual(3, self.verify(expected)['global_selectors'])
+        changed = copy.deepcopy(expected)
+        changed[member][0]['seinfo'] = 'different_label'
+        with self.assertRaises(inputs.SigningError): self.verify(changed)
+        self.signed_xml(self.replaced(self.xml), {member: self.replaced(vendor).replace('value="platform"', 'value="different_label"')})
+        with self.assertRaises(inputs.SigningError): self.verify(expected)
+
+    def test_conflicting_global_mapping_across_partitions_is_refused(self):
+        other = '<policy><signer signature="' + self.hex('old_platform') + '"><seinfo value="other_label"/></signer></policy>'
+        self.original_xml(self.xml, {EXT_MEMBER: other})
+        with self.assertRaises(inputs.SigningError): self.prepare()
+
+    def test_identical_global_duplicate_within_one_file_stays_refused(self):
+        extra = '<signer signature="' + self.hex('old_platform') + '"><seinfo value="platform"/></signer>'
+        self.original_xml(self.xml.replace('</policy>', extra + '</policy>'))
+        with self.assertRaises(inputs.SigningError): self.prepare()
+
+    def test_cross_partition_package_overlap_stays_refused_with_same_label(self):
+        other = '<policy><signer signature="' + self.hex('old_testkey') + '"><package name="example.isolated"><seinfo value="isolated_label"/></package></signer></policy>'
+        self.original_xml(self.xml, {EXT_MEMBER: other})
+        with self.assertRaises(inputs.SigningError): self.prepare()
+
     def test_preserved_vendor_certificate_requires_independent_presigned_policy(self):
         xml = self.xml.replace('</policy>', '<signer signature="' + self.hex('vendor_fixture') + '"><seinfo value="vendor_label"/></signer></policy>')
         self.original_xml(xml); self.signed_xml(self.replaced(xml))
@@ -256,8 +286,8 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
         self.signed_xml(None, {EXT_MEMBER: self.replaced(self.xml)})
         with self.assertRaises(inputs.SigningError): self.verify(expected)
 
-    def test_duplicates_across_files_are_rejected_by_framework_certificate_set_semantics(self):
-        for stanza in ('<seinfo value="default"/>', '<package name="example.isolated"><seinfo value="isolated_label"/></package>'):
+    def test_conflicting_global_and_overlapping_package_selectors_across_files_refuse(self):
+        for stanza in ('<seinfo value="different_default"/>', '<package name="example.isolated"><seinfo value="isolated_label"/></package>'):
             extra = '<policy><signer signature="' + self.hex('old_testkey') + '">' + stanza + '</signer></policy>'
             self.original_xml(self.xml, {EXT_MEMBER: extra})
             with self.assertRaises(inputs.SigningError): self.prepare()

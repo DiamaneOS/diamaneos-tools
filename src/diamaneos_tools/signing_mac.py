@@ -154,16 +154,25 @@ def _policies(raw, certificates):
     return sorted(result)
 
 
-def _unique(policies):
-    global_selectors, package_selectors = set(), set()
+def _unique(policies, *, identical_globals=False):
+    global_selectors, package_selectors = {}, set()
     for certs, label, packages in policies:
         if label:
-            require(certs not in global_selectors, 'Repeated MAC global certificate selector')
-            global_selectors.add(certs)
+            require(certs not in global_selectors or identical_globals and global_selectors[certs] == label,
+                    'Repeated or conflicting MAC global certificate selector')
+            global_selectors[certs] = label
         for name, _ in packages:
             key = certs, name
             require(key not in package_selectors, 'Repeated or conflicting MAC package selector')
             package_selectors.add(key)
+
+
+def _unique_files(policies):
+    # Android loads separate partition files. A repeated global mapping with
+    # the same certificate set and label cannot change the selected seinfo.
+    for rows in policies.values():
+        _unique(rows)
+    _unique([row for rows in policies.values() for row in rows], identical_globals=True)
 
 
 def _replacements(handle, metadata, roles, public, tools, certificates, snapshots):
@@ -243,7 +252,7 @@ def _read_policies(handle, names):
                 and (not stat.S_IFMT(mode) or stat.S_ISREG(mode)), 'MAC policy is oversized or not a regular member')
         result[name] = _policies(handle.read(name), certificates)
     require(certificates, 'MAC policy has no certificate selectors')
-    _unique([p for values in result.values() for p in values])
+    _unique_files(result)
     return result, certificates
 
 
@@ -273,7 +282,7 @@ def _snapshot(expected):
             rows.append((tuple(sorted(certs)), label or '', tuple(sorted(packages.items()))))
         result[name] = sorted(rows)
     require(any(result.values()), 'Expected MAC snapshot has no selectors')
-    _unique([p for values in result.values() for p in values])
+    _unique_files(result)
     return result
 
 
