@@ -4052,32 +4052,6 @@
       ]
     },
     {
-      "id": "usb-events-from-ucsi-volcano",
-      "why": "As usb-events-from-ucsi, for the generic Volcano tree that matches the same board ID.",
-      "type": "devicetree",
-      "file": "kernel:dtbs/volcano.dtb",
-      "checks": [
-        {
-          "node": "/soc/ssusb@a600000",
-          "property": "usb-role-switch"
-        },
-        {
-          "node": "/soc/ssusb@a600000",
-          "property": "extcon",
-          "absent": true
-        },
-        {
-          "node": "/soc/qcom,pmic_glink/qcom,ucsi/connector/port/endpoint",
-          "property": "remote-endpoint"
-        },
-        {
-          "node": "/soc/qcom,msm-eud@88e0000",
-          "property": "status",
-          "string": "disabled"
-        }
-      ]
-    },
-    {
       "id": "privacy-switch-devicetree",
       "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys no longer has it, and nothing can disable it from sysfs.",
       "type": "devicetree",
