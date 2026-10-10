@@ -3285,234 +3285,168 @@
         "qseecom_proxy.ko"
       ]
     },
-    {
-      "id": "tee-node-open",
-      "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node; the platform's reference HAL domains in the list cannot start (tee-node-dormant-domains).",
-      "type": "sepolicy_sources",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "target": "tee_device",
-      "cls": "chr_file",
-      "perm": "open",
-      "allowed": [
-        "hal_authgraph_default",
-        "hal_cas_default",
-        "hal_drm_clearkey_aidl",
-        "hal_drm_default",
-        "hal_fingerprint_default",
-        "hal_gatekeeper_default",
-        "hal_hwcrypto_default",
-        "hal_keymaster_default",
-        "hal_keymint_default",
-        "hal_secretkeeper_default",
-        "tee",
-        "vendor_hal_gatekeeper_qti",
-        "vendor_hal_keymint_qti"
-      ]
-    },
-    {
-      "id": "tee-node-read",
-      "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
-      "type": "sepolicy_sources",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "target": "tee_device",
-      "cls": "chr_file",
-      "perm": "read",
-      "allowed": [
-        "hal_authgraph_default",
-        "hal_cas_default",
-        "hal_drm_clearkey_aidl",
-        "hal_drm_default",
-        "hal_fingerprint_default",
-        "hal_gatekeeper_default",
-        "hal_hwcrypto_default",
-        "hal_keymaster_default",
-        "hal_keymint_default",
-        "hal_secretkeeper_default",
-        "tee",
-        "vendor_hal_gatekeeper_qti",
-        "vendor_hal_keymint_qti"
-      ]
-    },
-    {
-      "id": "tee-node-write",
-      "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
-      "type": "sepolicy_sources",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "target": "tee_device",
-      "cls": "chr_file",
-      "perm": "write",
-      "allowed": [
-        "hal_authgraph_default",
-        "hal_cas_default",
-        "hal_drm_clearkey_aidl",
-        "hal_drm_default",
-        "hal_fingerprint_default",
-        "hal_gatekeeper_default",
-        "hal_hwcrypto_default",
-        "hal_keymaster_default",
-        "hal_keymint_default",
-        "hal_secretkeeper_default",
-        "tee",
-        "vendor_hal_gatekeeper_qti",
-        "vendor_hal_keymint_qti"
-      ]
-    },
-    {
-      "id": "tee-node-ioctl",
-      "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
-      "type": "sepolicy_sources",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "target": "tee_device",
-      "cls": "chr_file",
-      "perm": "ioctl",
-      "allowed": [
-        "hal_authgraph_default",
-        "hal_cas_default",
-        "hal_drm_clearkey_aidl",
-        "hal_drm_default",
-        "hal_fingerprint_default",
-        "hal_gatekeeper_default",
-        "hal_hwcrypto_default",
-        "hal_keymaster_default",
-        "hal_keymint_default",
-        "hal_secretkeeper_default",
-        "tee",
-        "vendor_hal_gatekeeper_qti",
-        "vendor_hal_keymint_qti"
-      ]
-    },
-    {
-      "id": "tee-node-dormant-domains",
-      "why": "The platform policy also lets its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains use the TEE node. No installed file may be able to start one of them.",
-      "type": "sepolicy_dormant",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "contexts": [
-        "SYSTEM/etc/selinux/plat_file_contexts",
-        "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
-        "PRODUCT/etc/selinux/product_file_contexts",
-        "VENDOR/etc/selinux/vendor_file_contexts",
-        "ODM/etc/selinux/odm_file_contexts"
-      ],
-      "domains": [
-        "hal_authgraph_default",
-        "hal_cas_default",
-        "hal_drm_clearkey_aidl",
-        "hal_drm_default",
-        "hal_gatekeeper_default",
-        "hal_hwcrypto_default",
-        "hal_keymaster_default",
-        "hal_keymint_default",
-        "hal_secretkeeper_default"
-      ]
-    },
-    {
-      "id": "tee-node-label",
-      "why": "/dev/smcinvoke is the only node with the TEE label: the legacy QSEECom driver and its /dev/qseecom node are not shipped.",
-      "type": "text",
-      "files": [
-        "SYSTEM/etc/selinux/plat_file_contexts",
-        "VENDOR/etc/selinux/vendor_file_contexts"
-      ],
-      "match": "any",
-      "regex": [
-        "^/dev/smcinvoke[ \\t]+u:object_r:tee_device:s0[ \\t]*$"
-      ],
-      "absent_regex": [
-        "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
-      ]
-    },
-    {
-      "id": "tee-node-owner",
-      "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660, and has no rule for a /dev/qseecom node.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/ueventd.rc"
-      ],
-      "regex": [
-        "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
-      ],
-      "absent_regex": [
-        "^[ \\t]*/dev/qseecom[ \\t]"
-      ]
-    },
-    {
-      "id": "tee-node-ioctl-limit",
-      "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
-      "type": "sepolicy_xperms",
-      "files": [
-        "SYSTEM/etc/selinux/plat_sepolicy.cil",
-        "SYSTEM/etc/selinux/mapping/*.cil",
-        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-        "PRODUCT/etc/selinux/product_sepolicy.cil",
-        "PRODUCT/etc/selinux/mapping/*.cil",
-        "VENDOR/etc/selinux/plat_pub_versioned.cil",
-        "VENDOR/etc/selinux/vendor_sepolicy.cil",
-        "ODM/etc/selinux/odm_sepolicy.cil"
-      ],
-      "target": "tee_device",
-      "cls": "chr_file",
-      "sources": [
-        "hal_fingerprint_default",
-        "tee",
-        "vendor_hal_gatekeeper_qti",
-        "vendor_hal_keymint_qti"
-      ],
-      "allowed": [
-        "0x9801",
-        "0x9803"
-      ]
-    },
+      {
+        "id": "tee-node-open",
+        "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. It has its own label, so the platform's tee_device grants to its reference HAL domains do not reach it (tee-node-label).",
+        "type": "sepolicy_sources",
+        "files": [
+          "SYSTEM/etc/selinux/plat_sepolicy.cil",
+          "SYSTEM/etc/selinux/mapping/*.cil",
+          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+          "PRODUCT/etc/selinux/product_sepolicy.cil",
+          "PRODUCT/etc/selinux/mapping/*.cil",
+          "VENDOR/etc/selinux/plat_pub_versioned.cil",
+          "VENDOR/etc/selinux/vendor_sepolicy.cil",
+          "ODM/etc/selinux/odm_sepolicy.cil"
+        ],
+        "target": "vendor_smcinvoke_device",
+        "cls": "chr_file",
+        "perm": "open",
+        "allowed": [
+          "hal_fingerprint_default",
+          "tee",
+          "vendor_hal_gatekeeper_qti",
+          "vendor_hal_keymint_qti"
+        ]
+      },
+      {
+        "id": "tee-node-read",
+        "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
+        "type": "sepolicy_sources",
+        "files": [
+          "SYSTEM/etc/selinux/plat_sepolicy.cil",
+          "SYSTEM/etc/selinux/mapping/*.cil",
+          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+          "PRODUCT/etc/selinux/product_sepolicy.cil",
+          "PRODUCT/etc/selinux/mapping/*.cil",
+          "VENDOR/etc/selinux/plat_pub_versioned.cil",
+          "VENDOR/etc/selinux/vendor_sepolicy.cil",
+          "ODM/etc/selinux/odm_sepolicy.cil"
+        ],
+        "target": "vendor_smcinvoke_device",
+        "cls": "chr_file",
+        "perm": "read",
+        "allowed": [
+          "hal_fingerprint_default",
+          "tee",
+          "vendor_hal_gatekeeper_qti",
+          "vendor_hal_keymint_qti"
+        ]
+      },
+      {
+        "id": "tee-node-write",
+        "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
+        "type": "sepolicy_sources",
+        "files": [
+          "SYSTEM/etc/selinux/plat_sepolicy.cil",
+          "SYSTEM/etc/selinux/mapping/*.cil",
+          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+          "PRODUCT/etc/selinux/product_sepolicy.cil",
+          "PRODUCT/etc/selinux/mapping/*.cil",
+          "VENDOR/etc/selinux/plat_pub_versioned.cil",
+          "VENDOR/etc/selinux/vendor_sepolicy.cil",
+          "ODM/etc/selinux/odm_sepolicy.cil"
+        ],
+        "target": "vendor_smcinvoke_device",
+        "cls": "chr_file",
+        "perm": "write",
+        "allowed": [
+          "hal_fingerprint_default",
+          "tee",
+          "vendor_hal_gatekeeper_qti",
+          "vendor_hal_keymint_qti"
+        ]
+      },
+      {
+        "id": "tee-node-ioctl",
+        "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
+        "type": "sepolicy_sources",
+        "files": [
+          "SYSTEM/etc/selinux/plat_sepolicy.cil",
+          "SYSTEM/etc/selinux/mapping/*.cil",
+          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+          "PRODUCT/etc/selinux/product_sepolicy.cil",
+          "PRODUCT/etc/selinux/mapping/*.cil",
+          "VENDOR/etc/selinux/plat_pub_versioned.cil",
+          "VENDOR/etc/selinux/vendor_sepolicy.cil",
+          "ODM/etc/selinux/odm_sepolicy.cil"
+        ],
+        "target": "vendor_smcinvoke_device",
+        "cls": "chr_file",
+        "perm": "ioctl",
+        "allowed": [
+          "hal_fingerprint_default",
+          "tee",
+          "vendor_hal_gatekeeper_qti",
+          "vendor_hal_keymint_qti"
+        ]
+      },
+      {
+        "id": "tee-node-label",
+        "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains; the legacy /dev/qseecom node is not shipped.",
+        "type": "text",
+        "files": [
+          "SYSTEM/etc/selinux/plat_file_contexts",
+          "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
+          "PRODUCT/etc/selinux/product_file_contexts",
+          "VENDOR/etc/selinux/vendor_file_contexts",
+          "ODM/etc/selinux/odm_file_contexts"
+        ],
+        "match": "any",
+        "regex": [
+          "^/dev/smcinvoke[ \\t]+u:object_r:vendor_smcinvoke_device:s0[ \\t]*$"
+        ],
+        "absent_regex": [
+          "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:vendor_smcinvoke_device:s0",
+          "^\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
+        ]
+      },
+      {
+        "id": "tee-node-owner",
+        "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660, and has no rule for a /dev/qseecom node.",
+        "type": "text",
+        "files": [
+          "VENDOR/etc/ueventd.rc"
+        ],
+        "regex": [
+          "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
+        ],
+        "absent_regex": [
+          "^[ \\t]*/dev/qseecom[ \\t]"
+        ]
+      },
+      {
+        "id": "tee-node-ioctl-limit",
+        "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+        "type": "sepolicy_xperms",
+        "files": [
+          "SYSTEM/etc/selinux/plat_sepolicy.cil",
+          "SYSTEM/etc/selinux/mapping/*.cil",
+          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+          "PRODUCT/etc/selinux/product_sepolicy.cil",
+          "PRODUCT/etc/selinux/mapping/*.cil",
+          "VENDOR/etc/selinux/plat_pub_versioned.cil",
+          "VENDOR/etc/selinux/vendor_sepolicy.cil",
+          "ODM/etc/selinux/odm_sepolicy.cil"
+        ],
+        "target": "vendor_smcinvoke_device",
+        "cls": "chr_file",
+        "sources": [
+          "hal_fingerprint_default",
+          "tee",
+          "vendor_hal_gatekeeper_qti",
+          "vendor_hal_keymint_qti"
+        ],
+        "allowed": [
+          "0x9801",
+          "0x9803"
+        ]
+      },
     {
       "id": "no-hdcp-module",
       "why": "The HDCP client module is not shipped. It would let the kernel load four trusted apps by name for DisplayPort content protection, and the FP6 has no DisplayPort output.",

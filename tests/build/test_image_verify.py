@@ -465,60 +465,48 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
         live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
-        dormant = rules['tee-node-dormant-domains']['domains']
-        self.assertEqual(9, len(dormant))
+        reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_gatekeeper_default', 'hal_keymint_default']
+        self.assertNotIn('tee-node-dormant-domains', rules)
         for rule_id in reach:
-            self.assertEqual(sorted(live + dormant), rules[rule_id]['allowed'], rule_id)
-            self.assertEqual(('tee_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
+            self.assertEqual(live, rules[rule_id]['allowed'], rule_id)
+            self.assertEqual(('vendor_smcinvoke_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
                              (rules[rule_id]['target'], rules[rule_id]['cls'], rules[rule_id]['perm']))
         plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
-        contexts = 'VENDOR/etc/selinux/vendor_file_contexts'
+        system_ext = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
         use = '(chr_file (ioctl read write getattr open))'
+        # The platform still grants tee_device to its reference HAL domains; no node carries that label.
         plat_cil = ('(type tee_device)\n(type init)\n(type ueventd)\n(type hal_camera_default)\n'
-                    '(typeattributeset dev_type (tee_device))\n'
+                    '(typeattributeset dev_type (tee_device vendor_smcinvoke_device))\n'
                     '(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
-                    '(allow ueventd dev_type (chr_file (create setattr unlink)))\n')
-        vendor_cil = (''.join(f'(type {d})\n(type {d}_exec)\n(allow {d} {d}_exec (file (read execute entrypoint)))\n'
-                              for d in live + dormant)
+                    '(allow ueventd dev_type (chr_file (create setattr unlink)))\n'
+                    f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
+                    f'(allow hal_keymint_default tee_device {use})\n')
+        vendor_cil = (''.join(f'(type {d})\n' for d in live + reference)
                       + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl))\n'
                       + '(typeattributeset hal_gatekeeper_server (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
-                      + f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
-                      + ''.join(f'(allow {d} tee_device {use})\n' for d in live + dormant
-                                if not d.startswith(('hal_drm_', 'hal_gatekeeper_')) and d != 'vendor_hal_gatekeeper_qti')
-                      + '(allow hal_fingerprint_default tee_device (chr_file (open read write ioctl)))\n')
-        labels = ('/dev/smcinvoke   u:object_r:tee_device:s0\n'
-                  '/vendor/bin/qseecomd   u:object_r:tee_exec:s0\n'
-                  '/vendor/bin/hw/android\\.hardware\\.gatekeeper-service-qti   u:object_r:vendor_hal_gatekeeper_qti_exec:s0\n'
-                  '/(vendor|system/vendor)/bin/hw/android\\.hardware\\.drm-service(-lazy)?\\.clearkey '
-                  'u:object_r:hal_drm_clearkey_aidl_exec:s0\n'
-                  '/(vendor|system/vendor)/bin/hw/android\\.hardware\\.security\\.keymint-service   '
-                  'u:object_r:hal_keymint_default_exec:s0\n')
-        good = {plat: plat_cil.encode(), vendor: vendor_cil.encode(), contexts: labels.encode(),
-                'VENDOR/bin/qseecomd': b'\x7fELF', 'VENDOR/bin/hw/android.hardware.gatekeeper-service-qti': b'\x7fELF',
-                'VENDOR/bin/hw/android.hardware.security.keymint-service-qti': b'\x7fELF',
-                'SYSTEM/etc/selinux/plat_file_contexts': b'', 'SYSTEM_EXT/etc/selinux/system_ext_file_contexts': b'',
-                'PRODUCT/etc/selinux/product_file_contexts': b'', 'ODM/etc/selinux/odm_file_contexts': b'',
-                'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
-                'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+                      + ''.join(f'(allow {d} vendor_smcinvoke_device {use})\n' for d in live if d != 'hal_fingerprint_default')
+                      + '(allow hal_fingerprint_default vendor_smcinvoke_device (chr_file (open read write ioctl)))\n')
+        good = {plat: plat_cil.encode(), vendor: vendor_cil.encode(), system_ext: b'(type vendor_smcinvoke_device)\n',
+                'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                'ODM/etc/selinux/odm_sepolicy.cil': b''}
         check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
-        for rule_id in reach + ('tee-node-dormant-domains',):
+        for rule_id in reach:
             self.assertTrue(check(rule_id, good), rule_id)
         grant = lambda rule: {vendor: (vendor_cil + rule + '\n').encode()}
-        widevine = ('(type hal_drm_widevine)\n(typeattributeset hal_drm_server (hal_drm_widevine))')
         for failing, change in [
-                (('tee-node-ioctl',), grant('(allow hal_camera_default tee_device (chr_file (ioctl)))')),
-                (('tee-node-read', 'tee-node-write'), grant('(allow hal_camera_default tee_device (chr_file (read write)))')),
+                (('tee-node-ioctl',), grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (ioctl)))')),
+                (('tee-node-read', 'tee-node-write'),
+                 grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (read write)))')),
                 (('tee-node-open',), grant('(allow hal_camera_default dev_type (chr_file (open)))')),
-                (reach, grant(widevine)),
-                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.drm-service.clearkey': b'\x7fELF'}),
-                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.drm-service-lazy.clearkey': b'\x7fELF'}),
-                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.security.keymint-service': b'\x7fELF'}),
-                (('tee-node-dormant-domains',), {contexts: (labels + '/vendor/bin/qseecomd   '
-                                                            'u:object_r:hal_cas_default_exec:s0\n').encode()}),
-                (('tee-node-dormant-domains',), {vendor: vendor_cil.replace('(type hal_keymaster_default)\n', '').encode()})]:
+                (reach, grant(f'(allow hal_drm_server vendor_smcinvoke_device {use})')),
+                (reach, grant(f'(allow hal_keymint_default vendor_smcinvoke_device {use})')),
+                # More grants on the platform's label change nothing: it is on no node.
+                ((), grant(f'(allow hal_camera_default tee_device {use})')),
+                # Without the type the rules cannot be judged.
+                (reach, {system_ext: b''})]:
             members = {**good, **change}
-            for rule_id in reach + ('tee-node-dormant-domains',):
-                with self.subTest(rule=rule_id, change=sorted(change)):
+            for rule_id in reach:
+                with self.subTest(rule=rule_id, change=sorted(change), failing=failing):
                     self.assertEqual(rule_id not in failing, check(rule_id, members))
 
     def test_sepolicy_xperms_adds_up_rules_on_types_and_attributes(self):
@@ -563,42 +551,43 @@ class RuleTests(unittest.TestCase):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
             'tee-node-ioctl-limit']
         live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
-        self.assertEqual((live, ['0x9801', '0x9803'], 'tee_device', 'chr_file'),
+        self.assertEqual((live, ['0x9801', '0x9803'], 'vendor_smcinvoke_device', 'chr_file'),
                          (rule['sources'], rule['allowed'], rule['target'], rule['cls']))
         plat, vendor, mapping = ('SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil',
                                  'SYSTEM/etc/selinux/mapping/202604.cil')
-        plat_cil = ('(type tee)\n(type tee_device)\n(type hal_gatekeeper_default)\n'
-                    '(typeattributeset dev_type (tee_device))\n'
+        plat_cil = ('(type tee)\n(type tee_device)\n(type vendor_smcinvoke_device)\n(type hal_gatekeeper_default)\n'
+                    '(typeattributeset dev_type (tee_device vendor_smcinvoke_device))\n'
                     '(typeattributeset hal_gatekeeper (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
                     '(allow hal_gatekeeper tee_device (chr_file (ioctl read write open)))\n'
                     '(allowx domain dev_type (ioctl blk_file ((range 0x5450 0x5451))))\n')
-        mapping_cil = '(typeattributeset tee_202604 (tee))\n(typeattributeset tee_device_202604 (tee_device))\n'
+        mapping_cil = ('(typeattributeset tee_202604 (tee))\n'
+                       '(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n')
         vendor_cil = ('(type hal_fingerprint_default)\n(type vendor_hal_gatekeeper_qti)\n(type vendor_hal_keymint_qti)\n'
                       '(typeattributeset domain (tee hal_gatekeeper_default hal_fingerprint_default '
                       'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti))\n'
-                      '(allowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx tee_202604 vendor_rpmb_device (ioctl chr_file (0xb301)))\n'
-                      '(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
-                      '(allowx vendor_hal_gatekeeper_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
-                      '(allowx hal_fingerprint_default tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
-                      '(auditallowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
+                      '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(auditallowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
         empty = {'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
                  'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
         check = lambda text: subject.rule_sepolicy_xperms(rule, self.harness(
             {plat: plat_cil.encode(), mapping: mapping_cil.encode(), vendor: text.encode(), **empty}))
         self.assertEqual((True, 'only 0x9801, 0x9803'), check(vendor_cil))
         for change, detail in [
-                (vendor_cil.replace('(allowx vendor_hal_gatekeeper_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
+                (vendor_cil.replace('(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
                  'vendor_hal_gatekeeper_qti has no ioctl allow-list'),
-                (vendor_cil.replace('(allowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))',
-                                    '(allowx tee_202604 tee_device_202604 (ioctl chr_file ((range 0x9801 0x9804))))'),
+                (vendor_cil.replace('(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file ((range 0x9801 0x9804))))'),
                  'tee: also 0x9802, 0x9804'),
-                (vendor_cil + '(allowx hal_fingerprint_default tee_device_202604 (ioctl chr_file (0x98ff)))\n',
+                (vendor_cil + '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
                  'hal_fingerprint_default: also 0x98ff'),
                 (vendor_cil + '(allowx hal_gatekeeper dev_type (ioctl chr_file (0x5451)))\n',
                  'vendor_hal_gatekeeper_qti: also 0x5451'),
-                (vendor_cil.replace('(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))',
-                                    '(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801)))'),
+                (vendor_cil.replace('(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801)))'),
                  'vendor_hal_keymint_qti: lacks 0x9803')]:
             with self.subTest(detail=detail):
                 self.assertEqual((False, detail), check(change))
@@ -607,12 +596,14 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         plat, vendor = 'SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'
         ueventd = 'VENDOR/etc/ueventd.rc'
-        labels = (b'#\n/dev/smcinvoke                                  u:object_r:tee_device:s0\n'
+        labels = (b'#\n/dev/smcinvoke                                  u:object_r:vendor_smcinvoke_device:s0\n'
                   b'/dev/qce                                        u:object_r:vendor_qce_device:s0\n'
                   b'/vendor/bin/qseecomd            u:object_r:tee_exec:s0\n')
         nodes = (b'/dev/qce                  0660   system     drmrpc\n'
                  b'/dev/smcinvoke            0660   system     drmrpc\n')
-        good = {plat: b'/dev/binder   u:object_r:binder_device:s0\n', vendor: labels, ueventd: nodes}
+        good = {plat: b'/dev/binder   u:object_r:binder_device:s0\n', vendor: labels, ueventd: nodes,
+                'SYSTEM_EXT/etc/selinux/system_ext_file_contexts': b'', 'PRODUCT/etc/selinux/product_file_contexts': b'',
+                'ODM/etc/selinux/odm_file_contexts': b''}
         check = lambda rule_id, members: subject.rule_text(rules[rule_id], self.harness(members))[0]
         for rule_id in ('tee-node-label', 'tee-node-owner'):
             self.assertTrue(check(rule_id, good), rule_id)
@@ -621,7 +612,10 @@ class RuleTests(unittest.TestCase):
                 ('tee-node-label', {vendor: labels + b'/dev/tee[0-9]*   -c   u:object_r:tee_device:s0\n'}),
                 ('tee-node-label', {plat: good[plat] + b'/dev/trusty-ipc-dev0   u:object_r:tee_device:s0\n'}),
                 ('tee-node-label', {vendor: labels.replace(b'/dev/smcinvoke ', b'/dev/smcinvoke2')}),
-                ('tee-node-label', {vendor: labels.replace(b'tee_device', b'device')}),
+                ('tee-node-label', {vendor: labels.replace(b'vendor_smcinvoke_device', b'tee_device')}),
+                ('tee-node-label', {vendor: labels.replace(b'vendor_smcinvoke_device', b'device')}),
+                ('tee-node-label', {vendor: labels + b'/dev/qseecom       u:object_r:vendor_smcinvoke_device:s0\n'}),
+                ('tee-node-label', {'ODM/etc/selinux/odm_file_contexts': b'/dev/tee0   u:object_r:tee_device:s0\n'}),
                 ('tee-node-owner', {ueventd: nodes + b'/dev/qseecom              0660   system     drmrpc\n'}),
                 ('tee-node-owner', {ueventd: nodes.replace(b'/dev/smcinvoke            0660', b'/dev/smcinvoke            0666')}),
                 ('tee-node-owner', {ueventd: nodes.replace(b'system     drmrpc\n', b'system     system\n')}),
