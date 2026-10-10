@@ -665,7 +665,6 @@
         "VENDOR/etc/gps.conf",
         "VENDOR/etc/izat.conf",
         "VENDOR/etc/libnfc-sec-vendor.conf",
-        "VENDOR/etc/displayconfig/display_id_4630947039571902850.xml",
         "VENDOR/etc/init/init.fp6.perf.rc",
         "VENDOR/etc/init/init.fp6.modem.rc",
         "VENDOR/etc/init/init.fp6.bluetooth.rc",
@@ -678,11 +677,39 @@
       ]
     },
     {
-      "id": "display-port-config",
-      "why": "The built-in display config is also reachable by port.",
-      "type": "symlink",
+      "id": "display-brightness-map",
+      "why": "The brightness table follows the measured panel (level and nits; white, 20 % window): linear in nits from level 10 to 3480, manual range to level 2048, sunlight above. A table that does not rise stops the system at boot.",
+      "type": "display_config",
       "path": "VENDOR/etc/displayconfig/display_port_130.xml",
-      "target": "display_id_4630947039571902850.xml"
+      "overlay": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "panel_levels": 4094,
+      "levels": {
+        "floor": 10,
+        "manual": 2048,
+        "top": 3480,
+        "doze": 146
+      },
+      "min_points": 30,
+      "tolerance": 0.03,
+      "minimum_lux": 10000,
+      "reference": [
+        [1, 1.885], [4, 1.91], [10, 2.002], [20, 2.182], [40, 2.435],
+        [60, 2.79], [80, 3.146], [100, 3.601], [120, 4.099], [146, 4.808],
+        [157, 5.06], [162, 5.268], [171, 5.549], [190, 6.329], [215, 7.317],
+        [246, 8.919], [282, 11.25], [300, 12.71], [323, 14.4], [371, 18.81],
+        [423, 24.66], [487, 33.34], [600, 51.64], [684, 67.96], [833, 102.5],
+        [1000, 152.2], [1288, 262.1], [1500, 369.9], [1632, 449.0], [2000, 715.3],
+        [2047, 750.7], [2048, 757.2], [2100, 767.3], [2306, 809.3], [2425, 836.0],
+        [2600, 890.5], [3000, 1004.0], [3480, 1151.0], [3800, 1262.0], [4094, 1364.0]
+      ]
+    },
+    {
+      "id": "display-stock-config-absent",
+      "why": "The stock display configuration, whose brightness table is not this panel's, is not shipped.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/etc/displayconfig/display_id_4630947039571902850.xml"
+      ]
     },
     {
       "id": "sdm-extension-libraries",
@@ -1140,7 +1167,7 @@
     },
     {
       "id": "display-colour-transforms",
-      "why": "Night Light, Extra dim, grayscale and tap to wake.",
+      "why": "Night Light, grayscale, the colour transform Extra dim would use, and tap to wake.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
       "values": {

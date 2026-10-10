@@ -12,6 +12,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -568,6 +569,104 @@ def rule_overlay(rule, v):
     return not problems, '; '.join(problems)
 
 
+def panel_nits(reference: list, level: float) -> float:
+    """Luminance at a panel level, from measured (level, nits) pairs:
+    straight lines between neighbours in log-log space."""
+    points = sorted((float(a), float(b)) for a, b in reference)
+    if level <= points[0][0]:
+        return points[0][1]
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if level <= x1:
+            share = (math.log(level) - math.log(x0)) / (math.log(x1) - math.log(x0))
+            return math.exp(math.log(y0) + share * (math.log(y1) - math.log(y0)))
+    return points[-1][1]
+
+
+def rule_display_config(rule, v):
+    """The display configuration's brightness table against the measured panel.
+
+    The framework reads nits, backlight and brightness per evenDimmer point;
+    the display HAL writes panel level 1 + backlight * (panel_levels - 1). A
+    column that does not rise strictly stops system_server at boot."""
+    path = rule['path']
+    if v.tf.is_symlink(path):
+        return False, path + ' is a symlink'
+    root = ET.fromstring(v.tf.read(path))
+
+    def number(node, tag):
+        text = node.findtext(tag)
+        if text is None:
+            raise ValueError(f'{path}: no {tag} in {node.tag}')
+        return float(text)
+
+    level = lambda backlight: 1 + backlight * (rule['panel_levels'] - 1)
+    levels, tolerance, reference = rule['levels'], rule['tolerance'], rule['reference']
+    off_curve = lambda backlight, nits: abs(nits / panel_nits(reference, level(backlight)) - 1) > tolerance
+    problems = []
+
+    dimmer = root.find('evenDimmer')
+    if dimmer is None or dimmer.get('enabled') != 'true':
+        return False, 'no enabled evenDimmer brightness map'
+    points = [(number(p, 'nits'), number(p, 'backlight'), number(p, 'brightness'))
+              for p in dimmer.iterfind('brightnessMapping/brightnessPoint')]
+    if len(points) < rule['min_points']:
+        return False, f'{len(points)} brightness points (want at least {rule["min_points"]})'
+    for index, name in enumerate(('nits', 'backlight', 'brightness')):
+        if any(a[index] >= b[index] for a, b in zip(points, points[1:])):
+            problems.append(name + ' does not rise strictly')
+    (low, floor, first), (high, top, last) = points[0], points[-1]
+    if (first, last) != (0.0, 1.0):
+        problems.append(f'brightness runs {first} to {last} (want 0 to 1)')
+    if high > low and any(abs(b - (n - low) / (high - low)) > 0.0002 for n, _, b in points):
+        problems.append('brightness is not linear in nits')
+    wrong = [f'{n:g} at level {level(bl):.0f}' for n, bl, _ in points if off_curve(bl, n)]
+    if wrong:
+        problems.append('nits off the measured panel curve: ' + ', '.join(wrong))
+    if number(dimmer, 'transitionPoint') != 0:
+        problems.append('evenDimmer transition point is not 0')
+    if any(number(p, 'nits') > low for p in dimmer.iterfind('luxToMinimumNitsMap/point')):
+        problems.append('the minimum nits rise with lux')
+    for name, backlight in (('floor', floor), ('top', top)):
+        if int(level(backlight)) != levels[name]:
+            problems.append(f'{name} is level {int(level(backlight))} (want {levels[name]})')
+
+    hbm = root.find('highBrightnessMode')
+    if hbm is None or hbm.get('enabled') != 'true':
+        problems.append('high-brightness mode is not enabled')
+    else:
+        transition = number(hbm, 'transitionPoint')
+        if transition not in [bl for _, bl, _ in points] or int(level(transition)) != levels['manual']:
+            problems.append(f'the manual range ends at level {int(level(transition))}, or between points '
+                            f'(want level {levels["manual"]})')
+        if number(hbm, 'minimumLux') != rule['minimum_lux']:
+            problems.append(f'sunlight starts at {number(hbm, "minimumLux"):g} lux (want {rule["minimum_lux"]})')
+        if number(hbm, 'timing/timeMaxSecs') < number(hbm, 'timing/timeWindowSecs') + number(hbm, 'timing/timeMinSecs'):
+            problems.append('sunlight brightness has a time limit')
+        if hbm.findtext('allowInLowPowerMode') != 'true':
+            problems.append('battery saver blocks sunlight brightness')
+
+    plain = [(number(p, 'value'), number(p, 'nits')) for p in root.iterfind('screenBrightnessMap/point')]
+    if not plain or plain[0][0] > floor or plain[-1][0] < top:
+        problems.append('screenBrightnessMap does not cover the brightness range')
+    elif any(a[0] > b[0] or a[1] > b[1] for a, b in zip(plain, plain[1:])):
+        problems.append('screenBrightnessMap falls')
+    elif any(off_curve(bl, n) for bl, n in plain) or any((bl, n) not in plain for n, bl, _ in points):
+        problems.append('screenBrightnessMap differs from the evenDimmer points or the panel curve')
+    doze = root.findtext('defaultDozeBrightness')
+    if doze is None or int(level(float(doze))) != levels['doze']:
+        problems.append(f'doze brightness is not level {levels["doze"]}')
+
+    with v.tools.scratch() as temporary:
+        dump = v.tools.run('aapt2', ['dump', 'resources', v.tf.extract(rule['overlay'], Path(temporary))])
+    if aapt2_value(dump, 'bool/config_evenDimmerEnabled') != 'true':
+        problems.append('the overlay does not enable evenDimmer')
+    for name, want in (('Minimum', floor), ('Maximum', top)):
+        have = aapt2_value(dump, f'dimen/config_screenBrightnessSetting{name}Float')
+        if have is None or abs(float(have) - want) > 1e-5 * want:  # aapt2 prints six digits
+            problems.append(f'overlay {name.lower()} backlight is {have} (table: {want:g})')
+    return not problems, '; '.join(problems)
+
+
 def signer_digests(v, apk: Path) -> set:
     output = v.tools.run('apksigner', ['verify', '--print-certs', apk])
     return set(re.findall(r'certificate SHA-256 digest: ([0-9a-f]{64})', output))
@@ -821,7 +920,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
-         'sepolicy_sources': rule_sepolicy_sources, 'overlay': rule_overlay, 'apk': rule_apk, 'elf_exports': rule_elf_exports,
+         'sepolicy_sources': rule_sepolicy_sources, 'overlay': rule_overlay, 'display_config': rule_display_config,
+         'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
          'file_metadata': rule_file_metadata, 'codec2_abi_guard': rule_codec2_abi_guard}
