@@ -46,6 +46,9 @@
     {"metadata_name": "TrichromeChrome.apk", "artifact_basename": "TrichromeChrome.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
     {"metadata_name": "TrichromeLibrary.apk", "artifact_basename": "TrichromeLibrary.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
     {"metadata_name": "TrichromeWebView.apk", "artifact_basename": "TrichromeWebView.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
-    {"metadata_name": "VanadiumConfig.apk", "artifact_basename": "VanadiumConfig.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]}
+    {"metadata_name": "VanadiumConfig.apk", "artifact_basename": "VanadiumConfig.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "CACertService.apk", "artifact_basename": "CACertService.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]},
+    {"metadata_name": "IWlanService.apk", "artifact_basename": "IWlanService.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]},
+    {"metadata_name": "ims.apk", "artifact_basename": "ims.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]}
   ]
 }

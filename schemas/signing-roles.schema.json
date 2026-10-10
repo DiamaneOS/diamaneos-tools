@@ -19,39 +19,17 @@
     "presigned_packages"
   ],
   "properties": {
-    "schema_version": {
-      "const": 2
-    },
-    "certificate_subject": {
-      "const": "/CN=DiamaneOS/"
-    },
-    "certificate_algorithm": {
-      "const": "RSA-4096 with SHA-256"
-    },
-    "apex_container_role": {
-      "const": "releasekey"
-    },
-    "apex_payload_role": {
-      "const": "avb"
-    },
-    "avb_algorithm": {
-      "const": "SHA256_RSA4096"
-    },
-    "factory_algorithm": {
-      "const": "Ed25519"
-    },
-    "factory_namespace": {
-      "const": "factory images"
-    },
-    "record_namespace": {
-      "const": "diamaneos-release-record"
-    },
-    "verification_namespace": {
-      "const": "diamaneos-build-verification"
-    },
-    "result_namespace": {
-      "const": "diamaneos-signing-result"
-    },
+    "schema_version": {"const": 2},
+    "certificate_subject": {"const": "/CN=DiamaneOS/"},
+    "certificate_algorithm": {"const": "RSA-4096 with SHA-256"},
+    "apex_container_role": {"const": "releasekey"},
+    "apex_payload_role": {"const": "avb"},
+    "avb_algorithm": {"const": "SHA256_RSA4096"},
+    "factory_algorithm": {"const": "Ed25519"},
+    "factory_namespace": {"const": "factory images"},
+    "record_namespace": {"const": "diamaneos-release-record"},
+    "verification_namespace": {"const": "diamaneos-build-verification"},
+    "result_namespace": {"const": "diamaneos-signing-result"},
     "presigned_packages": {
       "type": "array",
       "items": {
@@ -96,17 +74,7 @@
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "enum": [
-          "bluetooth",
-          "gmscompat_lib",
-          "media",
-          "networkstack",
-          "nfc",
-          "platform",
-          "releasekey",
-          "sdk_sandbox",
-          "shared"
-        ]
+        "$ref": "#/definitions/certificate_role"
       },
       "minItems": 9,
       "maxItems": 9
@@ -115,18 +83,23 @@
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "enum": [
-          "bluetooth",
-          "gmscompat_lib",
-          "media",
-          "networkstack",
-          "nfc",
-          "platform",
-          "releasekey",
-          "sdk_sandbox",
-          "shared"
-        ]
+        "$ref": "#/definitions/certificate_role"
       }
+    }
+  },
+  "definitions": {
+    "certificate_role": {
+      "enum": [
+        "bluetooth",
+        "gmscompat_lib",
+        "media",
+        "networkstack",
+        "nfc",
+        "platform",
+        "releasekey",
+        "sdk_sandbox",
+        "shared"
+      ]
     }
   }
 }
