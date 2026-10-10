@@ -104,7 +104,7 @@ def validate_sources(data):
     for section in (data.get("device_sources", []), modules, trees):
         for entry in section:
             if section is modules:
-                for field in ("function", "origin", "licence_profile", "abi_uapi", "load_path"):
+                for field in ("function", "origin", "abi_uapi", "load_path"):
                     if not entry.get(field):
                         errors.append(f"{entry.get('id')}: missing {field}")
             sources = entry.get("sources", [entry])

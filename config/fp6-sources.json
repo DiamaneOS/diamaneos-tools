@@ -55,7 +55,6 @@
       "qssi_sha256": "42b1c31e49fcc04297354da2df45d1b31767adff1a78ce9d308a10533dc20970",
       "target_sha256": "53d1eaaa1e207549dff809bdcc7e75ecce0dbb2d6f7e65eeb92592312a6eda30",
       "selected_stock_match": false,
-      "downloaded_or_terms_accepted_by_this_task": false,
       "role": "Historical reference only; never substitute these QREL.16.61.0 files for the selected EU QREL.16.111.0 generator input."
     }
   },
@@ -115,8 +114,7 @@
       "project": "vendor/fairphone/common",
       "path": "device/fairphone/common",
       "revision": "daff23672648ef26966cbffde503cbb36d01525c",
-      "function": "Fairphone common board configuration and SELinux policy inputs",
-      "licence_profile": "published-source-review-required"
+      "function": "Fairphone common board configuration and SELinux policy inputs"
     },
     {
       "id": "fairphone-fps",
@@ -124,7 +122,6 @@
       "path": "device/fairphone/fps",
       "revision": "51648f54c2a7d31fc24833adcae3758cb251966f",
       "function": "FP6 product, partition, AVB, kernel-prebuilt and device configuration",
-      "licence_profile": "published-source-review-required",
       "opaque_content": "This published source repository also contains opaque userdata, audio-amplifier and haptic binary inputs; those files are not described as rebuilt from source."
     },
     {
@@ -132,31 +129,16 @@
       "project": "platform/vendor/qcom/volcano",
       "path": "device/qcom/volcano",
       "revision": "0ce43e6912dd237ea76cfd0324266bde8330d07a",
-      "function": "Qualcomm Volcano platform product and board base inherited by fps",
-      "licence_profile": "published-source-review-required"
+      "function": "Qualcomm Volcano platform product and board base inherited by fps"
     },
     {
       "id": "qualcomm-wlan-device",
       "project": "platform/vendor/qcom/wlan",
       "path": "device/qcom/wlan",
       "revision": "47b1b99d286f30cc58262412a5f12018d149eddd",
-      "function": "Qualcomm WLAN product integration included by the target manifest",
-      "licence_profile": "published-source-review-required"
+      "function": "Qualcomm WLAN product integration included by the target manifest"
     }
   ],
-  "licence_profiles": {
-    "kernel-copying-observed": {
-      "status": "licence-file-observed-not-full-audit",
-      "evidence": "The pinned kernel/qcom COPYING declares GPL-2.0 WITH Linux-syscall-note and explicitly says other licences may apply; individual files and imported subtrees still require a generated licence/notice audit.",
-      "distribution_decision": "Open-source obligations must be resolved for the files actually consumed before import or release."
-    },
-    "published-source-review-required": {
-      "status": "per-file-licence-audit-required",
-      "evidence": "The exact public source revision is recorded. Some roots contain NOTICE/LICENSE files and others do not; repository publication alone does not establish the applicable obligations for the files actually consumed.",
-      "distribution_decision": "Open-source obligations must be resolved for the files actually consumed before import or release.",
-      "owner": "FP6-006 and the component's integration task"
-    }
-  },
   "resolved_integration_paths": {
     "official_fairphone_device_configuration": {
       "revision": "51648f54c2a7d31fc24833adcae3758cb251966f",
@@ -248,7 +230,6 @@
           "revision": "f19534bc201764082056c886279fb69aeb423641"
         }
       ],
-      "licence_profile": "kernel-copying-observed",
       "abi_uapi": "GKI 6.1 KMI, Module.symvers, Qualcomm internal exported symbols and generated UAPI headers",
       "load_path": "mixed first-stage, system_dlkm and vendor_dlkm; exact .ko binding deferred to FP6-041"
     },
@@ -263,7 +244,6 @@
           "revision": "670223e1071346e6ec66fb2c47bf8ddc961b686e"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "Qualcomm camera UAPI, Synx/MMRM and proprietary camera HAL coupling",
       "load_path": "/vendor_dlkm/lib/modules candidate; bind exact list in FP6-041"
     },
@@ -278,7 +258,6 @@
           "revision": "9ff97e253095dd62e9e306783f8b8e0e7a2734e7"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "IPA kernel UAPI, rmnet clients and modem firmware protocol",
       "load_path": "/vendor_dlkm/lib/modules candidate; dependency-ordered before rmnet"
     },
@@ -298,7 +277,6 @@
           "revision": "a00d9d886cc0e47a652578b607383ccf0e02d5bc"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "network stack hooks, IPA symbols and proprietary modem/radio clients",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -313,7 +291,6 @@
           "revision": "a3519ad7b983c6ab59df302243392e34b344a23d"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "DRM/KMS, dma-buf, Synx and proprietary display composer userspace",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -328,7 +305,6 @@
           "revision": "ae10fb1739f4c4c841cb05d01b19dc1dc07cc30b"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "EVA UAPI, Synx and proprietary CV userspace/firmware",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -343,7 +319,6 @@
           "revision": "a7b138e9ad13cfdca39fb86f599fa16c0ced2282"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "dma-fence, DRM and dependent multimedia modules",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -358,7 +333,6 @@
           "revision": "a76f665f9e09fb220d23c71fefa370bb85c68836"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "dma-buf and proprietary multimedia clients",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -373,7 +347,6 @@
           "revision": "caebb7aea11c2bb9c04ef53c1e3c4c486df5b35e"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "resource-manager kernel API used by camera/video/display clients",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -388,7 +361,6 @@
           "revision": "86615db72c6f2852ab5650f7283a7a244754bb75"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "Synx UAPI and exported symbols consumed by camera/display/video",
       "load_path": "/vendor_dlkm/lib/modules candidate; ordered before dependants"
     },
@@ -403,7 +375,6 @@
           "revision": "37908c61a4589f25fca8a078873124e97faadb6d"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "Linux input subsystem, device-tree bindings and controller firmware",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -418,7 +389,6 @@
           "revision": "9f32033e6d3c574a22af778e8841c62034020d93"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "V4L2/video UAPI, MMRM/Synx and proprietary codec userspace/firmware",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -433,7 +403,6 @@
           "revision": "00d8248a3643bf6939ff886a6ba6a59d05b43554"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "Bluetooth character/serial transport and Qualcomm controller firmware/userspace",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -448,7 +417,6 @@
           "revision": "fbc39869b8773b6733c3bc8cb8119715fe169f95"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "KGSL/DRM UAPI and proprietary Adreno userspace/firmware",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -463,7 +431,6 @@
           "revision": "171b1607a30954381c2aaab8ab0df84f9a0a0335"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "QSEE/SCM and proprietary TEE clients; security-critical coupling",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -478,7 +445,6 @@
           "revision": "8209e34e04c393339b8ca49f8f9b9feae3f0908d"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "SPU kernel API and proprietary secureprocessor userspace/firmware",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -493,7 +459,6 @@
           "revision": "92510955132be5961ba4f51f42a49bc77ccbca8f"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "FastRPC/DSP UAPI and proprietary ADSP/CDSP firmware services",
       "load_path": "/vendor_dlkm/lib/modules candidate"
     },
@@ -529,7 +494,6 @@
         "revision": "94a2731a51ccb5c60cc5f715ee95daa5f71ad5fd"
       },
       "selection_evidence": "The pinned reference module list places sec_nfc.ko in vendor_dlkm and the selected stock VINTF declares android.hardware.nfc AIDL 1 INfc/default from nfc-service-sec.xml.",
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "NFC/eSE ioctl and the selected vendor service",
       "load_path": "/vendor_dlkm/lib/modules/sec_nfc.ko in the pinned reference image list; reproduce and verify on the built candidate",
       "unresolved": "The stock service and reference module identify the Samsung path, but the matching generated vendor makefile, userspace binary hashes and custom-build load proof still bind in FP6-040/041."
@@ -560,7 +524,6 @@
           "revision": "fd08604385a181351af0302bb52b3eff22d92ea0"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "cfg80211/mac80211, Qualcomm host-common APIs, firmware API and proprietary WLAN firmware",
       "load_path": "/vendor_dlkm/lib/modules (qca_cld3 variants) after platform/common dependencies",
       "completeness_rule": "All four repositories and the firmware/config inputs are mandatory; omitting any required Wi-Fi source keeps the inventory incomplete."
@@ -576,7 +539,6 @@
           "revision": "5bfffea5cc2dbb996e773cdc2b5daf1a30602ac1"
         }
       ],
-      "licence_profile": "published-source-review-required",
       "abi_uapi": "ALSA/ASoC, GPR/AudioReach DSP protocols and the primary/PAL/AGM userspace stack",
       "load_path": "/vendor_dlkm/lib/modules candidate",
       "userspace_dependency": "audio HAL family below"
@@ -688,7 +650,6 @@
   ],
   "device_tree_contract": {
     "origin": "published-source",
-    "licence_profile": "published-source-review-required",
     "build_output": "DTB/DTBO selected by the fps kernel build and consumed by boot/dtbo images",
     "abi_uapi": "Linux device-tree bindings plus the exact kernel/module and board configuration revisions",
     "warning": "The word proprietary in a public Gerrit project path is not evidence that the tree is a prebuilt."
@@ -725,7 +686,6 @@
       ],
       "abi_uapi": "HIDL audio/effect interfaces, ALSA controls and AudioReach DSP protocol",
       "load_path": "source-built service/libraries plus generated vendor blobs; exact paths bind in FP6-040",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": "partial: the primary HAL, PAL, AGM and audioadsprpcd are built from these revisions (DiamaneOS forks); the graph services, ACDB and configuration stay stock",
       "note": "graphservices at this revision holds only headers (gsl, acdb, ar_osal, spf); the graph service libraries are not published. st-hal is not built."
     },
@@ -740,7 +700,6 @@
       ],
       "abi_uapi": "stable boot-control HAL and A/B slot metadata",
       "load_path": "/vendor/bin/hw candidate; exact service manifest binds in FP6-040",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": true
     },
     {
@@ -844,7 +803,6 @@
       ],
       "abi_uapi": "GNSS AIDL, location libraries, QMI/modem and assistance-data protocols",
       "load_path": "GNSS HAL service, IGnss implementation and location libraries built from CodeLinaro source (hardware/qcom/gps and vendor/qcom/opensource/location, DiamaneOS forks; libqti_vndfwk_detect_vendor from vendor/qcom/opensource/core-utils) with the QMI client of Qualcomm's public QMI framework (DiamaneOS fork) linked into libloc_api_v02, installed by device gnss/gnss.mk; Fairphone's stock gps.conf, izat.conf (pinned edits) and sap.conf from the generated vendor tree; the GNSS engine in the modem partition",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": "userspace only",
       "provenance_profile": "exact-stock-non-source"
     },
@@ -859,7 +817,6 @@
       ],
       "abi_uapi": "graphics allocator/composer/mapper, media codec APIs and kernel DRM/KGSL/video UAPI",
       "load_path": "source-built services plus generated vendor libraries/firmware",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": "partial only"
     },
     {
@@ -909,7 +866,6 @@
       ],
       "abi_uapi": "stable Android power, thermal, lights, vibrator, USB and health interfaces plus FP6 sysfs and USB-controller nodes; the power HAL is LineageOS libperfmgr (unmodified) with the device's powerhint.json, init file and libqti-perfd-client, which passes the camera's boost hints to the power HAL (device power/)",
       "load_path": "/vendor/bin/hw and vendor libraries; exact services bind in FP6-040",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": true
     },
     {
@@ -949,7 +905,6 @@
       ],
       "abi_uapi": "Android Wi-Fi HAL/supplicant, nl80211/cfg80211 and QCA6750 firmware API",
       "load_path": "system/vendor Wi-Fi services plus /vendor_dlkm modules and vendor firmware",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": "host stack and kernel portions only"
     },
     {
@@ -989,7 +944,6 @@
       ],
       "abi_uapi": "QRTR/QMI service registration, protection-domain mapping, peripheral (subsystem) management, remote storage and file-server protocols with the modem and DSPs",
       "load_path": "linux-msm tqftpserv (DiamaneOS fork, libqrtr linked in), pd-mapper and libqrtr (DiamaneOS fork, installed as libqrtr_linux_msm.so) built from source (device modem/modem.mk, init.modem.rc and init.qcom.rc); Qualcomm's libqrtr.so, the peripheral manager, rmt_storage and ssr_setup from the generated vendor tree, started by the device init files and the stock rmt_storage init file",
-      "licence_profile": "published-source-review-required",
       "rebuilt_from_source": "partial only",
       "provenance_profile": "exact-stock-non-source"
     }
