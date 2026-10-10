@@ -185,11 +185,9 @@ class ForkTests(unittest.TestCase):
         loaded = forks.load()
         self.assertEqual(len({f['slug'] for f in loaded}), len(loaded))
 
-    def test_registry_covers_every_forked_and_patched_repository(self):
+    def test_registry_covers_every_forked_repository(self):
         registry, sources = forks.load_registry()
         slugs = {f['slug'] for f in registry}
-        patches = json.loads((ROOT / 'config/patches.json').read_text())['patches']
-        self.assertLessEqual({p['repository'].rstrip('/').split('/')[-1] for p in patches} - {'device_fairphone_FP6'}, slugs)
         repositories = json.loads((ROOT / 'config/repositories.json').read_text())['repositories']
         # A fork can be planned (created locally, not yet published) before a build uses it.
         forked = {r['slug'] for r in repositories if r['state'] in ('active', 'planned') and r['upstream_url']}

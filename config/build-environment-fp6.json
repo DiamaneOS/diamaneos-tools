@@ -98,11 +98,6 @@
       "sha256": "19c553a00d507c5f0fb8d9c3dbb1d8c1c6937d7cefeeff2bddff1f1470e1a903"
     },
     {
-      "id": "patch-inventory",
-      "repository_path": "config/patches-fp6.json",
-      "sha256": "1449e92c85be2bf52abf940c0773a4015c0b3af578be9d59ec69acede7f5d426"
-    },
-    {
       "id": "fp6-selected-native-files",
       "repository_path": "config/fp6-minimal/vendor-files.json",
       "sha256": "86d8fd5acc191221a703b0c5a377ad8b5be13a32a18ed702e0bd9ec21370fb0d"

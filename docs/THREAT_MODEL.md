@@ -1851,9 +1851,8 @@ app is asking, whether the device is managed or on a VPN, and what a locked phon
 - **Licences and records:**
   - Imported or modified open-source code stays fail-closed on per-file licence, notice, attribution
     and corresponding-source obligations.
-  - Exact source revisions, interfaces and experiments are in
-    [`config/fp6-sources.json`](../config/fp6-sources.json) and
-    [`config/fp6-capabilities.json`](../config/fp6-capabilities.json).
+  - Exact source revisions and interfaces are in
+    [`config/fp6-sources.json`](../config/fp6-sources.json).
 - **Vendor compatibility:**
   - The stock vendor declares VINTF target level 8 with vendor API 34.
   - bring-up builds combine it with the Android 17 framework.
