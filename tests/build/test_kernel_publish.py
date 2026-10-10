@@ -130,6 +130,7 @@ class PublishTests(unittest.TestCase):
                 ({'modules/qseecom_dlkm.ko': b'legacy driver'}, 'qseecom_dlkm.ko'),
                 ({'modules/qseecom-dlkm.ko': b'legacy driver'}, 'qseecom-dlkm.ko'),
                 ({'modules/tz_log_dlkm.ko': b'log reader'}, 'tz_log_dlkm.ko'),
+                ({'modules/hdcp_qseecom_dlkm.ko': b'hdcp client'}, 'hdcp_qseecom_dlkm.ko'),
                 ({'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES := '
                                                   b'$(FP6_KERNEL_PATH)/modules/a.ko $(FP6_KERNEL_PATH)/modules/qseecom_dlkm.ko\n'},
                  'qseecom_dlkm.ko'),
@@ -141,8 +142,8 @@ class PublishTests(unittest.TestCase):
                 self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
         # Modules whose names only contain a denied name are other drivers.
         self.write_run(dict(CANDIDATE, **{
-            'modules/hdcp_qseecom_dlkm.ko': b'hdcp', 'modules/qseecom_proxy.ko': b'proxy',
-            'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES_LOAD := hdcp_qseecom_dlkm.ko qseecom_proxy.ko\n'}))
+            'modules/smcinvoke_dlkm.ko': b'transport', 'modules/qseecom_proxy.ko': b'proxy',
+            'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES_LOAD := smcinvoke_dlkm.ko qseecom_proxy.ko\n'}))
         self.assertEqual('PASS', self.publish()['status'])
 
     def test_host_strings_are_refused(self):

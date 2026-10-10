@@ -123,7 +123,6 @@
       "gunyah_qcom.ko",
       "hall_det.ko",
       "haptic.ko",
-      "hdcp_qseecom_dlkm.ko",
       "health_monitor.ko",
       "heap_mem_ext_v01.ko",
       "hung_task_enh.ko",
@@ -396,7 +395,6 @@
       "gpucc-cliffs.ko",
       "gpucc-volcano.ko",
       "gsim.ko",
-      "hdcp_qseecom_dlkm.ko",
       "health_monitor.ko",
       "heap_mem_ext_v01.ko",
       "hung_task_enh.ko",
@@ -1239,7 +1237,6 @@
       "qcrypto-msm_dlkm.ko",
       "qce50_dlkm.ko",
       "qrng_dlkm.ko",
-      "hdcp_qseecom_dlkm.ko",
       "smmu_proxy_dlkm.ko",
       "smcinvoke_dlkm.ko",
       "btpower.ko",
@@ -1376,7 +1373,13 @@
       "modules": [
         "qseecom_dlkm.ko"
       ],
-      "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone; qseecom_proxy and hdcp_qseecom_dlkm are other modules and stay."
+      "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone; qseecom_proxy is another module and stays."
+    },
+    {
+      "modules": [
+        "hdcp_qseecom_dlkm.ko"
+      ],
+      "reason": "HDCP client: it lets the kernel load four trusted apps by name (hdcp1, ops, hdcp2p2, hdcpsrm) for DisplayPort content protection. The FP6 has no DisplayPort output, and its display driver is built without HDCP, so nothing imports the module."
     },
     {
       "modules": [

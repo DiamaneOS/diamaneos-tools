@@ -3514,6 +3514,78 @@
       ]
     },
     {
+      "id": "no-hdcp-module",
+      "why": "The HDCP client module is not shipped. It would let the kernel load four trusted apps by name for DisplayPort content protection, and the FP6 has no DisplayPort output.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR_DLKM/lib/modules/hdcp_qseecom_dlkm.ko",
+        "VENDOR_BOOT/RAMDISK/lib/modules/hdcp_qseecom_dlkm.ko"
+      ]
+    },
+    {
+      "id": "no-hdcp-module-listed",
+      "why": "No load list, dependency list or alias names the HDCP client module.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.*",
+        "VENDOR_BOOT/RAMDISK/lib/modules/modules.*"
+      ],
+      "absent": [
+        "hdcp_qseecom_dlkm"
+      ]
+    },
+    {
+      "id": "display-driver-without-hdcp",
+      "why": "The display driver is built without its HDCP client: it does not depend on the HDCP module and imports none of its functions.",
+      "type": "binary_count",
+      "file": "VENDOR_DLKM/lib/modules/msm_drm.ko",
+      "patterns": [
+        {
+          "text": "hdcp_qseecom_dlkm",
+          "count": 0
+        },
+        {
+          "text": "\u0000hdcp2_app_comm\u0000",
+          "count": 0
+        },
+        {
+          "text": "\u0000hdcp1_start\u0000",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "display-driver-without-hdcp-ramdisk",
+      "why": "The same holds for the display driver copy in the vendor ramdisk.",
+      "type": "binary_count",
+      "file": "VENDOR_BOOT/RAMDISK/lib/modules/msm_drm.ko",
+      "patterns": [
+        {
+          "text": "hdcp_qseecom_dlkm",
+          "count": 0
+        },
+        {
+          "text": "\u0000hdcp2_app_comm\u0000",
+          "count": 0
+        },
+        {
+          "text": "\u0000hdcp1_start\u0000",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "no-hdcp-level-node-rule",
+      "why": "ueventd has no rule for the HDCP level node, which the display driver no longer creates.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "absent_regex": [
+        "^[ \\t]*/sys/devices/virtual/hdcp/"
+      ]
+    },
+    {
       "id": "no-offline-camera-declaration",
       "why": "The offline camera service has no client: its stock VINTF declaration is not installed, so servicemanager refuses the registration inside the camera provider.",
       "type": "files_absent",

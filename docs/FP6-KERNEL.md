@@ -104,8 +104,8 @@ tools/bazel query --output=label \
   - The CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and kheaders GKI modules.
   - The in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN drivers, the
     WCD938x codec and FM radio.
-  - The TrustZone log reader, the legacy QSEECom driver, the SPSS loader and bridge, the FocalTech
-    touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
+  - The TrustZone log reader, the legacy QSEECom driver, the HDCP client module, the SPSS loader and
+    bridge, the FocalTech touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
 - It survives regeneration of the Fairphone-derived lists.
 - `kernel build` fails when a denied module is back in any list (`-` and `_` match) or no longer
   built (renamed or dropped: review the entry).
@@ -296,6 +296,16 @@ environment listing); kernel parameters keep their values.
 - The EUD debugger's device-tree node is disabled and `eud.ko` is denied.
 - The USB controller takes connect and role events from UCSI through its role switch and port graph;
   EUD's extcon reported only EUD's own connects.
+
+## Display without HDCP
+
+- The FP6 has no DisplayPort output, the only user of HDCP in the display driver.
+- `msm_drm` is built without its HDCP client (`CONFIG_HDCP_QSEECOM` is off for the `fps` target), so
+  it does not import `hdcp_qseecom_dlkm.ko`, and that module is denied.
+- The module could make the kernel load four trusted apps by name (`hdcp1`, `ops`, `hdcp2p2`,
+  `hdcpsrm`).
+- `build verify` checks that no image or module list carries the module and that `msm_drm.ko`
+  imports none of its functions.
 
 ## Publish a kernel build
 
