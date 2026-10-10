@@ -845,8 +845,8 @@ class RuleTests(unittest.TestCase):
 
     def test_usb_controller_takes_no_eud_extcon(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
-        usb = [r for r in rules if r['id'] in ('usb-events-from-ucsi', 'usb-events-from-ucsi-volcano')]
-        self.assertEqual(['kernel:dtbs/fp6.dtb', 'kernel:dtbs/volcano.dtb'], [r['file'] for r in usb])
+        usb = [r for r in rules if r['id'].startswith('usb-events-from-ucsi')]
+        self.assertEqual(['kernel:dtbs/fp6.dtb'], [r['file'] for r in usb])
         tree = {'/': {}, '/soc': {}, '/soc/ssusb@a600000': {'usb-role-switch': b''},
                 '/soc/qcom,pmic_glink': {}, '/soc/qcom,pmic_glink/qcom,ucsi': {},
                 '/soc/qcom,pmic_glink/qcom,ucsi/connector': {},
@@ -868,8 +868,8 @@ class RuleTests(unittest.TestCase):
         self.assertIn('/soc/ssusb@a600000 still has extcon', detail)
         self.assertIn('status', detail)
         del tree['/soc/ssusb@a600000']['usb-role-switch']
-        (self.root / 'dtbs/volcano.dtb').write_bytes(dtb(tree))
-        self.assertIn('lacks usb-role-switch', subject.rule_devicetree(usb[1], v)[1])
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(tree))
+        self.assertIn('lacks usb-role-switch', subject.rule_devicetree(usb[0], v)[1])
 
     def test_download_mode_module_ignores_edl_reboots(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
