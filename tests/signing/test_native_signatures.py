@@ -422,6 +422,8 @@ class NativeSignatureTests(unittest.TestCase):
                 'key_inventory_sha256': inputs.canonical_sha256(self.inventory),
                 'public_material_sha256': inputs.canonical_sha256(self.keys.files), 'public_identities': self.keys.public_ids,
                 'provenance': self.provenance, 'changed_projects': [], 'metadata': za.package_metadata_shape(metadata),
+                'roles': {'Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None},
+                          'Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb'}},
                 'packages': {logical: {'kind': 'apk', 'container': 'releasekey', 'payload': None,
                                       'certificate_sha256': self.keys.fingerprints['releasekey']},
                              'SYSTEM/apex/Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
