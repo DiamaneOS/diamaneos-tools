@@ -3,8 +3,9 @@
 diamaneos kernel publish --run RUN --to CHECKOUT copies the candidate of one
 passed kernel build (Image, dtbo.img, dtbs/, modules/, the board makefiles and
 the module blocklists) into a device_fairphone_FP6-kernels checkout. It checks
-every file against the run's artifacts.json, refuses private key material and
-strings that name the build host, and updates the README's "This build" lines.
+every file against the run's artifacts.json, refuses private key material,
+strings that name the build host and modules on the packaging deny list, and
+updates the README's "This build" lines.
 It never commits or pushes: review the change and commit it yourself.
 """
 import argparse
@@ -34,6 +35,7 @@ PRIVATE_KEY_MARKERS = (b'PRIVATE KEY-----', b'PRIVATE KEY BLOCK-----')
 HOST_PATHS = (b'/var/lib/', b'/home/', b'/Users/')
 # Names too generic to search binaries for.
 GENERIC_NAMES = {'root', 'localhost', 'localhost.localdomain'}
+MODULE_REFERENCE = re.compile(r'[A-Za-z0-9_.,+-]+\.ko')
 RUN_NAME = re.compile(r'([0-9]{8})T[0-9]{6}Z(?:-[0-9]+)?')
 SHA1 = re.compile(r'[0-9a-f]{40}')
 
@@ -71,6 +73,19 @@ def scan(path, names):
     problems += [path.name + ' contains the host path ' + p.decode() for p in HOST_PATHS if p in data]
     problems += [path.name + ' contains the host string ' + repr(n) for n in names if n.encode() in data]
     return problems
+
+
+def denied_names(present):
+    """Modules on the packaging deny list (config/fp6-kernel-packaging.json) that
+    the candidate carries as a file or names in a board makefile list."""
+    from .kernel import ROOT, denied_modules, load_json, module_key
+    keys = {module_key(name) for name in denied_modules(load_json(ROOT / 'config/fp6-kernel-packaging.json'))}
+    found = {Path(rel).name for rel in present if rel.startswith('modules/') and module_key(Path(rel).name) in keys}
+    for rel in ('BoardConfigKernel.mk', 'device-kernel.mk'):
+        if rel in present:
+            found |= {name for name in MODULE_REFERENCE.findall(present[rel].read_text(errors='replace'))
+                      if module_key(name) in keys}
+    return sorted(found)
 
 
 def candidate_files(run):
@@ -158,6 +173,8 @@ def git_status(checkout):
 def publish(run, checkout, forbid=()):
     run, checkout = Path(run).absolute(), Path(checkout).absolute()
     result, records, present = candidate_files(run)
+    denied = denied_names(present)
+    require(not denied, 'refusing to publish a denied module: ' + ', '.join(denied))
     lines = describe(result, run)
     names = host_strings(forbid)
     problems = [p for path in present.values() for p in scan(path, names)]

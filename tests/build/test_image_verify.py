@@ -1535,6 +1535,29 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn('denied module', detail)
         self.assertIn('unsigned module', detail)
 
+    def test_legacy_qseecom_module_in_an_image_fails_the_module_check(self):
+        packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_text())
+        signed = b'module' + subject.MODULE_SIGNATURE
+        for name, denied in (('qseecom_dlkm.ko', True), ('qseecom-dlkm.ko', True), ('hdcp_qseecom_dlkm.ko', False),
+                             ('qseecom_proxy.ko', False)):
+            with self.subTest(name=name):
+                kernel = self.root / ('kernel-' + name)
+                (kernel / 'modules').mkdir(parents=True)
+                (kernel / 'BoardConfigKernel.mk').write_text(
+                    f'BOARD_VENDOR_KERNEL_MODULES := m/{name}\nBOARD_VENDOR_KERNEL_MODULES_LOAD := {name}\n')
+                (kernel / 'modules' / name).write_bytes(signed)
+                v = self.harness({'VENDOR_DLKM/lib/modules/' + name: signed,
+                                  'VENDOR_DLKM/lib/modules/modules.load': name.encode() + b'\n',
+                                  'VENDOR_DLKM/lib/modules/modules.blocklist': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b''})
+                v.kernel_dir, v.packaging = kernel, packaging
+                ok, detail = subject.check_modules(v)
+                self.assertEqual(not denied, ok, detail)
+                self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/' in detail)
+                self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/modules.load' in detail)
+
     def test_vendor_load_list_and_streams_follow_the_kernel_prebuilts(self):
         kernel = self.root / 'kernel'
         kernel.mkdir()

@@ -104,8 +104,8 @@ tools/bazel query --output=label \
   - The CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and kheaders GKI modules.
   - The in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN drivers, the
     WCD938x codec and FM radio.
-  - The TrustZone log reader, the SPSS loader and bridge, the FocalTech touch driver, the
-    kretprobe-based FunctionFS logger and the EUD debugger.
+  - The TrustZone log reader, the legacy QSEECom driver, the SPSS loader and bridge, the FocalTech
+    touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
 - It survives regeneration of the Fairphone-derived lists.
 - `kernel build` fails when a denied module is back in any list (`-` and `_` match) or no longer
   built (renamed or dropped: review the entry).
@@ -314,6 +314,7 @@ replacing the previous set. It refuses to publish when:
   a kernel set;
 - a file contains private key material, a home or `/var/lib` path, or this machine's user or host
   name (add more strings with `--forbid`);
+- the candidate carries a denied module, as a file or in a board makefile list;
 - the run was built from a modified tools checkout or does not record its source commit.
 
 - It rewrites the README's "This build" lines (the `kernel_qcom-6.1` commit and Linux version, the

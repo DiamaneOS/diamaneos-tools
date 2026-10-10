@@ -124,6 +124,27 @@ class PublishTests(unittest.TestCase):
         self.assertRaisesRegex(subject.PublishError, 'unexpected file in the kernel build: signing_key.pem', self.publish)
         self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
 
+    def test_denied_modules_are_refused(self):
+        board = CANDIDATE['BoardConfigKernel.mk']
+        for change, name in (
+                ({'modules/qseecom_dlkm.ko': b'legacy driver'}, 'qseecom_dlkm.ko'),
+                ({'modules/qseecom-dlkm.ko': b'legacy driver'}, 'qseecom-dlkm.ko'),
+                ({'modules/tz_log_dlkm.ko': b'log reader'}, 'tz_log_dlkm.ko'),
+                ({'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES := '
+                                                  b'$(FP6_KERNEL_PATH)/modules/a.ko $(FP6_KERNEL_PATH)/modules/qseecom_dlkm.ko\n'},
+                 'qseecom_dlkm.ko'),
+                ({'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko qseecom_dlkm.ko\n'},
+                 'qseecom_dlkm.ko')):
+            with self.subTest(change=sorted(change)):
+                self.write_run(dict(CANDIDATE, **change))
+                self.assertRaisesRegex(subject.PublishError, 'refusing to publish a denied module: ' + name, self.publish)
+                self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
+        # Modules whose names only contain a denied name are other drivers.
+        self.write_run(dict(CANDIDATE, **{
+            'modules/hdcp_qseecom_dlkm.ko': b'hdcp', 'modules/qseecom_proxy.ko': b'proxy',
+            'BoardConfigKernel.mk': board + b'BOARD_VENDOR_KERNEL_MODULES_LOAD := hdcp_qseecom_dlkm.ko qseecom_proxy.ko\n'}))
+        self.assertEqual('PASS', self.publish()['status'])
+
     def test_host_strings_are_refused(self):
         for data, message in ((b'built by builderperson', 'builderperson'), (b'on buildbox', 'buildbox'),
                               (b'/var/lib/example-build/ws', '/var/lib/'), (b'/home/someone/src', '/home/'),

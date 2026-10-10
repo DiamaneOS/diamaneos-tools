@@ -185,6 +185,24 @@ class KernelDenyListTests(unittest.TestCase):
             self.assertNotIn(name, denied)
             self.assertTrue(any(name in names for names in self.recipe['partitions'].values()))
 
+    def test_legacy_qseecom_module_is_denied_by_name(self):
+        denied = kernel.denied_modules(self.recipe)
+        self.assertIn('qseecom_dlkm.ko', denied)
+        self.assertIn('/dev/qseecom', denied['qseecom_dlkm.ko'])
+        # Other modules with a similar name are different drivers and stay.
+        for name in ('qseecom_proxy.ko', 'smcinvoke_dlkm.ko', 'hdcp_qseecom_dlkm.ko'):
+            self.assertNotIn(name, denied)
+            self.assertIn(name, self.recipe['partitions']['vendor_dlkm'])
+        for key, target in (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
+                            ('load_lists', 'vendor_dlkm/modules.load'),
+                            ('load_lists', 'vendor_boot/modules.load.recovery')):
+            for spelling in ('qseecom_dlkm.ko', 'qseecom-dlkm.ko'):
+                with self.subTest(key=key, target=target, spelling=spelling):
+                    recipe = copy.deepcopy(self.recipe)
+                    recipe[key][target].append(spelling)
+                    self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: ' + spelling,
+                                           kernel.denied_modules, recipe)
+
     def test_regenerated_list_with_a_denied_module_is_rejected(self):
         for key in ('partitions', 'load_lists'):
             with self.subTest(key=key):
