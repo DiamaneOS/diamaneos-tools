@@ -17,7 +17,7 @@ from . import process
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = ROOT / "config" / "build-environment.json"
+DEFAULT_CONFIG = ROOT / "config" / "build-environment-fp6.json"
 SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")

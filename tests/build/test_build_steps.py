@@ -387,7 +387,8 @@ class PlanTests(unittest.TestCase):
                         allow_network=False, factory_zip=None, shallow=False), lambda *a: None)
 
     def test_environment_without_a_manifest_is_refused(self):
-        environment = json.loads((ROOT / 'config/build-environment.json').read_text())
+        environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
+        del environment['manifest']
         path = self.root / 'environment.json'
         path.write_text(json.dumps(environment))
         with self.assertRaisesRegex(bw.UsageError, 'no source manifest'):

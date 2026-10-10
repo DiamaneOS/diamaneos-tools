@@ -77,7 +77,7 @@ and `make_roots` (their repositories) for overlays defined in make.
   fork clones) and needs the release manifest (`--manifest FILE`, or `--cache DIR` to fetch it).
 - `--fetch --cache DIR`: first the release manifest (`default.xml` of `GrapheneOS/platform_manifest`
   at `--tag`, default the tag in
-  [`config/build-environment.json`](../config/build-environment.json)), whose SHA-256 must equal the
+  [`config/build-environment-fp6.json`](../config/build-environment-fp6.json)), whose SHA-256 must equal the
   recorded `default_manifest_sha256` for the pinned tag.
 - Then each target project at its pinned full commit as a trees-only partial clone, downloading only
   `values*` XML.
@@ -87,7 +87,7 @@ and `make_roots` (their repositories) for overlays defined in make.
   one.
 - A cached run needs no network.
 
-- To check a new release, update `config/build-environment.json` first or pass `--allowed-signers
+- To check a new release, update `config/build-environment-fp6.json` first or pass `--allowed-signers
   FILE` (the GrapheneOS `allowed_signers` file whose SHA-256 the build environment pins):
   - The tag must then be an SSH-signed annotated tag that `git verify-tag` accepts from the pinned
     signer identity and key fingerprint, as the build checks the pinned release.

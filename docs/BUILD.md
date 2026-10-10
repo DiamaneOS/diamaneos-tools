@@ -484,8 +484,8 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
   [`config/build-environment-fp6.json`](../config/build-environment-fp6.json): its `manifest` (URL,
   branch and an optional `revision`), its device and generated-input recipe pins, and an `upstream`
   record that names the GrapheneOS release the manifest is based on and pins the `repo` tool.
-- The generic environment, [`config/build-environment.json`](../config/build-environment.json),
-  pins a GrapheneOS release itself; `build preflight` reads it by default.
+- `build preflight` uses the FP6 environment by default; `--config` selects an explicit
+  environment file.
 - `environment_id` names an environment, not an OS release.
 - An environment file's hash is part of every build identity, so any edit to it changes the build
   number.
