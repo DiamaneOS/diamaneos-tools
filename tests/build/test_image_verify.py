@@ -273,6 +273,10 @@ class RuleTests(unittest.TestCase):
             self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
         self.assertFalse(subject.rule_text(rules['eud-stays-off'], self.harness(
             {'VENDOR_DLKM/lib/modules/modules.options': b'options eud enable=1\n'}))[0])
+        cold = rules['restarts-stay-cold']
+        self.assertTrue(subject.rule_text(cold, self.harness({'VENDOR/etc/init/hw/init.qcom.rc': b'on boot\n'}))[0])
+        self.assertFalse(subject.rule_text(cold, self.harness(
+            {'SYSTEM/etc/init/hw/init.rc': b'on init\n    write /sys/kernel/reboot/mode warm\n'}))[0])
         plat = (b'(type ueventd)\n(type vendor_init)\n(type vold)\n(type sysfs)\n'
                 b'(typeattributeset sysfs_type (sysfs))\n'
                 b'(allow ueventd sysfs_type (file (open write)))\n(allow vendor_init sysfs_type (file (write)))\n'

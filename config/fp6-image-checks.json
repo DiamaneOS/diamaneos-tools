@@ -2072,6 +2072,22 @@
       ]
     },
     {
+      "id": "restarts-stay-cold",
+      "why": "No init file switches the kernel's restart mode. Restarts are cold, so memory is cleared and the previous boot's kernel log is not kept (the kernel argument check refuses reboot= as well).",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/init/**",
+        "SYSTEM_EXT/etc/init/**",
+        "PRODUCT/etc/init/**",
+        "VENDOR/etc/init/**",
+        "ODM/etc/init/**"
+      ],
+      "optional": true,
+      "absent_regex": [
+        "/sys/kernel/reboot/"
+      ]
+    },
+    {
       "id": "keymaster-messages-on-odm",
       "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path.",
       "type": "files_present",
