@@ -1274,7 +1274,7 @@
         "slcan.ko",
         "vcan.ko"
       ],
-      "reason": "CAN bus protocol and drivers: the FP6 has no CAN hardware, and slcan adds a tty line discipline (finding -35)."
+      "reason": "CAN bus protocol and drivers: the FP6 has no CAN hardware, and slcan adds a tty line discipline."
     },
     {
       "modules": [
@@ -1291,13 +1291,13 @@
         "nhc_routing.ko",
         "nhc_udp.ko"
       ],
-      "reason": "IEEE 802.15.4 and 6LoWPAN: the FP6 has no radio for them (finding -35)."
+      "reason": "IEEE 802.15.4 and 6LoWPAN: the FP6 has no radio for them."
     },
     {
       "modules": [
         "nfc.ko"
       ],
-      "reason": "Kernel NFC socket family: FP6 NFC is the Samsung sec_nfc transport used by the stock HAL, which does not use it and does not import it (finding -35)."
+      "reason": "Kernel NFC socket family: FP6 NFC is the Samsung sec_nfc transport used by the stock HAL, which does not use it and does not import it."
     },
     {
       "modules": [
@@ -1305,7 +1305,7 @@
         "l2tp_ppp.ko",
         "pptp.ko"
       ],
-      "reason": "PPTP and L2TP tunnels: Android no longer has the legacy VPN types that used them (finding -35)."
+      "reason": "PPTP and L2TP tunnels: Android no longer has the legacy VPN types that used them."
     },
     {
       "modules": [
@@ -1329,7 +1329,7 @@
         "hidp.ko",
         "rfcomm.ko"
       ],
-      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; on a development build the RFCOMM kernel thread was already denied its socket bind (finding -35)."
+      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; on a development build the RFCOMM kernel thread was already denied its socket bind."
     },
     {
       "modules": [
@@ -1377,7 +1377,7 @@
         "qcom_spss.ko",
         "qsee_ipc_irq_bridge.ko"
       ],
-      "reason": "Secure processor (SPSS) loader and its QSEE interrupt bridge: the FP6 device tree has no SPSS or bridge node (finding -85). qcom_glink_spss stays: glink_probe imports it."
+      "reason": "Secure processor (SPSS) loader and its QSEE interrupt bridge: the FP6 device tree has no SPSS or bridge node. qcom_glink_spss stays: glink_probe imports it."
     },
     {
       "modules": [
@@ -1389,13 +1389,13 @@
       "modules": [
         "f_fs_ipc_log.ko"
       ],
-      "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on a development build. Debug only, imported by nothing (finding -18)."
+      "reason": "FunctionFS debug logging through kretprobes; two of its probes already failed on a development build. Debug only, imported by nothing."
     },
     {
       "modules": [
         "eud.ko"
       ],
-      "reason": "Qualcomm's embedded USB debugger (EUD): debug access over USB. Its device-tree node is disabled, and the USB controller takes its connect and role events from UCSI, not from an EUD extcon (finding -18)."
+      "reason": "Qualcomm's embedded USB debugger (EUD): debug access over USB. Its device-tree node is disabled, and the USB controller takes its connect and role events from UCSI, not from an EUD extcon."
     }
   ],
   "dtb_count": 14,
@@ -1405,14 +1405,14 @@
       "modules": [
         "dwc3-msm.ko"
       ],
-      "reason": "KPROBES stays on only for the dwc3-msm USB hooks (finding -111); any other kretprobe user is new and needs review."
+      "reason": "KPROBES stays on only for the dwc3-msm USB hooks; any other kretprobe user is new and needs review."
     }
   },
   "forbidden_symbols": [],
   "required_symbols": [
     {
       "symbol": "names_command_line",
-      "reason": "/proc/cmdline shows parameter names only, keeping module option values; without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line (finding -112)."
+      "reason": "/proc/cmdline shows parameter names only, keeping module option values; without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line."
     },
     {
       "symbol": "selinux_enforcing_lock",

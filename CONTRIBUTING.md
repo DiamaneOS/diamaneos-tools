@@ -147,8 +147,8 @@ acceptance criteria. Source/format-only changes get review/validation, not ritua
 - Routine administration uses individually assigned credentials and MFA.
 - Production signing tokens never attach to a development workstation after the ceremony and never
   serve as routine MFA.
-- Account recovery details stay private (`PRIVATE_ROOT`); public records hold roles only, never
-  codes/secrets. Credential changes need the responsible operator.
+- Account recovery details stay private; public records hold roles only, never codes/secrets.
+  Credential changes need the responsible operator.
 
 ## Translations and accessibility
 

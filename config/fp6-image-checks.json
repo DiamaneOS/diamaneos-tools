@@ -1126,7 +1126,7 @@
     },
     {
       "id": "vendor-init-properties",
-      "why": "vendor_init may set our audio, radio and SSR properties under enforcing (register -105).",
+      "why": "vendor_init may set our audio, radio and SSR properties under enforcing.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -1225,7 +1225,7 @@
     },
     {
       "id": "imei-provisioning-present",
-      "why": "Our source IMEI provisioning tool and its init rc (finding -171).",
+      "why": "Our source IMEI provisioning tool and its init rc.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/imeiprovd",
@@ -1235,7 +1235,7 @@
     },
     {
       "id": "imei-provisioning-write",
-      "why": "The provisioning tool runs in --write mode after the phone dry-run (finding -171).",
+      "why": "The provisioning tool runs in --write mode after the phone dry-run.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/imeiprovd.rc"
@@ -1289,7 +1289,7 @@
     },
     {
       "id": "bluetooth-factory-address-service",
-      "why": "imeiprovd reads the factory Bluetooth address from the traceability partition early in boot, in its own one-shot service, so the HCI implementation does not generate one (finding -177).",
+      "why": "imeiprovd reads the factory Bluetooth address from the traceability partition early in boot, in its own one-shot service, so the HCI implementation does not generate one.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/imeiprovd.rc"
@@ -1421,7 +1421,7 @@
     },
     {
       "id": "wlan-factory-mac-service",
-      "why": "imeiprovd writes the WLAN driver's factory MAC file from the traceability partition in its own one-shot service, which init waits for at post-fs, before early-boot starts the Wi-Fi processor (finding -180).",
+      "why": "imeiprovd writes the WLAN driver's factory MAC file from the traceability partition in its own one-shot service, which init waits for at post-fs, before early-boot starts the Wi-Fi processor.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/imeiprovd.rc"
@@ -1544,7 +1544,7 @@
     },
     {
       "id": "netd-calls-not-logged-user",
-      "why": "On user builds netd logs warnings and errors only: its info lines log every binder call with its results, and the interface configuration calls carry the factory Wi-Fi MAC (-180).",
+      "why": "On user builds netd logs warnings and errors only: its info lines log every binder call with its results, and the interface configuration calls carry the factory Wi-Fi MAC.",
       "type": "properties",
       "file": "PRODUCT/etc/build.prop",
       "equals": [
@@ -1556,7 +1556,7 @@
     },
     {
       "id": "supplicant-debug-not-logged-user",
-      "why": "On user builds the supplicant logs info and up only: at debug level it logs its own address at every Wi-Fi start, the factory MAC (-180).",
+      "why": "On user builds the supplicant logs info and up only: at debug level it logs its own address at every Wi-Fi start, the factory MAC.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -1580,7 +1580,7 @@
     },
     {
       "id": "wlan-driver-own-mac-not-logged",
-      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the line carried four octets of the factory MAC (-180).",
+      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the line carried four octets of the factory MAC.",
       "type": "binary_count",
       "file": "VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko",
       "patterns": [
@@ -3600,7 +3600,7 @@
     },
     {
       "id": "fingerprint-factory-service",
-      "why": "The fingerprint HAL answers the module's factory service registration in-process; nothing labels it (finding -16).",
+      "why": "The fingerprint HAL answers the module's factory service registration in-process; nothing labels it.",
       "type": "elf_exports",
       "path": "VENDOR/bin/hw/android.hardware.biometrics.fingerprint-service.fp6",
       "symbols": [
@@ -3753,7 +3753,7 @@
     },
     {
       "id": "esim-apdu-not-logged",
-      "why": "The framework's eUICC transport logs every eUICC command and answer in full at verbose level (ICCIDs; during a download the matching ID, the IMEI and the EID); these tags stay at info (finding -181).",
+      "why": "The framework's eUICC transport logs every eUICC command and answer in full at verbose level (ICCIDs; during a download the matching ID, the IMEI and the EID); these tags stay at info.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -3821,7 +3821,7 @@
     },
     {
       "id": "ramoops",
-      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone (finding -112).",
+      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -3918,7 +3918,7 @@
     },
     {
       "id": "download-reboot-refused",
-      "why": "The download-mode driver ignores the \"edl\" and \"qcom_dload\" reboot reasons and drops the regulator handling only EDL reboots used (finding -17).",
+      "why": "The download-mode driver ignores the \"edl\" and \"qcom_dload\" reboot reasons and drops the regulator handling only EDL reboots used.",
       "type": "binary_count",
       "file": "kernel:modules/qcom-dload-mode.ko",
       "patterns": [
@@ -3938,7 +3938,7 @@
     },
     {
       "id": "usb-events-from-ucsi",
-      "why": "The USB controller takes connect and role events from UCSI through its role switch and port graph, has no extcon, and the EUD debugger node is disabled (finding -18).",
+      "why": "The USB controller takes connect and role events from UCSI through its role switch and port graph, has no extcon, and the EUD debugger node is disabled.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -3990,7 +3990,7 @@
     },
     {
       "id": "privacy-switch-devicetree",
-      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys no longer has it, and nothing can disable it from sysfs (finding -189).",
+      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys no longer has it, and nothing can disable it from sysfs.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4822,7 +4822,7 @@
     },
     {
       "id": "media-codec2-seccomp-loader",
-      "why": "The codec service loads DiamaneOS's seccomp filter and codec gate in place of libavservices_minijail (finding -47): the filter does not depend on the stock binary's own policy, and the store offers only the codecs the boot allows.",
+      "why": "The codec service loads DiamaneOS's seccomp filter and codec gate in place of libavservices_minijail: the filter does not depend on the stock binary's own policy, and the store offers only the codecs the boot allows.",
       "type": "binary_count",
       "file": "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
       "patterns": [
@@ -4967,7 +4967,7 @@
     },
     {
       "id": "codec2-graphicbuffer-abi",
-      "why": "The stock Codec2 library's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one (finding -115).",
+      "why": "The stock Codec2 library's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one.",
       "type": "codec2_abi_guard",
       "path": "ODM/lib64/libcodec2_vndk.so",
       "alloc_bytes": 256,

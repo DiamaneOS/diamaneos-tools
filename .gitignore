@@ -18,19 +18,15 @@
 .env.*
 secrets*.json
 *token*.json
-*share*.txt
-SLIP39*.txt
+*secret*.txt
 
-# Maintainer-private planning bundle and raw evidence
-*diamaneos-development-plan*.md
-*diamaneos-task-packets*/
-*TASK-AUDIT*.md
-baselines/*raw*/
-private-runs/
-artifacts/stock/
-devices/*/raw*
+# Local notes, captures and run records
+private-*/
+/artifacts/
+/baselines/
+/devices/
 
-# Build outputs and large checkouts (arrive with owning task)
+# Build outputs and large checkouts
 os/
 manifest/
 out/

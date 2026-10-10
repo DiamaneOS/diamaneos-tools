@@ -585,7 +585,7 @@ def rule_elf_exports(rule, v):
 
 def rule_codec2_abi_guard(rule, v):
     """Prove the stock Codec2 library's 256-byte GraphicBuffer allocations bind a
-    256-byte object (finding -115), not Android 17's 3376-byte one.
+    256-byte object, not Android 17's 3376-byte one.
 
     The stock libcodec2_vndk was built against Android 14, where GraphicBuffer is
     256 bytes: it allocates 256 bytes and calls the constructor. The vendor
