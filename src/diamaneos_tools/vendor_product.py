@@ -1336,12 +1336,11 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
     rendered[FIRMWARE_TABLE] = firmware_releases
     rendered['device-vendor.mk'] += firmware_table_copy()
     provenance = {'operation': 'fp6-native-product-generation',
-                  'scope': 'private-bringup',
                   'recipe_sha256': hashlib.sha256(encoded(recipe)).hexdigest(),
                   'elf_selection_sha256': hashlib.sha256(encoded(selection)).hexdigest(),
                   'renderer_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'firmware_releases_sha256': hashlib.sha256(firmware_releases).hexdigest(),
-                  'notice_kind': notice_kind, 'native_or_device_accepted': False}
+                  'notice_kind': notice_kind}
     has_carrier_data = any(row['path'] == carrier_data.APK_PATH for row in recipe['files'])
     if has_carrier_data:
         if aapt2 is None:
@@ -1511,8 +1510,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                 os.replace(link, current)
     return dict(operation='fp6-native-product-generation', status='PASS',
                 generation_sha256=identity, inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(),
-                vendor_security_patch=vendor_patch, firmware_releases_sha256=provenance['firmware_releases_sha256'],
-                scope='private-bringup', native_or_device_accepted=False)
+                vendor_security_patch=vendor_patch, firmware_releases_sha256=provenance['firmware_releases_sha256'])
 
 
 def release_date_of(stock, inventory):
