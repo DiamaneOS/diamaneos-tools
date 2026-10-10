@@ -126,7 +126,7 @@ class PublishTests(unittest.TestCase):
 
     def test_host_strings_are_refused(self):
         for data, message in ((b'built by builderperson', 'builderperson'), (b'on buildbox', 'buildbox'),
-                              (b'/var/lib/diamaneos-build/ws', '/var/lib/'), (b'/home/someone/src', '/home/'),
+                              (b'/var/lib/example-build/ws', '/var/lib/'), (b'/home/someone/src', '/home/'),
                               (b'/Users/someone/src', '/Users/')):
             with self.subTest(data=data):
                 self.write_run(dict(CANDIDATE, **{'modules/a.ko': data}))

@@ -26,8 +26,6 @@ Clone into any directory; run commands from the repository root unless stated ot
 
 - `WORK_ROOT` in repository maps: a configurable parent of related checkouts, not a required path.
 - `TOOLS_ROOT`: this checkout.
-- `PRIVATE_ROOT`: a caller-selected directory outside public repositories for private records.
-- `OFFLINE_ROOT`: isolated release-signing storage, not a development checkout.
 
 Needs Git, Python 3 and the official Android platform tools (`adb`, `fastboot`), on `PATH` or given
 through the documented executable option:
@@ -60,9 +58,9 @@ fastboot --version
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Repository map](config/repositories.json): checkout discovery and lifecycle state only, not a
   release lock; the consuming build or release manifest records exact multi-repository build inputs.
-- [Verified stock recovery inputs](config/stock-inputs.json)
+- [Verified stock factory packages](config/stock-inputs.json)
 - [Threat model and product boundaries](docs/THREAT_MODEL.md)
 - [Tally shell rules](docs/THREAT_MODEL-TALLY.md)
 - Interface design and branding sources are not public.
 
-Only implemented commands can be run; the component contracts identify unresolved evidence.
+Only implemented commands can be run.

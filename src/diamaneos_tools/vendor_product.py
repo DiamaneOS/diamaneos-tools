@@ -333,7 +333,7 @@ NEEDED_REWRITES = {
  # - libcodec2_vndk was built against Android 14, where GraphicBuffer is 256
  #   bytes; it allocates 256 bytes itself and calls the platform constructor.
  #   Android 17's GraphicBuffer is 3376 bytes, so binding it to Android 17 libui
- #   overflows the codec service's heap (finding -115). Its libui.so dependency
+ #   overflows the codec service's heap. Its libui.so dependency
  #   is renamed to uiv34.so and its six GraphicBuffer imports to GraphicBufV34
  #   (same lengths; see GRAPHICBUFFER_V34_SYMBOLS), so they bind to uiv34's
  #   Android 14 sized GraphicBuffer instead (which fails closed unless hardware
@@ -1160,7 +1160,7 @@ def gnss_config(path, data):
     return derived
 
 
-# Hardware video encoders only (project decision 2026-09-27): every decoder stays
+# Hardware video encoders only: every decoder stays
 # the platform software decoder in the sandboxed mediaswcodec. Two pinned
 # derivations keep the stock Qualcomm Codec2 service from exposing a hardware
 # decoder by any path:
