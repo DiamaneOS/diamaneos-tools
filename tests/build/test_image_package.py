@@ -117,6 +117,17 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'lacks its otatools'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
+    def test_recorded_android_step_is_stale_after_tool_mutation_or_removal(self):
+        outputs = self.ctx.workspace.passed('android')['outputs']
+        self.assertTrue(steps.android_outputs_match(self.ctx.workspace, outputs))
+        path = self.ctx.workspace.root / outputs['otatools']['file']
+        path.write_bytes(b'changed')
+        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
+        path.unlink()
+        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
+        del outputs['otatools']; outputs['official'] = True
+        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
+
     def test_an_official_build_says_so_in_its_record(self):
         android = self.ctx.workspace.passed('android')
         android['outputs']['official'] = True
