@@ -35,7 +35,8 @@ Fairphone and CodeLinaro projects, the kernel prebuilts and the tools, minus oth
   recorded rationale and regenerate derived content from reviewed inputs.
 - The FP6 port uses QSSI (Qualcomm's common system side) and the Fairphone target tree (device,
   kernel, modules, vendor side).
-- `config/fp6-sources.json` maps sources, prebuilts and partitions.
+- `config/fp6-sources.json` pins the commit of Fairphone's source manifest and describes the
+  families of stock files the build selects.
 - Published module repositories are not flattened into one invented project.
 
 **Stock input.** Generated vendor content comes from an exact, hash-pinned stock input:

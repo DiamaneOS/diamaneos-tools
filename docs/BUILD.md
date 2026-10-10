@@ -716,7 +716,7 @@ SOURCE_ROOT="/absolute/path/to/android-source"
 ```
 
 - `FACTORY_ZIP` is the EU factory archive identified by `config/fp6-stock-image-recipe.json`.
-- Obtain that exact archive through the source recorded in `config/fp6-sources.json`.
+- Obtain that exact archive from the download address recorded in `config/stock-inputs.json`.
 - Other regions/builds are not interchangeable.
 - `IMAGE_TOOLS` is a `bin` directory holding `simg2img`, `lpunpack` and `debugfs_static` with their
   sibling `lib64` directory: either an otatools package whose programs and libraries
