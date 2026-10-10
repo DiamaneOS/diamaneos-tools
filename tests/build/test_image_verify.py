@@ -424,6 +424,103 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(protection(dict(clean, **{
             'VENDOR/build.prop': b'ro.usb.data_protection.disable_when_locked.supported=true\n'})))
 
+    def test_sepolicy_dormant_finds_files_that_can_start_a_domain(self):
+        cil = (b'(type hal_x_default)\n(type hal_x_default_exec)\n(type hal_y_default)\n(type hal_y_default_exec)\n'
+               b'(type other_exec)\n(typeattributeset x_entry (hal_x_default_exec other_exec))\n'
+               b'(typeattributeset hal_x_server (hal_x_default))\n'
+               b'(allow hal_x_server x_entry (file (read execute entrypoint)))\n'
+               b'(allow hal_y_default hal_y_default_exec (file (read execute entrypoint)))\n'
+               b'(allow hal_x_default hal_y_default_exec (file (read execute)))\n')
+        contexts = (b'# reference services\n'
+                    b'/(vendor|system/vendor)/bin/hw/android\\.hardware\\.x@1\\.[0-2]-service(-lazy)?   '
+                    b'u:object_r:hal_x_default_exec:s0\n'
+                    b'/(odm|vendor/odm)/bin/other   --   u:object_r:other_exec:s0\n'
+                    b'/vendor/bin/hw/y-service   u:object_r:hal_y_default_exec:s0\n')
+        rule = {'files': ['VENDOR/etc/selinux/*.cil'], 'contexts': ['VENDOR/etc/selinux/vendor_file_contexts'],
+                'domains': ['hal_x_default']}
+        base = {'VENDOR/etc/selinux/vendor_sepolicy.cil': cil, 'VENDOR/etc/selinux/vendor_file_contexts': contexts,
+                'VENDOR/bin/hw/y-service': b'', 'VENDOR/bin/hw/android.hardware.x@1.3-service': b'',
+                'VENDOR/bin/hw/android.hardware.xx1.0-service': b'', 'SYSTEM/bin/other': b''}
+        run = lambda members, **change: subject.rule_sepolicy_dormant(dict(rule, **change), self.harness(members))
+        self.assertEqual((True, 'no file starts any of 1 domains'), run(base))
+        for path, device in (('VENDOR/bin/hw/android.hardware.x@1.2-service', '/vendor/bin/hw/android.hardware.x@1.2-service'),
+                             ('VENDOR/bin/hw/android.hardware.x@1.0-service-lazy',
+                              '/vendor/bin/hw/android.hardware.x@1.0-service-lazy'),
+                             ('ODM/bin/other', '/odm/bin/other')):
+            with self.subTest(path=path):
+                self.assertEqual((False, device + ' can start hal_x_default'), run({**base, path: b''}))
+        # A second domain is checked through its own entry type.
+        self.assertFalse(run(base, domains=['hal_x_default', 'hal_y_default'])[0])
+        # Unknown domains, unreadable entries and missing inputs fail the check.
+        self.assertFalse(run(base, domains=['hal_z_default'])[0])
+        broken = {**base, 'VENDOR/etc/selinux/vendor_file_contexts': b'/vendor/bin/(x   u:object_r:hal_x_default_exec:s0\n'}
+        self.assertFalse(run(broken)[0])
+        self.assertFalse(run(base, files=['ODM/etc/selinux/*.cil'])[0])
+        self.assertFalse(run(base, contexts=['ODM/etc/selinux/*_contexts'])[0])
+        # The versioned compatibility files do not count.
+        compat = {**base, 'VENDOR/etc/selinux/202604.compat.cil': b'(allow hal_x_default hal_y_default_exec (file (entrypoint)))\n'}
+        self.assertTrue(run(compat)[0])
+
+    def test_tee_node_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        dormant = rules['tee-node-dormant-domains']['domains']
+        self.assertEqual(9, len(dormant))
+        for rule_id in reach:
+            self.assertEqual(sorted(live + dormant), rules[rule_id]['allowed'], rule_id)
+            self.assertEqual(('tee_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
+                             (rules[rule_id]['target'], rules[rule_id]['cls'], rules[rule_id]['perm']))
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        contexts = 'VENDOR/etc/selinux/vendor_file_contexts'
+        use = '(chr_file (ioctl read write getattr open))'
+        plat_cil = ('(type tee_device)\n(type init)\n(type ueventd)\n(type hal_camera_default)\n'
+                    '(typeattributeset dev_type (tee_device))\n'
+                    '(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
+                    '(allow ueventd dev_type (chr_file (create setattr unlink)))\n')
+        vendor_cil = (''.join(f'(type {d})\n(type {d}_exec)\n(allow {d} {d}_exec (file (read execute entrypoint)))\n'
+                              for d in live + dormant)
+                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl))\n'
+                      + '(typeattributeset hal_gatekeeper_server (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
+                      + f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
+                      + ''.join(f'(allow {d} tee_device {use})\n' for d in live + dormant
+                                if not d.startswith(('hal_drm_', 'hal_gatekeeper_')) and d != 'vendor_hal_gatekeeper_qti')
+                      + '(allow hal_fingerprint_default tee_device (chr_file (open read write ioctl)))\n')
+        labels = ('/dev/smcinvoke   u:object_r:tee_device:s0\n'
+                  '/vendor/bin/qseecomd   u:object_r:tee_exec:s0\n'
+                  '/vendor/bin/hw/android\\.hardware\\.gatekeeper-service-qti   u:object_r:vendor_hal_gatekeeper_qti_exec:s0\n'
+                  '/(vendor|system/vendor)/bin/hw/android\\.hardware\\.drm-service(-lazy)?\\.clearkey '
+                  'u:object_r:hal_drm_clearkey_aidl_exec:s0\n'
+                  '/(vendor|system/vendor)/bin/hw/android\\.hardware\\.security\\.keymint-service   '
+                  'u:object_r:hal_keymint_default_exec:s0\n')
+        good = {plat: plat_cil.encode(), vendor: vendor_cil.encode(), contexts: labels.encode(),
+                'VENDOR/bin/qseecomd': b'\x7fELF', 'VENDOR/bin/hw/android.hardware.gatekeeper-service-qti': b'\x7fELF',
+                'VENDOR/bin/hw/android.hardware.security.keymint-service-qti': b'\x7fELF',
+                'SYSTEM/etc/selinux/plat_file_contexts': b'', 'SYSTEM_EXT/etc/selinux/system_ext_file_contexts': b'',
+                'PRODUCT/etc/selinux/product_file_contexts': b'', 'ODM/etc/selinux/odm_file_contexts': b'',
+                'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+                'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in reach + ('tee-node-dormant-domains',):
+            self.assertTrue(check(rule_id, good), rule_id)
+        grant = lambda rule: {vendor: (vendor_cil + rule + '\n').encode()}
+        widevine = ('(type hal_drm_widevine)\n(typeattributeset hal_drm_server (hal_drm_widevine))')
+        for failing, change in [
+                (('tee-node-ioctl',), grant('(allow hal_camera_default tee_device (chr_file (ioctl)))')),
+                (('tee-node-read', 'tee-node-write'), grant('(allow hal_camera_default tee_device (chr_file (read write)))')),
+                (('tee-node-open',), grant('(allow hal_camera_default dev_type (chr_file (open)))')),
+                (reach, grant(widevine)),
+                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.drm-service.clearkey': b'\x7fELF'}),
+                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.drm-service-lazy.clearkey': b'\x7fELF'}),
+                (('tee-node-dormant-domains',), {'VENDOR/bin/hw/android.hardware.security.keymint-service': b'\x7fELF'}),
+                (('tee-node-dormant-domains',), {contexts: (labels + '/vendor/bin/qseecomd   '
+                                                            'u:object_r:hal_cas_default_exec:s0\n').encode()}),
+                (('tee-node-dormant-domains',), {vendor: vendor_cil.replace('(type hal_keymaster_default)\n', '').encode()})]:
+            members = {**good, **change}
+            for rule_id in reach + ('tee-node-dormant-domains',):
+                with self.subTest(rule=rule_id, change=sorted(change)):
+                    self.assertEqual(rule_id not in failing, check(rule_id, members))
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')
