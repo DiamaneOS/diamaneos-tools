@@ -12,6 +12,7 @@ One line per change, newest first. Add new revisions at the top; THREAT_MODEL.md
 
 ### 2026-10-10
 
+- Carrier sign-up for Wi-Fi calling checked on the phone against a local test carrier: portal callbacks only from the configured origin's main frame and acted on once, Retry-After capped at a day, refresh no sooner than 30 seconds, activation retries bounded. Sign-in used a stored token, not SIM authentication.
 - Fingerprint class: the fingerprint service declares Class 3 as Fairphone's stock service does for the same sensor, matching code and trusted app (checked in the stock service). DiamaneOS relies on that qualification and does not measure spoof acceptance.
 - Encrypted microSD storage, built and checked on the phone (2026-10-09): an admin user can adopt the card as phone storage, encrypted (AES-256-XTS metadata encryption plus file-based encryption), ext4 with checksums, checked by `e2fsck` in the untrusted fsck domain before every mount, mounted noexec; shared storage only, apps stay on the phone's own storage; forgetting a card destroys its keys. Portable cards and USB drives stay unencrypted.
 - Network services (since the 2026-10-09 builds): connectivity and DNS checks, HTTPS time, the CT list, the SUPL, PSDS, key and Widevine provisioning proxies and the network location relay use DiamaneOS's servers, and image verification refuses GrapheneOS's hosts for them. The app catalog, the browser's own checks and updates, and Auditor still use GrapheneOS's.

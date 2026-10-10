@@ -141,7 +141,11 @@ provisioning setting even when one fails, repairs from the stored carrier result
 without a new SIM authentication, caps a carrier Retry-After at 24 hours and
 delivers a portal's finishing callback once. These later controls are in the
 2026-10-05 build, where IMS calls over cellular and Wi-Fi passed on the phone;
-none is qualified.
+none is qualified. A local test carrier on the phone (2026-10-10) showed the
+sign-up portal's callbacks accepted only from the configured origin's main
+frame and acted on once, a 10 year Retry-After stored as one day, a 1 second
+validity refreshed no sooner than 30 seconds and activation retries stopping
+after 7 queries; sign-in used a stored token, not SIM authentication.
 
 The proprietary IMS/IWLAN/certificate components, modem firmware and selected
 network-control daemon remain part of the trusted computing base. Presigned OEM
