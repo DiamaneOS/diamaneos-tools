@@ -1,8 +1,8 @@
 # Contributing to diamaneos-tools
 
 GitHub is the authoritative source, issue and pull-request host; remotes are
-`https://github.com/DiamaneOS/<slug>.git`. Do not create empty repos to match the map or make a repo
-public before its rights/identity gate passes.
+`https://github.com/DiamaneOS/<slug>.git`. Do not make a repo public before its rights/identity gate
+passes.
 
 ## Privacy
 
@@ -135,7 +135,7 @@ acceptance criteria. Source/format-only changes get review/validation, not ritua
   shared product and kernel repositories).
 - Preserve upstream history in forks; keep commits signed.
 - Keep independent Git backups; ROM images and build evidence stay outside source Git.
-- Repository discovery: `config/repositories.json`; exact build pins: the manifest and environment
+- Forks and their upstreams: `config/forks.json`; exact build pins: the manifest and environment
   records.
 
 ## Roles and access

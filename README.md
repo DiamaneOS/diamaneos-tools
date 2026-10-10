@@ -24,7 +24,8 @@ its upstream OS base.
 
 Clone into any directory; run commands from the repository root unless stated otherwise.
 
-- `WORK_ROOT` in repository maps: a configurable parent of related checkouts, not a required path.
+- `WORK_ROOT` in the docs: a directory you choose for related checkouts or work files, not a
+  required path.
 - `TOOLS_ROOT`: this checkout.
 
 Needs Git, Python 3 and the official Android platform tools (`adb`, `fastboot`), on `PATH` or given
@@ -56,8 +57,8 @@ fastboot --version
 - [Signing roles and offline release boundary](docs/SIGNING.md)
 - [Carrier configuration and modem-backed Wi-Fi calling](docs/CARRIER-INTEGRATION.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
-- [Repository map](config/repositories.json): checkout discovery and lifecycle state only, not a
-  release lock; the consuming build or release manifest records exact multi-repository build inputs.
+- [Fork and upstream registry](config/forks.json): the repositories DiamaneOS forks and the pinned
+  upstream inputs. The DiamaneOS manifest lists every project a build uses.
 - [Verified stock factory packages](config/stock-inputs.json)
 - [Terms](docs/TERMS.md)
 - Interface design and branding sources are not public.

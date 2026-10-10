@@ -594,10 +594,9 @@ commands](#the-build-commands).
   separate.
 - Server forks are not selected by the Android manifest or release-tag rebase.
 - A fork exists only where DiamaneOS changes the code.
-- A fork that stops carrying a needed change leaves the registry, the manifest takes the upstream
-  project unmodified, and `config/repositories.json` marks it `retired` while it is still published.
-- A retired fork may be deleted; its entry then goes, and builds whose manifests pinned it can no
-  longer be synced from GitHub.
+- A fork that stops carrying a needed change leaves the registry, and the manifest takes the
+  upstream project unmodified.
+- Once such a fork is deleted, builds whose manifests pinned it can no longer be synced from GitHub.
 - A `follow_note` says how a fork follows upstream or why one that ships nothing is kept.
 - `sources` are pinned inputs that are not forked:
   - The GrapheneOS release, the repo launcher, Fairphone's source manifest, the Qualcomm SELinux
