@@ -295,6 +295,8 @@ or deleted files):
     read from the stock vendor image.
   - No permissive domain beyond the variant's.
   - The bootconfig.
+  - No kernel argument that turns a protection off, in any device tree, overlay, boot image header or
+    bootconfig entry (`kernel_arguments` in `config/fp6-build.json`).
   - No pre-trusted adb key.
   - The wipe images.
   - The firmware (every image of the release byte for byte as the inventory pins it, the stock

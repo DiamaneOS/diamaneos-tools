@@ -95,6 +95,36 @@
       "eud.enable"
     ]
   },
+  "kernel_arguments": {
+    "forbidden_reason": "Each of these turns a kernel protection off, or copies kernel traces or a debugger onto a console. None is set, so the kernel configuration decides.",
+    "forbidden": [
+      "kpti",
+      "nokaslr",
+      "kaslr.disabled",
+      "norandmaps",
+      "mitigations",
+      "nospectre_v2",
+      "nospectre_bhb",
+      "ssbd",
+      "arm64.nopauth",
+      "arm64.nobti",
+      "rodata",
+      "init_on_alloc",
+      "init_on_free",
+      "hardened_usercopy",
+      "randomize_kstack_offset",
+      "slab_merge",
+      "iommu.passthrough",
+      "selinux",
+      "enforcing",
+      "androidboot.selinux",
+      "kgdboc",
+      "kgdbwait",
+      "sysrq_always_enabled",
+      "ftrace_dump_on_oops",
+      "tp_printk"
+    ]
+  },
   "wipe": {
     "validated": false,
     "fstab": "VENDOR/etc/fstab.qcom",

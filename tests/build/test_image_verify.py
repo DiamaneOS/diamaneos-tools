@@ -1133,6 +1133,53 @@ class GenericCheckTests(unittest.TestCase):
         self.assertTrue(subject.check_adb_keys(self.harness({'SYSTEM/build.prop': b''}, symlinks=link))[0])
         self.assertFalse(subject.check_adb_keys(self.harness({'PRODUCT/etc/security/adb_keys': b'key'}))[0])
 
+    def kernel_argument_set(self, bootconfig=b'androidboot.hardware=qcom\n', **changed):
+        """An image set whose kernel arguments are clean, but for the named parts."""
+        for name in ('boot', 'init_boot', 'recovery'):
+            header = bytearray(4096)
+            header[:8] = b'ANDROID!'
+            struct.pack_into('<I', header, 40, 4)
+            header[44:44 + len(changed.get(name, b''))] = changed.get(name, b'')
+            (self.root / f'{name}.img').write_bytes(bytes(header))
+        tuning = b'loglevel=6 kasan=off swiotlb=noforce cgroup.memory=nokmem,nosocket\0'
+        trees = [dtb({'/': {}, '/chosen': {'bootargs': tuning}}),
+                 dtb({'/': {}, '/chosen': {'bootargs': changed.get('tree', tuning)}})]
+        ramdisk = b'r' * 5000
+        header = bytearray(4096)
+        header[:8] = b'VNDRBOOT'
+        struct.pack_into('<III', header, 8, 4, 4096, 0)
+        struct.pack_into('<I', header, 24, len(ramdisk))
+        cmdline = changed.get('vendor_boot', b'bootconfig')
+        header[28:28 + len(cmdline)] = cmdline
+        struct.pack_into('<II', header, 2096, 2128, sum(map(len, trees)))
+        (self.root / 'vendor_boot.img').write_bytes(bytes(header) + ramdisk.ljust(8192, b'\0') + b''.join(trees))
+        overlay = dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': changed.get('overlay', {})})
+        table = struct.pack('>8I', 0xD7B7AB1E, 64 + len(overlay), 32, 32, 1, 32, 4096, 0)
+        table += struct.pack('>8I', len(overlay), 64, 0, 0, 0, 0, 0, 0) + overlay
+        footer = b'AVBf' + bytes(8) + struct.pack('>Q', len(table)) + bytes(44)
+        (self.root / 'dtbo.img').write_bytes(table + bytes(12) + footer)
+        return self.harness({'VENDOR_BOOT/vendor_bootconfig': bootconfig})
+
+    def test_kernel_arguments_are_refused_wherever_they_are_set(self):
+        self.assertEqual((True, ''), subject.check_kernel_arguments(self.kernel_argument_set()))
+        cases = {'tree': (b'loglevel=6 kpti=0 ftrace_dump_on_oops\0', 'kpti=0 in device tree 1'),
+                 'overlay': ({'bootargs': b'nokaslr\0'}, 'nokaslr in overlay 0'),
+                 'vendor_boot': (b'bootconfig mitigations=off', 'mitigations=off in vendor_boot.img'),
+                 'recovery': (b'enforcing=0', 'enforcing=0 in recovery.img')}
+        for part, (value, expected) in cases.items():
+            ok, detail = subject.check_kernel_arguments(self.kernel_argument_set(**{part: value}))
+            self.assertFalse(ok, part)
+            self.assertIn(expected, detail)
+        ok, detail = subject.check_kernel_arguments(self.kernel_argument_set(bootconfig=b'kernel.loglevel = 7\n'))
+        self.assertEqual((False, 'kernel.loglevel = 7 in vendor bootconfig'), (ok, detail))
+
+    def test_forbidden_kernel_arguments_are_names(self):
+        # Arguments are matched by name; an entry with a value or a space would never match.
+        names = json.loads((ROOT / 'config/fp6-build.json').read_text())['kernel_arguments']['forbidden']
+        self.assertEqual(len(names), len(set(names)))
+        for name in names:
+            self.assertRegex(name, r'^[a-z0-9_.]+$')
+
     def test_test_keys_marking(self):
         prop = b'ro.build.tags=test-keys\nro.build.fingerprint=Fairphone/FP6/FP6:17/X/test.1:user/test-keys\n'
         members = {name: prop for name in ('SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop',
