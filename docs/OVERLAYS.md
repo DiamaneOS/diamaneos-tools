@@ -6,9 +6,9 @@
 - Most targets, including framework-res, Settings and SystemUI, declare no `<overlayable>`, so an
   overlay naming a resource upstream renamed, moved or removed silently does nothing.
 
-Run it on every new GrapheneOS tag and overlay change, fetching target sources into a private cache
-outside this repository. It reads sources only (no build, install, signing or push) and uses the
-network only in fetch mode. Tests: [TESTING.md](TESTING.md#other-checks).
+Run it on every new GrapheneOS tag and overlay change, fetching target sources into a cache
+directory outside this repository. It reads sources only (no build, install, signing or push) and
+uses the network only in fetch mode. Tests: [TESTING.md](TESTING.md#other-checks).
 
 It implements rules 1 to 5 of the DiamaneOS overlay rules (Tally is the DiamaneOS interface):
 
@@ -24,7 +24,7 @@ the FP6 hardware overlays' own qualifier gaps). A pass means names, qualifiers, 
 overlayable policies agree with the sources, nothing more.
 
 ```sh
-# Against the pinned release, fetching target sources into a private cache:
+# Against the pinned release, fetching target sources into a cache directory:
 bin/diamaneos overlays check --root <WORK_ROOT> --fetch --cache <CACHE_DIR>
 
 # Against a newer tag before the build environment moves to it:

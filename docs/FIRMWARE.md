@@ -1,16 +1,16 @@
 # FP6 firmware
 
-The Fairphone 6's closed firmware (boot chain, TrustZone, modem, signal processors), how DiamaneOS
-delivers it, and its recent changes.
+The Fairphone 6's closed firmware (boot chain, TrustZone, modem, signal processors) and how
+DiamaneOS delivers it.
 
-## Current state
+## Overview
 
 - DiamaneOS image sets carry Fairphone's firmware of the stock release their vendor files come from
   (`FP6.QREL.16.111.0`), byte for byte, and `diamaneos flash-steps` writes it before the OS when the
   phone runs older firmware ([Delivery](#delivery)).
 - No OTA carries firmware.
-- No image set with firmware has been built or flashed yet (`firmware.validated` in
-  `config/fp6-build.json`); until one is, a phone keeps the firmware of its last stock flash.
+- While `firmware.validated` in `config/fp6-build.json` is false, the printed flash steps say that
+  the firmware steps are not yet tested on a phone.
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
   the selected `FP6.QREL.16.111.0` and previous `FP6.QREL.16.100.0` factory packages with size and
   SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi firmware
@@ -138,37 +138,6 @@ as after Fairphone's own flash.
     A/B firmware partitions or carries other bytes than stock's for them (check `firmware-ota`), so
     an update holds the whole firmware of one release or none.
 
-## Changes from 16.100.0 to 16.111.0
-
-- All readable Qualcomm version strings are unchanged: boot `BOOT.MXF.2.1-02027`, TrustZone and
-  hypervisor `TZ.XF.5.28.0-00021`, AOP `AOP.HO.5.0-00813`, modem `MPSS.DE.3.1.4.c4-00192`, ADSP
-  `LPAIDSP.HT.1.0-01111`, CDSP `CDSP.HT.3.0-00953`, Wi-Fi `WLAN.MSL.3.0.1-00591`, Bluetooth
-  `BTFW.MOSELLE.1.1.2-00064` and `1.2.0-00380`.
-- 26 of 29 firmware images have new hashes.
-- Only re-signed (new signature segment, same code): tz, hyp, keymint, aop, aop_devcfg, cpucp,
-  cpucp_dtbs, qupv3fw, shrm, featenabler, storsec, uefi_sec, imagefv, xbl_config; xbl_s.melf differs
-  only in certificate timestamps.
-- New code or data under the same version: abl, uefi, devcfg, multi_image, XblRamdump, tools.fv.
-- `modem`: modem, ADSP and CDSP code changed without a new version string; 14 carrier profiles
-  changed (1&1, Orange, Proximus, AT&T); Wi-Fi firmware, IPA and TrustZone apps were only re-signed.
-- `bluetooth`: all 11 files identical, only filesystem metadata changed.
-- `dsp`: one sensor library (`adsp/sns_tppe.so`) changed.
-- Unchanged: `vm-bootsys`, `vm-persist`, `logfs`; the GPT layout (only unique GUIDs differ).
-- The Qualcomm anti-rollback version in the OEM signing metadata is 1 in every signed image of both
-  releases.
-- The AVB rollback index of boot, init_boot and vbmeta_system rose from 1785888000 to 1788566400
-  (the 2026-08-05 and 2026-09-05 patch dates as Unix time).
-
-- **Wi-Fi.**
-  - The firmware is `image/qca6750/wpss.mdt` and `wpss.b00`-`b12` in `NON-HLOS.bin`, beside board
-    data (`bdwlan.*`) and `regdb.bin`: `WLAN.MSL.3.0.1-00591` in both releases with identical code
-    segments (Android 15, 15.176.0 and 15.178.0, shipped `WLAN.MSL.3.0.1-00328.3`).
-  - Fairphone's 16.111.0 fix for apps not loading on Wi-Fi is in the WLAN host driver
-    (`qca_cld3_qca6750.ko` in vendor_dlkm): the dynamic IPv6 neighbour solicitation offload handling
-    of CodeLinaro qcacld-3.0 commit `ec35705b4e` ("Avoid caching NS offload when dynamically
-    disabled").
-  - DiamaneOS's source-built driver is pinned to a revision that has it, not yet tested on a phone.
-
 ## Rollback rules
 
 - The bootloader stores AVB rollback indices at locations 1 (recovery), 2 (vbmeta_system), 3 (boot)
@@ -186,8 +155,8 @@ as after Fairphone's own flash.
 
 ## Verification
 
-- The factory package matches its pinned SHA-256 and Fairphone's published value (for 16.111.0 not
-  yet published on 2026-09-30), and its own checksum list.
+- The factory package matches its pinned SHA-256, the value Fairphone publishes and its own
+  checksum list (`verification` in `config/stock-inputs.json`).
 - Each firmware image in an image set matches the inventory's SHA-256, at packaging and again in
   `build verify`; `SHA256SUMS` covers the set.
 - On the phone, Qualcomm secure boot checks each image against the SoC's OEM key; AVB covers only

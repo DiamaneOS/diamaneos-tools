@@ -4,8 +4,7 @@ Host tooling and machine-readable project maps for DiamaneOS.
 
 ## Project context
 
-DiamaneOS is an operating system project under development for the Fairphone 6, with GrapheneOS as
-its upstream OS base.
+DiamaneOS is an operating system for the Fairphone 6, with GrapheneOS as its upstream OS base.
 
 > DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or
 > Fairphone.
@@ -14,8 +13,8 @@ its upstream OS base.
 
 - Original DiamaneOS code, documentation and artwork here are [Apache-2.0](LICENSE) unless another
   licence is identified.
-- Third-party design assets are not in this repository: they live with the interface design and
-  branding sources, which carry their licence notices and are not public ([NOTICE](NOTICE)).
+- Third-party design assets are not in this repository; they carry their own licence notices
+  ([NOTICE](NOTICE)).
 - The copyright licence does not cover the DiamaneOS name and logo as trademarks (Apache licence,
   section 6).
 - Referenced upstream projects and externally installed dependencies keep their own licences.
@@ -61,6 +60,3 @@ fastboot --version
   upstream inputs. The DiamaneOS manifest lists every project a build uses.
 - [Verified stock factory packages](config/stock-inputs.json)
 - [Terms](docs/TERMS.md)
-- Interface design and branding sources are not public.
-
-Only implemented commands can be run.

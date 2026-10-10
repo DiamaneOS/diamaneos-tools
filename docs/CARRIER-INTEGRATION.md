@@ -1,8 +1,7 @@
 # Carrier configuration and modem-backed Wi-Fi calling
 
-The FP6 build binds stock carrier data and the necessary Qualcomm IWLAN (IMS over Wi-Fi) inputs to
-the same authenticated factory release as the radio stack: an integration candidate, not evidence of
-carrier compatibility.
+The FP6 build takes stock carrier data and the Qualcomm IWLAN (IMS over Wi-Fi) inputs it needs from
+the same authenticated factory release as the radio stack.
 
 ## Carrier configuration
 
@@ -28,8 +27,8 @@ rather than merging overlapping APNs.
 - The stock `vendor.xml` also carries an unfiltered block applied to every carrier.
 - The FP6 device overlay of CarrierConfig's own `res/xml/vendor.xml` is read after it and is the
   place for explicit corrections.
-- It turns off `world_phone_bool`, a Qualcomm default for CDMA world phones that made Settings show
-  an unfiltered list of 34 network modes instead of Android's list (which carries GrapheneOS's
+- It turns off `world_phone_bool`, a Qualcomm default for CDMA world phones: with it, Settings
+  shows Qualcomm's unfiltered network mode list instead of Android's (which carries GrapheneOS's
   LTE-only and 5G-only options).
 
 Known gap: the stock data gives a few carriers Wi-Fi calling mode 10, a Qualcomm "IMS preferred"
@@ -53,8 +52,8 @@ the CACert HIDL interface.
   accidental disabling.
 - Review this exception with the app hashes on each update.
 - CNE is not selected.
-- Only one IWLAN implementation may be selected; the AOSP IWLAN fork is an alternative candidate,
-  not part of this configuration.
+- Only one IWLAN implementation may be selected; the AOSP IWLAN service is not part of this
+  configuration.
 
 - Carrier provisioning and user Wi-Fi calling preferences stay authoritative.
 - Carrier entitlement services need their own dependency and endpoint review; never substitute
@@ -66,13 +65,9 @@ the CACert HIDL interface.
 
 ## Checks
 
-- Host checks cover extraction, input closure and module placement.
-- The native build must check packaged assets, VINTF, shared UID, signature/permission mapping, JNI
-  linking and enforcing policy.
-- Device tests must cover both SIMs, provisioning, voice/SMS, handover, suspend and VPN/lockdown
-  interactions.
-- A simulated emergency-network state is no evidence of emergency-call or location delivery.
-- AML stays separate and unselected.
+- Host checks cover extraction, input closure and module placement, not packaged assets, VINTF,
+  the shared UID, signature and permission mapping, JNI linking or the enforcing policy.
+- AML (emergency location messages) is not part of this configuration.
 
 After the build, compare the actual `CarrierConfig.apk` with the authenticated vendor generation,
 using its existing provenance:
