@@ -1721,6 +1721,7 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
     # SHA256SUMS digest before it trusts the result.
     return {'schema_version': 1, 'build_id': record['build_id'], 'variant': record['variant'],
             'sums_sha256': bw.sha_file(images / 'SHA256SUMS'), 'build_identity': record.get('build_identity'),
+            'rule_set_sha256': bw.digest(checks),
             'status': 'FAIL' if failed else 'PASS', 'checked': len(results), 'failed': len(failed),
             'checks': results}
 
