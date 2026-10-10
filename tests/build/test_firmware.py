@@ -127,7 +127,7 @@ class CommittedInventoryTests(unittest.TestCase):
         for name, image in reset.items():
             self.assertEqual((name + '.img', 'zeros', name, 2560 * 4096),
                              (image['image'], image['kind'], image['partition_label'], image['bytes']))
-        self.assertFalse(self.config['firmware']['validated'])
+        self.assertTrue(self.config['firmware']['validated'])
 
     def test_no_release_records_fastboot_versions_yet(self):
         for release in self.inventory['releases'].values():

@@ -9,8 +9,6 @@ DiamaneOS delivers it.
   (`selected_build` in the inventory below), byte for byte, and `diamaneos flash-steps` writes it
   before the OS when the phone runs older firmware ([Delivery](#delivery)).
 - No OTA carries firmware.
-- While `firmware.validated` in `config/fp6-build.json` is false, the printed flash steps say that
-  the firmware steps are not yet tested on a phone.
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
   the selected and the previous factory package (`selected_build`, `previous_build`) with size and
   SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi firmware

@@ -174,7 +174,13 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual('fastboot --set-active=a', commands[-2])
         self.assertIn(OLDER, text)
         self.assertIn('both slots', text)
-        self.assertIn('The firmware steps are not yet tested on a phone', text)
+        # The firmware steps are tested on a phone, so no warning; a record that says
+        # otherwise still gets it.
+        warning = 'The firmware steps are not yet tested on a phone'
+        self.assertNotIn(warning, text)
+        untested = dict(self.record, firmware=dict(self.record['firmware'], validated=False))
+        self.assertIn(warning, '\n'.join(flash_steps.steps(
+            self.directory, untested, report=self.report, phone=self.phone(), phone_firmware=OLDER)))
 
     def test_wipe_writes_the_state_partitions_at_their_stock_place(self):
         commands = self.commands(wipe=True, phone=self.phone(), phone_firmware=OLDER)
