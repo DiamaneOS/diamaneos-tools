@@ -103,7 +103,7 @@ class PublishTests(unittest.TestCase):
         self.assertIn('- Sources: [kernel_qcom-6.1](https://github.com/DiamaneOS/kernel_qcom-6.1) at `c6429ea`, '
                       'Linux 6.1.177.\n', readme)
         self.assertIn('at `3fbed18`, production kernel configuration.', readme)
-        self.assertIn('- 2 modules (47 left out by policy), 1 device trees, 95 overlays.\n', readme)
+        self.assertIn('- 2 modules (47 left out by policy), 1 device tree, 95 overlays.\n', readme)
         self.assertIn('- Built 4 October 2026.\n\n## Contents', readme)
         self.assertNotIn('Tested on', readme)
         self.assertNotIn('20261004T', readme)

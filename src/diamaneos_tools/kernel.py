@@ -34,6 +34,7 @@ IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
 # still exist, so a stale entry fails the build instead of hiding a new target.
 EXCLUDED_MODULE_TARGETS = {}
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
+DTB_NAME = re.compile(r'[A-Za-z0-9_-]+\.dtb')
 CONFIG_PROFILES = ('production', 'development')
 SOURCE_PLAN = ROOT / 'config/kernel-sources-fp6.json'
 SHA1 = re.compile(r'[0-9a-f]{40}')
@@ -433,6 +434,13 @@ def check_module_imports(modules, allowlist, undefined):
         require(importers == allowed, 'unexpected importers of ' + symbol + ': ' + (', '.join(importers) or 'none'))
 
 
+def shipped_dtbs(recipe):
+    names = recipe.get('dtbs')
+    require(isinstance(names, list) and names and len(set(names)) == len(names) and
+            all(isinstance(n, str) and DTB_NAME.fullmatch(n) for n in names), 'invalid device tree list')
+    return names
+
+
 def check_forbidden_symbols(system_map, symbols):
     present = {line.split()[2] for line in system_map.splitlines() if len(line.split()) >= 3}
     found = sorted(set(symbols) & present)
@@ -519,7 +527,8 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
         require(len(keys) == 1, 'modules are not all signed with the kernel build key')
     shutil.copyfile(image, candidate / 'Image')
     (candidate / 'dtbs').mkdir()
-    for path in sorted(merged.glob('*.dtb')): shutil.copyfile(path, candidate / 'dtbs' / path.name)
+    # The vendor build also makes device trees for other boards and chips; only the listed ones ship.
+    for name in recipe['dtbs']: shutil.copyfile(merged / name, candidate / 'dtbs' / name)
     shutil.copyfile(merged / 'dtbo.img', candidate / 'dtbo.img')
     lines = ['# Generated development kernel; runtime acceptance is separate.',
              'FP6_KERNEL_PATH := device/fairphone/FP6-kernel',
@@ -577,6 +586,7 @@ def build(root, jobs, timeout, profile='production'):
     allowlist = import_allowlist(recipe)
     forbidden = forbidden_symbols(recipe)
     required = required_symbols(recipe)
+    dtbs = shipped_dtbs(recipe)
     with locked(root):
         preparation = prepared(root, plan)
         shared_headers(root)
@@ -692,8 +702,9 @@ def build(root, jobs, timeout, profile='production'):
                              LD_LIBRARY_PATH=str(host / 'lib') + ':' + str(work / 'prebuilts/kernel-build-tools/linux-x86/lib64'))
             merged = run / 'merged'; merged.mkdir()
             command('merge-dt', ['python3', 'build/android/merge_dtbs.py', '--base', str(base), '--techpack', str(output / 'vendor'), '--out', str(merged)], merge_env)
-            dtbs = sorted(merged.glob('*.dtb')); dtbos = sorted(merged.glob('*.dtbo'))
-            require(len(dtbs) == recipe['dtb_count'] and len(dtbos) == recipe['dtbo_count'], 'merged DT inventory changed')
+            dtbos = sorted(merged.glob('*.dtbo'))
+            require(all((merged / n).is_file() for n in dtbs) and len(dtbos) == recipe['dtbo_count'],
+                    'merged DT inventory changed')
             command('pack-dtbo', [work / 'prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg', 'create', merged / 'dtbo.img', '--page_size=4096', *dtbos], merge_env)
             wanted = set().union(*map(set, recipe['partitions'].values()))
             # A denied module that is no longer built was renamed or dropped;
