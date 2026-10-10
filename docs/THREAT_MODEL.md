@@ -50,7 +50,7 @@ Revised 2026-10-10. Every revision is listed in
    Qualcomm firmware still runs Type-C and USB PD ([details](#locked-device-data-kernel-integrity)).
 7. **Attestation fails** ([details](#hardware-limits-and-evidence)).
 8. **Supply chain:**
-   - one-person review.
+   - No independent review.
    - Builds take the DiamaneOS manifest branch without checking a signature.
    - Every FP6 build so far ran on one host, and builds made with the earlier build scripts compiled
      with network access.
@@ -812,7 +812,7 @@ protections in current builds, what remains, and the status.
     2026-10-05 build).
   - Compressed music is decoded by Android's sandboxed software codecs: the audio policy has no
     compressed-offload output, so apps cannot hand MP3, AAC, FLAC or other bitstreams to the closed
-    DSP decoders (since the 2026-10-05 build; music playback works, owner test 2026-10-05).
+    DSP decoders (since the 2026-10-05 build; music playback works, phone test 2026-10-05).
   - App audio effects run only in AOSP code:
     - The effects configuration lists AOSP's software equalizer, bass boost, virtualizer, reverb and
       visualizer without DSP offload halves, so Qualcomm's closed offload effect bundle and
@@ -1022,7 +1022,7 @@ protections in current builds, what remains, and the status.
 - **Status:**
   - Bring-up (not qualified): with our own HCI service, pairing, music (AAC) and a headset call
     (mSBC) work, and the seccomp filter in log mode saw no call outside its list.
-  - The adapter uses the factory address (owner test 2026-10-06).
+  - The adapter uses the factory address (phone test 2026-10-06).
   - Unverified: Bluetooth and audio bring-up (FP6-043, FP6-044), debug exposure and component
     removal (FP6-060, FP6-061).
 
@@ -1539,7 +1539,7 @@ protections in current builds, what remains, and the status.
   - Protected branches.
   - Human review of security-relevant changes.
   - least-privilege assistant access.
-- **Remaining:** one-person review capacity.
+- **Remaining:** limited review capacity, no independent review.
 - **Status:**
   - Recorded.
   - Unverified: account and workstation hardening, branch protection.
@@ -1580,7 +1580,7 @@ protections in current builds, what remains, and the status.
   - If a later GrapheneOS release moves WM Shell's activity transitions to its new transition
     planner, Tally's page motion falls back to stock until hooked there.
   - Keyguard, privacy-indicator and biometric conflicts need careful manual merges.
-  - one-person review capacity.
+  - Limited review capacity.
   - The bouncer reads Tally token resources when built, so broken tokens would break PIN and
     password entry: every build is tested by unlocking with a PIN and a password, flag on.
   - The foundation's colour fixes (SystemUI's "already applied" check, the Sodium fallback) also

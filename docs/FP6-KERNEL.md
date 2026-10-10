@@ -223,7 +223,7 @@ panic dumps RAM, since the running system cannot turn dumps on.
   registration failures, so without kprobes they silently vanish.
 - Turning KPROBES off first needs them as explicit calls in both trees.
 
-- Lockdown is forced at confidentiality level, as GrapheneOS ships it (owner decision, 2026-10-08;
+- Lockdown is forced at confidentiality level, as GrapheneOS ships it (project decision, 2026-10-08;
   integrity level from 2026-10-05 until then): user space can neither modify the running kernel nor
   read its memory.
 - It also empties tracefs (no Perfetto or atrace system tracing) and refuses kprobes from user space

@@ -74,7 +74,7 @@
 - `build verify` reads only the needed prefix of a sparse image and checks its header and chunk
   sizes, so a malformed `metadata.img` cannot make it allocate the declared size.
 - Pin kernel_qcom-6.1 218a201: both kernels force lockdown at confidentiality level again, as
-  GrapheneOS does (kernel_common-6.1 3c6b978a1968, msm-6.1 7b29b55; owner decision).
+  GrapheneOS does (kernel_common-6.1 3c6b978a1968, msm-6.1 7b29b55; project decision).
   - Kernel policy v12 requires confidentiality and fails integrity or none. tracefs is empty and BPF
     kernel-memory reads are refused, so per-app CPU time and lmkd's memory events stop, as on
     GrapheneOS's Pixels.

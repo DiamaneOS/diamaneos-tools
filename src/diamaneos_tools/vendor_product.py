@@ -1160,7 +1160,7 @@ def gnss_config(path, data):
     return derived
 
 
-# Hardware video encoders only (owner decision 2026-09-27): every decoder stays
+# Hardware video encoders only (project decision 2026-09-27): every decoder stays
 # the platform software decoder in the sandboxed mediaswcodec. Two pinned
 # derivations keep the stock Qualcomm Codec2 service from exposing a hardware
 # decoder by any path:

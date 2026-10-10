@@ -95,7 +95,7 @@ was last revised.
 - Camera seccomp gate: image verification refuses an official build whose camera provider filter
   only logs; development builds keep logging until the camera profile is collected.
   - Implemented, not yet built.
-- Kernel lockdown at confidentiality level again, as GrapheneOS ships it (owner decision),
+- Kernel lockdown at confidentiality level again, as GrapheneOS ships it (project decision),
   implemented, not yet built: user space can neither modify nor read the running kernel.
   - tracefs is empty and kprobes from user space and BPF kernel-memory reads are refused, so per-app
     CPU time and lmkd's memory-event listener do not start, as on GrapheneOS's Pixels.
@@ -297,7 +297,7 @@ was last revised.
       threads, with no access to data.
   - The camera streaming modes no longer cap the little cores.
   - Implemented, not yet built.
-- Kernel lockdown at integrity level instead of confidentiality, owner decision, so Android's
+- Kernel lockdown at integrity level instead of confidentiality, a project decision, so Android's
   per-app CPU time and lmkd's memory-event listener work.
   - kprobes from user space and BPF kernel-memory reads are then limited by SELinux instead: on user
     builds only init may write kprobe_events and only bpfloader may load BPF programs, on userdebug
@@ -807,7 +807,7 @@ Longer notes for some revisions, oldest first.
   - The sub-HAL has no switch for single sensor types, the multi-HAL and sensor service have no
     filter, and removing the sensor's registry configuration would most likely still publish it with
     default values.
-  - The fix is the owner's decision: a source wrapper around the sub-HAL that withholds vendor types
+  - The fix chosen: a source wrapper around the sub-HAL that withholds vendor types
     without a permission, or a platform change that keeps the Sensors permission when a HAL leaves
     it empty.
 - **2026-10-01:**
@@ -883,7 +883,7 @@ Longer notes for some revisions, oldest first.
     stay denied.
   - No energy meters: the FP6 has no on-device power monitor.
 - **2026-10-05:**
-  - The kernel's forced lockdown moves from confidentiality to integrity (owner decision),
+  - The kernel's forced lockdown moves from confidentiality to integrity (project decision),
     implemented, not yet built.
   - Confidentiality had emptied tracefs and denied BPF programs kernel-memory reads, so Android's
     per-app CPU time accounting and lmkd's memory-event listener did not start.

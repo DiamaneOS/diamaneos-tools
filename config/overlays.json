@@ -97,7 +97,7 @@
         "network_location_enabled_desc": "rebrand: signal identifiers go to Apple through a DiamaneOS proxy instead of a GrapheneOS proxy; otherwise unchanged"
       },
       "app.grapheneos.speechservices": {
-        "app_name": "rebrand: \"Speech Services\" instead of \"GrapheneOS Speech Services\" (owner, 2026-10-07)"
+        "app_name": "rebrand: \"Speech Services\" instead of \"GrapheneOS Speech Services\" (2026-10-07)"
       },
       "com.android.customization.themes": {
         "bundle_name_rainbow1": "name of the Sodium colour preset",
