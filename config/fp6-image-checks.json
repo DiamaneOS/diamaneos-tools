@@ -975,6 +975,15 @@
       ]
     },
     {
+      "id": "no-credential-copy-on-frp",
+      "why": "The lock credential's check data (salt, stretch parameters, Gatekeeper handle) is not copied to the unencrypted frp partition. The copy only serves asking for the old lock after a factory reset, which this OS never does.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "values": {
+        "bool/config_enableCredentialFactoryResetProtection": "false"
+      }
+    },
+    {
       "id": "usb-port-control",
       "why": "GrapheneOS's USB-C port control is on. Without it a user build has no USB data: first-stage init refuses new USB connections at every boot of a non-debuggable build and only port control lifts that.",
       "type": "overlay",
