@@ -1068,8 +1068,10 @@ def check_kernel(v):
     if booted != image:
         problems.append(f'boot.img carries a kernel with SHA-256 {hashlib.sha256(booted).hexdigest()[:16]}, '
                         f'the prebuilts Image has {hashlib.sha256(image).hexdigest()[:16]}')
-    if (v.kernel_dir / 'dtbs/fp6.dtb').read_bytes() not in (v.images / 'vendor_boot.img').read_bytes():
-        problems.append('vendor_boot.img does not carry the prebuilts fp6.dtb')
+    # The build packs the prebuilts' device trees one after another, in name order.
+    trees = b''.join(path.read_bytes() for path in sorted((v.kernel_dir / 'dtbs').glob('*.dtb')))
+    if vendor_boot_parts((v.images / 'vendor_boot.img').read_bytes())[1] != trees:
+        problems.append('vendor_boot.img does not carry exactly the prebuilts device trees')
     if avb_payload((v.images / 'dtbo.img').read_bytes()) != (v.kernel_dir / 'dtbo.img').read_bytes():
         problems.append('dtbo.img is not the prebuilts dtbo.img')
     return not problems, '; '.join(problems)

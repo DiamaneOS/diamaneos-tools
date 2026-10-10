@@ -1247,14 +1247,22 @@ class GenericCheckTests(unittest.TestCase):
         struct.pack_into('<I', header, 8, 5)
         struct.pack_into('<I', header, 40, 4)
         (self.root / 'boot.img').write_bytes(bytes(header) + b'IMAGE')
-        (self.root / 'vendor_boot.img').write_bytes(b'headerFP6DTBtail')
+        vendor_boot = bytearray(4096)
+        vendor_boot[:8] = b'VNDRBOOT'
+        struct.pack_into('<II', vendor_boot, 8, 4, 4096)
+        struct.pack_into('<II', vendor_boot, 2096, 2128, 6)
+        (self.root / 'vendor_boot.img').write_bytes(bytes(vendor_boot) + b'FP6DTBtail')
         footer = b'AVBf' + bytes(8) + struct.pack('>Q', 4) + bytes(44)
         (self.root / 'dtbo.img').write_bytes(b'DTBO' + bytes(12) + footer)
         v = self.harness({})
         v.kernel_dir = kernel
         self.assertEqual((True, ''), subject.check_kernel(v))
-        (self.root / 'vendor_boot.img').write_bytes(b'other')
-        self.assertFalse(subject.check_kernel(v)[0])
+        # A second device tree in the image, or in the prebuilts only, is refused.
+        struct.pack_into('<I', vendor_boot, 2100, 10)
+        (self.root / 'vendor_boot.img').write_bytes(bytes(vendor_boot) + b'FP6DTBtail')
+        self.assertIn('exactly the prebuilts device trees', subject.check_kernel(v)[1])
+        (kernel / 'dtbs/volcano.dtb').write_bytes(b'tail')
+        self.assertEqual((True, ''), subject.check_kernel(v))
 
     def test_kernel_prebuilts_must_be_the_recorded_clean_commit(self):
         import subprocess
