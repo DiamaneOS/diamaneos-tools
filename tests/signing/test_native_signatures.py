@@ -314,6 +314,22 @@ class NativeSignatureTests(unittest.TestCase):
                 with self.assertRaises(inputs.SigningError):
                     native.verify_images(self.tools, self.keys, root, expected, {})
 
+    def test_native_apex_unnamed_hashtree_payload_keeps_signature_and_data_checks(self):
+        path = self.root / 'unnamed-apex-payload.img'
+        path.write_bytes(b'disposable apex data' + bytes(16384 - 20))
+        self.tools.run('avbtool', ['add_hashtree_footer', '--image', path, '--partition_size', '262144',
+                                 '--partition_name', '', '--algorithm', 'SHA256_RSA4096',
+                                 '--hash_algorithm', 'sha256', '--do_not_generate_fec', '--key', self.private / 'avb.pem'])
+        info = self.tools.avb(path, self.keys.avb(), payload=True)
+        self.assertEqual([('', None)], native.avb_descriptors(info, allow_empty_payload=True))
+        with self.assertRaises(inputs.SigningError): native.avb_descriptors(info)
+        other = self.root / 'wrong-apex-key.pub.pem'
+        self.tools.openssl(['pkey', '-in', self.private / 'platform.pem', '-pubout', '-out', other])
+        with self.assertRaises(inputs.SigningError): self.tools.avb(path, other, payload=True)
+        value = bytearray(path.read_bytes()); value[0] ^= 1; path.write_bytes(value)
+        with self.assertRaises(inputs.SigningError): self.tools.avb(path, self.keys.avb(), payload=True)
+        self.assertFalse((path.parent / '.img').exists())
+
     def test_native_avb_chained_vbmeta_wrong_key_is_rejected(self):
         root = self.chain_fixture()
         expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']

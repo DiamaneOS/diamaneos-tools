@@ -230,6 +230,17 @@ class ArchiveTests(unittest.TestCase):
 
 
 class NativeOrchestrationTests(unittest.TestCase):
+    def test_unnamed_payload_descriptor_never_becomes_an_ordinary_partition_or_chain(self):
+        empty = 'Hashtree descriptor:\n  Partition Name:    \n  Hash Algorithm: sha256\n'
+        self.assertEqual([('', None)], native.avb_descriptors(empty, allow_empty_payload=True))
+        with self.assertRaises(inputs.SigningError): native.avb_descriptors(empty)
+        for value in ('../outside', 'bad/name', 'bad name', '\\outside'):
+            invalid = 'Hashtree descriptor:\n Partition Name: ' + value + '\n'
+            with self.assertRaises(inputs.SigningError): native.avb_descriptors(invalid, allow_empty_payload=True)
+        chain = 'Chain Partition descriptor:\n Partition Name:   \n Rollback Index Location: 1\n'
+        with self.assertRaises(inputs.SigningError): native.avb_descriptors(chain, allow_empty_payload=True)
+        with self.assertRaises(inputs.SigningError): native.avb_descriptors(empty + empty, allow_empty_payload=True)
+
     def test_installed_packages_must_match_verified_archive_and_cannot_be_extra(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); target = root / 'target.zip'

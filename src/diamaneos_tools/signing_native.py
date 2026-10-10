@@ -109,7 +109,7 @@ class NativeTools:
             args += ['--expected_chain_partition', f'{name}:{location}:{key}']
         alias = None
         if payload:
-            descriptors = avb_descriptors(info)
+            descriptors = avb_descriptors(info, allow_empty_payload=True)
             require(len(descriptors) == 1 and descriptors[0][1] is None, 'APEX payload has an unsupported descriptor')
             # avbtool opens hashtree data by the descriptor's partition name.
             candidate = Path(path).parent / (descriptors[0][0] + '.img')
@@ -319,12 +319,13 @@ def package_members(target_files, tools):
                     yield 'apk', name + '!/' + str(apk.relative_to(content)), apk
 
 
-def avb_descriptors(info):
+def avb_descriptors(info, *, allow_empty_payload=False):
     result = []
     for block in re.split(r'(?m)^\s*(?:Hash|Hashtree|Chain Partition) descriptor:\s*$', info)[1:]:
-        name = re.search(r'(?m)^\s*Partition Name:\s+([A-Za-z0-9_.-]+)\s*$', block)
-        require(name, 'AVB descriptor has an unsupported partition name')
+        name = re.search(r'(?m)^[ \t]*Partition Name:[ \t]*([A-Za-z0-9_.-]*)[ \t]*$', block)
+        require(name and (name[1] or allow_empty_payload), 'AVB descriptor has an unsupported partition name')
         location = re.search(r'(?m)^\s*Rollback Index Location:\s+(\d+)\s*$', block)
+        require(name[1] or location is None, 'AVB chain descriptor needs a named partition')
         result.append((name[1], int(location[1]) if location else None))
     require(len({name for name, _ in result}) == len(result), 'Duplicate AVB partition descriptor')
     return result
