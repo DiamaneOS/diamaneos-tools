@@ -1,121 +1,68 @@
-"""Tests for the bounded disposable-signing command planner."""
-
+"""Explicit role planning and repeated-run input refusal."""
+import copy
 from pathlib import Path
-import sys
+import tempfile
 import unittest
 
-
-TOOLS = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(TOOLS / "src"))
-from diamaneos_tools import signing_qualification as api
+from diamaneos_tools import signing_inputs as inputs, signing_qualification as api
 
 
-class SigningQualificationPlanTest(unittest.TestCase):
-    @staticmethod
-    def inventory():
-        apk_roles = [
-            {"name": "Release.apk", "certificate_role": "testkey"},
-            {"name": "Platform.apk", "certificate_role": "platform"},
-            {"name": "Shared.apk", "certificate_role": "shared"},
-            {"name": "Media.apk", "certificate_role": "media"},
-            {"name": "Network.apk", "certificate_role": "networkstack"},
-            {"name": "Bluetooth.apk",
-             "certificate_role": "com.android.bluetooth"},
-            {"name": "Sandbox.apk", "certificate_role": "sdk_sandbox"},
-            {"name": "Compat.apk", "certificate_role": "gmscompat_lib"},
-            {"name": "Nfc.apk", "certificate_role": "nfc"},
-            {"name": "TestOnly.apk", "certificate_role": "cts-testkey"},
-            {"name": "Reviewed.apk", "certificate_role": "PRESIGNED"},
-        ]
-        return {
-            "status": "PASS",
-            "stage": "unsigned",
-            "apk_roles": apk_roles,
-            "apex_roles": [
-                {"name": "com.example.runtime.apex",
-                 "container_certificate_role": "com.example.runtime"},
-                {"name": "com.example.shim.apex",
-                 "container_certificate_role": "PRESIGNED"},
-            ],
-            "avb_roles": [
-                {"chain": "boot"}, {"chain": "system"},
-                {"chain": "vbmeta"},
-            ],
-        }
+class SigningPlanTests(unittest.TestCase):
+    def setUp(self):
+        self.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        self.metadata = {'apk': {'Default.apk': {'certificate': 'keys/testkey.x509.pem'},
+                                 'Platform.apk': {'certificate': 'keys/platform.x509.pem'},
+                                 'Kept.apk': {'certificate': 'PRESIGNED'}},
+                         'apex': {'com.example.apex': {'container_certificate': 'keys/module.x509.pem'}}}
 
-    def test_role_map_is_exact_and_preserves_reviewed_presigned_entries(self):
-        mapping = api.explicit_role_map(self.inventory())
-        self.assertEqual("releasekey", mapping["Release.apk"]["container"])
-        self.assertEqual("releasekey", mapping["TestOnly.apk"]["container"])
-        self.assertEqual("bluetooth", mapping["Bluetooth.apk"]["container"])
-        self.assertEqual("PRESIGNED", mapping["Reviewed.apk"]["container"])
-        self.assertEqual("releasekey",
-                         mapping["com.example.runtime.apex"]["container"])
-        self.assertEqual("avb",
-                         mapping["com.example.runtime.apex"]["payload"])
-        self.assertEqual("PRESIGNED",
-                         mapping["com.example.shim.apex"]["payload"])
+    def test_roles_are_explicit_and_presigned_does_not_get_an_implicit_authority(self):
+        roles = api.role_map(self.metadata, self.policy, {})
+        self.assertEqual('releasekey', roles['Default.apk']['container'])
+        self.assertEqual('platform', roles['Platform.apk']['container'])
+        self.assertEqual('PRESIGNED', roles['Kept.apk']['container'])
+        self.assertEqual('avb', roles['com.example.apex']['payload'])
+        with self.assertRaises(inputs.SigningError): api.member_role(roles, 'apk', 'SYSTEM/app/Unknown.apk')
 
-    def test_command_enumerates_roles_without_global_override(self):
-        command = api.signing_command(
-            self.inventory(), signer="sign_target_files_apks",
-            key_dir="keys", source="unsigned.zip", destination="signed.zip")
-        joined = "\n".join(command)
-        self.assertNotIn("--override_apk_keys", command)
-        self.assertNotIn("--override_apex_keys", command)
-        self.assertIn("Bluetooth.apk=keys/bluetooth", joined)
-        self.assertIn("Reviewed.apk,com.example.shim.apex=", joined)
-        self.assertIn("com.example.runtime.apex=keys/avb.pem", joined)
-        self.assertIn("--avb_boot_key", command)
-        self.assertIn("--avb_system_key", command)
-        self.assertIn("--avb_vbmeta_key", command)
-        self.assertEqual(["unsigned.zip", "signed.zip"], command[-2:])
+    def test_unknown_certificate_selector_is_not_implicitly_releasekey(self):
+        self.metadata['apk']['Default.apk']['certificate'] = 'keys/unknown.x509.pem'
+        with self.assertRaises(inputs.SigningError): api.role_map(self.metadata, self.policy, {})
 
-    def test_unaccepted_inventory_and_unsafe_names_fail_closed(self):
-        changed = self.inventory()
-        changed["status"] = "FAIL"
-        with self.assertRaises(api.QualificationPlanError):
-            api.explicit_role_map(changed)
-        changed = self.inventory()
-        changed["apk_roles"][0]["name"] = "../escape.apk"
-        with self.assertRaises(api.QualificationPlanError):
-            api.explicit_role_map(changed)
+    def test_source_release_override_can_resign_a_presigned_module(self):
+        self.metadata['apex']['com.example.apex']['container_certificate'] = 'PRESIGNED'
+        roles = api.role_map(self.metadata, self.policy, {'com.example.apex': 'releasekey'})
+        self.assertEqual({'kind': 'apex', 'container': 'releasekey', 'payload': 'avb'}, roles['com.example.apex'])
 
-    def test_unsupported_avb_chain_fails_closed(self):
-        changed = self.inventory()
-        changed["avb_roles"].append({"chain": "future_partition"})
-        with self.assertRaises(api.QualificationPlanError):
-            api.signing_command(
-                changed, signer="sign_target_files_apks", key_dir="keys",
-                source="unsigned.zip", destination="signed.zip")
+    def test_source_overrides_reject_unknown_or_duplicate_roles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); (root / 'script').mkdir(); path = root / 'script/generate-release.sh'
+            path.write_text('--extra_apks Test.apk="$KEY_DIR/platform"')
+            self.assertEqual({'Test.apk': 'platform'}, api.release_overrides(root, self.policy))
+            for text in ('--extra_apks Test.apk="$KEY_DIR/unknown"',
+                         '--extra_apks Test.apk="$KEY_DIR/platform" --extra_apks Test.apk="$KEY_DIR/platform"',
+                         '--extra_apks Test.apk="$KEY_DIR/platform" --extra_apex_payload_key X.apex="$KEY_DIR/other.pem"'):
+                path.write_text(text)
+                with self.assertRaises(inputs.SigningError): api.release_overrides(root, self.policy)
 
-    def test_reviewed_dlkm_vbmeta_chains_require_prepared_metadata(self):
-        changed = self.inventory()
-        changed["avb_roles"].extend([
-            {"chain": "vbmeta_system_dlkm"},
-            {"chain": "vbmeta_vendor_dlkm"},
-        ])
-        with self.assertRaises(api.QualificationPlanError):
-            api.signing_command(
-                changed, signer="sign_target_files_apks", key_dir="keys",
-                source="unsigned.zip", destination="signed.zip")
-        command = api.signing_command(
-            changed, signer="sign_target_files_apks", key_dir="keys",
-            source="unsigned.zip", destination="signed.zip",
-            prepared_custom_vbmeta_chains=(
-                "vbmeta_system_dlkm", "vbmeta_vendor_dlkm"))
-        self.assertNotIn("--avb_vbmeta_system_dlkm_key", command)
-        self.assertNotIn("--avb_vbmeta_vendor_dlkm_key", command)
-        self.assertNotIn("--avb_extra_custom_image_key", command)
-        self.assertNotIn("--avb_extra_custom_image_algorithm", command)
-
-        with self.assertRaises(api.QualificationPlanError):
-            api.signing_command(
-                self.inventory(), signer="sign_target_files_apks",
-                key_dir="keys", source="unsigned.zip",
-                destination="signed.zip",
-                prepared_custom_vbmeta_chains=("vbmeta_system_dlkm",))
+    def test_signing_arguments_recheck_input_hash_and_refuse_output_reuse(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / 'unsigned.zip'; source.write_bytes(b'input')
+            signer = root / 'sign_target_files_apks'; signer.write_bytes(b'fixture native signer')
+            plan = {'schema_version': 2, 'provenance': {'target_files_sha256': inputs.sha256_file(source),
+                                                      'signer_sha256': inputs.sha256_file(signer)},
+                    'roles': api.role_map(self.metadata, self.policy, {}), 'chains': {'boot': 3}}
+            plan['plan_sha256'] = inputs.canonical_sha256(plan)
+            kwargs = {'signer': signer, 'key_dir': '/keys', 'source': source, 'destination': root / 'signed.zip'}
+            command = api.signing_command(plan, **kwargs)
+            self.assertIn('Platform.apk=/keys/platform', command)
+            self.assertIn('Kept.apk=', command)
+            self.assertIn('--avb_boot_algorithm', command)
+            source.write_bytes(b'other')
+            with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
+            source.write_bytes(b'input'); kwargs['destination'].touch()
+            with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
+            kwargs['destination'].unlink(); plan['roles']['Default.apk']['container'] = 'platform'
+            with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

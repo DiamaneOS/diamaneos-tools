@@ -45,10 +45,14 @@ def fixture_workspace(root: Path, variant='user', **firmware_options):
     (host / 'make_f2fs').write_text('#!/bin/sh\nfor last; do :; done\nprintf "f2fs %s" "$*" > "$last"\n')
     for tool in ('build_super_image', 'make_f2fs'):
         (host / tool).chmod(0o755)
+    otatools = ctx.out / 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip'
+    otatools.parent.mkdir(parents=True)
+    otatools.write_bytes(b'fixture tool archive')
     outputs = {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': bw.sha_file(target_files),
                'build_identity': 'f' * 64, 'build_number': 'test.ffffffffffff', 'build_datetime': 1790000000,
                'variant': variant, 'lunch': f'FP6-cur-{variant}', 'descriptor_sha256': 'd' * 64,
-               'network_isolation': 'on'}
+               'network_isolation': 'on',
+               'otatools': {'file': str(otatools.relative_to(ws.root)), 'sha256': bw.sha_file(otatools)}}
     ws.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': outputs})
     ctx.resolved_manifest.write_bytes(b'<manifest/>')
     ws.write_state('sync', {'status': 'PASS', 'inputs_sha256': 's', 'outputs': {
@@ -95,6 +99,23 @@ class PackageTests(unittest.TestCase):
                           'resolved_sha256': bw.sha_file(directory / 'resolved-manifest.xml')}, record['manifest'])
         self.assertEqual({'path': 'device/fairphone/FP6-kernel', 'commit': 'b' * 40}, record['kernel_prebuilts'])
         self.assertNotIn('kernel', record['generated_inputs'])
+        self.assertEqual({'file': 'otatools.zip', 'sha256': bw.sha_file(directory / 'otatools.zip')}, record['otatools'])
+        self.assertEqual(b'fixture tool archive', (directory / 'otatools.zip').read_bytes())
+
+    def test_tool_archive_changes_refuse_packaging_and_change_record_matching(self):
+        android = self.ctx.workspace.passed('android')['outputs']
+        path = self.ctx.workspace.root / android['otatools']['file']
+        path.write_bytes(b'changed tools')
+        with self.assertRaisesRegex(bw.BuildStepError, 'otatools changed'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_official_build_requires_a_recorded_tool_archive(self):
+        state = self.ctx.workspace.passed('android')
+        state['outputs']['official'] = True
+        del state['outputs']['otatools']
+        self.ctx.workspace.write_state('android', state)
+        with self.assertRaisesRegex(bw.BuildStepError, 'lacks its otatools'):
+            run_plan(self.ctx, image_package.plan(self.ctx))
 
     def test_an_official_build_says_so_in_its_record(self):
         android = self.ctx.workspace.passed('android')

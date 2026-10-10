@@ -1,166 +1,154 @@
-"""Bounded command planning for disposable Android signing qualification.
-
-This module does not expose a generic signing command.  It converts an already
-accepted, exact-hash target-files inventory into the explicit package and AVB
-overrides required by the pinned Android release tools.  Every package name is
-enumerated; paths supplied by an operator are never interpreted as roles.
-"""
-
+"""Build-bound signing plans; revisions and fingerprints are recorded per run."""
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
 import re
 
-
-PACKAGE_RE = re.compile(r"^[A-Za-z0-9._+-]{1,256}$")
-ANDROID_CERTIFICATE_ROLES = {
-    "releasekey", "platform", "shared", "media", "networkstack",
-    "bluetooth", "sdk_sandbox", "gmscompat_lib", "nfc",
-}
-SUPPORTED_AVB_CHAINS = {
-    "boot", "init_boot", "recovery", "system", "system_other", "vendor",
-    "dtbo", "vbmeta", "vbmeta_system", "vbmeta_vendor",
-}
-SUPPORTED_CUSTOM_VBMETA_CHAINS = {
-    "vbmeta_system_dlkm", "vbmeta_vendor_dlkm",
-}
-PRESIGNED = "PRESIGNED"
-MAX_NAMES_PER_ARGUMENT = 256
+from . import signing_archive as za
+from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
+                             load_json, require, sha256_file, source_files, verified_build)
+from .signing_native import avb_descriptors, package_members
 
 
-class QualificationPlanError(ValueError):
-    """The accepted inventory cannot be expressed by the bounded planner."""
+def release_overrides(source, policy):
+    text = (Path(source) / 'script/generate-release.sh').read_text()
+    result = {}
+    for match in re.finditer(r'--extra_apks\s+([A-Za-z0-9._,+-]+)="?\$KEY_DIR/([a-z0-9_]+)', text):
+        require(match[2] in CERT_ROLES, 'Release script uses an unknown certificate role')
+        for name in match[1].split(','):
+            require(name not in result and NAME.fullmatch(name), 'Duplicate release-script package override')
+            result[name] = match[2]
+    for match in re.finditer(r'--extra_apex_payload_key\s+\S+=\S*\$KEY_DIR/(\S+)', text):
+        require(match[1].strip('"') == 'avb.pem', 'Release script uses an unknown APEX payload role')
+    require(result, 'Release script has no supported package overrides')
+    return result
 
 
-def _package_name(value):
-    if not isinstance(value, str) or not PACKAGE_RE.fullmatch(value):
-        raise QualificationPlanError("inventory contains an unsafe package name")
-    return value
+def role_map(metadata, policy, overrides):
+    result = {}
+    for kind in ('apk', 'apex'):
+        for name, record in metadata[kind].items():
+            require(name not in result, 'APK/APEX metadata names overlap')
+            label = za.basename_role(record.get('certificate' if kind == 'apk' else 'container_certificate', ''))
+            if name in overrides:
+                role = overrides[name]
+            elif label in {'PRESIGNED', 'EXTERNAL'}:
+                role = 'PRESIGNED'
+            elif kind == 'apex':
+                require(label and NAME.fullmatch(label), 'APEX has no usable source certificate selector')
+                role = policy['apex_container_role']
+            else:
+                role = policy['apk_selectors'].get(label)
+                require(role, 'Unknown APK signing selector: ' + name)
+            result[name] = {'kind': kind, 'container': role,
+                            'payload': ('PRESIGNED' if role == 'PRESIGNED' else 'avb') if kind == 'apex' else None}
+    require(result, 'Target-files has no signing packages')
+    return result
 
 
-def apk_destination_role(name, source_role):
-    """Return the reviewed destination role for one accepted APK record.
-
-    GrapheneOS extends the normal ``-d`` role map with Bluetooth, NFC,
-    networkstack, SDK sandbox and GMS compatibility roles.  Generic-userdebug
-    test certificates do not become new release authorities; their exact
-    package records are mapped to ``releasekey`` for this disposable tool-path
-    qualification.  Presigned records remain presigned.
-    """
-    _package_name(name)
-    if source_role in {"PRESIGNED", "EXTERNAL"}:
-        return PRESIGNED
-    if source_role in ANDROID_CERTIFICATE_ROLES:
-        return source_role
-    if source_role == "com.android.bluetooth":
-        return "bluetooth"
-    return "releasekey"
+def member_role(mapping, kind, logical):
+    name = Path(logical).name.removesuffix('.capex')
+    if logical.endswith('.capex'):
+        name += '.apex'
+    record = mapping.get(name)
+    require(record and record['kind'] == ('apk' if kind == 'apk' else 'apex'), 'Unlisted packaged signing role')
+    return record
 
 
-def explicit_role_map(inventory):
-    """Build a complete, exact package-role map from a PASS unsigned inventory."""
-    if inventory.get("status") != "PASS" or inventory.get("stage") != "unsigned":
-        raise QualificationPlanError("unsigned inventory is not accepted")
-    mapping = {}
-    for record in inventory.get("apk_roles", []):
-        name = _package_name(record.get("name"))
-        role = apk_destination_role(name, record.get("certificate_role"))
-        if name in mapping:
-            raise QualificationPlanError("duplicate package in role map")
-        mapping[name] = {"container": role, "payload": None, "kind": "apk"}
-    for record in inventory.get("apex_roles", []):
-        name = _package_name(record.get("name"))
-        if name in mapping:
-            raise QualificationPlanError("APK and APEX package names overlap")
-        source = record.get("container_certificate_role")
-        if source in {"PRESIGNED", "EXTERNAL"}:
-            container = PRESIGNED
-            payload = PRESIGNED
-        else:
-            container = "releasekey"
-            payload = "avb"
-        mapping[name] = {
-            "container": container,
-            "payload": payload,
-            "kind": "apex",
-        }
-    if not mapping:
-        raise QualificationPlanError("accepted inventory contains no packages")
-    return mapping
+def prepare(record_path, report_path, target_files, manifest, policy, keys, tools, otatools, previous=None, *, production):
+    provenance = verified_build(record_path, report_path, target_files, manifest, production=production, otatools=otatools)
+    provenance['source_files'] = source_files(tools.source, provenance['projects'])
+    provenance['otatools_sha256'] = sha256_file(otatools)
+    provenance['java_sha256'] = sha256_file(tools.java_home / 'bin/java')
+    provenance['signer_sha256'] = sha256_file(tools.path('sign_target_files_apks'))
+    record = load_json(record_path)
+    metadata = za.metadata(target_files)
+    roles = role_map(metadata, policy, release_overrides(tools.source, policy))
+    packages, present, presigned = {}, set(), set()
+    for kind, logical, path in package_members(target_files, tools):
+        role = member_role(roles, kind, logical)
+        if kind == 'payload':
+            continue
+        present.add(Path(logical).name if kind == 'apk' else Path(logical).name.removesuffix('.capex') +
+                    ('.apex' if logical.endswith('.capex') else ''))
+        cert = keys.cert(role['container'], logical)
+        if logical in packages:
+            continue
+        packages[logical] = {'kind': role['kind'], 'container': role['container'], 'payload': role['payload'],
+                             'certificate_sha256': tools.certificate(cert)[0]}
+        if role['container'] == 'PRESIGNED':
+            packages[logical]['presigned_sha256'] = sha256_file(path)
+            presigned.add(logical)
+        if kind == 'apex':
+            key = keys.avb(logical if role['payload'] == 'PRESIGNED' else None)
+            packages[logical]['payload_key_sha256'] = sha256_file(key)
+    absent = set(roles) - present
+    require(absent == set(keys.inventory['metadata_only']), 'Metadata-only exception set does not match package absence')
+    require(presigned == set(keys.inventory['presigned']), 'Presigned inventory has missing or unused entries')
+    partitions = sorted(set(record['images']) - {'super', 'super_empty'})
+    require('vbmeta' in partitions, 'Verified build has no AVB root')
+    chains, pending, visited = {}, ['vbmeta'], set()
+    with za.archive(target_files) as handle:
+        while pending:
+            name = pending.pop()
+            require(name not in visited, 'Unsigned AVB chain is cyclic')
+            visited.add(name)
+            path = za.extract(handle, 'IMAGES/' + name + '.img', tools.scratch / ('input-' + name + '.img'))
+            for child, location in avb_descriptors(tools.run('avbtool', ['info_image', '--image', path])):
+                require(child in partitions, 'Unsigned AVB references an undeclared partition')
+                if location is not None:
+                    require(child not in chains, 'Duplicate unsigned AVB chain')
+                    chains[child] = location
+                    pending.append(child)
+    result = {'schema_version': 2, 'mode': 'production' if production else 'qualification',
+              'policy_sha256': canonical_sha256(policy), 'key_inventory_sha256': canonical_sha256(keys.inventory),
+              'public_material_sha256': canonical_sha256(keys.files),
+              'public_identities': {**keys.public_ids, 'avb': keys.avb_id},
+              'provenance': provenance, 'changed_projects': changed_projects(provenance['projects'], previous),
+              'metadata': {'apk': metadata['apk'], 'apex': metadata['apex']},
+              'packages': packages, 'roles': roles, 'partitions': partitions, 'chains': chains}
+    result['passthrough_images'] = dict(record.get('firmware', {}).get('images', {}))
+    result['passthrough_images'].update({value['file']: value['sha256'] for value in record.get('wipe', {}).get('images', {}).values()})
+    if 'super_empty' in record['images']:
+        result['passthrough_images']['super_empty.img'] = record['images']['super_empty']
+    if previous is not None:
+        result['previous_artifacts'] = previous['artifacts']
+    else:
+        result['previous_artifacts'] = {}
+    result['plan_sha256'] = canonical_sha256(result)
+    return result
 
 
-def _chunks(values, size=MAX_NAMES_PER_ARGUMENT):
-    for offset in range(0, len(values), size):
-        yield values[offset:offset + size]
-
-
-def signing_command(inventory, *, signer, key_dir, source, destination,
-                    prepared_custom_vbmeta_chains=()):
-    """Return the fixed ``sign_target_files_apks`` argv for the accepted input."""
-    prepared_custom_vbmeta_chains = tuple(prepared_custom_vbmeta_chains)
-    prepared_custom_vbmeta = set(prepared_custom_vbmeta_chains)
-    if (len(prepared_custom_vbmeta) != len(prepared_custom_vbmeta_chains)
-            or not prepared_custom_vbmeta <= SUPPORTED_CUSTOM_VBMETA_CHAINS):
-        raise QualificationPlanError(
-            "prepared custom vbmeta chain set is invalid")
-    mapping = explicit_role_map(inventory)
+def signing_command(plan, *, signer, key_dir, source, destination):
+    """Return explicit native signing arguments only for the exact accepted input."""
+    require(sha256_file(source) == plan['provenance']['target_files_sha256'],
+            'Signing input differs from the build that passed build verify')
+    require(not Path(destination).exists() and Path(source).resolve() != Path(destination).resolve(),
+            'Signing output already exists or replaces the input')
+    require(Path(signer).name == 'sign_target_files_apks' and sha256_file(signer) == plan['provenance']['signer_sha256'],
+            'Signer is not from the build-bound otatools archive')
+    body = dict(plan)
+    digest = body.pop('plan_sha256')
+    require(canonical_sha256(body) == digest, 'Signing plan was changed')
     grouped = defaultdict(list)
-    apex_payloads = []
-    for name in sorted(mapping, key=lambda item: item.encode("utf-8")):
-        record = mapping[name]
-        grouped[record["container"]].append(name)
-        if record["kind"] == "apex":
-            apex_payloads.append((name, record["payload"]))
-
-    command = [str(signer), "-o", "-d", str(key_dir)]
-    for role in sorted(grouped, key=lambda item: item.encode("utf-8")):
-        destination_key = "" if role == PRESIGNED else f"{key_dir}/{role}"
-        for names in _chunks(grouped[role]):
-            command.extend([
-                "--extra_apks", f"{','.join(names)}={destination_key}",
-            ])
-    for name, role in apex_payloads:
-        destination_key = "" if role == PRESIGNED else f"{key_dir}/avb.pem"
-        command.extend([
-            "--extra_apex_payload_key", f"{name}={destination_key}",
-        ])
-
-    chains = inventory.get("avb_roles", [])
-    if not chains:
-        raise QualificationPlanError("accepted inventory contains no AVB chain")
-    observed = set()
-    observed_custom_vbmeta = set()
-    for record in sorted(chains, key=lambda item: item["chain"]):
-        chain = record.get("chain")
-        if (chain not in SUPPORTED_AVB_CHAINS | SUPPORTED_CUSTOM_VBMETA_CHAINS
-                or chain in observed):
-            raise QualificationPlanError("inventory contains an unsupported AVB chain")
-        observed.add(chain)
-        if chain in SUPPORTED_CUSTOM_VBMETA_CHAINS:
-            observed_custom_vbmeta.add(chain)
-        else:
-            command.extend([
-                f"--avb_{chain}_key", f"{key_dir}/avb.pem",
-                f"--avb_{chain}_algorithm", "SHA256_RSA4096",
-            ])
-    if observed_custom_vbmeta != prepared_custom_vbmeta:
-        raise QualificationPlanError(
-            "custom vbmeta chains are not bound to prepared metadata")
-    command.extend([str(source), str(destination)])
-    return command
-
-
-def representative_packages(inventory):
-    """Return an exact preferred metadata name for each Android cert role."""
-    mapping = explicit_role_map(inventory)
-    candidates = defaultdict(list)
-    for name, record in mapping.items():
-        if record["kind"] == "apk" and record["container"] != PRESIGNED:
-            candidates[record["container"]].append(name)
-    missing = ANDROID_CERTIFICATE_ROLES - set(candidates)
-    if missing:
-        raise QualificationPlanError("accepted inventory lacks a certificate role")
-    return {
-        role: sorted(candidates[role], key=lambda item: item.encode("utf-8"))[0]
-        for role in sorted(ANDROID_CERTIFICATE_ROLES)
-    }
+    for name, role in plan['roles'].items():
+        require(NAME.fullmatch(name), 'Unsafe signing package name')
+        grouped[role['container']].append(name)
+    argv = [str(signer), '-o', '-d', str(key_dir)]
+    for role, names in sorted(grouped.items()):
+        require(role in CERT_ROLES | {'PRESIGNED'}, 'Unknown signing role')
+        key = '' if role == 'PRESIGNED' else str(Path(key_dir) / role)
+        for start in range(0, len(names), 256):
+            argv += ['--extra_apks', ','.join(sorted(names)[start:start + 256]) + '=' + key]
+    for name, role in sorted(plan['roles'].items()):
+        if role['kind'] == 'apex':
+            key = '' if role['payload'] == 'PRESIGNED' else str(Path(key_dir) / 'avb.pem')
+            argv += ['--extra_apex_payload_key', name + '=' + key]
+    supported = {'boot', 'init_boot', 'recovery', 'system', 'system_other', 'vendor',
+                 'dtbo', 'vbmeta', 'vbmeta_system', 'vbmeta_vendor'}
+    for name in sorted({'vbmeta'} | set(plan['chains'])):
+        require(name in supported, 'Signing tools do not expose this AVB chain override')
+        argv += [f'--avb_{name}_key', str(Path(key_dir) / 'avb.pem'),
+                 f'--avb_{name}_algorithm', 'SHA256_RSA4096']
+    return argv + [str(source), str(destination)]

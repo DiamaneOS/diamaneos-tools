@@ -14,11 +14,11 @@ The suite covers the build, signing, CLI, overlay and font checks with fixtures 
 schema validation needs the development dependencies.
 
 - **Signing.**
-  - [SIGNING.md](SIGNING.md) describes `bin/diamaneos signing roles`, `signing inventory` and
-    `signing verify`.
-  - Their unit fixtures sign nothing and cover malformed archives, development-key versus
-    signed-output separation, presigned-package refusal, source/role drift, incomplete proofs, path
-    escape and artifact tampering.
+  - [SIGNING.md](SIGNING.md) describes build-bound plans and native publication verification.
+  - Unit fixtures cover verified-build hashes, complete reports, role mappings, archive boundaries,
+    external trust material and artifact tampering.
+  - Native fixtures generate disposable keys and check APK, APEX, AVB, OTA and SSH verification,
+    including corrupt, unsigned, wrong-key, wrong-role and public-test-key rejection.
 
 - **Vendor files.**
   - `tests/vendor/test_vendor_files.py` covers selected regular-file generation with the stock

@@ -4,190 +4,91 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "inventory_id",
-    "scope",
-    "source_binding",
-    "safety",
-    "dummy_qualification",
-    "android_certificate_subject",
-    "key_roles",
-    "artifact_roles",
-    "target_profiles",
-    "required_dummy_proofs"
+    "certificate_subject",
+    "certificate_algorithm",
+    "certificate_roles",
+    "apk_selectors",
+    "apex_container_role",
+    "apex_payload_role",
+    "avb_algorithm",
+    "factory_algorithm",
+    "factory_namespace",
+    "record_namespace",
+    "unknown_role_policy",
+    "presigned_policy",
+    "public_test_key_policy"
   ],
   "properties": {
-    "schema_version": {"const": 1},
-    "inventory_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,95}$"},
-    "scope": {"type": "string", "minLength": 1, "maxLength": 1000},
-    "source_binding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["environment_id", "release_tag", "manifest_commit", "project_map_sha256", "projects", "files"],
-      "properties": {
-        "environment_id": {"type": "string", "minLength": 1, "maxLength": 160},
-        "release_tag": {"type": "string", "pattern": "^[0-9]{10}$"},
-        "manifest_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-        "project_map_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "projects": {
-          "type": "object",
-          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-          "required": ["script", "build/make", "development", "external/avb", "prebuilts/jdk/jdk21", "system/update_engine", "tools/apksig"],
-          "minProperties": 7
-        },
-        "files": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["path", "sha256"],
-            "properties": {
-              "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]+$"},
-              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-            }
-          }
-        }
-      }
+    "schema_version": {
+      "const": 2
     },
-    "safety": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["dummy_keys_only", "production_key_generation_allowed", "production_token_import_allowed", "device_trust_enrollment_allowed", "generic_sign_by_path_allowed", "unlisted_role_policy", "unlisted_presigned_policy"],
-      "properties": {
-        "dummy_keys_only": {"const": true},
-        "production_key_generation_allowed": {"const": false},
-        "production_token_import_allowed": {"const": false},
-        "device_trust_enrollment_allowed": {"const": false},
-        "generic_sign_by_path_allowed": {"const": false},
-        "unlisted_role_policy": {"const": "reject"},
-        "unlisted_presigned_policy": {"const": "reject"}
-      }
+    "certificate_subject": {
+      "const": "/CN=DiamaneOS/"
     },
-    "dummy_qualification": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sdk_profile_id", "ota_profile_id", "metadata_only_apk_key_ids"],
-      "properties": {
-        "sdk_profile_id": {"$ref": "#/definitions/identifier"},
-        "ota_profile_id": {"$ref": "#/definitions/identifier"},
-        "metadata_only_apk_key_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {"$ref": "#/definitions/identifier"}
-        }
-      }
+    "certificate_algorithm": {
+      "const": "RSA-4096 with SHA-256"
     },
-    "android_certificate_subject": {"const": "/CN=DiamaneOS/"},
-    "key_roles": {
+    "apex_container_role": {
+      "const": "releasekey"
+    },
+    "apex_payload_role": {
+      "const": "avb"
+    },
+    "avb_algorithm": {
+      "const": "SHA256_RSA4096"
+    },
+    "factory_algorithm": {
+      "const": "Ed25519"
+    },
+    "factory_namespace": {
+      "const": "factory images"
+    },
+    "record_namespace": {
+      "const": "diamaneos-release-record"
+    },
+    "unknown_role_policy": {
+      "const": "reject"
+    },
+    "presigned_policy": {
+      "const": "exact-external-inventory"
+    },
+    "public_test_key_policy": {
+      "const": "reject-in-production"
+    },
+    "certificate_roles": {
       "type": "array",
-      "minItems": 1,
-      "items": {"$ref": "#/definitions/keyRole"}
-    },
-    "artifact_roles": {
-      "type": "array",
-      "minItems": 1,
-      "items": {"$ref": "#/definitions/artifactRole"}
-    },
-    "target_profiles": {
-      "type": "array",
-      "minItems": 1,
-      "items": {"$ref": "#/definitions/targetProfile"}
-    },
-    "required_dummy_proofs": {
-      "type": "array",
-      "minItems": 1,
       "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,95}$"}
-    }
-  },
-  "definitions": {
-    "boundedText": {"type": "string", "minLength": 1, "maxLength": 1000},
-    "identifier": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"},
-    "textList": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/definitions/boundedText"}},
-    "keyRole": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "algorithm", "formats", "storage", "public_identity", "callers", "verifiers", "consumers"],
-      "properties": {
-        "id": {"$ref": "#/definitions/identifier"},
-        "algorithm": {"$ref": "#/definitions/boundedText"},
-        "formats": {"$ref": "#/definitions/textList"},
-        "storage": {"$ref": "#/definitions/boundedText"},
-        "public_identity": {"$ref": "#/definitions/boundedText"},
-        "callers": {"$ref": "#/definitions/textList"},
-        "verifiers": {"$ref": "#/definitions/textList"},
-        "consumers": {"$ref": "#/definitions/textList"}
-      }
+      "items": {
+        "enum": [
+          "bluetooth",
+          "gmscompat_lib",
+          "media",
+          "networkstack",
+          "nfc",
+          "platform",
+          "releasekey",
+          "sdk_sandbox",
+          "shared"
+        ]
+      },
+      "minItems": 9,
+      "maxItems": 9
     },
-    "artifactRole": {
+    "apk_selectors": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "kind", "key_ids", "inventory_source", "signer", "verifier"],
-      "properties": {
-        "id": {"$ref": "#/definitions/identifier"},
-        "kind": {"$ref": "#/definitions/identifier"},
-        "key_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/identifier"}},
-        "inventory_source": {"$ref": "#/definitions/boundedText"},
-        "signer": {"$ref": "#/definitions/boundedText"},
-        "verifier": {"$ref": "#/definitions/boundedText"}
-      }
-    },
-    "targetProfile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "product", "build_target", "build_variant", "evidence_scope", "qualified_unsigned_target_files_sha256", "qualified_otatools_sha256", "presigned_allowlist", "presigned_metadata_only", "presigned_artifacts", "qualification_evidence", "inventory_status"],
-      "properties": {
-        "id": {"$ref": "#/definitions/identifier"},
-        "product": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,96}$"},
-        "build_target": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,160}$"},
-        "build_variant": {"enum": ["user", "userdebug", "eng"]},
-        "evidence_scope": {"$ref": "#/definitions/boundedText"},
-        "qualified_unsigned_target_files_sha256": {
-          "oneOf": [
-            {"type": "null"},
-            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-          ]
-        },
-        "qualified_otatools_sha256": {
-          "oneOf": [
-            {"type": "null"},
-            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-          ]
-        },
-        "presigned_allowlist": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
-        "presigned_metadata_only": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"}},
-        "presigned_artifacts": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["metadata_name", "artifact_basename", "path", "bytes", "sha256"],
-            "properties": {
-              "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"},
-              "artifact_basename": {"type": "string", "pattern": "^[A-Za-z0-9._+-]{1,256}$"},
-              "path": {"type": "string", "pattern": "^[A-Za-z0-9._/+-]{1,1000}$"},
-              "bytes": {"type": "integer", "minimum": 1, "maximum": 68719476736},
-              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-            }
-          }
-        },
-        "qualification_evidence": {
-          "oneOf": [
-            {"type": "null"},
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["artifact_review_sha256", "source_review_sha256", "source_inventory_sha256"],
-              "properties": {
-                "artifact_review_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-                "source_review_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-                "source_inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-              }
-            }
-          ]
-        },
-        "inventory_status": {"enum": ["pending-target-files-qualification", "qualified", "blocked-pending-fp6-product"]}
+      "minProperties": 1,
+      "additionalProperties": {
+        "enum": [
+          "bluetooth",
+          "gmscompat_lib",
+          "media",
+          "networkstack",
+          "nfc",
+          "platform",
+          "releasekey",
+          "sdk_sandbox",
+          "shared"
+        ]
       }
     }
   }
