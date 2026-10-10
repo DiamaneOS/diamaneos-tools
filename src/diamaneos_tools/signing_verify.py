@@ -1,970 +1,319 @@
-"""Fail-closed signing-role, target-files and dummy-proof verification.
-
-The module never creates keys and never signs an artifact.  It validates the
-reviewed role contract, derives the concrete package/AVB inventory from an
-Android target-files archive and independently checks a dummy qualification
-record.  Actual signing is confined to the offline/build qualification
-procedure documented in ``docs/SIGNING.md``.
-"""
-
+"""Verify publication artifacts with native tools and an independent role inventory."""
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
-import json
-from pathlib import Path, PurePosixPath
-import re
+from pathlib import Path
 import shlex
-import subprocess
+import shutil
 import sys
-import zipfile
-
-try:
-    from jsonschema import Draft7Validator
-except ImportError:
-    Draft7Validator = None
-
-
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = ROOT / "config" / "signing-roles.json"
-DEFAULT_ENVIRONMENT = ROOT / "config" / "build-environment.json"
-MAX_CONFIG_BYTES = 2 * 1024 * 1024
-MAX_RESULT_BYTES = 4 * 1024 * 1024
-MAX_METADATA_BYTES = 32 * 1024 * 1024
-MAX_ZIP_MEMBERS = 250_000
-MAX_ZIP_UNCOMPRESSED_BYTES = 64 * 1024 * 1024 * 1024
-MAX_ERRORS = 40
-ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
-HEX40_RE = re.compile(r"^[0-9a-f]{40}$")
-HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-
-EXPECTED_KEYS = {
-    "releasekey", "platform", "shared", "media", "networkstack",
-    "bluetooth", "sdk_sandbox", "gmscompat_lib", "nfc", "avb",
-    "factory",
-}
-ANDROID_CERT_KEYS = EXPECTED_KEYS - {"avb", "factory"}
-EXPECTED_ARTIFACT_ROLES = {
-    "android-apk-certificates", "apex-container-certificates",
-    "apex-payload-verified-boot", "avb-root-and-chains", "ota-payload",
-    "ota-package", "update-channel-metadata", "factory-archive",
-    "release-record",
-}
-EXPECTED_PROOFS = {
-    "target-files-transform", "apk-certificate-transform",
-    "apex-container-transform", "apex-payload-transform",
-    "avb-root-and-chains", "full-ota", "incremental-ota",
-    "factory-archive-signature", "release-record-signature",
-    "valid-key-verification", "wrong-key-rejection", "restart-recovery",
-}
-# docs/SIGNING.md: the release manifest is signed in this namespace; the
-# factory archive signature is a separate signature in another one.
-RELEASE_RECORD_NAMESPACE = "diamaneos-dummy-release-record"
-METADATA_MEMBERS = (
-    "META/apkcerts.txt", "META/apexkeys.txt", "META/misc_info.txt",
-)
-FORBIDDEN_NORMALIZED_KEYS = {
-    "privatekey", "privatekeydata", "password", "pin", "puk", "secret",
-    "seed", "mnemonic", "recoveryphrase", "tokenvalue",
-}
-
-
-class SigningError(ValueError):
-    """Bounded diagnostic which never includes key material."""
-
-
-def _unique_pairs(pairs):
-    value = {}
-    for key, item in pairs:
-        if key in value:
-            raise SigningError("duplicate JSON key")
-        value[key] = item
-    return value
-
-
-def _reject_constant(_value):
-    raise SigningError("non-finite JSON number")
-
-
-def _privacy_guard(value, *, max_nodes=200_000, max_depth=24):
-    stack = [(value, 0)]
-    nodes = 0
-    while stack:
-        item, depth = stack.pop()
-        nodes += 1
-        if nodes > max_nodes or depth > max_depth:
-            raise SigningError("document exceeds structural limits")
-        if isinstance(item, dict):
-            for key, child in item.items():
-                if not isinstance(key, str):
-                    raise SigningError("JSON object key is not text")
-                normalized = re.sub(r"[^a-z0-9]", "", key.lower())
-                if normalized in FORBIDDEN_NORMALIZED_KEYS:
-                    raise SigningError("private signing material field is prohibited")
-                stack.append((child, depth + 1))
-        elif isinstance(item, list):
-            stack.extend((child, depth + 1) for child in item)
-        elif isinstance(item, str):
-            if len(item.encode("utf-8")) > MAX_METADATA_BYTES:
-                raise SigningError("document contains an oversized string")
-            if "-----BEGIN " in item and "PRIVATE KEY-----" in item:
-                raise SigningError("private signing material is prohibited")
-        elif not isinstance(item, (int, float, bool, type(None))):
-            raise SigningError("document contains a non-JSON value")
-
-
-def load_json(path, *, limit=MAX_CONFIG_BYTES):
-    try:
-        with Path(path).open("rb") as stream:
-            raw = stream.read(limit + 1)
-    except OSError:
-        raise SigningError("unable to read signing input") from None
-    if len(raw) > limit:
-        raise SigningError("signing input exceeds its byte limit")
-    try:
-        value = json.loads(raw.decode("utf-8"),
-                           object_pairs_hook=_unique_pairs,
-                           parse_constant=_reject_constant)
-    except SigningError:
-        raise
-    except (UnicodeError, ValueError, RecursionError):
-        raise SigningError("signing input is not valid unique-key UTF-8 JSON") from None
-    _privacy_guard(value)
-    return value
-
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    try:
-        with Path(path).open("rb") as stream:
-            while True:
-                chunk = stream.read(1024 * 1024)
-                if not chunk:
-                    break
-                digest.update(chunk)
-    except OSError:
-        raise SigningError("unable to hash signing artifact") from None
-    return digest.hexdigest()
-
-
-def canonical_sha256(value):
-    raw = json.dumps(value, sort_keys=True, ensure_ascii=False,
-                     allow_nan=False, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
-
-
-def apk_certificate_digests(output: str, expected: str) -> list[str]:
-    """Pin apksigner's verified signer certificate, across legacy/scheme labels.
-
-    Call only after apksigner exits zero. Public-key digests and source-stamp
-    certificates are not substitutes for the APK signer certificate.
-    """
-    if not HEX64_RE.fullmatch(expected):
-        raise SigningError("APK certificate pin is invalid")
-    lines = output.splitlines()
-    counts = [line for line in lines if line.startswith("Number of signers:")]
-    if counts != ["Number of signers: 1"]:
-        raise SigningError("APK verifier did not establish exactly one signer")
-    pattern = re.compile(
-        r"^(?:Signer #[1-9][0-9]*|V[1-3](?:\.[0-9]+)? Signer):? "
-        r"certificate SHA-256 digest: ([0-9a-fA-F]{64})$")
-    certificates = [line for line in lines if "certificate SHA-256 digest:" in line]
-    matches = [pattern.fullmatch(line) for line in certificates]
-    if not matches or any(match is None for match in matches):
-        raise SigningError("APK verifier certificate output is missing or unsupported")
-    observed = {match.group(1).lower() for match in matches}
-    if observed != {expected}:
-        raise SigningError("APK/APEX certificate does not match its declared role")
-    return sorted(observed)
-
-
-def _schema_errors(value, schema_name):
-    if Draft7Validator is None:
-        return ["missing jsonschema; install requirements-dev.txt in a virtual environment"]
-    try:
-        schema = json.loads((ROOT / "schemas" / schema_name).read_text(
-            encoding="utf-8"))
-        Draft7Validator.check_schema(schema)
-    except (OSError, ValueError):
-        return ["signing schema is unavailable or invalid"]
-    errors = []
-    for error in Draft7Validator(schema).iter_errors(value):
-        errors.append("schema constraint failed: " + str(error.validator))
-        if len(errors) == MAX_ERRORS:
-            break
-    return errors
-
-
-def validate_config(config, environment):
-    errors = _schema_errors(config, "signing-roles.schema.json")
-    if errors:
-        return errors[:MAX_ERRORS]
-    try:
-        _privacy_guard(environment)
-    except SigningError as error:
-        return [str(error)]
-
-    binding = config["source_binding"]
-    upstream = environment.get("upstream", {})
-    expected = {
-        "environment_id": environment.get("environment_id"),
-        "release_tag": upstream.get("release_tag"),
-        "manifest_commit": upstream.get("peeled_commit"),
-        "project_map_sha256": upstream.get("project_map_sha256"),
-    }
-    if any(binding.get(field) != expected_value
-           for field, expected_value in expected.items()):
-        errors.append("signing source binding does not match build environment")
-
-    project_values = binding["projects"]
-    if set(project_values) != {
-            "script", "build/make", "development", "external/avb",
-            "prebuilts/jdk/jdk21", "system/update_engine", "tools/apksig"}:
-        errors.append("signing source project set is incomplete")
-    if any(not isinstance(value, str) or not HEX40_RE.fullmatch(value)
-           for value in project_values.values()):
-        errors.append("signing source project revision is invalid")
-
-    paths = [entry["path"] for entry in binding["files"]]
-    if len(paths) != len(set(paths)):
-        errors.append("duplicate signing source-file binding")
-    required_paths = {
-        "script/common.sh", "script/generate-release.sh",
-        "script/generate-delta.sh", "script/generate-metadata",
-        "script/generate-keys", "script/finalize.sh",
-        "development/tools/make_key",
-        "external/avb/avbtool.py",
-        "build/make/tools/releasetools/check_ota_package_signature.py",
-        "prebuilts/jdk/jdk21/linux-x86/bin/java",
-        "system/update_engine/scripts/brillo_update_payload",
-        "tools/apksig/src/apksigner/java/com/android/apksigner/ApkSignerTool.java",
-    }
-    if set(paths) != required_paths:
-        errors.append("signing source-file binding set is incomplete")
-
-    key_roles = config["key_roles"]
-    key_ids = [entry["id"] for entry in key_roles]
-    if set(key_ids) != EXPECTED_KEYS or len(key_ids) != len(set(key_ids)):
-        errors.append("signing key-role set is incomplete or duplicated")
-    for entry in key_roles:
-        if "offline" not in entry["storage"] or "pending" not in entry["storage"]:
-            errors.append("key role lacks explicit offline pending-integration state")
-        if entry["id"] in ANDROID_CERT_KEYS and entry["algorithm"] != \
-                "RSA-4096 with SHA-256":
-            errors.append("Android certificate role algorithm mismatch")
-        if entry["id"] == "avb" and entry["algorithm"] != "SHA256_RSA4096":
-            errors.append("AVB algorithm mismatch")
-        if entry["id"] == "factory" and not entry["algorithm"].startswith("Ed25519"):
-            errors.append("factory signature algorithm mismatch")
-
-    artifact_roles = config["artifact_roles"]
-    artifact_ids = [entry["id"] for entry in artifact_roles]
-    if (set(artifact_ids) != EXPECTED_ARTIFACT_ROLES
-            or len(artifact_ids) != len(set(artifact_ids))):
-        errors.append("signing artifact-role set is incomplete or duplicated")
-    for entry in artifact_roles:
-        if not set(entry["key_ids"]) <= set(key_ids):
-            errors.append("artifact role refers to an unknown key role")
-    apk_artifact_role = next(
-        (entry for entry in artifact_roles
-         if entry["id"] == "android-apk-certificates"), {})
-    apk_key_ids = set(apk_artifact_role.get("key_ids", []))
-    qualification = config["dummy_qualification"]
-    metadata_only_apk_keys = qualification["metadata_only_apk_key_ids"]
-    if metadata_only_apk_keys != sorted(
-            metadata_only_apk_keys, key=lambda item: item.encode("utf-8")):
-        errors.append("metadata-only APK key-role list is not bytewise sorted")
-    if not set(metadata_only_apk_keys) <= apk_key_ids:
-        errors.append("metadata-only APK policy refers to a non-APK key role")
-
-    profiles = config["target_profiles"]
-    profile_ids = [entry["id"] for entry in profiles]
-    if len(profile_ids) != len(set(profile_ids)):
-        errors.append("duplicate signing target profile")
-    if set(profile_ids) != {
-            "generic-x86_64-qualification",
-            "generic-x86_64-ota-qualification",
-            "fp6-release",
-    }:
-        errors.append("signing target-profile set is incomplete")
-    profiles_by_id = {entry["id"]: entry for entry in profiles}
-    if (qualification["sdk_profile_id"] not in profiles_by_id
-            or qualification["ota_profile_id"] not in profiles_by_id
-            or qualification["sdk_profile_id"] == qualification["ota_profile_id"]):
-        errors.append("dummy qualification profile binding is invalid")
-    if (qualification["sdk_profile_id"] != "generic-x86_64-qualification"
-            or qualification["ota_profile_id"] !=
-            "generic-x86_64-ota-qualification"):
-        errors.append("dummy qualification profile roles are not reviewed")
-    generic = profiles_by_id.get("generic-x86_64-qualification", {})
-    if generic.get("build_target") != environment["build"][
-            "generic_qualification_target"]:
-        errors.append("generic signing target does not match build environment")
-    ota = profiles_by_id.get("generic-x86_64-ota-qualification", {})
-    if ota.get("build_target") != "aosp_cf_x86_64_phone-cur-userdebug":
-        errors.append("generic OTA signing target is not the reviewed product")
-    for profile in profiles:
-        allowlist = profile["presigned_allowlist"]
-        if allowlist != sorted(allowlist, key=lambda item: item.encode("utf-8")):
-            errors.append("presigned allowlist is not bytewise sorted")
-        if any(any(token in item for token in ("*", "?", "[", "]", "/"))
-               for item in allowlist):
-            errors.append("presigned allowlist must use exact package names")
-        metadata_only = profile["presigned_metadata_only"]
-        if metadata_only != sorted(
-                metadata_only, key=lambda item: item.encode("utf-8")):
-            errors.append("presigned metadata-only list is not bytewise sorted")
-        artifacts = profile["presigned_artifacts"]
-        artifact_order = [
-            (entry["metadata_name"], entry["path"]) for entry in artifacts
-        ]
-        if artifact_order != sorted(
-                artifact_order,
-                key=lambda item: (item[0].encode("utf-8"),
-                                  item[1].encode("utf-8"))):
-            errors.append("presigned artifact bindings are not bytewise sorted")
-        if len(artifact_order) != len(set(artifact_order)):
-            errors.append("duplicate presigned artifact binding")
-        artifact_names = {entry["metadata_name"] for entry in artifacts}
-        if set(metadata_only) & artifact_names:
-            errors.append("presigned package has conflicting presence policies")
-        if set(allowlist) != set(metadata_only) | artifact_names:
-            errors.append("presigned policy does not partition the allowlist")
-        for entry in artifacts:
-            pure = PurePosixPath(entry["path"])
-            if (pure.is_absolute() or ".." in pure.parts
-                    or pure.name != entry["artifact_basename"]):
-                errors.append("presigned artifact binding path is invalid")
-        qualified_hash = profile["qualified_unsigned_target_files_sha256"]
-        qualified_otatools = profile["qualified_otatools_sha256"]
-        evidence = profile["qualification_evidence"]
-        if profile["inventory_status"] == "qualified":
-            if (not qualified_hash or not qualified_otatools
-                    or evidence is None or not allowlist):
-                errors.append("qualified signing profile lacks review bindings")
-        elif (qualified_hash is not None or qualified_otatools is not None
-              or evidence is not None or allowlist
-              or metadata_only or artifacts):
-            errors.append("unqualified signing profile contains review bindings")
-
-    proofs = config["required_dummy_proofs"]
-    if set(proofs) != EXPECTED_PROOFS or len(proofs) != len(set(proofs)):
-        errors.append("dummy proof set is incomplete or duplicated")
-    return errors[:MAX_ERRORS]
-
-
-def _zip_metadata(archive):
-    try:
-        handle = zipfile.ZipFile(archive)
-    except (OSError, zipfile.BadZipFile):
-        raise SigningError("target-files archive is unavailable or invalid") from None
-    infos = handle.infolist()
-    if len(infos) > MAX_ZIP_MEMBERS:
-        handle.close()
-        raise SigningError("target-files archive has too many members")
-    total = 0
-    names = set()
-    for info in infos:
-        total += info.file_size
-        if total > MAX_ZIP_UNCOMPRESSED_BYTES:
-            handle.close()
-            raise SigningError("target-files archive exceeds the expanded-size limit")
-        name = PurePosixPath(info.filename)
-        if (name.is_absolute() or ".." in name.parts
-                or info.filename in names):
-            handle.close()
-            raise SigningError("target-files archive contains an unsafe member")
-        names.add(info.filename)
-    missing = set(METADATA_MEMBERS) - names
-    if missing:
-        handle.close()
-        raise SigningError("target-files archive lacks required signing metadata")
-    return handle
-
-
-def _read_member(archive, name):
-    try:
-        info = archive.getinfo(name)
-        if info.file_size > MAX_METADATA_BYTES:
-            raise SigningError("target-files signing metadata exceeds its limit")
-        raw = archive.read(info)
-        if len(raw) != info.file_size:
-            raise SigningError("target-files signing metadata is truncated")
-        return raw.decode("utf-8")
-    except SigningError:
-        raise
-    except (KeyError, UnicodeError, OSError, RuntimeError, zipfile.BadZipFile):
-        raise SigningError("unable to read target-files signing metadata") from None
-
-
-def _attribute_lines(text, label):
-    records = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            fields = shlex.split(line, posix=True)
-        except ValueError:
-            raise SigningError(f"{label} contains malformed quoting") from None
-        record = {}
-        for field in fields:
-            if "=" not in field:
-                raise SigningError(f"{label} contains a malformed field")
-            key, value = field.split("=", 1)
-            if key in record:
-                raise SigningError(f"{label} contains a duplicate field")
-            record[key] = value
-        if "name" not in record or not record["name"]:
-            raise SigningError(f"{label} record lacks a name")
-        records.append(record)
-    names = [entry["name"] for entry in records]
-    if len(names) != len(set(names)):
-        raise SigningError(f"{label} contains a duplicate package")
-    return records
-
-
-def _basename_role(value):
-    if value in {"PRESIGNED", "EXTERNAL"}:
-        return value
-    name = PurePosixPath(value).name
-    for suffix in (".x509.pem", ".pk8", ".pem", ".avbpubkey"):
-        if name.endswith(suffix):
-            name = name[:-len(suffix)]
-            break
-    return name
-
-
-def _misc_info(text):
-    value = {}
-    identical_duplicates = set()
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            raise SigningError("misc_info contains a malformed field")
-        key, item = line.split("=", 1)
-        if key in value:
-            if value[key] != item:
-                raise SigningError(
-                    "misc_info contains a conflicting duplicate field")
-            identical_duplicates.add(key)
-            continue
-        value[key] = item
-    return value, sorted(identical_duplicates,
-                         key=lambda field: field.encode("utf-8"))
-
-
-def avb_verification_plan(archive, inventory):
-    """Bind signed roles to emitted images and explicit chain expectations.
-
-    A no-boot product may retain boot signing metadata without emitting boot.
-    Callers must cover that metadata-only role with another product's image.
-    All sibling images are retained for avbtool's hash/hashtree descriptors.
-    """
-    if inventory.get("status") != "PASS" or inventory.get("stage") != "signed":
-        raise SigningError("AVB verification requires a PASS signed inventory")
-    if len(archive.namelist()) != len(set(archive.namelist())):
-        raise SigningError("duplicate target-files member")
-    misc, _ = _misc_info(_read_member(archive, "META/misc_info.txt"))
-    members = sorted(name for name in archive.namelist()
-                     if re.fullmatch(r"IMAGES/[a-zA-Z0-9_.-]+\.img", name))
-    images, metadata_only, expected_chains = [], [], []
-    seen = set()
-    for record in inventory["avb_roles"]:
-        chain = record["chain"]
-        if not ID_RE.fullmatch(chain) or chain in seen or record["key_role"] != "avb":
-            raise SigningError("invalid or duplicate AVB verification role")
-        seen.add(chain)
-        present = f"IMAGES/{chain}.img" in members
-        if chain == "boot" and misc.get("no_boot") == "true":
-            if present:
-                raise SigningError("no_boot contradicts emitted boot image")
-            metadata_only.append(chain)
-            continue
-        if not present:
-            raise SigningError(f"signed target-files lacks declared AVB image: {chain}")
-        images.append(chain)
-        location = misc.get(f"avb_{chain}_rollback_index_location")
-        if chain != "vbmeta" and location is not None:
-            if not re.fullmatch(r"[0-9]+", location) or not 0 < int(location) < 32:
-                raise SigningError("invalid AVB chain rollback index location")
-            expected_chains.append({"chain": chain, "rollback_index_location": int(location)})
-    if not images:
-        raise SigningError("no emitted AVB images")
-    return {"images": images, "metadata_only": metadata_only,
-            "members": members, "expected_chains": expected_chains}
-
-
-def _zip_member_sha256(archive, name):
-    digest = hashlib.sha256()
-    try:
-        with archive.open(name, "r") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-    except (KeyError, OSError, RuntimeError, zipfile.BadZipFile):
-        raise SigningError("unable to hash a bound presigned artifact") from None
-    return digest.hexdigest()
-
-
-def _presigned_artifact_errors(archive, profile):
-    """Verify exact archive presence/absence and identity bindings.
-
-    The parsed metadata name is retained separately from the literal ZIP
-    basename so the policy does not infer an archive path from metadata.
-    """
-    errors = []
-    members_by_basename = {}
-    for info in archive.infolist():
-        basename = PurePosixPath(info.filename).name
-        members_by_basename.setdefault(basename, []).append(info.filename)
-
-    expected_by_basename = {}
-    for entry in profile["presigned_artifacts"]:
-        expected_by_basename.setdefault(
-            entry["artifact_basename"], set()).add(entry["path"])
-        try:
-            info = archive.getinfo(entry["path"])
-        except KeyError:
-            errors.append("target-files lacks a bound presigned artifact")
-            continue
-        if info.file_size != entry["bytes"]:
-            errors.append("target-files presigned artifact size mismatch")
-            continue
-        if _zip_member_sha256(archive, entry["path"]) != entry["sha256"]:
-            errors.append("target-files presigned artifact hash mismatch")
-
-    for basename, expected in expected_by_basename.items():
-        observed = set(members_by_basename.get(basename, []))
-        if observed != expected:
-            errors.append("target-files presigned artifact path set mismatch")
-
-    for metadata_name in profile["presigned_metadata_only"]:
-        if "\\" in metadata_name:
-            errors.append("metadata-only presigned name has an unsupported escape")
-            continue
-        if members_by_basename.get(metadata_name):
-            errors.append("metadata-only presigned package is present in archive")
-    return errors
-
-
-def _signed_source_plan(source_inventory, profile, config, profile_id):
-    """Validate and plan against the accepted unsigned inventory.
-
-    The pinned Android signer deliberately copies ``META/apkcerts.txt`` and
-    ``META/apexkeys.txt`` from the input archive. Those files describe the
-    source labels used to select keys; they do not become a record of the
-    destination keys. A signed archive therefore needs its exact accepted
-    unsigned inventory as the metadata reference, while independent artifact
-    verification proves the destination certificates and AVB keys.
-    """
-    if not isinstance(source_inventory, dict):
-        raise SigningError("signed target-files requires a source inventory")
-    from diamaneos_tools import signing_qualification
-    try:
-        observed_hash = source_inventory["inventory_sha256"]
-        canonical = dict(source_inventory)
-        canonical.pop("inventory_sha256")
-        if (not HEX64_RE.fullmatch(observed_hash)
-                or canonical_sha256(canonical) != observed_hash):
-            raise SigningError("source inventory self-hash mismatch")
-        if (source_inventory["status"] != "PASS"
-                or source_inventory["stage"] != "unsigned"
-                or source_inventory["inventory_id"] != config["inventory_id"]
-                or source_inventory["profile_id"] != profile_id):
-            raise SigningError("source inventory is not an accepted unsigned input")
-        qualified_hash = profile["qualified_unsigned_target_files_sha256"]
-        if (qualified_hash is not None
-                and source_inventory["target_files_sha256"] != qualified_hash):
-            raise SigningError("source inventory does not bind the qualified input")
-        plan = signing_qualification.explicit_role_map(source_inventory)
-    except SigningError:
-        raise
-    except (KeyError, TypeError, signing_qualification.QualificationPlanError):
-        raise SigningError("source inventory cannot produce a signing plan") from None
-    return plan
-
-
-def _role_index(records, fields, label):
-    try:
-        indexed = {
-            record["name"]: tuple(record[field] for field in fields)
-            for record in records
-        }
-    except (KeyError, TypeError):
-        raise SigningError(f"{label} inventory is malformed") from None
-    if len(indexed) != len(records):
-        raise SigningError(f"{label} inventory contains duplicate packages")
-    return indexed
-
-
-def inspect_target_files(path, config, profile_id, *, stage,
-                         source_inventory=None):
-    if stage not in {"unsigned", "signed"}:
-        raise SigningError("target-files stage must be unsigned or signed")
-    profiles = {entry["id"]: entry for entry in config["target_profiles"]}
-    if profile_id not in profiles:
-        raise SigningError("unknown signing target profile")
-    profile = profiles[profile_id]
-    if stage == "unsigned" and source_inventory is not None:
-        raise SigningError("source inventory is valid only for signed target-files")
-    plan = None
-    source_apks = None
-    source_apex = None
-    if stage == "signed":
-        plan = _signed_source_plan(
-            source_inventory, profile, config, profile_id)
-        source_apks = _role_index(
-            source_inventory.get("apk_roles"),
-            ("certificate_role",), "source APK")
-        source_apex = _role_index(
-            source_inventory.get("apex_roles"),
-            ("container_certificate_role", "payload_public_key",
-             "payload_private_key_role"),
-            "source APEX")
-    target_files_sha256 = sha256_file(path)
-    with _zip_metadata(path) as archive:
-        apks = _attribute_lines(_read_member(
-            archive, "META/apkcerts.txt"), "apkcerts")
-        apex = _attribute_lines(_read_member(
-            archive, "META/apexkeys.txt"), "apexkeys")
-        misc, misc_duplicates = _misc_info(_read_member(
-            archive, "META/misc_info.txt"))
-        artifact_errors = _presigned_artifact_errors(archive, profile)
-
-    apk_inventory = []
-    apex_inventory = []
-    presigned = set()
-    unknown_roles = set()
-    for record in apks:
-        certificate = _basename_role(record.get("certificate", ""))
-        if certificate in {"PRESIGNED", "EXTERNAL"}:
-            presigned.add(record["name"])
-        record_out = {
-            "name": record["name"],
-            "certificate_role": certificate,
-        }
-        if stage == "signed":
-            planned = plan.get(record["name"])
-            if planned is None or planned["kind"] != "apk":
-                record_out["expected_certificate_role"] = "missing"
-            else:
-                record_out["expected_certificate_role"] = planned["container"]
-        apk_inventory.append(record_out)
-
-    for record in apex:
-        container = _basename_role(record.get("container_certificate", ""))
-        payload_public = _basename_role(record.get("public_key", ""))
-        payload_private = _basename_role(record.get("private_key", ""))
-        if container in {"PRESIGNED", "EXTERNAL"}:
-            presigned.add(record["name"])
-        record_out = {
-            "name": record["name"],
-            "container_certificate_role": container,
-            "payload_public_key": payload_public,
-            "payload_private_key_role": payload_private,
-        }
-        if stage == "signed":
-            planned = plan.get(record["name"])
-            if planned is None or planned["kind"] != "apex":
-                record_out["expected_container_certificate_role"] = "missing"
-                record_out["expected_payload_private_key_role"] = "missing"
-            else:
-                record_out["expected_container_certificate_role"] = \
-                    planned["container"]
-                record_out["expected_payload_private_key_role"] = \
-                    planned["payload"]
-        apex_inventory.append(record_out)
-
-    avb = []
-    for key in sorted(misc):
-        match = re.fullmatch(r"avb_(.+)_key_path", key)
-        if not match:
-            continue
-        chain = match.group(1)
-        algorithm = misc.get(f"avb_{chain}_algorithm")
-        key_role = _basename_role(misc[key])
-        if stage == "signed" and (key_role != "avb"
-                                  or algorithm != "SHA256_RSA4096"):
-            unknown_roles.add(key_role or "missing-avb-key")
-        avb.append({
-            "chain": chain,
-            "key_role": key_role,
-            "algorithm": algorithm,
-        })
-
-    allowed = set(profile["presigned_allowlist"])
-    missing_allowlist = allowed - presigned
-    unlisted_presigned = presigned - allowed
-    errors = list(artifact_errors)
-    if stage == "signed":
-        observed_apks = _role_index(
-            apk_inventory, ("certificate_role",), "signed APK")
-        observed_apex = _role_index(
-            apex_inventory,
-            ("container_certificate_role", "payload_public_key",
-             "payload_private_key_role"),
-            "signed APEX")
-        if observed_apks != source_apks or observed_apex != source_apex:
-            errors.append(
-                "signed target-files metadata differs from accepted unsigned input")
-        if set(plan) != set(observed_apks) | set(observed_apex):
-            errors.append("signed target-files package set differs from signing plan")
-    qualified_hash = profile["qualified_unsigned_target_files_sha256"]
-    if (stage == "unsigned" and qualified_hash is not None
-            and target_files_sha256 != qualified_hash):
-        errors.append("unsigned target-files hash does not match qualified input")
-    if unknown_roles:
-        errors.append("target-files contains an unlisted signing role")
-    if unlisted_presigned:
-        errors.append("target-files contains an unlisted presigned package")
-    if profile["inventory_status"] == "qualified" and missing_allowlist:
-        errors.append("target-files is missing an allowlisted presigned package")
-    if not avb:
-        errors.append("target-files contains no AVB role metadata")
-
-    inventory = {
-        "schema_version": 1,
-        "inventory_id": config["inventory_id"],
-        "profile_id": profile_id,
-        "stage": stage,
-        "target_files_sha256": target_files_sha256,
-        "apk_count": len(apk_inventory),
-        "apex_count": len(apex_inventory),
-        "avb_chain_count": len(avb),
-        "apk_roles": apk_inventory,
-        "apex_roles": apex_inventory,
-        "avb_roles": avb,
-        "identical_misc_info_duplicate_fields": misc_duplicates,
-        "presigned_packages": sorted(presigned, key=lambda item: item.encode("utf-8")),
-        "unlisted_presigned_count": len(unlisted_presigned),
-        "unknown_role_count": len(unknown_roles),
-        "status": "PASS" if not errors else "FAIL",
-        "errors": errors,
-    }
-    if stage == "signed":
-        inventory.update({
-            "metadata_role_model": "accepted-unsigned-labels-plus-explicit-plan",
-            "source_inventory_sha256": source_inventory["inventory_sha256"],
-            "planned_role_count": len(plan),
-        })
-    inventory["inventory_sha256"] = canonical_sha256(inventory)
-    return inventory
-
-
-def _safe_artifact(root, relative):
-    if not isinstance(relative, str) or not relative or "\\" in relative:
-        raise SigningError("dummy evidence contains an invalid artifact path")
-    pure = PurePosixPath(relative)
-    if pure.is_absolute() or ".." in pure.parts:
-        raise SigningError("dummy evidence contains an unsafe artifact path")
-    candidate = root.joinpath(*pure.parts)
-    try:
-        if candidate.is_symlink() or not candidate.is_file():
-            raise SigningError("dummy evidence artifact is unavailable or not regular")
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(root.resolve(strict=True))
-    except SigningError:
-        raise
-    except (OSError, ValueError):
-        raise SigningError("dummy evidence artifact escapes its root") from None
-    return resolved
-
-
-def _ssh_verify(manifest, signature, allowed_signers, identity, namespace):
-    command = [
-        "ssh-keygen", "-Y", "verify", "-f", str(allowed_signers),
-        "-I", identity, "-n", namespace, "-s", str(signature),
-    ]
-    try:
-        return subprocess.run(
-            command, input=manifest.read_bytes(), capture_output=True,
-            timeout=30).returncode
-    except (OSError, subprocess.TimeoutExpired):
-        raise SigningError("unable to run the release-record verifier") from None
-
-
-def _verify_ssh_proof(root, record, label, errors):
-    try:
-        manifest = _safe_artifact(root, record["manifest_path"])
-        signature = _safe_artifact(root, record["signature_path"])
-        allowed = _safe_artifact(root, record["allowed_signers_path"])
-        wrong = _safe_artifact(root, record["wrong_allowed_signers_path"])
-        if _ssh_verify(manifest, signature, allowed, record["identity"],
-                       record["namespace"]) != 0:
-            errors.append(f"dummy {label} failed declared-key verification")
-        if _ssh_verify(manifest, signature, wrong, record["identity"],
-                       record["namespace"]) == 0:
-            errors.append(f"dummy {label} accepted the wrong key")
-    except SigningError as error:
-        errors.append(str(error))
-
-
-def verify_dummy_result(result_path, artifact_root, config):
-    result = load_json(result_path, limit=MAX_RESULT_BYTES)
-    errors = _schema_errors(result, "signing-dummy-result.schema.json")
-    if errors:
-        return errors[:MAX_ERRORS]
-    if result["inventory_id"] != config["inventory_id"]:
-        errors.append("dummy result uses a different signing inventory")
-    if result["source_binding"] != config["source_binding"]:
-        errors.append("dummy result uses a different source binding")
-    if (set(result["profile_ids"]) != {
-            "generic-x86_64-qualification",
-            "generic-x86_64-ota-qualification",
-            } or len(result["profile_ids"]) != 2):
-        errors.append("dummy result profile set is incomplete")
-    if (not result["dummy_keys_only"]
-            or result["production_material_present"]):
-        errors.append("dummy result crosses the production-material boundary")
-    proof_ids = [entry["id"] for entry in result["proofs"]]
-    if set(proof_ids) != set(config["required_dummy_proofs"]):
-        errors.append("dummy result proof set is incomplete")
-    if len(proof_ids) != len(set(proof_ids)):
-        errors.append("dummy result contains duplicate proofs")
-    if any(entry["status"] != "PASS" for entry in result["proofs"]):
-        errors.append("dummy result contains an unsuccessful proof")
-    key_ids = [entry["key_id"] for entry in result["key_public_fingerprints"]]
-    if set(key_ids) != EXPECTED_KEYS or len(key_ids) != len(set(key_ids)):
-        errors.append("dummy result key fingerprint set is incomplete")
-
-    root = Path(artifact_root)
-    artifact_ids = set()
-    for artifact in result["artifacts"]:
-        if artifact["id"] in artifact_ids:
-            errors.append("dummy result contains duplicate artifacts")
-            continue
-        artifact_ids.add(artifact["id"])
-        try:
-            path = _safe_artifact(root, artifact["path"])
-            if path.stat().st_size != artifact["bytes"]:
-                errors.append("dummy artifact byte count mismatch")
-            if sha256_file(path) != artifact["sha256"]:
-                errors.append("dummy artifact hash mismatch")
-        except SigningError as error:
-            errors.append(str(error))
-        if len(errors) >= MAX_ERRORS:
-            return errors[:MAX_ERRORS]
-
-    for proof in result["proofs"]:
-        if not proof["evidence_refs"]:
-            errors.append("dummy proof refers to no artifact")
-        if not set(proof["evidence_refs"]) <= artifact_ids:
-            errors.append("dummy proof refers to an unknown artifact")
-
-    release, factory = result["release_record_proof"], result["factory_archive_proof"]
-    if release["namespace"] != RELEASE_RECORD_NAMESPACE:
-        errors.append("dummy release record is not signed in the release-record namespace")
-    if (factory["namespace"] == release["namespace"]
-            or factory["manifest_path"] == release["manifest_path"]
-            or factory["signature_path"] == release["signature_path"]):
-        errors.append("dummy factory archive proof reuses the release record signature")
-    _verify_ssh_proof(root, result["factory_archive_proof"],
-                      "factory archive", errors)
-    _verify_ssh_proof(root, result["release_record_proof"],
-                      "release record", errors)
-
-    if result["status"] != "PASS":
-        errors.append("dummy result is not PASS")
-    return errors[:MAX_ERRORS]
-
-
-def _write_json(path, value):
-    destination = Path(path)
-    if destination.exists():
-        raise SigningError("refusing to overwrite signing output")
-    try:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(json.dumps(
-            value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-            encoding="utf-8")
-    except OSError:
-        raise SigningError("unable to write signing output") from None
-
-
-def _parser():
-    parser = argparse.ArgumentParser(prog="diamaneos signing")
-    subparsers = parser.add_subparsers(dest="action", required=True)
-    roles = subparsers.add_parser("roles", help="validate the role contract")
-    roles.add_argument("--config", default=str(DEFAULT_CONFIG))
-    roles.add_argument("--environment", default=str(DEFAULT_ENVIRONMENT))
-
-    inventory = subparsers.add_parser(
-        "inventory", help="derive roles from a target-files archive")
-    inventory.add_argument("--config", default=str(DEFAULT_CONFIG))
-    inventory.add_argument("--environment", default=str(DEFAULT_ENVIRONMENT))
-    inventory.add_argument("--profile", required=True)
-    inventory.add_argument("--stage", choices=("unsigned", "signed"), required=True)
-    inventory.add_argument("--target-files", required=True)
-    inventory.add_argument(
-        "--source-inventory",
-        help="accepted unsigned inventory required for the signed stage")
-    inventory.add_argument("--output")
-
-    verify = subparsers.add_parser(
-        "verify", help="verify a retained dummy signing result")
-    verify.add_argument("--config", default=str(DEFAULT_CONFIG))
-    verify.add_argument("--environment", default=str(DEFAULT_ENVIRONMENT))
-    verify.add_argument("--result", required=True)
-    verify.add_argument("--artifact-root", required=True)
-    return parser
+import tarfile
+import tempfile
+
+from . import build, signing_archive as za, signing_qualification as plans
+from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
+                             load_json, require, safe_file, sha256_file, source_files,
+                             validate_config, verified_build, write_json)
+from .signing_native import NativeTools, PublicKeys, apk_certificate_digests, package_members, verify_images
+
+
+def validate_plan(plan, policy):
+    require(plan.get('schema_version') == 2 and plan.get('mode') in {'production', 'qualification'},
+            'Unknown signing plan format')
+    body = dict(plan)
+    digest = body.pop('plan_sha256', None)
+    require(canonical_sha256(body) == digest and plan.get('policy_sha256') == canonical_sha256(policy),
+            'Signing plan or role policy changed')
+
+
+@contextmanager
+def native_inputs(otatools, source, keys_path, scratch, production, projects):
+    with tempfile.TemporaryDirectory(dir=scratch, prefix='.signing-') as directory:
+        work = Path(directory)
+        root = za.unpack_tools(otatools, work / 'otatools')
+        tools = NativeTools(root, source, work, projects=projects)
+        keys = PublicKeys(keys_path, tools, production=production)
+        yield tools, keys
+
+
+def verify_packages(target_files, plan, tools, keys):
+    metadata = za.metadata(target_files)
+    require({k: metadata[k] for k in ('apk', 'apex')} == plan['metadata'], 'Signed package metadata differs from accepted input')
+    observed, counts = set(), {'apk': 0, 'apex': 0, 'payload': 0}
+    for kind, logical, path in package_members(target_files, tools):
+        role = plan['packages'].get(logical)
+        require(role and role['kind'] == ('apk' if kind == 'apk' else 'apex'), 'Unlisted final package')
+        if kind == 'payload':
+            public = keys.avb(logical if role['payload'] == 'PRESIGNED' else None)
+            require(sha256_file(public) == role['payload_key_sha256'], 'APEX payload authority changed')
+            tools.avb(path, public, payload=True)
+        else:
+            if role['container'] == 'PRESIGNED' and logical not in observed:
+                require(sha256_file(path) == role['presigned_sha256'], 'Presigned package was changed')
+            cert = keys.cert(role['container'], logical)
+            require(tools.certificate(cert)[0] == role['certificate_sha256'], 'Package authority changed')
+            tools.apk(path, role['certificate_sha256'])
+            observed.add(logical)
+        counts[kind] += 1
+    require(observed == set(plan['packages']), 'Final target-files lacks planned packages')
+    require(counts['payload'] == sum(r['kind'] == 'apex' for r in plan['packages'].values()),
+            'Final package verification lacks an APEX payload')
+    return counts
+
+
+def raw_image(tools, path, destination):
+    with path.open('rb') as stream:
+        sparse = stream.read(4) == b'\x3a\xff\x26\xed'
+    if sparse:
+        tools.run('simg2img', [path, destination])
+        return destination
+    return path
+
+
+def publication_images(path, target_files, plan, tools, keys):
+    """Use the images to be published, including the logical images in super."""
+    with tempfile.TemporaryDirectory(dir=tools.scratch) as directory:
+        root = Path(directory)
+        final = root / 'final'; final.mkdir()
+        expected = root / 'expected'; expected.mkdir()
+        with za.archive(target_files) as handle:
+            for name in plan['partitions']:
+                za.extract(handle, 'IMAGES/' + name + '.img', expected / (name + '.img'))
+        with za.archive(path) as handle:
+            members = [name for name in handle.namelist() if not name.endswith('/') and
+                       (name.endswith('.img') or Path(name).name in plan['passthrough_images'])]
+            require(len({Path(name).name for name in members}) == len(members), 'Duplicate published image names')
+            for member in members:
+                name = Path(member).name
+                require(name in {p + '.img' for p in plan['partitions']} | {'super.img', 'super_empty.img'} |
+                        set(plan['passthrough_images']), 'Unlisted published partition image')
+                image = za.extract(handle, member, final / name)
+                if name in plan['passthrough_images']:
+                    require(sha256_file(image) == plan['passthrough_images'][name], 'Published firmware or wipe image changed')
+        if (final / 'super.img').exists():
+            super_image = raw_image(tools, final / 'super.img', root / 'super.raw.img')
+            logical = root / 'logical'; logical.mkdir()
+            tools.run('lpunpack', [super_image, logical])
+            for image in logical.glob('*.img'):
+                name = image.stem
+                if name.endswith('_b'):
+                    require(image.stat().st_size == 0, 'Published super has a populated second slot')
+                    continue
+                name = name.removesuffix('_a')
+                require(name in plan['partitions'], 'Super contains an undeclared partition')
+                destination = final / (name + '.img')
+                require(not destination.exists(), 'Partition is both direct and in super')
+                shutil.copyfile(image, destination)
+        for name in plan['partitions']:
+            published = safe_file(final, name + '.img')
+            signed = safe_file(expected, name + '.img')
+            require(sha256_file(raw_image(tools, published, root / ('published-' + name + '.img'))) ==
+                    sha256_file(raw_image(tools, signed, root / ('signed-' + name + '.img'))),
+                    'Published partition differs from signed target-files: ' + name)
+        partitions = verify_images(tools, keys, final, plan['partitions'], plan['chains'])
+        verify_installed_packages(final, target_files, plan, tools)
+        return partitions
+
+
+def verify_installed_packages(images, target_files, plan, tools):
+    """Bind verified package bytes to their actual published filesystems."""
+    expected = {name for name in plan['packages'] if '!/' not in name}
+    prefixes = {'system': 'SYSTEM', 'system_ext': 'SYSTEM_EXT', 'product': 'PRODUCT',
+                'vendor': 'VENDOR', 'odm': 'ODM'}
+    require(all(name.split('/')[0] in {prefixes[p] for p in plan['partitions'] if p in prefixes}
+                for name in expected), 'Packages have no corresponding published filesystem')
+    observed = set()
+    with za.archive(target_files) as archive:
+        for partition, prefix in prefixes.items():
+            if partition not in plan['partitions']:
+                continue
+            with tempfile.TemporaryDirectory(dir=tools.scratch) as directory:
+                destination = Path(directory) / 'filesystem'
+                tools.extract_filesystem(images / (partition + '.img'), destination)
+                for path in destination.rglob('*'):
+                    if not path.name.endswith(('.apk', '.apex', '.capex')):
+                        continue
+                    require(path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(destination.resolve()),
+                            'Installed package is an unsafe filesystem entry')
+                    relative = str(path.relative_to(destination))
+                    candidates = {prefix + '/' + relative, prefix + '/' + relative.removeprefix(partition + '/')}
+                    matches = candidates & expected
+                    require(len(matches) == 1, 'Installed filesystem contains an unlisted package')
+                    name = matches.pop()
+                    require(name not in observed and sha256_file(path) == za.digest_member(archive, name),
+                            'Installed package differs from verified target-files')
+                    observed.add(name)
+    require(observed == expected, 'Published filesystems lack verified packages')
+
+
+def verify_factory_contents(factory, image_archive):
+    expected = sha256_file(image_archive)
+    with tarfile.open(factory, 'r:*') as handle:
+        members = handle.getmembers()
+        require(len(members) <= za.MAX_MEMBERS and sum(m.size for m in members) <= za.MAX_EXPANDED,
+                'Factory archive exceeds its bounds')
+        names = [m.name for m in members]
+        require(len(set(names)) == len(names) and all(not Path(n).is_absolute() and '..' not in Path(n).parts
+                for n in names) and all(m.isfile() or m.isdir() for m in members), 'Unsafe factory archive')
+        images = [m for m in members if Path(m.name).name == image_archive.name]
+        require(len(images) == 1, 'Factory archive lacks the verified image archive')
+        digest = hashlib.sha256()
+        with handle.extractfile(images[0]) as stream:
+            for data in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(data)
+        require(digest.hexdigest() == expected, 'Factory archive contains different images')
+
+
+def verify_publication(plan, publication, artifact_root, policy, tools, keys):
+    validate_plan(plan, policy)
+    fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
+                         'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+    require(publication['schema_version'] == 1 and isinstance(publication['ota'], list) and publication['ota'],
+            'Publication has no OTA package')
+    require(canonical_sha256(keys.inventory) == plan['key_inventory_sha256']
+            and canonical_sha256(keys.files) == plan['public_material_sha256'], 'Independent public key inventory changed')
+    require(all(not (keys.root / name).resolve().is_relative_to(Path(artifact_root).resolve()) for name in keys.files),
+            'Expected public keys must be outside the artifacts')
+    require(source_files(tools.source, plan['provenance']['projects']) == plan['provenance']['source_files']
+            and sha256_file(tools.java_home / 'bin/java') == plan['provenance']['java_sha256'],
+            'Signing tools do not match the run provenance')
+    names = [publication[key] for key in ('signed_target_files', 'images_archive', 'factory_archive', 'factory_signature')]
+    previous = []
+    for record in publication['ota']:
+        fields(record, {'file', 'source_target_files'})
+        names.append(record['file'])
+        if record['source_target_files'] is not None:
+            previous.append(record['source_target_files'])
+    require(len(set(names)) == len(names), 'Publication reuses an artifact path')
+    require(publication['release_record'] not in names and publication['release_signature'] not in names
+            and publication['release_record'] != publication['release_signature'], 'Release proof reuses an artifact path')
+    final_names = set(names + previous + [publication['release_record'], publication['release_signature']])
+    root = Path(artifact_root).resolve()
+    require(final_names == {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file()}
+            and not any(p.is_symlink() for p in root.rglob('*')), 'Publication contains unlisted files or links')
+    files = {name: safe_file(artifact_root, name) for name in names}
+    record_path = safe_file(artifact_root, publication['release_record'])
+    record = load_json(record_path)
+    fields(record, {'schema_version', 'plan_sha256', 'artifacts'})
+    require(record['schema_version'] == 1 and record['plan_sha256'] == plan['plan_sha256']
+            and set(record['artifacts']) == set(files), 'Release record differs from the accepted publication')
+    artifacts = {name: sha256_file(path) for name, path in files.items()}
+    require(artifacts == record['artifacts'], 'Final publication file hashes differ from the release record')
+    factory = keys.inventory['factory']
+    allowed = keys.file(factory['allowed_signers'])
+    tools.ssh_signature(record_path, safe_file(artifact_root, publication['release_signature']),
+                        allowed, factory['identity'], policy['record_namespace'])
+    tools.ssh_signature(files[publication['factory_archive']], files[publication['factory_signature']],
+                        allowed, factory['identity'], policy['factory_namespace'])
+    require(publication['factory_signature'] != publication['release_signature'], 'Signature reused across roles')
+    signed = files[publication['signed_target_files']]
+    packages = verify_packages(signed, plan, tools, keys)
+    partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
+    verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
+    full = False
+    for ota in publication['ota']:
+        path = files[ota['file']]
+        tools.ota(path, keys.cert('releasekey', ''), plan['provenance'])
+        with za.archive(path) as handle:
+            metadata = za.properties(za.read_text(handle, 'META-INF/com/android/metadata'))
+            payload = za.extract(handle, 'payload.bin', tools.scratch / ('payload-' + str(len(previous)) + '.bin'))
+        source = None
+        old = ota['source_target_files']
+        if old is not None:
+            source = safe_file(artifact_root, old)
+            require(plan['previous_artifacts'].get(old) == sha256_file(source), 'Delta source lacks a verified signing result')
+            require('pre-build' in metadata and 'pre-build-incremental' in metadata, 'Delta lacks source-build metadata')
+        else:
+            require('pre-build' not in metadata, 'OTA is incremental without a verified source')
+            full = True
+        tools.apply_payload(payload, signed, source)
+        payload.unlink()
+    require(full, 'Publication lacks a full OTA')
+    require(artifacts == {name: sha256_file(path) for name, path in files.items()}, 'Artifacts changed during verification')
+    return {'schema_version': 2, 'status': 'PASS', 'artifact_signatures_verified': True,
+            'mode': plan['mode'], 'plan_sha256': plan['plan_sha256'], 'provenance': plan['provenance'],
+            'changed_projects': plan['changed_projects'], 'public_identities': plan['public_identities'],
+            'artifacts': artifacts, 'packages': packages, 'partitions': partitions, 'ota_count': len(publication['ota'])}
+
+
+def parser():
+    root = argparse.ArgumentParser(prog='diamaneos signing', description='Verified target-files plans and native publication signature checks')
+    root.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
+    commands = root.add_subparsers(dest='command', required=True)
+    commands.add_parser('roles', help='validate the stable role policy')
+    prepare = commands.add_parser('prepare', help='prepare a plan from a verified build')
+    for name in ('build-record', 'verification-report', 'target-files', 'resolved-manifest'):
+        prepare.add_argument('--' + name, type=Path, required=True)
+    prepare.add_argument('--previous-result', type=Path)
+    prepare.add_argument('--qualification', action='store_true')
+    output = commands.add_parser('command', help='print native signing arguments for the accepted input')
+    for name in ('plan', 'target-files', 'signed-target-files', 'key-dir'):
+        output.add_argument('--' + name, type=Path, required=True)
+    output.add_argument('--signer', type=Path, required=True)
+    output.add_argument('--qualification', action='store_true')
+    verify = commands.add_parser('verify', help='independently verify all publication signatures')
+    for name in ('plan', 'publication', 'artifact-root'):
+        verify.add_argument('--' + name, type=Path, required=True)
+    verify.add_argument('--qualification', action='store_true')
+    for sub in (prepare, verify):
+        for name in ('source-root', 'otatools', 'keys', 'scratch', 'output'):
+            sub.add_argument('--' + name, type=Path, required=True)
+    return root
 
 
 def main(argv=None):
-    args = _parser().parse_args(argv)
+    args = parser().parse_args(argv)
     try:
-        config = load_json(args.config)
-        environment = load_json(args.environment)
-        errors = validate_config(config, environment)
-        if errors:
-            for error in errors:
-                print("ERROR: " + error, file=sys.stderr)
-            return 2
-        if args.action == "roles":
-            print(json.dumps({
-                "schema_version": 1,
-                "status": "VALID",
-                "inventory_id": config["inventory_id"],
-                "key_role_count": len(config["key_roles"]),
-                "artifact_role_count": len(config["artifact_roles"]),
-                "dummy_proof_count": len(config["required_dummy_proofs"]),
-                "production_key_operations": 0,
-            }, indent=2, sort_keys=True))
+        policy = load_json(args.config)
+        validate_config(policy)
+        if args.command == 'roles':
+            print('Signing role policy: PASS')
             return 0
-        if args.action == "inventory":
-            source_inventory = None
-            if args.source_inventory:
-                source_inventory = load_json(
-                    args.source_inventory, limit=64 * 1024 * 1024)
-            result = inspect_target_files(
-                args.target_files, config, args.profile, stage=args.stage,
-                source_inventory=source_inventory)
-            if args.output:
-                _write_json(args.output, result)
-            print(json.dumps(result, indent=2, sort_keys=True))
-            return 0 if result["status"] == "PASS" else 3
-        errors = verify_dummy_result(args.result, args.artifact_root, config)
-        if errors:
-            for error in errors:
-                print("ERROR: " + error, file=sys.stderr)
-            return 3
-        print(json.dumps({
-            "schema_version": 1,
-            "status": "PASS",
-            "result_sha256": sha256_file(args.result),
-            "artifact_root_verified": True,
-            "valid_key_verification": "PASS",
-            "wrong_key_rejection": "PASS",
-            # The APK, APEX, AVB and OTA proofs are the run's own statements,
-            # bound to their artifacts by hash; this command does not redo them.
-            "artifact_signatures_verified": False,
-        }, indent=2, sort_keys=True))
+        if args.command == 'command':
+            plan = load_json(args.plan)
+            validate_plan(plan, policy)
+            require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Signing mode differs from the plan')
+            print(shlex.join(plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
+                        source=args.target_files, destination=args.signed_target_files)))
+            return 0
+        require(not args.output.exists(), 'Output already exists')
+        args.scratch.mkdir(parents=True, exist_ok=True)
+        if args.command == 'prepare':
+            production = not args.qualification
+            provenance = verified_build(args.build_record, args.verification_report, args.target_files,
+                                        args.resolved_manifest, production=production, otatools=args.otatools)
+            source_files(args.source_root, provenance['projects'])
+        else:
+            plan = load_json(args.plan)
+            validate_plan(plan, policy)
+            require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Verification mode differs from the plan')
+            production = plan['mode'] == 'production'
+            require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
+            require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
+                    'Expected public keys must be outside the artifacts')
+            require(not args.output.resolve().is_relative_to(args.artifact_root.resolve())
+                    and not args.scratch.resolve().is_relative_to(args.artifact_root.resolve()),
+                    'Verification output and scratch must be outside the publication')
+            source_files(args.source_root, plan['provenance']['projects'])
+        provenance = provenance if args.command == 'prepare' else plan['provenance']
+        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production, provenance['projects']) as (tools, keys):
+            if args.command == 'prepare':
+                previous = load_json(args.previous_result) if args.previous_result else None
+                result = plans.prepare(args.build_record, args.verification_report, args.target_files,
+                        args.resolved_manifest, policy, keys, tools, args.otatools, previous, production=production)
+                for changed in result['changed_projects']:
+                    print('Signing source change: ' + changed['project'] + ': ' +
+                          (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
+            else:
+                result = verify_publication(plan, load_json(args.publication), args.artifact_root, policy, tools, keys)
+            write_json(args.output, result)
+        print('Signing ' + args.command + ': PASS')
         return 0
-    except SigningError as error:
-        print("ERROR: " + str(error), file=sys.stderr)
+    except (SigningError, build.BuildError, OSError, ValueError, KeyError, TypeError, tarfile.TarError) as error:
+        print('ERROR: ' + (str(error) if isinstance(error, (SigningError, build.BuildError)) else 'Invalid signing input'), file=sys.stderr)
         return 2
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

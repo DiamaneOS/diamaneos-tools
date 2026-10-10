@@ -26,6 +26,7 @@ SUMS = 'SHA256SUMS'
 PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot', 'firmware')
 RECORD = 'build.json'
 TARGET_FILES_COPY = 'target-files.zip'
+OTATOOLS_COPY = 'otatools.zip'
 # The resolved manifest (repo manifest -r) of the source the set was built from.
 MANIFEST_COPY = 'resolved-manifest.xml'
 
@@ -100,7 +101,9 @@ def same_build(directory: Path, android_outputs: dict, firmware_plan: dict | Non
         if (carried.get('release') != firmware_plan['release'] or carried.get('steps') != firmware_plan['steps']
                 or carried.get('images') != {n: i['sha256'] for n, i in firmware_plan['images'].items()}):
             return False
+    tool = android_outputs.get('otatools')
     return (record.get('target_files', {}).get('sha256') == android_outputs['target_files_sha256']
+            and (record.get('otatools') or {}).get('sha256') == (tool or {}).get('sha256')
             and record.get('build_identity') == android_outputs['build_identity'])
 
 
@@ -199,6 +202,11 @@ def plan(ctx):
         target_files = ws.root / out['target_files']
         if bw.sha_file(target_files) != out['target_files_sha256']:
             raise BuildStepError('the target-files archive changed after the build; run "diamaneos build android" again')
+        tool = out.get('otatools')
+        if out.get('official') is True and not tool:
+            raise BuildStepError('official build record lacks its otatools archive')
+        if tool and bw.sha_file(ws.root / tool['file']) != tool['sha256']:
+            raise BuildStepError('otatools changed after the recorded Android build')
         try:
             firmware_plan = firmware.plan(inventory, config['firmware'])
         except firmware.FirmwareError as error:
@@ -302,6 +310,11 @@ def plan(ctx):
         if sync is None:
             raise BuildStepError('the sync step has no passed record; run "diamaneos build sync" again')
         shutil.copy2(state['target_files'], state['partial'] / TARGET_FILES_COPY)
+        tool = out.get('otatools')
+        if tool:
+            shutil.copy2(ws.root / tool['file'], state['partial'] / OTATOOLS_COPY)
+            if bw.sha_file(state['partial'] / OTATOOLS_COPY) != tool['sha256']:
+                raise BuildStepError('otatools changed during packaging')
         shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
@@ -338,6 +351,7 @@ def plan(ctx):
                                  'vendor': public_vendor_outputs(vendor['outputs']) if vendor else None},
             'stock_build': ctx.environment['device_inputs']['selected_stock_build'],
             'target_files': {'file': TARGET_FILES_COPY, 'sha256': out['target_files_sha256']},
+            'otatools': {'file': OTATOOLS_COPY, 'sha256': tool['sha256']} if tool else None,
             'network_isolation': out['network_isolation'], 'host': ctx.host,
             'images': {name: bw.sha_file(state['partial'] / f'{name}.img') for name in names + ['super']},
             'wipe': {'validated': wipe['validated'],

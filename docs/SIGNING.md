@@ -1,165 +1,128 @@
-# Signing roles and offline release boundary
+# Signing and publication verification
 
-How DiamaneOS signs builds and qualifies signing with disposable keys. This authorizes no production
-key ceremony, token import, boot-key enrollment or release. Terms: see [TERMS.md](TERMS.md).
+Signing policy assigns certificate, APEX payload, AVB, OTA and factory roles. A signing plan
+binds those roles to a build that passed `build verify`. Native platform tools perform signature
+verification using an independently supplied public key inventory.
 
-## Role contract and trust split
+## Stable policy
 
-Signing is a typed release transformation, not "sign this path".
+[`config/signing-roles.json`](../config/signing-roles.json) contains algorithms, role names,
+certificate selectors and presigned-package rules. Release revisions and tool hashes are recorded
+per run. A routine source rebase requires no signing-policy edit.
 
-- [`config/signing-roles.json`](../config/signing-roles.json), the public role contract, is bound to
-  the selected GrapheneOS manifest and its exact release, delta, metadata and key-generation
-  scripts.
-- Changing any bound revision, script, algorithm, target-files inventory or approved presigned
-  package invalidates the qualification result.
-- The online build host produces unsigned target-files and an otatools package and never holds
-  production private keys.
-- Online packaging may build the outer factory container only from approved signed target-files,
-  without a release private key.
-
-## Pinned roles
-
-[`config/signing-roles.json`](../config/signing-roles.json) records the release and the revisions of
-the signing scripts and tools the contract was checked against; `signing roles` reports a mismatch.
-
-- `make_key` creates RSA-4096 keys and SHA-256 X.509 certificates.
-- The GrapheneOS script defines nine Android certificate roles: `releasekey`, `platform`, `shared`,
-  `media`, `networkstack`, `bluetooth`, `sdk_sandbox`, `gmscompat_lib` and `nfc`.
-- AVB and APEX-payload role: `SHA256_RSA4096`.
-- Outer factory archive: an Ed25519 OpenSSH signature in the `factory images` namespace.
-- OTA package and payload: the release key.
-- Channel files derive from verified OTA metadata and have no key of their own.
-- References: the [GrapheneOS build guide](https://grapheneos.org/build), the pinned
-  `script/generate-release.sh` and `script/generate-delta.sh`, and AOSP `sign_target_files_apks`.
-- File hashes in the contract stop a moving branch replacing the selected release.
-
-- DiamaneOS's own Android certificates have the subject `/CN=DiamaneOS/`
-  (`android_certificate_subject` in the contract); apps can read it from a package's signing
-  certificate.
-- The pinned `script/generate-keys` passes `/CN=GrapheneOS/` to `make_key`, so keys are not made
-  with it unchanged: `make_key` gets the contract's subject.
-- Presigned packages keep their own signers' certificates.
-- Development images are signed with AOSP's public test keys, whose certificates name Android.
-
-## Target-files inventory
-
-The inventory comes from `META/apkcerts.txt` (APK certificates), `META/apexkeys.txt` (APEX container
-certificates and payload keys) and `META/misc_info.txt` (emitted AVB key/algorithm chains).
-
-- The verifier rejects duplicate ZIP names, path traversal, missing or oversized metadata, duplicate
-  package records, unknown signed-output roles and any presigned package not named exactly by the
-  target profile (no globs).
-- A qualified profile also binds the exact unsigned target-files hash; each present presigned
-  package's literal member path, basename, byte count and SHA-256; and the absence of basenames for
-  build/test metadata with no member.
-- Metadata tokens stay apart from archive basenames (no path inferred).
-- Public development keys in an unsigned input are not approved for the signed output.
-
-Check the static contract (no output, keys or device):
+- Android certificate roles use RSA-4096 and SHA-256 X.509 certificates with `/CN=DiamaneOS/`.
+- APEX payloads and AVB use `SHA256_RSA4096`.
+- The OTA package, payload and payload metadata use the `releasekey` role.
+- Factory archives use Ed25519 OpenSSH signatures in the `factory images` namespace.
+- Release records use the `diamaneos-release-record` namespace.
+- Unknown roles, packages and presigned exceptions are rejected.
 
 ```sh
 bin/diamaneos signing roles
 ```
 
-Write a new, non-overwriting inventory:
+## Build-bound plan
+
+`prepare` requires the build record, its complete PASS verification report, checksums, resolved
+manifest, target-files and otatools archive. It rejects changed hashes, incomplete verification,
+local source changes and tools from different source revisions. Production mode requires an
+official `user` build.
+
+- The build output records target-files and otatools hashes together.
+- Signing-relevant project revisions come from the build's resolved manifest.
+- Source script hashes, the JDK and otatools identities are recorded in the plan.
+- Each run reports signing-relevant projects changed since `--previous-result`, before signing.
+- A previous result must show successful artifact signature verification.
+- The first run reports every signing project.
 
 ```sh
-bin/diamaneos signing inventory \
-  --profile generic-x86_64-qualification \
-  --stage unsigned \
-  --target-files "$TARGET_FILES" \
-  --output "$OUTPUT_JSON"
+bin/diamaneos signing prepare \
+  --build-record "$IMAGES/build.json" \
+  --verification-report "$VERIFY_REPORT" \
+  --target-files "$IMAGES/target-files.zip" \
+  --resolved-manifest "$IMAGES/resolved-manifest.xml" \
+  --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
+  --keys "$TRUST/inventory.json" --scratch "$SCRATCH" \
+  --output "$PLAN"
 ```
 
-The signer keeps the source labels in `META/apkcerts.txt` and `META/apexkeys.txt` (input selectors,
-no destination-key receipt), so `--stage signed` also needs the accepted unsigned inventory behind
-the signing plan:
+The public inventory has `schema_version`, `certificate_roles`, `avb_public_key`, `factory`,
+`presigned` and `metadata_only` fields. Public files are relative to the inventory's directory.
+Private key material is rejected.
+
+| Field | Contents |
+| --- | --- |
+| `certificate_roles` | Every configured certificate role mapped to an external X.509 certificate file. |
+| `avb_public_key` | External RSA public key in PEM format. |
+| `factory` | `allowed_signers` file and an exact SSH signer identity. |
+| `presigned` | Exact package paths, each with an external `certificate` and an optional `avb_public_key`. |
+| `metadata_only` | Exact metadata names with no package bytes in the accepted archive. |
+
+Presigned bytes remain identical to the accepted input and verify against their specified external
+public identities. Upstream release-script overrides determine explicit package exceptions. APKs
+inside APEX payloads receive the same complete role checks as other packaged APKs.
+
+The native signing command is emitted for the accepted input. Its signer must match the build's
+otatools binary. It refuses altered plans, changed target-files and existing output paths.
 
 ```sh
-bin/diamaneos signing inventory \
-  --profile generic-x86_64-qualification \
-  --stage signed \
-  --source-inventory "$UNSIGNED_INVENTORY_JSON" \
-  --target-files "$SIGNED_TARGET_FILES" \
-  --output "$SIGNED_INVENTORY_JSON"
+bin/diamaneos signing command --plan "$PLAN" \
+  --target-files "$IMAGES/target-files.zip" \
+  --signed-target-files "$SIGNED_TARGET_FILES" \
+  --signer "$OTATOOLS/bin/sign_target_files_apks" --key-dir "$KEY_DIR"
 ```
 
-It requires identical package/APEX metadata, records each package's destination role and requires
-transformed AVB metadata. The dummy qualification then verifies representative APK/APEX
-certificates, APEX/AVB payload keys, OTA signatures and wrong-key rejection from the artifacts,
-never from the labels.
+## Final publication
 
-APK role coverage spans the union of the accepted SDK and Cuttlefish signed archives:
+`verify` requires only public verification material. Keep the trusted inventory, plan, result and
+scratch storage outside the dedicated publication directory. Artifact contents never select their
+own expected signing authority.
 
-- Their `bluetooth`, `nfc` and `sdk_sandbox` records have no APK payload, so those roles are
-  metadata-only: each signs a standalone probe (the smallest deterministic real APK from that union)
-  with its fresh key, proving key, certificate and pinned `apksigner` path without claiming a
-  transformation.
-- Every other role needs a real transformed APK; another missing-role set fails closed pending
-  review, and the FP6 product must regenerate its own coverage.
-- Roles, profile pair and metadata-only exceptions come only from `config/signing-roles.json`; an
-  upstream role missing there is an inventory error, never auto-enrolled.
-- A presigned package found in an inventory is never auto-approved or allowlisted: first review why
-  it stays presigned, bind its archive identity or reviewed metadata-only absence, and update the
-  exact profile.
+The publication description has `schema_version`, `signed_target_files`, `images_archive`, `ota`,
+`factory_archive`, `factory_signature`, `release_record` and `release_signature` fields. File names
+are relative to the publication directory. Unknown files, duplicate paths and links are rejected.
 
-- The generic SDK x86_64 profile qualifies APK, APEX and AVB transformations (with no A/B partition
-  inventory or recovery image it cannot generate OTAs).
-- The Cuttlefish x86_64 phone profile, a real Virtual A/B target, qualifies the full and incremental
-  OTA path, so a relabelled SDK archive cannot pose as OTA evidence.
-- Neither is FP6 compatibility, release, update-semantics or hardware evidence; the FP6 profile must
-  be regenerated and reviewed from the actual FP6 `user` target-files.
-
-## Disposable-key qualification
-
-A run uses fresh disposable keys in its own private directory and keeps:
-
-- the exact unsigned and signed target-files hashes and inventories;
-- every role's public fingerprint;
-- representative verification of APK, APEX container, APEX payload and every AVB chain;
-- full and incremental OTAs with ZIP and payload verification;
-- factory-archive and release-record signatures;
-- a wrong-key rejection per verifier class;
-- interruption/restart recovery proving an incomplete run cannot be promoted.
-
-- The incremental proof deliberately uses the same Cuttlefish archive as old and new (a no-op
-  delta): it exercises generation and package/payload signing, not changed-build update semantics.
-- The generic image archive proves the Ed25519 `factory images` role, not an FP6 factory package's
-  structure or installability; FP6 packaging must be requalified on real output.
-
-The release manifest hashes every artifact and is signed in the `diamaneos-dummy-release-record`
-namespace. Verification re-hashes, accepts the declared public key and requires failure against a
-different one:
+- `images_archive` contains the actual partition images, including logical partitions in `super`.
+- `ota` lists objects with `file` and `source_target_files`. A full OTA uses `null` for its source.
+- A delta source must match an artifact hash from the previous verified signing result.
+- The release record contains `schema_version`, `plan_sha256` and an exact `artifacts` hash map.
+- The artifact map covers target-files, images, OTAs, the factory archive and its signature.
 
 ```sh
-bin/diamaneos signing verify \
-  --result "$RUN_ROOT/result.json" \
-  --artifact-root "$RUN_ROOT"
+bin/diamaneos signing verify --plan "$PLAN" \
+  --publication "$PUBLICATION_JSON" --artifact-root "$PUBLICATION" \
+  --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
+  --keys "$TRUST/inventory.json" --scratch "$SCRATCH" --output "$RESULT"
 ```
 
-- It refuses absolute or traversing paths, symlinks, missing files, duplicate proof/artifact
-  identifiers, altered hashes, incomplete proofs or proofs with no artifact, a release record
-  outside its namespace, a factory-archive proof that reuses the release-record signature,
-  production-material claims and a mismatched source binding.
-- It does not redo the APK, APEX, AVB or OTA verification: those proofs are the run's own results,
-  bound by hash (`artifact_signatures_verified: false`).
-- A PASS covers only that disposable run.
+Verification includes:
 
-## Change and recovery rules
+- Every APK, APEX container and APEX payload against its assigned external public identity.
+- Compressed APEX containers, their original APEX and enclosed APKs.
+- Published partition bytes against signed target-files, including unpacked logical partitions.
+- Native AVB verification through every declared partition and rollback chain; disabled verification is rejected.
+- OTA whole-file, payload and payload-metadata signatures using the platform checker and payload verifier.
+- OTA build metadata and payload properties against the accepted build and final bytes.
+- Native payload application against signed target-files, including the verified source for deltas.
+- Factory and release-record SSH signatures against the external authority and distinct namespaces.
+- Factory contents against the verified image archive.
 
-- Key reuse and rotation are per role: APK shared-user/privileged permissions, APEX, OTA and AVB
-  trust cannot share one rotation statement.
-- The AVB root is an especially durable trust anchor; replacing it may need a bootloader unlock and
-  data loss.
-- Keep the unsigned input, signed target-files, full/incremental OTAs, public identities and
-  verification record needed to reproduce a transformation.
-- Never keep a private key in build logs, result JSON or public evidence.
-- PINs, recovery material, device identifiers, custody locations and raw offline logs never enter
-  this repository; public records hold only role, algorithm, public fingerprint, tool binding and
-  sanitized result.
+A successful result records `artifact_signatures_verified: true`, public identities, artifact hashes
+and per-run provenance. Production verification rejects AOSP public test keys, even when they
+appear in the supplied inventory. Qualification requires an explicit `--qualification` flag.
 
-## APK certificate pinning
+## Verifier fixtures
 
-Pinning accepts legacy `Signer #1 certificate` and `V3.0 Signer: certificate` output, but
-verification must exit zero, declare one signer and give exactly the expected certificate SHA-256;
-public-key fingerprints, missing output or extra certificates fail.
+Tests generate disposable keys in temporary storage and remove them. No certificates, public keys
+or private keys are stored in this repository. Native fixtures cover corrupt signatures, unsigned
+files, wrong keys, wrong roles and public test-key rejection.
+
+```sh
+DIAMANEOS_SIGNING_NATIVE_SOURCE="$SOURCE" \
+DIAMANEOS_SIGNING_OTATOOLS="$IMAGES/otatools.zip" \
+PYTHONPATH=src "$VENV/bin/python" -m unittest tests.signing.test_native_signatures
+```
+
+The cryptographic implementations are the build's `apksigner`, `avbtool`,
+`check_ota_package_signature`, `delta_generator` and payload tooling. Policy code compares their
+results with external trust material; it contains no signature parser.

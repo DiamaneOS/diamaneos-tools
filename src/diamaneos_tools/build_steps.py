@@ -693,6 +693,18 @@ def find_target_files(ctx: Context) -> Path:
     return matches[0]
 
 
+def otatools_record(ctx: Context) -> dict | None:
+    """Record the build's tool archive; official builds require exactly one."""
+    patterns = ('soong/.intermediates/build/make/tools/otatools_package/otatools-package/*/gen/otatools.zip',
+                'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip')
+    matches = [path for pattern in patterns for path in ctx.out.glob(pattern) if path.is_file() and not path.is_symlink()]
+    if not matches and not ctx.official:
+        return None
+    if len(matches) != 1:
+        raise BuildStepError('expected exactly one otatools archive from the build')
+    return {'file': str(matches[0].relative_to(ctx.workspace.root)), 'sha256': bw.sha_file(matches[0])}
+
+
 def plan_android(ctx: Context) -> StepPlan:
     if ctx.manual:
         return plan_manual_android(ctx)
@@ -774,16 +786,17 @@ def plan_android(ctx: Context) -> StepPlan:
             raise BuildStepError('the source tree changed during the build')
         target_files = find_target_files(ctx)
         target_sha256 = bw.sha_file(target_files)
+        otatools = otatools_record(ctx)
         isolation = 'off' if ctx.allow_network else 'on'
         # The image set's identity: what the build was made from and how. The
         # tools that built it are kept, so packaging records them, not its own.
         tools = product_inputs.tools_identity()
         build_identity = bw.digest({'source_identity': identity, 'build_number': number,
                                     'network_isolation': isolation, 'tools': tools,
-                                    'target_files_sha256': target_sha256})
+                                    'target_files_sha256': target_sha256, 'otatools': otatools})
         return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
-                'tools': tools,
+                'tools': tools, 'otatools': otatools,
                 'build_datetime': datetime,
                 'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
                 'modified': after['modified'],
@@ -792,7 +805,9 @@ def plan_android(ctx: Context) -> StepPlan:
 
     def valid(state):
         path = ws.root / state['outputs']['target_files']
-        return path.is_file() and bw.sha_file(path) == state['outputs']['target_files_sha256']
+        tool = state['outputs'].get('otatools')
+        return (path.is_file() and bw.sha_file(path) == state['outputs']['target_files_sha256']
+                and (not tool or bw.sha_file(ws.root / tool['file']) == tool['sha256']))
 
     return StepPlan('android', inputs, actions, outputs, valid, waiting_for=waiting)
 
@@ -906,12 +921,13 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         current = {'outputs': dict(sync['outputs'], modified_sha256=result['modified_sha256'])}
         identity = android_identity(replace(ctx, variant=variant), current)
         target_sha256 = bw.sha_file(target_files)
+        otatools = otatools_record(ctx)
         tools = {'commit': None, 'clean': None}
         build_identity = bw.digest({'source_identity': identity, 'build_number': number, 'network_isolation': 'off',
-                                    'tools': tools, 'target_files_sha256': target_sha256, 'android_build': 'manual'})
+                                    'tools': tools, 'target_files_sha256': target_sha256, 'otatools': otatools, 'android_build': 'manual'})
         return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
-                'tools': tools, 'build_datetime': datetime, 'variant': variant, 'lunch': lunch, 'official': False,
+                'tools': tools, 'otatools': otatools, 'build_datetime': datetime, 'variant': variant, 'lunch': lunch, 'official': False,
                 'modified': result['modified'], 'descriptor_sha256': result['generated_input_descriptor_sha256'],
                 'network_isolation': 'off', 'android_build': 'manual'}
 
