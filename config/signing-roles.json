@@ -32,7 +32,20 @@
   "factory_algorithm": "Ed25519",
   "factory_namespace": "factory images",
   "record_namespace": "diamaneos-release-record",
-  "unknown_role_policy": "reject",
-  "presigned_policy": "exact-external-inventory",
-  "public_test_key_policy": "reject-in-production"
+  "verification_namespace": "diamaneos-build-verification",
+  "result_namespace": "diamaneos-signing-result",
+  "presigned_packages": [
+    {"metadata_name": "AppCompatConfig.apk", "artifact_basename": "AppCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["e5044303e85b4cceaae00ecf8823c9c6f937a8e3a2fb632ec9fa45b2c33b4bd1"]},
+    {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b"]},
+    {"metadata_name": "Auditor.apk", "artifact_basename": "Auditor.apk", "parent_apex": null, "certificate_sha256": ["990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c"]},
+    {"metadata_name": "Camera.apk", "artifact_basename": "Camera.apk", "parent_apex": null, "certificate_sha256": ["6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59"]},
+    {"metadata_name": "GmsCompatConfig.apk", "artifact_basename": "GmsCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["6ebb65c5daa95641f7a774ea35d26ff251575cb32e34a8a5d655b2742b57321f"]},
+    {"metadata_name": "Messaging.apk", "artifact_basename": "Messaging.apk", "parent_apex": null, "certificate_sha256": ["f79e5f0ec0a0855efd2027e05eb9ec9c196d5d047940be603576e530867c3845"]},
+    {"metadata_name": "PdfViewerGOS.apk", "artifact_basename": "PdfViewerGOS.apk", "parent_apex": null, "certificate_sha256": ["eea4b37d46e361ce2583e1f59859db9e784d456425ff40fe6cf75d90f6a968e0"]},
+    {"metadata_name": "SpeechServices.apk", "artifact_basename": "SpeechServices.apk", "parent_apex": null, "certificate_sha256": ["e4ed212b02b55bc33464938df68d04f60dff04dd3ac982b8b8240441e05f1b2f"]},
+    {"metadata_name": "TrichromeChrome.apk", "artifact_basename": "TrichromeChrome.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "TrichromeLibrary.apk", "artifact_basename": "TrichromeLibrary.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "TrichromeWebView.apk", "artifact_basename": "TrichromeWebView.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "VanadiumConfig.apk", "artifact_basename": "VanadiumConfig.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]}
+  ]
 }

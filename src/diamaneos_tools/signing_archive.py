@@ -95,8 +95,7 @@ def metadata(path):
             return {package: {('source_key_selector' if key == 'private_key' else key): value
                               for key, value in record.items()} for package, record in records.items()}
         return {'apk': selectors('META/apkcerts.txt'),
-                'apex': selectors('META/apexkeys.txt'),
-                'misc': properties(read_text(handle, 'META/misc_info.txt'))}
+                'apex': selectors('META/apexkeys.txt')}
 
 
 def basename_role(value):
@@ -105,6 +104,12 @@ def basename_role(value):
         if name.endswith(suffix):
             return name[:-len(suffix)]
     return name
+
+
+def package_metadata_shape(value):
+    """Keep package membership and storage properties, not rewritten key paths."""
+    return {kind: {name: {key: record[key] for key in ('compressed', 'partition') if key in record}
+                   for name, record in value[kind].items()} for kind in ('apk', 'apex')}
 
 
 def unpack_tools(path, destination):

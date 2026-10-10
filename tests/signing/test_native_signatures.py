@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -18,10 +19,24 @@ SOURCE = os.environ.get('DIAMANEOS_SIGNING_NATIVE_SOURCE')
 OTATOOLS = os.environ.get('DIAMANEOS_SIGNING_OTATOOLS')
 
 
-@unittest.skipUnless(SOURCE and OTATOOLS, 'set native source and otatools paths for platform fixtures')
+def require_native_inputs():
+    missing = [name for name, value in (
+        ('DIAMANEOS_SIGNING_NATIVE_SOURCE', SOURCE), ('DIAMANEOS_SIGNING_OTATOOLS', OTATOOLS)) if not value]
+    if not missing:
+        return
+    message = 'Native signature fixtures require explicit platform paths: ' + ', '.join(missing)
+    if sys.platform.startswith('linux') or os.environ.get('DIAMANEOS_SIGNING_REQUIRE_NATIVE') == '1':
+        raise RuntimeError(message + '; required native verification cannot be skipped')
+    raise unittest.SkipTest(message)
+
+
 class NativeSignatureTests(unittest.TestCase):
+    def setUp(self):
+        self.tools.denied_apk_public_keys = set()
+
     @classmethod
     def setUpClass(cls):
+        require_native_inputs()
         cls.temp = tempfile.TemporaryDirectory(prefix='signing-native-')
         cls.addClassCleanup(cls.temp.cleanup)
         cls.root = Path(cls.temp.name)
@@ -46,9 +61,8 @@ class NativeSignatureTests(unittest.TestCase):
             inputs.command(['/usr/bin/ssh-keygen', '-t', 'ed25519', '-N', '', '-f', cls.private / name], env=cls.tools.env)
         (cls.keys_dir / 'factory.allowed_signers').write_text('fixture ' +
                     ' '.join((cls.private / 'factory.pub').read_text().split()[:2]) + '\n')
-        cls.inventory = {'schema_version': 1, 'certificate_roles': {r: r + '.x509.pem' for r in sorted(inputs.CERT_ROLES)},
-                         'avb_public_key': 'avb.pub.pem', 'factory': {'allowed_signers': 'factory.allowed_signers', 'identity': 'fixture'},
-                         'presigned': {}, 'metadata_only': []}
+        cls.inventory = {'schema_version': 2, 'certificate_roles': {r: r + '.x509.pem' for r in sorted(inputs.CERT_ROLES)},
+                         'avb_public_key': 'avb.pub.pem', 'factory': {'allowed_signers': 'factory.allowed_signers', 'identity': 'fixture'}}
         cls.inventory_path = cls.keys_dir / 'inventory.json'; cls.inventory_path.write_text(json.dumps(cls.inventory))
         cls.keys = native.PublicKeys(cls.inventory_path, cls.tools, production=False)
         manifest = cls.root / 'AndroidManifest.xml'
@@ -122,6 +136,107 @@ class NativeSignatureTests(unittest.TestCase):
         cls.tools.run('signapk', ['-w', cls.keys_dir / (role + '.x509.pem'), cls.private / (role + '.pk8'), unsigned, output])
         return output
 
+    def fixture_directory(self, prefix):
+        temporary = tempfile.TemporaryDirectory(prefix=prefix, dir=self.root)
+        self.addCleanup(temporary.cleanup)
+        return Path(temporary.name)
+
+    def tamper_image(self, path, offset):
+        with path.open('r+b') as stream:
+            stream.seek(offset)
+            byte = stream.read(1)
+            self.assertEqual(1, len(byte), 'Mutation must hit existing signed bytes')
+            stream.seek(offset)
+            stream.write(bytes([byte[0] ^ 1]))
+
+    def apex_fixture(self, *, container_role='releasekey', payload_role='avb', enclosed_apk=None,
+                     tamper_payload=False):
+        """Sign fresh payload and container; expected roles stay in external fixture keys."""
+        root = self.fixture_directory('apex-negative-')
+        content = root / 'content'
+        enclosed = content / 'app/Fixture/Fixture.apk'
+        enclosed.parent.mkdir(parents=True)
+        shutil.copyfile(enclosed_apk or self.apk, enclosed)
+        payload = root / 'apex_payload.img'
+        self.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, payload, '2048'])
+        self.tools.run('avbtool', ['add_hashtree_footer', '--image', payload, '--partition_size', '16777216',
+                                 '--partition_name', 'fixture_payload', '--algorithm', 'SHA256_RSA4096',
+                                 '--key', self.private / (payload_role + '.pem'), '--do_not_generate_fec'])
+        payload_public = self.keys.avb()
+        if payload_role != 'avb':
+            payload_public = root / 'independent-wrong-payload.pub.pem'
+            self.tools.openssl(['pkey', '-in', self.private / (payload_role + '.pem'), '-pubout', '-out', payload_public])
+        self.tools.avb(payload, payload_public, payload=True)
+        if tamper_payload:
+            self.tamper_image(payload, 1024 * 1024)
+        unsigned = root / 'unsigned.apex'
+        with zipfile.ZipFile(unsigned, 'w') as archive:
+            with zipfile.ZipFile(self.unsigned_apk) as apk:
+                archive.writestr('AndroidManifest.xml', apk.read('AndroidManifest.xml'))
+            archive.write(payload, 'apex_payload.img')
+        apex = self.sign_apk(unsigned, container_role, root / 'Fixture.apex')
+        self.tools.apk(apex, self.keys.fingerprints[container_role])
+        target = root / 'target-files.zip'
+        logical = 'SYSTEM/apex/Fixture.apex'
+        with zipfile.ZipFile(target, 'w') as archive:
+            archive.write(apex, logical)
+            archive.writestr('META/apkcerts.txt', '')
+            archive.writestr('META/apexkeys.txt',
+                             'name="Fixture.apex" container_certificate="releasekey.x509.pem"\n')
+        plan = {'metadata': za.package_metadata_shape(za.metadata(target)), 'packages': {
+            logical: {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
+                      'certificate_sha256': self.keys.fingerprints['releasekey'],
+                      'payload_key_sha256': inputs.sha256_file(self.keys.avb())},
+            logical + '!/app/Fixture/Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None,
+                      'certificate_sha256': self.keys.fingerprints['releasekey']}}}
+        return target, plan
+
+    def assert_apex_rejected_at(self, target, plan, boundary):
+        """Spy on actual native calls so an unrelated fixture failure cannot pass."""
+        with patch.object(self.tools, 'apk', wraps=self.tools.apk) as apk, \
+                patch.object(self.tools, 'avb', wraps=self.tools.avb) as avb:
+            with self.assertRaises(inputs.SigningError):
+                api.verify_packages(target, plan, self.tools, self.keys)
+            self.assertEqual('Fixture.apex', apk.call_args_list[0].args[0].name)
+            self.assertEqual(self.keys.fingerprints['releasekey'], apk.call_args_list[0].args[1])
+            if boundary == 'container':
+                self.assertEqual(1, apk.call_count)
+                avb.assert_not_called()
+            else:
+                avb.assert_called_once()
+                self.assertEqual(self.keys.avb(), avb.call_args.args[1])
+                self.assertEqual({'payload': True}, avb.call_args.kwargs)
+                if boundary == 'payload':
+                    self.assertEqual(1, apk.call_count)
+                else:
+                    self.assertEqual(2, apk.call_count)
+                    self.assertEqual('Fixture.apk', apk.call_args_list[1].args[0].name)
+                    self.assertEqual(self.keys.fingerprints['releasekey'], apk.call_args_list[1].args[1])
+
+    def image_fixture(self):
+        root = self.fixture_directory('avb-negative-') / 'images'
+        root.mkdir()
+        for path in (self.boot, self.system, self.vbmeta):
+            shutil.copyfile(path, root / path.name)
+        return root
+
+    def write_chain_child(self, root, role='avb'):
+        child = root / 'vbmeta_system.img'
+        self.tools.run('avbtool', ['make_vbmeta_image', '--output', child, '--algorithm', 'SHA256_RSA4096',
+                                 '--key', self.private / (role + '.pem'), '--rollback_index', '7',
+                                 '--include_descriptors_from_image', root / 'system.img'])
+        return child
+
+    def chain_fixture(self, location=1):
+        root = self.image_fixture()
+        self.write_chain_child(root)
+        public = root.parent / 'independent-chain.avbpubkey'
+        self.tools.run('avbtool', ['extract_public_key', '--key', self.keys.avb(), '--output', public])
+        self.tools.run('avbtool', ['make_vbmeta_image', '--output', root / 'vbmeta.img', '--algorithm', 'SHA256_RSA4096',
+                                 '--key', self.private / 'avb.pem', '--include_descriptors_from_image', root / 'boot.img',
+                                 '--chain_partition', 'vbmeta_system:' + str(location) + ':' + str(public)])
+        return root
+
     def test_native_apk_valid_corrupt_unsigned_wrong_key_and_wrong_role(self):
         self.tools.apk(self.apk, self.keys.fingerprints['releasekey'])
         with self.assertRaises(inputs.SigningError): self.tools.apk(self.unsigned_apk, self.keys.fingerprints['releasekey'])
@@ -142,6 +257,41 @@ class NativeSignatureTests(unittest.TestCase):
             counts[kind] += 1
         self.assertEqual({'apk': 1, 'apex': 2, 'payload': 1}, counts)
 
+    def test_native_apex_wrong_container_key_is_rejected(self):
+        target, plan = self.apex_fixture(container_role='platform')
+        self.assert_apex_rejected_at(target, plan, 'container')
+
+    def test_native_apex_fresh_container_payload_and_enclosed_apk_verify(self):
+        target, plan = self.apex_fixture()
+        self.assertEqual({'apk': 1, 'apex': 1, 'payload': 1},
+                         api.verify_packages(target, plan, self.tools, self.keys))
+
+    def test_native_apex_wrong_payload_key_is_rejected(self):
+        target, plan = self.apex_fixture(payload_role='platform')
+        self.assert_apex_rejected_at(target, plan, 'payload')
+
+    def test_native_apex_tampered_payload_in_correctly_signed_container_is_rejected(self):
+        target, plan = self.apex_fixture(tamper_payload=True)
+        self.assert_apex_rejected_at(target, plan, 'payload')
+
+    def test_native_apex_corrupt_enclosed_apk_with_valid_outer_signatures_is_rejected(self):
+        root = self.fixture_directory('corrupt-enclosed-apk-')
+        corrupt = root / 'Fixture.apk'
+        shutil.copyfile(self.apk, corrupt)
+        with zipfile.ZipFile(corrupt, 'a') as archive:
+            archive.writestr('unsigned-enclosed-mutation', b'changed after APK signing')
+        with self.assertRaises(inputs.SigningError):
+            self.tools.apk(corrupt, self.keys.fingerprints['releasekey'])
+        target, plan = self.apex_fixture(enclosed_apk=corrupt)
+        self.assert_apex_rejected_at(target, plan, 'enclosed-apk')
+
+    def test_native_apex_wrong_role_enclosed_apk_with_valid_outer_signatures_is_rejected(self):
+        root = self.fixture_directory('wrong-role-enclosed-apk-')
+        platform = self.sign_apk(self.unsigned_apk, 'platform', root / 'Fixture.apk')
+        self.tools.apk(platform, self.keys.fingerprints['platform'])
+        target, plan = self.apex_fixture(enclosed_apk=platform)
+        self.assert_apex_rejected_at(target, plan, 'enclosed-apk')
+
     def test_native_avb_valid_corrupt_unsigned_wrong_key_and_wrong_role(self):
         self.tools.avb(self.vbmeta, self.keys.avb())
         corrupt = self.root / 'corrupt-vbmeta.img'; data = bytearray(self.vbmeta.read_bytes())
@@ -153,6 +303,54 @@ class NativeSignatureTests(unittest.TestCase):
         other = self.root / 'platform.pub.pem'
         self.tools.openssl(['pkey', '-in', self.private / 'platform.pem', '-pubout', '-out', other])
         with self.assertRaises(inputs.SigningError): self.tools.avb(self.vbmeta, other)
+
+    def test_native_avb_boot_and_system_partition_tampering_is_rejected(self):
+        expected = ['boot', 'system', 'vbmeta']
+        for partition, offset in (('boot', 8192), ('system', 1024 * 1024)):
+            with self.subTest(partition=partition):
+                root = self.image_fixture()
+                self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, {}))
+                image = root / (partition + '.img')
+                self.tools.avb(image, self.keys.avb())
+                self.tamper_image(image, offset)
+                with self.assertRaises(inputs.SigningError):
+                    self.tools.avb(image, self.keys.avb())
+                with self.assertRaises(inputs.SigningError):
+                    native.verify_images(self.tools, self.keys, root, expected, {})
+
+    def test_native_avb_chained_vbmeta_wrong_key_is_rejected(self):
+        root = self.chain_fixture()
+        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
+        chains = {'vbmeta_system': 1}
+        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, chains))
+        child = self.write_chain_child(root, role='platform')
+        other = root.parent / 'independent-wrong-chain.pub.pem'
+        self.tools.openssl(['pkey', '-in', self.private / 'platform.pem', '-pubout', '-out', other])
+        self.tools.avb(child, other)
+        with self.assertRaises(inputs.SigningError):
+            self.tools.avb(child, self.keys.avb())
+        with self.assertRaises(inputs.SigningError):
+            native.verify_images(self.tools, self.keys, root, expected, chains)
+
+    def test_native_avb_chained_vbmeta_tampering_is_rejected(self):
+        root = self.chain_fixture()
+        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
+        chains = {'vbmeta_system': 1}
+        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, chains))
+        child = root / 'vbmeta_system.img'
+        self.tamper_image(child, 512)
+        with self.assertRaises(inputs.SigningError):
+            self.tools.avb(child, self.keys.avb())
+        with self.assertRaises(inputs.SigningError):
+            native.verify_images(self.tools, self.keys, root, expected, chains)
+
+    def test_native_avb_signed_chain_rollback_location_and_missing_chain_are_rejected(self):
+        root = self.chain_fixture(location=2)
+        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
+        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, {'vbmeta_system': 2}))
+        for chains in ({'vbmeta_system': 1}, {}, {'vbmeta_system': 2, 'vbmeta_vendor': 3}):
+            with self.subTest(chains=chains), self.assertRaisesRegex(inputs.SigningError, 'rollback chain|every declared partition and chain'):
+                native.verify_images(self.tools, self.keys, root, expected, chains)
 
     def test_native_ota_package_payload_and_metadata_signatures(self):
         self.tools.ota(self.ota, self.keys.cert('releasekey', ''), self.provenance)
@@ -176,10 +374,15 @@ class NativeSignatureTests(unittest.TestCase):
         self.tools.run('apksigner', ['sign', '--key', test.with_suffix('.pk8'), '--cert', test.with_suffix('.x509.pem'),
                                   '--v4-signing-enabled', 'false', '--out', apk, self.unsigned_apk])
         certificate = self.keys_dir / 'aosp.x509.pem'; shutil.copyfile(test.with_suffix('.x509.pem'), certificate)
-        self.tools.apk(apk, self.tools.certificate(certificate)[0])
-        inventory = dict(self.inventory, presigned={'SYSTEM/app/Fixture/Fixture.apk': {'certificate': certificate.name, 'avb_public_key': None}})
-        path = self.keys_dir / 'aosp-inventory.json'; path.write_text(json.dumps(inventory))
-        with self.assertRaises(inputs.SigningError): native.PublicKeys(path, self.tools, production=True)
+        certificate_digest = self.tools.certificate(certificate)[0]
+        self.tools.apk(apk, certificate_digest)
+        policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        policy['presigned_packages'] = [{'metadata_name': 'Fixture.apk', 'artifact_basename': 'Fixture.apk',
+                                        'parent_apex': None, 'certificate_sha256': [certificate_digest]}]
+        accepted = native.PublicKeys(self.inventory_path, self.tools, production=False, policy=policy)
+        self.assertEqual(certificate_digest, accepted.fingerprint('PRESIGNED', 'SYSTEM/app/Fixture/Fixture.apk'))
+        with self.assertRaisesRegex(inputs.SigningError, 'Production refuses AOSP public test certificates'):
+            native.PublicKeys(self.inventory_path, self.tools, production=True, policy=policy)
 
     def test_public_avb_test_key_is_rejected_in_production(self):
         key = self.source / 'external/avb/test/data/testkey_rsa4096.pem'
@@ -187,7 +390,8 @@ class NativeSignatureTests(unittest.TestCase):
         self.tools.openssl(['pkey', '-in', key, '-pubout', '-out', public])
         path = self.keys_dir / 'aosp-avb-inventory.json'
         path.write_text(json.dumps(dict(self.inventory, avb_public_key=public.name)))
-        with self.assertRaises(inputs.SigningError): native.PublicKeys(path, self.tools, production=True)
+        with self.assertRaisesRegex(inputs.SigningError, 'Production refuses AOSP public AVB test keys'):
+            native.PublicKeys(path, self.tools, production=True)
 
     def test_native_factory_signatures_reject_corrupt_unsigned_wrong_key_and_wrong_namespace(self):
         payload = self.root / 'factory.data'; payload.write_bytes(b'factory fixture')
@@ -217,7 +421,7 @@ class NativeSignatureTests(unittest.TestCase):
         plan = {'schema_version': 2, 'mode': 'qualification', 'policy_sha256': inputs.canonical_sha256(policy),
                 'key_inventory_sha256': inputs.canonical_sha256(self.inventory),
                 'public_material_sha256': inputs.canonical_sha256(self.keys.files), 'public_identities': self.keys.public_ids,
-                'provenance': self.provenance, 'changed_projects': [], 'metadata': {k: metadata[k] for k in ('apk', 'apex')},
+                'provenance': self.provenance, 'changed_projects': [], 'metadata': za.package_metadata_shape(metadata),
                 'packages': {logical: {'kind': 'apk', 'container': 'releasekey', 'payload': None,
                                       'certificate_sha256': self.keys.fingerprints['releasekey']},
                              'SYSTEM/apex/Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
@@ -241,6 +445,52 @@ class NativeSignatureTests(unittest.TestCase):
             self.assertIs(True, result['artifact_signatures_verified'])
             with (publication_root / 'ota.zip').open('ab') as stream: stream.write(b'changed')
             with self.assertRaises(inputs.SigningError): api.verify_publication(plan, publication, publication_root, policy, self.tools, self.keys)
+
+
+class NativeFixtureGateTests(unittest.TestCase):
+    """Exercise input gating without unpacking archives or executing platform tools."""
+
+    def setup_gate(self, platform, required, source, otatools, error):
+        with patch.object(sys, 'platform', platform), \
+                patch.dict(os.environ, {'DIAMANEOS_SIGNING_REQUIRE_NATIVE': required}), \
+                patch.dict(globals(), {'SOURCE': source, 'OTATOOLS': otatools}), \
+                patch.object(tempfile, 'TemporaryDirectory') as temporary:
+            with self.assertRaisesRegex(error, 'require explicit platform paths'):
+                NativeSignatureTests.setUpClass()
+            temporary.assert_not_called()
+
+    def test_linux_missing_either_input_fails_before_fixture_creation(self):
+        for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip'), ('', '')):
+            with self.subTest(source=source, otatools=otatools):
+                self.setup_gate('linux', '0', source, otatools, RuntimeError)
+
+    def test_explicit_required_native_run_fails_on_non_linux_without_inputs(self):
+        for platform in ('darwin', 'win32'):
+            for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip')):
+                with self.subTest(platform=platform, source=source, otatools=otatools):
+                    self.setup_gate(platform, '1', source, otatools, RuntimeError)
+
+    def test_optional_non_linux_missing_inputs_may_skip(self):
+        for platform in ('darwin', 'win32'):
+            for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip')):
+                with self.subTest(platform=platform, source=source, otatools=otatools):
+                    self.setup_gate(platform, '0', source, otatools, unittest.SkipTest)
+
+    def test_supplied_inputs_pass_only_the_gate_without_executing_tools(self):
+        for platform, required in (('linux', '0'), ('darwin', '0'), ('darwin', '1')):
+            with self.subTest(platform=platform, required=required), \
+                    patch.object(sys, 'platform', platform), \
+                    patch.dict(os.environ, {'DIAMANEOS_SIGNING_REQUIRE_NATIVE': required}), \
+                    patch.dict(globals(), {'SOURCE': '/fixture/source', 'OTATOOLS': '/fixture/otatools.zip'}), \
+                    patch.object(za, 'unpack_tools') as unpack:
+                require_native_inputs()
+                unpack.assert_not_called()
+
+    def test_native_fixtures_have_no_unconditional_skip_decorators(self):
+        self.assertFalse(getattr(NativeSignatureTests, '__unittest_skip__', False))
+        for name in unittest.defaultTestLoader.getTestCaseNames(NativeSignatureTests):
+            with self.subTest(test=name):
+                self.assertFalse(getattr(getattr(NativeSignatureTests, name), '__unittest_skip__', False))
 
 
 if __name__ == '__main__':

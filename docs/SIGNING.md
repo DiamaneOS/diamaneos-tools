@@ -32,13 +32,16 @@ official `user` build.
 - Signing-relevant project revisions come from the build's resolved manifest.
 - Source script hashes, the JDK and otatools identities are recorded in the plan.
 - Each run reports signing-relevant projects changed since `--previous-result`, before signing.
-- A previous result must show successful artifact signature verification.
+- Verification reports and previous results require signatures from the configured external authority.
+- The report binds every applicable device rule and the complete verified image set.
+- A previous result must show successful artifact verification in a compatible mode.
 - The first run reports every signing project.
 
 ```sh
 bin/diamaneos signing prepare \
   --build-record "$IMAGES/build.json" \
   --verification-report "$VERIFY_REPORT" \
+  --verification-signature "$VERIFY_REPORT_SIGNATURE" \
   --target-files "$IMAGES/target-files.zip" \
   --resolved-manifest "$IMAGES/resolved-manifest.xml" \
   --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
@@ -46,8 +49,8 @@ bin/diamaneos signing prepare \
   --output "$PLAN"
 ```
 
-The public inventory has `schema_version`, `certificate_roles`, `avb_public_key`, `factory`,
-`presigned` and `metadata_only` fields. Public files are relative to the inventory's directory.
+The public inventory uses schema version 2 with `certificate_roles`, `avb_public_key` and `factory`.
+Public files are relative to the inventory's directory.
 Private key material is rejected.
 
 | Field | Contents |
@@ -55,12 +58,16 @@ Private key material is rejected.
 | `certificate_roles` | Every configured certificate role mapped to an external X.509 certificate file. |
 | `avb_public_key` | External RSA public key in PEM format. |
 | `factory` | `allowed_signers` file and an exact SSH signer identity. |
-| `presigned` | Exact package paths, each with an external `certificate` and an optional `avb_public_key`. |
-| `metadata_only` | Exact metadata names with no package bytes in the accepted archive. |
 
 Presigned bytes remain identical to the accepted input and verify against their specified external
-public identities. Upstream release-script overrides determine explicit package exceptions. APKs
+public identities. Exact package names and signer identities come from the reviewed policy.
+
+Absent metadata records are derived from archive contents. Upstream release-script overrides determine key mappings. APKs
 inside APEX payloads receive the same complete role checks as other packaged APKs.
+
+Use `--previous-result` together with `--previous-signature` for later runs. Verification-report
+signatures use `diamaneos-build-verification`; previous-result signatures use
+`diamaneos-signing-result`. Both are verified with the configured external SSH authority.
 
 The native signing command is emitted for the accepted input. Its signer must match the build's
 otatools binary. It refuses altered plans, changed target-files and existing output paths.
@@ -100,12 +107,17 @@ Verification includes:
 - Every APK, APEX container and APEX payload against its assigned external public identity.
 - Compressed APEX containers, their original APEX and enclosed APKs.
 - Published partition bytes against signed target-files, including unpacked logical partitions.
+- Exact flat image-archive membership, including all declared firmware, wipe and modem reset files.
+- Direct logical images, when included beside `super`, must match its unpacked contents.
 - Native AVB verification through every declared partition and rollback chain; disabled verification is rejected.
 - OTA whole-file, payload and payload-metadata signatures using the platform checker and payload verifier.
 - OTA build metadata and payload properties against the accepted build and final bytes.
 - Native payload application against signed target-files, including the verified source for deltas.
 - Factory and release-record SSH signatures against the external authority and distinct namespaces.
 - Factory contents against the verified image archive.
+
+The factory container has exactly one flat member: the verified image archive. Extra files,
+directories, links and missing members are rejected.
 
 A successful result records `artifact_signatures_verified: true`, public identities, artifact hashes
 and per-run provenance. Production verification rejects AOSP public test keys, even when they

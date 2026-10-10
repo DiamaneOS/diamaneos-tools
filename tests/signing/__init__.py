@@ -1,1 +1,1 @@
-"""Signing-role and dummy-proof tests."""
+"""Signing policy, plan bindings and native signature verification tests."""

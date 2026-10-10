@@ -12,6 +12,7 @@ import zipfile
 from . import signing_archive as za
 from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
                              fields, load_json, require, safe_file, sha256_file)
+from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule
 
 
 def apk_certificate_digests(output, expected):
@@ -29,7 +30,10 @@ def apk_certificate_digests(output, expected):
 
 
 class NativeTools:
-    def __init__(self, root, source, scratch, *, projects=None):
+    def __init__(self, root, source, scratch, *, projects=None, policy=None):
+        self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
+        validate_config(self.policy)
+        self.denied_apk_public_keys = set()
         self.root, self.source, self.scratch = map(Path, (root, source, scratch))
         self.bin = self.root / 'bin'
         jdks = [self.source / path / 'linux-x86' for path in projects if path.startswith('prebuilts/jdk/')] if projects else list(self.source.glob('prebuilts/jdk/jdk*/linux-x86'))
@@ -61,11 +65,17 @@ class NativeTools:
 
     def apk(self, path, expected):
         output = self.run('apksigner', ['verify', '--verbose', '--print-certs', path])
-        return apk_certificate_digests(output, expected)
+        result = apk_certificate_digests(output, expected)
+        if self.denied_apk_public_keys:
+            digests = re.findall(r'(?m)^Signer #1 public key SHA-256 digest: ([0-9a-fA-F]{64})$', output)
+            require(len(digests) == 1 and digests[0].lower() not in self.denied_apk_public_keys,
+                    'Production refuses AOSP public APK test keys')
+        return result
 
     def avb(self, path, expected, *, chains=(), payload=False):
         info = self.run('avbtool', ['info_image', '--image', path])
-        require(re.search(r'(?m)^Algorithm:\s+SHA256_RSA4096\s*$', info), 'AVB algorithm is not the role algorithm')
+        require(re.search(r'(?m)^Algorithm:\s+' + re.escape(self.policy['avb_algorithm']) + r'\s*$', info),
+                'AVB algorithm is not the role algorithm')
         require(re.search(r'(?m)^Flags:\s+0\s*$', info), 'AVB disables a verification property')
         args = ['verify_image', '--image', path, '--key', expected]
         for name, location, key in chains:
@@ -167,12 +177,14 @@ class NativeTools:
 
 
 class PublicKeys:
-    def __init__(self, path, tools, *, production):
+    def __init__(self, path, tools, *, production, policy=None):
+        self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
+        validate_config(self.policy)
         self.root = Path(path).resolve().parent
         self.inventory = load_json(path)
-        fields(self.inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory',
-                                'presigned', 'metadata_only'})
-        require(self.inventory['schema_version'] == 1 and set(self.inventory['certificate_roles']) == CERT_ROLES,
+        fields(self.inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
+        require(self.inventory['schema_version'] == 2 and isinstance(self.inventory['certificate_roles'], dict)
+                and set(self.inventory['certificate_roles']) == CERT_ROLES,
                 'Public key inventory has unknown or missing roles')
         self.tools = tools
         self.files = {}
@@ -182,8 +194,10 @@ class PublicKeys:
             self.fingerprints[role], self.public_ids[role] = tools.certificate(cert)
             info = tools.openssl(['x509', '-in', cert, '-text', '-noout']).decode()
             subject = tools.openssl(['x509', '-in', cert, '-subject', '-noout', '-nameopt', 'RFC2253']).decode().strip()
-            require('Public-Key: (4096 bit)' in info and 'Signature Algorithm: sha256WithRSAEncryption' in info
-                    and subject == 'subject=CN=DiamaneOS', 'Certificate does not match the role policy')
+            require(self.policy['certificate_algorithm'] == 'RSA-4096 with SHA-256'
+                    and 'Public-Key: (4096 bit)' in info and 'Signature Algorithm: sha256WithRSAEncryption' in info
+                    and subject == 'subject=' + self.policy['certificate_subject'].strip('/'),
+                    'Certificate does not match the role policy')
         avb = self.file(self.inventory['avb_public_key'])
         self.avb_id = hashlib.sha256(tools.openssl(['pkey', '-pubin', '-in', avb, '-outform', 'DER'])).hexdigest()
         require(len(set(self.public_ids.values()) | {self.avb_id}) == len(CERT_ROLES) + 1,
@@ -191,18 +205,10 @@ class PublicKeys:
         factory = self.inventory['factory']
         fields(factory, {'allowed_signers', 'identity'})
         allowed = self.file(factory['allowed_signers']).read_text().splitlines()
-        require(allowed and all(len(line.split()) == 3 and line.split()[0] == factory['identity']
+        require(self.policy['factory_algorithm'] == 'Ed25519' and allowed
+                and all(len(line.split()) == 3 and line.split()[0] == factory['identity']
                                 and line.split()[1] in {'ssh-ed25519', 'sk-ssh-ed25519@openssh.com'} for line in allowed),
                 'Factory authority must be an explicit Ed25519 signer')
-        require(isinstance(self.inventory['presigned'], dict)
-                and isinstance(self.inventory['metadata_only'], list)
-                and len(set(self.inventory['metadata_only'])) == len(self.inventory['metadata_only'])
-                and all(NAME.fullmatch(name) for name in self.inventory['metadata_only']), 'Invalid package exceptions')
-        for record in self.inventory['presigned'].values():
-            fields(record, {'certificate', 'avb_public_key'})
-            self.file(record['certificate'])
-            if record['avb_public_key'] is not None:
-                self.file(record['avb_public_key'])
         if production:
             self.reject_public_test_keys()
 
@@ -215,18 +221,21 @@ class PublicKeys:
         self.files[relative] = digest
         return path
 
-    def cert(self, role, logical):
+    def fingerprint(self, role, logical):
         if role == 'PRESIGNED':
-            require(logical in self.inventory['presigned'], 'Unlisted presigned package')
-            return self.file(self.inventory['presigned'][logical]['certificate'])
+            rule = presigned_rule(self.policy, logical)
+            require(rule is not None and len(rule['certificate_sha256']) == 1,
+                    'Presigned package has no exact reviewed signer')
+            return rule['certificate_sha256'][0]
+        return self.tools.certificate(self.cert(role, logical))[0]
+
+    def cert(self, role, logical):
         require(role in CERT_ROLES, 'Unknown certificate role')
         return self.file(self.inventory['certificate_roles'][role])
 
     def avb(self, logical=None):
         if logical is not None:
-            record = self.inventory['presigned'].get(logical)
-            require(record and record['avb_public_key'], 'Unlisted presigned APEX payload authority')
-            return self.file(record['avb_public_key'])
+            raise SigningError('Presigned APEX payload has no reviewed authority')
         return self.file(self.inventory['avb_public_key'])
 
     def reject_public_test_keys(self):
@@ -234,16 +243,17 @@ class PublicKeys:
         certificates = list((source / 'build/make/target/product/security').glob('*.x509.pem'))
         certificates += list((source / 'system/apex').rglob('*.x509.pem'))
         require(certificates, 'Public test certificate deny list is unavailable')
-        denied = {self.tools.certificate(cert)[1] for cert in certificates}
-        presigned_ids = {self.tools.certificate(self.file(record['certificate']))[1]
-                         for record in self.inventory['presigned'].values()}
-        require(not (set(self.public_ids.values()) | presigned_ids) & denied,
+        pairs = [self.tools.certificate(cert) for cert in certificates]
+        denied = {public for _certificate, public in pairs}
+        approved = {digest for rule in self.policy['presigned_packages'] for digest in rule['certificate_sha256']}
+        require(not set(self.public_ids.values()) & denied
+                and not approved & {digest for digest, _public in pairs},
                 'Production refuses AOSP public test certificates')
+        self.tools.denied_apk_public_keys = denied
         test_keys = list((source / 'external/avb/test/data').glob('testkey_rsa*.pem'))
         require(test_keys, 'Public AVB test key deny list is unavailable')
         expected = set()
-        public_keys = [self.avb()] + [self.file(r['avb_public_key']) for r in self.inventory['presigned'].values()
-                                     if r['avb_public_key'] is not None]
+        public_keys = [self.avb()]
         for key in public_keys:
             output = self.tools.scratch / 'expected-avb.bin'
             self.tools.run('avbtool', ['extract_public_key', '--key', key, '--output', output])

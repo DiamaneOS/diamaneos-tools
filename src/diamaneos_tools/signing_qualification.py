@@ -8,6 +8,7 @@ import re
 from . import signing_archive as za
 from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
                              load_json, require, sha256_file, source_files, verified_build)
+from .signing_inputs import presigned_rule
 from .signing_native import avb_descriptors, package_members
 
 
@@ -25,15 +26,19 @@ def release_overrides(source, policy):
     return result
 
 
-def role_map(metadata, policy, overrides):
+def role_map(metadata, policy, overrides, present=None):
     result = {}
     for kind in ('apk', 'apex'):
         for name, record in metadata[kind].items():
+            if present is not None and name not in present:
+                continue
             require(name not in result, 'APK/APEX metadata names overlap')
             label = za.basename_role(record.get('certificate' if kind == 'apk' else 'container_certificate', ''))
             if name in overrides:
                 role = overrides[name]
             elif label in {'PRESIGNED', 'EXTERNAL'}:
+                require(any(rule['metadata_name'] == name for rule in policy['presigned_packages']),
+                        'Presigned package is outside the reviewed policy: ' + name)
                 role = 'PRESIGNED'
             elif kind == 'apex':
                 require(label and NAME.fullmatch(label), 'APEX has no usable source certificate selector')
@@ -42,7 +47,7 @@ def role_map(metadata, policy, overrides):
                 role = policy['apk_selectors'].get(label)
                 require(role, 'Unknown APK signing selector: ' + name)
             result[name] = {'kind': kind, 'container': role,
-                            'payload': ('PRESIGNED' if role == 'PRESIGNED' else 'avb') if kind == 'apex' else None}
+                            'payload': ('PRESIGNED' if role == 'PRESIGNED' else policy['apex_payload_role']) if kind == 'apex' else None}
     require(result, 'Target-files has no signing packages')
     return result
 
@@ -64,28 +69,34 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     provenance['signer_sha256'] = sha256_file(tools.path('sign_target_files_apks'))
     record = load_json(record_path)
     metadata = za.metadata(target_files)
-    roles = role_map(metadata, policy, release_overrides(tools.source, policy))
-    packages, present, presigned = {}, set(), set()
+    overrides = release_overrides(tools.source, policy)
+    roles = {}
+    packages, present = {}, set()
     for kind, logical, path in package_members(target_files, tools):
-        role = member_role(roles, kind, logical)
+        name = Path(logical).name
+        approved = presigned_rule(policy, logical) if kind == 'apk' and name not in metadata['apk'] else None
+        if approved is not None:
+            name = approved['metadata_name']
+        if name.endswith('.capex'):
+            name = name.removesuffix('.capex') + '.apex'
+        if kind != 'payload' and name not in roles:
+            roles.update(role_map(metadata, policy, overrides, {name}))
+        role = roles.get(name) if approved is not None else member_role(roles, kind, logical)
+        require(role is not None, 'Packaged signing role is missing')
         if kind == 'payload':
             continue
-        present.add(Path(logical).name if kind == 'apk' else Path(logical).name.removesuffix('.capex') +
-                    ('.apex' if logical.endswith('.capex') else ''))
-        cert = keys.cert(role['container'], logical)
+        present.add(name)
         if logical in packages:
             continue
         packages[logical] = {'kind': role['kind'], 'container': role['container'], 'payload': role['payload'],
-                             'certificate_sha256': tools.certificate(cert)[0]}
+                             'certificate_sha256': keys.fingerprint(role['container'], logical)}
         if role['container'] == 'PRESIGNED':
             packages[logical]['presigned_sha256'] = sha256_file(path)
-            presigned.add(logical)
+            tools.apk(path, packages[logical]['certificate_sha256'])
         if kind == 'apex':
             key = keys.avb(logical if role['payload'] == 'PRESIGNED' else None)
             packages[logical]['payload_key_sha256'] = sha256_file(key)
-    absent = set(roles) - present
-    require(absent == set(keys.inventory['metadata_only']), 'Metadata-only exception set does not match package absence')
-    require(presigned == set(keys.inventory['presigned']), 'Presigned inventory has missing or unused entries')
+    absent = (set(metadata['apk']) | set(metadata['apex'])) - present
     partitions = sorted(set(record['images']) - {'super', 'super_empty'})
     require('vbmeta' in partitions, 'Verified build has no AVB root')
     chains, pending, visited = {}, ['vbmeta'], set()
@@ -105,13 +116,21 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
               'policy_sha256': canonical_sha256(policy), 'key_inventory_sha256': canonical_sha256(keys.inventory),
               'public_material_sha256': canonical_sha256(keys.files),
               'public_identities': {**keys.public_ids, 'avb': keys.avb_id},
-              'provenance': provenance, 'changed_projects': changed_projects(provenance['projects'], previous),
-              'metadata': {'apk': metadata['apk'], 'apex': metadata['apex']},
+              'provenance': provenance, 'changed_projects': changed_projects(provenance['projects'], previous, production=production),
+              'metadata': za.package_metadata_shape(metadata),
+              'absent_metadata_packages': sorted(absent),
               'packages': packages, 'roles': roles, 'partitions': partitions, 'chains': chains}
     result['passthrough_images'] = dict(record.get('firmware', {}).get('images', {}))
+    result['passthrough_images'].update({value['file']: value['sha256'] for value in record.get('firmware', {}).get('reset', {}).values()})
     result['passthrough_images'].update({value['file']: value['sha256'] for value in record.get('wipe', {}).get('images', {}).values()})
     if 'super_empty' in record['images']:
         result['passthrough_images']['super_empty.img'] = record['images']['super_empty']
+    with za.archive(target_files) as handle:
+        misc = za.properties(za.read_text(handle, 'META/misc_info.txt'))
+    logical = misc.get('dynamic_partition_list', '').split()
+    require(len(logical) == len(set(logical)) and set(logical) <= set(partitions),
+            'Dynamic partition list has undeclared partitions')
+    result['logical_partitions'] = sorted(logical)
     if previous is not None:
         result['previous_artifacts'] = previous['artifacts']
     else:

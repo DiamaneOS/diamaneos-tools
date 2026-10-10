@@ -12,6 +12,7 @@ from unittest.mock import patch, Mock
 import zipfile
 
 from diamaneos_tools import image_verify, signing_archive as za, signing_inputs as inputs
+from diamaneos_tools import build_workspace as bw
 from diamaneos_tools import signing_native as native, signing_verify as api
 
 
@@ -43,9 +44,13 @@ class SigningInputsTests(unittest.TestCase):
         record = json.loads((self.root / 'build.json').read_text())
         files = ['build.json', 'resolved-manifest.xml', 'target-files.zip', 'otatools.zip']
         (self.root / 'SHA256SUMS').write_text(''.join(inputs.sha256_file(self.root / name) + '  ' + name + '\n' for name in files))
-        checks = [{'id': name, 'status': 'PASS'} for name in image_verify.REQUIRED_CHECKS]
+        rules = inputs.load_json(inputs.ROOT / 'config/fp6-image-checks.json')
+        names = list(image_verify.REQUIRED_CHECKS) + [rule['id'] for rule in image_verify.validate_rules(rules)
+                 if image_verify.rule_applies(rule, record['variant'], record['official'])]
+        checks = [{'id': name, 'status': 'PASS'} for name in names]
         report = {'schema_version': 1, 'build_id': 'fixture', 'build_identity': record['build_identity'],
                   'sums_sha256': inputs.sha256_file(self.root / 'SHA256SUMS'), 'checks': checks,
+                  'rule_set_sha256': bw.digest(rules),
                   'status': 'PASS', 'checked': len(checks), 'failed': 0}
         (self.root / 'verify.json').write_text(json.dumps(report))
 
@@ -104,11 +109,21 @@ class SigningInputsTests(unittest.TestCase):
     def test_changed_project_report_is_complete_and_ignores_unchanged_revisions(self):
         current = {'script': 'a' * 40, 'external/avb': 'b' * 40}
         previous = {'status': 'PASS', 'artifact_signatures_verified': True,
+                    'mode': 'production', 'artifacts': {},
                     'provenance': {'projects': {'script': 'c' * 40, 'external/avb': 'b' * 40, 'old': 'd' * 40}}}
         self.assertEqual(['old', 'script'], [r['project'] for r in inputs.changed_projects(current, previous)])
         self.assertEqual(2, len(inputs.changed_projects(current)))
         previous['artifact_signatures_verified'] = False
         with self.assertRaises(inputs.SigningError): inputs.changed_projects(current, previous)
+
+    def test_production_never_uses_qualification_delta_or_source_baselines(self):
+        previous = {'status': 'PASS', 'artifact_signatures_verified': True, 'mode': 'qualification',
+                    'provenance': {'projects': {'script': 'a' * 40}}, 'artifacts': {'previous.zip': 'b' * 64}}
+        with self.assertRaises(inputs.SigningError): inputs.changed_projects({'script': 'c' * 40}, previous, production=True)
+        self.assertEqual(1, len(inputs.changed_projects({'script': 'c' * 40}, previous)))
+        for invalid in ([], None, {'mode': 'production'}):
+            if invalid is not None:
+                with self.assertRaises(inputs.SigningError): inputs.changed_projects({}, invalid, production=True)
 
     def test_json_rejects_duplicate_keys_nonfinite_and_secret_material(self):
         path = self.root / 'input.json'
@@ -117,6 +132,45 @@ class SigningInputsTests(unittest.TestCase):
             with self.assertRaises(inputs.SigningError): inputs.load_json(path)
         path.write_bytes(b'x' * 100)
         with self.assertRaises(inputs.SigningError): inputs.load_json(path, 20)
+
+    def test_changed_rules_or_missing_device_checks_refuse(self):
+        self.fixture()
+        path = self.root / 'verify.json'
+        original = inputs.load_json(path)
+        changed = copy.deepcopy(original); changed['rule_set_sha256'] = '0' * 64
+        path.write_text(json.dumps(changed))
+        with self.assertRaises(inputs.SigningError): self.verify()
+        changed = copy.deepcopy(original)
+        changed['checks'] = [c for c in changed['checks'] if c['id'] in image_verify.REQUIRED_CHECKS]
+        changed['checked'] = len(changed['checks']); path.write_text(json.dumps(changed))
+        with self.assertRaises(inputs.SigningError): self.verify()
+
+    def test_malformed_document_roots_have_bounded_refusals(self):
+        self.fixture()
+        for name in ('build.json', 'verify.json'):
+            path = self.root / name; old = path.read_bytes()
+            for value in ([], None, 0, 'record'):
+                with self.subTest(name=name, value=value):
+                    path.write_text(json.dumps(value))
+                    with self.assertRaises(inputs.SigningError): self.verify()
+            path.write_bytes(old)
+        with self.assertRaises(inputs.SigningError): api.validate_plan([], self.policy)
+        with self.assertRaises(inputs.SigningError): inputs.changed_projects({}, [], production=True)
+
+    def test_closing_hash_detects_changed_run_input(self):
+        path = self.root / 'run-input'; path.write_bytes(b'accepted')
+        hashes = inputs.input_hashes([path])
+        inputs.recheck_hashes(hashes)
+        path.write_bytes(b'changed')
+        with self.assertRaises(inputs.SigningError): inputs.recheck_hashes(hashes)
+
+    def test_prepare_requires_a_verification_signature(self):
+        root = api.parser()
+        arguments = ['prepare', '--build-record', 'build.json', '--verification-report', 'verify.json',
+                     '--target-files', 'target.zip', '--resolved-manifest', 'manifest.xml', '--source-root', 'source',
+                     '--otatools', 'tools.zip', '--keys', 'inventory.json', '--scratch', 'scratch', '--output', 'plan.json']
+        with patch('sys.stderr', new=io.StringIO()), self.assertRaises(SystemExit): root.parse_args(arguments)
+        self.assertEqual(Path('report.sig'), root.parse_args(arguments + ['--verification-signature', 'report.sig']).verification_signature)
 
     def test_paths_refuse_traversal_links_missing_and_absolute_files(self):
         (self.root / 'file').write_text('data')
@@ -206,6 +260,7 @@ class NativeOrchestrationTests(unittest.TestCase):
             self.assertEqual(['boot', 'vbmeta'], native.verify_images(tools, keys, Path('/images'), ['boot', 'vbmeta'], {}))
             with self.assertRaises(inputs.SigningError): native.verify_images(tools, keys, Path('/images'), ['boot', 'vbmeta', 'system'], {})
         real = native.NativeTools.__new__(native.NativeTools); real.run = Mock(return_value=info.replace('Flags: 0', 'Flags: 2'))
+        real.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
         with self.assertRaises(inputs.SigningError): real.avb(Path('/image'), Path('/external/key'))
 
 

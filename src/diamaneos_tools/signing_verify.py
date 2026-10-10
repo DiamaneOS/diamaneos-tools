@@ -11,14 +11,15 @@ import sys
 import tarfile
 import tempfile
 
-from . import build, signing_archive as za, signing_qualification as plans
+from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
-                             validate_config, verified_build, write_json)
+                             validate_config, verified_build, write_json, input_hashes, recheck_hashes)
 from .signing_native import NativeTools, PublicKeys, apk_certificate_digests, package_members, verify_images
 
 
 def validate_plan(plan, policy):
+    require(isinstance(plan, dict), 'Signing plan must be a JSON object')
     require(plan.get('schema_version') == 2 and plan.get('mode') in {'production', 'qualification'},
             'Unknown signing plan format')
     body = dict(plan)
@@ -28,18 +29,23 @@ def validate_plan(plan, policy):
 
 
 @contextmanager
-def native_inputs(otatools, source, keys_path, scratch, production, projects):
+def native_inputs(otatools, source, keys_path, scratch, production, projects, policy=None):
+    before = input_hashes((otatools, keys_path))
     with tempfile.TemporaryDirectory(dir=scratch, prefix='.signing-') as directory:
         work = Path(directory)
         root = za.unpack_tools(otatools, work / 'otatools')
-        tools = NativeTools(root, source, work, projects=projects)
-        keys = PublicKeys(keys_path, tools, production=production)
+        tools = NativeTools(root, source, work, projects=projects, policy=policy)
+        keys = PublicKeys(keys_path, tools, production=production, policy=policy)
         yield tools, keys
+        recheck_hashes(before)
+        require(all(sha256_file(keys.root / name) == digest for name, digest in keys.files.items()),
+                'Public verification material changed during processing')
 
 
 def verify_packages(target_files, plan, tools, keys):
     metadata = za.metadata(target_files)
-    require({k: metadata[k] for k in ('apk', 'apex')} == plan['metadata'], 'Signed package metadata differs from accepted input')
+    require(za.package_metadata_shape(metadata) == plan['metadata'],
+            'Signed package membership or storage properties differ from accepted input')
     observed, counts = set(), {'apk': 0, 'apex': 0, 'payload': 0}
     for kind, logical, path in package_members(target_files, tools):
         role = plan['packages'].get(logical)
@@ -51,8 +57,7 @@ def verify_packages(target_files, plan, tools, keys):
         else:
             if role['container'] == 'PRESIGNED' and logical not in observed:
                 require(sha256_file(path) == role['presigned_sha256'], 'Presigned package was changed')
-            cert = keys.cert(role['container'], logical)
-            require(tools.certificate(cert)[0] == role['certificate_sha256'], 'Package authority changed')
+            require(keys.fingerprint(role['container'], logical) == role['certificate_sha256'], 'Package authority changed')
             tools.apk(path, role['certificate_sha256'])
             observed.add(logical)
         counts[kind] += 1
@@ -80,14 +85,14 @@ def publication_images(path, target_files, plan, tools, keys):
         with za.archive(target_files) as handle:
             for name in plan['partitions']:
                 za.extract(handle, 'IMAGES/' + name + '.img', expected / (name + '.img'))
-        with za.archive(path) as handle:
-            members = [name for name in handle.namelist() if not name.endswith('/') and
-                       (name.endswith('.img') or Path(name).name in plan['passthrough_images'])]
+        with za.archive(path, allow_links=False) as handle:
+            require(not any(info.is_dir() for info in handle.infolist()), 'Image archive contains an unlisted directory')
+            members = [name for name in handle.namelist() if not name.endswith('/')]
+            require(all(name == Path(name).name for name in members), 'Image archive members must be flat')
+            layout.image_members(plan, set(members))
             require(len({Path(name).name for name in members}) == len(members), 'Duplicate published image names')
             for member in members:
                 name = Path(member).name
-                require(name in {p + '.img' for p in plan['partitions']} | {'super.img', 'super_empty.img'} |
-                        set(plan['passthrough_images']), 'Unlisted published partition image')
                 image = za.extract(handle, member, final / name)
                 if name in plan['passthrough_images']:
                     require(sha256_file(image) == plan['passthrough_images'][name], 'Published firmware or wipe image changed')
@@ -103,8 +108,12 @@ def publication_images(path, target_files, plan, tools, keys):
                 name = name.removesuffix('_a')
                 require(name in plan['partitions'], 'Super contains an undeclared partition')
                 destination = final / (name + '.img')
-                require(not destination.exists(), 'Partition is both direct and in super')
-                shutil.copyfile(image, destination)
+                if destination.exists():
+                    require(sha256_file(raw_image(tools, destination, root / ('direct-' + name + '.img'))) ==
+                            sha256_file(raw_image(tools, image, root / ('super-' + name + '.img'))),
+                            'Direct partition differs from its super contents')
+                else:
+                    shutil.copyfile(image, destination)
         for name in plan['partitions']:
             published = safe_file(final, name + '.img')
             signed = safe_file(expected, name + '.img')
@@ -154,8 +163,9 @@ def verify_factory_contents(factory, image_archive):
         require(len(members) <= za.MAX_MEMBERS and sum(m.size for m in members) <= za.MAX_EXPANDED,
                 'Factory archive exceeds its bounds')
         names = [m.name for m in members]
-        require(len(set(names)) == len(names) and all(not Path(n).is_absolute() and '..' not in Path(n).parts
-                for n in names) and all(m.isfile() or m.isdir() for m in members), 'Unsafe factory archive')
+        require(set(names) == layout.factory_members(image_archive)
+                and len(set(names)) == len(names) and all(m.isfile() for m in members),
+                'Factory archive contains unlisted or missing members')
         images = [m for m in members if Path(m.name).name == image_archive.name]
         require(len(images) == 1, 'Factory archive lacks the verified image archive')
         digest = hashlib.sha256()
@@ -209,6 +219,11 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys):
     require(publication['factory_signature'] != publication['release_signature'], 'Signature reused across roles')
     signed = files[publication['signed_target_files']]
     packages = verify_packages(signed, plan, tools, keys)
+    coverage = {'apk': sum(role['kind'] == 'apk' for role in plan['packages'].values()),
+                'apex': sum((2 if name.endswith('.capex') else 1) for name, role in plan['packages'].items() if role['kind'] == 'apex'),
+                'payload': sum(role['kind'] == 'apex' for role in plan['packages'].values())}
+    require(isinstance(packages, dict) and packages == coverage and sum(coverage.values()) > 0,
+            'Package verification coverage is incomplete')
     partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
     verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
     full = False
@@ -246,6 +261,8 @@ def parser():
     for name in ('build-record', 'verification-report', 'target-files', 'resolved-manifest'):
         prepare.add_argument('--' + name, type=Path, required=True)
     prepare.add_argument('--previous-result', type=Path)
+    prepare.add_argument('--previous-signature', type=Path)
+    prepare.add_argument('--verification-signature', type=Path, required=True)
     prepare.add_argument('--qualification', action='store_true')
     output = commands.add_parser('command', help='print native signing arguments for the accepted input')
     for name in ('plan', 'target-files', 'signed-target-files', 'key-dir'):
@@ -279,6 +296,19 @@ def main(argv=None):
             return 0
         require(not args.output.exists(), 'Output already exists')
         args.scratch.mkdir(parents=True, exist_ok=True)
+        paths = [args.config, args.keys, args.otatools]
+        if args.command == 'prepare':
+            paths += [args.build_record, args.verification_report, args.verification_signature,
+                      args.target_files, args.resolved_manifest]
+            if args.previous_result:
+                require(args.previous_signature is not None, 'Previous result requires its external signature')
+                paths.append(args.previous_result)
+                paths.append(args.previous_signature)
+            else:
+                require(args.previous_signature is None, 'Previous signature has no result')
+        else:
+            paths += [args.plan, args.publication]
+        before = input_hashes(paths)
         if args.command == 'prepare':
             production = not args.qualification
             provenance = verified_build(args.build_record, args.verification_report, args.target_files,
@@ -297,9 +327,16 @@ def main(argv=None):
                     'Verification output and scratch must be outside the publication')
             source_files(args.source_root, plan['provenance']['projects'])
         provenance = provenance if args.command == 'prepare' else plan['provenance']
-        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production, provenance['projects']) as (tools, keys):
+        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production, provenance['projects'], policy) as (tools, keys):
             if args.command == 'prepare':
+                factory = keys.inventory['factory']
+                authority = keys.file(factory['allowed_signers'])
+                tools.ssh_signature(args.verification_report, args.verification_signature,
+                                    authority, factory['identity'], policy['verification_namespace'])
                 previous = load_json(args.previous_result) if args.previous_result else None
+                if previous is not None:
+                    tools.ssh_signature(args.previous_result, args.previous_signature,
+                                        authority, factory['identity'], policy['result_namespace'])
                 result = plans.prepare(args.build_record, args.verification_report, args.target_files,
                         args.resolved_manifest, policy, keys, tools, args.otatools, previous, production=production)
                 for changed in result['changed_projects']:
@@ -307,11 +344,17 @@ def main(argv=None):
                           (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
             else:
                 result = verify_publication(plan, load_json(args.publication), args.artifact_root, policy, tools, keys)
-            write_json(args.output, result)
+        recheck_hashes(before)
+        require(source_files(args.source_root, provenance['projects']) == result['provenance']['source_files'],
+                'Signing source changed during processing')
+        write_json(args.output, result)
         print('Signing ' + args.command + ': PASS')
         return 0
     except (SigningError, build.BuildError, OSError, ValueError, KeyError, TypeError, tarfile.TarError) as error:
         print('ERROR: ' + (str(error) if isinstance(error, (SigningError, build.BuildError)) else 'Invalid signing input'), file=sys.stderr)
+        diagnostic = getattr(error, 'diagnostic', '')
+        if diagnostic and not any(marker in diagnostic for marker in ('PRIVATE KEY', 'AGE-SECRET-KEY-', 'password=', 'password:')):
+            print(diagnostic, file=sys.stderr)
         return 2
 
 

@@ -507,9 +507,8 @@ guide. This is a declared compatibility deviation.
 
 - Full preflight also verifies the gaps between Git projects: undeclared files or symlinked source
   directories cannot supply optional Make includes.
-- Manifest `copyfile` contents and `linkfile` targets must match the manifest (the signed release
-  for the generic environment, the resolved manifest for FP6), and the manifest checkout itself must
-  be at that release commit or at the head of the declared branch.
+- Manifest `copyfile` contents and `linkfile` targets must match the accepted resolved manifest.
+  The manifest checkout must match the environment's declared source revision.
 - The declared output container and `.repo` metadata are outside this source-layout traversal;
   individual project content is still checked separately with Git.
 - No environment permits local manifests.
@@ -520,8 +519,8 @@ The inputs-only check needs no source tree:
 bin/diamaneos build preflight --inputs-only
 ```
 
-- It validates the committed input records of the environment (`--config`, by default the generic
-  one) and prints its declared build identity.
+- It validates the committed input records of the environment (`--config`, using the FP6
+  environment by default) and prints its declared build identity.
 - Changing a tag, project-map pin, tool record or stock input changes that identity.
 - It lists what a full preflight still needs, with the environment's
   `generated_input_manifest_status`.
@@ -645,7 +644,7 @@ are replayed on it.
 ## Signing handoff
 
 - The online build host stops at unsigned target-files and otatools.
-- Signing roles, target-files inventory validation and the disposable qualification path are defined
+- Signing policy, build-bound plans and independent publication verification are defined
   in [`SIGNING.md`](SIGNING.md).
 - Never copy a production key or signer token to the build host to make a release command
   convenient.

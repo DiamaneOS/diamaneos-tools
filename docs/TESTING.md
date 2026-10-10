@@ -7,11 +7,15 @@ How to run the tool tests and the standalone checks. Terms: see [TERMS.md](TERMS
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
+PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
 The suite covers the build, signing, CLI, overlay and font checks with fixtures and needs no phone;
 schema validation needs the development dependencies.
+
+On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
+`DIAMANEOS_SIGNING_OTATOOLS`; missing inputs fail the native fixture setup.
+`DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` enforces the same rule on any host.
 
 - **Signing.**
   - [SIGNING.md](SIGNING.md) describes build-bound plans and native publication verification.

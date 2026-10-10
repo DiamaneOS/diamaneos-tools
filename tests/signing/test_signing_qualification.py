@@ -10,6 +10,8 @@ from diamaneos_tools import signing_inputs as inputs, signing_qualification as a
 class SigningPlanTests(unittest.TestCase):
     def setUp(self):
         self.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        self.policy['presigned_packages'].append({'metadata_name': 'Kept.apk', 'artifact_basename': 'Kept.apk',
+             'parent_apex': None, 'certificate_sha256': ['a' * 64]})
         self.metadata = {'apk': {'Default.apk': {'certificate': 'keys/testkey.x509.pem'},
                                  'Platform.apk': {'certificate': 'keys/platform.x509.pem'},
                                  'Kept.apk': {'certificate': 'PRESIGNED'}},
@@ -26,6 +28,20 @@ class SigningPlanTests(unittest.TestCase):
     def test_unknown_certificate_selector_is_not_implicitly_releasekey(self):
         self.metadata['apk']['Default.apk']['certificate'] = 'keys/unknown.x509.pem'
         with self.assertRaises(inputs.SigningError): api.role_map(self.metadata, self.policy, {})
+
+    def test_absent_metadata_is_derived_and_does_not_need_signing_roles(self):
+        self.metadata['apk']['NotInstalled.apk'] = {'certificate': 'keys/unmapped-test-certificate.x509.pem'}
+        roles = api.role_map(self.metadata, self.policy, {}, {'Default.apk', 'Platform.apk', 'com.example.apex'})
+        self.assertEqual({'Default.apk', 'Platform.apk', 'com.example.apex'}, set(roles))
+        with self.assertRaises(inputs.SigningError):
+            api.role_map(self.metadata, self.policy, {}, {'NotInstalled.apk'})
+
+    def test_installed_module_selector_requires_an_explicit_source_override(self):
+        self.metadata['apk']['Default.apk']['certificate'] = 'module/com.android.wifi.resources.x509.pem'
+        with self.assertRaises(inputs.SigningError):
+            api.role_map(self.metadata, self.policy, {}, {'Default.apk'})
+        roles = api.role_map(self.metadata, self.policy, {'Default.apk': 'releasekey'}, {'Default.apk'})
+        self.assertEqual('releasekey', roles['Default.apk']['container'])
 
     def test_source_release_override_can_resign_a_presigned_module(self):
         self.metadata['apex']['com.example.apex']['container_certificate'] = 'PRESIGNED'
