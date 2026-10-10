@@ -521,6 +521,88 @@ class RuleTests(unittest.TestCase):
                 with self.subTest(rule=rule_id, change=sorted(change)):
                     self.assertEqual(rule_id not in failing, check(rule_id, members))
 
+    def test_sepolicy_xperms_adds_up_rules_on_types_and_attributes(self):
+        self.assertEqual({0x9801, 0x9803}, subject.cil_xperm_numbers('(0x9801 0x9803)'))
+        self.assertEqual({0x5450, 0x5451, 0x1268}, subject.cil_xperm_numbers('((range 0x5450 0x5451) 0x1268)'))
+        self.assertRaises(ValueError, subject.cil_xperm_numbers, '(not (0x9801))')
+        plat = (b'(type node)\n(type other_node)\n(type a)\n(type b)\n(type c)\n'
+                b'(typeattributeset dev_type (node other_node))\n(typeattributeset domain (a b c))\n'
+                b'(typeattributeset node_202604 (node))\n(typeattributeset a_202604 (a))\n'
+                b'(allow domain dev_type (chr_file (ioctl read write open)))\n'
+                b'(allowx domain dev_type (ioctl blk_file ((range 0x5450 0x5451))))\n'
+                b'(allowx domain other_node (ioctl chr_file ((range 0x0 0xffff))))\n'
+                b'(allowx domain node (nlmsg chr_file (0x12)))\n')
+        vendor = (b'(allowx a_202604 node_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                  b'(allowx b node_202604 (ioctl chr_file (0x9801)))\n'
+                  b'(allowx b node (ioctl chr_file (0x9803)))\n')
+        rule = {'files': ['SYSTEM/etc/selinux/*.cil', 'VENDOR/etc/selinux/*.cil'], 'target': 'node', 'cls': 'chr_file',
+                'sources': ['a', 'b'], 'allowed': ['0x9801', '0x9803']}
+        run = lambda extra=b'', **change: subject.rule_sepolicy_xperms(dict(rule, **change), self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor + extra,
+             'VENDOR/etc/selinux/202604.compat.cil': b'(allowx domain dev_type (ioctl chr_file (0x1)))\n'}))
+        self.assertEqual((True, 'only 0x9801, 0x9803'), run())
+        # A domain without a list may send every number.
+        self.assertEqual((False, 'c has no ioctl allow-list'), run(sources=['a', 'c']))
+        # Wider lists fail, on the type or through an attribute on either side.
+        self.assertEqual((False, 'a: also 0x98ff'), run(b'(allowx a node (ioctl chr_file (0x98ff)))\n'))
+        self.assertEqual((False, 'a: also 0x9802; b: also 0x9802'),
+                         run(b'(allowx domain node (ioctl chr_file ((range 0x9801 0x9803))))\n'))
+        self.assertFalse(run(b'(allowx b dev_type (ioctl chr_file (0x5451)))\n')[0])
+        # A shorter list would break the service; it fails as well.
+        self.assertEqual((False, 'a: lacks 0x9802; b: lacks 0x9802'), run(allowed=['0x9801', '0x9802', '0x9803']))
+        # Audit and dontaudit lists grant nothing and do not count.
+        self.assertTrue(run(b'(auditallowx a node (ioctl chr_file (0x98ff)))\n'
+                            b'(dontauditx a node (ioctl chr_file (0x98fe)))\n')[0])
+        # Unknown types, unreadable lists and missing files fail.
+        self.assertFalse(run(sources=['a', 'z'])[0])
+        self.assertFalse(run(target='absent_node')[0])
+        self.assertRaises(ValueError, run, b'(allowx a node (ioctl chr_file (not (0x1))))\n')
+        self.assertFalse(run(files=['ODM/etc/selinux/*.cil'])[0])
+
+    def test_tee_node_ioctl_limit_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'tee-node-ioctl-limit']
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        self.assertEqual((live, ['0x9801', '0x9803'], 'tee_device', 'chr_file'),
+                         (rule['sources'], rule['allowed'], rule['target'], rule['cls']))
+        plat, vendor, mapping = ('SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil',
+                                 'SYSTEM/etc/selinux/mapping/202604.cil')
+        plat_cil = ('(type tee)\n(type tee_device)\n(type hal_gatekeeper_default)\n'
+                    '(typeattributeset dev_type (tee_device))\n'
+                    '(typeattributeset hal_gatekeeper (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
+                    '(allow hal_gatekeeper tee_device (chr_file (ioctl read write open)))\n'
+                    '(allowx domain dev_type (ioctl blk_file ((range 0x5450 0x5451))))\n')
+        mapping_cil = '(typeattributeset tee_202604 (tee))\n(typeattributeset tee_device_202604 (tee_device))\n'
+        vendor_cil = ('(type hal_fingerprint_default)\n(type vendor_hal_gatekeeper_qti)\n(type vendor_hal_keymint_qti)\n'
+                      '(typeattributeset domain (tee hal_gatekeeper_default hal_fingerprint_default '
+                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti))\n'
+                      '(allowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx tee_202604 vendor_rpmb_device (ioctl chr_file (0xb301)))\n'
+                      '(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx vendor_hal_gatekeeper_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx hal_fingerprint_default tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(auditallowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
+        empty = {'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+                 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda text: subject.rule_sepolicy_xperms(rule, self.harness(
+            {plat: plat_cil.encode(), mapping: mapping_cil.encode(), vendor: text.encode(), **empty}))
+        self.assertEqual((True, 'only 0x9801, 0x9803'), check(vendor_cil))
+        for change, detail in [
+                (vendor_cil.replace('(allowx vendor_hal_gatekeeper_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
+                 'vendor_hal_gatekeeper_qti has no ioctl allow-list'),
+                (vendor_cil.replace('(allowx tee_202604 tee_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx tee_202604 tee_device_202604 (ioctl chr_file ((range 0x9801 0x9804))))'),
+                 'tee: also 0x9802, 0x9804'),
+                (vendor_cil + '(allowx hal_fingerprint_default tee_device_202604 (ioctl chr_file (0x98ff)))\n',
+                 'hal_fingerprint_default: also 0x98ff'),
+                (vendor_cil + '(allowx hal_gatekeeper dev_type (ioctl chr_file (0x5451)))\n',
+                 'vendor_hal_gatekeeper_qti: also 0x5451'),
+                (vendor_cil.replace('(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx vendor_hal_keymint_qti tee_device_202604 (ioctl chr_file (0x9801)))'),
+                 'vendor_hal_keymint_qti: lacks 0x9803')]:
+            with self.subTest(detail=detail):
+                self.assertEqual((False, detail), check(change))
+
     def test_tee_node_label_and_owner_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         plat, vendor = 'SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'

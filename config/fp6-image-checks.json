@@ -3477,6 +3477,34 @@
       ]
     },
     {
+      "id": "tee-node-ioctl-limit",
+      "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+      "type": "sepolicy_xperms",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "tee_device",
+      "cls": "chr_file",
+      "sources": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ],
+      "allowed": [
+        "0x9801",
+        "0x9803"
+      ]
+    },
+    {
       "id": "no-offline-camera-declaration",
       "why": "The offline camera service has no client: its stock VINTF declaration is not installed, so servicemanager refuses the registration inside the camera provider.",
       "type": "files_absent",

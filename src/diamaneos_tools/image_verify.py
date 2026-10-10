@@ -608,6 +608,57 @@ def rule_sepolicy_dormant(rule, v):
     return not problems, '; '.join(sorted(set(problems))) or f'no file starts any of {len(rule["domains"])} domains'
 
 
+def cil_xperm_numbers(text: str) -> set:
+    """The numbers of one CIL extended-permission list: hexadecimal values and
+    (range FIRST LAST) entries. Anything else is refused."""
+    numbers = set()
+    rest = text
+    for first, last in re.findall(r'\(range (0x[0-9a-fA-F]+) (0x[0-9a-fA-F]+)\)', text):
+        numbers.update(range(int(first, 16), int(last, 16) + 1))
+    rest = re.sub(r'\(range 0x[0-9a-fA-F]+ 0x[0-9a-fA-F]+\)', ' ', rest)
+    for token in rest.replace('(', ' ').replace(')', ' ').split():
+        if not re.fullmatch(r'0x[0-9a-fA-F]+', token):
+            raise ValueError('unreadable extended-permission list: ' + text)
+        numbers.add(int(token, 16))
+    return numbers
+
+
+def rule_sepolicy_xperms(rule, v):
+    """Each listed domain may send exactly the listed ioctl numbers to a type.
+
+    Adds up every allowx rule of the CIL files that applies to the domain and
+    the target (attributes expanded on both sides, *.compat.cil skipped), so
+    a rule on an attribute that widens the list fails too, as does a missing
+    list, which would leave every number allowed.
+    """
+    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
+    if not names:
+        return False, 'no files match ' + ', '.join(rule['files'])
+    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    attributes = cil_attribute_sets(text)
+    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    unknown = sorted(({rule['target']} | set(rule['sources'])) - types)
+    if unknown:
+        return False, 'not a type in the policy: ' + ', '.join(unknown)
+    want = {int(number, 16) for number in rule['allowed']}
+    memo, found = {}, {source: set() for source in rule['sources']}
+    for match in re.finditer(r'^\(allowx (\S+) (\S+) \((\S+) (\S+) (.*)\)\)$', text, re.M):
+        src, target, perm, cls, numbers = match.groups()
+        if perm != 'ioctl' or cls != rule['cls'] or rule['target'] not in cil_expand(target, attributes, types, memo):
+            continue
+        for source in set(rule['sources']) & cil_expand(src, attributes, types, memo):
+            found[source] |= cil_xperm_numbers(numbers)
+    problems = []
+    for source in sorted(found):
+        if not found[source]:
+            problems.append(source + ' has no ioctl allow-list')
+        elif found[source] != want:
+            extra, missing = sorted(found[source] - want), sorted(want - found[source])
+            problems.append(source + ':' + (' also ' + ', '.join(hex(n) for n in extra[:8]) if extra else '')
+                            + (' lacks ' + ', '.join(hex(n) for n in missing) if missing else ''))
+    return not problems, '; '.join(problems) or 'only ' + ', '.join(hex(n) for n in sorted(want))
+
+
 def rule_overlay(rule, v):
     with v.tools.scratch() as temporary:
         apk = v.tf.extract(rule['apk'], Path(temporary))
@@ -978,6 +1029,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
          'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_dormant': rule_sepolicy_dormant,
+         'sepolicy_xperms': rule_sepolicy_xperms,
          'overlay': rule_overlay, 'display_config': rule_display_config,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
