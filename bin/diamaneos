@@ -49,11 +49,10 @@ def main(argv=None):
         print("  build kernel -> build the kernel from source (maintainers; the build uses the kernel prebuilts)")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|endpoints validate|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
         print("routes: build all -> sync, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
-        print("        endpoints validate -> read-only contract checks")
         print("        fonts check -> product font customization as Android reads it")
         print("        overlays check -> resource overlays against their targets at a release")
         print("        signing -> signing-role, target-files and dummy-proof verification")
@@ -66,9 +65,6 @@ def main(argv=None):
     if argv[:2] == ["build", "preflight"]:
         from diamaneos_tools import build
         return build.main(argv[2:])
-    if argv[:2] == ["endpoints", "validate"]:
-        from diamaneos_tools import endpoints
-        return endpoints.main(argv[2:])
     if argv[:1] == ["vendor"]:
         from diamaneos_tools import vendor
         return vendor.main(argv[1:])

@@ -9,12 +9,11 @@ see the [threat model](THREAT_MODEL.md#terms).
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
-.venv/bin/python bin/diamaneos endpoints validate
 ```
 
-The suite covers the build, signing, CLI, overlay, font and endpoint checks with fixtures and needs
-no phone; schema validation needs the development dependencies. The acceptance evidence for the
-exact tree records test counts.
+The suite covers the build, signing, CLI, overlay and font checks with fixtures and needs no phone;
+schema validation needs the development dependencies. The acceptance evidence for the exact tree
+records test counts.
 
 - **Signing.**
   - [SIGNING.md](SIGNING.md) describes `bin/diamaneos signing roles`, `signing inventory` and
@@ -79,20 +78,3 @@ bin/diamaneos fonts check --xml <PRODUCT_OUT>/product/etc/fonts_customization.xm
     input/output, missing notices, wrong stock identity, absent or self dependency, traversal,
     special files, concurrent publication, interrupted copying), using synthetic bytes:
     - No FP6 product closure or hardware result.
-
-## Endpoint contracts
-
-See [ENDPOINTS.md](ENDPOINTS.md). `endpoints validate` (setup above) reports inventory-only scope
-using `tests/endpoints/fixtures/services.json`, works in a standalone clone and never looks for an
-infrastructure checkout. To accept a real service selection, run the two-repository integration gate
-with the actual path:
-
-```sh
-.venv/bin/python bin/diamaneos endpoints validate \
-  --services /absolute/path/to/infrastructure/config/services.json
-```
-
-The tests exercise the CLI's validator: required fields, null or wrong types,
-reference/ownership/isolation errors, bounded input, duplicate JSON keys, Unicode byte limits and
-non-echoing privacy failures. Wire-shape examples check 204/body/time-unit conventions, not native
-cryptography or device compatibility.

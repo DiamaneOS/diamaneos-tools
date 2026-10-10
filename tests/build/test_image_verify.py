@@ -787,37 +787,37 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual('does not contain missing.example', detail)
 
-    def test_service_rules_name_the_contract_hosts(self):
-        # The image uses the replacement hosts that the endpoint contracts name, and not GrapheneOS's.
+    def test_service_rules_name_the_listed_hosts(self):
+        # The image uses the DiamaneOS hosts that config/service-hosts.json lists, and not GrapheneOS's.
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        endpoints = {e['id']: e for e in json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']}
-        for rule_id, endpoint_id in (('supl-proxy', 'supl'), ('psds-server', 'psds-cache'),
-                                     ('rkp-proxy', 'rkp-proxy'), ('widevine-proxy', 'widevine-proxy'),
-                                     ('network-location-relay', 'network-location')):
+        services = {s['id']: s for s in json.loads((ROOT / 'config/service-hosts.json').read_text())['services']}
+        for rule_id, service_id in (('supl-proxy', 'supl'), ('psds-server', 'psds-cache'),
+                                    ('rkp-proxy', 'rkp-proxy'), ('widevine-proxy', 'widevine-proxy'),
+                                    ('network-location-relay', 'network-location')):
             with self.subTest(rule=rule_id):
-                rule, endpoint = rules[rule_id], endpoints[endpoint_id]
+                rule, service = rules[rule_id], services[service_id]
                 self.assertEqual('zip_contains', rule['type'])
-                self.assertIn(endpoint['replacement_host'], rule['text'])
-                inherited = endpoint['upstream_host']
+                self.assertIn(service['diamaneos_host'], rule['text'])
+                inherited = service['upstream_host']
                 self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
         time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
-        self.assertEqual([f'https://{endpoints["time"]["replacement_host"]}/generate_204'], time)
+        self.assertEqual([f'https://{services["time"]["diamaneos_host"]}/generate_204'], time)
 
-    def test_connectivity_check_rules_name_the_contract_hosts(self):
+    def test_connectivity_check_rules_name_the_listed_hosts(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        endpoints = {e['id']: e for e in json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']}
-        check, online, dns = (endpoints[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
+        services = {s['id']: s for s in json.loads((ROOT / 'config/service-hosts.json').read_text())['services']}
+        check, online, dns = (services[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
         servers = rules['connectivity-check-servers']
-        self.assertEqual({f'"{scheme}://{check["replacement_host"]}/generate_204"' for scheme in ('http', 'https')},
+        self.assertEqual({f'"{scheme}://{check["diamaneos_host"]}/generate_204"' for scheme in ('http', 'https')},
                          set(servers['values'].values()))
-        self.assertEqual([f'http://{online["replacement_host"]}/{path}' for path in ('gen_204', 'generate_204')],
+        self.assertEqual([f'http://{online["diamaneos_host"]}/{path}' for path in ('gen_204', 'generate_204')],
                          servers['arrays']['array/default_captive_portal_fallback_urls_grapheneos'])
         hosts = rules['connectivity-check-hosts']
-        self.assertTrue(hosts['text'].endswith('.' + dns['replacement_host']))
+        self.assertTrue(hosts['text'].endswith('.' + dns['diamaneos_host']))
         self.assertEqual({check['upstream_host'], online['upstream_host'], dns['upstream_host']}, set(hosts['absent']))
         for rule_id in ('dns-check-resolver-dot', 'dns-check-resolver-doh'):
             with self.subTest(rule=rule_id):
-                self.assertIn(dns['replacement_host'], rules[rule_id]['text'])
+                self.assertIn(dns['diamaneos_host'], rules[rule_id]['text'])
                 self.assertEqual([dns['upstream_host']], rules[rule_id]['absent'])
 
     def test_device_tree_rules(self):
@@ -1598,9 +1598,9 @@ class ConfigTests(unittest.TestCase):
                          {i: rules[i]['official'] for i in ('no-updater', 'updater', 'updater-server',
                                                             'updater-permissions')})
         self.assertEqual(['SYSTEM/priv-app/Updater'], rules['no-updater']['paths'])
-        # The Updater asks the host the endpoint contract names.
-        endpoints = json.loads((ROOT / 'config/endpoints.json').read_text())['endpoints']
-        host = next(e['replacement_host'] for e in endpoints if e['id'] == 'os-updates')
+        # The Updater asks the host that config/service-hosts.json lists.
+        services = json.loads((ROOT / 'config/service-hosts.json').read_text())['services']
+        host = next(s['diamaneos_host'] for s in services if s['id'] == 'os-updates')
         self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
 
     def test_official_builds_need_the_camera_filter_in_trap_mode(self):
