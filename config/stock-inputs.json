@@ -1,48 +1,6 @@
 {
   "schema_version": 1,
   "record_state": "complete",
-  "observed_device": {
-    "record_scope": "arrival-acceptance-snapshot",
-    "observed_at": "2026-09-11",
-    "product": "FP6",
-    "marketing_model": "Fairphone 6",
-    "storage_variant": "SM_KIMOLOS UFS",
-    "received_build": "FP6.QREL.15.176.0",
-    "android_version": 15,
-    "security_patch": "2025-12-05",
-    "boot_state": "locked-green-stock",
-    "offered_update_build": "FP6.QREL.16.100.0",
-    "offered_update_source": "sanitized read-only observation of the stock update screen",
-    "ota_state_at_observation": "offered-not-installed",
-    "source": "dated redacted stock acceptance record"
-  },
-  "current_stock_state": {
-    "record_scope": "post-ota-current-stock-checkpoint",
-    "observed_at_utc": "2026-09-12T13:41:04.587809Z",
-    "product": "FP6",
-    "marketing_model": "Fairphone 6",
-    "build_id": "FP6.QREL.16.100.0",
-    "incremental": "WS1M",
-    "android_version": 16,
-    "sdk": 36,
-    "security_patch": "2026-08-05",
-    "build_type": "user",
-    "boot_state": "locked-green-stock",
-    "installation_path": "official OTA from the received Android 15 build",
-    "verification_status": "PASS",
-    "source": "dated sanitized post-OTA verification record"
-  },
-  "current_restore_selection": {
-    "region": "EU",
-    "installed_build": "FP6.QREL.16.100.0",
-    "selected_archive_id": "fairphone-fp6-a16-eu-factory",
-    "status": "VERIFIED_BYTES_MATCH_INSTALLED_BUILD_RESTORE_NOT_TESTED",
-    "android_15_archive_role": "HISTORICAL_VERIFIED_INPUT_NOT_CURRENTLY_SELECTED",
-    "limits": [
-      "Archive selection does not prove rollback-index, AVB, slot, restore or relock safety.",
-      "Repeat the destructive preflight immediately before any future restore or bootloader operation."
-    ]
-  },
   "official_sources": [
     {
       "id": "fairphone-manual-install",
@@ -70,7 +28,7 @@
       "id": "fairphone-android-builds-16.111.0",
       "url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.111.0.20260831102426_WS1Q-factory.zip",
       "observed_at": "2026-09-30",
-      "purpose": "Official download host. On 2026-09-30 the manual-install article (updated 2026-09-25) did not yet list this package or its checksum; the file name was found on the official host from the published build timestamp 20260831102426. The host's object metadata records the uploaded file's MD5."
+      "purpose": "Official download host. The host's object metadata records the uploaded file's MD5."
     },
     {
       "id": "fairphone-manual-install-16.111.0",
@@ -106,21 +64,11 @@
         "embedded_sha256_mismatches": 0,
         "archive_executed": false,
         "archive_extracted": false
-      },
-      "compatibility_with_arrival_snapshot": {
-        "product_match": "PASS",
-        "security_patch_not_older": "PASS",
-        "ufs_factory_layout_present": "PASS",
-        "result": "VERIFIED_INPUT_RESTORE_NOT_TESTED",
-        "limits": [
-          "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
-          "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
-        ]
       }
     },
     {
       "id": "fairphone-fp6-a16-eu-factory",
-      "status": "VERIFIED_INPUT_SELECTED_FOR_CURRENT_EU_STOCK",
+      "status": "VERIFIED_INPUT",
       "product": "FP6",
       "region": "EU",
       "package_type": "user-factory",
@@ -133,8 +81,6 @@
       "size_bytes": 3755004133,
       "sha256": "5e30e5a642f609cd6937825b86e71e416032e17936f0622c27d648aa40b4506d",
       "verification": {
-        "phone_offered_build_match": "PASS",
-        "current_installed_build_match": "PASS",
         "official_sha256_match": "PASS",
         "repeat_read_sha256_match": "PASS",
         "zip_crc": "PASS",
@@ -144,18 +90,6 @@
         "embedded_sha256_mismatches": 0,
         "archive_executed": false,
         "archive_extracted": false
-      },
-      "selection_against_current_stock_state": {
-        "product_match": "PASS",
-        "phone_offered_build_match": "PASS",
-        "current_installed_build_match": "PASS",
-        "ufs_factory_layout_present": "PASS",
-        "result": "VERIFIED_SELECTED_INPUT_MATCHES_INSTALLED_BUILD_RESTORE_NOT_TESTED",
-        "limits": [
-          "The verified package matches the currently installed EU stock build; that build was installed through the official OTA, not restored from this archive.",
-          "The official factory script requires unlocked and critical-unlocked state and wipes user data by default.",
-          "Restore, AVB chain, rollback indices, slots and relock remain untested and cannot be inferred from archive verification."
-        ]
       }
     },
     {
@@ -186,17 +120,6 @@
         "embedded_sha256_mismatches": 0,
         "flash_script_identical_to_16.100.0": true,
         "archive_executed": false
-      },
-      "selection_against_current_stock_state": {
-        "product_match": "PASS",
-        "phone_offered_build_match": "NOT_OBSERVED",
-        "current_installed_build_match": "NO_PHONE_RUNS_FP6.QREL.16.100.0",
-        "ufs_factory_layout_present": "PASS",
-        "result": "VERIFIED_GENERATOR_INPUT_NOT_A_TESTED_RESTORE_INPUT",
-        "limits": [
-          "Restore, AVB chain, rollback indices, slots and relock with this package remain untested.",
-          "A locked boot of this build raises rollback locations 2-4 to 1788566400 (2026-09-05); 16.100.0 images then fail to boot locked."
-        ]
       }
     }
   ],
@@ -208,46 +131,13 @@
     "security_patch": "2026-08-05",
     "size_bytes": 3755049964,
     "sha256": "dcd4c01d7c2cad564969f63c861a363f53601a2296066d569f5e6812b5408f12",
-    "archive_status": "EXCLUDED_FROM_EU_RESTORE_NOT_DOWNLOADED",
-    "reason": "The EU phone offers FP6.QREL.16.100.0, so this US build must not be used to restore or flash it. QREL.16.104.0 is kept as the US stock comparison input."
-  },
-  "device_metadata": {
-    "captured": [
-      "product and storage variant",
-      "hardware revision",
-      "locked and secure state",
-      "physical partition types and sizes exposed by fastboot",
-      "A/B slot status exposed by fastboot",
-      "current stock build, Android version, kernel and security patch",
-      "exact build offered by the stock updater"
-    ],
-    "not_captured_or_not_exportable": [
-      "raw stock partition bodies and per-partition hashes",
-      "partition start offsets from the device",
-      "logical partition inventory inside super",
-      "rollback index values and locations",
-      "non-empty bootloader and baseband version strings"
-    ],
-    "policy": "Locked stock access is not escalated. Unavailable fields remain unknown rather than being replaced by package contents or inferred values."
-  },
-  "remaining_gates": [
-    "Test actual stock restoration, AVB/slot/rollback prerequisites and relock in the destructive recovery task.",
-    "Before restoring or relocking with FP6.QREL.16.111.0, repeat the destructive preflight (its SHA-256 matches Fairphone's published value)."
-  ],
-  "safety": {
-    "device_update_authorized": false,
-    "device_flash_authorized": false,
-    "archive_path_is_identity": false,
-    "published_hash_and_observed_bytes_required": true,
-    "operator_backup_attestation_required_before_destructive_work": true,
-    "independent_private_archive_copy_required_before_destructive_work": true
+    "reason": "US build: it must not be used to restore or flash an EU phone. It is kept as the US stock comparison input."
   },
   "selected_generator_input": {
     "build_id": "FP6.QREL.16.111.0",
     "archive_id": "fairphone-fp6-a16-factory-16.111.0",
     "selected_on": "2026-09-30",
     "previous_build_id": "FP6.QREL.16.100.0",
-    "reason": "Latest stock release (2026-09-05 security patch) with Fairphone's fix for apps failing to load on Wi-Fi. Vendor files and firmware should come from the same stock release.",
-    "relation_to_restore_selection": "The phone still runs FP6.QREL.16.100.0 and current_restore_selection still names the validated 16.100.0 archive. DiamaneOS does not flash firmware yet, so the phone keeps the firmware of the last stock flash."
+    "reason": "Latest stock release (2026-09-05 security patch) with Fairphone's fix for apps failing to load on Wi-Fi. Vendor files and firmware should come from the same stock release."
   }
 }
