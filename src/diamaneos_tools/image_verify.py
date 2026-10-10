@@ -551,6 +551,63 @@ def rule_sepolicy_sources(rule, v):
     return not others, ('also ' + ', '.join(others)) if others else 'only ' + ', '.join(sorted(sources))
 
 
+def installed_paths(v) -> list[str]:
+    """Device paths of the files in the partition directories of the target files."""
+    roots = {directory + '/': '/' + partition + '/' for partition, directory in PARTITION_DIRS.items()}
+    roots['ROOT/'] = '/'
+    return sorted(roots[n[:n.index('/') + 1]] + n[n.index('/') + 1:] for n in v.tf.names
+                  if '/' in n and n[:n.index('/') + 1] in roots)
+
+
+def rule_sepolicy_dormant(rule, v):
+    """No installed file can start one of the listed domains.
+
+    A process enters a domain only from a file whose type the domain may use
+    as an entry point. Collects those types from the CIL files (attributes
+    expanded, *.compat.cil skipped) and fails when an installed file matches a
+    file_contexts entry that assigns one of them. Every match counts, also one
+    that a later entry would override.
+    """
+    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
+    if not names:
+        return False, 'no files match ' + ', '.join(rule['files'])
+    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    attributes = cil_attribute_sets(text)
+    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    unknown = sorted(set(rule['domains']) - types)
+    if unknown:
+        return False, 'not a type in the policy: ' + ', '.join(unknown)
+    memo, starts = {}, {}
+    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+        src, target, cls, perms = match.groups()
+        if cls != 'file' or 'entrypoint' not in perms.split() or target == 'self':
+            continue
+        domains = set(rule['domains']) & cil_expand(src, attributes, types, memo)
+        for entry in cil_expand(target, attributes, types, memo) if domains else ():
+            starts.setdefault(entry, set()).update(domains)
+    contexts = [n for pattern in rule['contexts'] for n in v.tf.glob(pattern)]
+    if not contexts:
+        return False, 'no files match ' + ', '.join(rule['contexts'])
+    paths, problems = installed_paths(v), []
+    for name in contexts:
+        for line in lines_of(v.tf.read(name)):
+            fields = line.split()
+            if len(fields) < 2 or fields[0].startswith('#'):
+                continue
+            label = fields[-1].split(':')
+            if len(label) < 3 or label[2] not in starts:
+                continue
+            try:
+                pattern = re.compile(fields[0])
+            except re.error:
+                problems.append(f'{name}: cannot read the entry for {label[2]}')
+                continue
+            for path in paths:
+                if pattern.fullmatch(path):
+                    problems.append(f'{path} can start ' + ', '.join(sorted(starts[label[2]])))
+    return not problems, '; '.join(sorted(set(problems))) or f'no file starts any of {len(rule["domains"])} domains'
+
+
 def rule_overlay(rule, v):
     with v.tools.scratch() as temporary:
         apk = v.tf.extract(rule['apk'], Path(temporary))
@@ -920,7 +977,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
-         'sepolicy_sources': rule_sepolicy_sources, 'overlay': rule_overlay, 'display_config': rule_display_config,
+         'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_dormant': rule_sepolicy_dormant,
+         'overlay': rule_overlay, 'display_config': rule_display_config,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
