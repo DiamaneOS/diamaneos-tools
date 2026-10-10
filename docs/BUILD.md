@@ -423,8 +423,6 @@ named in the set's `build.json`.
 - Firmware steps also need the phone's state, saved in the bootloader and passed with `--phone`: `{
   fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1`.
 - `--no-firmware` leaves the firmware as it is.
-- While `firmware.validated` in `config/fp6-build.json` is false, the printed steps say that the
-  firmware steps are not yet tested on a phone.
 
 **First install** (from stock Android or another system):
 
