@@ -5,7 +5,7 @@
 - The Android build does not build the kernel: it uses the published kernel prebuilts, which the
   DiamaneOS manifest checks out at `device/fairphone/FP6-kernel`.
 - These commands make and publish that set.
-- Terms are explained in the [threat model](THREAT_MODEL.md#terms).
+- Terms are explained in [TERMS.md](TERMS.md).
 
 ## Sources and workspace
 

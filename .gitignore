@@ -18,7 +18,9 @@
 .env.*
 secrets*.json
 *token*.json
-*secret*.txt
+# Loose text files are never committed; add a wanted one with `git add -f`.
+*.txt
+!requirements-dev.txt
 
 # Local notes, captures and run records
 private-*/

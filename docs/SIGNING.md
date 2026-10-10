@@ -1,8 +1,7 @@
 # Signing roles and offline release boundary
 
 How DiamaneOS signs builds and qualifies signing with disposable keys. This authorizes no production
-key ceremony, token import, boot-key enrollment or release. Terms: see the [threat
-model](THREAT_MODEL.md#terms).
+key ceremony, token import, boot-key enrollment or release. Terms: see [TERMS.md](TERMS.md).
 
 ## Role contract and trust split
 
