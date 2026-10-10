@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / 'config/forks.json'
 UPSTREAM_REF = 'refs/diamaneos/upstream'
 KINDS = {'branch', 'tag', 'commit'}
+RELEASE_REF = '@release'
 NAME = re.compile(r'^[A-Za-z0-9._-]+$')
 REF = re.compile(r'^[A-Za-z0-9._/-]+$')
 
@@ -58,11 +59,40 @@ def load_registry(path=CONFIG):
     data = json.loads(Path(path).read_text())
     if data.get('schema_version') not in (1, 2) or not isinstance(data.get('forks'), list):
         raise ForkError('invalid fork configuration')
+    resolve_release(data, Path(path))
     forks = load_forks(data['forks'])
     sources = load_sources(data.get('sources', []))
     if {f['id'] for f in forks} & {s['id'] for s in sources}:
         raise ForkError('fork and source ids overlap')
     return forks, sources
+
+
+def resolve_release(data, path):
+    """Replace the upstream reference "@release" with the GrapheneOS release tag.
+
+    The registry's "release" entry names the file and JSON pointer that hold the tag, relative to
+    the repository of the registry file, so a new release is one edit there.
+    """
+    using = [fork for fork in data['forks'] if isinstance(fork, dict)
+             and isinstance(fork.get('upstream'), dict) and fork['upstream'].get('ref') == RELEASE_REF]
+    if not using:
+        return
+    release = data.get('release')
+    if (not isinstance(release, dict) or not REF.match(str(release.get('file', '')))
+            or not isinstance(release.get('pointer'), str) or not release['pointer'].startswith('/')):
+        raise ForkError('forks follow "@release" but the registry has no valid release entry')
+    try:
+        value = json.loads((path.resolve().parent.parent / release['file']).read_text())
+        for key in release['pointer'].strip('/').split('/'):
+            value = value[key]
+    except (OSError, ValueError, KeyError, TypeError):
+        raise ForkError(f"cannot read the release tag from {release['file']}") from None
+    if not isinstance(value, str) or not REF.match(value):
+        raise ForkError(f"invalid release tag in {release['file']}")
+    for fork in using:
+        if fork['upstream'].get('kind') != 'tag':
+            raise ForkError(f"only a tag reference can follow the release: {fork.get('id')}")
+        fork['upstream']['ref'] = value
 
 
 def load(path=CONFIG):

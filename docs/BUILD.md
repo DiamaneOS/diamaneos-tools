@@ -560,6 +560,8 @@ commands](#the-build-commands).
 - Checks compare it with the upstream branch head without needing a clone.
 - Update that field only when adopting reviewed source; deployment is separate.
 - Server forks are not selected by the Android manifest or release-tag rebase.
+- GrapheneOS forks follow `@release`: the release tag in `config/build-environment-fp6.json`, which
+  the registry's `release` entry names. A new release is one edit there.
 - A fork exists only where DiamaneOS changes the code.
 - A fork that stops carrying a needed change leaves the registry, and the manifest takes the
   upstream project unmodified.
