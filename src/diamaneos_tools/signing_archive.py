@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import hashlib
 from pathlib import Path, PurePosixPath
 import shlex
 import shutil
 import stat
 import zipfile
 
-from .signing_inputs import NAME, SigningError, require
+from .signing_inputs import NAME, SigningError, require, sha256_stream
 
 MAX_MEMBERS = 250_000
 MAX_EXPANDED = 64 * 1024 ** 3
@@ -54,11 +53,8 @@ def extract(handle, name, destination):
 
 
 def digest_member(handle, name):
-    digest = hashlib.sha256()
     with handle.open(name) as stream:
-        for data in iter(lambda: stream.read(1024 * 1024), b''):
-            digest.update(data)
-    return digest.hexdigest()
+        return sha256_stream(stream)
 
 
 def attributes(text):
@@ -88,14 +84,23 @@ def properties(text):
     return result
 
 
+def metadata_members(handle):
+    result = {}
+    for kind, name in (('apk', 'META/apkcerts.txt'), ('apex', 'META/apexkeys.txt')):
+        result[kind] = {package: {('source_key_selector' if key == 'private_key' else key): value
+                                for key, value in record.items()}
+                        for package, record in attributes(read_text(handle, name)).items()}
+    return result
+
+
 def metadata(path):
     with archive(path) as handle:
-        def selectors(name):
-            records = attributes(read_text(handle, name))
-            return {package: {('source_key_selector' if key == 'private_key' else key): value
-                              for key, value in record.items()} for package, record in records.items()}
-        return {'apk': selectors('META/apkcerts.txt'),
-                'apex': selectors('META/apexkeys.txt')}
+        return metadata_members(handle)
+
+
+def package_name(logical):
+    name = Path(logical).name
+    return name.removesuffix('.capex') + '.apex' if name.endswith('.capex') else name
 
 
 def basename_role(value):

@@ -1,22 +1,19 @@
 """Controlled orchestration guards; these tests do not establish cryptographic validity."""
 import copy
 import hashlib
-import json
 from pathlib import Path
-import tempfile
 import unittest
 from unittest.mock import Mock, call, patch
-import zipfile
 
 from diamaneos_tools import signing_archive as za, signing_inputs as inputs
 from diamaneos_tools import signing_native as native, signing_verify as api
+from .fixtures import (TemporaryInputs, apk_plan, apex_plan, publication_description,
+                       publication_plan, release_record, rewrite_zip, write_zip)
 
 
-class PackageVerificationGuardTests(unittest.TestCase):
+class PackageVerificationGuardTests(TemporaryInputs, unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='package-verification-guard-')
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name).resolve()
+        super().setUp()
         self.public = self.root / 'external-trust'
         self.public.mkdir()
         self.certificates = {}
@@ -33,6 +30,7 @@ class PackageVerificationGuardTests(unittest.TestCase):
         self.keys = Mock()
         self.keys.root = self.public
         self.keys.inventory = {'factory': {'allowed_signers': allowed.name, 'identity': 'fixture'}}
+        self.keys.public_ids = {}
         self.keys.files = {path.name: inputs.sha256_file(path) for path in self.public.iterdir()}
         self.keys.cert.side_effect = lambda role, logical: self.certificates[role]
         self.keys.fingerprint.side_effect = lambda role, logical: self.tools.certificate(self.keys.cert(role, logical))[0]
@@ -60,21 +58,15 @@ class PackageVerificationGuardTests(unittest.TestCase):
             path.write_bytes(('controlled package bytes ' + name).encode())
             paths[name] = path
         target = self.root / 'target-files.zip'
-        with zipfile.ZipFile(target, 'w') as archive:
-            archive.write(paths['standalone.apk'], apk_name)
-            archive.write(paths['outer.apex'], apex_name)
-            archive.writestr('META/apkcerts.txt', 'name="Standalone.apk" certificate="platform.x509.pem" '
-                             'private_key="platform.pk8" compressed="false" partition="system"\n')
-            archive.writestr('META/apexkeys.txt', 'name="Fixture.apex" container_certificate="releasekey.x509.pem" '
-                             'public_key="module.avbpubkey" private_key="module.pem" partition="system"\n')
+        write_zip(target, {apk_name: paths['standalone.apk'], apex_name: paths['outer.apex'],
+                          'META/apkcerts.txt': 'name="Standalone.apk" certificate="platform.x509.pem" '
+                          'private_key="platform.pk8" compressed="false" partition="system"\n',
+                          'META/apexkeys.txt': 'name="Fixture.apex" container_certificate="releasekey.x509.pem" '
+                          'public_key="module.avbpubkey" private_key="module.pem" partition="system"\n'})
         plan = {'metadata': za.package_metadata_shape(za.metadata(target)), 'packages': {
-            apk_name: {'kind': 'apk', 'container': 'platform', 'payload': None,
-                       'certificate_sha256': self.fingerprints['platform'], 'package_id': 'de.diamaneos.standalone'},
-            apex_name: {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
-                        'certificate_sha256': self.fingerprints['releasekey'],
-                        'payload_key_sha256': inputs.sha256_file(self.avb_public)},
-            enclosed_name: {'kind': 'apk', 'container': 'shared', 'payload': None,
-                            'certificate_sha256': self.fingerprints['shared'], 'package_id': 'de.diamaneos.enclosed'}}}
+            apk_name: apk_plan('platform', self.fingerprints['platform'], 'de.diamaneos.standalone'),
+            apex_name: apex_plan(self.fingerprints['releasekey'], self.avb_public),
+            enclosed_name: apk_plan('shared', self.fingerprints['shared'], 'de.diamaneos.enclosed')}}
         members = [('apk', apk_name, paths['standalone.apk']), ('apex', apex_name, paths['outer.apex'])]
         if compressed:
             members.append(('apex', apex_name, paths['inner.apex']))
@@ -113,13 +105,11 @@ class PackageVerificationGuardTests(unittest.TestCase):
         self.tools.avb.assert_called_once_with(members[3][2], self.avb_public, payload=True)
 
     def rewrite_metadata(self, target, changes):
-        with zipfile.ZipFile(target) as archive:
-            members = [(info, archive.read(info)) for info in archive.infolist()]
-        with zipfile.ZipFile(target, 'w') as archive:
-            for info, data in members:
-                for old, new in changes.get(info.filename, ()):
-                    data = data.replace(old, new)
-                archive.writestr(info, data)
+        def change(name, data):
+            for old, new in changes.get(name, ()):
+                data = data.replace(old, new)
+            return data
+        rewrite_zip(target, change)
 
     def test_rewritten_certificate_and_key_paths_preserve_accepted_metadata_shape(self):
         target, plan, members = self.packages()
@@ -191,28 +181,15 @@ class PackageVerificationGuardTests(unittest.TestCase):
         (root / 'target-files.zip').write_bytes(target.read_bytes())
         for name in ('images.zip', 'factory.tar', 'factory.tar.sig', 'release.json.sig'):
             (root / name).write_bytes(('controlled publication bytes ' + name).encode())
-        with zipfile.ZipFile(root / 'ota.zip', 'w') as archive:
-            archive.writestr('payload.bin', b'controlled payload bytes')
-            archive.writestr('META-INF/com/android/metadata', 'ota-type=AB\n')
-        plan = {**package_plan, 'mode': 'qualification',
-                'plan_sha256': hashlib.sha256(b'controlled signing-plan identity').hexdigest(),
-                'key_inventory_sha256': inputs.canonical_sha256(self.keys.inventory),
-                'public_material_sha256': inputs.canonical_sha256(self.keys.files),
-                'provenance': {'projects': {}, 'source_files': {},
-                               'java_sha256': inputs.sha256_file(self.tools.java_home / 'bin/java')},
-                'partitions': ['boot', 'vbmeta'], 'chains': {}, 'passthrough_images': {},
-                'previous_artifacts': {}, 'changed_projects': [], 'public_identities': {}, 'mac_permissions': {}}
-        description = {'schema_version': 1, 'signed_target_files': 'target-files.zip', 'images_archive': 'images.zip',
-                       'ota': [{'file': 'ota.zip', 'source_target_files': None}],
-                       'factory_archive': 'factory.tar', 'factory_signature': 'factory.tar.sig',
-                       'release_record': 'release.json', 'release_signature': 'release.json.sig'}
-        names = ['target-files.zip', 'images.zip', 'factory.tar', 'factory.tar.sig', 'ota.zip']
-        record = {'schema_version': 1, 'plan_sha256': plan['plan_sha256'],
-                  'artifacts': {name: inputs.sha256_file(root / name) for name in names}}
-        (root / 'release.json').write_text(json.dumps(record))
+        write_zip(root / 'ota.zip', {'payload.bin': b'controlled payload bytes',
+                                  'META-INF/com/android/metadata': 'ota-type=AB\n'})
+        policy = {'record_namespace': 'diamaneos-release-record', 'factory_namespace': 'factory images'}
+        provenance = {'projects': {}, 'source_files': {}, 'java_sha256': inputs.sha256_file(self.tools.java_home / 'bin/java')}
+        plan = publication_plan(target, package_plan['packages'], self.keys, provenance, policy, partitions=['boot', 'vbmeta'])
+        description = publication_description()
+        release_record(root, plan, description)
         # Plan authentication and crypto are isolated away from this boundary
         # fixture. No policy hash or signing key is introduced by the simulation.
-        policy = {'record_namespace': 'diamaneos-release-record', 'factory_namespace': 'factory images'}
         return root, plan, description, policy
 
     def verify_publication(self, fixture, counts, expect_failure=False):

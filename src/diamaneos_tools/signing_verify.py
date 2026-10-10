@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-import hashlib
 from pathlib import Path
 import shlex
 import shutil
@@ -14,8 +13,8 @@ import tempfile
 from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout, signing_mac
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
-                             validate_config, verified_build, write_json, input_hashes, recheck_hashes)
-from .signing_native import NativeTools, PublicKeys, apk_certificate_digests, package_members, verify_images
+                             validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
+from .signing_native import NativeTools, PublicKeys, apk_certificate_digests, package_members, raw_image, verify_images
 
 
 def validate_plan(plan, policy):
@@ -69,15 +68,6 @@ def verify_packages(target_files, plan, tools, keys):
     require(counts['payload'] == sum(r['kind'] == 'apex' for r in plan['packages'].values()),
             'Final package verification lacks an APEX payload')
     return counts
-
-
-def raw_image(tools, path, destination):
-    with path.open('rb') as stream:
-        sparse = stream.read(4) == b'\x3a\xff\x26\xed'
-    if sparse:
-        tools.run('simg2img', [path, destination])
-        return destination
-    return path
 
 
 def publication_images(path, target_files, plan, tools, keys):
@@ -172,11 +162,8 @@ def verify_factory_contents(factory, image_archive):
                 'Factory archive contains unlisted or missing members')
         images = [m for m in members if Path(m.name).name == image_archive.name]
         require(len(images) == 1, 'Factory archive lacks the verified image archive')
-        digest = hashlib.sha256()
         with handle.extractfile(images[0]) as stream:
-            for data in iter(lambda: stream.read(1024 * 1024), b''):
-                digest.update(data)
-        require(digest.hexdigest() == expected, 'Factory archive contains different images')
+            require(sha256_stream(stream) == expected, 'Factory archive contains different images')
 
 
 def verify_publication(plan, publication, artifact_root, policy, tools, keys):

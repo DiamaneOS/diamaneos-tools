@@ -14,13 +14,12 @@ import zipfile
 from diamaneos_tools import image_verify, signing_archive as za, signing_inputs as inputs
 from diamaneos_tools import build_workspace as bw
 from diamaneos_tools import signing_native as native, signing_verify as api
+from .fixtures import TemporaryInputs, write_zip
 
 
-class SigningInputsTests(unittest.TestCase):
+class SigningInputsTests(TemporaryInputs, unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        super().setUp()
         self.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
 
     def fixture(self):
@@ -206,8 +205,7 @@ class ArchiveTests(unittest.TestCase):
     def test_unsafe_duplicate_and_encrypted_members_are_refused(self):
         for names in (['../x'], ['/x'], ['a\\b'], ['x', 'x'], ['./x']):
             buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, 'w') as handle:
-                for name in names: handle.writestr(name, b'x')
+            write_zip(buffer, [(name, b'x') for name in names])
             buffer.seek(0)
             with self.assertRaises(inputs.SigningError):
                 with za.archive(buffer): pass
@@ -215,7 +213,7 @@ class ArchiveTests(unittest.TestCase):
     def test_unselected_os_links_are_allowed_but_selected_payload_links_refuse(self):
         buffer = io.BytesIO()
         info = zipfile.ZipInfo('SYSTEM/app/test.apk'); info.external_attr = (stat.S_IFLNK | 0o777) << 16
-        with zipfile.ZipFile(buffer, 'w') as handle: handle.writestr(info, '../elsewhere')
+        write_zip(buffer, [(info, '../elsewhere')])
         with tempfile.TemporaryDirectory() as root:
             buffer.seek(0)
             with za.archive(buffer) as handle:

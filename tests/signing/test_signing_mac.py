@@ -15,12 +15,13 @@ import zipfile
 
 from diamaneos_tools import signing_archive as za, signing_inputs as inputs
 from diamaneos_tools import signing_mac as mac, signing_native as native
+from .fixtures import TemporaryInputs, write_zip
 
 MEMBER = 'SYSTEM/etc/selinux/plat_mac_permissions.xml'
 EXT_MEMBER = 'SYSTEM_EXT/etc/selinux/system_ext_mac_permissions.xml'
 
 
-class SigningMacTests(unittest.TestCase):
+class SigningMacTests(TemporaryInputs, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.material = tempfile.TemporaryDirectory(prefix='mac-public-material-')
@@ -43,9 +44,7 @@ class SigningMacTests(unittest.TestCase):
             key.unlink()
 
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='mac-postcondition-')
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name).resolve()
+        super().setUp()
         self.source, self.trust = self.root / 'source', self.root / 'external-public'
         (self.source / 'keys').mkdir(parents=True)
         self.trust.mkdir()
@@ -89,12 +88,11 @@ class SigningMacTests(unittest.TestCase):
         return text
 
     def archive(self, path, xml, extra=None):
-        with zipfile.ZipFile(path, 'w') as handle:
-            handle.writestr('META/apkcerts.txt', self.apk_metadata)
-            handle.writestr('META/apexkeys.txt', self.apex_metadata)
-            handle.writestr('META/misc_info.txt', 'default_system_dev_certificate=keys/testkey\n')
-            if xml is not None: handle.writestr(MEMBER, xml)
-            for name, raw in (extra or {}).items(): handle.writestr(name, raw)
+        entries = {'META/apkcerts.txt': self.apk_metadata, 'META/apexkeys.txt': self.apex_metadata,
+                   'META/misc_info.txt': 'default_system_dev_certificate=keys/testkey\n'}
+        if xml is not None:
+            entries[MEMBER] = xml
+        write_zip(path, [*entries.items(), *(extra or {}).items()])
 
     def original_xml(self, xml, extra=None): self.archive(self.original, xml, extra)
     def signed_xml(self, xml, extra=None): self.archive(self.signed, xml, extra)

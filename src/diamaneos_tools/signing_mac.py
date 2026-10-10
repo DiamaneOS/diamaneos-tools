@@ -10,18 +10,13 @@ import stat
 import xml.etree.ElementTree as ET
 
 from . import signing_archive as za
-from .signing_inputs import CERT_ROLES, SHA256, SigningError, canonical_sha256, fields, require
+from .signing_inputs import CERT_ROLES, SHA256, SigningError, canonical_sha256, fields, file_stamp, require
 
 MAX_XML = 2 * 1024 * 1024
 MAX_FILES = 16
 MAX_CERTIFICATE = 16 * 1024
 MAX_CERTIFICATES = 256
 VALUE = re.compile(r'[A-Za-z0-9_.]{1,255}\Z')
-
-
-def _stamp(info):
-    return tuple(getattr(info, 'st_' + field) for field in
-                 ('dev', 'ino', 'uid', 'gid', 'mode', 'nlink', 'size', 'mtime_ns', 'ctime_ns'))
 
 
 @contextmanager
@@ -42,9 +37,9 @@ def _opened(path):
             require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1
                     and before.st_size <= za.MAX_EXPANDED, 'MAC input is not a bounded single-link regular file')
             yield stream
-            require(_stamp(before) == _stamp(os.fstat(stream.fileno()))
-                    == _stamp(os.stat(path.name, dir_fd=directory, follow_symlinks=False))
-                    == _stamp(os.stat(path, follow_symlinks=False)), 'MAC input changed during verification')
+            require(file_stamp(before, ownership=True) == file_stamp(os.fstat(stream.fileno()), ownership=True)
+                    == file_stamp(os.stat(path.name, dir_fd=directory, follow_symlinks=False), ownership=True)
+                    == file_stamp(os.stat(path, follow_symlinks=False), ownership=True), 'MAC input changed during verification')
     finally:
         os.close(directory)
 
@@ -54,7 +49,7 @@ def _read(path, snapshots):
         require(os.fstat(stream.fileno()).st_size <= MAX_CERTIFICATE, 'Public certificate exceeds its bound')
         raw = stream.read(MAX_CERTIFICATE + 1)
         require(len(raw) <= MAX_CERTIFICATE and b'PRIVATE KEY' not in raw, 'Invalid public-only certificate input')
-        snapshot = _stamp(os.fstat(stream.fileno()))
+        snapshot = file_stamp(os.fstat(stream.fileno()), ownership=True)
     name = str(Path(os.path.abspath(path)))
     require(name not in snapshots or snapshots[name] == snapshot, 'Public certificate input changed')
     require(len(snapshots) < MAX_CERTIFICATES or name in snapshots, 'Too many public certificate inputs')
@@ -172,12 +167,7 @@ def _unique(policies):
 
 
 def _replacements(handle, metadata, roles, public, tools, certificates, snapshots):
-    actual = {}
-    for kind, member in (('apk', 'META/apkcerts.txt'), ('apex', 'META/apexkeys.txt')):
-        records = za.attributes(za.read_text(handle, member))
-        actual[kind] = {name: {('source_key_selector' if key == 'private_key' else key): value
-                              for key, value in record.items()} for name, record in records.items()}
-    require(actual == metadata, 'Unsigned package metadata differs from the supplied mapping')
+    require(za.metadata_members(handle) == metadata, 'Unsigned package metadata differs from the supplied mapping')
     require(isinstance(roles, dict), 'Missing exact package roles')
     destinations, kept = {}, set()
 
@@ -306,7 +296,7 @@ def prepare_mac_permissions(original, metadata, role_map, keys, tools):
             _snapshot(expected)
         for path, snapshot in snapshots.items():
             with _opened(path) as stream:
-                require(_stamp(os.fstat(stream.fileno())) == snapshot, 'MAC public certificate material changed')
+                require(file_stamp(os.fstat(stream.fileno()), ownership=True) == snapshot, 'MAC public certificate material changed')
         require(binding == canonical_sha256([metadata, role_map, keys.policy, keys.inventory, keys.files]), 'MAC preparation inputs changed')
         return expected
     except (OSError, UnicodeError, ET.ParseError, KeyError, TypeError, AttributeError, ValueError, RecursionError) as error:

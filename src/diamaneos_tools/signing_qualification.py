@@ -54,10 +54,7 @@ def role_map(metadata, policy, overrides, present=None):
 
 
 def member_role(mapping, kind, logical):
-    name = Path(logical).name.removesuffix('.capex')
-    if logical.endswith('.capex'):
-        name += '.apex'
-    record = mapping.get(name)
+    record = mapping.get(za.package_name(logical))
     require(record and record['kind'] == ('apk' if kind == 'apk' else 'apex'), 'Unlisted packaged signing role')
     return record
 
@@ -79,8 +76,7 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
         approved = presigned_rule(policy, logical) if kind == 'apk' and name not in metadata['apk'] else None
         if approved is not None:
             name = approved['metadata_name']
-        if name.endswith('.capex'):
-            name = name.removesuffix('.capex') + '.apex'
+        name = za.package_name(name)
         if kind != 'payload' and name not in roles:
             roles.update(role_map(metadata, policy, overrides, {name}))
         role = roles.get(name) if approved is not None else member_role(roles, kind, logical)

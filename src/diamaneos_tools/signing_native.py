@@ -31,14 +31,28 @@ def apk_signer_digests(output, kind):
     return records
 
 
-def apk_certificate_digests(output, expected):
+def apk_certificate_digests(output, expected, *, denied_public_keys=()):
     require(isinstance(expected, str) and SHA256.fullmatch(expected), 'Invalid APK certificate pin')
     lines = output.splitlines()
     require([line for line in lines if line.startswith('Number of signers:')] == ['Number of signers: 1'],
             'APK verifier did not establish exactly one signer')
-    observed = set(apk_signer_digests(output, 'certificate').values())
+    certificates = apk_signer_digests(output, 'certificate')
+    observed = set(certificates.values())
     require(observed == {expected}, 'APK/APEX certificate does not match its declared role')
+    if denied_public_keys:
+        public = apk_signer_digests(output, 'public key')
+        require(set(public) == set(certificates), 'APK verifier lacks public key coverage for every signer')
+        require(not set(public.values()) & denied_public_keys, 'Production refuses AOSP public APK test keys')
     return sorted(observed)
+
+
+def raw_image(tools, path, destination):
+    with path.open('rb') as stream:
+        sparse = stream.read(4) == b'\x3a\xff\x26\xed'
+    if sparse:
+        tools.run('simg2img', [path, destination])
+        return destination
+    return path
 
 
 class NativeTools:
@@ -77,14 +91,7 @@ class NativeTools:
 
     def apk(self, path, expected):
         output = self.run('apksigner', ['verify', '--verbose', '--print-certs', path])
-        result = apk_certificate_digests(output, expected)
-        if self.denied_apk_public_keys:
-            certificates = apk_signer_digests(output, 'certificate')
-            public = apk_signer_digests(output, 'public key')
-            require(set(public) == set(certificates), 'APK verifier lacks public key coverage for every signer')
-            require(not set(public.values()) & self.denied_apk_public_keys,
-                    'Production refuses AOSP public APK test keys')
-        return result
+        return apk_certificate_digests(output, expected, denied_public_keys=self.denied_apk_public_keys)
 
     def package_id(self, path):
         output = self.run('aapt2', ['dump', 'badging', path])
@@ -163,12 +170,7 @@ class NativeTools:
                                        if p in handle.namelist()), None)
                         require(member, 'Target-files lacks an OTA partition')
                         path = za.extract(handle, member, root / (prefix + name + '.img'))
-                        with path.open('rb') as stream:
-                            sparse = stream.read(4) == b'\x3a\xff\x26\xed'
-                        if sparse:
-                            raw = root / (prefix + name + '.raw.img')
-                            self.run('simg2img', [path, raw]); path = raw
-                        result[name] = path
+                        result[name] = raw_image(self, path, root / (prefix + name + '.raw.img'))
                 return result
             target = images(target_files, 'target-')
             old = images(source_files, 'source-') if source_files is not None else {}

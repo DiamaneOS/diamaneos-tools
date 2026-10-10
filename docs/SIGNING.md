@@ -1,44 +1,39 @@
 # Signing and publication verification
 
-Signing policy assigns certificate, APEX payload, AVB, OTA and factory roles. A signing plan
-binds those roles to a build that passed `build verify`. Native platform tools perform signature
-verification using an independently supplied public key inventory.
+A signing plan binds certificate, APEX payload, AVB, OTA and factory roles to a build
+that passed `build verify`. Native platform tools verify signatures against an
+independently supplied public key inventory. Artifacts never select their expected authority.
 
-## Stable policy
+## Policy and trust inputs
 
-[`config/signing-roles.json`](../config/signing-roles.json) contains algorithms, role names,
-certificate selectors and presigned-package rules. Release revisions and tool hashes are recorded
-per run. A routine source rebase requires no signing-policy edit.
+[`config/signing-roles.json`](../config/signing-roles.json) defines algorithms,
+certificate selectors and presigned-package identities. Revisions and tool hashes belong
+to each run. Unknown roles and presigned exceptions are rejected.
 
-- Android certificate roles use RSA-4096 and SHA-256 X.509 certificates with `/CN=DiamaneOS/`.
-- APEX payloads and AVB use `SHA256_RSA4096`.
-- The OTA package, payload and payload metadata use the `releasekey` role.
-- Factory archives use Ed25519 OpenSSH signatures in the `factory images` namespace.
-- Release records use the `diamaneos-release-record` namespace.
-- Unknown roles and presigned exceptions are rejected.
+| Role | Required authority |
+| --- | --- |
+| Android certificates | RSA-4096, SHA-256 X.509, `/CN=DiamaneOS/` |
+| APEX payloads and AVB | `SHA256_RSA4096` |
+| OTA package, payload and metadata | `releasekey` |
+| Factory archive | Ed25519 SSH, `factory images` namespace |
+| Release record | External SSH authority, `diamaneos-release-record` namespace |
+| Build verification report | External SSH authority, `diamaneos-build-verification` namespace |
+| Previous signing result | External SSH authority, `diamaneos-signing-result` namespace |
+
+The public inventory uses schema version 2. `certificate_roles` maps every role to
+an external certificate; `avb_public_key` names its RSA public PEM; `factory` contains
+`allowed_signers` and an exact SSH identity. File names are relative to the inventory.
+Private key material is rejected.
+
+## Prepare and sign
+
+`prepare` requires the build record, complete PASS report, report signature, checksums,
+resolved manifest, target-files and otatools. Production mode requires a clean, official
+`user` build. Every applicable device rule must pass against the clean tools revision
+selected by the resolved manifest.
 
 ```sh
 bin/diamaneos signing roles
-```
-
-## Build-bound plan
-
-`prepare` requires the build record, its complete PASS verification report, checksums, resolved
-manifest, target-files and otatools archive. It rejects changed hashes, incomplete verification,
-local source changes and tools from different source revisions. Production mode requires an
-official `user` build.
-
-- The build output records target-files and otatools hashes together.
-- Signing-relevant project revisions come from the build's resolved manifest.
-- Source script hashes, the JDK and otatools identities are recorded in the plan.
-- Each run reports signing-relevant projects changed since `--previous-result`, before signing.
-- Verification reports and previous results require signatures from the configured external authority.
-- The report binds every applicable device rule and the complete verified image set.
-- Device rules come from the clean tools revision selected by the resolved manifest.
-- A previous result must show successful artifact verification in a compatible mode.
-- The first run reports every signing project.
-
-```sh
 bin/diamaneos signing prepare \
   --build-record "$IMAGES/build.json" \
   --verification-report "$VERIFY_REPORT" \
@@ -46,56 +41,44 @@ bin/diamaneos signing prepare \
   --target-files "$IMAGES/target-files.zip" \
   --resolved-manifest "$IMAGES/resolved-manifest.xml" \
   --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
-  --keys "$TRUST/inventory.json" --scratch "$SCRATCH" \
-  --output "$PLAN"
+  --keys "$TRUST/inventory.json" --scratch "$SCRATCH" --output "$PLAN"
 ```
 
-The public inventory uses schema version 2 with `certificate_roles`, `avb_public_key` and `factory`.
-Public files are relative to the inventory's directory.
-Private key material is rejected.
+The plan binds archive hashes, selected source-project revisions, consumed Git blobs,
+JDK bytes and the native signer. Changed source, tools, reports or build identity
+are rejected. Git index flags and ignored runtime files cannot bypass source admission.
 
-| Field | Contents |
-| --- | --- |
-| `certificate_roles` | Every configured certificate role mapped to an external X.509 certificate file. |
-| `avb_public_key` | External RSA public key in PEM format. |
-| `factory` | `allowed_signers` file and an exact SSH signer identity. |
+Use `--previous-result` with `--previous-signature` for subsequent runs. The externally
+verified result must contain successful artifact verification in a compatible mode.
+Each plan reports changed signing projects; the first includes every signing project.
 
-Presigned bytes remain identical to the accepted input and verify against their specified external
-public identities. Exact package names and signer identities come from the reviewed policy.
-
-Absent metadata records are derived from archive contents. Upstream release-script overrides determine key mappings. APKs
-inside APEX payloads receive the same complete role checks as other packaged APKs.
-
-Use `--previous-result` together with `--previous-signature` for later runs. Verification-report
-signatures use `diamaneos-build-verification`; previous-result signatures use
-`diamaneos-signing-result`. Both are verified with the configured external SSH authority.
-
-The native signing command runs from the verified source root, where certificate replacement reads
-the original certificates. Its signer must match the build's otatools binary. It refuses altered
-plans, changed source, changed target-files and existing output paths.
+Release-script overrides supply package roles; archive contents determine absent metadata.
+Presigned bytes remain identical and verify against exact policy identities. Enclosed APKs
+receive complete role checks. SELinux certificate replacement follows the native default
+key mapping and preserves independently approved certificates.
 
 ```sh
 bin/diamaneos signing command --plan "$PLAN" \
-  --target-files "$IMAGES/target-files.zip" \
-  --signed-target-files "$SIGNED_TARGET_FILES" \
+  --target-files "$IMAGES/target-files.zip" --signed-target-files "$SIGNED_TARGET_FILES" \
   --signer "$OTATOOLS/bin/sign_target_files_apks" --key-dir "$KEY_DIR" --source-root "$SOURCE"
 ```
 
-## Final publication
+The command runs from the verified source root to resolve original certificates. It
+requires the build-bound signer and rejects altered plans, changed source or target-files,
+input replacement and existing outputs.
 
-`verify` requires only public verification material. Keep the trusted inventory, plan, result and
-scratch storage outside the dedicated publication directory. Artifact contents never select their
-own expected signing authority.
+## Verify publication
 
-The publication description has `schema_version`, `signed_target_files`, `images_archive`, `ota`,
-`factory_archive`, `factory_signature`, `release_record` and `release_signature` fields. File names
-are relative to the publication directory. Unknown files, duplicate paths and links are rejected.
+Keep the inventory, plan, result and scratch outside the dedicated publication directory.
+The publication description has `schema_version`, `signed_target_files`, `images_archive`,
+`ota`, `factory_archive`, `factory_signature`, `release_record` and `release_signature`.
+Paths are relative; unknown files, duplicates and links are rejected.
 
-- `images_archive` contains the actual partition images, including logical partitions in `super`.
-- `ota` lists objects with `file` and `source_target_files`. A full OTA uses `null` for its source.
-- A delta source must match an artifact hash from the previous verified signing result.
-- The release record contains `schema_version`, `plan_sha256` and an exact `artifacts` hash map.
-- The artifact map covers target-files, images, OTAs, the factory archive and its signature.
+Each `ota` entry has `file` and `source_target_files`; a full OTA uses `null`.
+Delta sources must match previous verified artifact hashes. A full OTA is mandatory.
+
+The release record contains `schema_version`, `plan_sha256` and the exact `artifacts`
+hash map for target-files, images, OTAs, factory archive and factory signature.
 
 ```sh
 bin/diamaneos signing verify --plan "$PLAN" \
@@ -104,34 +87,25 @@ bin/diamaneos signing verify --plan "$PLAN" \
   --keys "$TRUST/inventory.json" --scratch "$SCRATCH" --output "$RESULT"
 ```
 
-Verification includes:
+- Native verification checks every APK, both compressed APEX containers, their payloads and enclosed APKs against assigned external identities.
+- Package IDs, SELinux certificate selectors, package isolation and installed policy bytes must match the accepted plan and target-files.
+- Published partitions match signed target-files, including unpacked logical images. Direct logical images must match their `super` contents.
+- Flat image membership includes every declared firmware, wipe and modem-reset file. Unknown members and partial logical sets are rejected.
+- Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected.
+- The platform OTA checker verifies whole-file, payload and metadata signatures. Build metadata and payload properties bind the accepted build and final bytes.
+- Native payload application reproduces signed target-files partitions, using the verified source for deltas.
+- Factory and release signatures use the external authority and distinct namespaces. The factory contains exactly one flat member: the verified image archive.
+- Closing checks bind source, public material and publication bytes throughout verification. A changed input cannot produce a successful result.
 
-- Every APK, APEX container and APEX payload against its assigned external public identity.
-- Native APK package identities and named SELinux certificate selectors against their assigned roles.
-- SELinux certificate replacement, package isolation and policy bytes in the published filesystems.
-- Compressed APEX containers, their original APEX and enclosed APKs.
-- Published partition bytes against signed target-files, including unpacked logical partitions.
-- Exact flat image-archive membership, including all declared firmware, wipe and modem reset files.
-- Direct logical images, when included beside `super`, must match its unpacked contents.
-- Native AVB verification through every declared partition and rollback chain; disabled verification is rejected.
-- OTA whole-file, payload and payload-metadata signatures using the platform checker and payload verifier.
-- OTA build metadata and payload properties against the accepted build and final bytes.
-- Native payload application against signed target-files, including the verified source for deltas.
-- Factory and release-record SSH signatures against the external authority and distinct namespaces.
-- Factory contents against the verified image archive.
+Success records `artifact_signatures_verified: true`, public identities, artifact hashes
+and run provenance. Production rejects AOSP public test keys even when supplied as
+expected identities. Qualification requires the explicit `--qualification` flag.
 
-The factory container has exactly one flat member: the verified image archive. Extra files,
-directories, links and missing members are rejected.
+## Fixtures
 
-A successful result records `artifact_signatures_verified: true`, public identities, artifact hashes
-and per-run provenance. Production verification rejects AOSP public test keys, even when they
-appear in the supplied inventory. Qualification requires an explicit `--qualification` flag.
-
-## Verifier fixtures
-
-Tests generate disposable keys in temporary storage and remove them. No certificates, public keys
-or private keys are stored in this repository. Native fixtures cover corrupt signatures, unsigned
-files, wrong keys, wrong roles and public test-key rejection.
+Fixtures create disposable material in temporary storage. Native signature cases require
+explicit source and otatools inputs; Linux or `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` refuses
+missing inputs. They exercise corrupt, unsigned, wrong-key, wrong-role and test-key artifacts.
 
 ```sh
 DIAMANEOS_SIGNING_NATIVE_SOURCE="$SOURCE" \
@@ -139,6 +113,7 @@ DIAMANEOS_SIGNING_OTATOOLS="$IMAGES/otatools.zip" \
 PYTHONPATH=src "$VENV/bin/python" -m unittest tests.signing.test_native_signatures
 ```
 
-The cryptographic implementations are the build's `apksigner`, `avbtool`,
-`check_ota_package_signature`, `delta_generator` and payload tooling. Policy code compares their
-results with external trust material; it contains no signature parser.
+`apksigner`, `avbtool`, `check_ota_package_signature`, `delta_generator` and payload tooling
+perform cryptographic verification. Policy code compares native results with external trust;
+it contains no signature parser. Controlled orchestration fixtures do not establish
+cryptographic or device acceptance.

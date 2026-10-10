@@ -67,6 +67,20 @@ def sha256_file(path):
     return build.sha256_file(Path(path))
 
 
+def sha256_stream(stream):
+    digest = hashlib.sha256()
+    for block in iter(lambda: stream.read(1024 * 1024), b''):
+        digest.update(block)
+    return digest.hexdigest()
+
+
+def file_stamp(info, *, ownership=False):
+    fields = ('dev', 'ino', 'mode', 'size', 'mtime_ns', 'ctime_ns')
+    if ownership:
+        fields += ('uid', 'gid', 'nlink')
+    return tuple(getattr(info, 'st_' + field) for field in fields)
+
+
 def canonical_sha256(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
                                      allow_nan=False).encode()).hexdigest()
@@ -269,15 +283,6 @@ def source_files(source, projects):
         paths.update(str(path.relative_to(source)) for path in candidates if path.is_file() or path.is_symlink())
     result, snapshots, active = {}, {}, set()
 
-    def state(value):
-        return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
-
-    def digest(stream):
-        value = hashlib.sha256()
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
-            value.update(block)
-        return value.hexdigest()
-
     def check(logical):
         if logical in result:
             return
@@ -308,7 +313,7 @@ def source_files(source, projects):
             target = Path(os.path.abspath(path.parent / os.fsdecode(text)))
             require(target.is_relative_to(source), 'Source link leaves selected files')
             check(str(target.relative_to(source)))
-            require(state(before) == state(path.lstat()) and text == os.fsencode(os.readlink(path)),
+            require(file_stamp(before) == file_stamp(path.lstat()) and text == os.fsencode(os.readlink(path)),
                     'Source link changed during verification')
             value = hashlib.sha256(text).hexdigest()
         else:
@@ -317,14 +322,14 @@ def source_files(source, projects):
                 before = os.fstat(stream.fileno())
                 require(stat.S_ISREG(before.st_mode) and before.st_size <= 1024 ** 3,
                         'Consumed source file is not bounded and regular')
-                value = digest(stream)
+                value = sha256_stream(stream)
                 actual = git_read(source / owner, ['hash-object', '--no-filters', '--', path]).decode().strip()
                 stream.seek(0)
-                require(value == digest(stream) and state(before) == state(os.fstat(stream.fileno()))
-                        == state(safe_file(source, logical).stat()), 'Source bytes changed during verification')
+                require(value == sha256_stream(stream) and file_stamp(before) == file_stamp(os.fstat(stream.fileno()))
+                        == file_stamp(safe_file(source, logical).stat()), 'Source bytes changed during verification')
         require(actual == expected, 'Consumed source bytes differ from selected Git blob: ' + logical)
         result[logical] = value
-        snapshots[logical] = state(path.lstat())
+        snapshots[logical] = file_stamp(path.lstat())
         active.remove(logical)
 
     for logical in sorted(paths):
@@ -334,7 +339,7 @@ def source_files(source, projects):
         path = source / logical
         closing = (hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest() if trees[logical][0] == '120000'
                    else sha256_file(safe_file(source, logical)))
-        require(closing == value and state(path.lstat()) == snapshots[logical],
+        require(closing == value and file_stamp(path.lstat()) == snapshots[logical],
                 'Consumed source changed before closing verification')
     return result
 

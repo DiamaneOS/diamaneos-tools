@@ -14,6 +14,7 @@ import zipfile
 
 from diamaneos_tools import signing_archive as za, signing_inputs as inputs, signing_native as native
 from diamaneos_tools import signing_verify as api
+from .fixtures import apk_plan, apex_plan, publication_description, publication_plan, release_record, write_zip
 
 SOURCE = os.environ.get('DIAMANEOS_SIGNING_NATIVE_SOURCE')
 OTATOOLS = os.environ.get('DIAMANEOS_SIGNING_OTATOOLS')
@@ -76,19 +77,12 @@ class NativeSignatureTests(unittest.TestCase):
         content = cls.root / 'system-content'; (content / 'app/Fixture').mkdir(parents=True)
         shutil.copyfile(cls.apk, content / 'app/Fixture/Fixture.apk')
         cls.system = cls.root / 'system.img'
-        cls.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, cls.system, '2048'])
-        cls.tools.run('avbtool', ['add_hashtree_footer', '--image', cls.system, '--partition_size', '16777216',
-                                '--partition_name', 'system', '--algorithm', 'SHA256_RSA4096', '--key', cls.private / 'avb.pem',
-                                '--do_not_generate_fec'])
+        cls.hashtree(content, cls.system, 'system')
         apex_unsigned = cls.root / 'unsigned.apex'
-        with zipfile.ZipFile(apex_unsigned, 'w') as z:
-            with zipfile.ZipFile(cls.unsigned_apk) as apk: z.writestr('AndroidManifest.xml', apk.read('AndroidManifest.xml'))
-            z.write(cls.system, 'apex_payload.img')
+        cls.apex_archive(apex_unsigned, 'apex_payload.img', cls.system)
         cls.apex = cls.sign_apk(apex_unsigned, 'releasekey', cls.root / 'Fixture.apex')
         compressed_unsigned = cls.root / 'unsigned.capex'
-        with zipfile.ZipFile(compressed_unsigned, 'w') as z:
-            with zipfile.ZipFile(cls.unsigned_apk) as apk: z.writestr('AndroidManifest.xml', apk.read('AndroidManifest.xml'))
-            z.write(cls.apex, 'original_apex')
+        cls.apex_archive(compressed_unsigned, 'original_apex', cls.apex)
         cls.capex = cls.sign_apk(compressed_unsigned, 'releasekey', cls.root / 'Fixture.capex')
         (content / 'apex').mkdir(); shutil.copyfile(cls.apex, content / 'apex/Fixture.apex')
         cls.mac_member = 'SYSTEM/etc/selinux/plat_mac_permissions.xml'
@@ -97,10 +91,7 @@ class NativeSignatureTests(unittest.TestCase):
         mac_path = content / 'etc/selinux/plat_mac_permissions.xml'; mac_path.parent.mkdir(parents=True)
         mac_path.write_text(cls.mac_xml)
         cls.system.unlink()
-        cls.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, cls.system, '8192'])
-        cls.tools.run('avbtool', ['add_hashtree_footer', '--image', cls.system, '--partition_size', '67108864',
-                                '--partition_name', 'system', '--algorithm', 'SHA256_RSA4096', '--key', cls.private / 'avb.pem',
-                                '--do_not_generate_fec'])
+        cls.hashtree(content, cls.system, 'system', blocks=8192, size=67108864)
         cls.boot = cls.root / 'boot.img'; cls.boot.write_bytes(b'fixture' + bytes(16 * 1024 - 7))
         cls.tools.run('avbtool', ['add_hash_footer', '--image', cls.boot, '--partition_size', '131072',
                                 '--partition_name', 'boot', '--algorithm', 'SHA256_RSA4096', '--key', cls.private / 'avb.pem'])
@@ -109,15 +100,13 @@ class NativeSignatureTests(unittest.TestCase):
                                 '--key', cls.private / 'avb.pem', '--include_descriptors_from_image', cls.boot,
                                 '--include_descriptors_from_image', cls.system])
         cls.target = cls.root / 'signed-target-files.zip'
-        with zipfile.ZipFile(cls.target, 'w') as z:
-            z.write(cls.boot, 'IMAGES/boot.img'); z.write(cls.vbmeta, 'IMAGES/vbmeta.img'); z.write(cls.system, 'IMAGES/system.img')
-            z.write(cls.apk, 'SYSTEM/app/Fixture/Fixture.apk')
-            z.write(cls.apex, 'SYSTEM/apex/Fixture.apex')
-            z.writestr(cls.mac_member, cls.mac_xml)
-            z.writestr('META/apkcerts.txt', 'name="Fixture.apk" certificate="keys/testkey.x509.pem" private_key="keys/testkey.pk8"\n')
-            z.writestr('META/apexkeys.txt', 'name="Fixture.apex" container_certificate="module.x509.pem" public_key="module.avbpubkey" private_key="module.pem"')
-            z.writestr('META/misc_info.txt', 'ab_update=true\n')
-            z.writestr('META/ab_partitions.txt', 'boot\n')
+        write_zip(cls.target, {
+            **{'IMAGES/' + p.name: p for p in (cls.boot, cls.vbmeta, cls.system)},
+            'SYSTEM/app/Fixture/Fixture.apk': cls.apk, 'SYSTEM/apex/Fixture.apex': cls.apex,
+            cls.mac_member: cls.mac_xml,
+            'META/apkcerts.txt': 'name="Fixture.apk" certificate="keys/testkey.x509.pem" private_key="keys/testkey.pk8"\n',
+            'META/apexkeys.txt': 'name="Fixture.apex" container_certificate="module.x509.pem" public_key="module.avbpubkey" private_key="module.pem"',
+            'META/misc_info.txt': 'ab_update=true\n', 'META/ab_partitions.txt': 'boot\n'})
         cls.payload = cls.root / 'payload.bin'
         cls.tools.run('delta_generator', ['--partition_names=boot', '--new_partitions=' + str(cls.boot),
                                          '--out_file=' + str(cls.payload), '--private_key=' + str(cls.private / 'releasekey.pem')])
@@ -132,13 +121,25 @@ class NativeSignatureTests(unittest.TestCase):
         return output
 
     @classmethod
+    def hashtree(cls, content, image, partition, *, role='avb', blocks=2048, size=16777216):
+        cls.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, image, str(blocks)])
+        cls.tools.run('avbtool', ['add_hashtree_footer', '--image', image, '--partition_size', str(size),
+                                '--partition_name', partition, '--algorithm', 'SHA256_RSA4096',
+                                '--key', cls.private / (role + '.pem'), '--do_not_generate_fec'])
+
+    @classmethod
+    def apex_archive(cls, output, member, payload):
+        with zipfile.ZipFile(cls.unsigned_apk) as apk:
+            manifest = apk.read('AndroidManifest.xml')
+        write_zip(output, {'AndroidManifest.xml': manifest, member: payload})
+
+    @classmethod
     def make_ota(cls, payload, role, output):
         properties = cls.root / ('properties-' + output.name + '.txt')
         cls.tools.run('delta_generator', ['--in_file=' + str(payload), '--properties_file=' + str(properties)])
         unsigned = cls.root / ('unsigned-' + output.name)
-        with zipfile.ZipFile(unsigned, 'w') as z:
-            z.write(payload, 'payload.bin'); z.write(properties, 'payload_properties.txt')
-            z.writestr('META-INF/com/android/metadata', 'ota-type=AB\npost-build-incremental=fixture\npost-timestamp=1234\npre-device=FP6\n')
+        write_zip(unsigned, {'payload.bin': payload, 'payload_properties.txt': properties,
+                            'META-INF/com/android/metadata': 'ota-type=AB\npost-build-incremental=fixture\npost-timestamp=1234\npre-device=FP6\n'})
         cls.tools.run('signapk', ['-w', cls.keys_dir / (role + '.x509.pem'), cls.private / (role + '.pk8'), unsigned, output])
         return output
 
@@ -164,10 +165,7 @@ class NativeSignatureTests(unittest.TestCase):
         enclosed.parent.mkdir(parents=True)
         shutil.copyfile(enclosed_apk or self.apk, enclosed)
         payload = root / 'apex_payload.img'
-        self.tools.run('mke2fs', ['-t', 'ext4', '-b', '4096', '-d', content, payload, '2048'])
-        self.tools.run('avbtool', ['add_hashtree_footer', '--image', payload, '--partition_size', '16777216',
-                                 '--partition_name', 'fixture_payload', '--algorithm', 'SHA256_RSA4096',
-                                 '--key', self.private / (payload_role + '.pem'), '--do_not_generate_fec'])
+        self.hashtree(content, payload, 'fixture_payload', role=payload_role)
         payload_public = self.keys.avb()
         if payload_role != 'avb':
             payload_public = root / 'independent-wrong-payload.pub.pem'
@@ -176,26 +174,17 @@ class NativeSignatureTests(unittest.TestCase):
         if tamper_payload:
             self.tamper_image(payload, 1024 * 1024)
         unsigned = root / 'unsigned.apex'
-        with zipfile.ZipFile(unsigned, 'w') as archive:
-            with zipfile.ZipFile(self.unsigned_apk) as apk:
-                archive.writestr('AndroidManifest.xml', apk.read('AndroidManifest.xml'))
-            archive.write(payload, 'apex_payload.img')
+        self.apex_archive(unsigned, 'apex_payload.img', payload)
         apex = self.sign_apk(unsigned, container_role, root / 'Fixture.apex')
         self.tools.apk(apex, self.keys.fingerprints[container_role])
         target = root / 'target-files.zip'
         logical = 'SYSTEM/apex/Fixture.apex'
-        with zipfile.ZipFile(target, 'w') as archive:
-            archive.write(apex, logical)
-            archive.writestr('META/apkcerts.txt', '')
-            archive.writestr('META/apexkeys.txt',
-                             'name="Fixture.apex" container_certificate="releasekey.x509.pem"\n')
+        write_zip(target, {logical: apex, 'META/apkcerts.txt': '',
+                          'META/apexkeys.txt': 'name="Fixture.apex" container_certificate="releasekey.x509.pem"\n'})
         plan = {'metadata': za.package_metadata_shape(za.metadata(target)), 'packages': {
-            logical: {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
-                      'certificate_sha256': self.keys.fingerprints['releasekey'],
-                      'payload_key_sha256': inputs.sha256_file(self.keys.avb())},
-            logical + '!/app/Fixture/Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                      'certificate_sha256': self.keys.fingerprints['releasekey'],
-                      'package_id': 'de.diamaneos.signingfixture'}}}
+            logical: apex_plan(self.keys.fingerprints['releasekey'], self.keys.avb()),
+            logical + '!/app/Fixture/Fixture.apk': apk_plan('releasekey', self.keys.fingerprints['releasekey'],
+                                                          'de.diamaneos.signingfixture')}}
         return target, plan
 
     def assert_apex_rejected_at(self, target, plan, boundary):
@@ -256,7 +245,7 @@ class NativeSignatureTests(unittest.TestCase):
 
     def test_native_apex_compressed_container_payload_and_enclosed_apk(self):
         archive = self.root / 'capex-target.zip'
-        with zipfile.ZipFile(archive, 'w') as z: z.write(self.capex, 'SYSTEM/apex/Fixture.capex')
+        write_zip(archive, {'SYSTEM/apex/Fixture.capex': self.capex})
         counts = {'apk': 0, 'apex': 0, 'payload': 0}
         for kind, logical, path in native.package_members(archive, self.tools):
             if kind == 'payload': self.tools.avb(path, self.keys.avb(), payload=True)
@@ -417,41 +406,25 @@ class NativeSignatureTests(unittest.TestCase):
         publication_root = self.root / 'publication'; publication_root.mkdir()
         for source, name in [(self.target, 'target-files.zip'), (self.ota, 'ota.zip')]: shutil.copyfile(source, publication_root / name)
         images = publication_root / 'images.zip'
-        with zipfile.ZipFile(images, 'w') as z:
-            z.write(self.boot, 'boot.img'); z.write(self.vbmeta, 'vbmeta.img'); z.write(self.system, 'system.img')
+        write_zip(images, {p.name: p for p in (self.boot, self.vbmeta, self.system)})
         factory = publication_root / 'factory.tar'
         with tarfile.open(factory, 'w') as t: t.add(images, arcname=images.name)
         inputs.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', self.private / 'factory', '-n', 'factory images', factory], env=self.tools.env)
         policy = inputs.load_json(inputs.DEFAULT_CONFIG)
-        metadata = za.metadata(self.target)
         logical = 'SYSTEM/app/Fixture/Fixture.apk'
-        plan = {'schema_version': 2, 'mode': 'qualification', 'policy_sha256': inputs.canonical_sha256(policy),
-                'key_inventory_sha256': inputs.canonical_sha256(self.inventory),
-                'public_material_sha256': inputs.canonical_sha256(self.keys.files), 'public_identities': self.keys.public_ids,
-                'provenance': self.provenance, 'changed_projects': [], 'metadata': za.package_metadata_shape(metadata),
-                'roles': {'Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None},
-                          'Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb'}},
-                'mac_permissions': {self.mac_member: [{'certificates': [self.keys.fingerprints['releasekey']],
-                                                     'seinfo': 'default', 'packages': {}}]},
-                'packages': {logical: {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                                      'certificate_sha256': self.keys.fingerprints['releasekey'],
-                                      'package_id': 'de.diamaneos.signingfixture'},
-                             'SYSTEM/apex/Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb',
-                                      'certificate_sha256': self.keys.fingerprints['releasekey'],
-                                      'payload_key_sha256': inputs.sha256_file(self.keys.avb())},
-                             'SYSTEM/apex/Fixture.apex!/app/Fixture/Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None,
-                                      'certificate_sha256': self.keys.fingerprints['releasekey'],
-                                      'package_id': 'de.diamaneos.signingfixture'}},
-                'partitions': ['boot', 'system', 'vbmeta'], 'chains': {}, 'passthrough_images': {}, 'previous_artifacts': {}}
-        plan['plan_sha256'] = inputs.canonical_sha256(plan)
-        names = ['target-files.zip', 'images.zip', 'ota.zip', 'factory.tar', 'factory.tar.sig']
-        record = publication_root / 'release.json'
-        record.write_text(json.dumps({'schema_version': 1, 'plan_sha256': plan['plan_sha256'],
-                                      'artifacts': {name: inputs.sha256_file(publication_root / name) for name in names}}))
+        packages = {logical: apk_plan('releasekey', self.keys.fingerprints['releasekey'], 'de.diamaneos.signingfixture'),
+                    'SYSTEM/apex/Fixture.apex': apex_plan(self.keys.fingerprints['releasekey'], self.keys.avb()),
+                    'SYSTEM/apex/Fixture.apex!/app/Fixture/Fixture.apk':
+                        apk_plan('releasekey', self.keys.fingerprints['releasekey'], 'de.diamaneos.signingfixture')}
+        plan = publication_plan(self.target, packages, self.keys, self.provenance, policy,
+            roles={'Fixture.apk': {'kind': 'apk', 'container': 'releasekey', 'payload': None},
+                   'Fixture.apex': {'kind': 'apex', 'container': 'releasekey', 'payload': 'avb'}},
+            mac_permissions={self.mac_member: [{'certificates': [self.keys.fingerprints['releasekey']],
+                                                'seinfo': 'default', 'packages': {}}]},
+            partitions=['boot', 'system', 'vbmeta'])
+        publication = publication_description()
+        record = release_record(publication_root, plan, publication)
         inputs.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', self.private / 'factory', '-n', 'diamaneos-release-record', record], env=self.tools.env)
-        publication = {'schema_version': 1, 'signed_target_files': 'target-files.zip', 'images_archive': 'images.zip',
-                       'ota': [{'file': 'ota.zip', 'source_target_files': None}], 'factory_archive': 'factory.tar',
-                       'factory_signature': 'factory.tar.sig', 'release_record': 'release.json', 'release_signature': 'release.json.sig'}
         # Source checkout verification has its own Git fixtures; cryptography here remains native.
         with patch.object(api, 'source_files', return_value={}):
             result = api.verify_publication(plan, publication, publication_root, policy, self.tools, self.keys)

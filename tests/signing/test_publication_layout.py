@@ -1,20 +1,15 @@
 """Publication layout and byte consistency fixtures; no native signature proof."""
 import hashlib
-import io
 from pathlib import Path
 import stat
-import sys
 import tarfile
-import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
-import warnings
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'src'))
 from diamaneos_tools import signing_inputs as inputs, signing_layout as layout, signing_verify as api
+from .fixtures import TemporaryInputs, write_tar, write_zip
 
 
 def fixture_images():
@@ -29,14 +24,6 @@ def fixture_images():
     images = {name + '.img': data for name, data in partitions.items()}
     images.update(passthrough)
     return plan, partitions, images
-
-
-def write_zip(path, members):
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', UserWarning)
-        with zipfile.ZipFile(path, 'w') as archive:
-            for name, data in members:
-                archive.writestr(name, data)
 
 
 class ImageMembersTests(unittest.TestCase):
@@ -87,15 +74,18 @@ class ImageMembersTests(unittest.TestCase):
             layout.image_members(plan, observed | {'super.img'})
 
 
-class ImageArchiveBoundaryTests(unittest.TestCase):
+class ImageArchiveInputs(TemporaryInputs):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        super().setUp()
         self.plan, self.partitions, self.images = fixture_images()
         self.target = self.root / 'target-files.zip'
         self.published = self.root / 'images.zip'
         write_zip(self.target, [('IMAGES/' + name + '.img', data) for name, data in self.partitions.items()])
+
+
+class ImageArchiveBoundaryTests(ImageArchiveInputs, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
         # Rejected layout must stop before any native method or key is needed.
         self.tools = SimpleNamespace(scratch=self.root, run=self.native_forbidden)
         self.keys = SimpleNamespace(avb=self.native_forbidden)
@@ -135,16 +125,10 @@ class ImageArchiveBoundaryTests(unittest.TestCase):
                 self.refuse([*self.images.items(), (name, b'fixture')])
 
 
-class SuperRepresentationTests(unittest.TestCase):
+class SuperRepresentationTests(ImageArchiveInputs, unittest.TestCase):
     """Only unpacking and downstream signature checks are controlled test seams."""
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
-        self.plan, self.partitions, self.images = fixture_images()
-        self.target = self.root / 'target-files.zip'
-        self.published = self.root / 'images.zip'
-        write_zip(self.target, [('IMAGES/' + name + '.img', data) for name, data in self.partitions.items()])
+        super().setUp()
         self.unpacked = {name + '_a.img': self.partitions[name] for name in ('system', 'vendor')}
         self.unpacked.update({'system_b.img': b'', 'vendor_b.img': b''})
         self.tools = SimpleNamespace(scratch=self.root, run=Mock(side_effect=self.unpack))
@@ -220,26 +204,16 @@ class SuperRepresentationTests(unittest.TestCase):
                 self.unpacked = original
 
 
-class FactoryContentsTests(unittest.TestCase):
+class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        super().setUp()
         self.images = self.root / 'fixture-publication-images.zip'
         write_zip(self.images, [('boot.img', b'fixture partition')])
         self.data = self.images.read_bytes()
         self.factory = self.root / 'factory.tar'
 
     def factory_members(self, entries):
-        with tarfile.open(self.factory, 'w') as archive:
-            for name, data, kind in entries:
-                member = tarfile.TarInfo(name)
-                member.type = kind
-                if kind in (tarfile.SYMTYPE, tarfile.LNKTYPE):
-                    member.linkname = self.images.name
-                if kind == tarfile.REGTYPE:
-                    member.size = len(data)
-                archive.addfile(member, io.BytesIO(data) if kind == tarfile.REGTYPE else None)
+        write_tar(self.factory, entries, linkname=self.images.name)
 
     def image_entry(self):
         return self.images.name, self.data, tarfile.REGTYPE

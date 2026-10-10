@@ -3,15 +3,12 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
-import sys
-import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
 from diamaneos_tools.signing_verify import apk_certificate_digests, SigningError
 from diamaneos_tools import signing_inputs as inputs, signing_native as native
+from .fixtures import TemporaryInputs
 
 
 class ApkCertificateTest(unittest.TestCase):
@@ -86,13 +83,11 @@ class ApkCertificateTest(unittest.TestCase):
             self.production(self.output(digest='e' * 64))
 
 
-class SourceBytesTests(unittest.TestCase):
+class SourceBytesTests(TemporaryInputs, unittest.TestCase):
     """Real disposable Git trees; no native signer or Android build executes."""
 
     def setUp(self):
-        temp = tempfile.TemporaryDirectory(prefix='source-bytes-')
-        self.addCleanup(temp.cleanup)
-        self.root = Path(temp.name).resolve()
+        super().setUp()
         self.files = {
             'script': {'generate-release.sh': b'release\n', 'generate-delta.sh': b'delta\n', 'common.sh': b'common\n'},
             'build/make': {'tools/releasetools/check_ota_package_signature.py': b'checker\n',
