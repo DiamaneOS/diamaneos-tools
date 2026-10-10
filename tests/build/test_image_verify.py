@@ -1588,18 +1588,22 @@ class FirmwareCheckTests(unittest.TestCase):
         v.record = {'stock_build': self.record['stock_build']}
         self.assertEqual((False, 'the image set carries no firmware'), subject.check_firmware(v))
 
-    def test_an_ota_carries_all_ab_firmware_or_none(self):
+    def test_an_update_carries_the_ab_firmware(self):
         os_only = b'boot\nsystem\nvendor\npvmfw\n'
         ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only}))
-        self.assertTrue(ok)
-        self.assertIn('names no firmware partition', detail)
+        self.assertFalse(ok)
+        self.assertIn('lacks firmware: abl, modem, xbl', detail)
         radio = {'RADIO/abl.img': self.data['abl.elf'], 'RADIO/modem.img': self.data['NON-HLOS.bin'],
-                 'RADIO/studybk.img': self.data['study.img'], 'IMAGES/xbl.img': self.data['xbl_s.melf']}
-        listed = os_only + b'abl\nmodem\nstudybk\nxbl\n'
+                 'IMAGES/xbl.img': self.data['xbl_s.melf']}
+        listed = os_only + b'abl\nmodem\nxbl\n'
         self.assertEqual((True, ''), subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **radio})))
         ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only + b'modem\n', **radio}))
         self.assertFalse(ok)
-        self.assertIn('missing: abl, studybk, xbl', detail)
+        self.assertIn('lacks firmware: abl, xbl', detail)
+        # State and single-copy firmware partitions are never in an update.
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed + b'studybk\nstorsec\n', **radio}))
+        self.assertFalse(ok)
+        self.assertIn('names firmware no update may write: storsec, studybk', detail)
         changed = dict(radio, **{'RADIO/modem.img': b'other modem'})
         ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
         self.assertFalse(ok)

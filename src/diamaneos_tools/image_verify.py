@@ -1397,19 +1397,21 @@ def check_firmware(v):
 
 
 def check_firmware_ota(v):
-    """An A/B update carries the whole A/B firmware of the release, byte for
-    byte, or none of it: a partial set would mix two releases' firmware."""
+    """Every A/B update carries the A/B firmware of the release, byte for byte,
+    and writes no other firmware partition: a locked phone gets firmware only
+    this way, and a partial set would mix two releases' firmware."""
     expected = firmware.plan(v.firmware_inventory, v.config['firmware'])
-    wanted = firmware.ab_partitions(expected)
+    image_of = firmware.update_partitions(expected, v.config['firmware'])
     listed = set(v.tf.read('META/ab_partitions.txt').decode().split())
-    if not listed & set(wanted):
-        return True, 'the OTA partition list names no firmware partition'
-    missing = sorted(set(wanted) - listed)
-    if missing:
-        return False, 'the OTA partition list names only part of the A/B firmware; missing: ' + ', '.join(missing)
-    image_of = {s['partition'][:-2]: s['image'] for s in expected['steps'] if s['partition'].endswith('_a')}
     problems = []
-    for partition in wanted:
+    missing = sorted(set(image_of) - listed)
+    if missing:
+        problems.append('the update partition list lacks firmware: ' + ', '.join(missing))
+    others = {s['partition'].removesuffix('_a').removesuffix('_b') for s in expected['steps']} - set(image_of)
+    if listed & others:
+        problems.append('the update partition list names firmware no update may write: '
+                        + ', '.join(sorted(listed & others)))
+    for partition in image_of:
         # The release tools take IMAGES/ first, then RADIO/.
         member = next((m for m in (f'IMAGES/{partition}.img', f'RADIO/{partition}.img') if m in v.tf.infos), None)
         if member is None:
@@ -1449,8 +1451,8 @@ GENERIC = [
     ('firmware', 'The set carries every firmware image of the stock release its vendor files come from, byte for '
      'byte as the firmware inventory pins it, with the stock flash order and the declared modem file system reset '
      'images; no image lowers a Qualcomm anti-rollback version.', check_firmware),
-    ('firmware-ota', 'An A/B update built from this target-files carries the whole A/B firmware of that release, '
-     'byte for byte, or none of it.', check_firmware_ota),
+    ('firmware-ota', 'An A/B update built from this target-files carries the A/B firmware of that release, '
+     'byte for byte, and writes no other firmware partition.', check_firmware_ota),
 ]
 
 

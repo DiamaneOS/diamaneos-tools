@@ -301,8 +301,8 @@ or deleted files):
   - The wipe images.
   - The firmware (every image of the release byte for byte as the inventory pins it, the stock
     order, the reset images, no lower anti-rollback version).
-  - And an A/B partition list in target-files that holds all A/B firmware partitions with stock
-    bytes or none of them.
+  - And an update partition list in target-files that holds every A/B firmware partition with
+    stock bytes and no other firmware partition.
   - Then every rule in `config/fp6-image-checks.json`: the per-build device checks, each with the
     reason it exists and, where it matters, the variants it applies to and whether it checks
     official builds or the others.
@@ -705,7 +705,8 @@ stock carrier configuration resources; its hash is recorded in the generated pro
   --image-tools "$IMAGE_TOOLS" --output "$WORK_ROOT/stock-files" [--record-tools]
 "$TOOLS_ROOT/bin/diamaneos" vendor product \
   --inputs "$(realpath "$WORK_ROOT/stock-files/current")" \
-  --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2"
+  --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2" \
+  --factory-zip "$FACTORY_ZIP"
 ```
 
 `NOTICE_KIND` is the Android build-system notice kind for these inputs; the build commands take it

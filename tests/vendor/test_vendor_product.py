@@ -1228,7 +1228,8 @@ class NativeProductTests(unittest.TestCase):
         for table in (b'', None, 'image tz 16.111.0 1 ' + '0' * 64 + '\n'):
             with self.subTest(table=table), self.assertRaisesRegex(VendorError, 'firmware release table'):
                 vendor_product.generate(self.recipe, self.selection, ROOT / 'missing', ROOT / 'missing',
-                                        notice_kind='legacy_proprietary', stock=stock, firmware_releases=table)
+                                        notice_kind='legacy_proprietary', stock=stock, firmware_releases=table,
+                                        firmware_inventory={}, firmware_policy={}, factory_zip=ROOT / 'missing')
 
     def test_camera_provider_rc_rewrite_is_pinned_to_the_recipe(self):
         path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
@@ -1330,3 +1331,44 @@ class NativeProductTests(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class UpdateFirmwareTests(unittest.TestCase):
+    """The A/B firmware every update carries, as the generated vendor tree holds it."""
+
+    def setUp(self):
+        import tempfile
+        from tests.build.test_firmware import synthetic_firmware
+        from diamaneos_tools import firmware
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.inventory, self.policy, self.archive, self.data = synthetic_firmware(self.root)
+        self.plan = firmware.plan(self.inventory, self.policy)
+        self.update = firmware.update_partitions(self.plan, self.policy)
+
+    def test_make_fragments_name_every_update_partition(self):
+        partitions = ['abl', 'vm-bootsys', 'xbl_config']
+        self.assertEqual(b'AB_OTA_PARTITIONS += \\\n    abl \\\n    vm-bootsys \\\n    xbl_config\n',
+                         vendor_product.update_firmware_list(partitions))
+        makefile = vendor_product.update_firmware_makefile(partitions).decode()
+        self.assertIn('LOCAL_PATH := $(call my-dir)\n', makefile)
+        self.assertEqual(['$(call add-radio-file,radio/abl.img)', '$(call add-radio-file,radio/vm-bootsys.img)',
+                          '$(call add-radio-file,radio/xbl_config.img)'],
+                         [line for line in makefile.splitlines() if line.startswith('$(call')])
+        for bad in ([], ['abl', '../x'], ['a b'], ['Modem']):
+            self.assertRaises(VendorError, vendor_product.update_firmware_list, bad)
+
+    def test_images_are_staged_under_partition_names_with_the_stock_bytes(self):
+        radio = self.root / 'radio'
+        vendor_product.stage_update_firmware(self.archive, self.inventory, self.plan, self.update,
+                                             self.root / 'scratch', radio)
+        self.assertEqual(sorted(p + '.img' for p in self.update), sorted(p.name for p in radio.iterdir()))
+        for partition, image in self.update.items():
+            self.assertEqual(self.data[image], (radio / (partition + '.img')).read_bytes())
+        self.assertEqual([], list((self.root / 'scratch').iterdir()))
+
+    def test_a_changed_factory_package_is_refused(self):
+        from diamaneos_tools import firmware
+        self.archive.write_bytes(self.archive.read_bytes() + b'x')
+        self.assertRaises(firmware.FirmwareError, vendor_product.stage_update_firmware, self.archive,
+                          self.inventory, self.plan, self.update, self.root / 'scratch', self.root / 'radio')

@@ -170,6 +170,9 @@
       "logfs_ufs_8mb.bin": "An empty log filesystem for logfs, the single partition the firmware keeps logs in. Stock writes it on every flash; DiamaneOS writes it only with a wipe, as an A/B update never writes it.",
       "vm-persist.img": "An empty filesystem for vm-persist, the single partition the trusted VMs keep their data in. Stock writes it on every flash; DiamaneOS writes it only with a wipe, as an A/B update never writes it."
     },
+    "update_skips": {
+      "study.img": "Fairphone's study partitions hold state written at run time. An A/B update leaves them alone, as it leaves every other state partition."
+    },
     "reset": {
       "modemst1": {
         "image": "modemst1.img",

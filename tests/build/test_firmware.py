@@ -105,14 +105,20 @@ class CommittedInventoryTests(unittest.TestCase):
         self.assertNotIn('pvmfw_a', partitions)
         self.assertEqual(3, len([s for s in steps if s['image'] == 'study.img']))
 
-    def test_ota_partitions_are_the_ab_firmware_partitions(self):
+    def test_an_update_carries_the_ab_firmware_but_no_state_partition(self):
+        policy = self.config['firmware']
+        update = firmware.update_partitions(self.plan, policy)
         self.assertEqual(['abl', 'aop', 'aop_config', 'bluetooth', 'cpucp', 'cpucp_dtb', 'devcfg', 'dsp',
                           'featenabler', 'hyp', 'imagefv', 'keymaster', 'modem', 'multiimgoem', 'qupfw', 'shrm',
-                          'studybk', 'tz', 'uefi', 'uefisecapp', 'vm-bootsys', 'xbl', 'xbl_config', 'xbl_ramdump'],
-                         firmware.ab_partitions(self.plan))
+                          'tz', 'uefi', 'uefisecapp', 'vm-bootsys', 'xbl', 'xbl_config', 'xbl_ramdump'],
+                         list(update))
+        self.assertEqual(('NON-HLOS.bin', 'xbl_s.melf'), (update['modem'], update['xbl']))
+        # Fairphone's study partitions hold run-time state: flashed, never updated.
+        self.assertEqual(['study.img'], list(policy['update_skips']))
+        self.assertIn('studybk', firmware.update_partitions(self.plan, dict(policy, update_skips={})))
         device_ab = {'boot', 'dtbo', 'init_boot', 'odm', 'product', 'pvmfw', 'recovery', 'system', 'system_dlkm',
                      'system_ext', 'vbmeta', 'vbmeta_system', 'vendor', 'vendor_boot', 'vendor_dlkm'}
-        self.assertFalse(device_ab & set(firmware.ab_partitions(self.plan)))
+        self.assertFalse(device_ab & set(update))
 
     def test_no_shipped_image_lowers_the_qualcomm_anti_rollback_version(self):
         self.assertEqual([], firmware.anti_rollback_problems(self.inventory, self.plan['release']))
@@ -147,7 +153,12 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(set(FIRMWARE) - {'pvmfw.img'}, set(plan['images']))
         self.assertEqual(['abl_a', 'abl_b', 'logfs', 'modem_a', 'modem_b', 'storsec', 'study', 'studybk_a',
                           'studybk_b', 'vm-persist', 'xbl_a', 'xbl_b'], [s['partition'] for s in plan['steps']])
-        self.assertEqual(['abl', 'modem', 'studybk', 'xbl'], firmware.ab_partitions(plan))
+        self.assertEqual({'abl': 'abl.elf', 'modem': 'NON-HLOS.bin', 'xbl': 'xbl_s.melf'},
+                         firmware.update_partitions(plan, self.policy))
+        self.assertEqual(['abl', 'modem', 'studybk', 'xbl'],
+                         list(firmware.update_partitions(plan, dict(self.policy, update_skips={}))))
+        self.assertRaises(firmware.FirmwareError, firmware.plan, self.inventory,
+                          dict(self.policy, update_skips={'missing.img': 'state'}))
 
     def test_incomplete_or_inconsistent_inventories_are_refused(self):
         def broken(change):
