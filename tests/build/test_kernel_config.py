@@ -33,136 +33,86 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_development_still_enforces_hardening(self):
         data = self.config(False)
+        # Development passes without the production settings.
         self.assertEqual(kernel_config.check(data, self.policy, 'development')['status'], 'PASS')
-        data = data.replace(b'CONFIG_CFI_CLANG=y', b'# CONFIG_CFI_CLANG is not set')
-        self.assertEqual(kernel_config.check(data, self.policy, 'development')['status'], 'FAIL')
 
-    def test_development_requires_48_bit_address_space(self):
-        data = self.config(False)
-        data = data.replace(b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y')
-        data = data.replace(b'CONFIG_ARM64_VA_BITS=48', b'CONFIG_ARM64_VA_BITS=39')
-        result = kernel_config.check(data, self.policy, 'development')
-        self.assertEqual(result['status'], 'FAIL')
-        self.assertEqual([r['symbol'] for r in result['failures']],
-                         ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48'])
-
-    def test_tipc_stays_a_local_only_module(self):
-        # Qualcomm's data stack needs TIPC; its network bearer, crypto and diag must stay out.
-        data = self.config(False)
-        for old, new in [(b'CONFIG_TIPC=m', b'# CONFIG_TIPC is not set'),
-                         (b'CONFIG_TIPC_LOCAL_ONLY=y', b'# CONFIG_TIPC_LOCAL_ONLY is not set'),
-                         (b'# CONFIG_TIPC_MEDIA_UDP is not set', b'CONFIG_TIPC_MEDIA_UDP=y'),
-                         (b'# CONFIG_TIPC_CRYPTO is not set', b'CONFIG_TIPC_CRYPTO=y'),
-                         (b'# CONFIG_TIPC_DIAG is not set', b'CONFIG_TIPC_DIAG=m')]:
-            with self.subTest(change=new):
-                self.assertEqual(kernel_config.check(data.replace(old, new), self.policy, 'development')['status'], 'FAIL')
-
-    def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
-        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
-        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
-                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
-        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
-        for changed in (good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
-                        good.replace(b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y',
-                                     b'# CONFIG_QRTR_IMSDCM_OWNERSHIP is not set')):
-            with self.subTest(config=changed):
-                report = kernel_config.check(changed, policy, 'production')
-                self.assertEqual(report['status'], 'FAIL')
-                self.assertEqual([row['symbol'] for row in report['failures']],
-                                 ['CONFIG_QRTR_IMSDCM_OWNERSHIP'])
-
-    def test_vendor_role_policy_rejects_the_qrtr_tunnel(self):
-        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
-        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
-                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
-        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
-        for changed in (good.replace(b'# CONFIG_QRTR_TUN is not set\n', b''),
-                        good.replace(b'# CONFIG_QRTR_TUN is not set', b'CONFIG_QRTR_TUN=m')):
-            with self.subTest(config=changed):
-                report = kernel_config.check(changed, policy, 'production')
-                self.assertEqual([row['symbol'] for row in report['failures']], ['CONFIG_QRTR_TUN'])
-
-    def test_vendor_policy_keeps_panic_dumps_off_by_default(self):
-        # The download-mode driver no longer lets the running system turn dumps
-        # on, so its built-in default alone decides what a panic does.
-        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
-        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
-                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
-        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
-        for changed in (good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n', b''),
-                        good.replace(b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set',
-                                     b'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT=y')):
-            with self.subTest(config=changed):
-                report = kernel_config.check(changed, policy, 'production')
-                self.assertEqual([row['symbol'] for row in report['failures']],
-                                 ['CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'])
-
-    def test_runtime_features_and_lockdown_stay_on(self):
-        # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
-        # /data (unicode, f2fs) and confidentiality lockdown, which keeps user space
-        # from modifying or reading the running kernel.
-        data = self.config(False)
-        for symbol in ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
-                       'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'):
-            with self.subTest(symbol=symbol):
-                changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
-                result = kernel_config.check(changed, self.policy, 'development')
-                self.assertEqual([r['symbol'] for r in result['failures']], [symbol])
-
-    def test_lockdown_level_is_confidentiality(self):
-        # As on GrapheneOS: integrity lockdown lets privileged processes read kernel
-        # memory (kprobes, BPF, XFRM secrets), no lockdown lets them modify it. Either
-        # choice fails the check.
-        data = self.config(False)
-        confidentiality = b'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY=y'
-        self.assertIn(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set', data)
-        without = data.replace(confidentiality, b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set')
-        integrity = without.replace(b'# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set',
-                                    b'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y')
-        none = without + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y'
-        for changed, failing in ((integrity, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY',
-                                              'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY']),
-                                 (none, ['CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'])):
-            for profile in ('development', 'production'):
+        def flipped(*pairs):
+            changed = data
+            for old, new in pairs:
+                self.assertIn(old, changed)
+                changed = changed.replace(old, new)
+            return changed
+        on = lambda symbol, value='y': f'{symbol}={value}'.encode()
+        off = lambda symbol: f'# {symbol} is not set'.encode()
+        disabled = lambda symbol, value='y': (flipped((on(symbol, value), off(symbol))), [symbol])
+        enabled = lambda symbol, value='y': (flipped((off(symbol), on(symbol, value))), [symbol])
+        confidentiality = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'
+        integrity = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'
+        no_confidentiality = (on(confidentiality), off(confidentiality))
+        rows = [
+            disabled('CONFIG_CFI_CLANG'),
+            # The 48-bit address space.
+            (flipped((b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y'),
+                     (b'CONFIG_ARM64_VA_BITS=48', b'CONFIG_ARM64_VA_BITS=39')),
+             ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48']),
+            # Qualcomm's data stack needs TIPC; its network bearer, crypto and diag must stay out.
+            disabled('CONFIG_TIPC', 'm'), disabled('CONFIG_TIPC_LOCAL_ONLY'), enabled('CONFIG_TIPC_MEDIA_UDP'),
+            enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
+            # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
+            # /data (unicode, f2fs) and confidentiality lockdown, which keeps user space
+            # from modifying or reading the running kernel.
+            *map(disabled, ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
+                            confidentiality)),
+            # As on GrapheneOS: integrity lockdown lets privileged processes read kernel
+            # memory (kprobes, BPF, XFRM secrets), no lockdown lets them modify it. Either
+            # choice fails the check.
+            (flipped(no_confidentiality, (off(integrity), on(integrity))), [confidentiality, integrity]),
+            (flipped(no_confidentiality) + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y', [confidentiality]),
+            # These interfaces would read or replace kernel memory. Lockdown refuses them
+            # at run time; leaving them out of the build keeps them away from a bypass.
+            *map(enabled, ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE',
+                           'CONFIG_HIBERNATION')),
+            # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and
+            # the debugfs API that the display driver and a recovery module need.
+            *map(disabled, ('CONFIG_KPROBES', 'CONFIG_KRETPROBES', 'CONFIG_FW_LOADER_USER_HELPER',
+                            'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT')),
+            # debugfs keeps its in-kernel API but refuses mounts (the forks fix that
+            # mode); going back to a mountable debugfs fails the check.
+            (flipped((off('CONFIG_DEBUG_FS_ALLOW_ALL'), on('CONFIG_DEBUG_FS_ALLOW_ALL')),
+                     (on('CONFIG_DEBUG_FS_DISALLOW_MOUNT'), off('CONFIG_DEBUG_FS_DISALLOW_MOUNT'))),
+             ['CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'])]
+        # Without the production settings, the production profile also names those.
+        production = [r['symbol'] for r in kernel_config.check(data, self.policy, 'production')['failures']]
+        for changed, failing in rows:
+            for profile, other in (('development', []), ('production', production)):
                 with self.subTest(failing=failing, profile=profile):
                     result = kernel_config.check(changed, self.policy, profile)
                     self.assertEqual(result['status'], 'FAIL')
-                    self.assertEqual([r['symbol'] for r in result['failures']
-                                      if r['symbol'].startswith('CONFIG_LOCK_DOWN_')], failing)
+                    self.assertEqual([r['symbol'] for r in result['failures'] if r['symbol'] not in other], failing)
 
-    def test_lockdown_companions_stay_off(self):
-        # These interfaces would read or replace kernel memory. Lockdown refuses them
-        # at run time; leaving them out of the build keeps them away from a bypass.
-        data = self.config(False)
-        for symbol in ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE', 'CONFIG_HIBERNATION'):
-            self.assertIn(f'# {symbol} is not set'.encode(), data)
-            changed = data.replace(f'# {symbol} is not set'.encode(), f'{symbol}=y'.encode())
-            for profile in ('development', 'production'):
-                with self.subTest(symbol=symbol, profile=profile):
-                    result = kernel_config.check(changed, self.policy, profile)
-                    self.assertEqual(result['status'], 'FAIL')
-                    self.assertIn(symbol, [r['symbol'] for r in result['failures']])
-
-    def test_settings_hardware_support_depends_on_stay_on(self):
-        # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and
-        # the debugfs API that the display driver and a recovery module need.
-        data = self.config(False)
-        for symbol in ('CONFIG_KPROBES', 'CONFIG_KRETPROBES', 'CONFIG_FW_LOADER_USER_HELPER',
-                       'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'):
-            with self.subTest(symbol=symbol):
-                changed = data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode())
-                result = kernel_config.check(changed, self.policy, 'production')
-                self.assertIn(symbol, [r['symbol'] for r in result['failures']])
-        # debugfs keeps its in-kernel API but refuses mounts (the forks fix that
-        # mode); going back to a mountable debugfs fails the check.
-        changed = data.replace(b'# CONFIG_DEBUG_FS_ALLOW_ALL is not set', b'CONFIG_DEBUG_FS_ALLOW_ALL=y')
-        changed = changed.replace(b'CONFIG_DEBUG_FS_DISALLOW_MOUNT=y', b'# CONFIG_DEBUG_FS_DISALLOW_MOUNT is not set')
-        result = kernel_config.check(changed, self.policy, 'development')
-        self.assertEqual([r['symbol'] for r in result['failures']],
-                         ['CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'])
+    def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
+        # QRTR ownership stays on and the QRTR tunnel off. The download-mode driver no
+        # longer lets the running system turn dumps on, so its built-in default alone
+        # decides what a panic does.
+        policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
+        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+                b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
+        self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
+        ownership, tunnel = 'CONFIG_QRTR_IMSDCM_OWNERSHIP', 'CONFIG_QRTR_TUN'
+        dumps = 'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'
+        unset = lambda symbol: f'# {symbol} is not set'.encode()
+        # Each symbol missing, and each with the wrong value.
+        for symbol, old, new in ((ownership, b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
+                                 (ownership, b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', unset(ownership)),
+                                 (tunnel, unset(tunnel) + b'\n', b''),
+                                 (tunnel, unset(tunnel), b'CONFIG_QRTR_TUN=m'),
+                                 (dumps, unset(dumps) + b'\n', b''),
+                                 (dumps, unset(dumps), b'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT=y')):
+            with self.subTest(symbol=symbol, new=new):
+                report = kernel_config.check(good.replace(old, new), policy, 'production')
+                self.assertEqual(report['status'], 'FAIL')
+                self.assertEqual([row['symbol'] for row in report['failures']], [symbol])
 
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')

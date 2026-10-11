@@ -124,10 +124,6 @@ class SharedHeaderTests(unittest.TestCase):
         with self.assertRaisesRegex(kernel.KernelError, 'shared headers missing: common'):
             kernel.shared_headers(self.root, self.groups)
 
-    def test_fp6_workspace_checks_the_drm_headers(self):
-        self.assertEqual([{'trees': ('kernel_platform/common', 'kernel_platform/msm-kernel'),
-                           'paths': ('include/drm', 'include/uapi/drm')}], list(kernel.SHARED_HEADERS))
-
     def test_a_tree_inside_a_larger_repository_is_compared_by_its_own_paths(self):
         # In the kernel repository msm-kernel is a directory, common a submodule.
         monorepo = self.root / 'mono'

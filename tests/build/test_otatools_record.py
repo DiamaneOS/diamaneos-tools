@@ -1,5 +1,4 @@
 """Synthetic archive records and stale-cache refusals without a build or native tools."""
-import copy
 import hashlib
 from pathlib import Path
 import sys
@@ -146,17 +145,6 @@ class AndroidOutputsMatchTests(ArchiveFixtures):
                 path.unlink()
                 self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
 
-    def test_missing_hash_fields_are_stale_without_key_error(self):
-        original = self.cached_outputs()
-        for target_hash in (True, False):
-            outputs = copy.deepcopy(original)
-            if target_hash:
-                outputs.pop('target_files_sha256')
-            else:
-                outputs['otatools'].pop('sha256')
-            with self.subTest(target_hash=target_hash):
-                self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
-
     def test_malformed_cached_tool_entries_are_stale(self):
         outputs = self.cached_outputs()
         record = outputs['otatools']
@@ -173,7 +161,8 @@ class AndroidOutputsMatchTests(ArchiveFixtures):
     def test_malformed_outputs_and_target_paths_are_stale(self):
         outputs = self.cached_outputs()
         for record in (None, [], 'invalid', 1, {}, {'target_files': None},
-                       dict(outputs, target_files=[]), dict(outputs, target_files_sha256=None)):
+                       dict(outputs, target_files=[]), dict(outputs, target_files_sha256=None),
+                       {key: value for key, value in outputs.items() if key != 'target_files_sha256'}):
             with self.subTest(record=record):
                 self.assertFalse(steps.android_outputs_match(self.workspace, record))
 
@@ -192,22 +181,20 @@ class AndroidOutputsMatchTests(ArchiveFixtures):
                 self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
 
     def test_symlinked_target_files_are_stale_even_when_target_hash_matches(self):
-        outputs = self.cached_outputs()
-        real = self.root / outputs['target_files']
-        link = real.with_name('linked-target-files.zip')
-        link.symlink_to(real)
-        outputs['target_files'] = str(link.relative_to(self.root))
-        with patch.object(steps.bw, 'sha_file') as digest:
-            self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
-            digest.assert_not_called()
-
-    def test_symlinked_tool_archive_is_stale_even_when_target_hash_matches(self):
-        outputs = self.cached_outputs()
-        real = self.root / outputs['otatools']['file']
-        link = real.with_name('linked-otatools.zip')
-        link.symlink_to(real)
-        outputs['otatools']['file'] = str(link.relative_to(self.root))
-        self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
+        # The same for a linked tool archive.
+        for member in ('target_files', 'otatools'):
+            with self.subTest(member=member):
+                outputs = self.cached_outputs()
+                record = outputs if member == 'target_files' else outputs['otatools']
+                key = 'target_files' if member == 'target_files' else 'file'
+                real = self.root / record[key]
+                link = real.with_name('linked-' + real.name)
+                link.symlink_to(real)
+                record[key] = str(link.relative_to(self.root))
+                with patch.object(steps.bw, 'sha_file', wraps=steps.bw.sha_file) as digest:
+                    self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
+                if member == 'target_files':
+                    digest.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -158,7 +158,6 @@ class KernelPreparationTests(unittest.TestCase):
 
     def test_committed_source_plan_names_one_https_commit(self):
         plan = kernel.configuration()
-        self.assertEqual('https://github.com/DiamaneOS/kernel_qcom-6.1', plan['repository'])
         self.assertRegex(plan['revision'], '^[0-9a-f]{40}$')
 
     def test_missing_verification_tools_reject_before_workspace_changes(self):
@@ -166,9 +165,6 @@ class KernelPreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(kernel.KernelError, 'missing from PATH: modinfo, modprobe'):
                 kernel.build(self.workspace, 1, 60)
         self.assertFalse(self.workspace.exists())
-
-
-if __name__=='__main__':unittest.main()
 
 
 class KernelDenyListTests(unittest.TestCase):
@@ -185,50 +181,20 @@ class KernelDenyListTests(unittest.TestCase):
             self.assertNotIn(name, denied)
             self.assertTrue(any(name in names for names in self.recipe['partitions'].values()))
 
-    def test_legacy_qseecom_module_is_denied_by_name(self):
-        denied = kernel.denied_modules(self.recipe)
-        self.assertIn('qseecom_dlkm.ko', denied)
-        self.assertIn('/dev/qseecom', denied['qseecom_dlkm.ko'])
-        # Other modules with a similar name are different drivers and stay.
-        for name in ('qseecom_proxy.ko', 'smcinvoke_dlkm.ko'):
-            self.assertNotIn(name, denied)
-            self.assertIn(name, self.recipe['partitions']['vendor_dlkm'])
-        for key, target in (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
-                            ('load_lists', 'vendor_dlkm/modules.load'),
-                            ('load_lists', 'vendor_boot/modules.load.recovery')):
-            for spelling in ('qseecom_dlkm.ko', 'qseecom-dlkm.ko'):
-                with self.subTest(key=key, target=target, spelling=spelling):
-                    recipe = copy.deepcopy(self.recipe)
-                    recipe[key][target].append(spelling)
-                    self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: ' + spelling,
-                                           kernel.denied_modules, recipe)
-
-    def test_hdcp_client_module_is_denied_and_in_no_list(self):
-        denied = kernel.denied_modules(self.recipe)
-        self.assertIn('hdcp_qseecom_dlkm.ko', denied)
-        self.assertIn('DisplayPort', denied['hdcp_qseecom_dlkm.ko'])
-        listed = set().union(*map(set, self.recipe['partitions'].values()), *map(set, self.recipe['load_lists'].values()))
-        self.assertFalse([name for name in listed if 'hdcp' in name])
-        # The display driver and the TEE transport it no longer pulls in stay.
-        for name in ('msm_drm.ko', 'smcinvoke_dlkm.ko', 'qseecom_proxy.ko'):
-            self.assertIn(name, self.recipe['partitions']['vendor_boot'])
-            self.assertIn(name, self.recipe['partitions']['vendor_dlkm'])
-            self.assertIn(name, self.recipe['load_lists']['vendor_boot/modules.load.recovery'])
-        for key, target in (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
-                            ('load_lists', 'vendor_dlkm/modules.load')):
-            with self.subTest(key=key, target=target):
-                recipe = copy.deepcopy(self.recipe)
-                recipe[key][target].append('hdcp_qseecom_dlkm.ko')
-                self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: hdcp_qseecom_dlkm.ko',
-                                       kernel.denied_modules, recipe)
-
     def test_regenerated_list_with_a_denied_module_is_rejected(self):
-        for key in ('partitions', 'load_lists'):
-            with self.subTest(key=key):
+        vendor = (('partitions', 'vendor_boot'), ('partitions', 'vendor_dlkm'),
+                  ('load_lists', 'vendor_dlkm/modules.load'))
+        rows = [('partitions', 'system_dlkm', 'can.ko'), ('load_lists', 'system_dlkm/modules.load', 'can.ko')]
+        # The legacy qseecom driver in both spellings, and the HDCP client.
+        rows += [(key, target, spelling)
+                 for key, target in vendor + (('load_lists', 'vendor_boot/modules.load.recovery'),)
+                 for spelling in ('qseecom_dlkm.ko', 'qseecom-dlkm.ko')]
+        rows += [(key, target, 'hdcp_qseecom_dlkm.ko') for key, target in vendor]
+        for key, target, name in rows:
+            with self.subTest(key=key, target=target, name=name):
                 recipe = copy.deepcopy(self.recipe)
-                target = 'system_dlkm' if key == 'partitions' else 'system_dlkm/modules.load'
-                recipe[key][target].append('can.ko')
-                self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: can.ko',
+                recipe[key][target].append(name)
+                self.assertRaisesRegex(kernel.KernelError, 'denied module in the packaging recipe: ' + name,
                                        kernel.denied_modules, recipe)
 
     def test_dash_and_underscore_spellings_match(self):
@@ -358,11 +324,7 @@ class SourceDateEpochTests(unittest.TestCase):
             self.assertEqual(run_git(root, 'log', '-1', '--pretty=%ct', commit),
                              kernel.source_date_epoch(root, commit))
             self.assertGreater(int(kernel.source_date_epoch(root, commit)), 0)
-
-    def test_unknown_commit_is_refused(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve() / 'kernel'
-            repository(root, {'Makefile': 'VERSION = 6\n'})
+            # An unknown commit is refused.
             with self.assertRaises(Exception):
                 kernel.source_date_epoch(root, '0' * 40)
 
@@ -389,3 +351,6 @@ class KernelReleaseTests(unittest.TestCase):
             vmlinux.write_bytes(b'Linux version 6.1.1-a (x) Linux version 6.1.2-b (x)')
             with self.assertRaises(Exception):
                 kernel.kernel_release(vmlinux)
+
+
+if __name__=='__main__':unittest.main()

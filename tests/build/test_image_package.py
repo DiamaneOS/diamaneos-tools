@@ -117,17 +117,6 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'lacks its otatools'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
-    def test_recorded_android_step_is_stale_after_tool_mutation_or_removal(self):
-        outputs = self.ctx.workspace.passed('android')['outputs']
-        self.assertTrue(steps.android_outputs_match(self.ctx.workspace, outputs))
-        path = self.ctx.workspace.root / outputs['otatools']['file']
-        path.write_bytes(b'changed')
-        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
-        path.unlink()
-        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
-        del outputs['otatools']; outputs['official'] = True
-        self.assertFalse(steps.android_outputs_match(self.ctx.workspace, outputs))
-
     def test_an_official_build_says_so_in_its_record(self):
         android = self.ctx.workspace.passed('android')
         android['outputs']['official'] = True
@@ -184,12 +173,21 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(b'boot image', (ws.root / first['directory'] / 'boot.img').read_bytes())
 
     def test_a_changed_packaging_configuration_never_reuses_an_image_set(self):
-        first = run_plan(self.ctx, image_package.plan(self.ctx))
-        record = json.loads((self.ctx.workspace.root / first['directory'] / 'build.json').read_text())
-        self.assertFalse(record['wipe']['validated'])
-        self.ctx.config['wipe']['validated'] = True
-        with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
-            run_plan(self.ctx, image_package.plan(self.ctx))
+        def validated_wipe(ctx):
+            ctx.config['wipe']['validated'] = True
+
+        def other_firmware(ctx):
+            release = ctx.firmware_inventory['selected_build']
+            ctx.firmware_inventory['releases'][release]['images']['firmware']['abl.elf']['sha256'] = 'a' * 64
+        for change in (validated_wipe, other_firmware):
+            with self.subTest(change=change.__name__):
+                ctx = fixture_workspace(self.root / change.__name__)
+                first = run_plan(ctx, image_package.plan(ctx))
+                record = json.loads((ctx.workspace.root / first['directory'] / 'build.json').read_text())
+                self.assertFalse(record['wipe']['validated'])
+                change(ctx)
+                with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
+                    run_plan(ctx, image_package.plan(ctx))
 
     def test_a_package_step_with_a_changed_image_is_stale(self):
         outputs = run_plan(self.ctx, image_package.plan(self.ctx))
@@ -257,9 +255,14 @@ class PackageTests(unittest.TestCase):
         self.assertIn('misc', record['wipe']['images'])
 
     def test_misc_size_disagreeing_with_the_stock_table_is_refused(self):
-        ctx = fixture_workspace(self.root / 'other', misc_sectors=512)
-        with self.assertRaisesRegex(bw.BuildStepError, 'stock partition table says 2097152'):
-            run_plan(ctx, image_package.plan(ctx))
+        # The same for a reset image (modemst1).
+        for option, value, message in (
+                ('misc_sectors', 512, 'stock partition table says 2097152'),
+                ('reset_sectors', 3, 'modemst1 image is 8192 bytes but the stock partition table says 12288')):
+            with self.subTest(option=option):
+                ctx = fixture_workspace(self.root / option, **{option: value})
+                with self.assertRaisesRegex(bw.BuildStepError, message):
+                    run_plan(ctx, image_package.plan(ctx))
 
     def test_package_carries_the_exact_stock_firmware(self):
         outputs = run_plan(self.ctx, image_package.plan(self.ctx))
@@ -291,18 +294,6 @@ class PackageTests(unittest.TestCase):
         inventory = self.ctx.firmware_inventory
         inventory['selected_build'] = inventory['previous_build']
         with self.assertRaisesRegex(bw.BuildStepError, 'vendor files come from FP6.QREL.16.111.0'):
-            run_plan(self.ctx, image_package.plan(self.ctx))
-
-    def test_reset_size_disagreeing_with_the_stock_table_is_refused(self):
-        ctx = fixture_workspace(self.root / 'other', reset_sectors=3)
-        with self.assertRaisesRegex(bw.BuildStepError, 'modemst1 image is 8192 bytes but the stock partition table says 12288'):
-            run_plan(ctx, image_package.plan(ctx))
-
-    def test_a_published_set_with_other_firmware_is_not_reused(self):
-        run_plan(self.ctx, image_package.plan(self.ctx))
-        release = self.ctx.firmware_inventory['selected_build']
-        self.ctx.firmware_inventory['releases'][release]['images']['firmware']['abl.elf']['sha256'] = 'a' * 64
-        with self.assertRaisesRegex(bw.BuildStepError, 'is not this build'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
     def test_firmware_names_never_replace_an_os_image(self):

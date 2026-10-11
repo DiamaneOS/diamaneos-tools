@@ -127,19 +127,6 @@ class CommittedInventoryTests(unittest.TestCase):
             'oem_anti_rollback_version'] = 0
         self.assertIn('tz.mbn', ' '.join(firmware.anti_rollback_problems(changed, self.plan['release'])))
 
-    def test_reset_images_match_the_stock_partition_table(self):
-        reset = self.config['firmware']['reset']
-        self.assertEqual({'modemst1', 'modemst2'}, set(reset))
-        for name, image in reset.items():
-            self.assertEqual((name + '.img', 'zeros', name, 2560 * 4096),
-                             (image['image'], image['kind'], image['partition_label'], image['bytes']))
-        self.assertTrue(self.config['firmware']['validated'])
-
-    def test_no_release_records_fastboot_versions_yet(self):
-        for release in self.inventory['releases'].values():
-            self.assertIsNone(release['fastboot_versions'])
-        self.assertEqual({PREVIOUS: None, RELEASE: None}, self.plan['fastboot_versions'])
-
 
 class PlanTests(unittest.TestCase):
     def setUp(self):

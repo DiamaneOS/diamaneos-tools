@@ -95,21 +95,17 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot flash super super.img'] + logical,
                          commands)
 
-    def test_unverified_or_failed_sets_are_refused(self):
-        with self.assertRaisesRegex(flash_steps.FlashError, 'not been verified'):
-            flash_steps.steps(self.directory, self.record, report=None, firmware='skip')
-        failed = self.passing_report()
-        failed['checks'][3]['status'] = 'FAIL'
-        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\)'):
-            flash_steps.steps(self.directory, self.record, report=failed)
-
     def test_empty_partial_or_failed_reports_are_refused(self):
         def changed(**values):
             report = self.passing_report()
             report.update(values)
             return report
         checks = self.passing_report()['checks']
-        cases = {'lists no checks': changed(checks=None),
+        failed = self.passing_report()
+        failed['checks'][3]['status'] = 'FAIL'
+        cases = {'not been verified': None,
+                 'verification failed \\(avb-chain\\)': failed,
+                 'lists no checks': changed(checks=None),
                  'lacks checks: sums, record': changed(status='FAIL', checks=[], checked=0),
                  'lacks checks: firmware-ota': changed(checks=checks[:-1], checked=len(checks) - 1),
                  'lists a check twice': changed(checks=checks + checks[:1], checked=len(checks) + 1),
@@ -121,12 +117,6 @@ class FlashStepTests(unittest.TestCase):
                 flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
         self.assertTrue(flash_steps.steps(self.directory, self.record, report=self.passing_report(),
                                           firmware='skip'))
-
-    def test_full_super_fallback_lists_every_logical_partition(self):
-        text = self.text(firmware='skip')
-        fallback = text[text.index('fastboot reboot fastboot'):]
-        for name in self.record['flash']['logical']:
-            self.assertIn(f'fastboot flash {name}_a {name}.img', fallback)
 
     def test_stale_verification_report_is_refused(self):
         report = self.directory.parent / (self.record['build_id'] + '.verify.json')

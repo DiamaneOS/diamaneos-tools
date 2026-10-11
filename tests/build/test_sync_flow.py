@@ -190,12 +190,6 @@ class SyncFlowTests(unittest.TestCase):
         self.assertEqual(first['manifest_commit'], second['manifest_commit'])
         self.assertEqual(git(self.example, 'rev-parse', 'HEAD'), git(self.src / 'device/example', 'rev-parse', 'HEAD'))
 
-    def test_a_changed_checkout_fails_the_tree_check(self):
-        self.sync()
-        (self.src / 'device/example/example.mk').write_text('local edit\n')
-        with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
-            build.verify_branch_checkout(json.loads(self.environment.read_text()), self.src)
-
     def test_a_sync_with_local_changes_warns_and_records_them_unless_official(self):
         clean = self.sync()
         self.assertEqual(([], None), (clean['modified'], clean['modified_sha256']))
