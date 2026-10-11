@@ -189,8 +189,9 @@ ACTIVATION={
  # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default); its rc also sets the
  # /dev/sec-nfc owner at boot.
  'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),
- # Stock Qualcomm Codec2 video service (HIDL IComponentStore/default),
- # hardware encoders only (MEDIA_CONFIG_REWRITES). The device
+ # Stock Qualcomm Codec2 video service (HIDL IComponentStore/default): the
+ # hardware encoders, and the hardware decoders the user's choice allows
+ # (MEDIA_CONFIG_REWRITES, MEDIA_HWDEC_COPIES). The device
  # media/init.fp6.media.rc starts it in group mediacodec only (not the stock
  # camera, mediadrm, drmrpc and system groups), and the device manifest.xml
  # declares only the default instance (the stock fragment also claims the
@@ -1270,10 +1271,10 @@ def gnss_config(path, data):
     return derived
 
 
-# Hardware video encoders only: every decoder stays
-# the platform software decoder in the sandboxed mediaswcodec. Two pinned
-# derivations keep the stock Qualcomm Codec2 service from exposing a hardware
-# decoder by any path:
+# The encoders-only configuration (the user chose no hardware video
+# decoding): every decoder stays the platform software decoder in the
+# sandboxed mediaswcodec. Two pinned derivations keep the stock Qualcomm Codec2
+# service from exposing a hardware decoder by any path:
 # - the target specification gets a "codecs-available" list with the five
 #   encoders and no decoder; libqcodec2_platform collects the decoders,
 #   encoders and OptionalCodecs lists into one set, and libqcodec2_v4l2codec
@@ -1285,26 +1286,47 @@ def gnss_config(path, data):
 #   service ever registered one.
 MEDIA_ENCODERS = ('c2.qti.avc.encoder', 'c2.qti.hevc.encoder', 'c2.qti.hevc.encoder.cq',
                   'c2.qti.hevc.encoder.hdr', 'c2.qti.heic.encoder')
-# Hardware video decoding (Settings switch, off by default; device
-# media/media.mk): a second pair of pinned derivations, the _volcano_v1_hwdec
-# variant, which the device selects at boot only when the user turned the
-# switch on. It adds the three non-secure decoders to both files; the secure
-# (DRM) and low-latency variants stay out. The device's configuration check
-# (media/seccomp) requires exactly these lists in the codec service.
+# Hardware video decoding (a choice in Settings; device media/media.mk): two
+# more pairs of pinned derivations, which the device selects at boot from the
+# user's choice. The device's configuration check (media/seccomp) requires
+# exactly these lists in the codec service.
+# - _volcano_v1_secdec, protected video only (the default): the three secure
+#   decoders, which the Widevine hardware-backed library needs. The codec list
+#   marks each as requiring secure playback, so clear video stays in the
+#   software decoders.
+# - _volcano_v1_hwdec, all video: those and the three clear decoders.
+# The low-latency variants stay out of both.
 MEDIA_HW_DECODERS = ('c2.qti.avc.decoder', 'c2.qti.hevc.decoder', 'c2.qti.vp9.decoder')
+MEDIA_SECURE_DECODERS = ('c2.qti.avc.decoder.secure', 'c2.qti.hevc.decoder.secure', 'c2.qti.vp9.decoder.secure')
+MEDIA_DECODER_VARIANTS = {
+    '_volcano_v1_secdec': MEDIA_SECURE_DECODERS,
+    '_volcano_v1_hwdec': MEDIA_HW_DECODERS + MEDIA_SECURE_DECODERS,
+}
 MEDIA_HWDEC_COPIES = {
-    'vendor/etc/media_codecs_volcano_v1_hwdec.xml': {
-        'from': 'vendor/etc/media_codecs_volcano_v1.xml',
+    'vendor/etc/media_codecs_volcano_v1_secdec.xml': {
+        'from': 'vendor/etc/media_codecs_volcano_v1.xml', 'variant': '_volcano_v1_secdec',
         'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
-        'sha256': 'deff1af8eb87870e4f90556cdbd86dace357e696c7ce8617f91be9f0369562a5',
-        'reason': 'Codec list with hardware video decoding on: the hardware encoders and the three '
-                  'non-secure hardware decoders'},
-    'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json': {
-        'from': 'vendor/etc/media_volcano_v1/video_system_specs.json',
+        'sha256': '85372da106c705d3ad784401d81a06e72421b1659afc4146f27f2dd6f097acea',
+        'reason': 'Codec list with hardware decoding for protected video only: the hardware encoders and '
+                  'the three secure hardware decoders'},
+    'vendor/etc/media_volcano_v1_secdec/video_system_specs.json': {
+        'from': 'vendor/etc/media_volcano_v1/video_system_specs.json', 'variant': '_volcano_v1_secdec',
         'source_sha256': '994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09',
-        'sha256': '2797fd3f359a33c14817544ef88ef2870b3552551f9b53112746fdfe103a253a',
-        'reason': 'Target specification with hardware video decoding on: the five hardware encoders and '
-                  'the three non-secure hardware decoders'},
+        'sha256': 'f44baabbf6745f7ebc1222bc0edf6032c93a08e63a8f389c3d97341911cddad5',
+        'reason': 'Target specification with hardware decoding for protected video only: the five hardware '
+                  'encoders and the three secure hardware decoders'},
+    'vendor/etc/media_codecs_volcano_v1_hwdec.xml': {
+        'from': 'vendor/etc/media_codecs_volcano_v1.xml', 'variant': '_volcano_v1_hwdec',
+        'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
+        'sha256': '42873e5467d1938105e283cf269c911bb34ac8530497c80ff68be6d20c1ef144',
+        'reason': 'Codec list with hardware decoding for all video: the hardware encoders, the three clear '
+                  'hardware decoders and the three secure ones'},
+    'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json': {
+        'from': 'vendor/etc/media_volcano_v1/video_system_specs.json', 'variant': '_volcano_v1_hwdec',
+        'source_sha256': '994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09',
+        'sha256': '1a6161ccfb6b22ade8ace6f82a361749156eb63d3ac0d83b4b2414fa4c4587ef',
+        'reason': 'Target specification with hardware decoding for all video: the five hardware encoders, '
+                  'the three clear hardware decoders and the three secure ones'},
 }
 MEDIA_CONFIG_REWRITES = {
     'vendor/etc/media_codecs_volcano_v1.xml': {
@@ -1337,8 +1359,10 @@ def media_encoders_only_codec_list(data):
     return derived
 
 
-def media_decoder_codec_list(data):
-    """Keep only the allowed hardware decoders in the codec list; every other byte stays."""
+def media_decoder_codec_list(data, decoders):
+    """Keep only the given hardware decoders in the codec list; every other byte stays."""
+    if not decoders or not set(decoders) <= set(MEDIA_HW_DECODERS + MEDIA_SECURE_DECODERS):
+        raise VendorError('unreviewed hardware decoder')
     section = re.search(rb'\n    <Decoders>\n.*?\n    </Decoders>\n', data, flags=re.S)
     if section is None or data.count(b'<Decoders>') != 1:
         raise VendorError('codec list differs from reviewed structure')
@@ -1347,22 +1371,30 @@ def media_decoder_codec_list(data):
     kept, removed = [], []
     def keep(match):
         name = match.group(1).decode()
-        (kept if name in MEDIA_HW_DECODERS else removed).append(name)
-        return match.group(0) if name in MEDIA_HW_DECODERS else b''
-    decoders = block.sub(keep, section.group(0))
-    if sorted(kept) != sorted(MEDIA_HW_DECODERS) or not removed:
+        (kept if name in decoders else removed).append(name)
+        return match.group(0) if name in decoders else b''
+    listed = block.sub(keep, section.group(0))
+    if sorted(kept) != sorted(decoders) or not removed:
         raise VendorError('codec list differs from reviewed structure')
-    derived = data[:section.start()] + decoders + data[section.end():]
+    derived = data[:section.start()] + listed + data[section.end():]
     import xml.etree.ElementTree as ET
     try:
         root = ET.fromstring(derived)
     except ET.ParseError:
         raise VendorError('derived codec list is not well formed') from None
-    sections = {child.tag: [codec.get('name') for codec in child.iter('MediaCodec')]
-                for child in root if child.tag in ('Decoders', 'Encoders')}
-    if (sorted(sections.get('Decoders', [])) != sorted(MEDIA_HW_DECODERS)
-            or sorted(sections.get('Encoders', [])) != sorted(MEDIA_ENCODERS)
-            or b'secure-playback' in derived or b'.secure' in derived):
+    sections = {child.tag: list(child.iter('MediaCodec')) for child in root if child.tag in ('Decoders', 'Encoders')}
+    names = {tag: sorted(codec.get('name') for codec in codecs) for tag, codecs in sections.items()}
+    # A secure decoder must require secure playback, or MediaCodec would also
+    # pick it for clear video; a clear decoder must not offer it.
+    requires_secure = sorted(
+        codec.get('name') for codec in sections.get('Decoders', [])
+        if any(feature.get('name') == 'secure-playback' and feature.get('required') == 'true'
+               for feature in codec.iter('Feature')))
+    secure = sorted(name for name in decoders if name in MEDIA_SECURE_DECODERS)
+    if (names.get('Decoders', []) != sorted(decoders)
+            or names.get('Encoders', []) != sorted(MEDIA_ENCODERS)
+            or requires_secure != secure or derived.count(b'secure-playback') != len(secure)
+            or b'low_latency' in derived):
         raise VendorError('derived codec list lists more than the allowed hardware codecs')
     return derived
 
@@ -1386,10 +1418,18 @@ def media_encoders_only_target_spec(data, decoders=()):
     if data.count(anchor) != 1 or b'"codecs-available"' in data:
         raise VendorError('target specification differs from reviewed structure')
     if decoders:
-        note = (b'\n        // DiamaneOS: hardware video decoding on. libqcodec2_v4l2codec\n'
-                b'        // registers only the codecs listed here (and under "OptionalCodecs",\n'
-                b'        // which stays empty): the hardware encoders and the non-secure\n'
-                b'        // hardware decoders.\n')
+        if not set(decoders) <= set(MEDIA_HW_DECODERS + MEDIA_SECURE_DECODERS):
+            raise VendorError('unreviewed hardware decoder')
+        if set(decoders) & set(MEDIA_HW_DECODERS):
+            note = (b'\n        // DiamaneOS: hardware decoding for all video. libqcodec2_v4l2codec\n'
+                    b'        // registers only the codecs listed here (and under "OptionalCodecs",\n'
+                    b'        // which stays empty): the hardware encoders, the clear hardware\n'
+                    b'        // decoders and the secure ones.\n')
+        else:
+            note = (b'\n        // DiamaneOS: hardware decoding for protected video only.\n'
+                    b'        // libqcodec2_v4l2codec registers only the codecs listed here (and\n'
+                    b'        // under "OptionalCodecs", which stays empty): the hardware encoders\n'
+                    b'        // and the secure hardware decoders.\n')
         listed = b'\n' + b',\n'.join(b'                "' + name.encode() + b'"' for name in decoders) + b'\n'
     else:
         note = (b'\n        // DiamaneOS: hardware encoders only. libqcodec2_v4l2codec registers\n'
@@ -1428,10 +1468,11 @@ def media_hwdec_config(path, data):
     rule = MEDIA_HWDEC_COPIES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('media configuration differs from reviewed EU stock input')
+    decoders = MEDIA_DECODER_VARIANTS[rule['variant']]
     if path.endswith('.xml'):
-        derived = media_decoder_codec_list(data)
+        derived = media_decoder_codec_list(data, decoders)
     else:
-        derived = media_encoders_only_target_spec(data, MEDIA_HW_DECODERS)
+        derived = media_encoders_only_target_spec(data, decoders)
     if hashlib.sha256(derived).hexdigest() != rule['sha256']:
         raise VendorError('derived media configuration differs from reviewed result')
     return derived

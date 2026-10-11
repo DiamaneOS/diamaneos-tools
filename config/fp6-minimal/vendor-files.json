@@ -15619,7 +15619,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock Qualcomm Codec2 HIDL service (IComponentStore/default): hardware video encoders only (the pinned target specification lists no decoder); runs as mediacodec.",
+      "purpose": "Stock Qualcomm Codec2 HIDL service (IComponentStore/default): the hardware video encoders and the hardware decoders the user's choice allows (the pinned target specifications list them); runs as mediacodec.",
       "metadata": {
         "uid": 0,
         "gid": 2000,
@@ -16130,7 +16130,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock codec list and limits for SoC variant _volcano_v1 (ro.media.xml_variant.codecs, device media.mk); installed as a pinned derivation without the hardware decoder section.",
+      "purpose": "Stock codec list and limits for SoC variant _volcano_v1 (ro.media.xml_variant.codecs, device media.mk); installed as three pinned derivations: without the hardware decoder section, with the three secure decoders, and with the clear and the secure decoders.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -16170,7 +16170,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock Qualcomm Codec2 target specification read by libqcodec2_platform from /vendor/etc/media${vendor.media.target_variant}/ (codec plugins, presets; dumps off); installed as a pinned derivation that lists only the hardware encoders as available.",
+      "purpose": "Stock Qualcomm Codec2 target specification read by libqcodec2_platform from /vendor/etc/media${vendor.media.target_variant}/ (codec plugins, presets; dumps off); installed as three pinned derivations that list as available the hardware encoders alone, with the three secure decoders, or with the clear and the secure decoders.",
       "metadata": {
         "uid": 0,
         "gid": 0,

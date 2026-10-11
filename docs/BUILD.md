@@ -778,6 +778,14 @@ from `notice_kind` in `config/fp6-build.json`.
   `libsdmextension` against the source `libsdm*` libraries and CamX against `libgralloc.qti`; the
   ELF checks cannot catch a layout change there either.
 - Derived configuration files keep their original and derived hashes distinct.
+- The stock codec list and Codec2 target specification are installed as three pinned derivations;
+  the device picks one pair at boot from the user's hardware video decoding choice:
+  - never: the five hardware encoders and no decoder;
+  - protected video only, the default: those and the three secure decoders, which the Widevine
+    hardware-backed library needs;
+  - all video: those and the three clear decoders. No list has a low-latency decoder.
+  - Image checks confirm each file's codec names, that every secure decoder requires secure
+    playback, and the three states in the device init file.
 - Some stock blobs get one dependency renamed in place, to a device library of the same name length,
   with both hashes pinned:
   - The display colour manager links an old-ABI tinyxml2 copy, and the camera provider links the
@@ -815,9 +823,11 @@ from `notice_kind` in `config/fp6-build.json`.
   - It also checks the three libraries' bytes, owner, mode and label, that the vendor linker
     configuration names `liboemcrypto.so` and no other library, and that only the two build
     properties are set.
-  - It checks the service's groups in the device init file, that the Widevine service is one of
-    the five domains allowed on the TEE node, and that the image holds none of the provisioning
-    tools.
+  - It checks the two service definitions in the device init file and that one starts per boot:
+    the stock groups with the library, or `media` and `mediadrm` with the built-in software
+    protection when the user chose no hardware decoding.
+  - It checks that the Widevine service is one of the five domains allowed on the TEE node, and
+    that the image holds none of the provisioning tools.
 
 - **Vendor patch level.**
   - `VENDOR_SECURITY_PATCH` in the generated `BoardConfigVendor.mk`, which the build reports as

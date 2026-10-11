@@ -5030,7 +5030,7 @@
     },
     {
       "id": "media-codec2-service",
-      "why": "The hardware video codec service and its Codec2 libraries are installed with the device rc and manifest, its configuration check and seccomp loader and policy, and both codec configurations (encoders only, and with hardware decoding on); the Android 14 Codec2 framework libraries are on odm.",
+      "why": "The hardware video codec service and its Codec2 libraries are installed with the device rc and manifest, its configuration check and seccomp loader and policy, and the three codec configurations (encoders only, with the secure decoders, and with all hardware decoders); the Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
@@ -5052,6 +5052,8 @@
         "VENDOR/lib64/libavservices_minijail.so",
         "VENDOR/etc/seccomp_policy/codec2-service.policy",
         "VENDOR/etc/seccomp_policy/codec2.vendor.ext-arm64.policy",
+        "VENDOR/etc/media_codecs_volcano_v1_secdec.xml",
+        "VENDOR/etc/media_volcano_v1_secdec/video_system_specs.json",
         "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
         "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json"
       ]
@@ -5145,7 +5147,7 @@
     },
     {
       "id": "media-decoder-node-root-only",
-      "why": "ueventd gives the encoder node to group mediacodec and keeps the Iris decoder node root-only; both are owned by root, so no system-uid process gets them through the owner bits.",
+      "why": "ueventd gives the encoder node to group mediacodec and creates the Iris decoder node root-only (the init file opens it to that group at boot unless the user chose no hardware decoding, media-hw-decode-states); both are owned by root, so no system-uid process gets them through the owner bits.",
       "type": "binary_count",
       "file": "VENDOR/etc/ueventd.rc",
       "patterns": [
@@ -5164,26 +5166,28 @@
       ]
     },
     {
-      "id": "media-hw-decode-default-off",
-      "why": "Hardware video decoding is off unless the user turned it on: only persist.diamaneos.hw_video_decode=1 selects the decoder variant and opens the decoder node to the codec service, at zygote-start; otherwise the boot state and the codec list stay encoders only.",
+      "id": "media-hw-decode-states",
+      "why": "The init file applies the user's hardware video decoding choice once per boot. At zygote-start a stored 0 (never) or 1 (all video) sets the boot state, and 2 (protected video only) stays when neither did. At early-boot each state selects its own codec list and target specification, and only states 1 and 2 open the decoder node to the codec service.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.media.rc"
       ],
-      "lines": [
-        "on zygote-start && property:persist.diamaneos.hw_video_decode=1",
-        "    setprop ro.vendor.diamaneos.hw_video_decode 1",
-        "    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec",
-        "    setprop vendor.media.target_variant _volcano_v1_hwdec",
-        "    chown root mediacodec /dev/video32",
-        "    chmod 0660 /dev/video32",
-        "on zygote-start",
-        "    setprop ro.vendor.diamaneos.hw_video_decode 0",
-        "    setprop ro.media.xml_variant.codecs _volcano_v1"
+      "regex": [
+        "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=0\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n\\n",
+        "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 1\\n\\n",
+        "^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n\\n",
+        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=0\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n",
+        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n",
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1\\n(?:\\n|\\Z)",
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)",
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=2\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_secdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_secdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)"
       ],
       "absent_regex": [
-        "^on (?!zygote-start).*hw_video_decode",
-        "^on property:persist\\.diamaneos\\.hw_video_decode"
+        "^on (?!zygote-start && property:persist\\.diamaneos\\.hw_video_decode=[01]$|early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=[012]$).*hw_video_decode",
+        "(?s)(^[ \\t]+setprop ro\\.vendor\\.diamaneos\\.hw_video_decode .*){4}",
+        "(?s)(^[ \\t]+setprop ro\\.media\\.xml_variant\\.codecs .*){4}",
+        "(?s)(^[ \\t]+setprop vendor\\.media\\.target_variant .*){3}",
+        "(?s)(^[ \\t]+ch(?:own|mod) [^\\n]*/dev/video32\\n.*){5}"
       ]
     },
     {
@@ -5204,8 +5208,80 @@
       ]
     },
     {
+      "id": "media-secdec-codec-list",
+      "why": "With hardware decoding for protected video only, the default, the codec list adds only the three secure Qualcomm decoders, each requiring secure playback: no clear and no low-latency decoder.",
+      "type": "binary_count",
+      "file": "VENDOR/etc/media_codecs_volcano_v1_secdec.xml",
+      "patterns": [
+        {
+          "text": "<Decoders>",
+          "count": 1
+        },
+        {
+          "text": ".decoder\"",
+          "count": 0
+        },
+        {
+          "text": ".decoder.secure\"",
+          "count": 3
+        },
+        {
+          "text": "<Feature name=\"secure-playback\" required=\"true\" />",
+          "count": 3
+        },
+        {
+          "text": "secure-playback",
+          "count": 3
+        },
+        {
+          "text": "low_latency",
+          "count": 0
+        },
+        {
+          "text": "\"c2.qti.avc.decoder.secure\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.hevc.decoder.secure\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.vp9.decoder.secure\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.avc.encoder\"",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "media-secdec-target-spec",
+      "why": "With hardware decoding for protected video only, the Codec2 target specification registers the five encoders and the three secure decoders; the optional codec list stays empty.",
+      "type": "binary_count",
+      "file": "VENDOR/etc/media_volcano_v1_secdec/video_system_specs.json",
+      "patterns": [
+        {
+          "text": "\"codecs-available\"",
+          "count": 1
+        },
+        {
+          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder.secure\",\n                \"c2.qti.hevc.decoder.secure\",\n                \"c2.qti.vp9.decoder.secure\"\n            ],",
+          "count": 1
+        },
+        {
+          "text": "\"OptionalCodecs\": [\n        ]",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.heic.encoder\"",
+          "min": 1
+        }
+      ]
+    },
+    {
       "id": "media-hwdec-codec-list",
-      "why": "With hardware video decoding on, the codec list adds only the three non-secure Qualcomm decoders: no secure (DRM) and no low-latency variant.",
+      "why": "With hardware decoding for all video, the codec list adds the three clear Qualcomm decoders and the three secure ones, which require secure playback: no low-latency variant.",
       "type": "binary_count",
       "file": "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
       "patterns": [
@@ -5214,20 +5290,24 @@
           "count": 1
         },
         {
-          "text": ".secure",
-          "count": 0
+          "text": ".decoder\"",
+          "count": 3
+        },
+        {
+          "text": ".decoder.secure\"",
+          "count": 3
+        },
+        {
+          "text": "<Feature name=\"secure-playback\" required=\"true\" />",
+          "count": 3
         },
         {
           "text": "secure-playback",
-          "count": 0
+          "count": 3
         },
         {
           "text": "low_latency",
           "count": 0
-        },
-        {
-          "text": ".decoder\"",
-          "count": 3
         },
         {
           "text": "\"c2.qti.avc.decoder\"",
@@ -5242,6 +5322,18 @@
           "count": 1
         },
         {
+          "text": "\"c2.qti.avc.decoder.secure\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.hevc.decoder.secure\"",
+          "count": 1
+        },
+        {
+          "text": "\"c2.qti.vp9.decoder.secure\"",
+          "count": 1
+        },
+        {
           "text": "\"c2.qti.avc.encoder\"",
           "count": 1
         }
@@ -5249,7 +5341,7 @@
     },
     {
       "id": "media-hwdec-target-spec",
-      "why": "With hardware video decoding on, the Codec2 target specification registers the five encoders and the three non-secure decoders; the optional codec list stays empty.",
+      "why": "With hardware decoding for all video, the Codec2 target specification registers the five encoders, the three clear decoders and the three secure ones; the optional codec list stays empty.",
       "type": "binary_count",
       "file": "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json",
       "patterns": [
@@ -5258,7 +5350,7 @@
           "count": 1
         },
         {
-          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder\",\n                \"c2.qti.hevc.decoder\",\n                \"c2.qti.vp9.decoder\"\n            ],",
+          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder\",\n                \"c2.qti.hevc.decoder\",\n                \"c2.qti.vp9.decoder\",\n                \"c2.qti.avc.decoder.secure\",\n                \"c2.qti.hevc.decoder.secure\",\n                \"c2.qti.vp9.decoder.secure\"\n            ],",
           "count": 1
         },
         {
@@ -5404,7 +5496,7 @@
     },
     {
       "id": "media-hw-decode-property-types",
-      "why": "Both hardware video decoding properties accept only 0 and 1.",
+      "why": "Both hardware video decoding properties accept only 0 (never), 1 (all video) and 2 (protected video only).",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/selinux/system_ext_property_contexts",
@@ -5412,8 +5504,46 @@
       ],
       "match": "any",
       "regex": [
-        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$",
-        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$"
+        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+2$",
+        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+2$"
+      ]
+    },
+    {
+      "id": "media-secure-buffer-node",
+      "why": "Protected video: ueventd puts the memory-buffer driver's VM nodes in /dev/mem_buf_vm, as stock, and makes only the content-protection bitstream node readable by all; no rule opens another VM node.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^subsystem mem_buf_vm\\n[ \\t]+devname uevent_devpath\\n[ \\t]+dirname /dev/mem_buf_vm\\n",
+        "^/dev/mem_buf_vm/qcom,cp_bitstream[ \\t]+0444[ \\t]+system[ \\t]+system[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^[ \\t]*/dev/mem_buf_vm/(?!qcom,cp_bitstream[ \\t])"
+      ]
+    },
+    {
+      "id": "media-secure-buffer-node-users",
+      "why": "Only the codec service and the Widevine service may open the content-protection bitstream node, which every user may open by its mode: SELinux is what limits it.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_vm_cp_bitstream_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_drm_widevine",
+        "mediacodec"
       ]
     },
     {
@@ -5605,18 +5735,30 @@
     },
     {
       "id": "widevine-service-groups",
-      "why": "The device init file runs the Widevine service in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. The ClearKey service, which never uses the TEE, stays without drmrpc.",
+      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only. Neither names an interface, so init starts neither on a client's request. The ClearKey service, which never uses the TEE, stays without drmrpc.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.drm.rc"
       ],
       "regex": [
         "^service vendor\\.drm-widevine-hal /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm drmrpc system\\n",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
+        "^service vendor\\.drm-widevine-hal-sw /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm\\n",
+        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv FORCE_LEVEL3_OEMCRYPTO yes\\n",
+        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
+        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    start vendor\\.drm-widevine-hal-sw\\n(?:\\n|\\Z)",
+        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    start vendor\\.drm-widevine-hal\\n(?:\\n|\\Z)",
+        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=2\\n    start vendor\\.drm-widevine-hal\\n(?:\\n|\\Z)",
         "^service vendor\\.drm-clearkey-service /vendor/bin/hw/android\\.hardware\\.drm-service\\.clearkey\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group mediadrm\\n",
         "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+override[ \\t]*$"
       ],
       "absent_regex": [
         "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm drmrpc system$)",
+        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm$)",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv ",
+        "^service vendor\\.drm-widevine-hal[^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+interface ",
+        "(?s)(^service [^\\n]*android\\.hardware\\.drm-service\\.widevine\\n.*){3}",
+        "(?s)(^[ \\t]+start vendor\\.drm-widevine-hal[^\\n]*\\n.*){4}",
         "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!mediadrm$)"
       ]
     }

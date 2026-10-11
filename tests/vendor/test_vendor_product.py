@@ -3,6 +3,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 import unittest
 from unittest import mock
@@ -724,12 +725,15 @@ class NativeProductTests(unittest.TestCase):
         self.assertTrue(rewrite['keep_link'])
         self.assertNotIn('symbols', rewrite)
 
-    def test_media_hardware_decoding_variant_binds_the_selected_stock_configs(self):
-        # Hardware video decoding (off by default): a second pinned pair from the
-        # same stock rows, with the three non-secure decoders and nothing else.
+    def test_media_hardware_decoding_variants_bind_the_selected_stock_configs(self):
+        # Hardware video decoding: two more pinned pairs from the same stock rows,
+        # one with the three secure decoders (protected video only), one with
+        # those and the three clear decoders (all video), and nothing else.
         rows = {r['path']: r for r in self.recipe['files']}
         self.assertEqual(set(vendor_product.MEDIA_HWDEC_COPIES),
-                         {'vendor/etc/media_codecs_volcano_v1_hwdec.xml',
+                         {'vendor/etc/media_codecs_volcano_v1_secdec.xml',
+                          'vendor/etc/media_volcano_v1_secdec/video_system_specs.json',
+                          'vendor/etc/media_codecs_volcano_v1_hwdec.xml',
                           'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json'})
         for path, rule in vendor_product.MEDIA_HWDEC_COPIES.items():
             self.assertNotIn(path, rows)
@@ -737,10 +741,24 @@ class NativeProductTests(unittest.TestCase):
             self.assertEqual(rule['source_sha256'], rows[rule['from']]['sha256'])
             self.assertEqual(rule['source_sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['source_sha256'])
             self.assertNotEqual(rule['sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['sha256'])
+            # The path names the variant whose decoders the file lists.
+            self.assertIn(rule['variant'], vendor_product.MEDIA_DECODER_VARIANTS)
+            self.assertEqual(rule['from'].replace('_volcano_v1', rule['variant']), path)
             with self.assertRaises(VendorError): vendor_product.media_hwdec_config(path, b'unreviewed')
+        self.assertEqual(4, len({rule['sha256'] for rule in vendor_product.MEDIA_HWDEC_COPIES.values()}))
         self.assertEqual(('c2.qti.avc.decoder', 'c2.qti.hevc.decoder', 'c2.qti.vp9.decoder'),
                          vendor_product.MEDIA_HW_DECODERS)
         self.assertFalse([n for n in vendor_product.MEDIA_HW_DECODERS if 'secure' in n or 'low_latency' in n])
+        self.assertEqual(tuple(name + '.secure' for name in vendor_product.MEDIA_HW_DECODERS),
+                         vendor_product.MEDIA_SECURE_DECODERS)
+        self.assertEqual({'_volcano_v1_secdec': vendor_product.MEDIA_SECURE_DECODERS,
+                          '_volcano_v1_hwdec': vendor_product.MEDIA_HW_DECODERS + vendor_product.MEDIA_SECURE_DECODERS},
+                         vendor_product.MEDIA_DECODER_VARIANTS)
+        # Every derived file is copied into the vendor image.
+        make = self.render()['device-vendor.mk'].decode()
+        for path in vendor_product.MEDIA_HWDEC_COPIES:
+            self.assertIn('PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/'
+                          + path.removeprefix('vendor/') + '\n', make)
 
     def test_media_codec_list_with_hardware_decoders_keeps_only_the_allowed_ones(self):
         def codec(name, kind, extra=''):
@@ -757,32 +775,78 @@ class NativeProductTests(unittest.TestCase):
                  '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
                  '    <Encoders>\n' + encoders + '    </Encoders>\n'
                  '    <Include href="media_codecs_google_c2.xml" />\n</MediaCodecs>\n').encode()
-        derived = vendor_product.media_decoder_codec_list(stock)
-        self.assertNotIn(b'secure', derived)
+        clear, secure = vendor_product.MEDIA_HW_DECODERS, vendor_product.MEDIA_SECURE_DECODERS
+        names = lambda data: [n.decode() for n in re.findall(rb'<MediaCodec name="([^"]+)"', data)]
+        # Protected video only: the three secure decoders, each still requiring secure playback.
+        derived = vendor_product.media_decoder_codec_list(stock, secure)
+        self.assertEqual(sorted(secure + vendor_product.MEDIA_ENCODERS), sorted(names(derived)))
+        self.assertEqual(3, derived.count(b'<Feature name="secure-playback" required="true" />'))
         self.assertNotIn(b'low_latency', derived)
-        for name in vendor_product.MEDIA_HW_DECODERS + vendor_product.MEDIA_ENCODERS:
-            self.assertIn(b'"' + name.encode() + b'"', derived)
+        self.assertNotIn(b'.decoder"', derived)
         self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <Decoders>')[0])
         self.assertEqual(stock.split(b'    </Decoders>')[1], derived.split(b'    </Decoders>')[1])
-        # A missing allowed decoder, an unknown one left in Encoders or a second
-        # section is refused.
+        # All video: those and the three clear decoders, every block with its stock bytes.
+        derived = vendor_product.media_decoder_codec_list(stock, clear + secure)
+        self.assertEqual(sorted(clear + secure + vendor_product.MEDIA_ENCODERS), sorted(names(derived)))
+        self.assertEqual(3, derived.count(b'secure-playback'))
+        self.assertNotIn(b'low_latency', derived)
+        self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <Decoders>')[0])
+        self.assertEqual(stock.split(b'    </Decoders>')[1], derived.split(b'    </Decoders>')[1])
+        for name in clear + secure:
+            block = codec(name, 'video/avc', '            <Feature name="secure-playback" required="true" />\n'
+                          if name in secure else '').encode()
+            self.assertIn(block, derived)
+        # The clear decoders alone are still a valid list; no decoder, an
+        # unreviewed name or a low-latency one is not.
+        self.assertNotIn(b'secure', vendor_product.media_decoder_codec_list(stock, clear))
+        for decoders in ((), ('c2.qti.av1.decoder',), clear + ('c2.qti.avc.decoder.low_latency',)):
+            with self.subTest(decoders=decoders), self.assertRaises(VendorError):
+                vendor_product.media_decoder_codec_list(stock, decoders)
+        for decoders in (secure, clear + secure):
+            with self.subTest(decoders=decoders):
+                # A missing allowed decoder, an unknown one left in Encoders or a
+                # second section is refused.
+                with self.assertRaises(VendorError):
+                    vendor_product.media_decoder_codec_list(
+                        stock.replace(b'c2.qti.vp9.decoder.secure"', b'c2.qti.vp8.decoder.secure"'), decoders)
+                with self.assertRaises(VendorError):
+                    vendor_product.media_decoder_codec_list(stock.replace(
+                        b'    <Encoders>\n',
+                        b'    <Encoders>\n' + codec('c2.qti.av1.decoder.secure', 'video/av01').encode()), decoders)
+                with self.assertRaises(VendorError):
+                    vendor_product.media_decoder_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'), decoders)
+                # A secure decoder that no longer requires secure playback could
+                # be picked for clear video.
+                with self.assertRaises(VendorError):
+                    vendor_product.media_decoder_codec_list(
+                        stock.replace(b'<Feature name="secure-playback" required="true" />',
+                                      b'<Feature name="secure-playback" />', 1), decoders)
+        # A clear decoder must not require secure playback.
+        marked = stock.replace(codec(clear[0], 'video/avc').encode(), codec(
+            clear[0], 'video/avc', '            <Feature name="secure-playback" required="true" />\n').encode())
+        self.assertNotEqual(stock, marked)
         with self.assertRaises(VendorError):
-            vendor_product.media_decoder_codec_list(stock.replace(b'c2.qti.vp9.decoder"', b'c2.qti.vp8.decoder"'))
-        with self.assertRaises(VendorError):
-            vendor_product.media_decoder_codec_list(stock.replace(
-                b'    <Encoders>\n', b'    <Encoders>\n' + codec('c2.qti.av1.decoder.secure', 'video/av01').encode()))
-        with self.assertRaises(VendorError):
-            vendor_product.media_decoder_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'))
+            vendor_product.media_decoder_codec_list(marked, clear + secure)
 
     def test_media_target_spec_with_hardware_decoders(self):
         stock = (b'// Qualcomm\n{\n    "Video": {\n'
                  b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
                  b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
-        derived = vendor_product.media_encoders_only_target_spec(stock, vendor_product.MEDIA_HW_DECODERS)
-        available, optional = vendor_product.media_target_spec_codecs(derived)
-        self.assertEqual({'decoders': list(vendor_product.MEDIA_HW_DECODERS),
-                          'encoders': list(vendor_product.MEDIA_ENCODERS)}, available)
-        self.assertEqual([], optional)
+        notes = set()
+        for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items():
+            with self.subTest(variant=variant):
+                derived = vendor_product.media_encoders_only_target_spec(stock, decoders)
+                available, optional = vendor_product.media_target_spec_codecs(derived)
+                self.assertEqual({'decoders': list(decoders), 'encoders': list(vendor_product.MEDIA_ENCODERS)},
+                                 available)
+                self.assertEqual([], optional)
+                notes.add(derived.split(b'"codecs-available"')[0])
+        # Each variant says what it lists.
+        self.assertEqual(2, len(notes))
+        self.assertTrue(any(b'protected video only' in note for note in notes))
+        self.assertTrue(any(b'all video' in note for note in notes))
+        with self.assertRaises(VendorError):
+            vendor_product.media_encoders_only_target_spec(stock, ('c2.qti.av1.decoder.secure',))
 
     def test_media_codec_list_keeps_only_hardware_encoders(self):
         encoders = ''.join('        <MediaCodec name="%s" type="video/avc">\n'

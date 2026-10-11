@@ -1764,43 +1764,325 @@ class RuleTests(unittest.TestCase):
             'widevine-service-groups']
         name = 'VENDOR/etc/init/init.fp6.drm.rc'
         self.assertEqual([name], rule['files'])
+        binary = '/apex/com.google.android.widevine/bin/hw/android.hardware.drm-service.widevine'
         clearkey = ('# ClearKey, built from the platform source.\n'
                     'service vendor.drm-clearkey-service /vendor/bin/hw/android.hardware.drm-service.clearkey\n'
                     '    class hal\n    user media\n    group mediadrm\n    ioprio rt 4\n'
                     '    task_profiles ProcessCapacityHigh\n'
                     '    interface aidl android.hardware.drm.IDrmFactory/clearkey\n    override\n')
-        widevine = ('# Widevine, from the stock package.\n'
-                    'service vendor.drm-widevine-hal /apex/com.google.android.widevine/bin/hw/'
-                    'android.hardware.drm-service.widevine\n'
-                    '    interface aidl android.hardware.drm.IDrmFactory/widevine\n    class hal\n    user media\n'
+        hardware = ('# Widevine with the hardware-backed library.\n'
+                    'service vendor.drm-widevine-hal ' + binary + '\n'
+                    '    class hal\n    disabled\n    user media\n'
                     '    group media mediadrm drmrpc system\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
-        good = clearkey + '\n' + widevine
+        software = ('# Widevine with its built-in software protection.\n'
+                    'service vendor.drm-widevine-hal-sw ' + binary + '\n'
+                    '    class hal\n    disabled\n    user media\n    group media mediadrm\n'
+                    '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
+        start = lambda state, service: ('on boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
+                                        '    start %s\n' % (state, service))
+        starts = '\n'.join([start('0', 'vendor.drm-widevine-hal-sw'), start('1', 'vendor.drm-widevine-hal'),
+                            start('2', 'vendor.drm-widevine-hal')])
+        good = '\n'.join([clearkey, hardware, software, starts])
         check = lambda text: subject.rule_text(rule, self.harness({name: text.encode()}))[0]
         self.assertTrue(check(good))
-        self.assertTrue(check(widevine + '\n' + clearkey))
-        group = '    group media mediadrm drmrpc system\n'
+        self.assertTrue(check('\n'.join([software, hardware, clearkey, starts])))
+        group, sw_group = '    group media mediadrm drmrpc system\n', '    group media mediadrm\n'
+        env, interface = '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n', '    interface aidl android.hardware.drm.IDrmFactory/widevine\n'
         for case, text in [
-                ('the software-only groups', good.replace(group, '    group media mediadrm\n')),
+                # The definition with the hardware-backed library.
+                ('the software-only groups', good.replace(group, sw_group)),
                 ('no group that owns the TEE node', good.replace(group, '    group media mediadrm system\n')),
                 ('no group that reads the trusted app', good.replace(group, '    group media mediadrm drmrpc\n')),
                 ('one more group', good.replace(group, '    group media mediadrm drmrpc system inet\n')),
                 ('a second group line', good.replace(group, group + '    group inet\n')),
                 ('no group line', good.replace(group, '')),
-                ('another binary under the service name',
-                 good.replace('/apex/com.google.android.widevine/bin/hw/', '/vendor/bin/hw/')),
-                ('no Widevine service', clearkey),
+                ('another binary under the service name', good.replace(
+                    'service vendor.drm-widevine-hal ' + binary, 'service vendor.drm-widevine-hal /vendor/bin/hw/drm')),
+                ('started with its class', '\n'.join([clearkey, hardware.replace('    disabled\n', ''), software, starts])),
+                ('forced to software protection', good.replace(group, group + env)),
+                ('names the interface', good.replace(group, interface + group)),
+                ('no definition with the library', '\n'.join([clearkey, software, starts])),
+                # The definition with the built-in software protection.
+                ('software definition with the TEE node group', good.replace(sw_group, '    group media mediadrm drmrpc\n')),
+                ('software definition with the stock groups', good.replace(sw_group, group)),
+                ('software definition that may read the trusted app', good.replace(sw_group, '    group media mediadrm system\n')),
+                ('software definition without a group line', good.replace(sw_group, '')),
+                ('software definition without the environment line', good.replace(env, '')),
+                ('software definition with another value', good.replace(env, '    setenv FORCE_LEVEL3_OEMCRYPTO no\n')),
+                ('software definition started with its class',
+                 '\n'.join([clearkey, hardware, software.replace('    disabled\n', ''), starts])),
+                ('software definition names the interface', good.replace(sw_group, interface + sw_group)),
+                ('software definition with another binary', good.replace(
+                    'service vendor.drm-widevine-hal-sw ' + binary, 'service vendor.drm-widevine-hal-sw /vendor/bin/hw/drm')),
+                ('no software definition', '\n'.join([clearkey, hardware, starts])),
+                ('a third definition', good + '\nservice vendor.drm-widevine-hal-x ' + binary + '\n    class hal\n'),
+                # Exactly one of the two starts, by the state.
+                ('no start for state 0', good.replace(start('0', 'vendor.drm-widevine-hal-sw'), '')),
+                ('no start for state 1', '\n'.join([clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
+                                                    start('2', 'vendor.drm-widevine-hal')])),
+                ('no start for state 2', '\n'.join([clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
+                                                    start('1', 'vendor.drm-widevine-hal')])),
+                ('state 0 starts the library', good.replace(start('0', 'vendor.drm-widevine-hal-sw'),
+                                                            start('0', 'vendor.drm-widevine-hal'))),
+                ('state 2 starts the software definition', '\n'.join([
+                    clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
+                    start('1', 'vendor.drm-widevine-hal'), start('2', 'vendor.drm-widevine-hal-sw')])),
+                ('state 0 starts both', good.replace('    start vendor.drm-widevine-hal-sw\n',
+                                                     '    start vendor.drm-widevine-hal-sw\n    start vendor.drm-widevine-hal\n')),
+                ('a fourth start', good + '\non boot\n    start vendor.drm-widevine-hal\n'),
+                # ClearKey.
                 ('ClearKey with the TEE node group', good.replace('    group mediadrm\n', '    group mediadrm drmrpc\n')),
                 ('ClearKey with the Widevine groups', good.replace('    group mediadrm\n', group)),
                 ('ClearKey without a group line', good.replace('    group mediadrm\n', '')),
                 ('ClearKey without the override', good.replace('    override\n', '')),
-                ('no ClearKey service', widevine),
+                ('no ClearKey service', '\n'.join([hardware, software, starts])),
                 # The group line of one service does not count for the other.
                 ('the groups only on another service',
-                 clearkey + '\n' + widevine.replace(group, '    group media mediadrm\n')
+                 '\n'.join([clearkey, hardware.replace(group, sw_group), software, starts])
                  + '\nservice other /vendor/bin/other\n' + group)]:
             with self.subTest(case=case):
+                self.assertNotEqual(good, text)
                 self.assertFalse(check(text))
         self.assertFalse(subject.rule_text(rule, self.harness({'VENDOR/etc/init/other.rc': good.encode()}))[0])
+
+    MEDIA_RC = 'VENDOR/etc/init/init.fp6.media.rc'
+
+    def test_media_hardware_decoding_states_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        self.assertNotIn('media-hw-decode-default-off', rules)
+        rule = rules['media-hw-decode-states']
+        self.assertEqual([self.MEDIA_RC], rule['files'])
+        choice = lambda value: ('on zygote-start && property:persist.diamaneos.hw_video_decode=%s\n'
+                                '    setprop ro.vendor.diamaneos.hw_video_decode %s\n' % (value, value))
+        default = 'on zygote-start\n    setprop ro.vendor.diamaneos.hw_video_decode 2\n'
+        node = '    wait /dev/video32\n    chown root mediacodec /dev/video32\n    chmod 0660 /dev/video32\n'
+        state = lambda value, variant, open_node: (
+            'on early-boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
+            '    setprop ro.media.xml_variant.codecs %s\n' % (value, variant)
+            + ('    setprop vendor.media.target_variant %s\n' % variant + node if open_node else ''))
+        never, all_video, protected = (state('0', '_volcano_v1', False), state('1', '_volcano_v1_hwdec', True),
+                                       state('2', '_volcano_v1_secdec', True))
+        service = ('# The codec service; its decoders open only /dev/video32.\n'
+                   'service vendor-qti-media-c2-hal-1-0 /vendor/bin/hw/vendor.qti.media.c2@1.0-service\n'
+                   '    class hal\n    user mediacodec\n    group mediacodec\n')
+        parts = [service, choice('0'), choice('1'), default, never, all_video, protected]
+        good = '\n'.join(parts)
+        check = lambda text: subject.rule_text(rule, self.harness({self.MEDIA_RC: text.encode()}))[0]
+        self.assertTrue(check(good))
+        # The order of the explicit choices and of the three states is free.
+        self.assertTrue(check('\n'.join([service, choice('1'), choice('0'), default, protected, never, all_video])))
+        swap = lambda old, new: '\n'.join(new if part == old else part for part in parts)
+        for case, text in [
+                # A read-only property keeps its first value: the default must come last.
+                ('the default before a stored 0', '\n'.join([service, choice('1'), default, choice('0'), never, all_video, protected])),
+                ('the default before a stored 1', '\n'.join([service, choice('0'), default, choice('1'), never, all_video, protected])),
+                ('the default first', '\n'.join([service, default, choice('0'), choice('1'), never, all_video, protected])),
+                ('no stored 0', '\n'.join([service, choice('1'), default, never, all_video, protected])),
+                ('no stored 1', '\n'.join([service, choice('0'), default, never, all_video, protected])),
+                ('no default', '\n'.join([service, choice('0'), choice('1'), never, all_video, protected])),
+                ('default all video', swap(default, default.replace(' 2\n', ' 1\n'))),
+                ('default never', swap(default, default.replace(' 2\n', ' 0\n'))),
+                ('a stored 0 sets all video', swap(choice('0'), choice('0').replace('decode 0\n', 'decode 1\n'))),
+                # The first step sets only the state: the default action always runs.
+                ('the default action also selects a codec list',
+                 swap(default, default + '    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n')),
+                ('the default action also opens the node', swap(default, default + node)),
+                ('a stored 0 also selects a codec list',
+                 swap(choice('0'), choice('0') + '    setprop ro.media.xml_variant.codecs _volcano_v1\n')),
+                # Each state selects its own files, and state 0 never opens the decoder node.
+                ('never opens the node', swap(never, never + node)),
+                ('never selects the secure list', swap(never, state('0', '_volcano_v1_secdec', False))),
+                ('never switches the target specification',
+                 swap(never, never + '    setprop vendor.media.target_variant _volcano_v1_hwdec\n')),
+                ('protected selects all decoders', swap(protected, state('2', '_volcano_v1_hwdec', True))),
+                ('protected selects no decoder', swap(protected, state('2', '_volcano_v1', False))),
+                ('protected mixes the two files', swap(protected, protected.replace(
+                    'target_variant _volcano_v1_secdec', 'target_variant _volcano_v1_hwdec'))),
+                ('protected keeps the node closed', swap(protected, protected.replace(node, ''))),
+                ('protected opens the node to all', swap(protected, protected.replace('chmod 0660', 'chmod 0666'))),
+                ('protected gives the node to system', swap(protected, protected.replace(
+                    'chown root mediacodec', 'chown system mediacodec'))),
+                ('all video selects the secure list', swap(all_video, state('1', '_volcano_v1_secdec', True))),
+                ('all video keeps the node closed', swap(all_video, all_video.replace(node, ''))),
+                ('no action for state 0', '\n'.join([service, choice('0'), choice('1'), default, all_video, protected])),
+                ('no action for state 1', '\n'.join([service, choice('0'), choice('1'), default, never, protected])),
+                ('no action for state 2', '\n'.join([service, choice('0'), choice('1'), default, never, all_video])),
+                # Nothing else acts on the choice or the state.
+                ('a property-only trigger', good + '\non property:persist.diamaneos.hw_video_decode=1\n' + node),
+                ('a later trigger on the state',
+                 good + '\non boot && property:ro.vendor.diamaneos.hw_video_decode=0\n' + node),
+                ('an unknown stored value',
+                 good + '\non zygote-start && property:persist.diamaneos.hw_video_decode=3\n'
+                 '    setprop ro.vendor.diamaneos.hw_video_decode 1\n'),
+                ('a fourth state', good + '\n' + state('3', '_volcano_v1_hwdec', True)),
+                ('another action opens the node', good + '\non boot\n    chmod 0666 /dev/video32\n'),
+                ('another action selects a codec list',
+                 good + '\non boot\n    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n'),
+                ('another action switches the target specification',
+                 good + '\non boot\n    setprop vendor.media.target_variant _volcano_v1_hwdec\n'),
+                ('another action sets the state', good + '\non early-init\n    setprop ro.vendor.diamaneos.hw_video_decode 1\n')]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+
+    def test_media_hardware_decoding_property_types_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'media-hw-decode-property-types']
+        system_ext, vendor = rule['files']
+        choice = b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1 2\n'
+        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1 2\n'
+        check = lambda a, b: subject.rule_text(rule, self.harness({system_ext: b'# choice\n' + a, vendor: b'# state\n' + b}))[0]
+        self.assertTrue(check(choice, state))
+        for case, a, b in [('the choice as a switch', choice.replace(b'0 1 2', b'0 1'), state),
+                           ('the state as a switch', choice, state.replace(b'0 1 2', b'0 1')),
+                           ('a fourth choice', choice.replace(b'0 1 2', b'0 1 2 3'), state),
+                           ('a fourth state', choice, state.replace(b'0 1 2', b'0 1 2 3')),
+                           ('the choice as any string', choice.replace(b'exact enum 0 1 2', b'exact string'), state),
+                           ('the state under another type', choice, state.replace(b'vendor_diamaneos_hw_video_decode_prop',
+                                                                                    b'vendor_default_prop')),
+                           ('no entry for the choice', b'', state), ('no entry for the state', choice, b'')]:
+            with self.subTest(case=case):
+                self.assertFalse(check(a, b))
+
+    @staticmethod
+    def stock_shaped_codec_list():
+        from diamaneos_tools import vendor_product
+        def codec(name, extra=''):
+            return ('        <MediaCodec name="%s" type="video/avc" >\n%s'
+                    '            <Limit name="size" min="96x96" max="4096x4096" />\n'
+                    '        </MediaCodec>\n' % (name, extra))
+        secure = ('            <Alias name="OMX.qcom.video.decoder.%s.secure"/>\n'
+                  '            <Feature name="secure-playback" required="true" />\n')
+        decoders = ''.join(codec(n) + codec(n + '.low_latency', '            <Feature name="low-latency" />\n')
+                           + codec(n + '.secure', secure % n.split('.')[2]) for n in vendor_product.MEDIA_HW_DECODERS)
+        encoders = ''.join(codec(n) for n in vendor_product.MEDIA_ENCODERS)
+        return ('<?xml version="1.0" encoding="utf-8" ?>\n<MediaCodecs>\n'
+                '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
+                '    <Encoders>\n' + encoders + '    </Encoders>\n</MediaCodecs>\n').encode()
+
+    def test_media_codec_list_rules_for_the_hardware_decoding_states(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        stock = self.stock_shaped_codec_list()
+        lists = {variant: vendor_product.media_decoder_codec_list(stock, decoders)
+                 for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items()}
+        by_variant = {'_volcano_v1_secdec': rules['media-secdec-codec-list'],
+                      '_volcano_v1_hwdec': rules['media-hwdec-codec-list']}
+        self.assertEqual(set(lists), set(by_variant))
+        for variant, rule in by_variant.items():
+            name = 'VENDOR/etc/media_codecs' + variant + '.xml'
+            self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+            self.assertIn(name, rules['media-codec2-service']['paths'])
+            check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+            good = lists[variant]
+            with self.subTest(variant=variant):
+                self.assertTrue(check(good))
+                # The other variant's list, the stock list and the encoders-only one fail.
+                for other in [lists[v] for v in lists if v != variant] + [
+                        stock, vendor_product.media_encoders_only_codec_list(stock)]:
+                    self.assertFalse(check(other))
+                for case, data in [
+                        ('a secure decoder that does not require secure playback',
+                         good.replace(b'<Feature name="secure-playback" required="true" />',
+                                      b'<Feature name="secure-playback" />', 1)),
+                        ('a secure decoder missing', good.replace(b'"c2.qti.vp9.decoder.secure"', b'"c2.qti.vp9.decoder.sec"')),
+                        ('a low-latency decoder', good.replace(b'"c2.qti.avc.decoder.secure"',
+                                                               b'"c2.qti.avc.decoder.low_latency"')),
+                        ('a fourth secure decoder', good.replace(
+                            b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder.secure" />\n    </Decoders>')),
+                        ('a clear decoder more', good.replace(
+                            b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder" />\n    </Decoders>')),
+                        ('a second decoder section', good + b'    <Decoders>\n    </Decoders>\n'),
+                        ('no encoder', good.replace(b'"c2.qti.avc.encoder"', b'"c2.qti.avc.enc"'))]:
+                    with self.subTest(case=case):
+                        self.assertNotEqual(good, data)
+                        self.assertFalse(check(data))
+                with self.assertRaises(FileNotFoundError):
+                    subject.rule_binary_count(rule, self.harness({'VENDOR/build.prop': b''}))
+
+    def test_media_target_spec_rules_for_the_hardware_decoding_states(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        stock = (b'// Qualcomm\n{\n    "Video": {\n'
+                 b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
+                 b'        // "c2.qti.dv.decoder",\n        // "c2.qti.dv.decoder.secure",\n'
+                 b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
+        specs = {variant: vendor_product.media_encoders_only_target_spec(stock, decoders)
+                 for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items()}
+        by_variant = {'_volcano_v1_secdec': rules['media-secdec-target-spec'],
+                      '_volcano_v1_hwdec': rules['media-hwdec-target-spec']}
+        for variant, rule in by_variant.items():
+            name = 'VENDOR/etc/media' + variant + '/video_system_specs.json'
+            self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+            self.assertIn(name, rules['media-codec2-service']['paths'])
+            check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+            good = specs[variant]
+            with self.subTest(variant=variant):
+                self.assertTrue(check(good))
+                for other in [specs[v] for v in specs if v != variant] + [
+                        stock, vendor_product.media_encoders_only_target_spec(stock)]:
+                    self.assertFalse(check(other))
+                for case, data in [
+                        ('an optional codec', good.replace(b'"OptionalCodecs": [\n        ]',
+                                                           b'"OptionalCodecs": [\n            "c2.qti.dv.decoder"\n        ]')),
+                        ('a decoder more', good.replace(b'"c2.qti.vp9.decoder.secure"\n',
+                                                        b'"c2.qti.vp9.decoder.secure",\n                "c2.qti.av1.decoder"\n')),
+                        ('a decoder less', good.replace(b'                "c2.qti.avc.decoder.secure",\n', b'')),
+                        ('a second codec list', good.replace(b'"codecs-available"', b'"codecs-available": {}, "codecs-available"')),
+                        ('no encoders', good.replace(b'"c2.qti.heic.encoder"', b'"c2.qti.heic.enc"'))]:
+                    with self.subTest(case=case):
+                        self.assertNotEqual(good, data)
+                        self.assertFalse(check(data))
+
+    def test_media_secure_buffer_node_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        node, name = rules['media-secure-buffer-node'], 'VENDOR/etc/ueventd.rc'
+        self.assertEqual([name], node['files'])
+        stanza = 'subsystem mem_buf_vm\n    devname uevent_devpath\n    dirname /dev/mem_buf_vm\n'
+        line = '/dev/mem_buf_vm/qcom,cp_bitstream 0444 system system\n'
+        good = ('firmware_directories /vendor/firmware_mnt/image/\n\n' + stanza
+                + '\n/dev/membuf               0664   system     system\n# Protected video.\n' + line
+                + '/dev/smcinvoke            0660   system     drmrpc\n')
+        check = lambda text: subject.rule_text(node, self.harness({name: text.encode()}))[0]
+        self.assertTrue(check(good))
+        for case, text in [
+                ('no stanza: the nodes would be created directly in /dev', good.replace(stanza, '')),
+                ('another directory', good.replace('dirname /dev/mem_buf_vm', 'dirname /dev/vm')),
+                ('no rule for the node', good.replace(line, '')),
+                ('writable', good.replace(line, line.replace('0444', '0666'))),
+                ('another owner', good.replace(line, line.replace('system system', 'root system'))),
+                ('every VM node, as stock', good.replace(line, '/dev/mem_buf_vm/*         0444   system     system\n')),
+                ('a second VM node', good + '/dev/mem_buf_vm/qcom,cp_pixel 0444 system system\n'),
+                ('a node with the same prefix', good + '/dev/mem_buf_vm/qcom,cp_bitstream2 0444 system system\n')]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+        users = rules['media-secure-buffer-node-users']
+        self.assertEqual((['hal_drm_widevine', 'mediacodec'], 'vendor_vm_cp_bitstream_device', 'chr_file', 'open'),
+                         (users['allowed'], users['target'], users['cls'], users['perm']))
+        vendor = 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        use = '(chr_file (ioctl read getattr lock map open watch watch_reads))'
+        cil = ('(type vendor_vm_cp_bitstream_device)\n(type vendor_vm_cp_pixel_device)\n(type mediacodec)\n'
+               '(type hal_drm_widevine)\n(type hal_drm_clearkey_aidl)\n(type hal_graphics_composer_default)\n'
+               '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine))\n'
+               '(typeattributeset dev_type (vendor_vm_cp_bitstream_device vendor_vm_cp_pixel_device))\n'
+               f'(allow mediacodec vendor_vm_cp_bitstream_device {use})\n'
+               f'(allow hal_drm_widevine vendor_vm_cp_bitstream_device {use})\n'
+               f'(allow hal_graphics_composer_default vendor_vm_cp_pixel_device {use})\n'
+               '(allow init dev_type (chr_file (getattr setattr relabelto)))\n')
+        empty = {'SYSTEM/etc/selinux/plat_sepolicy.cil': b'(type init)\n', 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'',
+                 'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        allowed = lambda text: subject.rule_sepolicy_sources(users, self.harness({**empty, vendor: text.encode()}))[0]
+        self.assertTrue(allowed(cil))
+        for case, extra in [
+                ('the composer', f'(allow hal_graphics_composer_default vendor_vm_cp_bitstream_device {use})\n'),
+                ('every DRM HAL', f'(allow hal_drm_server vendor_vm_cp_bitstream_device {use})\n'),
+                ('ClearKey', '(allow hal_drm_clearkey_aidl vendor_vm_cp_bitstream_device (chr_file (open)))\n'),
+                ('every device node', '(allow hal_graphics_composer_default dev_type (chr_file (read open)))\n')]:
+            with self.subTest(case=case):
+                self.assertFalse(allowed(cil + extra))
+        self.assertFalse(allowed(cil.replace('(type vendor_vm_cp_bitstream_device)\n', '')))
 
 
 class ParserTests(unittest.TestCase):
