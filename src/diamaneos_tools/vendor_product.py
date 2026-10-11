@@ -31,10 +31,10 @@ SOURCE_INTERFACES = {
     'android.hardware.security.rkp-V3-ndk',
     'android.hardware.security.secureclock-V1-ndk',
     'android.hardware.security.sharedsecret-V1-ndk',
-    # Qualcomm display stack built from source. The stock
-    # Android 14 composer failed to present under Android 17 when tried without
-    # libsdmextension and is untested with it; source is kept so the code that
-    # handles every app's buffers can be patched and hardened.
+    # Qualcomm display stack, built from source so the code that handles every
+    # app's buffers can be patched and hardened. The stock Android 14 composer
+    # does not present under Android 17 without libsdmextension and is untested
+    # with it.
     'libdisplayconfig.qti',
     'libdisplaydebug',
     'libdrmutils',
@@ -333,10 +333,9 @@ RUNTIME_ONLY_AIDL = {'android.hardware.graphics.allocator-V1-ndk'}
 # - The colour manager was built against the Android 14 VNDK tinyxml2, whose
 #   Android 17 ABI differs: it links an old-ABI copy (device compat module).
 # - The camera provider links the seccomp loader (device camera/seccomp) in
-#   place of libhardware, which the loader links in turn (and
-#   camx.provider-impl.so links too), so nothing else changes. The dynamic
-#   linker runs the loader's constructor before the provider's main(), and so
-#   before CamX is loaded; without the loader the provider does not start.
+#   place of libhardware, which the loader and camx.provider-impl.so link, so
+#   nothing else changes. The loader's constructor runs before the provider's
+#   main(), so before CamX loads; without it the provider does not start.
 NEEDED_REWRITES = {
  'vendor/lib64/libsnapdragoncolor-manager.so': {
   'needed': 'libtinyxml2.so', 'replacement': 'libtxml2v34.so', 'module': 'libtxml2v34',
@@ -348,33 +347,26 @@ NEEDED_REWRITES = {
   'source_sha256': '751fa24b9d44a790a2594828c5aaa2a9e98f1a2a7734cf7cd103023893031f6a',
   'sha256': 'fcec163779acab018729a028fec7ed9d431a2355bc0b714a3911b62367c890ff',
   'reason': 'Load the seccomp loader (libcamxjail, which links libhardware) before the provider starts'},
- # Hardware video encoders (compat/codec2-v34):
- # - libcodec2_vndk was built against Android 14, where GraphicBuffer is 256
- #   bytes; it allocates 256 bytes itself and calls the platform constructor.
- #   Android 17's GraphicBuffer is 3376 bytes, so binding it to Android 17 libui
- #   overflows the codec service's heap. Its libui.so dependency
- #   is renamed to uiv34.so and its six GraphicBuffer imports to GraphicBufV34
- #   (same lengths; see GRAPHICBUFFER_V34_SYMBOLS), so they bind to uiv34's
- #   Android 14 sized GraphicBuffer instead (which fails closed unless hardware
- #   video decoding is on, and then wraps Surface buffers as Android 14 did). Every other
- #   libui symbol still comes from the real libui, which uiv34 links.
+ # Hardware video encoders (device compat/codec2-v34):
+ # - libcodec2_vndk allocates Android 14's 256-byte GraphicBuffer itself;
+ #   Android 17 libui's constructor expects 3376 bytes and would overflow the
+ #   codec service's heap. Its six GraphicBuffer imports bind to uiv34's
+ #   Android 14 sized one (GRAPHICBUFFER_V34_SYMBOLS), which fails closed
+ #   unless hardware video decoding is on and then wraps Surface buffers as
+ #   Android 14 does. uiv34 links the real libui for every other symbol.
  # - libcodec2_hidl@1.0-1.2 need GraphicBufferSource::getHGraphicBufferProducer,
- #   which Android 17 dropped on a class whose layout did not change; their
- #   bufferqueue-helper dependency is renamed to the compat library that re-adds
- #   it (device compat/codec2-v34).
- # Both keep the original library in their Soong shared_libs (keep_link): they
- # still import its other symbols, which Soong's ELF check resolves only
- # against the listed libraries.
- # Hardware video codec service: its libavservices_minijail.so dependency is
- # renamed to the device's seccomp filter and codec gate (media/seccomp),
- # which links libavservices_minijail in turn (keep_link). It comes before
- # libavservices_minijail and libcodec2_hidl@1.2 in the service's dependency
- # order, so the service's SetUpMinijail and Codec2 ComponentStore
- # constructor calls reach it: it installs DiamaneOS's filter (and the stock
- # one on top), checks the codec configuration (the Qualcomm library
- # registers every codec when it cannot read it) and builds the store around
- # a filter that offers only the codecs this boot allows, or none; the store
- # always registers. Without the library the service does not start.
+ #   which Android 17 lacks (same class layout); the compat helper adds it.
+ # Both keep the original library in shared_libs (keep_link): Soong's ELF check
+ # resolves their other imports only against the listed libraries.
+ # Hardware video codec service: the device's seccomp filter and codec gate
+ # (media/seccomp) links libavservices_minijail (keep_link) and precedes it
+ # and libcodec2_hidl@1.2 in the dependency order, so the service's
+ # SetUpMinijail and Codec2 ComponentStore constructor calls reach the gate.
+ # It installs DiamaneOS's filter (and the stock one on top), checks the codec
+ # configuration (the Qualcomm library registers every codec when it cannot
+ # read it) and builds the store around a filter that offers only the codecs
+ # this boot allows, or none; the store always registers. Without the gate the
+ # service does not start.
  'vendor/bin/hw/vendor.qti.media.c2@1.0-service': {
   'needed': 'libavservices_minijail.so', 'replacement': 'libc2hwjail_avservices.so',
   'module': 'libc2hwjail_avservices', 'keep_link': True,
@@ -412,14 +404,11 @@ NEEDED_REWRITES = {
  # Lens distortion node of the two combined cameras (Fairphone's
  # com.fp.node.distortion, loaded into the camera provider): built against
  # Android 14 like libcodec2_vndk, it allocates 256 bytes for each of its two
- # working buffers and calls the platform GraphicBuffer constructor, which
- # would overflow the provider's heap with Android 17 libui. Its libui.so
- # dependency is renamed to uiv34.so and its three GraphicBuffer imports to
- # GraphicBufV34 (GRAPHICBUFFER_V34_NODE_SYMBOLS), so uiv34's Android 14 sized
- # GraphicBuffer allocates, locks and unlocks those buffers.
- # No keep_link: these three are the node's only libui imports, so after the
- # rename it imports nothing from libui and Soong's ELF check needs only uiv34
- # listed. libundistort.so, which the node links, imports no libui symbol.
+ # working GraphicBuffers, which Android 17 libui's constructor would overflow
+ # in the provider's heap. Its three GraphicBuffer imports bind to uiv34's
+ # Android 14 sized one (GRAPHICBUFFER_V34_NODE_SYMBOLS). No keep_link: they
+ # are its only libui imports, so Soong's ELF check needs only uiv34 listed;
+ # libundistort.so, which the node links, imports no libui symbol.
  'vendor/lib64/camera/components/com.fp.node.distortion.so': {
   'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
   'symbols': 'GRAPHICBUFFER_V34_NODE_SYMBOLS',
@@ -661,11 +650,11 @@ def render(recipe, selection, notice_kind):
             rewrite = NEEDED_REWRITES.get(edge['consumer'])
             if rewrite and rewrite['needed'] == edge['needed']:
                 if rewrite.get('keep_link'):
-                    # The blob still imports the original library's other
-                    # symbols, which it now reaches through the replacement
-                    # (which links it). Soong's ELF check resolves imports only
-                    # against the listed shared_libs, so both are listed; the
-                    # blob's DT_NEEDED names only the replacement.
+                    # The blob imports the original library's other symbols
+                    # and reaches them through the replacement, which links
+                    # it. Soong's ELF check resolves imports only against the
+                    # listed shared_libs, so both are listed; the blob's
+                    # DT_NEEDED names only the replacement.
                     dependencies[edge['consumer']].append(dep)
                 dep = rewrite['module']
         elif edge['kind'] == 'source-module':
@@ -1276,14 +1265,12 @@ def gnss_config(path, data):
 # sandboxed mediaswcodec. Two pinned derivations keep the stock Qualcomm Codec2
 # service from exposing a hardware decoder by any path:
 # - the target specification gets a "codecs-available" list with the five
-#   encoders and no decoder; libqcodec2_platform collects the decoders,
-#   encoders and OptionalCodecs lists into one set, and libqcodec2_v4l2codec
-#   registers only the codecs in it (store listing and component creation
-#   both go through that registry). An empty set means every codec, so the
-#   invariants below also require OptionalCodecs to stay empty;
-# - the codec list loses its decoder section, so MediaCodec (which only
-#   creates codecs that MediaCodecList lists) cannot pick one even if the
-#   service ever registered one.
+#   encoders and no decoder. libqcodec2_v4l2codec registers, for store listing
+#   and component creation, only the set libqcodec2_platform merges from the
+#   decoders, encoders and OptionalCodecs lists; an empty set means every
+#   codec, so the invariants below also keep OptionalCodecs empty;
+# - the codec list loses its decoder section, so MediaCodec, which creates
+#   only what MediaCodecList lists, cannot pick one even if one is registered.
 MEDIA_ENCODERS = ('c2.qti.avc.encoder', 'c2.qti.hevc.encoder', 'c2.qti.hevc.encoder.cq',
                   'c2.qti.hevc.encoder.hdr', 'c2.qti.heic.encoder')
 # Hardware video decoding (a choice in Settings; device media/media.mk): two
