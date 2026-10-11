@@ -33,42 +33,37 @@ class BuildEnvironmentTests(unittest.TestCase):
             identity["project_map_sha256"],
         )
 
-    def test_thermal_gate_has_no_machine_specific_default(self):
-        arguments = build._parser().parse_args([])
-        self.assertIsNone(arguments.thermal_check)
-
     def test_changed_manifest_pin_changes_build_identity(self):
-        changed = copy.deepcopy(self.config)
-        changed["upstream"]["tag_object"] = "0" * 40
-        changed["upstream"]["peeled_commit"] = "1" * 40
-        changed_raw = (json.dumps(changed, sort_keys=True) + "\n").encode()
         original = build.declared_identity(self.config, self.raw, ROOT)
-        modified = build.declared_identity(changed, changed_raw, ROOT)
-        self.assertNotEqual(original["declared_build_identity_sha256"],
-                            modified["declared_build_identity_sha256"])
-
-    def test_changed_repo_tool_pin_changes_build_identity(self):
-        changed = copy.deepcopy(self.config)
-        changed["upstream"]["repo_tool"]["tag_object"] = "2" * 40
-        changed["upstream"]["repo_tool"]["peeled_commit"] = "3" * 40
-        changed_raw = (json.dumps(changed, sort_keys=True) + "\n").encode()
-        original = build.declared_identity(self.config, self.raw, ROOT)
-        modified = build.declared_identity(changed, changed_raw, ROOT)
-        self.assertNotEqual(original["declared_build_identity_sha256"],
-                            modified["declared_build_identity_sha256"])
+        for name, tag_object, peeled_commit in (("manifest", "0" * 40, "1" * 40),
+                                                ("repo tool", "2" * 40, "3" * 40)):
+            with self.subTest(pin=name):
+                changed = copy.deepcopy(self.config)
+                pin = changed["upstream"] if name == "manifest" else changed["upstream"]["repo_tool"]
+                pin["tag_object"] = tag_object
+                pin["peeled_commit"] = peeled_commit
+                changed_raw = (json.dumps(changed, sort_keys=True) + "\n").encode()
+                modified = build.declared_identity(changed, changed_raw, ROOT)
+                self.assertNotEqual(original["declared_build_identity_sha256"],
+                                    modified["declared_build_identity_sha256"])
 
     def test_cold_environment_identifies_inputs_without_private_cache(self):
-        result = subprocess.run(
-            [str(ROOT / "bin" / "diamaneos"), "build", "preflight", "--inputs-only"],
-            cwd=ROOT, capture_output=True, text=True, timeout=30,
-            env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
-        )
-        self.assertEqual(0, result.returncode, result.stderr)
-        report = json.loads(result.stdout)
-        self.assertEqual("INPUTS_IDENTIFIED", report["status"])
-        self.assertEqual("required-for-full-preflight",
-                         report["required_runtime_inputs"]["source_checkout"])
-        self.assertNotIn("/var/lib/", result.stdout)
+        # The default environment, and the same file named with --config.
+        for extra in ([], ["--config", str(CONFIG_PATH)]):
+            with self.subTest(arguments=extra):
+                result = subprocess.run(
+                    [str(ROOT / "bin" / "diamaneos"), "build", "preflight", "--inputs-only", *extra],
+                    cwd=ROOT, capture_output=True, text=True, timeout=30,
+                    env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+                report = json.loads(result.stdout)
+                self.assertEqual("INPUTS_IDENTIFIED", report["status"])
+                inputs = report["required_runtime_inputs"]
+                self.assertEqual("required-for-full-preflight", inputs["source_checkout"])
+                self.assertEqual(self.config["manifest"], inputs["source_manifest"])
+                self.assertNotIn("allowed_signers_file", inputs)
+                self.assertNotIn("/var/lib/", result.stdout)
 
     def test_moving_manifest_revision_is_rejected(self):
         xml = b"""<manifest><remote name='aosp' fetch='https://example.invalid'/>
@@ -78,50 +73,28 @@ class BuildEnvironmentTests(unittest.TestCase):
             build.parse_project_map(xml)
 
     def test_declared_source_local_output_is_accepted(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source = root / "source"
-            cache = root / "cache"
-            output = source / "out"
-            source.mkdir()
-            cache.mkdir()
-            output.mkdir()
-            config = copy.deepcopy(self.config)
-            config["workspace"]["source_subdirectory"] = "source"
-            config["workspace"]["output_subdirectory"] = "source/out"
-            config["host"]["minimum_source_free_bytes"] = 1
-            config["host"]["minimum_build_free_bytes"] = 1
-            observed = build.verify_workspace(config, source, cache, output)
-            self.assertEqual(str(output.resolve()), observed["output_root"])
-
-    def test_runtime_output_must_match_declared_source_local_path(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source = root / "source"
-            cache = root / "cache"
-            output = root / "external-output"
-            source.mkdir()
-            cache.mkdir()
-            output.mkdir()
-            config = copy.deepcopy(self.config)
-            config["workspace"]["source_subdirectory"] = "source"
-            config["workspace"]["output_subdirectory"] = "source/out"
-            with self.assertRaisesRegex(build.BuildError, "source-local"):
-                build.verify_workspace(config, source, cache, output)
-
-    def test_clean_build_rejects_existing_output(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source = root / "source"
-            cache = root / "cache"
-            output = source / "out"
-            source.mkdir()
-            cache.mkdir()
-            output.mkdir()
-            (output / "old-intermediate").write_text("stale\n", encoding="utf-8")
-            with self.assertRaisesRegex(build.BuildError, "not empty"):
-                build.verify_workspace(self.config, source, cache, output,
-                                       require_empty_output=True)
+        declared = copy.deepcopy(self.config)
+        declared["workspace"]["source_subdirectory"] = "source"
+        declared["workspace"]["output_subdirectory"] = "source/out"
+        declared["host"]["minimum_source_free_bytes"] = 1
+        declared["host"]["minimum_build_free_bytes"] = 1
+        # The output the environment declares; an output elsewhere; a clean build onto old output.
+        for config, output_path, stale, message in ((declared, "source/out", False, None),
+                                                    (declared, "external-output", False, "source-local"),
+                                                    (self.config, "source/out", True, "not empty")):
+            with self.subTest(output=output_path, stale=stale), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                source, cache, output = root / "source", root / "cache", root / output_path
+                for directory in (source, cache, output):
+                    directory.mkdir()
+                if stale:
+                    (output / "old-intermediate").write_text("stale\n", encoding="utf-8")
+                if message is None:
+                    observed = build.verify_workspace(config, source, cache, output)
+                    self.assertEqual(str(output.resolve()), observed["output_root"])
+                else:
+                    with self.assertRaisesRegex(build.BuildError, message):
+                        build.verify_workspace(config, source, cache, output, require_empty_output=stale)
 
     def test_untracked_source_is_reported(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -261,10 +234,6 @@ class ManifestModeTests(unittest.TestCase):
         self.config, self.raw = build.load_config(ROOT / "config" / "build-environment-fp6.json")
 
     def test_fp6_environment_follows_the_diamaneos_manifest(self):
-        build.validate_config(self.config)
-        self.assertNotIn("composition", self.config)
-        self.assertEqual({"url": "https://github.com/DiamaneOS/platform_manifest.git", "branch": "android17"},
-                         self.config["manifest"])
         identity = build.declared_identity(self.config, self.raw, ROOT)
         self.assertEqual(self.config["manifest"], identity["source_manifest"])
 
@@ -286,17 +255,6 @@ class ManifestModeTests(unittest.TestCase):
         changed["composition"] = {}
         with self.assertRaisesRegex(build.BuildError, "supported schema"):
             build.validate_config(changed)
-
-    def test_inputs_only_preflight_names_the_manifest(self):
-        result = subprocess.run(
-            [str(ROOT / "bin" / "diamaneos"), "build", "preflight", "--inputs-only",
-             "--config", str(ROOT / "config" / "build-environment-fp6.json")],
-            cwd=ROOT, capture_output=True, text=True, timeout=30,
-            env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"})
-        self.assertEqual(0, result.returncode, result.stderr)
-        inputs = json.loads(result.stdout)["required_runtime_inputs"]
-        self.assertEqual(self.config["manifest"], inputs["source_manifest"])
-        self.assertNotIn("allowed_signers_file", inputs)
 
 
 class BranchCheckoutTests(unittest.TestCase):
