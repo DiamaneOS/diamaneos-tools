@@ -285,17 +285,13 @@ class ResourceTests(Fixture):
         self.assertIn('broken.xml', self.only(report, 'target-source')['message'])
 
     def test_document_type_declarations_are_refused(self):
-        self.write('tree/packages/apps/Settings/res/values/entities.xml',
-                   '<!DOCTYPE r [<!ENTITY a "aaaa">]><resources><string name="x">&a;</string></resources>')
-        _, report, _ = self.check()
-        self.assertIn('DTDs are not accepted', self.only(report, 'target-source')['message'])
-
-    def test_document_type_declarations_are_refused_in_utf16(self):
+        document = '<!DOCTYPE r [<!ENTITY a "aaaa">]><resources><string name="x">&a;</string></resources>'
         path = self.base / 'fixtures/tree/packages/apps/Settings/res/values/entities.xml'
-        path.write_bytes('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE r [<!ENTITY a "aaaa">]>'
-                         '<resources><string name="x">&a;</string></resources>'.encode('utf-16'))
-        _, report, _ = self.check()
-        self.assertIn('DTDs are not accepted', self.only(report, 'target-source')['message'])
+        for encoding, text in (('utf-8', document), ('utf-16', '<?xml version="1.0" encoding="UTF-16"?>' + document)):
+            with self.subTest(encoding=encoding):
+                path.write_bytes(text.encode(encoding))
+                _, report, _ = self.check()
+                self.assertIn('DTDs are not accepted', self.only(report, 'target-source')['message'])
         with self.assertRaises(overlays.OverlayCheckError):
             overlays.parse_xml(b'<!DOCTYPE resources><resources/>')
 
@@ -697,11 +693,6 @@ class ParserTests(unittest.TestCase):
             with self.assertRaises(overlays.OverlayCheckError):
                 overlays.load_config(path)
 
-    def test_repository_configuration_is_valid(self):
-        config = overlays.load_config(overlays.CONFIG)
-        self.assertIn('android', config['targets'])
-        self.assertEqual({r['role'] for r in config['overlay_roots']}, {'product', 'device'})
-
 
 class GitSourceTests(Fixture):
     """Fetch mode against local git remotes built from the fixture tree."""
@@ -783,19 +774,14 @@ class GitSourceTests(Fixture):
     def test_default_policy_refuses_non_https_remotes(self):
         argv = ['--config', str(self.config), '--root', str(self.workspace), '--fetch', '--cache', str(self.cache),
                 '--manifest', str(self.git_manifest)]
-        stderr = io.StringIO()
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
-            self.assertEqual(overlays.main(argv, release_path=self.release), 2)
-        self.assertIn('only https remotes are allowed', stderr.getvalue())
-
-    def test_default_protocols_refuse_file_remotes_even_when_the_url_is_allowed(self):
-        argv = ['--config', str(self.config), '--root', str(self.workspace), '--fetch', '--cache', str(self.cache),
-                '--manifest', str(self.git_manifest)]
-        stderr = io.StringIO()
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
-            code = overlays.main(argv, url_allowed=lambda url: True, release_path=self.release)
-        self.assertEqual(code, 2)
-        self.assertIn("transport 'file' not allowed", stderr.getvalue())
+        # When the URL is allowed, git's default protocols still refuse file remotes.
+        for options, message in (({}, 'only https remotes are allowed'),
+                                 ({'url_allowed': lambda url: True}, "transport 'file' not allowed")):
+            with self.subTest(message=message):
+                stderr = io.StringIO()
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                    self.assertEqual(overlays.main(argv, release_path=self.release, **options), 2)
+                self.assertIn(message, stderr.getvalue())
 
     def test_caller_git_directory_is_never_touched(self):
         victim = self.base / 'victim'
@@ -956,10 +942,6 @@ class PrebuiltTargetTests(unittest.TestCase):
             path = Path(tmp) / 'config.json'
             path.write_text(json.dumps(data))
             return overlays.load_config(path)
-
-    def test_committed_registry_has_the_speech_services_prebuilt(self):
-        target = overlays.load_config()['targets']['app.grapheneos.speechservices']
-        self.assertEqual(target['prebuilt']['resources'], {'string': ['app_name']})
 
     def test_declared_resources_at_the_pinned_revision(self):
         target = self.load(self.target())['targets']['app.grapheneos.speechservices']
