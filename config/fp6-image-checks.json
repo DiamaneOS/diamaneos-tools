@@ -994,7 +994,7 @@
     },
     {
       "id": "usb-port-control-triggers",
-      "why": "The port states reach the USB controller's data switch and the charger firmware's input suspend. ports_disabled (Off) cuts data and then suspends the input: no charging while the OS runs. charging-only_immediate cuts data, ports_enabled turns data on, and every state but Off turns the input back on, as do charger mode and shutdown, so charging when powered off, in charger mode, fastboot and recovery is unaffected. User builds start every normal boot with data and charging off, as GrapheneOS starts Pixels with the port off, until the framework applies the stored mode: at early-boot the controller is cut and, once the charger firmware is up (after waiting for the node, again at boot), the input is suspended. Debuggable builds keep the port on at boot and write 0 there. Only ports_disabled, charging-only_immediate and the user-build boot cut turn data off, and only ports_enabled turns it on. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
+      "why": "The port states drive the USB controller's data switch and the charger firmware's input suspend. Off (ports_disabled) cuts data, then suspends the input: no charging while the OS runs. Every other state, charger mode and shutdown lift the suspend, so charging when powered off, in charger mode, fastboot and recovery is unaffected. User builds start every normal boot with both off, as GrapheneOS starts Pixels with the port off, until the framework applies the stored mode; the input write waits for the charger firmware's node and repeats at boot. Debuggable builds keep the port on. Only ports_disabled, charging-only_immediate and the user-build boot cut turn data off, and only ports_enabled turns it on. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.qcom.usb.rc"
@@ -2227,7 +2227,7 @@
     },
     {
       "id": "gallery2-crop-only",
-      "why": "Gallery2 keeps only its crop screen, the crop handler of the profile photo picker: a component override turns off its launcher entry, viewer, picker, editor and every other component, and leaves the crop screen on.",
+      "why": "Gallery2 keeps only its crop screen, the crop handler of the profile photo picker: a component override turns off every other component.",
       "type": "text",
       "files": [
         "PRODUCT/etc/sysconfig/diamaneos-gallery2-crop-only.xml"
@@ -3287,7 +3287,7 @@
     },
       {
         "id": "tee-node-open",
-        "why": "Only qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service, which reaches its trusted app through liboemcrypto.so, may open the TEE node. It has its own label, so the platform's tee_device grants to its reference HAL domains, ClearKey included, do not reach it (tee-node-label).",
+        "why": "Only qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service, which reaches its trusted app through liboemcrypto.so, may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey included (tee-node-label).",
         "type": "sepolicy_sources",
         "files": [
           "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -3736,7 +3736,7 @@
     },
     {
       "id": "camera-distortion-graphicbuffer-abi",
-      "why": "The stock lens distortion node's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one: it needs uiv34.so instead of libui.so and imports the three renamed symbols, none of the original three.",
+      "why": "The stock lens distortion node's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one.",
       "type": "codec2_abi_guard",
       "path": "VENDOR/lib64/camera/components/com.fp.node.distortion.so",
       "alloc_bytes": 256,
@@ -3934,7 +3934,7 @@
     },
     {
       "id": "bluetooth-seccomp-rules",
-      "why": "The Bluetooth HCI service may start threads but no processes (clone3 hides its flags from the filter), open only Unix sockets, send only SIGKILL with kill (the HCI implementation's restart after a controller failure) and never map memory writable and executable; it may not run programs or trace or write other processes.",
+      "why": "The Bluetooth HCI service may start threads, not processes (clone3 hides its flags from the filter), open only Unix sockets, send only SIGKILL (the HCI implementation's restart after controller failures) and never map memory writable and executable, run programs, or trace or write other processes.",
       "type": "text",
       "files": [
         "VENDOR/etc/seccomp_policy/bluetooth-hci.policy"
@@ -4200,7 +4200,7 @@
     },
     {
       "id": "esim-lpa-apk",
-      "why": "The eSIM manager asks for its two privileged permissions, network access for eSIM downloads and hiding other apps' overlays over its Add eSIM windows, and nothing else (no camera; the last permission comes from AndroidX), ships disabled until the user turns on eSIM support, and is not platform-signed.",
+      "why": "The eSIM manager asks only for its two privileged permissions, network access for eSIM downloads and hiding other apps' overlays over its Add eSIM windows (no camera; the last is AndroidX's). It ships disabled until the user turns on eSIM support and is not platform-signed.",
       "type": "apk",
       "path": "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
       "permissions": [
@@ -5030,7 +5030,7 @@
     },
     {
       "id": "media-codec2-service",
-      "why": "The hardware video codec service and its Codec2 libraries are installed with the device rc and manifest, its configuration check and seccomp loader and policy, and the three codec configurations (encoders only, with the secure decoders, and with all hardware decoders); the Android 14 Codec2 framework libraries are on odm.",
+      "why": "The hardware video codec service is installed with its Codec2 libraries, device rc and manifest, configuration check, seccomp loader and policy, and the three codec configurations (encoders only, with the secure decoders, with all hardware decoders); the Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
@@ -5147,7 +5147,7 @@
     },
     {
       "id": "media-decoder-node-root-only",
-      "why": "ueventd gives the encoder node to group mediacodec and creates the Iris decoder node root-only (the init file opens it to that group at boot unless the user chose no hardware decoding, media-hw-decode-states); both are owned by root, so no system-uid process gets them through the owner bits.",
+      "why": "ueventd gives the encoder node to group mediacodec and creates the Iris decoder node root-only; the init file opens it to that group at boot unless hardware decoding is off (media-hw-decode-states). Root owns both, so no system-uid process gets them through the owner bits.",
       "type": "binary_count",
       "file": "VENDOR/etc/ueventd.rc",
       "patterns": [
@@ -5167,7 +5167,7 @@
     },
     {
       "id": "media-hw-decode-states",
-      "why": "The init file applies the user's hardware video decoding choice once per boot. At zygote-start a stored 0 (never) or 1 (all video) sets the boot state, and 2 (protected video only) stays when neither did. At early-boot each state selects its own codec list and target specification, and only states 1 and 2 open the decoder node to the codec service.",
+      "why": "The user's hardware video decoding choice applies once per boot: a stored 0 (never) or 1 (all video), otherwise 2 (protected video only). The state selects the codec list and target specification; only 1 and 2 open the decoder node to the codec service.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.media.rc"
@@ -5588,7 +5588,7 @@
     },
     {
       "id": "widevine-apex-payload",
-      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label: the DRM service, its init file, its VINTF fragment, its own libcrypto and the package manifest. liboemcrypto.so is not inside it: the package loads it from /vendor/lib64 (widevine-liboemcrypto).",
+      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label. liboemcrypto.so is not inside it: the package loads it from /vendor/lib64 (widevine-liboemcrypto).",
       "type": "apex_payload",
       "file": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
       "payload": {
@@ -5735,7 +5735,7 @@
     },
     {
       "id": "widevine-service-groups",
-      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only and, by its seclabel line, in the domain hal_drm_widevine_sw (widevine-software-domain). The definition with the library has no seclabel line: init enters hal_drm_widevine through the executable's type. Neither names an interface, so init starts neither on a client's request. The ClearKey service, which never uses the TEE, stays without drmrpc.",
+      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only, in hal_drm_widevine_sw by its seclabel line (widevine-software-domain); the other definition has none, so init enters hal_drm_widevine through the executable's type. Neither names an interface, so init starts neither on a client's request. ClearKey, which never uses the TEE, stays without drmrpc.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.drm.rc"
@@ -5767,7 +5767,7 @@
     },
     {
       "id": "widevine-software-domain",
-      "why": "With its built-in software protection the Widevine service runs in hal_drm_widevine_sw, a DRM HAL domain of its own. The rules that name it cover its executable and its data in /data/vendor/mediadrm and nothing else; it has no rule for ioctl commands and is in no attribute but the four of a DRM HAL (domain, halserverdomain, hal_drm, hal_drm_server). So no rule of its own reaches the TEE node, the QSEECom heap, the crypto engine node, qseecomd's socket, the memory-buffer driver, the bitstream node or the codec service's descriptors. init may start it, and no automatic transition leads to it: only the seclabel line does (widevine-service-groups). Rules on attributes are judged per node, by lists that do not name this domain: tee-node-open, -read, -write and -ioctl, media-secure-buffer-node-users, qseecom-heap-users, crypto-engine-node-users, membuf-node-users and qseecomd-socket-users. The codec service's descriptors, which many domains use, have no such list.",
+      "why": "With its built-in software protection the Widevine service runs in hal_drm_widevine_sw, a DRM HAL domain of its own. Its own rules cover only its executable and its data in /data/vendor/mediadrm, without ioctl commands, so none reaches the TEE node, the QSEECom heap, the crypto engine node, qseecomd's socket, the memory-buffer driver, the bitstream node or the codec service's descriptors. init may start it, and only the seclabel line leads to it (widevine-service-groups). It is in the four DRM HAL attributes only; rules on those are judged per node, by lists that do not name it: tee-node-open, -read, -write and -ioctl, media-secure-buffer-node-users, qseecom-heap-users, crypto-engine-node-users, membuf-node-users and qseecomd-socket-users. The codec service's descriptors, which many domains use, have no such list.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -5789,7 +5789,7 @@
     },
     {
       "id": "qseecom-heap-users",
-      "why": "Only the five domains that talk to trusted apps may open the QSEECom heap, from which the buffers they share with a trusted app come: qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine service with the hardware-backed library. The domain of the service with its built-in software protection, hal_drm_widevine_sw, is not among them.",
+      "why": "Only the five domains that talk to trusted apps may open the QSEECom heap, from which the buffers they share with a trusted app come. hal_drm_widevine_sw (the Widevine service with built-in software protection) is not among them.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5837,7 +5837,7 @@
     },
     {
       "id": "membuf-node-users",
-      "why": "Only the graphics allocator, the composer, the codec service and the Widevine service with the hardware-backed library may open the memory-buffer driver's node (/dev/membuf), through which a buffer is lent to another memory domain. The domain of the service with its built-in software protection, hal_drm_widevine_sw, is not among them.",
+      "why": "Only the graphics allocator, the composer, the codec service and the Widevine service with the hardware-backed library may open the memory-buffer driver's node (/dev/membuf), through which a buffer is lent to another memory domain. hal_drm_widevine_sw (the service with built-in software protection) is not among them.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
