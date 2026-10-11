@@ -32,6 +32,11 @@ resolved manifest, target-files and otatools. Production mode requires a clean, 
 `user` build. Every applicable device rule must pass against the clean tools revision
 selected by the resolved manifest.
 
+Installed host OpenSSH authenticates the verification report and previous result
+before incoming tools are unpacked or executed. Its environment has no archive
+library, executable or JDK paths. A private otatools snapshot must match the
+authenticated provenance before native verification begins.
+
 ```sh
 bin/diamaneos signing roles
 bin/diamaneos signing prepare \
@@ -79,6 +84,11 @@ Delta sources must match previous verified artifact hashes. A full OTA is mandat
 
 The release record contains `schema_version`, `plan_sha256` and the exact `artifacts`
 hash map for target-files, images, OTAs, factory archive and factory signature.
+
+Installed host OpenSSH verifies the release record and its plan binding before
+archive tools run. The authenticated plan binds the otatools snapshot. Expected
+public authority stays outside the publication; native artifact checks still run
+after bootstrap authentication.
 
 ```sh
 bin/diamaneos signing verify --plan "$PLAN" \

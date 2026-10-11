@@ -178,6 +178,119 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         with patch('sys.stderr', new=io.StringIO()), self.assertRaises(SystemExit): root.parse_args(arguments)
         self.assertEqual(Path('report.sig'), root.parse_args(arguments + ['--verification-signature', 'report.sig']).verification_signature)
 
+    def bootstrap_inputs(self):
+        self.fixture()
+        authority = self.root / 'authority'
+        authority.mkdir()
+        identity = authority / 'disposable'
+        native.command(['/usr/bin/ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', identity],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        public = ' '.join(identity.with_suffix('.pub').read_text().split()[:2])
+        (authority / 'allowed').write_text('fixture ' + public + '\n')
+        inventory = authority / 'inventory.json'
+        inventory.write_text(json.dumps({'schema_version': 2,
+            'certificate_roles': {role: role + '.x509.pem' for role in inputs.CERT_ROLES},
+            'avb_public_key': 'avb.pem', 'factory': {'allowed_signers': 'allowed', 'identity': 'fixture'}}))
+        signature = self.root / 'verify.sig'
+        signature.write_text('invalid signature')
+        arguments = ['prepare', '--build-record', str(self.root / 'build.json'),
+            '--verification-report', str(self.root / 'verify.json'), '--verification-signature', str(signature),
+            '--target-files', str(self.root / 'target-files.zip'), '--resolved-manifest', str(self.root / 'resolved-manifest.xml'),
+            '--source-root', str(self.source), '--otatools', str(self.root / 'otatools.zip'),
+            '--keys', str(inventory), '--scratch', str(self.root / 'scratch'), '--output', str(self.root / 'plan.json')]
+        return arguments, identity, signature
+
+    def test_substituted_bundle_is_refused_before_unpack_or_archive_execution(self):
+        arguments, _identity, _signature = self.bootstrap_inputs()
+        (self.root / 'otatools.zip').write_bytes(b'untrusted substituted executable archive')
+        self.refresh_report()  # Self-consistent replacement hashes are not authentication.
+        with patch.object(api.za, 'unpack_tools') as unpack, patch.object(api, 'NativeTools') as tools, \
+             patch.object(api, 'PublicKeys') as keys, patch.object(api, 'verified_build') as verify, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        for call in (unpack, tools, keys, verify): call.assert_not_called()
+        self.assertFalse((self.root / 'plan.json').exists())
+
+    def test_valid_report_bootstraps_before_build_binding_and_archive_tools(self):
+        arguments, identity, signature = self.bootstrap_inputs()
+        report = self.root / 'verify.json'
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                        '-n', self.policy['verification_namespace'], report],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes(report.with_suffix('.json.sig').read_bytes())
+        with patch.object(api, 'verified_build', side_effect=inputs.SigningError('binding checkpoint')) as verify, \
+             patch.object(api.za, 'unpack_tools') as unpack, patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        verify.assert_called_once(); unpack.assert_not_called()
+        self.assertFalse((self.root / 'plan.json').exists())
+
+    def test_bootstrap_signature_has_only_host_paths_and_no_inherited_loader_environment(self):
+        with patch.object(native, 'command') as run:
+            native.host_ssh_signature('report', 'signature', 'allowed', 'fixture', 'namespace', self.root)
+        argv = run.call_args.args[0]; env = run.call_args.kwargs['env']
+        self.assertEqual('/bin/sh', argv[0]); self.assertIn('/usr/bin/ssh-keygen', argv)
+        self.assertEqual({'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL'}, set(env))
+        self.assertEqual('/usr/bin:/bin', env['PATH'])
+        self.assertNotIn('LD_LIBRARY_PATH', env); self.assertNotIn('JAVA_HOME', env)
+        tools = native.NativeTools.__new__(native.NativeTools)
+        tools.scratch = self.root; tools.env = {'LD_LIBRARY_PATH': 'untrusted', 'PATH': 'untrusted'}
+        with patch.object(native, 'command') as run:
+            tools.ssh_signature('report', 'signature', 'allowed', 'fixture', 'namespace')
+        self.assertEqual(env, run.call_args.kwargs['env'])
+
+    def test_tool_snapshot_refuses_changed_bytes_before_unpack(self):
+        archive = self.root / 'tools.zip'; archive.write_bytes(b'replaced')
+        inventory = self.root / 'inventory'; inventory.write_text('{}')
+        with patch.object(api.za, 'unpack_tools') as unpack, patch.object(api, 'NativeTools') as tools, \
+             self.assertRaisesRegex(inputs.SigningError, 'snapshot differs'):
+            with api.native_inputs(archive, self.root, inventory, self.root, True, {},
+                                   expected_otatools=hashlib.sha256(b'expected').hexdigest()):
+                self.fail('Unverified tools admitted')
+        unpack.assert_not_called(); tools.assert_not_called()
+
+    def verify_bootstrap_inputs(self):
+        _arguments, identity, _signature = self.bootstrap_inputs()
+        publication_root = self.root / 'publication'; publication_root.mkdir()
+        plan = {'schema_version': 2, 'mode': 'production', 'policy_sha256': inputs.canonical_sha256(self.policy),
+                'provenance': {'otatools_sha256': inputs.sha256_file(self.root / 'otatools.zip'), 'projects': {}},
+                'packages': {}, 'roles': {}, 'metadata': {}, 'mac_permissions': {}}
+        plan['plan_sha256'] = inputs.canonical_sha256(plan)
+        (self.root / 'plan-input.json').write_text(json.dumps(plan))
+        record = publication_root / 'record.json'
+        record.write_text(json.dumps({'schema_version': 1, 'plan_sha256': plan['plan_sha256'], 'artifacts': {}}))
+        signature = publication_root / 'record.sig'; signature.write_text('invalid signature')
+        publication = {'schema_version': 1, 'signed_target_files': 'target.zip', 'images_archive': 'images.zip',
+                       'ota': [], 'factory_archive': 'factory.zip', 'factory_signature': 'factory.sig',
+                       'release_record': 'record.json', 'release_signature': 'record.sig'}
+        (self.root / 'publication.json').write_text(json.dumps(publication))
+        arguments = ['verify', '--plan', str(self.root / 'plan-input.json'), '--publication', str(self.root / 'publication.json'),
+            '--artifact-root', str(publication_root), '--source-root', str(self.source), '--otatools', str(self.root / 'otatools.zip'),
+            '--keys', str(self.root / 'authority/inventory.json'), '--scratch', str(self.root / 'scratch'),
+            '--output', str(self.root / 'result.json')]
+        return arguments, identity, record, signature
+
+    def test_verify_authenticates_release_plan_before_incoming_tooling(self):
+        arguments, _identity, _record, _signature = self.verify_bootstrap_inputs()
+        with patch.object(api.za, 'unpack_tools') as unpack, patch.object(api, 'NativeTools') as tools, \
+             patch.object(api, 'PublicKeys') as keys, patch.object(api, 'source_files') as source, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        for call in (unpack, tools, keys, source): call.assert_not_called()
+        self.assertFalse((self.root / 'result.json').exists())
+
+    def test_authenticated_record_for_other_plan_refuses_before_incoming_tooling(self):
+        arguments, identity, record, signature = self.verify_bootstrap_inputs()
+        value = json.loads(record.read_text()); value['plan_sha256'] = 'f' * 64
+        record.write_text(json.dumps(value))
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity, '-n', self.policy['record_namespace'], record],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes(record.with_suffix('.json.sig').read_bytes())
+        with patch.object(api.za, 'unpack_tools') as unpack, patch.object(api, 'NativeTools') as tools, \
+             patch.object(api, 'PublicKeys') as keys, patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        for call in (unpack, tools, keys): call.assert_not_called()
+        self.assertFalse((self.root / 'result.json').exists())
+
     def test_paths_refuse_traversal_links_missing_and_absolute_files(self):
         (self.root / 'file').write_text('data')
         (self.root / 'link').symlink_to('file')

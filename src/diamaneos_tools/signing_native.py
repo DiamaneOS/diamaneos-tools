@@ -55,6 +55,31 @@ def raw_image(tools, path, destination):
     return path
 
 
+def factory_authority(path, policy):
+    inventory = load_json(path)
+    fields(inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
+    require(inventory['schema_version'] == 2, 'Unknown public key inventory format')
+    factory = inventory['factory']
+    fields(factory, {'allowed_signers', 'identity'})
+    authority = safe_file(Path(path).resolve().parent, factory['allowed_signers'])
+    require(authority.stat().st_size <= 1024 * 1024, 'Public key input exceeds its bounds')
+    allowed = authority.read_text().splitlines()
+    require(policy['factory_algorithm'] == 'Ed25519' and allowed
+            and all(len(line.split()) == 3 and line.split()[0] == factory['identity']
+                    and line.split()[1] in {'ssh-ed25519', 'sk-ssh-ed25519@openssh.com'} for line in allowed),
+            'Factory authority must be an explicit Ed25519 signer')
+    return authority, factory['identity']
+
+
+def host_ssh_signature(path, signature, allowed_signers, identity, namespace, scratch):
+    # Authenticate incoming tooling before using any archive-controlled executable,
+    # library path, JDK or environment. Only the installed host OpenSSH is trusted here.
+    env = {'PATH': '/usr/bin:/bin', 'HOME': str(scratch), 'TMPDIR': str(scratch), 'LANG': 'C', 'LC_ALL': 'C'}
+    command(['/bin/sh', '-c', 'input=$1; shift; exec "$@" < "$input"', 'verify', path,
+             '/usr/bin/ssh-keygen', '-Y', 'verify', '-f', allowed_signers,
+             '-I', identity, '-n', namespace, '-s', signature], env=env)
+
+
 class NativeTools:
     def __init__(self, root, source, scratch, *, projects=None, policy=None):
         self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
@@ -123,10 +148,7 @@ class NativeTools:
         return info
 
     def ssh_signature(self, path, signature, allowed_signers, identity, namespace):
-        # The shell opens the bounded artifact directly; its bytes never enter Python memory.
-        command(['/bin/sh', '-c', 'input=$1; shift; exec "$@" < "$input"', 'verify', path,
-                 '/usr/bin/ssh-keygen', '-Y', 'verify', '-f', allowed_signers,
-                 '-I', identity, '-n', namespace, '-s', signature], env=self.env)
+        host_ssh_signature(path, signature, allowed_signers, identity, namespace, self.scratch)
 
     def ota(self, path, expected, provenance):
         with za.archive(path) as handle:
@@ -225,13 +247,8 @@ class PublicKeys:
         self.avb_id = hashlib.sha256(tools.openssl(['pkey', '-pubin', '-in', avb, '-outform', 'DER'])).hexdigest()
         require(len(set(self.public_ids.values()) | {self.avb_id}) == len(CERT_ROLES) + 1,
                 'Public identities are reused across signing roles')
-        factory = self.inventory['factory']
-        fields(factory, {'allowed_signers', 'identity'})
-        allowed = self.file(factory['allowed_signers']).read_text().splitlines()
-        require(self.policy['factory_algorithm'] == 'Ed25519' and allowed
-                and all(len(line.split()) == 3 and line.split()[0] == factory['identity']
-                                and line.split()[1] in {'ssh-ed25519', 'sk-ssh-ed25519@openssh.com'} for line in allowed),
-                'Factory authority must be an explicit Ed25519 signer')
+        authority, _identity = factory_authority(path, self.policy)
+        self.file(authority.relative_to(self.root).as_posix())
         if production:
             self.reject_public_test_keys()
 

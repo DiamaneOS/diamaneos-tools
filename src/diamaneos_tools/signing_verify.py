@@ -14,7 +14,8 @@ from . import build, signing_archive as za, signing_qualification as plans, sign
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
-from .signing_native import NativeTools, PublicKeys, apk_certificate_digests, package_members, raw_image, verify_images
+from .signing_native import (NativeTools, PublicKeys, apk_certificate_digests, package_members,
+                             raw_image, verify_images, factory_authority, host_ssh_signature)
 
 
 def validate_plan(plan, policy):
@@ -30,11 +31,17 @@ def validate_plan(plan, policy):
 
 
 @contextmanager
-def native_inputs(otatools, source, keys_path, scratch, production, projects, policy=None, artifact_root=None):
+def native_inputs(otatools, source, keys_path, scratch, production, projects, policy=None, artifact_root=None, *, expected_otatools):
     before = input_hashes((otatools, keys_path))
     with tempfile.TemporaryDirectory(dir=scratch, prefix='.signing-') as directory:
         work = Path(directory)
-        root = za.unpack_tools(otatools, work / 'otatools')
+        snapshot = work / 'otatools.zip'
+        with snapshot.open('xb') as destination, Path(otatools).open('rb') as origin:
+            shutil.copyfileobj(origin, destination)
+        snapshot.chmod(0o600)
+        require(sha256_file(snapshot) == expected_otatools, 'Otatools snapshot differs from authenticated provenance')
+        recheck_hashes(before)
+        root = za.unpack_tools(snapshot, work / 'otatools')
         tools = NativeTools(root, source, work, projects=projects, policy=policy)
         keys = PublicKeys(keys_path, tools, production=production, policy=policy, artifact_root=artifact_root)
         yield tools, keys
@@ -302,6 +309,14 @@ def main(argv=None):
             paths += [args.plan, args.publication]
         before = input_hashes(paths)
         if args.command == 'prepare':
+            authority, identity = factory_authority(args.keys, policy)
+            before.update(input_hashes((authority,)))
+            host_ssh_signature(args.verification_report, args.verification_signature,
+                               authority, identity, policy['verification_namespace'], args.scratch)
+            if args.previous_result:
+                host_ssh_signature(args.previous_result, args.previous_signature,
+                                   authority, identity, policy['result_namespace'], args.scratch)
+            recheck_hashes(before)
             production = not args.qualification
             provenance = verified_build(args.build_record, args.verification_report, args.target_files,
                                         args.resolved_manifest, production=production,
@@ -312,32 +327,41 @@ def main(argv=None):
             validate_plan(plan, policy)
             require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Verification mode differs from the plan')
             production = plan['mode'] == 'production'
-            require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
             require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
                     'Expected public keys must be outside the artifacts')
             require(not args.output.resolve().is_relative_to(args.artifact_root.resolve())
                     and not args.scratch.resolve().is_relative_to(args.artifact_root.resolve()),
                     'Verification output and scratch must be outside the publication')
+            publication = load_json(args.publication)
+            fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
+                                 'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+            record_path = safe_file(args.artifact_root, publication['release_record'])
+            signature = safe_file(args.artifact_root, publication['release_signature'])
+            authority, identity = factory_authority(args.keys, policy)
+            require(not authority.resolve().is_relative_to(args.artifact_root.resolve()),
+                    'Expected public authority must be outside the artifacts')
+            before.update(input_hashes((authority, record_path, signature)))
+            host_ssh_signature(record_path, signature, authority, identity, policy['record_namespace'], args.scratch)
+            record = load_json(record_path)
+            fields(record, {'schema_version', 'plan_sha256', 'artifacts'})
+            require(record['schema_version'] == 1 and record['plan_sha256'] == plan['plan_sha256'],
+                    'Release record does not authenticate the signing plan')
+            recheck_hashes(before)
+            require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
             source_files(args.source_root, plan['provenance']['projects'])
         provenance = provenance if args.command == 'prepare' else plan['provenance']
         with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production,
-                           provenance['projects'], policy, getattr(args, 'artifact_root', None)) as (tools, keys):
+                           provenance['projects'], policy, getattr(args, 'artifact_root', None),
+                           expected_otatools=provenance['otatools_sha256']) as (tools, keys):
             if args.command == 'prepare':
-                factory = keys.inventory['factory']
-                authority = keys.file(factory['allowed_signers'])
-                tools.ssh_signature(args.verification_report, args.verification_signature,
-                                    authority, factory['identity'], policy['verification_namespace'])
                 previous = load_json(args.previous_result) if args.previous_result else None
-                if previous is not None:
-                    tools.ssh_signature(args.previous_result, args.previous_signature,
-                                        authority, factory['identity'], policy['result_namespace'])
                 result = plans.prepare(args.build_record, args.verification_report, args.target_files,
                         args.resolved_manifest, policy, keys, tools, args.otatools, previous, production=production)
                 for changed in result['changed_projects']:
                     print('Signing source change: ' + changed['project'] + ': ' +
                           (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
             else:
-                result = verify_publication(plan, load_json(args.publication), args.artifact_root, policy, tools, keys)
+                result = verify_publication(plan, publication, args.artifact_root, policy, tools, keys)
         recheck_hashes(before)
         require(source_files(args.source_root, provenance['projects']) == result['provenance']['source_files'],
                 'Signing source changed during processing')
