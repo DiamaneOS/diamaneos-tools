@@ -43,7 +43,7 @@
     },
     {
       "id": "sensors-qualcomm-sub-hal-only",
-      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker. The odm list adds only DiamaneOS's tap sub-HAL (tap-check-phone-sub-hal-listed).",
+      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL has no hidraw access and cannot serve a head tracker. The odm list adds only DiamaneOS's tap sub-HAL (tap-check-phone-sub-hal-listed).",
       "type": "text",
       "files": [
         "VENDOR/etc/sensors/hals.conf"
@@ -66,7 +66,7 @@
     },
     {
       "id": "no-dynamic-sensor-grants",
-      "why": "The sensors HAL no longer lists /dev or reads the mock dynamic-sensor properties.",
+      "why": "The sensors HAL does not list /dev or read the mock dynamic-sensor properties.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -713,7 +713,7 @@
     },
     {
       "id": "sdm-extension-libraries",
-      "why": "Libraries the SDM extension loads by name (a first-boot composer crash).",
+      "why": "Libraries the SDM extension loads by name; without them the composer crashes.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/libsdm-colormgr-algo.so",
@@ -783,7 +783,7 @@
     },
     {
       "id": "no-forced-colour-mode",
-      "why": "The forced colour mode is gone.",
+      "why": "No colour mode is forced.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "absent": [
@@ -800,7 +800,7 @@
     },
     {
       "id": "call-audio-bridge-no-stock",
-      "why": "The stock QtiTelephonyService is gone.",
+      "why": "The stock QtiTelephonyService is not installed.",
       "type": "files_absent",
       "paths": [
         "SYSTEM_EXT/priv-app/QtiTelephonyService"
@@ -843,7 +843,7 @@
     },
     {
       "id": "call-audio-old-domain-gone",
-      "why": "The old stock-app domain is gone.",
+      "why": "The policy has no domain for the stock app.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts",
@@ -866,7 +866,7 @@
     },
     {
       "id": "telephony-fixes",
-      "why": "Telephony fixes from the first phone test.",
+      "why": "The qcril database upgrade (telephony fixes) is installed.",
       "type": "files_present",
       "paths": [
         "VENDOR/etc/qcril_database/upgrade/config/0016.0_config.sql"
@@ -886,7 +886,7 @@
     },
     {
       "id": "no-audio-routing-grant",
-      "why": "The stock QCRIL audio messenger no longer gets MODIFY_AUDIO_ROUTING.",
+      "why": "The stock QCRIL audio messenger does not get MODIFY_AUDIO_ROUTING.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/permissions/privapp-permissions-fp6-telephony.xml"
@@ -1119,7 +1119,7 @@
     },
     {
       "id": "usb-port-control-data-reenable",
-      "why": "While port control holds a USB data disable request (svc, a device owner), the port reports DATA_STATUS_DISABLED_FORCE, so UsbManager passes the re-enable on and the stored mode comes back; before, the HAL's status said enabled and the re-enable never arrived.",
+      "why": "While port control holds a USB data disable request (svc, a device owner), the port reports DATA_STATUS_DISABLED_FORCE, so UsbManager passes the re-enable on and the stored mode comes back.",
       "type": "zip_contains",
       "file": "SYSTEM/framework/services.jar",
       "text": "port status reports DATA_STATUS_DISABLED_FORCE for %s"
@@ -1271,7 +1271,7 @@
     },
     {
       "id": "imei-provisioning-write",
-      "why": "The provisioning tool runs in --write mode after the phone dry-run.",
+      "why": "The provisioning tool runs in --write mode, not as a dry run (--check).",
       "type": "text",
       "files": [
         "VENDOR/etc/init/imeiprovd.rc"
@@ -1616,7 +1616,7 @@
     },
     {
       "id": "wlan-driver-own-mac-not-logged",
-      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the line carried four octets of the factory MAC.",
+      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the unpatched line carries four octets of the factory MAC.",
       "type": "binary_count",
       "file": "VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko",
       "patterns": [
@@ -2405,7 +2405,7 @@
     },
     {
       "id": "connectivity-check-hosts",
-      "why": "NetworkStack's private DNS check asks under dnscheck.diamaneos.de, and none of GrapheneOS's check hosts is left in it.",
+      "why": "NetworkStack's private DNS check asks under dnscheck.diamaneos.de, and it names none of GrapheneOS's check hosts.",
       "type": "zip_contains",
       "file": "SYSTEM/priv-app/NetworkStack/NetworkStack.apk",
       "text": "-dnsotls-ds.dnscheck.diamaneos.de",
@@ -2437,7 +2437,7 @@
     },
     {
       "id": "service-choice-labels",
-      "why": "Settings names DiamaneOS for the server choices that now go to DiamaneOS's servers.",
+      "why": "Settings names DiamaneOS for the server choices that go to DiamaneOS's servers.",
       "type": "overlay",
       "apk": "PRODUCT/overlay/DiamaneOSSettingsOverlay.apk",
       "values": {
@@ -2475,7 +2475,7 @@
     },
     {
       "id": "tap-to-wake-switch-exclusive",
-      "why": "Only the sensors HAL may write the controller's gesture switch; the power HAL no longer switches the double tap.",
+      "why": "Only the sensors HAL may write the controller's gesture switch; the power HAL does not switch the double tap.",
       "type": "sepolicy_exclusive",
       "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
       "target": "vendor_sysfs_touch_gesture",
@@ -2647,7 +2647,7 @@
     },
     {
       "id": "power-hal-started",
-      "why": "The power HAL starts writing its nodes after the boot-time CPU tuning, which no longer writes the minimum frequencies it owns.",
+      "why": "The power HAL starts writing its nodes after the boot-time CPU tuning, which does not write the minimum frequencies the HAL owns.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.perf.rc"
@@ -2756,7 +2756,7 @@
     },
     {
       "id": "thermal-hal-trip-nodes",
-      "why": "The thermal HAL, as system, can still set the next severity threshold of each zone it monitors; the nodes stay root-owned for the thermal engine.",
+      "why": "The thermal HAL, as system, can set the next severity threshold of each zone it monitors; the nodes stay root-owned for the thermal engine.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -3192,7 +3192,7 @@
     },
     {
       "id": "wifi-no-wowlan-triggers",
-      "why": "The station supplicant overlay asks for no WoWLAN triggers (stock's asked for the magic packet).",
+      "why": "The station supplicant overlay asks for no WoWLAN triggers (stock's asks for the magic packet).",
       "type": "text",
       "files": [
         "VENDOR/etc/wifi/wpa_supplicant_overlay.conf"
@@ -3229,7 +3229,7 @@
     },
     {
       "id": "no-qseecom-proxy",
-      "why": "No QSEECom AIDL proxy; nothing looked it up. qseecomd and the kernel proxy stay.",
+      "why": "No QSEECom AIDL proxy; nothing looks it up. qseecomd and the kernel proxy stay.",
       "type": "files_absent",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
@@ -3257,7 +3257,7 @@
     },
     {
       "id": "no-qseecom-proxy-domain",
-      "why": "The proxy domain is gone.",
+      "why": "No rule grants the proxy's domain anything.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -3515,7 +3515,7 @@
     },
     {
       "id": "no-hdcp-level-node-rule",
-      "why": "ueventd has no rule for the HDCP level node, which the display driver no longer creates.",
+      "why": "ueventd has no rule for the HDCP level node, which the display driver does not create.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -3810,7 +3810,7 @@
     },
     {
       "id": "no-display-colour-policy",
-      "why": "The removed colour service has no domain, executable label or service context left, so no rule lets anything run or call it.",
+      "why": "The colour service, which is not shipped, has no domain, executable label or service context, so no rule lets anything run or call it.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil",
@@ -3882,7 +3882,7 @@
     },
     {
       "id": "no-bluetooth-value-add",
-      "why": "The stock Bluetooth service and the FM, ANT, SAR, config-store and TPI libraries it linked but never registered stay out.",
+      "why": "The stock Bluetooth service and the FM, ANT, SAR, config-store and TPI libraries it links but never registers stay out.",
       "type": "files_absent",
       "paths": [
         "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service-qti",
@@ -3952,7 +3952,7 @@
     },
     {
       "id": "no-bluetooth-value-add-contexts",
-      "why": "No hwservice context maps the ANT, ANT HCI or Bluetooth SAR interfaces, whose libraries are gone, to the Bluetooth HAL's label; unmapped, nobody may register them.",
+      "why": "No hwservice context maps the ANT, ANT HCI or Bluetooth SAR interfaces, whose libraries are not shipped, to the Bluetooth HAL's label; unmapped, nobody may register them.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_hwservice_contexts"
@@ -4034,7 +4034,7 @@
     },
     {
       "id": "module-streams",
-      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and no serial modprobe of the whole list is left.",
+      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and there is no serial modprobe of the whole list.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/hw/init.qcom.rc"
@@ -4183,7 +4183,7 @@
     },
     {
       "id": "lpa-no-jni",
-      "why": "The LPA's JNI library is gone.",
+      "why": "The LPA's JNI library is not installed.",
       "type": "files_absent",
       "paths": [
         "PRODUCT/lib64/libjni_aidl_service.so"
@@ -4298,7 +4298,7 @@
     },
     {
       "id": "ramoops",
-      "why": "pstore/ramoops in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; the old /soc node gone.",
+      "why": "pstore/ramoops is in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; /soc has no ramoops node.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4371,7 +4371,7 @@
     },
     {
       "id": "wifi-mac-print",
-      "why": "Boot parameters handed to user space are logged by name only, in all three prints that carried the Wi-Fi MAC.",
+      "why": "Boot parameters handed to user space are logged by name only, in all three prints that would carry the Wi-Fi MAC.",
       "type": "binary_count",
       "file": "kernel:Image",
       "patterns": [
@@ -4395,7 +4395,7 @@
     },
     {
       "id": "download-reboot-refused",
-      "why": "The download-mode driver ignores the \"edl\" and \"qcom_dload\" reboot reasons and drops the regulator handling only EDL reboots used.",
+      "why": "The download-mode driver ignores the \"edl\" and \"qcom_dload\" reboot reasons and has no regulator handling, which only EDL reboots use.",
       "type": "binary_count",
       "file": "kernel:modules/qcom-dload-mode.ko",
       "patterns": [
@@ -4441,7 +4441,7 @@
     },
     {
       "id": "privacy-switch-devicetree",
-      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys no longer has it, and nothing can disable it from sysfs.",
+      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys does not have it, and nothing can disable it from sysfs.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4819,7 +4819,7 @@
     },
     {
       "id": "linux-msm-services-policy",
-      "why": "The stock tftp_server domain is gone, and neither service is granted a capability or a network socket.",
+      "why": "The policy has no stock tftp_server domain, and neither service is granted a capability or a network socket.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -5001,7 +5001,7 @@
     },
     {
       "id": "gnss-no-location-socket",
-      "why": "The HAL serves no socket in /dev/socket/location (it existed only for the XTRA and DGNSS daemons); only its state directory is created.",
+      "why": "The HAL serves no socket in /dev/socket/location (it is only for the XTRA and DGNSS daemons); only its state directory is created.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.gnss.rc"
