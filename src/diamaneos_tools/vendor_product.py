@@ -407,6 +407,23 @@ NEEDED_REWRITES = {
   'sha256': '02076417238b400cdf4eb456b99cf1423fc87acd0e60859f2ec9ddc3222d574c',
   'reason': 'Add the Android 14 GraphicBufferSource::getHGraphicBufferProducer entry point '
             '(libstagefright_bqhelper_v34compat, links the helper) instead of libstagefright_bufferqueue_helper.so'},
+ # Lens distortion node of the two combined cameras (Fairphone's
+ # com.fp.node.distortion, loaded into the camera provider): built against
+ # Android 14 like libcodec2_vndk, it allocates 256 bytes for each of its two
+ # working buffers and calls the platform GraphicBuffer constructor, which
+ # would overflow the provider's heap with Android 17 libui. Its libui.so
+ # dependency is renamed to uiv34.so and its three GraphicBuffer imports to
+ # GraphicBufV34 (GRAPHICBUFFER_V34_NODE_SYMBOLS), so uiv34's Android 14 sized
+ # GraphicBuffer allocates, locks and unlocks those buffers.
+ # No keep_link: these three are the node's only libui imports, so after the
+ # rename it imports nothing from libui and Soong's ELF check needs only uiv34
+ # listed. libundistort.so, which the node links, imports no libui symbol.
+ 'vendor/lib64/camera/components/com.fp.node.distortion.so': {
+  'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
+  'symbols': 'GRAPHICBUFFER_V34_NODE_SYMBOLS',
+  'source_sha256': '2f4766d5a88fdf8c5cf20c29982a36fe983d517208b1ca5df762bfedbca277c0',
+  'sha256': '7e0c1457789504c9d0765ec325ffa8cb161c11b7a055cb63dae4a75d43424bb4',
+  'reason': 'Bind the Android 14 sized GraphicBuffer constructor, lockYCbCr and unlock (uiv34) instead of libui.so'},
 }
 
 # The android::GraphicBuffer symbols the stock libcodec2_vndk imports from libui
@@ -429,7 +446,20 @@ GRAPHICBUFFER_V34_SYMBOLS = (
     ('_ZN7android13GraphicBuffer19fromAHardwareBufferEPK15AHardwareBuffer',
      '_ZN7android13GraphicBufV3419fromAHardwareBufferEPK15AHardwareBuffer'),
 )
-SYMBOL_RENAMES = {'GRAPHICBUFFER_V34_SYMBOLS': GRAPHICBUFFER_V34_SYMBOLS}
+# The android::GraphicBuffer symbols the stock lens distortion node imports
+# from libui, renamed the same way: the constructor that allocates a buffer
+# (width, height, format, usage, requestor name), lockYCbCr and unlock. They
+# are the node's only libui imports, and it defines no GraphicBuffer symbol.
+GRAPHICBUFFER_V34_NODE_SYMBOLS = (
+    ('_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE',
+     '_ZN7android13GraphicBufV34C1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE'),
+    ('_ZN7android13GraphicBuffer9lockYCbCrEjP13android_ycbcr',
+     '_ZN7android13GraphicBufV349lockYCbCrEjP13android_ycbcr'),
+    ('_ZN7android13GraphicBuffer6unlockEv',
+     '_ZN7android13GraphicBufV346unlockEv'),
+)
+SYMBOL_RENAMES = {'GRAPHICBUFFER_V34_SYMBOLS': GRAPHICBUFFER_V34_SYMBOLS,
+                  'GRAPHICBUFFER_V34_NODE_SYMBOLS': GRAPHICBUFFER_V34_NODE_SYMBOLS}
 
 
 def rename_dynamic_symbols(data, pairs):
@@ -540,6 +570,20 @@ def rewrite_needed(data, needed, replacement):
     if end >= size or any(start < r <= end for r in references) or references.count(start) != 1:
         raise VendorError('dependency string is shared with another reference')
     return data[:base + start] + replacement.encode() + data[base + end:]
+
+
+def needed_rewrite(path, original):
+    """Apply the reviewed dependency rewrite of one stock blob; its input and result are pinned."""
+    rewrite = NEEDED_REWRITES[path]
+    if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
+        raise VendorError('dependency rewrite input differs from reviewed blob')
+    derived = original
+    if 'symbols' in rewrite:
+        derived = rename_dynamic_symbols(derived, SYMBOL_RENAMES[rewrite['symbols']])
+    derived = rewrite_needed(derived, rewrite['needed'], rewrite['replacement'])
+    if hashlib.sha256(derived).hexdigest() != rewrite['sha256']:
+        raise VendorError('dependency rewrite differs from reviewed result')
+    return derived
 
 
 def reachable(selection):
@@ -1532,16 +1576,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                 for path in sorted(STOCK_LIBRARIES) if path in {i['path'] for i in recipe['files']}}
             for path, rewrite in sorted(NEEDED_REWRITES.items()):
                 blob = tree / 'files' / path
-                original = blob.read_bytes()
-                if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
-                    raise VendorError('dependency rewrite input differs from reviewed blob')
-                derived = original
-                if 'symbols' in rewrite:
-                    derived = rename_dynamic_symbols(derived, SYMBOL_RENAMES[rewrite['symbols']])
-                derived = rewrite_needed(derived, rewrite['needed'], rewrite['replacement'])
-                if hashlib.sha256(derived).hexdigest() != rewrite['sha256']:
-                    raise VendorError('dependency rewrite differs from reviewed result')
-                blob.write_bytes(derived)
+                blob.write_bytes(needed_rewrite(path, blob.read_bytes()))
                 provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
                     'sha256': rewrite['sha256'], 'reason': rewrite['reason']})
             rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe)})

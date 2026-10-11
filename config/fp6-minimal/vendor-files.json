@@ -5486,6 +5486,11 @@
           "reason": "multi-camera (MCX) plugin loaded by name for the logical rear camera"
         },
         {
+          "path": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+          "soname": "com.fp.node.distortion.so",
+          "reason": "CamX enumerates /vendor/lib64/camera/components and loads every component (camera.qcom.so path strings)"
+        },
+        {
           "path": "vendor/lib64/camera/components/com.qti.eisv2.so",
           "soname": "com.qti.eisv2.so",
           "reason": "CamX enumerates /vendor/lib64/camera/components and loads every component (camera.qcom.so path strings)"
@@ -7180,6 +7185,30 @@
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
       "purpose": "Stock CamX/CHI component, algorithm or dependency loaded into the camera provider.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "path": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "sha256": "2f4766d5a88fdf8c5cf20c29982a36fe983d517208b1ca5df762bfedbca277c0",
+      "bytes": 86400,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libchilog.so",
+        "vendor/lib64/libcom.qti.chinodeutils.so",
+        "vendor/lib64/libundistort.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Fairphone CHI node that corrects lens distortion in the pipeline of the two combined cameras; installed through the reviewed NEEDED_REWRITES derivation (libui.so to uiv34.so, its three GraphicBuffer imports to GraphicBufV34).",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -10293,6 +10322,46 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libundistort.so",
+      "path": "vendor/lib64/libundistort.so",
+      "sha256": "7248972cc30ea29a4b625c0abebeecffa75b5f5634d6e330c36207fe1a860f12",
+      "bytes": 2430584,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock lens undistortion library linked by the Fairphone distortion node; draws with EGL and GLES and imports no libui symbol.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/params.cfg",
+      "path": "vendor/etc/camera/params.cfg",
+      "sha256": "3cfb97b28e46062c1fc1a213fa3f247c0c6c2384bbf35d6474815962cc16fc0b",
+      "bytes": 967,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock lens calibration of the ultra-wide camera, which the undistortion library reads from /vendor/etc/camera; without it the library cannot be set up.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
     },

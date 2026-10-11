@@ -286,6 +286,11 @@
       "bytes": 28040
     },
     {
+      "path": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "sha256": "2f4766d5a88fdf8c5cf20c29982a36fe983d517208b1ca5df762bfedbca277c0",
+      "bytes": 86400
+    },
+    {
       "path": "vendor/lib64/camera/components/com.qti.eisv2.so",
       "sha256": "42e5aa21476914def8303120c11b666fb51e7c977166f0f946928e78c3e1f7de",
       "bytes": 647976
@@ -1866,6 +1871,11 @@
       "bytes": 14928
     },
     {
+      "path": "vendor/lib64/libundistort.so",
+      "sha256": "7248972cc30ea29a4b625c0abebeecffa75b5f5634d6e330c36207fe1a860f12",
+      "bytes": 2430584
+    },
+    {
       "path": "vendor/lib64/libvideotxr.so",
       "sha256": "6a29320189371b4d0a78e0a0787950a41b95f613a8218d7863de23b0c07ccf8e",
       "bytes": 4978368
@@ -2586,6 +2596,12 @@
       "needed": "camx.provider-impl.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/camx.provider-impl.so"
+    },
+    {
+      "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
+      "needed": "com.fp.node.distortion.so",
+      "kind": "selected-stock-runtime",
+      "provider": "vendor/lib64/camera/components/com.fp.node.distortion.so"
     },
     {
       "consumer": "vendor/bin/hw/vendor.qti.camera.provider-service_64",
@@ -7278,6 +7294,104 @@
       "needed": "vendor.qti.hardware.display.mapperextensions@1.1.so",
       "kind": "selected-stock",
       "provider": "vendor/lib64/vendor.qti.hardware.display.mapperextensions@1.1.so"
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libcamera_metadata.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libchilog.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libchilog.so"
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libcom.qti.chinodeutils.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcom.qti.chinodeutils.so"
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libundistort.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libundistort.so"
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/camera/components/com.fp.node.distortion.so",
+      "needed": "libz.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
     },
     {
       "consumer": "vendor/lib64/camera/components/com.qti.eisv2.so",
@@ -40426,6 +40540,70 @@
       "kind": "platform-or-vndk34",
       "export_lists": [
         "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libEGL.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libGLESv3.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libundistort.so",
+      "needed": "libui.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
       ]
     },
     {

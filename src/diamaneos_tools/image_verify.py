@@ -828,6 +828,10 @@ def rule_codec2_abi_guard(rule, v):
     dependency and the construction symbols were renamed, so every GraphicBuffer
     construction binds to the 256-byte compat and none reaches Android 17 libui's
     3376-byte GraphicBuffer, and that the stock 256-byte allocations are intact.
+
+    The stock lens distortion node of the camera provider has the same problem
+    and the same fix (three GraphicBuffer symbols, two allocations), so a second
+    rule runs this check on it.
     """
     with v.tools.scratch() as temporary:
         path = v.tf.extract(rule['path'], Path(temporary))

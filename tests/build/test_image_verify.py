@@ -653,6 +653,108 @@ class RuleTests(unittest.TestCase):
             with self.subTest(extra=extra):
                 self.assertFalse(check(readers, {**good, vendor: (vendor_cil + extra + '\n').encode()}))
 
+    def test_camera_distortion_node_rules(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        present, guard = rules['camera-distortion-node'], rules['camera-distortion-graphicbuffer-abi']
+        library, absent = rules['camera-undistort-library-stock'], rules['camera-no-other-fairphone-nodes']
+        node, uiv34 = 'VENDOR/lib64/camera/components/com.fp.node.distortion.so', 'VENDOR/lib64/uiv34.so'
+        # The check names exactly what the vendor product renames in the node.
+        rewrite = vendor_product.NEEDED_REWRITES[node.replace('VENDOR', 'vendor', 1)]
+        pairs = vendor_product.SYMBOL_RENAMES[rewrite['symbols']]
+        self.assertEqual((node, [rewrite['replacement']], [rewrite['needed']],
+                          [new for _, new in pairs], [old for old, _ in pairs]),
+                         (guard['path'], guard['needed_present'], guard['needed_absent'],
+                          guard['symbols_present'], guard['symbols_absent']))
+        self.assertEqual((256, 2, [pairs[0][1]]),
+                         (guard['alloc_bytes'], guard['min_sized_allocations'], guard['ctor_symbols']))
+        ctor, lock, unlock = guard['symbols_present']
+        dyn = ('Dynamic section at offset 0x1 contains entries:\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libundistort.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libutils.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [uiv34.so]\n'
+               'Symbol table (.dynsym):\n'
+               + ''.join(f'   {index}: 0000000000000000 0 FUNC GLOBAL DEFAULT UND {name}\n'
+                         for index, name in enumerate([ctor, lock, unlock, '_ZN7android14sp_report_raceEv'], 10))
+               + '   20: 0000000000009000 8 FUNC GLOBAL DEFAULT 12 ChiNodeEntry\n')
+        text = ('000000000000b000 <fn>:\n'
+                '    bbec:\tmov\tw0, #0x100              // =256\n'
+                '    bbf0:\tbl\t0x13a10 <_Znwm@plt>\n'
+                f'    bc30:\tbl\t0x13aa0 <{ctor}@plt>\n'
+                '    bcdc:\tmov\tw0, #0x100              // =256\n'
+                '    bce0:\tbl\t0x13a10 <_Znwm@plt>\n'
+                f'    bd0c:\tbl\t0x13aa0 <{ctor}@plt>\n'
+                f'    de74:\tbl\t0x13b78 <{lock}@plt>\n'
+                f'    e3c8:\tbl\t0x13bc0 <{unlock}@plt>\n'
+                '    9654:\tmov\tw0, #0xb0               // =176\n'
+                '    9658:\tbl\t0x13a10 <_Znwm@plt>\n')
+
+        def guarded(dyn, text):
+            v = self.harness({node: b'elf'}, tools=FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): text}))
+            return subject.RULES[guard['type']](guard, v)
+        self.assertEqual((True, ''), guarded(dyn, text))
+        # The stock node: libui and the Android 17 GraphicBuffer symbols.
+        ok, detail = guarded(dyn.replace('uiv34.so', 'libui.so').replace('GraphicBufV34', 'GraphicBuffer'),
+                             text.replace('GraphicBufV34', 'GraphicBuffer'))
+        self.assertFalse(ok)
+        for problem in ('does not depend on uiv34.so', 'still depends on libui.so',
+                        'still imports _ZN7android13GraphicBuffer6unlockEv', 'does not import ' + ctor,
+                        'no construction call to ' + ctor):
+            self.assertIn(problem, detail)
+        # One import left unrenamed, libui still needed next to uiv34, or an
+        # allocation of another size: each fails.
+        stock_unlock = unlock.replace('GraphicBufV34', 'GraphicBuffer')
+        self.assertIn('still imports ' + stock_unlock, guarded(dyn.replace(unlock, stock_unlock), text)[1])
+        both = dyn.replace('[libutils.so]', '[libui.so]')
+        self.assertEqual((False, 'still depends on libui.so'), guarded(both, text))
+        self.assertFalse(guarded(dyn, text.replace('mov\tw0, #0x100', 'mov\tw0, #0xd30', 1))[0])
+
+        check = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))[0]
+        installed = {path: b'elf' for path in present['paths']}
+        self.assertEqual({node, 'VENDOR/lib64/libundistort.so', uiv34}, set(installed))
+        self.assertTrue(check(present, installed))
+        self.assertTrue(check(absent, installed))
+        for path in installed:
+            self.assertFalse(check(present, {p: b'elf' for p in installed if p != path}), path)
+        self.assertEqual(6, len(absent['paths']))
+        for path in absent['paths']:
+            self.assertFalse(check(absent, {**installed, path: b'elf'}), path)
+        for stem in ('fprtb', 'nightvideo', 'singlertbokeh'):
+            self.assertIn(f'VENDOR/lib64/camera/components/com.fp.node.{stem}.so', absent['paths'])
+
+        # The library check is bound to the selected stock row: same bytes, owner, mode and label.
+        recipe = json.loads((ROOT / 'config/fp6-minimal/vendor-files.json').read_text())
+        row = next(r for r in recipe['files'] if r['path'] == library['path'])
+        self.assertNotIn(library['path'], vendor_product.NEEDED_REWRITES)
+        self.assertEqual((row['sha256'], row['metadata']['uid'], row['metadata']['gid'],
+                          '%04o' % row['metadata']['mode'], row['metadata']['selinux'], 'vendor'),
+                         (library['sha256'], library['uid'], library['gid'], library['mode'], library['label'],
+                          library['image']))
+        stock = b'\x7fELF stock libundistort'
+        rule = dict(library, sha256=hashlib.sha256(stock).hexdigest())
+        config = b'vendor/lib64/libundistort.so 0 0 644 capabilities=0x0\n'
+        stat_output = ('Inode: 2673   Type: regular    Mode:  0644   Flags: 0x80000\n'
+                       'User:     0   Group:     0   Project:     0   Size: 23\n'
+                       'Extended attributes:\n  security.selinux (26) = "u:object_r:vendor_file:s0\\000"\n')
+
+        def metadata(installed, in_image, info=stat_output, config=config):
+            def debugfs(args):
+                request = str(args[1])
+                if request.startswith('stat '):
+                    return info
+                Path(request.split()[-1]).write_bytes(in_image)
+                return ''
+            (self.root / 'vendor.img').write_bytes(b'\0' * 2048)
+            v = self.harness({'VENDOR/lib64/libundistort.so': installed, 'META/vendor_filesystem_config.txt': config},
+                             tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.RULES[rule['type']](rule, v)
+        self.assertEqual((True, ''), metadata(stock, stock))
+        renamed = stock.replace(b'stock', b'other')
+        self.assertIn('bytes differ in target-files', metadata(renamed, stock)[1])
+        self.assertIn('bytes differ in vendor.img', metadata(stock, renamed)[1])
+        self.assertFalse(metadata(stock, stock, config=config.replace(b' 644 ', b' 755 '))[0])
+        self.assertFalse(metadata(stock, stock, info=stat_output.replace('vendor_file', 'same_process_hal_file'))[0])
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')

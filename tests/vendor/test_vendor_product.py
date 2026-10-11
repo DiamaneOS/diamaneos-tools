@@ -395,6 +395,26 @@ class NativeProductTests(unittest.TestCase):
         shndx = 1 if sym_defined else 0  # the "sym" name is at offset 26
         dynsym = b''.join(struct.pack('<IBBHQQ', name, 0, 0, shndx if name == 26 else 0, 0, 0)
                           for name in [0, *symbol_names])
+        return NativeProductTests.elf_image(dynstr, dynamic, dynsym)
+
+    @staticmethod
+    def synthetic_library(needed, undefined, defined=()):
+        """A minimal ELF64 that needs the named libraries and has the named dynamic symbols."""
+        import struct
+        dynstr, offsets = b'\0', []
+        for name in [*needed, *undefined, *defined]:
+            offsets.append(len(dynstr))
+            dynstr += name.encode() + b'\0'
+        dynamic = b''.join(struct.pack('<qQ', 1, offset) for offset in offsets[:len(needed)]) + struct.pack('<qQ', 0, 0)
+        dynsym = struct.pack('<IBBHQQ', 0, 0, 0, 0, 0, 0) + b''.join(
+            struct.pack('<IBBHQQ', offset, 0x12, 0, 1 if index >= len(undefined) else 0, 0, 0)
+            for index, offset in enumerate(offsets[len(needed):]))
+        return NativeProductTests.elf_image(dynstr, dynamic, dynsym)
+
+    @staticmethod
+    def elf_image(dynstr, dynamic, dynsym):
+        """An ELF64 file made of .dynstr, .dynamic and .dynsym sections only."""
+        import struct
         body = dynstr + dynamic + dynsym
         sections = [bytes(64)]
         for kind, offset, size, entsize in [(3, 64, len(dynstr), 0), (6, 64 + len(dynstr), len(dynamic), 16),
@@ -469,6 +489,129 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn('13GraphicBuffer', old)
             self.assertIn('13GraphicBufV34', new)
             self.assertNotIn('GraphicBuffer', new)
+
+    def test_lens_distortion_node_binds_the_android_14_graphicbuffer(self):
+        # Fairphone's lens distortion node (built against Android 14) allocates
+        # 256 bytes for each GraphicBuffer: it binds uiv34 like libcodec2_vndk.
+        path = 'vendor/lib64/camera/components/com.fp.node.distortion.so'
+        rewrite = vendor_product.NEEDED_REWRITES[path]
+        rows = {r['path']: r for r in self.recipe['files']}
+        self.assertEqual(rewrite['source_sha256'], rows[path]['sha256'])
+        self.assertEqual(('libui.so', 'uiv34.so', 'uiv34', 'GRAPHICBUFFER_V34_NODE_SYMBOLS'),
+                         (rewrite['needed'], rewrite['replacement'], rewrite['module'], rewrite['symbols']))
+        # The three renamed symbols are the node's only libui imports, so
+        # nothing is left for libui to resolve and it is not kept.
+        self.assertNotIn('keep_link', rewrite)
+        pairs = vendor_product.GRAPHICBUFFER_V34_NODE_SYMBOLS
+        self.assertEqual(['_ZN7android13GraphicBufV34C1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE',
+                          '_ZN7android13GraphicBufV349lockYCbCrEjP13android_ycbcr',
+                          '_ZN7android13GraphicBufV346unlockEv'], [new for _, new in pairs])
+        for old, new in pairs:
+            self.assertEqual(old, new.replace('13GraphicBufV34', '13GraphicBuffer'))
+            self.assertEqual(1, old.count('GraphicBuffer'))
+        self.assertFalse(set(pairs) & set(vendor_product.GRAPHICBUFFER_V34_SYMBOLS))
+        self.assertEqual(['vendor/lib64/libchilog.so', 'vendor/lib64/libcom.qti.chinodeutils.so',
+                          'vendor/lib64/libundistort.so'], rows[path]['dependencies'])
+        self.assertEqual({'libui.so': 'platform-or-vndk34'},
+                         {e['needed']: e['kind'] for e in self.selection['edges']
+                          if e['consumer'] == path and 'ui' in e['needed']})
+        rendered = self.render()
+        bp = rendered['Android.bp'].decode()
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_camera_components_com.fp.node.distortion"'):]
+        block = block[:block.index('}\n')]
+        self.assertIn('relative_install_path: "camera/components"', block)
+        self.assertNotIn('check_elf_files', block)
+        shared = block[block.index('shared_libs:'):].split('\n')[0]
+        self.assertIn('"uiv34"', shared)
+        self.assertNotIn('"libui"', shared)
+        for name in ['"fp6_stock_vendor_lib64_libundistort"', '"fp6_stock_vendor_lib64_libcom.qti.chinodeutils"',
+                     '"fp6_stock_vendor_lib64_libchilog"', '"libutils"']:
+            self.assertIn(name, shared)
+        # CamX loads every component in the directory: the provider installs the node.
+        provider = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
+        required = provider[provider.index('required:'):].split('\n')[0]
+        self.assertIn('"fp6_stock_vendor_lib64_camera_components_com.fp.node.distortion"', required)
+        # Its library is installed with its stock bytes: it imports no libui
+        # symbol, so its libui dependency stays and nothing is renamed.
+        library = 'vendor/lib64/libundistort.so'
+        self.assertNotIn(library, vendor_product.NEEDED_REWRITES)
+        self.assertEqual(([], 2430584), (rows[library]['dependencies'], rows[library]['bytes']))
+        block = bp[bp.index('name: "fp6_stock_vendor_lib64_libundistort"'):]
+        block = block[:block.index('}\n')]
+        self.assertNotIn('check_elf_files', block)
+        self.assertEqual('    shared_libs: ["libEGL", "libGLESv3", "libc", "libc++", "libdl", "liblog", "libm", "libui"],',
+                         block[block.index('    shared_libs:'):].split('\n')[0])
+        for row in (rows[path], rows[library]):
+            self.assertEqual(('camera-stack', 'userspace_hal_families:camera', 0, 0, 0o644, 'u:object_r:vendor_file:s0', ''),
+                             (row['component_id'], row['inventory_ref'],
+                              *(row['metadata'][k] for k in ('uid', 'gid', 'mode', 'selinux', 'capabilities_hex'))))
+
+    def test_lens_distortion_node_rewrite_is_pinned_and_renames_each_import_once(self):
+        path = 'vendor/lib64/camera/components/com.fp.node.distortion.so'
+        pairs = vendor_product.GRAPHICBUFFER_V34_NODE_SYMBOLS
+        digest = lambda data: hashlib.sha256(data).hexdigest()
+        # Only the reviewed stock bytes are accepted.
+        with self.assertRaisesRegex(VendorError, 'input differs from reviewed blob'):
+            vendor_product.needed_rewrite(path, b'\x7fELF\x02\x01 another build of the node')
+        stock = self.synthetic_library(
+            ['libundistort.so', 'libutils.so', 'libui.so', 'liblog.so'],
+            [old for old, _ in pairs] + ['_ZN7android14sp_report_raceEv', '_ZN6undist10GetVersionEv'],
+            defined=['ChiNodeEntry'])
+        expected = stock.replace(b'\0libui.so\0', b'\0uiv34.so\0')
+        for old, new in pairs:
+            self.assertEqual(1, stock.count(old.encode() + b'\0'))
+            expected = expected.replace(old.encode() + b'\0', new.encode() + b'\0')
+        rule = dict(vendor_product.NEEDED_REWRITES[path], source_sha256=digest(stock), sha256=digest(expected))
+        with mock.patch.dict(vendor_product.NEEDED_REWRITES, {path: rule}):
+            derived = vendor_product.needed_rewrite(path, stock)
+            # One changed byte in the input is refused.
+            with self.assertRaisesRegex(VendorError, 'input differs from reviewed blob'):
+                vendor_product.needed_rewrite(path, stock.replace(b'ChiNodeEntry', b'ChiNodeEntrX'))
+        self.assertEqual(expected, derived)
+        self.assertEqual(len(stock), len(derived))
+        # Each import is renamed exactly once and the dependency names uiv34.
+        for old, new in pairs:
+            self.assertEqual((0, 1), (derived.count(old.encode() + b'\0'), derived.count(new.encode() + b'\0')))
+        self.assertEqual((0, 1), (derived.count(b'\0libui.so\0'), derived.count(b'\0uiv34.so\0')))
+        self.assertNotIn(b'GraphicBuffer', derived)
+        # Nothing else changes: 3 bytes in each symbol name, 4 in the library name.
+        self.assertEqual(13, sum(a != b for a, b in zip(stock, derived)))
+        for name in (b'\0libundistort.so\0', b'\0libutils.so\0', b'\0_ZN7android14sp_report_raceEv\0', b'\0ChiNodeEntry\0'):
+            self.assertIn(name, derived)
+        # The result is pinned too: a rename that gives other bytes is refused.
+        with mock.patch.dict(vendor_product.NEEDED_REWRITES, {path: dict(rule, sha256=digest(stock))}):
+            with self.assertRaisesRegex(VendorError, 'differs from reviewed result'):
+                vendor_product.needed_rewrite(path, stock)
+        # A node that is already renamed, or whose imports differ, is refused.
+        with mock.patch.dict(vendor_product.NEEDED_REWRITES, {path: dict(rule, source_sha256=digest(derived))}):
+            with self.assertRaisesRegex(VendorError, 'not present exactly once'):
+                vendor_product.needed_rewrite(path, derived)
+        with self.assertRaisesRegex(VendorError, 'not present exactly once'):
+            vendor_product.rewrite_needed(derived, 'libui.so', 'uiv34.so')
+        names = [old for old, _ in pairs]
+        for undefined, defined, message in (
+                (names[1:], [], 'not present exactly once'),             # an import is missing
+                (names + names[:1], [], 'not present exactly once'),     # an import is listed twice
+                (names[1:], names[:1], 'not undefined')):                # the node defines the symbol
+            with self.subTest(message=message, undefined=len(undefined)):
+                with self.assertRaisesRegex(VendorError, message):
+                    vendor_product.rename_dynamic_symbols(
+                        self.synthetic_library(['libui.so'], undefined, defined), pairs)
+
+    def test_dependency_rewrite_inputs_are_the_selected_stock_rows(self):
+        # Every renamed blob is a selected ELF, pinned to its recipe row, and
+        # anything but the reviewed bytes is refused before it is changed.
+        rows = {r['path']: r for r in self.recipe['files']}
+        elfs = {r['path'] for r in self.selection['files']}
+        for path, rewrite in vendor_product.NEEDED_REWRITES.items():
+            with self.subTest(path=path):
+                self.assertIn(path, elfs)
+                self.assertEqual(rewrite['source_sha256'], rows[path]['sha256'])
+                edges = [e for e in self.selection['edges'] if e['consumer'] == path and e['needed'] == rewrite['needed']]
+                self.assertEqual(1, len(edges))
+                self.assertIn(edges[0]['kind'], ('platform-or-vndk34', 'source-module'))
+                with self.assertRaisesRegex(VendorError, 'input differs from reviewed blob'):
+                    vendor_product.needed_rewrite(path, b'unreviewed')
 
     def test_codec2_video_service_installed_with_device_activation(self):
         rendered = self.render()
@@ -992,9 +1135,16 @@ class NativeProductTests(unittest.TestCase):
         shared = block[block.index('shared_libs:'):].split('\n')[0]
         self.assertIn('"vendor.qti.hardware.camera.offlinecamera-V1-ndk"', shared)
         # 'tct' alone also matches libdsi_netctrl and librmnetctl (radio closure).
-        for marker in ['com.tct.', 'libtct', 'bin_tctd', 'libanc_', 'Qnn', 'com.fp.node', 'cameraalgoservice', 'qseeaon', 'libdepth',
+        # Fairphone's bokeh and night video nodes and the TCL and ANC libraries
+        # they link stay out.
+        for marker in ['com.tct.', 'libtct', 'bin_tctd', 'libanc_', 'Qnn', 'com.fp.node.fprtb', 'com.fp.node.nightvideo',
+                       'com.fp.node.singlertbokeh', 'libtcl_dualcam', 'cameraalgoservice', 'qseeaon', 'libdepth',
                        'afbfusion', 'bu63169gwz', 'libqll10', 'mfnr_t4']:
             self.assertFalse([m for m in modules if marker in m], marker)
+        # Of Fairphone's nodes only the lens distortion node is selected, with its library.
+        self.assertEqual(['fp6_stock_vendor_lib64_camera_components_com.fp.node.distortion'],
+                         [m for m in modules if 'com.fp.node' in m])
+        self.assertEqual(['fp6_stock_vendor_lib64_libundistort'], [m for m in modules if 'undistort' in m])
         for name in ['postproc-impl.xml', 'algoservice-default', 'vendor/etc/camera/AncRawAlgos']:
             self.assertNotIn(name, bp + make)
 

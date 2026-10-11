@@ -778,11 +778,21 @@ from `notice_kind` in `config/fp6-build.json`.
   `libsdmextension` against the source `libsdm*` libraries and CamX against `libgralloc.qti`; the
   ELF checks cannot catch a layout change there either.
 - Derived configuration files keep their original and derived hashes distinct.
-- Two stock blobs get one dependency renamed in place, to a device library of the same name length,
+- Some stock blobs get one dependency renamed in place, to a device library of the same name length,
   with both hashes pinned:
   - The display colour manager links an old-ABI tinyxml2 copy, and the camera provider links the
     seccomp loader (device `camera/seccomp`), which links libhardware in turn and installs the
     provider's system call filter before its `main()`.
+- The stock lens distortion node (`com.fp.node.distortion.so`) is selected for the two combined
+  cameras, with the library it links (`libundistort.so`):
+  - The node was built against an older Android release, where `GraphicBuffer` is 256 bytes. It
+    allocates that much itself, so the current, larger constructor would overflow the camera
+    provider's heap.
+  - Its `libui.so` dependency is renamed to the device's `uiv34.so` and its three `GraphicBuffer`
+    imports to `GraphicBufV34`, which that library defines at the old size; both hashes are pinned.
+  - `libundistort.so` imports no `GraphicBuffer` symbol and is installed with its stock bytes.
+  - Image checks confirm the renamed dependency and imports, the two 256-byte allocations, the
+    library's stock bytes, and that Fairphone's other three camera nodes are not installed.
 - Source-interface replacements and uninstalled optional libraries are listed in generated
   provenance; retained authenticated inputs are not an installed-artifact inventory.
 

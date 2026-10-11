@@ -3720,6 +3720,68 @@
       ]
     },
     {
+      "id": "camera-distortion-node",
+      "why": "The two combined cameras of the stock camera table need Fairphone's lens distortion node in their pipeline: the node, the library it links and the compat library its buffer calls bind are installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/camera/components/com.fp.node.distortion.so",
+        "VENDOR/lib64/libundistort.so",
+        "VENDOR/lib64/uiv34.so"
+      ]
+    },
+    {
+      "id": "camera-distortion-graphicbuffer-abi",
+      "why": "The stock lens distortion node's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object, not Android 17 libui's 3376-byte one: it needs uiv34.so instead of libui.so and imports the three renamed symbols, none of the original three.",
+      "type": "codec2_abi_guard",
+      "path": "VENDOR/lib64/camera/components/com.fp.node.distortion.so",
+      "alloc_bytes": 256,
+      "needed_present": [
+        "uiv34.so"
+      ],
+      "needed_absent": [
+        "libui.so"
+      ],
+      "symbols_present": [
+        "_ZN7android13GraphicBufV34C1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBufV349lockYCbCrEjP13android_ycbcr",
+        "_ZN7android13GraphicBufV346unlockEv"
+      ],
+      "symbols_absent": [
+        "_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBuffer9lockYCbCrEjP13android_ycbcr",
+        "_ZN7android13GraphicBuffer6unlockEv"
+      ],
+      "ctor_symbols": [
+        "_ZN7android13GraphicBufV34C1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
+      ],
+      "min_sized_allocations": 2
+    },
+    {
+      "id": "camera-undistort-library-stock",
+      "why": "The lens distortion node's library is the stock file, unchanged: it imports no GraphicBuffer symbol, so nothing in it is renamed.",
+      "type": "file_metadata",
+      "path": "vendor/lib64/libundistort.so",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_file:s0",
+      "sha256": "7248972cc30ea29a4b625c0abebeecffa75b5f5634d6e330c36207fe1a860f12"
+    },
+    {
+      "id": "camera-no-other-fairphone-nodes",
+      "why": "Only the lens distortion node is taken from Fairphone's own camera nodes: the bokeh and night video nodes and the TCL and ANC libraries they link stay out.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/camera/components/com.fp.node.fprtb.so",
+        "VENDOR/lib64/camera/components/com.fp.node.nightvideo.so",
+        "VENDOR/lib64/camera/components/com.fp.node.singlertbokeh.so",
+        "VENDOR/lib64/libtcl_dualcam_bokeh_prv.so",
+        "VENDOR/lib64/libanc_supervq.so",
+        "VENDOR/lib64/libanc_single_rt_bokeh.so"
+      ]
+    },
+    {
       "id": "no-display-colour-service",
       "why": "The stock display colour service has no client in this build; platform apps could start it.",
       "type": "files_absent",
