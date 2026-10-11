@@ -605,19 +605,19 @@ commands](#the-build-commands).
 ```sh
 bin/diamaneos forks check           # remote refs only; exit 1 when something moved
 bin/diamaneos forks status --fetch  # commits behind and patches carried, per fork
-bin/diamaneos forks update <id> --ref <tag> [--rerere DIR]   # our patches on the new tag, as update/<date>-<commit>
+bin/diamaneos forks update <id> --ref <tag> [--rerere DIR]   # the fork's patches on the new tag, as update/<date>-<commit>
 ```
 
-`update` works like GrapheneOS's own rebases: the new upstream release is the base and our commits
-are replayed on it.
-- **Our patches** are the commits after the tag or commit the fork is pinned to (for a fork that
-  follows a branch: after the newest upstream release tag its branch contains), not after the
+`update` works like GrapheneOS's own rebases: the new upstream release is the base and the fork's
+commits are replayed on it.
+- **The fork's patches** are the commits after the tag or commit the fork is pinned to (for a fork
+  that follows a branch: after the newest upstream release tag its branch contains), not after the
   merge-base.
 - Upstreams that rewrite their history between releases (GrapheneOS's kernel, rebased onto each LTS
-  update) would otherwise make their own older commits look like ours.
+  update) would otherwise make their own older commits look like the fork's.
 - **Merges are dropped** and their commits replayed one by one.
 - A merge that resolved a conflict between two topics loses that resolution, which then comes back
-  as a conflict in our own files.
+  as a conflict in the fork's own files.
 - Bring a topic in by rebasing it onto the primary branch and fast-forwarding, so no merge carries a
   resolution.
 - **Recorded resolutions:**
@@ -631,8 +631,8 @@ are replayed on it.
 - Name follow-up fixes that way.
 
 - `check` downloads no history.
-- It reads each remote's branch and tag names and answers "is this commit already ours?" locally,
-  without fetching missing objects into partial clones.
+- It reads each remote's branch and tag names and answers "is this commit already in the fork?"
+  locally, without fetching missing objects into partial clones.
 - States: `current`, `update-available` (the followed branch moved), `newer-release` (a newer branch
   or tag exists), `pinned-commit` (the entry follows no branch or tag yet), `manual-check` (not a
   Git source) and `error`.

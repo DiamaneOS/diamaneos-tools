@@ -43,7 +43,7 @@
     },
     {
       "id": "sensors-qualcomm-sub-hal-only",
-      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker. The odm list adds only our tap sub-HAL (tap-check-phone-sub-hal-listed).",
+      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL had no hidraw access and could not serve a head tracker. The odm list adds only DiamaneOS's tap sub-HAL (tap-check-phone-sub-hal-listed).",
       "type": "text",
       "files": [
         "VENDOR/etc/sensors/hals.conf"
@@ -185,7 +185,7 @@
     },
     {
       "id": "audio-effects-config",
-      "why": "Our effects configuration: AOSP software effects without DSP offload halves or the proxy, Qualcomm's VoIP AEC and NS descriptors (the DSP's tuned echo cancellation, not AOSP's software AEC) and the volume listeners.",
+      "why": "The effects configuration: AOSP software effects without DSP offload halves or the proxy, Qualcomm's VoIP AEC and NS descriptors (the DSP's tuned echo cancellation, not AOSP's software AEC) and the volume listeners.",
       "type": "text",
       "files": [
         "VENDOR/etc/audio/sku_volcano/audio_effects.xml"
@@ -233,7 +233,7 @@
     },
     {
       "id": "audio-voice-processing-not-stock",
-      "why": "The VoIP pre-processing library is our source build, not the stock blob (its build ID).",
+      "why": "The VoIP pre-processing library is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/soundfx/libqcomvoiceprocessing.so",
       "patterns": [
@@ -254,7 +254,7 @@
     },
     {
       "id": "audio-volume-listener-source",
-      "why": "The volume listener is our source build, not the stock blob (its build ID), links no closed PAL library and opens the stock volcano HAL for gain-dependent calibration.",
+      "why": "The volume listener is built from source, not the stock blob (its build ID), links no closed PAL library and opens the stock volcano HAL for gain-dependent calibration.",
       "type": "binary_count",
       "file": "VENDOR/lib64/soundfx/libvolumelistener.so",
       "patterns": [
@@ -296,7 +296,7 @@
     },
     {
       "id": "audio-hal-not-stock",
-      "why": "VENDOR/lib64/hw/audio.primary.volcano.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/hw/audio.primary.volcano.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/hw/audio.primary.volcano.so",
       "patterns": [
@@ -308,7 +308,7 @@
     },
     {
       "id": "audio-pal-not-stock",
-      "why": "VENDOR/lib64/libar-pal.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libar-pal.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libar-pal.so",
       "patterns": [
@@ -320,7 +320,7 @@
     },
     {
       "id": "audio-agm-not-stock",
-      "why": "VENDOR/lib64/libagm.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libagm.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libagm.so",
       "patterns": [
@@ -332,7 +332,7 @@
     },
     {
       "id": "audio-agm-client-not-stock",
-      "why": "VENDOR/lib64/libagmclient.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libagmclient.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libagmclient.so",
       "patterns": [
@@ -344,7 +344,7 @@
     },
     {
       "id": "audio-sndcard-parser-not-stock",
-      "why": "VENDOR/lib64/libsndcardparser.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libsndcardparser.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libsndcardparser.so",
       "patterns": [
@@ -356,7 +356,7 @@
     },
     {
       "id": "audio-agm-pcm-plugin-not-stock",
-      "why": "VENDOR/lib64/libagm_pcm_plugin.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libagm_pcm_plugin.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libagm_pcm_plugin.so",
       "patterns": [
@@ -368,7 +368,7 @@
     },
     {
       "id": "audio-agm-mixer-plugin-not-stock",
-      "why": "VENDOR/lib64/libagm_mixer_plugin.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libagm_mixer_plugin.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libagm_mixer_plugin.so",
       "patterns": [
@@ -380,7 +380,7 @@
     },
     {
       "id": "audio-agm-compress-plugin-not-stock",
-      "why": "VENDOR/lib64/libagm_compress_plugin.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/libagm_compress_plugin.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/libagm_compress_plugin.so",
       "patterns": [
@@ -392,7 +392,7 @@
     },
     {
       "id": "audio-agm-hidl-not-stock",
-      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0.so",
       "patterns": [
@@ -404,7 +404,7 @@
     },
     {
       "id": "audio-agm-hidl-impl-not-stock",
-      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so",
       "patterns": [
@@ -416,7 +416,7 @@
     },
     {
       "id": "audio-adsprpcd-not-stock",
-      "why": "VENDOR/bin/audioadsprpcd is our source build, not the stock blob (its build ID).",
+      "why": "VENDOR/bin/audioadsprpcd is built from source, not the stock blob (its build ID).",
       "type": "binary_count",
       "file": "VENDOR/bin/audioadsprpcd",
       "patterns": [
@@ -792,7 +792,7 @@
     },
     {
       "id": "call-audio-bridge",
-      "why": "Our own call-audio bridge replaces QtiTelephonyService: one normal permission, our key, its own domain.",
+      "why": "DiamaneOS's own call-audio bridge replaces QtiTelephonyService: one normal permission, a DiamaneOS key, its own domain.",
       "type": "files_present",
       "paths": [
         "SYSTEM_EXT/priv-app/FP6CallAudio/FP6CallAudio.apk"
@@ -1162,7 +1162,7 @@
     },
     {
       "id": "vendor-init-properties",
-      "why": "vendor_init may set our audio, radio and SSR properties under enforcing.",
+      "why": "vendor_init may set the audio, radio and SSR properties under enforcing.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -1239,7 +1239,7 @@
     },
     {
       "id": "time-daemon",
-      "why": "Our own time daemon and no Qualcomm time_daemon policy.",
+      "why": "DiamaneOS's own time daemon and no Qualcomm time_daemon policy.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/timekeepd"
@@ -1261,7 +1261,7 @@
     },
     {
       "id": "imei-provisioning-present",
-      "why": "Our source IMEI provisioning tool and its init rc.",
+      "why": "The source-built IMEI provisioning tool and its init rc.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/imeiprovd",
@@ -2497,7 +2497,7 @@
     },
     {
       "id": "tap-check-phone-sub-hal",
-      "why": "Tap to wake and Tap to check phone: our tap sensors sub-HAL and the odm multi-HAL list that loads it.",
+      "why": "Tap to wake and Tap to check phone: DiamaneOS's tap sensors sub-HAL and the odm multi-HAL list that loads it.",
       "type": "files_present",
       "paths": [
         "ODM/lib64/hw/sensors.fp6.tap.so",
@@ -2587,7 +2587,7 @@
     },
     {
       "id": "power-hal",
-      "why": "LineageOS's libperfmgr power HAL, its configuration and init files, and our perf client the stock camera loads.",
+      "why": "LineageOS's libperfmgr power HAL, its configuration and init files, and DiamaneOS's perf client the stock camera loads.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.power-service.lineage-libperfmgr",
@@ -2613,7 +2613,7 @@
     },
     {
       "id": "power-hal-as-system",
-      "why": "The power HAL runs as system with CAP_SYS_NICE only: our init file overrides the module service, which runs as root.",
+      "why": "The power HAL runs as system with CAP_SYS_NICE only: the device init file overrides the module service, which runs as root.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.power.rc"
@@ -2737,7 +2737,7 @@
     },
     {
       "id": "thermal-hal-as-system",
-      "why": "The thermal HAL runs as system without capabilities: our init file overrides the module service, which runs as root.",
+      "why": "The thermal HAL runs as system without capabilities: the device init file overrides the module service, which runs as root.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.thermal.rc"
@@ -2768,7 +2768,7 @@
     },
     {
       "id": "perf-client-stub",
-      "why": "The perf client is our stand-in: it exports the calls the stock camera and SDM extension look up.",
+      "why": "The perf client is DiamaneOS's stand-in: it exports the calls the stock camera and SDM extension look up.",
       "type": "elf_exports",
       "path": "VENDOR/lib64/libqti-perfd-client.so",
       "symbols": [
@@ -3847,7 +3847,7 @@
     },
     {
       "id": "bluetooth-own-service",
-      "why": "Our Bluetooth service registers the stock HCI implementation; init starts it in the Bluetooth HAL domain.",
+      "why": "DiamaneOS's Bluetooth service registers the stock HCI implementation; init starts it in the Bluetooth HAL domain.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
@@ -3857,7 +3857,7 @@
     },
     {
       "id": "bluetooth-own-service-started",
-      "why": "init starts our service, not the stock one.",
+      "why": "init starts DiamaneOS's service, not the stock one.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.bluetooth.rc"
@@ -3871,7 +3871,7 @@
     },
     {
       "id": "bluetooth-own-service-label",
-      "why": "Our service has the Bluetooth HAL label.",
+      "why": "DiamaneOS's service has the Bluetooth HAL label.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_file_contexts"
@@ -3906,7 +3906,7 @@
     },
     {
       "id": "bluetooth-service-applies-seccomp",
-      "why": "Our Bluetooth service compiles the installed policy and installs it as a seccomp filter before it loads the closed HCI implementation; it aborts if it cannot, so it never runs unconfined.",
+      "why": "DiamaneOS's Bluetooth service compiles the installed policy and installs it as a seccomp filter before it loads the closed HCI implementation; it aborts if it cannot, so it never runs unconfined.",
       "type": "binary_count",
       "file": "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
       "patterns": [
