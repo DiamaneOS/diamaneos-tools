@@ -26,10 +26,6 @@ class SigningPlanTests(unittest.TestCase):
         self.assertEqual('avb', roles['com.example.apex']['payload'])
         with self.assertRaises(inputs.SigningError): api.member_role(roles, 'apk', 'SYSTEM/app/Unknown.apk')
 
-    def test_unknown_certificate_selector_is_not_implicitly_releasekey(self):
-        self.metadata['apk']['Default.apk']['certificate'] = 'keys/unknown.x509.pem'
-        with self.assertRaises(inputs.SigningError): api.role_map(self.metadata, self.policy, {})
-
     def test_absent_metadata_is_derived_and_does_not_need_signing_roles(self):
         self.metadata['apk']['NotInstalled.apk'] = {'certificate': 'keys/unmapped-test-certificate.x509.pem'}
         roles = api.role_map(self.metadata, self.policy, {}, {'Default.apk', 'Platform.apk', 'com.example.apex'})
@@ -38,9 +34,13 @@ class SigningPlanTests(unittest.TestCase):
             api.role_map(self.metadata, self.policy, {}, {'NotInstalled.apk'})
 
     def test_installed_module_selector_requires_an_explicit_source_override(self):
-        self.metadata['apk']['Default.apk']['certificate'] = 'module/com.android.wifi.resources.x509.pem'
-        with self.assertRaises(inputs.SigningError):
-            api.role_map(self.metadata, self.policy, {}, {'Default.apk'})
+        # An unknown certificate selector is not implicitly releasekey either.
+        for certificate, present in (('keys/unknown.x509.pem', None),
+                                     ('module/com.android.wifi.resources.x509.pem', {'Default.apk'})):
+            with self.subTest(certificate=certificate):
+                self.metadata['apk']['Default.apk']['certificate'] = certificate
+                with self.assertRaises(inputs.SigningError):
+                    api.role_map(self.metadata, self.policy, {}, present)
         roles = api.role_map(self.metadata, self.policy, {'Default.apk': 'releasekey'}, {'Default.apk'})
         self.assertEqual('releasekey', roles['Default.apk']['container'])
 

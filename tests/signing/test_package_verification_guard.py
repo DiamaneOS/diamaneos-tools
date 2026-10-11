@@ -126,7 +126,9 @@ class PackageVerificationGuardTests(TemporaryInputs, unittest.TestCase):
     def test_changed_partition_or_compression_is_refused_before_verification(self):
         for member, old, new in (('META/apkcerts.txt', b'partition="system"', b'partition="vendor"'),
                                  ('META/apkcerts.txt', b'compressed="false"', b'compressed="true"'),
-                                 ('META/apexkeys.txt', b'partition="system"', b'partition="vendor"')):
+                                 ('META/apexkeys.txt', b'partition="system"', b'partition="vendor"'),
+                                 # Changed membership.
+                                 ('META/apkcerts.txt', b'Standalone.apk', b'Unlisted.apk')):
             with self.subTest(member=member, property=old):
                 target, plan, members = self.packages()
                 self.rewrite_metadata(target, {member: [(old, new)]})
@@ -134,14 +136,6 @@ class PackageVerificationGuardTests(TemporaryInputs, unittest.TestCase):
                     self.verify(target, plan, members)
                 self.tools.apk.assert_not_called()
                 self.tools.avb.assert_not_called()
-
-    def test_changed_metadata_membership_is_refused_before_verification(self):
-        target, plan, members = self.packages()
-        self.rewrite_metadata(target, {'META/apkcerts.txt': [(b'Standalone.apk', b'Unlisted.apk')]})
-        with self.assertRaisesRegex(inputs.SigningError, 'membership or storage properties'):
-            self.verify(target, plan, members)
-        self.tools.apk.assert_not_called()
-        self.tools.avb.assert_not_called()
 
     def test_missing_planned_package_is_refused(self):
         target, plan, members = self.packages()
@@ -225,12 +219,9 @@ class PackageVerificationGuardTests(TemporaryInputs, unittest.TestCase):
         self.assertEqual('PASS', result['status'])
         self.assertEqual(counts, result['packages'])
 
-    def test_stubbed_empty_verify_packages_cannot_produce_publication_success(self):
-        self.verify_publication(self.publication(), {}, expect_failure=True)
-
     def test_publication_rejects_missing_extra_or_incorrect_package_counts(self):
         fixture = self.publication()
-        for counts in ({'apk': 2, 'apex': 1}, {'apk': 1, 'apex': 1, 'payload': 1},
+        for counts in ({}, {'apk': 2, 'apex': 1}, {'apk': 1, 'apex': 1, 'payload': 1},
                        {'apk': 2, 'apex': 1, 'payload': 0},
                        {'apk': 2, 'apex': 1, 'payload': 1, 'extra': 1}, None, []):
             with self.subTest(counts=counts):

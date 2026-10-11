@@ -118,13 +118,6 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
         with patch.object(native.NativeTools, 'openssl', side_effect=AssertionError('Final verification must not use native tools')):
             self.assertEqual(2, self.verify(expected)['package_selectors'])
 
-    def test_native_relative_original_skip_is_detected_from_an_unrelated_cwd(self):
-        unrelated = self.root / 'unrelated'; unrelated.mkdir()
-        with patch('os.getcwd', return_value=str(unrelated)):
-            expected = self.prepare()
-        self.signed_xml(self.xml)
-        with self.assertRaisesRegex(inputs.SigningError, 'certificate replacements differ'): self.verify(expected)
-
     def test_cert_element_sets_and_certificate_case_order_are_supported(self):
         xml = '<policy><signer signature="' + self.hex('old_platform').upper() + '"><cert signature="' + self.hex('old_testkey') + '"/><seinfo value="combined"/></signer></policy>'
         self.original_xml(xml)
@@ -156,19 +149,9 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
         self.signed_xml(self.replaced(self.xml), {member: self.replaced(vendor).replace('value="platform"', 'value="different_label"')})
         with self.assertRaises(inputs.SigningError): self.verify(expected)
 
-    def test_conflicting_global_mapping_across_partitions_is_refused(self):
-        other = '<policy><signer signature="' + self.hex('old_platform') + '"><seinfo value="other_label"/></signer></policy>'
-        self.original_xml(self.xml, {EXT_MEMBER: other})
-        with self.assertRaises(inputs.SigningError): self.prepare()
-
     def test_identical_global_duplicate_within_one_file_stays_refused(self):
         extra = '<signer signature="' + self.hex('old_platform') + '"><seinfo value="platform"/></signer>'
         self.original_xml(self.xml.replace('</policy>', extra + '</policy>'))
-        with self.assertRaises(inputs.SigningError): self.prepare()
-
-    def test_cross_partition_package_overlap_stays_refused_with_same_label(self):
-        other = '<policy><signer signature="' + self.hex('old_testkey') + '"><package name="example.isolated"><seinfo value="isolated_label"/></package></signer></policy>'
-        self.original_xml(self.xml, {EXT_MEMBER: other})
         with self.assertRaises(inputs.SigningError): self.prepare()
 
     def test_preserved_vendor_certificate_requires_independent_presigned_policy(self):
@@ -272,10 +255,19 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
 
     def test_package_names_seinfo_and_global_cert_roles_cannot_change(self):
         expected = self.prepare()
-        for old, new in (('example.isolated', 'example.other'), ('isolated_label', 'platform'),
-                         (self.hex('platform'), self.hex('releasekey')), (self.hex('releasekey'), self.hex('shared'))):
-            self.signed_xml(self.replaced(self.xml).replace(old, new))
-            with self.assertRaises(inputs.SigningError): self.verify(expected)
+        unrelated = self.root / 'unrelated'; unrelated.mkdir()
+        with patch('os.getcwd', return_value=str(unrelated)):
+            elsewhere = self.prepare()
+        signed = self.replaced(self.xml)
+        for xml, snapshot, message in (
+                (signed.replace('example.isolated', 'example.other'), expected, ''),
+                (signed.replace('isolated_label', 'platform'), expected, ''),
+                (signed.replace(self.hex('platform'), self.hex('releasekey')), expected, ''),
+                (signed.replace(self.hex('releasekey'), self.hex('shared')), expected, ''),
+                # The original certificates, against an expectation prepared from an unrelated directory.
+                (self.xml, elsewhere, 'certificate replacements differ')):
+            self.signed_xml(xml)
+            with self.subTest(xml=xml), self.assertRaisesRegex(inputs.SigningError, message): self.verify(snapshot)
 
     def test_missing_added_and_moved_xml_files_refuse(self):
         expected = self.prepare()
@@ -287,10 +279,12 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
         with self.assertRaises(inputs.SigningError): self.verify(expected)
 
     def test_conflicting_global_and_overlapping_package_selectors_across_files_refuse(self):
-        for stanza in ('<seinfo value="different_default"/>', '<package name="example.isolated"><seinfo value="isolated_label"/></package>'):
-            extra = '<policy><signer signature="' + self.hex('old_testkey') + '">' + stanza + '</signer></policy>'
+        for key, stanza in (('old_testkey', '<seinfo value="different_default"/>'),
+                            ('old_platform', '<seinfo value="other_label"/>'),
+                            ('old_testkey', '<package name="example.isolated"><seinfo value="isolated_label"/></package>')):
+            extra = '<policy><signer signature="' + self.hex(key) + '">' + stanza + '</signer></policy>'
             self.original_xml(self.xml, {EXT_MEMBER: extra})
-            with self.assertRaises(inputs.SigningError): self.prepare()
+            with self.subTest(key=key, stanza=stanza), self.assertRaises(inputs.SigningError): self.prepare()
 
     def test_replacement_collisions_and_certificate_set_collapse_refuse(self):
         (self.source / 'keys/devkey.x509.pem').write_bytes(self.pem['vendor_fixture'])

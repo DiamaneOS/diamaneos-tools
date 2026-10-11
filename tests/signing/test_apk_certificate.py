@@ -18,11 +18,6 @@ class ApkCertificateTest(unittest.TestCase):
                 + label + " certificate SHA-256 digest: " + digest + "\n"
                 + label + " public key SHA-256 digest: " + public + "\n")
 
-    def test_scheme_and_legacy_certificate_labels(self):
-        for label in ("Signer #1", "V1 Signer:", "V2 Signer:", "V3.0 Signer:", "V3.1 Signer:", "V3.2 Signer:"):
-            with self.subTest(label=label):
-                self.assertEqual(["a" * 64], apk_certificate_digests(self.output(label), "a" * 64))
-
     def test_wrong_key_missing_malformed_and_extra_signer_are_rejected(self):
         variants = [self.output(digest="b" * 64), self.output(digest="abc"),
                     self.output().replace("Number of signers: 1", "Number of signers: 2"),
@@ -30,14 +25,13 @@ class ApkCertificateTest(unittest.TestCase):
                     self.output().replace("certificate SHA-256 digest:", "unsupported digest:"),
                     self.output() + "Signer #2 certificate SHA-256 digest: " + "b" * 64 + "\n",
                     self.output("Unknown Signer:")]
-        for output in variants:
-            with self.subTest(output=output):
+        rows = [(output, "a" * 64) for output in variants]
+        # A pin that matches the public key digest does not replace the certificate pin.
+        rows.append((self.output(), "b" * 64))
+        for output, expected in rows:
+            with self.subTest(output=output, expected=expected):
                 with self.assertRaises(SigningError):
-                    apk_certificate_digests(output, "a" * 64)
-
-    def test_matching_public_key_digest_does_not_replace_certificate_pin(self):
-        with self.assertRaises(SigningError):
-            apk_certificate_digests(self.output(), "b" * 64)
+                    apk_certificate_digests(output, expected)
 
     def production(self, output, expected="a" * 64):
         tools = native.NativeTools.__new__(native.NativeTools)

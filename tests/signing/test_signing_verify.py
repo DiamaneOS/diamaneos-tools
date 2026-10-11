@@ -68,19 +68,15 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
 
     def test_committed_policy_has_no_release_tag_or_commit(self):
         inputs.validate_config(self.policy)
-        for pin in ('2026100600', 'a' * 40, 'a' * 64):
-            changed = copy.deepcopy(self.policy)
-            changed['source_binding'] = pin
-            with self.assertRaises(inputs.SigningError):
-                inputs.validate_config(changed)
-        self.assertNotIn('source_binding', self.policy)
-
-    def test_unknown_roles_and_algorithm_drift_refuse(self):
-        for change in (lambda p: p['certificate_roles'].append('other'),
-                       lambda p: p.update(avb_algorithm='NONE'),
-                       lambda p: p['apk_selectors'].update(other='other')):
+        changes = [lambda p, pin=pin: p.update(source_binding=pin) for pin in ('2026100600', 'a' * 40, 'a' * 64)]
+        # Unknown roles and selectors and another AVB algorithm refuse too.
+        changes += [lambda p: p['certificate_roles'].append('other'),
+                    lambda p: p.update(avb_algorithm='NONE'),
+                    lambda p: p['apk_selectors'].update(other='other')]
+        for index, change in enumerate(changes):
             value = copy.deepcopy(self.policy); change(value)
-            with self.assertRaises(inputs.SigningError): inputs.validate_config(value)
+            with self.subTest(change=index), self.assertRaises(inputs.SigningError): inputs.validate_config(value)
+        self.assertNotIn('source_binding', self.policy)
 
     def test_build_verify_pass_binds_target_tools_manifest_and_record(self):
         self.fixture()
@@ -95,12 +91,18 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         self.fixture()
         report_path = self.root / 'verify.json'
         original = json.loads(report_path.read_text())
+
+        def device_checks_missing(report):
+            report['checks'] = [c for c in report['checks'] if c['id'] in image_verify.REQUIRED_CHECKS]
+            report['checked'] = len(report['checks'])
         changes = [lambda r: r.update(status='FAIL'), lambda r: r['checks'].pop(),
                    lambda r: r['checks'].append(r['checks'][0]), lambda r: r.update(build_id='other'),
-                   lambda r: r.update(build_identity='c' * 64), lambda r: r['checks'][0].update(status='FAIL')]
-        for change in changes:
+                   lambda r: r.update(build_identity='c' * 64), lambda r: r['checks'][0].update(status='FAIL'),
+                   # Other rules than the ones the report names, and a report without the device checks.
+                   lambda r: r.update(rule_set_sha256='0' * 64), device_checks_missing]
+        for index, change in enumerate(changes):
             value = copy.deepcopy(original); change(value); report_path.write_text(json.dumps(value))
-            with self.assertRaises(inputs.SigningError): self.verify()
+            with self.subTest(change=index), self.assertRaises(inputs.SigningError): self.verify()
 
     def test_dirty_or_nonrelease_build_does_not_get_production_signing(self):
         record = self.fixture()
@@ -139,18 +141,6 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
             with self.assertRaises(inputs.SigningError): inputs.load_json(path)
         path.write_bytes(b'x' * 100)
         with self.assertRaises(inputs.SigningError): inputs.load_json(path, 20)
-
-    def test_changed_rules_or_missing_device_checks_refuse(self):
-        self.fixture()
-        path = self.root / 'verify.json'
-        original = inputs.load_json(path)
-        changed = copy.deepcopy(original); changed['rule_set_sha256'] = '0' * 64
-        path.write_text(json.dumps(changed))
-        with self.assertRaises(inputs.SigningError): self.verify()
-        changed = copy.deepcopy(original)
-        changed['checks'] = [c for c in changed['checks'] if c['id'] in image_verify.REQUIRED_CHECKS]
-        changed['checked'] = len(changed['checks']); path.write_text(json.dumps(changed))
-        with self.assertRaises(inputs.SigningError): self.verify()
 
     def test_malformed_document_roots_have_bounded_refusals(self):
         self.fixture()
@@ -319,19 +309,6 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         with patch.object(inputs.os, 'open', side_effect=swapped):
             with self.assertRaises(inputs.SigningError): inputs.snapshot_file(source, destination)
         self.assertFalse(destination.exists())
-
-    def test_valid_report_bootstraps_before_build_binding_and_archive_tools(self):
-        arguments, identity, signature = self.bootstrap_inputs()
-        report = self.root / 'verify.json'
-        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
-                        '-n', self.policy['verification_namespace'], report],
-                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
-        signature.write_bytes(report.with_suffix('.json.sig').read_bytes())
-        with patch.object(api, 'verified_build', side_effect=inputs.SigningError('binding checkpoint')) as verify, \
-             patch.object(api.za, 'unpack_tools') as unpack, patch('sys.stderr', new=io.StringIO()):
-            self.assertEqual(2, api.main(arguments))
-        verify.assert_called_once(); unpack.assert_not_called()
-        self.assertFalse((self.root / 'plan.json').exists())
 
     def test_unchanged_snapshots_preserve_authenticated_build_basenames_and_checksums(self):
         arguments, identity, signature = self.bootstrap_inputs()

@@ -553,21 +553,16 @@ class NativeFixtureGateTests(unittest.TestCase):
             temporary.assert_not_called()
 
     def test_linux_missing_either_input_fails_before_fixture_creation(self):
-        for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip'), ('', '')):
-            with self.subTest(source=source, otatools=otatools):
-                self.setup_gate('linux', '0', source, otatools, RuntimeError)
-
-    def test_explicit_required_native_run_fails_on_non_linux_without_inputs(self):
-        for platform in ('darwin', 'win32'):
-            for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip')):
-                with self.subTest(platform=platform, source=source, otatools=otatools):
-                    self.setup_gate(platform, '1', source, otatools, RuntimeError)
-
-    def test_optional_non_linux_missing_inputs_may_skip(self):
-        for platform in ('darwin', 'win32'):
-            for source, otatools in ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip')):
-                with self.subTest(platform=platform, source=source, otatools=otatools):
-                    self.setup_gate(platform, '0', source, otatools, unittest.SkipTest)
+        missing = ((None, None), ('/fixture/source', None), (None, '/fixture/otatools.zip'))
+        # Linux always needs both inputs. Elsewhere a run that is explicitly required fails
+        # without them, and an optional one may skip.
+        for platform, required, absent, error in (
+                ('linux', '0', missing + (('', ''),), RuntimeError),
+                ('darwin', '1', missing, RuntimeError), ('win32', '1', missing, RuntimeError),
+                ('darwin', '0', missing, unittest.SkipTest), ('win32', '0', missing, unittest.SkipTest)):
+            for source, otatools in absent:
+                with self.subTest(platform=platform, required=required, source=source, otatools=otatools):
+                    self.setup_gate(platform, required, source, otatools, error)
 
     def test_supplied_inputs_pass_only_the_gate_without_executing_tools(self):
         for platform, required in (('linux', '0'), ('darwin', '0'), ('darwin', '1')):

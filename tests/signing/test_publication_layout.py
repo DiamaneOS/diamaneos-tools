@@ -40,15 +40,12 @@ class ImageMembersTests(unittest.TestCase):
                 layout.image_members(self.plan, self.members - {name})
 
     def test_every_physical_partition_is_required_with_and_without_super(self):
-        for name in ('boot.img', 'vbmeta.img'):
-            for super_member in (set(), {'super.img'}):
-                with self.subTest(member=name, super=bool(super_member)), self.assertRaises(inputs.SigningError):
-                    layout.image_members(self.plan, (self.members | super_member) - {name})
-
-    def test_every_logical_partition_is_required_without_super(self):
-        for missing in ({'system.img'}, {'vendor.img'}, {'system.img', 'vendor.img'}):
-            with self.subTest(missing=missing), self.assertRaises(inputs.SigningError):
-                layout.image_members(self.plan, self.members - missing)
+        rows = [({name}, super_member) for name in ('boot.img', 'vbmeta.img') for super_member in (set(), {'super.img'})]
+        # Without super, every logical partition is required too.
+        rows += [(missing, set()) for missing in ({'system.img'}, {'vendor.img'}, {'system.img', 'vendor.img'})]
+        for missing, super_member in rows:
+            with self.subTest(missing=missing, super=bool(super_member)), self.assertRaises(inputs.SigningError):
+                layout.image_members(self.plan, (self.members | super_member) - missing)
 
     def test_super_allows_all_logical_omitted_or_all_included(self):
         for omitted in (set(), {'system.img', 'vendor.img'}):
@@ -228,15 +225,17 @@ class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
         self.assertIsNone(api.verify_factory_contents(self.factory, self.images))
 
     def test_missing_or_wrongly_named_factory_member_refuses(self):
-        for entries in ([], [('other-images.zip', self.data, tarfile.REGTYPE)]):
-            with self.subTest(entries=entries):
+        cases = [[], [('other-images.zip', self.data, tarfile.REGTYPE)]]
+        # Opaque scripts, files and empty directories are not factory extras.
+        cases += [[self.image_entry(), (name, b'fixture extra', kind)]
+                  for name, kind in (('flash-all.sh', tarfile.REGTYPE), ('notes.txt', tarfile.REGTYPE),
+                                     ('empty', tarfile.DIRTYPE), ('images', tarfile.DIRTYPE))]
+        # Nested, absolute and traversing names.
+        cases += [[(prefix + self.images.name, self.data, tarfile.REGTYPE)]
+                  for prefix in ('nested/', './', '../', '/', 'nested\\')]
+        for entries in cases:
+            with self.subTest(members=[entry[0] for entry in entries]):
                 self.refuse(entries)
-
-    def test_opaque_scripts_files_and_empty_directories_are_not_factory_extras(self):
-        for name, kind in (('flash-all.sh', tarfile.REGTYPE), ('notes.txt', tarfile.REGTYPE),
-                           ('empty', tarfile.DIRTYPE), ('images', tarfile.DIRTYPE)):
-            with self.subTest(member=name):
-                self.refuse([self.image_entry(), (name, b'fixture extra', kind)])
 
     def test_factory_duplicate_members_refuse_even_when_bytes_match(self):
         self.refuse([self.image_entry(), self.image_entry()])
@@ -245,11 +244,6 @@ class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
         for kind in (tarfile.SYMTYPE, tarfile.LNKTYPE, tarfile.DIRTYPE, tarfile.FIFOTYPE):
             with self.subTest(kind=kind):
                 self.refuse([(self.images.name, b'', kind)])
-
-    def test_factory_nested_absolute_and_traversing_names_refuse(self):
-        for prefix in ('nested/', './', '../', '/', 'nested\\'):
-            with self.subTest(prefix=prefix):
-                self.refuse([(prefix + self.images.name, self.data, tarfile.REGTYPE)])
 
     def test_factory_must_embed_the_exact_verified_bytes(self):
         for data in (b'', self.data[:-1], self.data + b'changed'):
