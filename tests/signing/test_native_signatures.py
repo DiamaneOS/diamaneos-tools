@@ -231,7 +231,10 @@ class NativeSignatureTests(unittest.TestCase):
         self.tools.run('avbtool', ['make_vbmeta_image', '--output', root / 'vbmeta.img', '--algorithm', 'SHA256_RSA4096',
                                  '--key', self.private / 'avb.pem', '--include_descriptors_from_image', root / 'boot.img',
                                  '--chain_partition', 'vbmeta_system:' + str(location) + ':' + str(public)])
-        return root
+        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
+        chains = {'vbmeta_system': location}
+        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, chains))
+        return root, expected, chains
 
     def test_native_apk_valid_corrupt_unsigned_wrong_key_and_wrong_role(self):
         self.tools.apk(self.apk, self.keys.fingerprints['releasekey'])
@@ -290,8 +293,8 @@ class NativeSignatureTests(unittest.TestCase):
 
     def test_native_avb_valid_corrupt_unsigned_wrong_key_and_wrong_role(self):
         self.tools.avb(self.vbmeta, self.keys.avb())
-        corrupt = self.root / 'corrupt-vbmeta.img'; data = bytearray(self.vbmeta.read_bytes())
-        data[512] ^= 1; corrupt.write_bytes(data)
+        corrupt = self.root / 'corrupt-vbmeta.img'; shutil.copyfile(self.vbmeta, corrupt)
+        self.tamper_image(corrupt, 512)
         with self.assertRaises(inputs.SigningError): self.tools.avb(corrupt, self.keys.avb())
         unsigned = self.root / 'unsigned-vbmeta.img'
         self.tools.run('avbtool', ['make_vbmeta_image', '--output', unsigned])
@@ -326,15 +329,12 @@ class NativeSignatureTests(unittest.TestCase):
         other = self.root / 'wrong-apex-key.pub.pem'
         self.tools.openssl(['pkey', '-in', self.private / 'platform.pem', '-pubout', '-out', other])
         with self.assertRaises(inputs.SigningError): self.tools.avb(path, other, payload=True)
-        value = bytearray(path.read_bytes()); value[0] ^= 1; path.write_bytes(value)
+        self.tamper_image(path, 0)
         with self.assertRaises(inputs.SigningError): self.tools.avb(path, self.keys.avb(), payload=True)
         self.assertFalse((path.parent / '.img').exists())
 
     def test_native_avb_chained_vbmeta_wrong_key_is_rejected(self):
-        root = self.chain_fixture()
-        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
-        chains = {'vbmeta_system': 1}
-        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, chains))
+        root, expected, chains = self.chain_fixture()
         child = self.write_chain_child(root, role='platform')
         other = root.parent / 'independent-wrong-chain.pub.pem'
         self.tools.openssl(['pkey', '-in', self.private / 'platform.pem', '-pubout', '-out', other])
@@ -345,10 +345,7 @@ class NativeSignatureTests(unittest.TestCase):
             native.verify_images(self.tools, self.keys, root, expected, chains)
 
     def test_native_avb_chained_vbmeta_tampering_is_rejected(self):
-        root = self.chain_fixture()
-        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
-        chains = {'vbmeta_system': 1}
-        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, chains))
+        root, expected, chains = self.chain_fixture()
         child = root / 'vbmeta_system.img'
         self.tamper_image(child, 512)
         with self.assertRaises(inputs.SigningError):
@@ -357,9 +354,7 @@ class NativeSignatureTests(unittest.TestCase):
             native.verify_images(self.tools, self.keys, root, expected, chains)
 
     def test_native_avb_signed_chain_rollback_location_and_missing_chain_are_rejected(self):
-        root = self.chain_fixture(location=2)
-        expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
-        self.assertEqual(expected, native.verify_images(self.tools, self.keys, root, expected, {'vbmeta_system': 2}))
+        root, expected, _ = self.chain_fixture(location=2)
         for chains in ({'vbmeta_system': 1}, {}, {'vbmeta_system': 2, 'vbmeta_vendor': 3}):
             with self.subTest(chains=chains), self.assertRaisesRegex(inputs.SigningError, 'rollback chain|every declared partition and chain'):
                 native.verify_images(self.tools, self.keys, root, expected, chains)

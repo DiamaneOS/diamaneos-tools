@@ -218,6 +218,11 @@ class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
     def image_entry(self):
         return self.images.name, self.data, tarfile.REGTYPE
 
+    def refuse(self, entries, message=''):
+        self.factory_members(entries)
+        with self.assertRaisesRegex(inputs.SigningError, message):
+            api.verify_factory_contents(self.factory, self.images)
+
     def test_factory_accepts_exact_single_flat_images_archive(self):
         self.factory_members([self.image_entry()])
         self.assertIsNone(api.verify_factory_contents(self.factory, self.images))
@@ -225,43 +230,31 @@ class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
     def test_missing_or_wrongly_named_factory_member_refuses(self):
         for entries in ([], [('other-images.zip', self.data, tarfile.REGTYPE)]):
             with self.subTest(entries=entries):
-                self.factory_members(entries)
-                with self.assertRaises(inputs.SigningError):
-                    api.verify_factory_contents(self.factory, self.images)
+                self.refuse(entries)
 
     def test_opaque_scripts_files_and_empty_directories_are_not_factory_extras(self):
         for name, kind in (('flash-all.sh', tarfile.REGTYPE), ('notes.txt', tarfile.REGTYPE),
                            ('empty', tarfile.DIRTYPE), ('images', tarfile.DIRTYPE)):
             with self.subTest(member=name):
-                self.factory_members([self.image_entry(), (name, b'fixture extra', kind)])
-                with self.assertRaises(inputs.SigningError):
-                    api.verify_factory_contents(self.factory, self.images)
+                self.refuse([self.image_entry(), (name, b'fixture extra', kind)])
 
     def test_factory_duplicate_members_refuse_even_when_bytes_match(self):
-        self.factory_members([self.image_entry(), self.image_entry()])
-        with self.assertRaises(inputs.SigningError):
-            api.verify_factory_contents(self.factory, self.images)
+        self.refuse([self.image_entry(), self.image_entry()])
 
     def test_factory_links_and_nonregular_members_refuse(self):
         for kind in (tarfile.SYMTYPE, tarfile.LNKTYPE, tarfile.DIRTYPE, tarfile.FIFOTYPE):
             with self.subTest(kind=kind):
-                self.factory_members([(self.images.name, b'', kind)])
-                with self.assertRaises(inputs.SigningError):
-                    api.verify_factory_contents(self.factory, self.images)
+                self.refuse([(self.images.name, b'', kind)])
 
     def test_factory_nested_absolute_and_traversing_names_refuse(self):
         for prefix in ('nested/', './', '../', '/', 'nested\\'):
             with self.subTest(prefix=prefix):
-                self.factory_members([(prefix + self.images.name, self.data, tarfile.REGTYPE)])
-                with self.assertRaises(inputs.SigningError):
-                    api.verify_factory_contents(self.factory, self.images)
+                self.refuse([(prefix + self.images.name, self.data, tarfile.REGTYPE)])
 
     def test_factory_must_embed_the_exact_verified_bytes(self):
         for data in (b'', self.data[:-1], self.data + b'changed'):
             with self.subTest(size=len(data)):
-                self.factory_members([(self.images.name, data, tarfile.REGTYPE)])
-                with self.assertRaisesRegex(inputs.SigningError, 'Factory archive contains different images'):
-                    api.verify_factory_contents(self.factory, self.images)
+                self.refuse([(self.images.name, data, tarfile.REGTYPE)], 'Factory archive contains different images')
 
 
 if __name__ == '__main__':
