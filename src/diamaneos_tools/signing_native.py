@@ -277,16 +277,13 @@ class PublicKeys:
         self.tools.denied_apk_public_keys = denied
         test_keys = list((source / 'external/avb/test/data').glob('testkey_rsa*.pem'))
         require(test_keys, 'Public AVB test key deny list is unavailable')
-        expected = set()
-        public_keys = [self.avb()]
-        for key in public_keys:
-            output = self.tools.scratch / 'expected-avb.bin'
-            self.tools.run('avbtool', ['extract_public_key', '--key', key, '--output', output])
-            expected.add(output.read_bytes())
+        output = self.tools.scratch / 'expected-avb.bin'
+        self.tools.run('avbtool', ['extract_public_key', '--key', self.avb(), '--output', output])
+        expected = output.read_bytes()
         for test in test_keys:
             output = self.tools.scratch / 'test-avb.bin'
             self.tools.run('avbtool', ['extract_public_key', '--key', test, '--output', output])
-            require(output.read_bytes() not in expected, 'Production refuses AOSP public AVB test keys')
+            require(output.read_bytes() != expected, 'Production refuses AOSP public AVB test keys')
 
 
 def package_members(target_files, tools):

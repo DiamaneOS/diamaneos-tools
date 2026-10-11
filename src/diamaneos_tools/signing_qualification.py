@@ -13,7 +13,7 @@ from .signing_inputs import presigned_rule
 from .signing_native import avb_descriptors, package_members
 
 
-def release_overrides(source, policy):
+def release_overrides(source):
     text = (Path(source) / 'script/generate-release.sh').read_text()
     result = {}
     for match in re.finditer(r'--extra_apks\s+([A-Za-z0-9._,+-]+)="?\$KEY_DIR/([a-z0-9_]+)', text):
@@ -68,7 +68,7 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     provenance['signer_sha256'] = sha256_file(tools.path('sign_target_files_apks'))
     record = load_json(record_path)
     metadata = za.metadata(target_files)
-    overrides = release_overrides(tools.source, policy)
+    overrides = release_overrides(tools.source)
     roles = {}
     packages, present = {}, set()
     for kind, logical, path in package_members(target_files, tools):

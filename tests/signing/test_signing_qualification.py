@@ -53,12 +53,12 @@ class SigningPlanTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); (root / 'script').mkdir(); path = root / 'script/generate-release.sh'
             path.write_text('--extra_apks Test.apk="$KEY_DIR/platform"')
-            self.assertEqual({'Test.apk': 'platform'}, api.release_overrides(root, self.policy))
+            self.assertEqual({'Test.apk': 'platform'}, api.release_overrides(root))
             for text in ('--extra_apks Test.apk="$KEY_DIR/unknown"',
                          '--extra_apks Test.apk="$KEY_DIR/platform" --extra_apks Test.apk="$KEY_DIR/platform"',
                          '--extra_apks Test.apk="$KEY_DIR/platform" --extra_apex_payload_key X.apex="$KEY_DIR/other.pem"'):
                 path.write_text(text)
-                with self.assertRaises(inputs.SigningError): api.release_overrides(root, self.policy)
+                with self.assertRaises(inputs.SigningError): api.release_overrides(root)
 
     def test_signing_arguments_recheck_input_hash_and_refuse_output_reuse(self):
         with tempfile.TemporaryDirectory() as directory:

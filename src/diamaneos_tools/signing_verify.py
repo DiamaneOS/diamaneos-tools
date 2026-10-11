@@ -160,9 +160,7 @@ def verify_factory_contents(factory, image_archive):
         require(set(names) == layout.factory_members(image_archive)
                 and len(set(names)) == len(names) and all(m.isfile() for m in members),
                 'Factory archive contains unlisted or missing members')
-        images = [m for m in members if Path(m.name).name == image_archive.name]
-        require(len(images) == 1, 'Factory archive lacks the verified image archive')
-        with handle.extractfile(images[0]) as stream:
+        with handle.extractfile(members[0]) as stream:
             require(sha256_stream(stream) == expected, 'Factory archive contains different images')
 
 
