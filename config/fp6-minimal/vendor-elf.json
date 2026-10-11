@@ -1086,6 +1086,11 @@
       "bytes": 24176
     },
     {
+      "path": "vendor/lib64/libcpion.so",
+      "sha256": "593f1a94afdd5543577a0a1dc68a46ec748d431ba8e3f2ba70e300ebded5f999",
+      "bytes": 31992
+    },
+    {
       "path": "vendor/lib64/libdiag.so",
       "sha256": "b5e346d5aa56da5c2c0af4064653c396e5ba71bb7c382cc52feefe9dcf81cc0e",
       "bytes": 326616
@@ -1379,6 +1384,11 @@
       "path": "vendor/lib64/libnicm_utils.so",
       "sha256": "c7b8532b9e2bd4b4b14d227dde07f991e18744990ac20b85c99a4be8f44336c3",
       "bytes": 255264
+    },
+    {
+      "path": "vendor/lib64/liboemcrypto.so",
+      "sha256": "442f52b2dfaa9873e22d7ffbe1045f24be2d3d9d3d3e2f42985c9bf3e1d80aef",
+      "bytes": 246728
     },
     {
       "path": "vendor/lib64/libopencv.so",
@@ -1864,6 +1874,11 @@
       "path": "vendor/lib64/libtinyxml2_1.so",
       "sha256": "26eb6bb8f3532a357a4864d85c9e250d2f709f03d509f9f9c34c870f5f36d725",
       "bytes": 115720
+    },
+    {
+      "path": "vendor/lib64/libtrustedapploader.so",
+      "sha256": "ecc9e3ace811ecae5843ea91ec9f74c08b74601cd22be2a07ec4d155c8f21aa2",
+      "bytes": 62224
     },
     {
       "path": "vendor/lib64/libubwcp.so",
@@ -27721,6 +27736,60 @@
       "provider": "vendor/lib64/libxml.so"
     },
     {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libdmabufheap.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libcpion.so",
+      "needed": "libvmmem.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libvmmem.so"
+    },
+    {
       "consumer": "vendor/lib64/libdiag.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -33039,6 +33108,116 @@
       "export_lists": [
         "/etc/vndkcore.libraries.34.txt"
       ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libQSEEComAPI.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libQSEEComAPI.so"
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libbinder_ndk.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libcpion.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libcpion.so"
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libcrypto.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libcutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libminkdescriptor.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libminkdescriptor.so"
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libpower.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndkcore.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libtrustedapploader.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libtrustedapploader.so"
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "libutils.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/liboemcrypto.so",
+      "needed": "vendor.qti.hardware.display.config-V7-ndk.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so"
     },
     {
       "consumer": "vendor/lib64/libopencv.so",
@@ -40503,6 +40682,64 @@
       ]
     },
     {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libc++.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/vndksp.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libc.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libdl.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "liblog.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libm.so",
+      "kind": "platform-or-vndk34",
+      "export_lists": [
+        "/etc/llndk.libraries.34.txt"
+      ]
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libminkdescriptor.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libminkdescriptor.so"
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libminksocket_vendor.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libminksocket_vendor.so"
+    },
+    {
+      "consumer": "vendor/lib64/libtrustedapploader.so",
+      "needed": "libqcbor.so",
+      "kind": "selected-stock",
+      "provider": "vendor/lib64/libqcbor.so"
+    },
+    {
       "consumer": "vendor/lib64/libubwcp.so",
       "needed": "libc++.so",
       "kind": "platform-or-vndk34",
@@ -45476,7 +45713,8 @@
     "vendor/lib64/libar-gsl.so",
     "vendor/lib64/libats.so",
     "vendor/lib64/libvui_intf.so",
-    "vendor/lib64/libadm.so"
+    "vendor/lib64/libadm.so",
+    "vendor/lib64/liboemcrypto.so"
   ],
   "firmware_inputs": [
     {

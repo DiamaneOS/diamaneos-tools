@@ -3287,7 +3287,7 @@
     },
       {
         "id": "tee-node-open",
-        "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. It has its own label, so the platform's tee_device grants to its reference HAL domains do not reach it (tee-node-label).",
+        "why": "Only qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service, which reaches its trusted app through liboemcrypto.so, may open the TEE node. It has its own label, so the platform's tee_device grants to its reference HAL domains, ClearKey included, do not reach it (tee-node-label).",
         "type": "sepolicy_sources",
         "files": [
           "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -3304,6 +3304,7 @@
         "cls": "chr_file",
         "perm": "open",
         "allowed": [
+          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3329,6 +3330,7 @@
         "cls": "chr_file",
         "perm": "read",
         "allowed": [
+          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3354,6 +3356,7 @@
         "cls": "chr_file",
         "perm": "write",
         "allowed": [
+          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3379,6 +3382,7 @@
         "cls": "chr_file",
         "perm": "ioctl",
         "allowed": [
+          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3421,7 +3425,7 @@
       },
       {
         "id": "tee-node-ioctl-limit",
-        "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+        "why": "qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
         "type": "sepolicy_xperms",
         "files": [
           "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -3437,6 +3441,7 @@
         "target": "vendor_smcinvoke_device",
         "cls": "chr_file",
         "sources": [
+          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -5453,7 +5458,7 @@
     },
     {
       "id": "widevine-apex-payload",
-      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label: the DRM service, its init file, its VINTF fragment, its own libcrypto and the package manifest. It holds no liboemcrypto.so.",
+      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label: the DRM service, its init file, its VINTF fragment, its own libcrypto and the package manifest. liboemcrypto.so is not inside it: the package loads it from /vendor/lib64 (widevine-liboemcrypto).",
       "type": "apex_payload",
       "file": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
       "payload": {
@@ -5495,13 +5500,46 @@
       }
     },
     {
-      "id": "widevine-software-only",
-      "why": "No hardware-backed Widevine path is shipped: the TEE-backed liboemcrypto.so and the two libraries it needs are absent, as are the keybox and HDCP provisioning tools and the Wi-Fi display HDCP service.",
+      "id": "widevine-liboemcrypto",
+      "why": "The stock TEE-backed Widevine library in /vendor/lib64, which the Widevine package loads: exact stock bytes, root 0644, vendor_file.",
+      "type": "file_metadata",
+      "path": "vendor/lib64/liboemcrypto.so",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_file:s0",
+      "sha256": "442f52b2dfaa9873e22d7ffbe1045f24be2d3d9d3d3e2f42985c9bf3e1d80aef"
+    },
+    {
+      "id": "widevine-libcpion",
+      "why": "The stock buffer library liboemcrypto.so links (QSEECom heap, protected buffers, crypto engine): exact stock bytes, root 0644, vendor_file.",
+      "type": "file_metadata",
+      "path": "vendor/lib64/libcpion.so",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_file:s0",
+      "sha256": "593f1a94afdd5543577a0a1dc68a46ec748d431ba8e3f2ba70e300ebded5f999"
+    },
+    {
+      "id": "widevine-libtrustedapploader",
+      "why": "The stock library liboemcrypto.so links to load the Widevine trusted app: exact stock bytes, root 0644, vendor_file.",
+      "type": "file_metadata",
+      "path": "vendor/lib64/libtrustedapploader.so",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_file:s0",
+      "sha256": "ecc9e3ace811ecae5843ea91ec9f74c08b74601cd22be2a07ec4d155c8f21aa2"
+    },
+    {
+      "id": "widevine-no-provisioning-tools",
+      "why": "The keybox and HDCP provisioning tools and the Wi-Fi display HDCP service are not shipped. They are separate stock clients of the TEE; neither the Widevine service nor its library names them.",
       "type": "files_absent",
       "paths": [
-        "VENDOR/lib64/liboemcrypto.so",
-        "VENDOR/lib64/libcpion.so",
-        "VENDOR/lib64/libtrustedapploader.so",
         "VENDOR/bin/StoreKeybox",
         "VENDOR/bin/KmInstallKeybox",
         "VENDOR/bin/hdcp1prov",
@@ -5510,20 +5548,34 @@
       ]
     },
     {
-      "id": "widevine-linker-config-no-oemcrypto",
-      "why": "The vendor linker configuration, which the build always writes, offers no liboemcrypto.so. Stock lists the library there so the Widevine package can load it from /vendor/lib64.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/linker.config.pb"
-      ],
-      "optional": true,
-      "absent": [
-        "liboemcrypto"
+      "id": "widevine-linker-config",
+      "why": "The vendor linker configuration offers liboemcrypto.so, and no other library, to vendor packages, so the Widevine package can load it from /vendor/lib64 as on stock. The pattern is the configuration's provided-library entry for that name.",
+      "type": "binary_count",
+      "file": "VENDOR/etc/linker.config.pb",
+      "patterns": [
+        {
+          "hex": "1a0f6c69626f656d63727970746f2e736f",
+          "count": 1
+        },
+        {
+          "text": ".so",
+          "count": 1
+        }
       ]
     },
     {
-      "id": "widevine-no-hardware-properties",
-      "why": "No build property configures the TEE-backed Widevine library; stock sets two vendor.wv.oemcrypto. properties for it.",
+      "id": "widevine-hardware-properties",
+      "why": "The vendor build properties set the two values stock sets for the TEE-backed Widevine library, each exactly once: its provisioning method (enable_prov40) and its data path (enable_hlos_data_path).",
+      "type": "properties",
+      "file": "VENDOR/build.prop",
+      "equals": [
+        "vendor.wv.oemcrypto.debug.enable_prov40=true",
+        "vendor.wv.oemcrypto.debug.enable_hlos_data_path=true"
+      ]
+    },
+    {
+      "id": "widevine-no-other-properties",
+      "why": "No build property sets another switch of the TEE-backed Widevine library (its test and debug switches stay at their defaults), and none starts the legacy DRM server (drm.service.enabled), which Widevine does not use.",
       "type": "text",
       "files": [
         "SYSTEM/build.prop",
@@ -5532,8 +5584,40 @@
         "VENDOR/build.prop",
         "ODM/etc/build.prop"
       ],
+      "absent_regex": [
+        "^[ \\t]*vendor\\.wv\\.oemcrypto\\.(?!debug\\.enable_prov40[ \\t]*=|debug\\.enable_hlos_data_path[ \\t]*=)",
+        "^[ \\t]*drm\\.service\\.enabled[ \\t]*="
+      ]
+    },
+    {
+      "id": "widevine-properties-vendor-only",
+      "why": "Only the vendor build properties configure the TEE-backed Widevine library: a value in a property file that is loaded later would replace the checked one.",
+      "type": "text",
+      "files": [
+        "SYSTEM/build.prop",
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "ODM/etc/build.prop"
+      ],
       "absent": [
         "vendor.wv.oemcrypto."
+      ]
+    },
+    {
+      "id": "widevine-service-groups",
+      "why": "The device init file runs the Widevine service in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. The ClearKey service, which never uses the TEE, stays without drmrpc.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/init/init.fp6.drm.rc"
+      ],
+      "regex": [
+        "^service vendor\\.drm-widevine-hal /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm drmrpc system\\n",
+        "^service vendor\\.drm-clearkey-service /vendor/bin/hw/android\\.hardware\\.drm-service\\.clearkey\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group mediadrm\\n",
+        "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+override[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm drmrpc system$)",
+        "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!mediadrm$)"
       ]
     }
   ]

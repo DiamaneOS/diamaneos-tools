@@ -464,7 +464,9 @@ class RuleTests(unittest.TestCase):
     def test_tee_node_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
-        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        # The Widevine DRM service is the fifth user: it reaches its trusted app through liboemcrypto.so.
+        live = ['hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti',
+                'vendor_hal_keymint_qti']
         reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_gatekeeper_default', 'hal_keymint_default']
         self.assertNotIn('tee-node-dormant-domains', rules)
         for rule_id in reach:
@@ -482,7 +484,7 @@ class RuleTests(unittest.TestCase):
                     f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
                     f'(allow hal_keymint_default tee_device {use})\n')
         vendor_cil = (''.join(f'(type {d})\n' for d in live + reference)
-                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl))\n'
+                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl hal_drm_widevine))\n'
                       + '(typeattributeset hal_gatekeeper_server (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
                       + ''.join(f'(allow {d} vendor_smcinvoke_device {use})\n' for d in live if d != 'hal_fingerprint_default')
                       + '(allow hal_fingerprint_default vendor_smcinvoke_device (chr_file (open read write ioctl)))\n')
@@ -498,7 +500,9 @@ class RuleTests(unittest.TestCase):
                 (('tee-node-read', 'tee-node-write'),
                  grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (read write)))')),
                 (('tee-node-open',), grant('(allow hal_camera_default dev_type (chr_file (open)))')),
+                # Widevine's grant is its own: one on the DRM HAL attribute would reach ClearKey too.
                 (reach, grant(f'(allow hal_drm_server vendor_smcinvoke_device {use})')),
+                (reach, grant(f'(allow hal_drm_clearkey_aidl vendor_smcinvoke_device {use})')),
                 (reach, grant(f'(allow hal_keymint_default vendor_smcinvoke_device {use})')),
                 # More grants on the platform's label change nothing: it is on no node.
                 ((), grant(f'(allow hal_camera_default tee_device {use})')),
@@ -508,6 +512,11 @@ class RuleTests(unittest.TestCase):
             for rule_id in reach:
                 with self.subTest(rule=rule_id, change=sorted(change), failing=failing):
                     self.assertEqual(rule_id not in failing, check(rule_id, members))
+        # The lists name who may reach the node, not who must: the ioctl limit rule requires each one.
+        without = vendor_cil.replace(f'(allow hal_drm_widevine vendor_smcinvoke_device {use})\n', '')
+        self.assertNotEqual(vendor_cil, without)
+        for rule_id in reach:
+            self.assertTrue(check(rule_id, {**good, vendor: without.encode()}), rule_id)
 
     def test_sepolicy_xperms_adds_up_rules_on_types_and_attributes(self):
         self.assertEqual({0x9801, 0x9803}, subject.cil_xperm_numbers('(0x9801 0x9803)'))
@@ -550,7 +559,8 @@ class RuleTests(unittest.TestCase):
     def test_tee_node_ioctl_limit_rule(self):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
             'tee-node-ioctl-limit']
-        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        live = ['hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti',
+                'vendor_hal_keymint_qti']
         self.assertEqual((live, ['0x9801', '0x9803'], 'vendor_smcinvoke_device', 'chr_file'),
                          (rule['sources'], rule['allowed'], rule['target'], rule['cls']))
         plat, vendor, mapping = ('SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil',
@@ -563,13 +573,16 @@ class RuleTests(unittest.TestCase):
         mapping_cil = ('(typeattributeset tee_202604 (tee))\n'
                        '(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n')
         vendor_cil = ('(type hal_fingerprint_default)\n(type vendor_hal_gatekeeper_qti)\n(type vendor_hal_keymint_qti)\n'
+                      '(type hal_drm_widevine)\n(type hal_drm_clearkey_aidl)\n'
+                      '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine))\n'
                       '(typeattributeset domain (tee hal_gatekeeper_default hal_fingerprint_default '
-                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti))\n'
+                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti hal_drm_widevine hal_drm_clearkey_aidl))\n'
                       '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx tee_202604 vendor_rpmb_device (ioctl chr_file (0xb301)))\n'
                       '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(auditallowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
         empty = {'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
                  'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
@@ -584,6 +597,14 @@ class RuleTests(unittest.TestCase):
                  'tee: also 0x9802, 0x9804'),
                 (vendor_cil + '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
                  'hal_fingerprint_default: also 0x98ff'),
+                # The Widevine service needs its own list: without one it could send every command.
+                (vendor_cil.replace('(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
+                 'hal_drm_widevine has no ioctl allow-list'),
+                (vendor_cil.replace('(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9802 0x9803)))'),
+                 'hal_drm_widevine: also 0x9802'),
+                (vendor_cil + '(allowx hal_drm_server vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
+                 'hal_drm_widevine: also 0x98ff'),
                 (vendor_cil + '(allowx hal_gatekeeper dev_type (ioctl chr_file (0x5451)))\n',
                  'vendor_hal_gatekeeper_qti: also 0x5451'),
                 (vendor_cil.replace('(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
@@ -591,6 +612,9 @@ class RuleTests(unittest.TestCase):
                  'vendor_hal_keymint_qti: lacks 0x9803')]:
             with self.subTest(detail=detail):
                 self.assertEqual((False, detail), check(change))
+        # A policy without the Widevine domain cannot satisfy the rule.
+        self.assertEqual((False, 'not a type in the policy: hal_drm_widevine'),
+                         check(vendor_cil.replace('(type hal_drm_widevine)\n', '')))
 
     def test_tee_node_label_and_owner_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
@@ -1576,44 +1600,207 @@ class RuleTests(unittest.TestCase):
             check(container=b'not an apex')
         self.assertIs(subject.rule_apex_payload, subject.RULES['apex_payload'])
 
-    def test_widevine_software_only_rules(self):
+    WIDEVINE_LIBRARIES = {'widevine-liboemcrypto': 'vendor/lib64/liboemcrypto.so',
+                          'widevine-libcpion': 'vendor/lib64/libcpion.so',
+                          'widevine-libtrustedapploader': 'vendor/lib64/libtrustedapploader.so'}
+
+    def test_widevine_library_file_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        recipe = {r['path']: r for r in json.loads(
+            (ROOT / 'config/fp6-minimal/vendor-files.json').read_text())['files']}
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+        config = 'META/vendor_filesystem_config.txt'
+        for rule_id, path in self.WIDEVINE_LIBRARIES.items():
+            committed, row = rules[rule_id], recipe[path]
+            # Each rule states the stock identity the recipe selects.
+            self.assertEqual(('file_metadata', path, 'vendor', row['sha256'], row['metadata']['selinux'],
+                              row['metadata']['uid'], row['metadata']['gid'], row['metadata']['mode']),
+                             (committed['type'], committed['path'], committed['image'], committed['sha256'],
+                              committed['label'], committed['uid'], committed['gid'], int(committed['mode'], 8)))
+            self.assertEqual(('0644', 0, 0, 'u:object_r:vendor_file:s0'),
+                             (committed['mode'], committed['uid'], committed['gid'], committed['label']))
+            data = b'stock ' + path.encode()
+            rule = dict(committed, sha256=hashlib.sha256(data).hexdigest())
+            member = 'VENDOR/' + path.removeprefix('vendor/')
+            line = path.encode() + b' 0 0 644 capabilities=0x0\n'
+            good = {member: data, config: b'vendor/lib64 0 2000 755 capabilities=0x0\n' + line}
+
+            def check(members=good, rule=rule, content=data, mode=0o100644, uid=0, gid=0,
+                      label='u:object_r:vendor_file:s0'):
+                def debugfs(args):
+                    command = str(args[1]).split()
+                    self.assertEqual('/' + path.removeprefix('vendor/'), command[1])
+                    if command[0] == 'dump':
+                        Path(command[2]).write_bytes(content)
+                    return self.debugfs_stat(mode, uid, gid, label, len(content))
+                v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+                return subject.rule_file_metadata(rule, v)
+            with self.subTest(rule=rule_id):
+                self.assertEqual((True, ''), check())
+            for detail, change in [
+                    ('bytes differ in target-files', {'members': dict(good, **{member: b'another build'})}),
+                    ('bytes differ in target-files', {'rule': committed}),
+                    ('owner or mode differ in the filesystem config',
+                     {'members': dict(good, **{config: line.replace(b' 0 0 644 ', b' 0 2000 644 ')})}),
+                    ('owner or mode differ in the filesystem config',
+                     {'members': dict(good, **{config: line.replace(b' 644 ', b' 755 ')})}),
+                    ('bytes differ in vendor.img', {'content': b'another build'}),
+                    ('owner or mode differ in vendor.img', {'mode': 0o100755}),
+                    ('owner or mode differ in vendor.img', {'gid': 2000}),
+                    ('owner or mode differ in vendor.img', {'uid': 1000}),
+                    ('label differs in vendor.img', {'label': 'u:object_r:same_process_hal_file:s0'})]:
+                with self.subTest(rule=rule_id, detail=detail, change=sorted(change)):
+                    ok, found = check(**change)
+                    self.assertFalse(ok)
+                    self.assertIn(detail, found)
+            # A missing library is an error (a failed check), never a pass.
+            with self.subTest(rule=rule_id, missing=True), self.assertRaises(FileNotFoundError):
+                check(members={config: line})
+
+    def test_widevine_hardware_backed_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for gone in ('widevine-software-only', 'widevine-linker-config-no-oemcrypto',
+                     'widevine-no-hardware-properties'):
+            self.assertNotIn(gone, rules)
         apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
-        absent = rules['widevine-software-only']
-        self.assertEqual({'VENDOR/lib64/liboemcrypto.so', 'VENDOR/lib64/libcpion.so',
-                          'VENDOR/lib64/libtrustedapploader.so', 'VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox',
-                          'VENDOR/bin/hdcp1prov', 'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'},
-                         set(absent['paths']))
-        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex'}))[0])
+        # The provisioning tools stay out; the three libraries are no longer in this list.
+        absent = rules['widevine-no-provisioning-tools']
+        self.assertEqual(['VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox', 'VENDOR/bin/hdcp1prov',
+                          'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'], absent['paths'])
+        libraries = {'VENDOR/' + path.removeprefix('vendor/'): b'stock' for path in self.WIDEVINE_LIBRARIES.values()}
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex', **libraries}))[0])
         for path in absent['paths']:
             with self.subTest(path=path):
                 self.assertEqual((False, 'present: ' + path),
                                  subject.rule_files_absent(absent, self.harness({apex: b'apex', path: b'stock'})))
                 self.assertFalse(subject.rule_files_absent(
                     absent, self.harness({apex: b'apex'}, symlinks={path: '/odm/' + path.split('/', 1)[1]}))[0])
-        # The build always writes the vendor linker configuration; empty today.
-        linker, config = rules['widevine-linker-config-no-oemcrypto'], 'VENDOR/etc/linker.config.pb'
-        self.assertEqual([config], linker['files'])
-        stock = b'\x1a\x0fliboemcrypto.so\x1a\x0fliboemcrypto.so'
-        for data, ok in ((b'', True), (b'\x1a\x0blibother.so', True), (None, True), (stock, False),
-                         (b'\x1a\x0blibother.so' + stock[:17], False)):
-            with self.subTest(data=data):
-                v = self.harness({apex: b'apex'} if data is None else {config: data})
-                self.assertEqual(ok, subject.rule_text(linker, v)[0])
-        properties = rules['widevine-no-hardware-properties']
-        files = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'VENDOR/build.prop',
-                 'ODM/etc/build.prop']
-        self.assertEqual(files, properties['files'])
-        good = {name: b'drm.service.enabled=true\nro.vendor.build.security_patch=2026-09-05\n' for name in files}
-        self.assertTrue(subject.rule_text(properties, self.harness(good))[0])
-        for name, line in [('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'),
-                           ('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'),
-                           ('ODM/etc/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=false\n')]:
-            with self.subTest(name=name, line=line):
-                ok, detail = subject.rule_text(properties, self.harness(dict(good, **{name: good[name] + line})))
+
+    def test_widevine_linker_configuration_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        linker, config = rules['widevine-linker-config'], 'VENDOR/etc/linker.config.pb'
+        self.assertEqual(('binary_count', config), (linker['type'], linker['file']))
+        self.assertNotIn('optional', linker)
+        # A provided-library entry: field 3, length-delimited, then the 15-byte name.
+        entry = b'\x1a\x0fliboemcrypto.so'
+        self.assertEqual(entry, bytes.fromhex(linker['patterns'][0]['hex']))
+        check = lambda data: subject.rule_binary_count(linker, self.harness({config: data}))[0]
+        self.assertTrue(check(entry))
+        for name, data in [('empty, as without the device fragment', b''),
+                           ('another library only', b'\x1a\x0blibother.so'),
+                           ('twice, as stock writes it', entry + entry),
+                           ('a second library offered', entry + b'\x1a\x0blibother.so'),
+                           ('a second library offered first', b'\x1a\x0blibother.so' + entry),
+                           ('a longer name', b'\x1a\x13liboemcrypto.so.bak'),
+                           ('required, not provided', b'\x22\x0fliboemcrypto.so'),
+                           ('the name without its entry', b'liboemcrypto.so')]:
+            with self.subTest(case=name):
+                self.assertFalse(check(data))
+        # The build always writes the file; without it the check fails instead of passing.
+        with self.assertRaises(FileNotFoundError):
+            subject.rule_binary_count(linker, self.harness({'VENDOR/build.prop': b''}))
+
+    def test_widevine_property_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        vendor = 'VENDOR/build.prop'
+        others = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'ODM/etc/build.prop']
+        prov40 = b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'
+        data_path = b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'
+        base = b'ro.vendor.build.security_patch=2026-09-05\n'
+        good = {name: base for name in others}
+        good[vendor] = base + data_path + b'ro.hardware.egl=adreno\n' + prov40
+        wanted, no_other, vendor_only = (rules['widevine-hardware-properties'], rules['widevine-no-other-properties'],
+                                         rules['widevine-properties-vendor-only'])
+        self.assertEqual(('properties', vendor, sorted([prov40.decode().strip(), data_path.decode().strip()])),
+                         (wanted['type'], wanted['file'], sorted(wanted['equals'])))
+        self.assertEqual(sorted([vendor, *others]), sorted(no_other['files']))
+        self.assertEqual(sorted(others), sorted(vendor_only['files']))
+        run = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))
+        for rule in (wanted, no_other, vendor_only):
+            self.assertTrue(run(rule, good)[0], rule['id'])
+        # Both values, each once, with the stock value.
+        for name, text in [('prov40 missing', base + data_path),
+                           ('data path missing', base + prov40),
+                           ('none set', base),
+                           ('prov40 off', base + data_path + prov40.replace(b'=true', b'=false')),
+                           ('data path off', base + prov40 + data_path.replace(b'=true', b'=0')),
+                           ('prov40 twice', base + data_path + prov40 + prov40),
+                           ('prov40 set again to another value', base + data_path + prov40 + prov40.replace(b'true', b'false'))]:
+            with self.subTest(case=name):
+                ok, detail = run(wanted, dict(good, **{vendor: text}))
                 self.assertFalse(ok)
-                self.assertIn(name, detail)
-        self.assertFalse(subject.rule_text(properties, self.harness({'VENDOR/build.prop': b''}))[0])
+                self.assertIn('vendor.wv.oemcrypto.debug.', detail)
+        # No other switch of the library, in any property file, and no legacy DRM server.
+        for line in [b'vendor.wv.oemcrypto.debug.enable_smcinvoke=false\n',
+                     b'vendor.wv.oemcrypto.debug.enable_decrypt_hash_tests=true\n',
+                     b'vendor.wv.oemcrypto.debug.enable_secure_buffer_tests=true\n',
+                     b'vendor.wv.oemcrypto.debug.enable_ce_smmu=false\n',
+                     b'vendor.wv.oemcrypto.debug.scratch_buf_size=1\n',
+                     b'vendor.wv.oemcrypto.debug.enable_prov40x=true\n',
+                     b'vendor.wv.oemcrypto.enable_prov40=true\n',
+                     b'  vendor.wv.oemcrypto.debug.measure_elapsed_time = true\n',
+                     b'drm.service.enabled=true\n', b'drm.service.enabled=1\n', b'drm.service.enabled = false\n']:
+            for name in [vendor, *others]:
+                with self.subTest(line=line, name=name):
+                    ok, detail = run(no_other, dict(good, **{name: good[name] + line}))
+                    self.assertFalse(ok)
+                    self.assertIn(name, detail)
+        for line in [b'# vendor.wv.oemcrypto.debug.enable_smcinvoke=false\n', b'ro.drm.service.enabled=true\n',
+                     b'drm.service.enabledx=true\n', b'vendor.wv.oemcrypto.debug.enable_prov40 = true\n']:
+            with self.subTest(allowed=line):
+                self.assertTrue(run(no_other, dict(good, **{vendor: good[vendor] + line}))[0])
+        # The two values belong to the vendor file only: a later file would replace them.
+        for name in others:
+            for line in (prov40, data_path, prov40.replace(b'=true', b'=false')):
+                with self.subTest(name=name, line=line):
+                    ok, detail = run(vendor_only, dict(good, **{name: good[name] + line}))
+                    self.assertFalse(ok)
+                    self.assertIn(name, detail)
+        self.assertFalse(run(vendor_only, {vendor: good[vendor]})[0])
+        self.assertFalse(run(no_other, {vendor: good[vendor]})[0])
+
+    def test_widevine_service_groups_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'widevine-service-groups']
+        name = 'VENDOR/etc/init/init.fp6.drm.rc'
+        self.assertEqual([name], rule['files'])
+        clearkey = ('# ClearKey, built from the platform source.\n'
+                    'service vendor.drm-clearkey-service /vendor/bin/hw/android.hardware.drm-service.clearkey\n'
+                    '    class hal\n    user media\n    group mediadrm\n    ioprio rt 4\n'
+                    '    task_profiles ProcessCapacityHigh\n'
+                    '    interface aidl android.hardware.drm.IDrmFactory/clearkey\n    override\n')
+        widevine = ('# Widevine, from the stock package.\n'
+                    'service vendor.drm-widevine-hal /apex/com.google.android.widevine/bin/hw/'
+                    'android.hardware.drm-service.widevine\n'
+                    '    interface aidl android.hardware.drm.IDrmFactory/widevine\n    class hal\n    user media\n'
+                    '    group media mediadrm drmrpc system\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
+        good = clearkey + '\n' + widevine
+        check = lambda text: subject.rule_text(rule, self.harness({name: text.encode()}))[0]
+        self.assertTrue(check(good))
+        self.assertTrue(check(widevine + '\n' + clearkey))
+        group = '    group media mediadrm drmrpc system\n'
+        for case, text in [
+                ('the software-only groups', good.replace(group, '    group media mediadrm\n')),
+                ('no group that owns the TEE node', good.replace(group, '    group media mediadrm system\n')),
+                ('no group that reads the trusted app', good.replace(group, '    group media mediadrm drmrpc\n')),
+                ('one more group', good.replace(group, '    group media mediadrm drmrpc system inet\n')),
+                ('a second group line', good.replace(group, group + '    group inet\n')),
+                ('no group line', good.replace(group, '')),
+                ('another binary under the service name',
+                 good.replace('/apex/com.google.android.widevine/bin/hw/', '/vendor/bin/hw/')),
+                ('no Widevine service', clearkey),
+                ('ClearKey with the TEE node group', good.replace('    group mediadrm\n', '    group mediadrm drmrpc\n')),
+                ('ClearKey with the Widevine groups', good.replace('    group mediadrm\n', group)),
+                ('ClearKey without a group line', good.replace('    group mediadrm\n', '')),
+                ('ClearKey without the override', good.replace('    override\n', '')),
+                ('no ClearKey service', widevine),
+                # The group line of one service does not count for the other.
+                ('the groups only on another service',
+                 clearkey + '\n' + widevine.replace(group, '    group media mediadrm\n')
+                 + '\nservice other /vendor/bin/other\n' + group)]:
+            with self.subTest(case=case):
+                self.assertFalse(check(text))
+        self.assertFalse(subject.rule_text(rule, self.harness({'VENDOR/etc/init/other.rc': good.encode()}))[0])
 
 
 class ParserTests(unittest.TestCase):

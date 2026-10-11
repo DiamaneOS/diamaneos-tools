@@ -97,11 +97,11 @@
     {
       "id": "widevine-drm",
       "origin": "proprietary-prebuilt",
-      "abi_uapi": "Android DRM HAL (android.hardware.drm AIDL, IDrmFactory/widevine)",
-      "load_path": "generated vendor tree: Fairphone's stock Widevine APEX, unchanged and with its own signatures, installed as a prebuilt APEX with its service, init file and VINTF fragment inside",
+      "abi_uapi": "Android DRM HAL (android.hardware.drm AIDL, IDrmFactory/widevine), the Widevine OEMCrypto library interface, QSEE kernel API and trusted-app protocol",
+      "load_path": "generated vendor tree: Fairphone's stock Widevine APEX, unchanged and with its own signatures, installed as a prebuilt APEX with its service, init file and VINTF fragment inside; the stock TEE-backed liboemcrypto.so and the two stock libraries it links in /vendor/lib64; the Widevine trusted app in the modem partition",
       "rebuilt_from_source": false,
       "provenance_profile": "exact-stock-non-source",
-      "note": "Selected so apps and browsers that play Widevine-protected media find the DRM HAL. The hardware-backed path is not selected: the TEE-backed liboemcrypto.so, the two libraries it needs and the keybox and HDCP provisioning tools stay out."
+      "note": "Selected so apps and browsers that play Widevine-protected media find the DRM HAL. The package loads liboemcrypto.so from /vendor/lib64 for the hardware-backed path. The keybox and HDCP provisioning tools and the Wi-Fi display HDCP service stay out."
     },
     {
       "id": "power-thermal-backends",

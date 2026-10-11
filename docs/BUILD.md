@@ -803,13 +803,21 @@ from `notice_kind` in `config/fp6-build.json`.
     name with its own signatures.
   - The table holds one package, Fairphone's stock Widevine DRM HAL: the service, its init file, its
     VINTF fragment and its own libcrypto.
-  - The TEE-backed `liboemcrypto.so`, the two libraries it needs and the keybox and HDCP
-    provisioning tools are not selected.
+  - The package loads the TEE-backed `liboemcrypto.so` from `/vendor/lib64` with `dlopen`. That
+    library and the two stock libraries it links (`libcpion.so`, `libtrustedapploader.so`) are
+    selected; nothing links `liboemcrypto.so`, so it is a root of the ELF selection.
+  - The device tree supplies the rest: the vendor linker configuration entry that offers the
+    library to the package, two `vendor.wv.oemcrypto.` build properties, the service's groups and
+    its policy.
+  - The keybox and HDCP provisioning tools and the Wi-Fi display HDCP service are not selected.
   - `build verify` checks the package's bytes, owner, mode and label, and the five files inside it
     (`apex_payload` rule in `config/fp6-image-checks.json`).
-  - It also checks that the image holds none of the files left out, that the vendor linker
-    configuration does not name `liboemcrypto.so` and that no build property sets a
-    `vendor.wv.oemcrypto.` value.
+  - It also checks the three libraries' bytes, owner, mode and label, that the vendor linker
+    configuration names `liboemcrypto.so` and no other library, and that only the two build
+    properties are set.
+  - It checks the service's groups in the device init file, that the Widevine service is one of
+    the five domains allowed on the TEE node, and that the image holds none of the provisioning
+    tools.
 
 - **Vendor patch level.**
   - `VENDOR_SECURITY_PATCH` in the generated `BoardConfigVendor.mk`, which the build reports as

@@ -240,9 +240,10 @@ STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/et
 # in config/fp6-image-checks.json. Any other vendor/apex path is refused.
 STOCK_APEXES = {
  # Widevine DRM HAL (IDrmFactory/widevine) with its init file, VINTF fragment
- # and own libcrypto. No hardware-backed path: the TEE-backed liboemcrypto.so,
- # which stock keeps outside the package in /vendor/lib64, and the two stock
- # libraries it needs (libcpion, libtrustedapploader) are not selected.
+ # and own libcrypto. The TEE-backed liboemcrypto.so is not in the package: as
+ # on stock it is a selected library in /vendor/lib64 with the two stock
+ # libraries it links (libcpion, libtrustedapploader), and the package opens
+ # it with dlopen. Nothing links it, so it is a root of the ELF selection.
  'vendor/apex/com.google.android.widevine.nonupdatable.apex': {
   'name': 'com.google.android.widevine', 'bytes': 4284416,
   'sha256': '008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a',
