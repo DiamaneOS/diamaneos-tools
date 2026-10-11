@@ -81,6 +81,31 @@ def file_stamp(info, *, ownership=False):
     return tuple(getattr(info, 'st_' + field) for field in fields)
 
 
+def snapshot_file(path, destination, limit=MAX_JSON, *, stamps=None):
+    """Copy one bounded regular input through a protected descriptor, never a path reopen."""
+    path, destination = Path(path), Path(destination)
+    before = path.lstat()
+    require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= limit,
+            'Unsafe or oversized signing snapshot input')
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as source:
+        require(file_stamp(before, ownership=True) == file_stamp(os.fstat(source.fileno()), ownership=True),
+                'Signing snapshot input changed')
+        data = source.read(limit + 1)
+        require(len(data) == before.st_size and len(data) <= limit
+                and file_stamp(before, ownership=True) == file_stamp(os.fstat(source.fileno()), ownership=True)
+                == file_stamp(path.lstat(), ownership=True), 'Signing snapshot input changed')
+    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with destination.open('xb') as output: output.write(data)
+    destination.chmod(0o400)
+    if stamps is not None: stamps[str(path)] = file_stamp(before, ownership=True)
+    return destination
+
+
+def recheck_stamps(expected):
+    require(all(file_stamp(Path(path).lstat(), ownership=True) == stamp for path, stamp in expected.items()),
+            'Signing metadata paths changed while they were being processed')
+
+
 def canonical_sha256(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
                                      allow_nan=False).encode()).hexdigest()

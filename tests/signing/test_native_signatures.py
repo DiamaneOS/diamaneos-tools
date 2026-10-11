@@ -1,6 +1,7 @@
 """Real platform-tool fixtures, generated in temporary storage with disposable keys."""
 import base64
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
+from diamaneos_tools import build_workspace as bw, image_verify
 from diamaneos_tools import signing_archive as za, signing_inputs as inputs, signing_native as native
 from diamaneos_tools import signing_verify as api
 from .fixtures import apk_plan, apex_plan, publication_description, publication_plan, release_record, write_zip
@@ -147,6 +149,100 @@ class NativeSignatureTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix=prefix, dir=self.root)
         self.addCleanup(temporary.cleanup)
         return Path(temporary.name)
+
+    def test_native_prepare_cli_authenticates_snapshots_and_emits_bound_plan(self):
+        root = self.fixture_directory('prepare-cli-')
+        source = root / 'source'; source.mkdir()
+        jdk_project = str(self.tools.java_home.parent.relative_to(self.source))
+        projects = sorted(inputs.PROJECTS | {jdk_project})
+        for project in projects: (source / project).mkdir(parents=True, exist_ok=True)
+        shutil.copytree(self.tools.java_home, source / jdk_project / 'linux-x86', symlinks=True)
+        for name in ('generate-release.sh', 'generate-delta.sh', 'common.sh'):
+            (source / 'script' / name).write_text('#!/bin/sh\n--extra_apks Fixture.apk=$KEY_DIR/releasekey\n')
+        checker = Path('build/make/tools/releasetools/check_ota_package_signature.py')
+        (source / checker).parent.mkdir(parents=True)
+        shutil.copyfile(self.source / checker, source / checker)
+        rules_path = source / 'tools/diamaneos/config/fp6-image-checks.json'
+        rules_path.parent.mkdir()
+        shutil.copyfile(inputs.ROOT / 'config/fp6-image-checks.json', rules_path)
+        certificate = source / 'build/make/target/product/security/testkey.x509.pem'
+        certificate.parent.mkdir(parents=True)
+        shutil.copyfile(self.keys_dir / 'releasekey.x509.pem', certificate)
+
+        # Only Git is a fixture: native tools, public-key validation, report authentication,
+        # both verified_build calls, source-byte checks and plans.prepare remain real.
+        def blob(raw):
+            return hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        trees = {}
+        for project in projects:
+            rows = []
+            for path in sorted((source / project).rglob('*')):
+                if path.is_symlink(): mode, raw = '120000', os.fsencode(os.readlink(path))
+                elif path.is_file(): mode, raw = '100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes()
+                else: continue
+                name = str(path.relative_to(source / project))
+                rows.append((name, f'{mode} blob {blob(raw)}\t{name}'.encode()))
+            trees[project] = rows
+        def source_git(path, argv, *, data=None):
+            if argv[0] == 'rev-parse': return ('a' * 40).encode()
+            if argv[0] == 'status': return b''
+            if argv[0] == 'hash-object':
+                return blob(data if '--stdin' in argv else Path(argv[-1]).read_bytes()).encode()
+            self.assertEqual('ls-tree', argv[0])
+            wanted = argv[argv.index('--') + 1:]
+            project = str(Path(path).relative_to(source))
+            return b''.join(row + b'\0' for name, row in trees[project]
+                            if any(part == '.' or name == part or name.startswith(part + '/') for part in wanted))
+
+        target, otatools = root / 'target-files.zip', root / 'otatools.zip'
+        shutil.copyfile(self.target, target); shutil.copyfile(OTATOOLS, otatools)
+        manifest = root / 'resolved-manifest.xml'
+        manifest.write_text('<manifest><remote name="up" fetch="https://example.invalid"/><default remote="up"/>' +
+            ''.join(f'<project name="{name}" path="{name}" revision="{"a" * 40}"/>' for name in projects) + '</manifest>')
+        record = root / 'build-record.json'
+        record.write_text(json.dumps({'build_id': 'fixture', 'build_identity': 'b' * 64,
+            'product': 'FP6', 'build_number': 'fixture', 'build_datetime': 1234,
+            'variant': 'user', 'official': True, 'modified': [], 'tools': {'clean': True},
+            'target_files': {'file': target.name, 'sha256': inputs.sha256_file(target)},
+            'otatools': {'file': otatools.name, 'sha256': inputs.sha256_file(otatools)},
+            'manifest': {'file': manifest.name, 'resolved_sha256': inputs.sha256_file(manifest)},
+            'images': {path.stem: inputs.sha256_file(path) for path in (self.boot, self.system, self.vbmeta)}}))
+        sums = root / 'SHA256SUMS'
+        sums.write_text(''.join(inputs.sha256_file(path) + '  ' + path.name + '\n'
+                               for path in (record, target, otatools, manifest)))
+        rules = inputs.load_json(rules_path)
+        checks = [{'id': name, 'status': 'PASS'} for name in sorted(set(image_verify.REQUIRED_CHECKS) |
+            {rule['id'] for rule in image_verify.validate_rules(rules) if image_verify.rule_applies(rule, 'user', True)})]
+        report = root / 'verification-report.json'
+        report.write_text(json.dumps({'schema_version': 1, 'build_id': 'fixture', 'build_identity': 'b' * 64,
+            'sums_sha256': inputs.sha256_file(sums), 'rule_set_sha256': bw.digest(rules),
+            'checks': checks, 'status': 'PASS', 'checked': len(checks), 'failed': 0}))
+        policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        inputs.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', self.private / 'factory',
+                        '-n', policy['verification_namespace'], report], env=self.tools.env)
+        before = inputs.input_hashes((record, report, sums, manifest, target, otatools, self.inventory_path))
+        scratch, output = root / 'scratch', root / 'plan.json'
+        arguments = ['prepare', '--qualification', '--build-record', str(record),
+            '--verification-report', str(report), '--verification-signature', str(report) + '.sig',
+            '--target-files', str(target), '--resolved-manifest', str(manifest), '--source-root', str(source),
+            '--otatools', str(otatools), '--keys', str(self.inventory_path), '--scratch', str(scratch), '--output', str(output)]
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(inputs, 'git_read', side_effect=source_git), \
+             patch('sys.stdout', new=stdout), patch('sys.stderr', new=stderr):
+            self.assertEqual(0, api.main(arguments), stderr.getvalue())
+        self.assertIn('Signing prepare: PASS', stdout.getvalue())
+        plan = inputs.load_json(output); api.validate_plan(plan, policy)
+        self.assertEqual('qualification', plan['mode'])
+        for name, path in (('record', record), ('verification', report), ('manifest', manifest),
+                           ('target_files', target), ('otatools', otatools)):
+            self.assertEqual(inputs.sha256_file(path), plan['provenance'][name + '_sha256'])
+        self.assertEqual(inputs.canonical_sha256(self.keys.files), plan['public_material_sha256'])
+        self.assertEqual(self.keys.fingerprint('releasekey', ''),
+                         plan['packages']['SYSTEM/app/Fixture/Fixture.apk']['certificate_sha256'])
+        self.assertEqual(inputs.sha256_file(rules_path),
+                         plan['provenance']['source_files']['tools/diamaneos/config/fp6-image-checks.json'])
+        inputs.recheck_hashes(before)
+        self.assertEqual([], list(scratch.iterdir()))
 
     def tamper_image(self, path, offset):
         with path.open('r+b') as stream:

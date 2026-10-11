@@ -34,8 +34,17 @@ selected by the resolved manifest.
 
 Installed host OpenSSH authenticates the verification report and previous result
 before incoming tools are unpacked or executed. Its environment has no archive
-library, executable or JDK paths. A private otatools snapshot must match the
-authenticated provenance before native verification begins.
+library, executable or JDK paths.
+
+Authentication and plan preparation consume
+the same bounded private metadata copies. A private otatools snapshot must match
+that authenticated provenance before native verification begins.
+
+The private copies include the policy, build record, checksums, resolved manifest,
+report and signatures, previous result, and external public inventory/material.
+Original filenames and relative public-key references are preserved. Original
+path changes refuse publication; copying does not make publication-controlled
+keys an external authority.
 
 ```sh
 bin/diamaneos signing roles
@@ -86,7 +95,10 @@ The release record contains `schema_version`, `plan_sha256` and the exact `artif
 hash map for target-files, images, OTAs, factory archive and factory signature.
 
 Installed host OpenSSH verifies the release record and its plan binding before
-archive tools run. The authenticated plan binds the otatools snapshot. Expected
+archive tools run. Plan, publication, record, signature and authority reads use
+their frozen copies throughout verification.
+
+The authenticated plan binds the otatools snapshot. Expected
 public authority stays outside the publication; native artifact checks still run
 after bootstrap authentication.
 

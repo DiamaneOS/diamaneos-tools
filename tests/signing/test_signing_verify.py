@@ -1,6 +1,7 @@
 """Build bindings, archive boundaries and native verification orchestration."""
 import copy
 import base64
+from contextlib import contextmanager
 import hashlib
 import io
 import json
@@ -191,6 +192,8 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         inventory.write_text(json.dumps({'schema_version': 2,
             'certificate_roles': {role: role + '.x509.pem' for role in inputs.CERT_ROLES},
             'avb_public_key': 'avb.pem', 'factory': {'allowed_signers': 'allowed', 'identity': 'fixture'}}))
+        for name in [*(role + '.x509.pem' for role in inputs.CERT_ROLES), 'avb.pem']:
+            (authority / name).write_bytes(b'public material fixture')
         signature = self.root / 'verify.sig'
         signature.write_text('invalid signature')
         arguments = ['prepare', '--build-record', str(self.root / 'build.json'),
@@ -211,6 +214,112 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         for call in (unpack, tools, keys, verify): call.assert_not_called()
         self.assertFalse((self.root / 'plan.json').exists())
 
+    def test_authenticated_metadata_swap_cannot_select_replacement_archive(self):
+        arguments, identity, signature = self.bootstrap_inputs()
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                        '-n', self.policy['verification_namespace'], self.root / 'verify.json'],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes((self.root / 'verify.json.sig').read_bytes())
+        original_verify = api.verified_build
+        def replaced(*args, **kwargs):
+            # This hook is reached only after successful clean-host authentication.
+            (self.root / 'otatools.zip').write_bytes(b'replacement archive code')
+            record = inputs.load_json(self.root / 'build.json')
+            record['otatools']['sha256'] = inputs.sha256_file(self.root / 'otatools.zip')
+            (self.root / 'build.json').write_text(json.dumps(record))
+            self.refresh_report()
+            return original_verify(*args, **kwargs)
+        with patch.object(api, 'verified_build', side_effect=replaced) as verified, \
+             patch.object(inputs, 'git_read', side_effect=lambda _root, args:
+                          ('a' * 40).encode() if args[0] == 'rev-parse' else b''), \
+             patch.object(api, 'source_files', return_value={}), \
+             patch.object(api.za, 'unpack_tools', side_effect=inputs.SigningError('archive execution sentinel')) as unpack, \
+             patch.object(api, 'NativeTools') as tools, patch.object(api, 'PublicKeys') as keys, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        verified.assert_called_once()
+        unpack.assert_not_called(); tools.assert_not_called(); keys.assert_not_called()
+        self.assertFalse((self.root / 'plan.json').exists())
+
+    def frozen_prepare_swap(self, stage):
+        arguments, identity, signature = self.bootstrap_inputs()
+        policy_path = self.root / 'policy.json'; policy_path.write_text(json.dumps(self.policy))
+        arguments = ['--config', str(policy_path), *arguments]
+        previous = self.root / 'previous.json'
+        previous.write_text(json.dumps({'status': 'PASS', 'original': 'fixture'}))
+        previous_signature = self.root / 'previous.sig'
+        for path, namespace, destination in ((self.root / 'verify.json', self.policy['verification_namespace'], signature),
+                                             (previous, self.policy['result_namespace'], previous_signature)):
+            native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity, '-n', namespace, path],
+                           env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+            destination.write_bytes(Path(str(path) + '.sig').read_bytes())
+        arguments += ['--previous-result', str(previous), '--previous-signature', str(previous_signature)]
+        names = ['policy.json', 'build.json', 'verify.json', 'verify.sig', 'SHA256SUMS', 'resolved-manifest.xml', 'previous.json', 'previous.sig',
+                 'authority/inventory.json', 'authority/allowed', 'authority/avb.pem']
+        names += ['authority/' + role + '.x509.pem' for role in inputs.CERT_ROLES]
+        expected = {name: (self.root / name).read_bytes() for name in names}
+        archive_bytes = (self.root / 'otatools.zip').read_bytes()
+        def swap():
+            for name in names: (self.root / name).write_bytes(b'original path replaced')
+        original_native = api.native_inputs
+        @contextmanager
+        def native_entry(*args, **kwargs):
+            if stage == 'native_inputs': swap()
+            with original_native(*args, **kwargs) as value: yield value
+        def make_tools(root, source, scratch, **kwargs):
+            self.assertEqual(archive_bytes, (scratch / 'otatools.zip').read_bytes())
+            return Mock(source=source, scratch=scratch)
+        def make_keys(path, *args, **kwargs):
+            for name in names:
+                if name.startswith('authority/'):
+                    self.assertEqual(expected[name], (path.parent / name.removeprefix('authority/')).read_bytes())
+            return Mock()
+        def prepared(record, report, target, manifest, policy, keys, tools, otatools, before, **kwargs):
+            if stage == 'plans.prepare': swap()
+            for name, path in (('build.json', record), ('verify.json', report), ('resolved-manifest.xml', manifest),
+                               ('SHA256SUMS', record.parent / 'SHA256SUMS')):
+                self.assertEqual(expected[name], path.read_bytes()); self.assertEqual(Path(name).name, path.name)
+                self.assertNotEqual(self.root / name, path)
+            self.assertEqual(json.loads(expected['previous.json']), before)
+            self.assertEqual(self.policy, policy)
+            self.assertEqual(archive_bytes, otatools.read_bytes())
+            self.assertNotEqual(self.root / 'otatools.zip', otatools)
+            return {'changed_projects': [], 'provenance': {'source_files': {}}}
+        with patch.object(api, 'native_inputs', side_effect=native_entry), \
+             patch.object(inputs, 'git_read', side_effect=lambda _root, args:
+                          ('a' * 40).encode() if args[0] == 'rev-parse' else b''), \
+             patch.object(api, 'source_files', return_value={}), patch.object(api.za, 'unpack_tools', return_value=self.root), \
+             patch.object(api, 'NativeTools', side_effect=make_tools), patch.object(api, 'PublicKeys', side_effect=make_keys), \
+             patch.object(api.plans, 'prepare', side_effect=prepared) as prepare, patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))  # Original-path change cannot publish a PASS.
+        prepare.assert_called_once()
+        self.assertFalse((self.root / 'plan.json').exists())
+        self.assertEqual([], list((self.root / 'scratch').iterdir()))
+
+    def test_native_entry_uses_frozen_metadata_and_external_public_material(self):
+        self.frozen_prepare_swap('native_inputs')
+
+    def test_plan_preparation_cannot_reopen_replaced_authenticated_metadata(self):
+        self.frozen_prepare_swap('plans.prepare')
+
+    def test_snapshot_refuses_symlinks_hardlinks_oversize_and_descriptor_swap(self):
+        source, destination = self.root / 'source.txt', self.root / 'snapshot.txt'
+        source.write_bytes(b'public fixture'); link = self.root / 'link'; link.symlink_to(source)
+        with self.assertRaises(inputs.SigningError): inputs.snapshot_file(link, destination)
+        with self.assertRaises(inputs.SigningError): inputs.snapshot_file(source, destination, 2)
+        import os
+        hardlink = self.root / 'hardlink'; os.link(source, hardlink)
+        with self.assertRaises(inputs.SigningError): inputs.snapshot_file(source, destination)
+        hardlink.unlink()
+        original_open = os.open
+        def swapped(path, flags, *args, **kwargs):
+            replacement = self.root / 'replacement'; replacement.write_bytes(b'replacement fixture')
+            replacement.replace(source)
+            return original_open(path, flags, *args, **kwargs)
+        with patch.object(inputs.os, 'open', side_effect=swapped):
+            with self.assertRaises(inputs.SigningError): inputs.snapshot_file(source, destination)
+        self.assertFalse(destination.exists())
+
     def test_valid_report_bootstraps_before_build_binding_and_archive_tools(self):
         arguments, identity, signature = self.bootstrap_inputs()
         report = self.root / 'verify.json'
@@ -223,6 +332,39 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
             self.assertEqual(2, api.main(arguments))
         verify.assert_called_once(); unpack.assert_not_called()
         self.assertFalse((self.root / 'plan.json').exists())
+
+    def test_unchanged_snapshots_preserve_authenticated_build_basenames_and_checksums(self):
+        arguments, identity, signature = self.bootstrap_inputs()
+        report = self.root / 'verify.json'
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                        '-n', self.policy['verification_namespace'], report],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes(Path(str(report) + '.sig').read_bytes())
+        args = api.parser().parse_args(arguments)
+        with api.metadata_inputs(args) as frozen:
+            authority, signer = native.factory_authority(frozen.keys, self.policy)
+            native.host_ssh_signature(frozen.verification_report, frozen.verification_signature,
+                                     authority, signer, self.policy['verification_namespace'], args.scratch)
+            for original, snapshot in ((args.build_record, frozen.build_record),
+                                       (args.verification_report, frozen.verification_report),
+                                       (args.resolved_manifest, frozen.resolved_manifest)):
+                self.assertEqual(original.name, snapshot.name)
+                self.assertNotEqual(original.parent, snapshot.parent)
+                self.assertEqual(original.read_bytes(), snapshot.read_bytes())
+            self.assertEqual((self.root / 'SHA256SUMS').read_bytes(),
+                             (frozen.build_record.parent / 'SHA256SUMS').read_bytes())
+            copied_tools = args.scratch / 'otatools.zip'
+            copied_tools.write_bytes(args.otatools.read_bytes())
+            self.addCleanup(copied_tools.unlink)
+            with patch.object(inputs, 'git_read', side_effect=lambda _root, argv:
+                              ('a' * 40).encode() if argv[0] == 'rev-parse' else b''):
+                bound = inputs.verified_build(frozen.build_record, frozen.verification_report,
+                    args.target_files, frozen.resolved_manifest, production=True,
+                    source_root=args.source_root, otatools=copied_tools)
+            for name, path in (('record', args.build_record), ('verification', report),
+                               ('manifest', args.resolved_manifest), ('otatools', args.otatools)):
+                self.assertEqual(inputs.sha256_file(path), bound[name + '_sha256'])
+            inputs.recheck_stamps(frozen.metadata_stamps)
 
     def test_bootstrap_signature_has_only_host_paths_and_no_inherited_loader_environment(self):
         with patch.object(native, 'command') as run:
@@ -277,6 +419,54 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
             self.assertEqual(2, api.main(arguments))
         for call in (unpack, tools, keys, source): call.assert_not_called()
         self.assertFalse((self.root / 'result.json').exists())
+
+    def test_verify_authenticates_and_parses_same_release_record_snapshot(self):
+        arguments, identity, record, signature = self.verify_bootstrap_inputs()
+        original_record = record.read_bytes()
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                        '-n', self.policy['record_namespace'], record],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes(Path(str(record) + '.sig').read_bytes())
+        Path(str(record) + '.sig').unlink()
+        host_verify, load = api.host_ssh_signature, api.load_json
+        observed = []
+        def authenticated(path, *args):
+            self.assertEqual(original_record, path.read_bytes()); self.assertNotEqual(record, path)
+            host_verify(path, *args)
+            record.write_text(json.dumps({'schema_version': 1, 'plan_sha256': 'f' * 64, 'artifacts': {}}))
+            (self.root / 'plan-input.json').write_bytes(b'replaced plan')
+            (self.root / 'authority/allowed').write_bytes(b'replaced authority')
+        def parsed(path, *args, **kwargs):
+            if Path(path).name == 'record.json': observed.append(Path(path).read_bytes())
+            return load(path, *args, **kwargs)
+        with patch.object(api, 'host_ssh_signature', side_effect=authenticated), \
+             patch.object(api, 'load_json', side_effect=parsed), patch.object(api.za, 'unpack_tools') as unpack, \
+             patch.object(api, 'NativeTools') as tools, patch.object(api, 'PublicKeys') as keys, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        self.assertEqual([original_record], observed)
+        unpack.assert_not_called(); tools.assert_not_called(); keys.assert_not_called()
+        self.assertFalse((self.root / 'result.json').exists())
+
+    def test_external_authority_boundary_is_checked_before_snapshot_relocation(self):
+        arguments, _identity, record, _signature = self.verify_bootstrap_inputs()
+        authority = self.root / 'publication/keys'; authority.mkdir()
+        inventory = self.root / 'authority/inventory.json'
+        moved = authority / inventory.name; moved.write_bytes(inventory.read_bytes())
+        arguments[arguments.index('--keys') + 1] = str(moved)
+        with patch.object(api, 'host_ssh_signature') as authenticate, patch.object(api.za, 'unpack_tools') as unpack, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        authenticate.assert_not_called(); unpack.assert_not_called()
+        external = self.root / 'external.json'; value = inputs.load_json(inventory)
+        value['certificate_roles'] = {role: 'authority/' + name for role, name in value['certificate_roles'].items()}
+        value['factory']['allowed_signers'] = 'authority/allowed'; value['avb_public_key'] = 'publication/avb.pem'
+        (self.root / 'publication/avb.pem').write_bytes(b'publication-controlled public key')
+        external.write_text(json.dumps(value)); arguments[arguments.index('--keys') + 1] = str(external)
+        with patch.object(api, 'host_ssh_signature') as authenticate, patch.object(api.za, 'unpack_tools') as unpack, \
+             patch('sys.stderr', new=io.StringIO()):
+            self.assertEqual(2, api.main(arguments))
+        authenticate.assert_not_called(); unpack.assert_not_called()
 
     def test_authenticated_record_for_other_plan_refuses_before_incoming_tooling(self):
         arguments, identity, record, signature = self.verify_bootstrap_inputs()

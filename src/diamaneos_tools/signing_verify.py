@@ -14,6 +14,7 @@ from . import build, signing_archive as za, signing_qualification as plans, sign
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
+from .signing_inputs import MAX_JSON, snapshot_file, recheck_stamps
 from .signing_native import (NativeTools, PublicKeys, apk_certificate_digests, package_members,
                              raw_image, verify_images, factory_authority, host_ssh_signature)
 
@@ -28,6 +29,65 @@ def validate_plan(plan, policy):
     digest = body.pop('plan_sha256', None)
     require(canonical_sha256(body) == digest and plan.get('policy_sha256') == canonical_sha256(policy),
             'Signing plan or role policy changed')
+
+
+@contextmanager
+def metadata_inputs(args):
+    """Authenticate and consume the same private metadata, retaining input basenames."""
+    if args.command not in ('prepare', 'verify'):
+        yield args
+        return
+    args.scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=args.scratch, prefix='.signing-metadata-') as directory:
+        root = Path(directory); root.chmod(0o700)
+        frozen = argparse.Namespace(**vars(args))
+        frozen.metadata_stamps = {}
+        copied, parents = {}, {}
+        def capture(path, limit=MAX_JSON, destination=None):
+            path = safe_file(Path(path).parent, Path(path).name)
+            if path in copied:
+                require(copied[path].stat().st_size <= limit, 'Signing snapshot input exceeds its limit')
+                return copied[path]
+            if destination is None:
+                parents.setdefault(path.parent, root / str(len(parents)))
+                destination = parents[path.parent] / path.name
+            copied[path] = snapshot_file(path, destination, limit, stamps=frozen.metadata_stamps)
+            return copied[path]
+        frozen.config = capture(args.config)
+        frozen.keys = capture(args.keys, destination=root / 'public' / args.keys.name)
+        inventory = load_json(frozen.keys)
+        fields(inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
+        require(isinstance(inventory['certificate_roles'], dict), 'Malformed public certificate inventory')
+        fields(inventory['factory'], {'allowed_signers', 'identity'})
+        expected_root = args.keys.resolve().parent
+        material = [*inventory['certificate_roles'].values(), inventory['avb_public_key'], inventory['factory']['allowed_signers']]
+        if args.command == 'verify':
+            require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
+                    'Expected public keys must be outside the artifacts')
+        for relative in material:
+            original = safe_file(expected_root, relative)
+            if args.command == 'verify':
+                require(not original.resolve().is_relative_to(args.artifact_root.resolve()),
+                        'Expected public material is inside the publication')
+            capture(original, 1024 * 1024, frozen.keys.parent / relative)
+        if args.command == 'prepare':
+            for name in ('build_record', 'verification_report', 'resolved_manifest'):
+                setattr(frozen, name, capture(getattr(args, name)))
+            capture(safe_file(args.build_record.parent, 'SHA256SUMS'), za.MAX_TEXT,
+                    frozen.build_record.parent / 'SHA256SUMS')
+            frozen.verification_signature = capture(args.verification_signature, 1024 * 1024)
+            for name in ('previous_result', 'previous_signature'):
+                if getattr(args, name):
+                    setattr(frozen, name, capture(getattr(args, name), 1024 * 1024 if name.endswith('signature') else MAX_JSON))
+        else:
+            frozen.plan, frozen.publication = capture(args.plan), capture(args.publication)
+            publication = load_json(frozen.publication)
+            fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
+                                 'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+            frozen.release_inputs = (
+                capture(safe_file(args.artifact_root, publication['release_record'])),
+                capture(safe_file(args.artifact_root, publication['release_signature']), 1024 * 1024))
+        yield frozen
 
 
 @contextmanager
@@ -171,7 +231,7 @@ def verify_factory_contents(factory, image_archive):
             require(sha256_stream(stream) == expected, 'Factory archive contains different images')
 
 
-def verify_publication(plan, publication, artifact_root, policy, tools, keys):
+def verify_publication(plan, publication, artifact_root, policy, tools, keys, *, release_inputs=None):
     validate_plan(plan, policy)
     fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
                          'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
@@ -199,7 +259,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys):
     require(final_names == {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file()}
             and not any(p.is_symlink() for p in root.rglob('*')), 'Publication contains unlisted files or links')
     files = {name: safe_file(artifact_root, name) for name in names}
-    record_path = safe_file(artifact_root, publication['release_record'])
+    record_path = release_inputs[0] if release_inputs else safe_file(artifact_root, publication['release_record'])
     record = load_json(record_path)
     fields(record, {'schema_version', 'plan_sha256', 'artifacts'})
     require(record['schema_version'] == 1 and record['plan_sha256'] == plan['plan_sha256']
@@ -208,7 +268,8 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys):
     require(artifacts == record['artifacts'], 'Final publication file hashes differ from the release record')
     factory = keys.inventory['factory']
     allowed = keys.file(factory['allowed_signers'])
-    tools.ssh_signature(record_path, safe_file(artifact_root, publication['release_signature']),
+    release_signature = release_inputs[1] if release_inputs else safe_file(artifact_root, publication['release_signature'])
+    tools.ssh_signature(record_path, release_signature,
                         allowed, factory['identity'], policy['record_namespace'])
     tools.ssh_signature(files[publication['factory_archive']], files[publication['factory_signature']],
                         allowed, factory['identity'], policy['factory_namespace'])
@@ -277,97 +338,105 @@ def parser():
     return root
 
 
+def execute(args):
+    policy = load_json(args.config)
+    validate_config(policy)
+    if args.command == 'roles':
+        print('Signing role policy: PASS')
+        return 0
+    if args.command == 'command':
+        plan = load_json(args.plan)
+        validate_plan(plan, policy)
+        require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Signing mode differs from the plan')
+        command = plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
+                    source=args.target_files, destination=args.signed_target_files, source_root=args.source_root)
+        print('(cd -- ' + shlex.quote(str(args.source_root.resolve())) + ' && exec ' + shlex.join(command) + ')')
+        return 0
+    require(not args.output.exists(), 'Output already exists')
+    args.scratch.mkdir(parents=True, exist_ok=True)
+    paths = [args.config, args.keys, args.otatools]
+    if args.command == 'prepare':
+        paths += [args.build_record, args.verification_report, args.verification_signature,
+                  args.target_files, args.resolved_manifest]
+        if args.previous_result:
+            require(args.previous_signature is not None, 'Previous result requires its external signature')
+            paths.append(args.previous_result)
+            paths.append(args.previous_signature)
+        else:
+            require(args.previous_signature is None, 'Previous signature has no result')
+    else:
+        paths += [args.plan, args.publication]
+    before = input_hashes(paths)
+    if args.command == 'prepare':
+        authority, identity = factory_authority(args.keys, policy)
+        before.update(input_hashes((authority,)))
+        host_ssh_signature(args.verification_report, args.verification_signature,
+                           authority, identity, policy['verification_namespace'], args.scratch)
+        if args.previous_result:
+            host_ssh_signature(args.previous_result, args.previous_signature,
+                               authority, identity, policy['result_namespace'], args.scratch)
+        recheck_hashes(before)
+        recheck_stamps(args.metadata_stamps)
+        production = not args.qualification
+        provenance = verified_build(args.build_record, args.verification_report, args.target_files,
+                                    args.resolved_manifest, production=production,
+                                    source_root=args.source_root, otatools=args.otatools)
+        source_files(args.source_root, provenance['projects'])
+    else:
+        plan = load_json(args.plan)
+        validate_plan(plan, policy)
+        require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Verification mode differs from the plan')
+        production = plan['mode'] == 'production'
+        require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
+                'Expected public keys must be outside the artifacts')
+        require(not args.output.resolve().is_relative_to(args.artifact_root.resolve())
+                and not args.scratch.resolve().is_relative_to(args.artifact_root.resolve()),
+                'Verification output and scratch must be outside the publication')
+        publication = load_json(args.publication)
+        fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
+                             'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+        record_path, signature = args.release_inputs
+        authority, identity = factory_authority(args.keys, policy)
+        require(not authority.resolve().is_relative_to(args.artifact_root.resolve()),
+                'Expected public authority must be outside the artifacts')
+        before.update(input_hashes((authority, record_path, signature)))
+        host_ssh_signature(record_path, signature, authority, identity, policy['record_namespace'], args.scratch)
+        record = load_json(record_path)
+        fields(record, {'schema_version', 'plan_sha256', 'artifacts'})
+        require(record['schema_version'] == 1 and record['plan_sha256'] == plan['plan_sha256'],
+                'Release record does not authenticate the signing plan')
+        recheck_hashes(before)
+        recheck_stamps(args.metadata_stamps)
+        require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
+        source_files(args.source_root, plan['provenance']['projects'])
+    provenance = provenance if args.command == 'prepare' else plan['provenance']
+    with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production,
+                       provenance['projects'], policy, getattr(args, 'artifact_root', None),
+                       expected_otatools=provenance['otatools_sha256']) as (tools, keys):
+        if args.command == 'prepare':
+            previous = load_json(args.previous_result) if args.previous_result else None
+            result = plans.prepare(args.build_record, args.verification_report, args.target_files,
+                    args.resolved_manifest, policy, keys, tools, tools.scratch / 'otatools.zip', previous, production=production)
+            for changed in result['changed_projects']:
+                print('Signing source change: ' + changed['project'] + ': ' +
+                      (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
+        else:
+            result = verify_publication(plan, publication, args.artifact_root, policy, tools, keys,
+                                        release_inputs=args.release_inputs)
+    recheck_hashes(before)
+    recheck_stamps(args.metadata_stamps)
+    require(source_files(args.source_root, provenance['projects']) == result['provenance']['source_files'],
+            'Signing source changed during processing')
+    write_json(args.output, result)
+    print('Signing ' + args.command + ': PASS')
+    return 0
+
+
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        policy = load_json(args.config)
-        validate_config(policy)
-        if args.command == 'roles':
-            print('Signing role policy: PASS')
-            return 0
-        if args.command == 'command':
-            plan = load_json(args.plan)
-            validate_plan(plan, policy)
-            require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Signing mode differs from the plan')
-            command = plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
-                        source=args.target_files, destination=args.signed_target_files, source_root=args.source_root)
-            print('(cd -- ' + shlex.quote(str(args.source_root.resolve())) + ' && exec ' + shlex.join(command) + ')')
-            return 0
-        require(not args.output.exists(), 'Output already exists')
-        args.scratch.mkdir(parents=True, exist_ok=True)
-        paths = [args.config, args.keys, args.otatools]
-        if args.command == 'prepare':
-            paths += [args.build_record, args.verification_report, args.verification_signature,
-                      args.target_files, args.resolved_manifest]
-            if args.previous_result:
-                require(args.previous_signature is not None, 'Previous result requires its external signature')
-                paths.append(args.previous_result)
-                paths.append(args.previous_signature)
-            else:
-                require(args.previous_signature is None, 'Previous signature has no result')
-        else:
-            paths += [args.plan, args.publication]
-        before = input_hashes(paths)
-        if args.command == 'prepare':
-            authority, identity = factory_authority(args.keys, policy)
-            before.update(input_hashes((authority,)))
-            host_ssh_signature(args.verification_report, args.verification_signature,
-                               authority, identity, policy['verification_namespace'], args.scratch)
-            if args.previous_result:
-                host_ssh_signature(args.previous_result, args.previous_signature,
-                                   authority, identity, policy['result_namespace'], args.scratch)
-            recheck_hashes(before)
-            production = not args.qualification
-            provenance = verified_build(args.build_record, args.verification_report, args.target_files,
-                                        args.resolved_manifest, production=production,
-                                        source_root=args.source_root, otatools=args.otatools)
-            source_files(args.source_root, provenance['projects'])
-        else:
-            plan = load_json(args.plan)
-            validate_plan(plan, policy)
-            require(plan['mode'] == ('qualification' if args.qualification else 'production'), 'Verification mode differs from the plan')
-            production = plan['mode'] == 'production'
-            require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
-                    'Expected public keys must be outside the artifacts')
-            require(not args.output.resolve().is_relative_to(args.artifact_root.resolve())
-                    and not args.scratch.resolve().is_relative_to(args.artifact_root.resolve()),
-                    'Verification output and scratch must be outside the publication')
-            publication = load_json(args.publication)
-            fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
-                                 'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
-            record_path = safe_file(args.artifact_root, publication['release_record'])
-            signature = safe_file(args.artifact_root, publication['release_signature'])
-            authority, identity = factory_authority(args.keys, policy)
-            require(not authority.resolve().is_relative_to(args.artifact_root.resolve()),
-                    'Expected public authority must be outside the artifacts')
-            before.update(input_hashes((authority, record_path, signature)))
-            host_ssh_signature(record_path, signature, authority, identity, policy['record_namespace'], args.scratch)
-            record = load_json(record_path)
-            fields(record, {'schema_version', 'plan_sha256', 'artifacts'})
-            require(record['schema_version'] == 1 and record['plan_sha256'] == plan['plan_sha256'],
-                    'Release record does not authenticate the signing plan')
-            recheck_hashes(before)
-            require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
-            source_files(args.source_root, plan['provenance']['projects'])
-        provenance = provenance if args.command == 'prepare' else plan['provenance']
-        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production,
-                           provenance['projects'], policy, getattr(args, 'artifact_root', None),
-                           expected_otatools=provenance['otatools_sha256']) as (tools, keys):
-            if args.command == 'prepare':
-                previous = load_json(args.previous_result) if args.previous_result else None
-                result = plans.prepare(args.build_record, args.verification_report, args.target_files,
-                        args.resolved_manifest, policy, keys, tools, args.otatools, previous, production=production)
-                for changed in result['changed_projects']:
-                    print('Signing source change: ' + changed['project'] + ': ' +
-                          (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
-            else:
-                result = verify_publication(plan, publication, args.artifact_root, policy, tools, keys)
-        recheck_hashes(before)
-        require(source_files(args.source_root, provenance['projects']) == result['provenance']['source_files'],
-                'Signing source changed during processing')
-        write_json(args.output, result)
-        print('Signing ' + args.command + ': PASS')
-        return 0
+        with metadata_inputs(args) as frozen:
+            return execute(frozen)
     except (SigningError, build.BuildError, OSError, ValueError, KeyError, TypeError, AttributeError, tarfile.TarError) as error:
         print('ERROR: ' + (str(error) if isinstance(error, (SigningError, build.BuildError)) else 'Invalid signing input'), file=sys.stderr)
         diagnostic = getattr(error, 'diagnostic', '')
