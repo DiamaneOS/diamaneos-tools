@@ -1642,7 +1642,7 @@ def check_kernel_arguments(v):
         for index, tree in enumerate(trees):
             for node in tree.values():
                 scan(f'{kind} {index}', text_of(node['props'].get('bootargs', b'')).replace('\0', ' '))
-    # Our bootconfig carries Android keys only; a kernel. key there is a kernel argument too.
+    # The DiamaneOS bootconfig carries Android keys only; a kernel. key there is a kernel argument too.
     for line in lines_of(v.tf.read('VENDOR_BOOT/vendor_bootconfig')):
         if line.lstrip().startswith('kernel'):
             found.setdefault(line.strip(), []).append('vendor bootconfig')

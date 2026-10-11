@@ -274,7 +274,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(identity['sha256'], bw.sha_file(directory / name))
             self.assertEqual(identity['sha256'], sums[name])
         self.assertEqual(plan['steps'], record['firmware']['steps'])
-        # Our own pvmfw, not the stock one.
+        # The built pvmfw, not the stock one.
         self.assertEqual(b'pvmfw image', (directory / 'pvmfw.img').read_bytes())
         for name, image in policy['reset'].items():
             self.assertEqual(bytes(image['bytes']), (directory / image['image']).read_bytes())

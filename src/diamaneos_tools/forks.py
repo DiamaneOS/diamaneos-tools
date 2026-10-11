@@ -162,7 +162,7 @@ def fetch(repo, fork, ref=None, kind=None):
     source = {'branch': 'refs/heads/', 'tag': 'refs/tags/', 'commit': ''}[kind] + ref
     if git(repo, 'config', '--get', 'remote.origin.promisor', check=False).stdout.strip() == 'true':
         # A blobless clone: fetch the upstream blobless too, through a second promisor remote, so the
-        # rebase downloads only the files our patches touch instead of the upstream's whole history.
+        # rebase downloads only the files the fork's patches touch instead of the upstream's whole history.
         remote = 'diamaneos-upstream'
         if git(repo, 'remote', 'get-url', remote, check=False).returncode != 0:
             git(repo, 'remote', 'add', remote, fork['upstream']['url'])
@@ -205,9 +205,9 @@ def status(root, fork, do_fetch=False):
 def pinned_base(repo, fork, branch):
     """The commit of the tag or commit the fork is based on now (its pin), if the fork branch has it.
 
-    Our patches are the commits after the pin. Upstreams that rewrite their history between releases
+    The fork's patches are the commits after the pin. Upstreams that rewrite their history between releases
     (GrapheneOS rebases its kernel patches onto each LTS update) would otherwise make their old commits
-    look like ours: the merge-base with the new release lies before them.
+    look like the fork's: the merge-base with the new release lies before them.
     """
     kind = fork['upstream']['kind']
     if kind in ('tag', 'commit'):
@@ -247,9 +247,9 @@ def save_resolutions(repo, records):
 
 
 def update(root, fork, ref=None, today=None, rerere=None):
-    """Apply our patches (the commits after the pin) on top of the new upstream reference.
+    """Apply the fork's patches (the commits after the pin) on top of the new upstream reference.
 
-    Like GrapheneOS: the new release is the base and our commits are replayed on it, merges dropped and
+    Like GrapheneOS: the new release is the base and the fork's commits are replayed on it, merges dropped and
     `fixup!` commits folded into the commit they name (autosquash). The fork branch is never moved.
     rerere: a directory of recorded resolutions (one subdirectory per fork slug). A stop whose every
     conflict a recorded resolution settles continues; the files are reported as rerere_resolved.

@@ -12,7 +12,7 @@ import time
 
 def _signal_group(process, signum):
     # Darwin can report EPERM while the group's last member is a zombie.
-    # Reap our leader and retry that race; never suppress a persistent denial.
+    # Reap the group leader and retry that race; never suppress a persistent denial.
     for attempt in range(3):
         process.poll()
         try:

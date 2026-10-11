@@ -55,13 +55,13 @@ class ForkTests(unittest.TestCase):
         return commit(self.upstream, name, text, 'upstream next')
 
     def test_status_reports_patches_and_missing_upstream_commits(self):
-        commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        commit(self.fork_repo, 'fork.txt', 'patch\n', 'fork patch')
         self.advance_upstream()
         result = forks.status(self.root, self.fork, do_fetch=True)
         self.assertEqual((result['state'], result['patches'], result['behind']), ('update-available', 1, 1))
 
     def test_update_rebases_patches_into_candidate_without_moving_branch(self):
-        ours = commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        ours = commit(self.fork_repo, 'fork.txt', 'patch\n', 'fork patch')
         new = self.advance_upstream()
         result = forks.update(self.root, self.fork, today=datetime.date(2026, 9, 23))
         self.assertEqual(result['state'], 'prepared')
@@ -70,7 +70,7 @@ class ForkTests(unittest.TestCase):
         candidate = result['candidate']
         self.assertTrue(candidate.startswith('update/20260923-'))
         self.assertEqual(run(self.fork_repo, 'rev-parse', candidate + '~1'), new)
-        self.assertEqual(run(self.fork_repo, 'show', candidate + ':ours.txt'), 'patch')
+        self.assertEqual(run(self.fork_repo, 'show', candidate + ':fork.txt'), 'patch')
         self.assertEqual(run(self.fork_repo, 'worktree', 'list').count('\n'), 0)
 
     def test_unpatched_fork_candidate_is_upstream(self):
@@ -79,7 +79,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual((result['rebased_patches'], run(self.fork_repo, 'rev-parse', result['candidate'])), (0, new))
 
     def test_conflict_is_reported_and_leaves_no_candidate(self):
-        commit(self.fork_repo, 'a.txt', 'ours\n', 'our change')
+        commit(self.fork_repo, 'a.txt', 'ours\n', 'fork change')
         self.advance_upstream('a.txt', 'theirs\n')
         result = forks.update(self.root, self.fork, today=datetime.date(2026, 9, 23))
         self.assertEqual((result['state'], result['conflicts']), ('conflict', ['a.txt']))
@@ -87,7 +87,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(run(self.fork_repo, 'worktree', 'list').count('\n'), 0)
 
     def test_recorded_resolution_settles_a_repeated_conflict(self):
-        commit(self.fork_repo, 'a.txt', 'ours\n', 'our change')
+        commit(self.fork_repo, 'a.txt', 'ours\n', 'fork change')
         self.advance_upstream('a.txt', 'theirs\n')
         records = Path(self.tmp.name) / 'rerere'
         result = forks.update(self.root, self.fork, rerere=records, today=datetime.date(2026, 10, 8))
@@ -111,13 +111,13 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(run(self.root / 'hal2', 'show', result['candidate'] + ':a.txt'), 'both')
 
     def test_rewritten_upstream_replays_only_patches_after_the_pin(self):
-        # Upstream release v1 carries its own patch; the fork adds ours on v1.
+        # Upstream release v1 carries its own patch; the fork adds its patch on v1.
         run(self.upstream, 'checkout', '-q', 'odm/rc')
         commit(self.upstream, 'up.txt', 'upstream patch v1\n', 'upstream own patch')
         run(self.upstream, 'tag', 'v1')
         run(self.fork_repo, 'fetch', '-q', str(self.upstream), 'refs/tags/v1')
         run(self.fork_repo, 'reset', '-q', '--hard', 'FETCH_HEAD')
-        commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        commit(self.fork_repo, 'fork.txt', 'patch\n', 'fork patch')
         # v2 rewrites history: a new base with the upstream patch applied again, changed.
         run(self.upstream, 'checkout', '-q', '--orphan', 'rewritten', self.first)
         commit(self.upstream, 'b.txt', 'two\n', 'new base')
@@ -129,13 +129,13 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'upstream patch v2')
 
     def test_branch_fork_replays_only_patches_after_its_newest_contained_release_tag(self):
-        # Upstream branch with release tag 2026092500 carrying an upstream patch; the fork adds ours.
+        # Upstream branch with release tag 2026092500 carrying an upstream patch; the fork adds its patch.
         run(self.upstream, 'checkout', '-q', 'odm/rc')
         commit(self.upstream, 'up.txt', 'v1\n', 'upstream own patch')
         run(self.upstream, 'tag', '2026092500')
         run(self.fork_repo, 'fetch', '-q', str(self.upstream), 'odm/rc')
         run(self.fork_repo, 'reset', '-q', '--hard', 'FETCH_HEAD')
-        commit(self.fork_repo, 'ours.txt', 'patch\n', 'our patch')
+        commit(self.fork_repo, 'fork.txt', 'patch\n', 'fork patch')
         # Upstream rewrites its branch: new base, its patch again.
         run(self.upstream, 'checkout', '-q', '-B', 'odm/rc', self.first)
         commit(self.upstream, 'b.txt', 'two\n', 'new base')
@@ -151,7 +151,7 @@ class ForkTests(unittest.TestCase):
         partial = self.root / 'partial'
         run(self.root, 'clone', '-q', '--filter=blob:none', '-b', 'odm/rc', 'file://' + str(self.upstream), 'partial')
         run(partial, 'checkout', '-q', '-b', 'android17')
-        commit(partial, 'ours.txt', 'patch\n', 'our patch')
+        commit(partial, 'fork.txt', 'patch\n', 'fork patch')
         new = self.advance_upstream('big.txt', 'upstream file\n')
         fork = dict(self.fork, slug='partial', upstream=dict(self.fork['upstream'], url='file://' + str(self.upstream)))
         result = forks.update(self.root, fork, today=datetime.date(2026, 10, 8))
@@ -395,7 +395,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual('update-available', forks.check(Path(self.tmp.name), [], [branch], lister)[0]['state'])
 
     def test_check_never_fetches_missing_objects(self):
-        # A partial clone would otherwise download history to answer "is this commit ours?".
+        # A partial clone would otherwise download history to answer "is this commit in the fork?".
         self.advance_upstream()
         with mock.patch.object(forks.subprocess, 'run', wraps=forks.subprocess.run) as spy:
             forks.check(self.root, [self.fork], [], self.lister())

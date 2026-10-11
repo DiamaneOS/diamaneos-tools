@@ -33,8 +33,8 @@ SOURCE_INTERFACES = {
     'android.hardware.security.sharedsecret-V1-ndk',
     # Qualcomm display stack built from source. The stock
     # Android 14 composer failed to present under Android 17 when tried without
-    # libsdmextension and is untested with it; source is kept so we can patch
-    # and harden the code that handles every app's buffers.
+    # libsdmextension and is untested with it; source is kept so the code that
+    # handles every app's buffers can be patched and hardened.
     'libdisplayconfig.qti',
     'libdisplaydebug',
     'libdrmutils',
@@ -201,7 +201,7 @@ ACTIVATION={
 
 # Reviewed stock Java components outside vendor (bring-up). They keep
 # the stock signature (presigned); their privileges come only from the device's
-# privileged-permission allowlist, never from our platform key.
+# privileged-permission allowlist, never from the DiamaneOS platform key.
 # path -> (module name = install directory, privileged). Every privileged app
 # needs a complete device allowlist entry (grants and denials).
 STOCK_APPS = {
