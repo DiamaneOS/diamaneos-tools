@@ -623,6 +623,36 @@ class RuleTests(unittest.TestCase):
             with self.subTest(rule=rule_id, change=sorted(change)):
                 self.assertFalse(check(rule_id, {**good, **change}))
 
+    def test_camera_table_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        prop, readers = rules['camera-table-property'], rules['camera-table-readers']
+        check = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))[0]
+        build_prop = 'SYSTEM_EXT/etc/build.prop'
+        self.assertTrue(check(prop, {build_prop: b'ro.a=1\nro.vendor.qti.va_aosp.support=1\n'}))
+        for text in (b'ro.a=1\n', b'ro.vendor.qti.va_aosp.support=0\n', b'#ro.vendor.qti.va_aosp.support=1\n'):
+            self.assertFalse(check(prop, {build_prop: text}))
+        self.assertEqual((['dumpstate', 'hal_camera_default', 'init'], 'vendor_exported_system_prop', 'file', 'read'),
+                         (readers['allowed'], readers['target'], readers['cls'], readers['perm']))
+        plat, system_ext = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        vendor = 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        plat_cil = ('(type init)\n(type dumpstate)\n'
+                    '(typeattributeset property_type (vendor_exported_system_prop))\n'
+                    '(allow init property_type (file (read getattr map open)))\n'
+                    '(allow dumpstate property_type (file (read getattr map open)))\n')
+        ext_cil = ('(type vendor_exported_system_prop)\n'
+                   '(allow hal_camera_server vendor_exported_system_prop (file (read getattr map open)))\n')
+        vendor_cil = ('(type hal_camera_default)\n(type hal_bluetooth_default)\n(type vendor_hal_gnss_qti)\n'
+                      '(typeattributeset hal_camera_server (hal_camera_default))\n')
+        good = {plat: plat_cil.encode(), system_ext: ext_cil.encode(), vendor: vendor_cil.encode(),
+                'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        self.assertTrue(check(readers, good))
+        for extra in ('(allow hal_bluetooth_default vendor_exported_system_prop (file (read)))',
+                      '(allow vendor_hal_gnss_qti property_type (file (read open)))',
+                      '(typeattributeset hal_camera_server (hal_bluetooth_default))'):
+            with self.subTest(extra=extra):
+                self.assertFalse(check(readers, {**good, vendor: (vendor_cil + extra + '\n').encode()}))
+
     def test_camera_power_client_rule(self):
         rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
         rule = next(r for r in rules if r['id'] == 'camera-power-client')

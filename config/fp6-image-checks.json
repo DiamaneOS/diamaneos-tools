@@ -3685,6 +3685,41 @@
       ]
     },
     {
+      "id": "camera-table-property",
+      "why": "The stock camera provider loads the FP6 camera table with every lens, not Qualcomm's generic table with the main and front cameras only: the property that selects it is set, as on stock.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/build.prop"
+      ],
+      "lines": [
+        "ro.vendor.qti.va_aosp.support=1"
+      ]
+    },
+    {
+      "id": "camera-table-readers",
+      "why": "Only the camera provider reads that property, next to init and the bug report tool, which read every property. The Bluetooth and GNSS HALs ask the same question and must keep getting the default.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_exported_system_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "dumpstate",
+        "hal_camera_default",
+        "init"
+      ]
+    },
+    {
       "id": "no-display-colour-service",
       "why": "The stock display colour service has no client in this build; platform apps could start it.",
       "type": "files_absent",
