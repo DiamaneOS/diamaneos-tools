@@ -232,6 +232,23 @@ STOCK_LIBRARIES = {
  'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
 }
 STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml'}
+# Reviewed stock vendor APEXes, each bound to the exact stock file. An APEX is
+# installed whole under its stock file name with Soong prebuilt_apex, which
+# keeps the stock container and payload signatures; the module is named after
+# the APEX. Its service, init file, VINTF fragment and file labels are inside
+# the package, so other bytes need a new review here and of the payload rule
+# in config/fp6-image-checks.json. Any other vendor/apex path is refused.
+STOCK_APEXES = {
+ # Widevine DRM HAL (IDrmFactory/widevine) with its init file, VINTF fragment
+ # and own libcrypto. No hardware-backed path: the TEE-backed liboemcrypto.so,
+ # which stock keeps outside the package in /vendor/lib64, and the two stock
+ # libraries it needs (libcpion, libtrustedapploader) are not selected.
+ 'vendor/apex/com.google.android.widevine.nonupdatable.apex': {
+  'name': 'com.google.android.widevine', 'bytes': 4284416,
+  'sha256': '008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a',
+  'metadata': {'uid': 0, 'gid': 0, 'mode': 0o644, 'selinux': 'u:object_r:vendor_apex_file:s0',
+               'capabilities_hex': ''}},
+}
 # Stock vendor libraries whose name is also an AOSP vendor-available library.
 # Soong defines an install rule for every variant in the tree, so a stock copy
 # in /vendor/lib64 collides with the AOSP one at the same path. These go to
@@ -705,7 +722,7 @@ def render(recipe, selection, notice_kind):
         text += blueprint('cc_prebuilt_library_shared' if library else 'cc_prebuilt_binary', props)
     for path in sorted(rows):
         partition = path.split('/')[0]
-        if partition == 'vendor' and path not in STOCK_APPS:
+        if partition == 'vendor' and path not in STOCK_APPS and path not in STOCK_APEXES:
             continue
         flag = 'vendor' if partition == 'vendor' else PARTITIONS[partition][0]
         if path == carrier_data.APK_PATH:
@@ -724,6 +741,20 @@ def render(recipe, selection, notice_kind):
                 'name': name, flag: True, 'apk': 'files/' + path, 'presigned': True,
                 'preprocessed': True, 'privileged': privileged, 'dex_preopt': {'enabled': False},
                 'enforce_uses_libs': False, 'licenses': [notice_license(partition)]})
+        elif path in STOCK_APEXES:
+            apex = STOCK_APEXES[path]
+            if (Path(path).parent.as_posix() != 'vendor/apex' or Path(path).suffix != '.apex'
+                    or any(rows[path][k] != apex[k] for k in ('sha256', 'bytes', 'metadata'))):
+                raise VendorError('stock APEX differs from its reviewed identity')
+            names.append(apex['name'])
+            consumed.add(path)
+            # A plain src, not one per architecture: the image tools are built
+            # for a generic x86_64 target in the same source tree, and Soong
+            # refuses a prebuilt_apex that has no source for the target's
+            # architecture. Only this product's package list installs it.
+            text += blueprint('prebuilt_apex', {
+                'name': apex['name'], 'src': 'files/' + path, 'filename': Path(path).name,
+                'soc_specific': True, 'licenses': [notice_license(partition)]})
         elif path in STOCK_JNI:
             if rows[path]['dependencies'] or partition not in ('system_ext', 'product'):
                 raise VendorError('stock JNI library has unreviewed dependencies')

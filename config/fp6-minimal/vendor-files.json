@@ -16249,6 +16249,26 @@
         "selinux": "u:object_r:vendor_configs_file:s0",
         "capabilities_hex": ""
       }
+    },
+    {
+      "input": "vendor/apex/com.google.android.widevine.nonupdatable.apex",
+      "path": "vendor/apex/com.google.android.widevine.nonupdatable.apex",
+      "sha256": "008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a",
+      "bytes": 4284416,
+      "component_id": "graphics-display-media",
+      "inventory_ref": "userspace_hal_families:widevine-drm",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Widevine DRM HAL package, unchanged and with its own signatures: the service, its init file, its VINTF fragment and its own libcrypto. Installed as a prebuilt APEX; the TEE-backed liboemcrypto.so is not selected.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_apex_file:s0",
+        "capabilities_hex": ""
+      }
     }
   ],
   "symlinks": [

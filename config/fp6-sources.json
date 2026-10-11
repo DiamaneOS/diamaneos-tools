@@ -95,6 +95,15 @@
       "rebuilt_from_source": "host stack and kernel portions only"
     },
     {
+      "id": "widevine-drm",
+      "origin": "proprietary-prebuilt",
+      "abi_uapi": "Android DRM HAL (android.hardware.drm AIDL, IDrmFactory/widevine)",
+      "load_path": "generated vendor tree: Fairphone's stock Widevine APEX, unchanged and with its own signatures, installed as a prebuilt APEX with its service, init file and VINTF fragment inside",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source",
+      "note": "Selected so apps and browsers that play Widevine-protected media find the DRM HAL. The hardware-backed path is not selected: the TEE-backed liboemcrypto.so, the two libraries it needs and the keybox and HDCP provisioning tools stay out."
+    },
+    {
       "id": "power-thermal-backends",
       "origin": "proprietary-prebuilt-userspace-and-firmware",
       "abi_uapi": "The closed thermal engine complements the source thermal HAL with device thermal control. Qualcomm's perf2 performance backend and its client libraries are not selected; the source power HAL needs none.",

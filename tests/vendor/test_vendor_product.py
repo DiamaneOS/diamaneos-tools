@@ -1159,6 +1159,82 @@ class NativeProductTests(unittest.TestCase):
         self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != link['target'][1:]]
         with self.assertRaises(VendorError): self.render()
 
+    WIDEVINE_APEX = 'vendor/apex/com.google.android.widevine.nonupdatable.apex'
+
+    def test_stock_widevine_apex_is_installed_whole_with_its_own_signatures(self):
+        rendered = self.render()
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+        # A plain src: Soong refuses a prebuilt_apex without a source for the
+        # target's architecture, and the image tools are built for x86_64.
+        self.assertIn('prebuilt_apex {\n'
+                      '    name: "com.google.android.widevine",\n'
+                      '    src: "files/vendor/apex/com.google.android.widevine.nonupdatable.apex",\n'
+                      '    filename: "com.google.android.widevine.nonupdatable.apex",\n'
+                      '    soc_specific: true,\n'
+                      '    licenses: ["fp6_selected_stock_notices"],\n'
+                      '}\n', bp)
+        self.assertEqual(1, bp.count('prebuilt_apex {'))
+        # The module installs it; it is neither copied nor unpacked.
+        self.assertIn('com.google.android.widevine', json.loads(rendered['modules.json']))
+        self.assertIn('com.google.android.widevine', make.split('PRODUCT_PACKAGES += ')[1].split('\n')[0].split())
+        self.assertNotIn('vendor/apex/', make)
+        row = next(r for r in self.recipe['files'] if r['path'] == self.WIDEVINE_APEX)
+        self.assertEqual(('graphics-display-media', 'userspace_hal_families:widevine-drm', []),
+                         (row['component_id'], row['inventory_ref'], row['dependencies']))
+        self.assertEqual((0, 0, 0o644, 'u:object_r:vendor_apex_file:s0'),
+                         tuple(row['metadata'][k] for k in ('uid', 'gid', 'mode', 'selinux')))
+        apex = vendor_product.STOCK_APEXES[self.WIDEVINE_APEX]
+        self.assertEqual((row['sha256'], row['bytes'], row['metadata']),
+                         (apex['sha256'], apex['bytes'], apex['metadata']))
+        # Nothing of the hardware-backed path is selected or configured.
+        paths = {r['path'] for r in self.recipe['files']}
+        for other in ['vendor/lib64/liboemcrypto.so', 'vendor/lib64/libcpion.so', 'vendor/lib64/libtrustedapploader.so',
+                      'vendor/etc/linker.config.pb', 'vendor/bin/StoreKeybox', 'vendor/bin/KmInstallKeybox',
+                      'vendor/bin/hdcp1prov', 'vendor/bin/hdcp2p2prov', 'vendor/bin/wfdhdcphalservice']:
+            self.assertNotIn(other, paths)
+        for marker in ['oemcrypto', 'linker.config', 'LINKER_CONFIG']:
+            self.assertNotIn(marker, bp + make)
+
+    def test_unreviewed_or_changed_stock_apex_rejected(self):
+        row = next(r for r in self.recipe['files'] if r['path'] == self.WIDEVINE_APEX)
+        # Any other APEX path stays unclassified, whatever its bytes.
+        for other in ['vendor/apex/com.android.hardware.audio.apex', 'vendor/apex/com.google.android.widevine.apex',
+                      'vendor/apex/sub/com.google.android.widevine.nonupdatable.apex',
+                      'system_ext/apex/com.android.vndk.v34.apex']:
+            recipe = copy.deepcopy(self.recipe)
+            unlisted = copy.deepcopy(row)
+            unlisted['path'] = unlisted['input'] = other
+            recipe['files'].append(unlisted)
+            with self.subTest(path=other), self.assertRaisesRegex(VendorError, 'unclassified'):
+                vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
+        # The reviewed entry is bound to the exact stock file and its stock metadata.
+        for key, value in [('sha256', '0' * 64), ('bytes', row['bytes'] + 1),
+                           ('metadata', dict(row['metadata'], selinux='u:object_r:vendor_file:s0')),
+                           ('metadata', dict(row['metadata'], mode=0o755))]:
+            recipe = copy.deepcopy(self.recipe)
+            next(r for r in recipe['files'] if r['path'] == self.WIDEVINE_APEX)[key] = value
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(VendorError, 'reviewed identity'):
+                vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
+        # The table lists this one package; without its row no module is rendered.
+        self.assertEqual([self.WIDEVINE_APEX], list(vendor_product.STOCK_APEXES))
+        self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != self.WIDEVINE_APEX]
+        self.assertNotIn(b'prebuilt_apex', self.render()['Android.bp'])
+
+    def test_stock_apex_input_with_other_bytes_is_not_copied(self):
+        import tempfile
+        from diamaneos_tools import vendor_files
+        row = next(r for r in self.recipe['files'] if r['path'] == self.WIDEVINE_APEX)
+        with tempfile.TemporaryDirectory() as temporary:
+            inputs = Path(temporary) / 'inputs'
+            (inputs / self.WIDEVINE_APEX).parent.mkdir(parents=True)
+            # The declared size, other content.
+            (inputs / self.WIDEVINE_APEX).write_bytes(bytes(row['bytes']))
+            with self.assertRaisesRegex(VendorError, 'digest mismatch'):
+                vendor_files.copy_verified(inputs, row, Path(temporary) / 'tree' / self.WIDEVINE_APEX)
+            (inputs / self.WIDEVINE_APEX).write_bytes(b'short')
+            with self.assertRaisesRegex(VendorError, 'size mismatch'):
+                vendor_files.copy_verified(inputs, row, Path(temporary) / 'other' / self.WIDEVINE_APEX)
+
     def test_vendor_patch_level_is_read_strictly_from_the_stock_build_prop(self):
         import datetime
         today = datetime.date(2026, 10, 5)

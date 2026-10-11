@@ -5341,6 +5341,103 @@
         "_ZN7android13GraphicBufV34C1EPK13native_handleNS0_16HandleWrapMethodEjjijmj"
       ],
       "min_sized_allocations": 4
+    },
+    {
+      "id": "widevine-apex",
+      "why": "The stock Widevine DRM package in /vendor/apex: exact stock bytes with its own signatures, root 0644, vendor_apex_file.",
+      "type": "file_metadata",
+      "path": "vendor/apex/com.google.android.widevine.nonupdatable.apex",
+      "image": "vendor",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0644",
+      "label": "u:object_r:vendor_apex_file:s0",
+      "sha256": "008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a"
+    },
+    {
+      "id": "widevine-apex-payload",
+      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label: the DRM service, its init file, its VINTF fragment, its own libcrypto and the package manifest. It holds no liboemcrypto.so.",
+      "type": "apex_payload",
+      "file": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
+      "payload": {
+        "apex_manifest.pb": {
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0644",
+          "label": "u:object_r:vendor_configs_file:s0",
+          "sha256": "90c48e5a0c01532706db87fcd9e406fa8b9c6e8dde0590ebacd3574517e4be84"
+        },
+        "bin/hw/android.hardware.drm-service.widevine": {
+          "uid": 0,
+          "gid": 2000,
+          "mode": "0755",
+          "label": "u:object_r:hal_drm_widevine_exec:s0",
+          "sha256": "f0eb70fd5ff0b373159ee3bfd823e4f2c65680e9f16993667f9b064224751623"
+        },
+        "etc/com.google.android.widevine.rc": {
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0644",
+          "label": "u:object_r:vendor_configs_file:s0",
+          "sha256": "09c1ef83dd69ebe915eb7fc7d4ce9148a5b99c6687a569a625ad64e73ff012ff"
+        },
+        "etc/vintf/com.google.android.widevine.xml": {
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0644",
+          "label": "u:object_r:vendor_configs_file:s0",
+          "sha256": "a6ebbc45b94c1c1d646fe9b3762d562a50841e08d3dbdcb244d601f8d2d22cd2"
+        },
+        "lib64/libcrypto.so": {
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0644",
+          "label": "u:object_r:vendor_file:s0",
+          "sha256": "a4d4253eef41a6af6b4ac2bc3b35b17f5689a2ff0f4b0e9c5d0a063ab0a5dcc9"
+        }
+      }
+    },
+    {
+      "id": "widevine-software-only",
+      "why": "No hardware-backed Widevine path is shipped: the TEE-backed liboemcrypto.so and the two libraries it needs are absent, as are the keybox and HDCP provisioning tools and the Wi-Fi display HDCP service.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/liboemcrypto.so",
+        "VENDOR/lib64/libcpion.so",
+        "VENDOR/lib64/libtrustedapploader.so",
+        "VENDOR/bin/StoreKeybox",
+        "VENDOR/bin/KmInstallKeybox",
+        "VENDOR/bin/hdcp1prov",
+        "VENDOR/bin/hdcp2p2prov",
+        "VENDOR/bin/wfdhdcphalservice"
+      ]
+    },
+    {
+      "id": "widevine-linker-config-no-oemcrypto",
+      "why": "The vendor linker configuration, which the build always writes, offers no liboemcrypto.so. Stock lists the library there so the Widevine package can load it from /vendor/lib64.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/linker.config.pb"
+      ],
+      "optional": true,
+      "absent": [
+        "liboemcrypto"
+      ]
+    },
+    {
+      "id": "widevine-no-hardware-properties",
+      "why": "No build property configures the TEE-backed Widevine library; stock sets two vendor.wv.oemcrypto. properties for it.",
+      "type": "text",
+      "files": [
+        "SYSTEM/build.prop",
+        "SYSTEM_EXT/etc/build.prop",
+        "PRODUCT/etc/build.prop",
+        "VENDOR/build.prop",
+        "ODM/etc/build.prop"
+      ],
+      "absent": [
+        "vendor.wv.oemcrypto."
+      ]
     }
   ]
 }

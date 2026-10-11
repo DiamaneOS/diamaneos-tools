@@ -785,6 +785,21 @@ from `notice_kind` in `config/fp6-build.json`.
 - Source-interface replacements and uninstalled optional libraries are listed in generated
   provenance; retained authenticated inputs are not an installed-artifact inventory.
 
+- **Stock vendor APEX.**
+  - A `vendor/apex` file is rendered only from the renderer's reviewed table (`STOCK_APEXES`), which
+    binds the path to the exact stock bytes and metadata; any other APEX path is rejected.
+  - It becomes a Soong `prebuilt_apex` named after the APEX, installed whole under its stock file
+    name with its own signatures.
+  - The table holds one package, Fairphone's stock Widevine DRM HAL: the service, its init file, its
+    VINTF fragment and its own libcrypto.
+  - The TEE-backed `liboemcrypto.so`, the two libraries it needs and the keybox and HDCP
+    provisioning tools are not selected.
+  - `build verify` checks the package's bytes, owner, mode and label, and the five files inside it
+    (`apex_payload` rule in `config/fp6-image-checks.json`).
+  - It also checks that the image holds none of the files left out, that the vendor linker
+    configuration does not name `liboemcrypto.so` and that no build property sets a
+    `vendor.wv.oemcrypto.` value.
+
 - **Vendor patch level.**
   - `VENDOR_SECURITY_PATCH` in the generated `BoardConfigVendor.mk`, which the build reports as
     `ro.vendor.build.security_patch`, is the value the stock `vendor/build.prop` sets.

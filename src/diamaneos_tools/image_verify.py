@@ -986,6 +986,16 @@ def rule_zip_contains(rule, v):
     return not problems, '; '.join(problems)
 
 
+def ext4_file(v, source: Path, inside: str, directory: Path) -> tuple[str, bytes]:
+    """stat and content of one file of a raw ext4 image, through debugfs."""
+    info = v.tools.run('debugfs_static', ['-R', f'stat {inside}', source])
+    dump = directory / 'dump'
+    # debugfs writes nothing for a file it cannot read; never read an older dump.
+    dump.unlink(missing_ok=True)
+    v.tools.run('debugfs_static', ['-R', f'dump {inside} {dump}', source])
+    return info, dump.read_bytes()
+
+
 def image_file(v, image: str, path: str, directory: Path) -> tuple[str, bytes]:
     """stat and content of a file inside an ext4 image, through debugfs."""
     source = v.images / f'{image}.img'
@@ -995,11 +1005,81 @@ def image_file(v, image: str, path: str, directory: Path) -> tuple[str, bytes]:
         raw = directory / f'{image}.raw'
         v.tools.run('simg2img', [source, raw])
         source = raw
-    inside = '/' + path.split('/', 1)[1]
-    info = v.tools.run('debugfs_static', ['-R', f'stat {inside}', source])
-    dump = directory / 'dump'
-    v.tools.run('debugfs_static', ['-R', f'dump {inside} {dump}', source])
-    return info, dump.read_bytes()
+    return ext4_file(v, source, '/' + path.split('/', 1)[1], directory)
+
+
+EXT4_MAGIC = bytes.fromhex('53ef')  # at byte 1080 of an ext4 image
+MAX_EXT4_DIRECTORIES = 256
+
+
+def ext4_files(v, source: Path) -> dict:
+    """Every entry of a raw ext4 image that is not a directory: path -> mode.
+
+    Reads debugfs "ls -p" lines (/inode/mode/uid/gid/name/size/), directory by
+    directory. A line or name it cannot read is an error, never skipped."""
+    found, pending, seen = {}, [''], 0
+    while pending:
+        directory = pending.pop()
+        seen += 1
+        if seen > MAX_EXT4_DIRECTORIES:
+            raise ValueError('too many directories in the ext4 image')
+        for line in v.tools.run('debugfs_static', ['-R', f'ls -p {directory or "/"}', source]).splitlines():
+            if not line.startswith('/'):
+                continue  # the debugfs banner and blank lines
+            entry = re.fullmatch(r'/(\d+)/([0-7]{6})/\d+/\d+/([^/]*)/\d*/', line)
+            if entry is None:
+                raise ValueError('unreadable ext4 directory entry: ' + line)
+            inode, mode, name = int(entry.group(1)), int(entry.group(2), 8), entry.group(3)
+            if not inode or name in ('.', '..'):
+                continue  # an unused entry, or the directory and its parent
+            if not re.fullmatch(r'[A-Za-z0-9_.+@-]+', name):
+                raise ValueError('unsupported ext4 file name: ' + repr(name))
+            if stat.S_ISDIR(mode):
+                pending.append(f'{directory}/{name}')
+            else:
+                found[f'{directory}/{name}'.lstrip('/')] = mode
+    return found
+
+
+def rule_apex_payload(rule, v):
+    """The ext4 payload of an APEX holds exactly the listed files, each with
+    its bytes, owner, mode and label.
+
+    The container's own hash already binds the payload; this names what the
+    package brings (its service, init file, VINTF fragment, libraries and
+    their labels), so a new package version is reviewed file by file."""
+    problems = []
+    with v.tools.scratch() as temporary:
+        directory = Path(temporary)
+        with zipfile.ZipFile(v.tf.extract(rule['file'], directory)) as apex:
+            if 'apex_payload.img' not in apex.namelist():
+                return False, rule['file'] + ' has no apex_payload.img'
+            member = apex.getinfo('apex_payload.img')
+            if member.file_size > MAX_MEMBER_BYTES:
+                raise ValueError('APEX payload too large: ' + rule['file'])
+            payload = directory / 'apex_payload.img'
+            payload.write_bytes(apex.read(member))
+        with payload.open('rb') as stream:
+            stream.seek(1080)
+            if stream.read(2) != EXT4_MAGIC:
+                return False, 'the payload of ' + rule['file'] + ' is not an ext4 image'
+        found = ext4_files(v, payload)
+        for name, want in sorted(rule['payload'].items()):
+            if name not in found:
+                problems.append('missing ' + name)
+                continue
+            info, content = ext4_file(v, payload, '/' + name, directory)
+            if not stat.S_ISREG(found[name]) or 'Type: regular' not in info:
+                problems.append(name + ' is not a regular file')
+            if hashlib.sha256(content).hexdigest() != want['sha256']:
+                problems.append('bytes differ in ' + name)
+            if not re.search(r'Mode: +0?' + want['mode'].lstrip('0') + r'\b', info) or \
+                    not re.search(rf'User: +{want["uid"]} +Group: +{want["gid"]}\b', info):
+                problems.append('owner or mode differ in ' + name)
+            if f'"{want["label"]}' not in info:
+                problems.append('label differs in ' + name)
+        problems += ['unlisted ' + name for name in sorted(set(found) - set(rule['payload']))]
+    return not problems, '; '.join(problems) or f'{len(found)} files'
 
 
 def rule_file_metadata(rule, v):
@@ -1034,7 +1114,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
-         'file_metadata': rule_file_metadata, 'codec2_abi_guard': rule_codec2_abi_guard}
+         'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
+         'codec2_abi_guard': rule_codec2_abi_guard}
 
 
 def validate_rules(document: dict) -> list:

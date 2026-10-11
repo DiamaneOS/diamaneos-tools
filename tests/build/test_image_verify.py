@@ -1304,6 +1304,185 @@ class RuleTests(unittest.TestCase):
         self.assertEqual('FAIL', v.results[0]['status'])
         self.assertIn('tool missing: aapt2', v.results[0]['detail'])
 
+    WIDEVINE_APEX = 'vendor/apex/com.google.android.widevine.nonupdatable.apex'
+
+    @staticmethod
+    def debugfs_stat(mode, uid, gid, label, size):
+        """debugfs stat output for a regular file (or a symlink, by its mode)."""
+        kind = 'regular' if stat.S_ISREG(mode) else 'symlink'
+        return (f'debugfs 1.47.0 (5-Feb-2023)\nInode: 14   Type: {kind}    Mode:  {stat.S_IMODE(mode):04o}   '
+                f'Flags: 0x80000\nGeneration: 0    Version: 0x00000000:00000000\n'
+                f'User: {uid:5d}   Group: {gid:5d}   Project:     0   Size: {size}\nFile ACL: 0\n'
+                f'Extended attributes:\n  security.selinux ({len(label) + 1}) = "{label}\\000"\nEXTENTS:\n(0):13\n')
+
+    def test_widevine_apex_file_rule(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['widevine-apex']
+        # The rule states the stock identity the renderer's table reviews.
+        apex = vendor_product.STOCK_APEXES[self.WIDEVINE_APEX]
+        metadata = apex['metadata']
+        self.assertEqual((self.WIDEVINE_APEX, 'vendor', apex['sha256'], metadata['selinux'], metadata['uid'],
+                          metadata['gid'], metadata['mode']),
+                         (committed['path'], committed['image'], committed['sha256'], committed['label'],
+                          committed['uid'], committed['gid'], int(committed['mode'], 8)))
+        self.assertEqual('0644', committed['mode'])
+        data = b'stock apex'
+        rule = dict(committed, sha256=hashlib.sha256(data).hexdigest())
+        member, config = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/'), 'META/vendor_filesystem_config.txt'
+        line = self.WIDEVINE_APEX.encode() + b' 0 0 644 capabilities=0x0\n'
+        good = {member: data, config: b'vendor/apex 0 2000 755 capabilities=0x0\n' + line}
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+
+        def check(members=good, rule=rule, content=data, mode=0o100644, uid=0, gid=0,
+                  label='u:object_r:vendor_apex_file:s0'):
+            def debugfs(args):
+                command = str(args[1]).split()
+                self.assertEqual('/apex/com.google.android.widevine.nonupdatable.apex', command[1])
+                if command[0] == 'dump':
+                    Path(command[2]).write_bytes(content)
+                return self.debugfs_stat(mode, uid, gid, label, len(content))
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.rule_file_metadata(rule, v)
+        self.assertEqual((True, ''), check())
+        for detail, change in [
+                ('bytes differ in target-files', {'members': dict(good, **{member: b'another apex'})}),
+                ('bytes differ in target-files', {'rule': committed}),
+                ('owner or mode differ in the filesystem config',
+                 {'members': dict(good, **{config: line.replace(b' 0 0 644 ', b' 0 2000 644 ')})}),
+                ('owner or mode differ in the filesystem config',
+                 {'members': dict(good, **{config: line.replace(b' 644 ', b' 755 ')})}),
+                ('bytes differ in vendor.img', {'content': b'another apex'}),
+                ('owner or mode differ in vendor.img', {'mode': 0o100755}),
+                ('owner or mode differ in vendor.img', {'gid': 2000}),
+                ('owner or mode differ in vendor.img', {'uid': 1000}),
+                ('label differs in vendor.img', {'label': 'u:object_r:vendor_file:s0'})]:
+            with self.subTest(detail=detail, change=sorted(change)):
+                ok, found = check(**change)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        with self.assertRaises(FileNotFoundError):
+            check(members={config: line})
+
+    def test_widevine_apex_payload_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['widevine-apex-payload']
+        self.assertEqual('VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/'), committed['file'])
+        self.assertEqual(['apex_manifest.pb', 'bin/hw/android.hardware.drm-service.widevine',
+                          'etc/com.google.android.widevine.rc', 'etc/vintf/com.google.android.widevine.xml',
+                          'lib64/libcrypto.so'], sorted(committed['payload']))
+        self.assertEqual('u:object_r:hal_drm_widevine_exec:s0',
+                         committed['payload']['bin/hw/android.hardware.drm-service.widevine']['label'])
+        # A fixture payload with the stock layout; the rule then names its hashes.
+        stock = {name: (0o100000 | int(want['mode'], 8), want['uid'], want['gid'], want['label'], name.encode())
+                 for name, want in committed['payload'].items()}
+        rule = copy.deepcopy(committed)
+        for name, want in rule['payload'].items():
+            want['sha256'] = hashlib.sha256(name.encode()).hexdigest()
+
+        def apex(payload=True, magic=bytes.fromhex('53ef')):
+            image = bytearray(4096)
+            image[1080:1082] = magic
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as archive:
+                archive.writestr('apex_manifest.pb', b'manifest')
+                if payload:
+                    archive.writestr('apex_payload.img', bytes(image))
+            return buffer.getvalue()
+
+        def check(tree=stock, rule=rule, container=None):
+            def debugfs(args):
+                command = str(args[1]).split(' ', 2)
+                self.assertEqual('apex_payload.img', Path(args[2]).name)
+                if command[0] == 'ls':
+                    prefix = command[2].strip('/') + '/' if command[2] != '/' else ''
+                    lines = ['debugfs 1.47.0 (5-Feb-2023)', '/2/040755/0/2000/.//', '/2/040755/0/2000/..//']
+                    for child in sorted({path[len(prefix):].split('/')[0] for path in tree if path.startswith(prefix)}):
+                        entry = tree.get(prefix + child)
+                        lines.append(f'/12/040755/0/2000/{child}//' if entry is None else
+                                     f'/14/{entry[0]:06o}/{entry[1]}/{entry[2]}/{child}/{len(entry[4])}/')
+                    return '\n'.join(lines + ['/0/000000/0/0//0/', '', ''])
+                entry = tree.get(command[1].lstrip('/'))
+                if entry is None:
+                    return command[1] + ': File not found by ext2_lookup \n'
+                if command[0] == 'dump':
+                    Path(command[2]).write_bytes(entry[4])
+                return self.debugfs_stat(*entry[:4], len(entry[4]))
+            v = self.harness({committed['file']: apex() if container is None else container},
+                             tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.rule_apex_payload(rule, v)
+
+        def changed(name, **fields):
+            entry = dict(zip(('mode', 'uid', 'gid', 'label', 'content'), stock[name]), **fields)
+            return dict(stock, **{name: tuple(entry[k] for k in ('mode', 'uid', 'gid', 'label', 'content'))})
+        service, rc = 'bin/hw/android.hardware.drm-service.widevine', 'etc/com.google.android.widevine.rc'
+        fragment = 'etc/vintf/com.google.android.widevine.xml'
+        self.assertEqual((True, '5 files'), check())
+        for detail, change in [
+                ('bytes differ in ' + service, {'tree': changed(service, content=b'another service')}),
+                ('bytes differ in ' + rc, {'tree': changed(rc, content=b'service x /apex/x\n    group drmrpc\n')}),
+                ('owner or mode differ in ' + rc, {'tree': changed(rc, uid=0)}),
+                ('owner or mode differ in ' + service, {'tree': changed(service, mode=0o104755)}),
+                ('label differs in ' + service, {'tree': changed(service, label='u:object_r:vendor_file:s0')}),
+                (service + ' is not a regular file', {'tree': changed(service, mode=0o120777)}),
+                ('missing ' + fragment, {'tree': {k: v for k, v in stock.items() if k != fragment}}),
+                ('unlisted lib64/liboemcrypto.so',
+                 {'tree': dict(stock, **{'lib64/liboemcrypto.so': stock['lib64/libcrypto.so']})}),
+                ('unlisted etc/init/extra.rc', {'tree': dict(stock, **{'etc/init/extra.rc': stock[rc]})}),
+                ('bytes differ in lib64/libcrypto.so', {'rule': committed}),
+                ('has no apex_payload.img', {'container': apex(payload=False)}),
+                ('is not an ext4 image', {'container': apex(magic=bytes.fromhex('e2e1'))})]:
+            with self.subTest(detail=detail):
+                ok, found = check(**change)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        # A listing it cannot read is an error (a failed check), never a shorter list.
+        for name in ('lib64/two words.so', 'lib64/a\nb'):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'ext4'):
+                check(tree=dict(stock, **{name: stock['lib64/libcrypto.so']}))
+        with self.assertRaises(zipfile.BadZipFile):
+            check(container=b'not an apex')
+        self.assertIs(subject.rule_apex_payload, subject.RULES['apex_payload'])
+
+    def test_widevine_software_only_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
+        absent = rules['widevine-software-only']
+        self.assertEqual({'VENDOR/lib64/liboemcrypto.so', 'VENDOR/lib64/libcpion.so',
+                          'VENDOR/lib64/libtrustedapploader.so', 'VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox',
+                          'VENDOR/bin/hdcp1prov', 'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'},
+                         set(absent['paths']))
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex'}))[0])
+        for path in absent['paths']:
+            with self.subTest(path=path):
+                self.assertEqual((False, 'present: ' + path),
+                                 subject.rule_files_absent(absent, self.harness({apex: b'apex', path: b'stock'})))
+                self.assertFalse(subject.rule_files_absent(
+                    absent, self.harness({apex: b'apex'}, symlinks={path: '/odm/' + path.split('/', 1)[1]}))[0])
+        # The build always writes the vendor linker configuration; empty today.
+        linker, config = rules['widevine-linker-config-no-oemcrypto'], 'VENDOR/etc/linker.config.pb'
+        self.assertEqual([config], linker['files'])
+        stock = b'\x1a\x0fliboemcrypto.so\x1a\x0fliboemcrypto.so'
+        for data, ok in ((b'', True), (b'\x1a\x0blibother.so', True), (None, True), (stock, False),
+                         (b'\x1a\x0blibother.so' + stock[:17], False)):
+            with self.subTest(data=data):
+                v = self.harness({apex: b'apex'} if data is None else {config: data})
+                self.assertEqual(ok, subject.rule_text(linker, v)[0])
+        properties = rules['widevine-no-hardware-properties']
+        files = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'VENDOR/build.prop',
+                 'ODM/etc/build.prop']
+        self.assertEqual(files, properties['files'])
+        good = {name: b'drm.service.enabled=true\nro.vendor.build.security_patch=2026-09-05\n' for name in files}
+        self.assertTrue(subject.rule_text(properties, self.harness(good))[0])
+        for name, line in [('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'),
+                           ('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'),
+                           ('ODM/etc/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=false\n')]:
+            with self.subTest(name=name, line=line):
+                ok, detail = subject.rule_text(properties, self.harness(dict(good, **{name: good[name] + line})))
+                self.assertFalse(ok)
+                self.assertIn(name, detail)
+        self.assertFalse(subject.rule_text(properties, self.harness({'VENDOR/build.prop': b''}))[0])
+
 
 class ParserTests(unittest.TestCase):
     def test_boot_header_os_field_and_kernel(self):
@@ -1779,6 +1958,31 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn('missing VENDOR/etc/codecs_hwdec.xml', detail)
         ok, detail = check({'VENDOR/etc/codecs.xml': b'stock', 'VENDOR/etc/codecs_hwdec.xml': b'other'})
         self.assertIn('differs VENDOR/etc/codecs_hwdec.xml', detail)
+
+    def test_vendor_binding_covers_the_stock_apex(self):
+        # A selected stock APEX arrives whole, under its stock file name.
+        from diamaneos_tools import vendor_product
+        rel, = vendor_product.STOCK_APEXES
+        vendor = self.root / 'vendor'
+        (vendor / 'files' / rel).parent.mkdir(parents=True)
+        (vendor / 'files' / rel).write_bytes(b'stock apex')
+        (vendor / 'recipe.json').write_text(json.dumps({'files': [
+            {'path': rel, 'sha256': hashlib.sha256(b'stock apex').hexdigest()}]}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        member = 'VENDOR/apex/com.google.android.widevine.nonupdatable.apex'
+
+        def check(members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '1 files'), check({member: b'stock apex'}))
+        ok, detail = check({member: b'resigned apex'})
+        self.assertFalse(ok)
+        self.assertIn('differs ' + member, detail)
+        # Installed under the module's name instead of the stock file name.
+        ok, detail = check({'VENDOR/apex/com.google.android.widevine.apex': b'stock apex'})
+        self.assertFalse(ok)
+        self.assertIn('missing ' + member, detail)
 
     def test_vendor_patch_level_matches_the_stock_value(self):
         vendor = self.root / 'vendor'
