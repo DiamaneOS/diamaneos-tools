@@ -156,7 +156,7 @@
         "kind": "zeros",
         "bytes": 1048576,
         "partition_label": "misc",
-        "reason": "As Fairphone's factory flash clears misc (the bootloader message, such as a pending recovery command), but by flashing zeros of the whole partition instead of fastboot erase. The size is the stock partition table's: 256 sectors of 4096 bytes in FP6.QREL.16.111.0; build package checks it against the factory package's partition table."
+        "reason": "Zeros over the whole of misc (the bootloader message, such as a pending recovery command), where Fairphone's factory flash uses fastboot erase. The size, 256 sectors of 4096 bytes, is the stock partition table's in FP6.QREL.16.111.0; build package checks it against the factory package's."
       }
     }
   },
@@ -195,7 +195,7 @@
     }
   },
   "firmware_release": {
-    "scope": "The table fwrelease (device firmware/) checks the booted slot's firmware partitions against, to report the installed Fairphone release in Settings. The vendor step writes it from config/fp6-firmware-inventory.json into vendor/etc/diamaneos/firmware-releases.txt; every firmware image of the inventory not listed here is checked, and must be an A/B, non-sparse image.",
+    "scope": "The table fwrelease (device firmware/) checks the booted slot's firmware partitions against, to report the installed Fairphone release in Settings. The vendor step writes it from config/fp6-firmware-inventory.json into vendor/etc/diamaneos/firmware-releases.txt; every inventory firmware image not listed here is checked and must be an A/B, non-sparse image.",
     "release_prefix": "FP6.QREL.",
     "not_checked": {
       "pvmfw.img": {
@@ -235,7 +235,7 @@
     "retry_delay_seconds": 60,
     "low_speed_limit_bytes": 1000,
     "low_speed_time_seconds": 300,
-    "reason": "The prebuilt projects with the largest depth-1 downloads, 2 to 8 GB each. Such a fetch from android.googlesource.com can break off; repo then fetches the project again without depth, which for these does not finish, and an interrupted sync leaves git directories repo later fetches with their whole history. build sync --shallow fetches these projects first, one revision each at depth 1, stops a transfer that stays below the speed limit and tries again a bounded number of times."
+    "reason": "The prebuilt projects with the largest depth-1 downloads, 2 to 8 GB each. When such a fetch from android.googlesource.com breaks off, repo fetches the project again without depth, which for these does not finish, and the interrupted sync leaves git directories repo later fetches with their whole history. build sync --shallow fetches these first, one revision each at depth 1, within these limits."
   },
   "disk_estimate_gib": {
     "sync": 220,
