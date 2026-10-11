@@ -11,7 +11,9 @@ class CliTest(unittest.TestCase):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "--help"],
                              capture_output=True, text=True, timeout=30)
         self.assertEqual(out.returncode, 0)
-        self.assertIn("build all", out.stdout)
+        for text in ("build all", "native publication signature", "fonts check"):
+            with self.subTest(text=text):
+                self.assertIn(text, out.stdout)
 
     def test_signing_help(self):
         out = subprocess.run(
@@ -19,9 +21,6 @@ class CliTest(unittest.TestCase):
             capture_output=True, text=True, cwd=TOOLS, timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("target-files", out.stdout)
-        self.assertIn("native publication signature", subprocess.run(
-            [os.path.join(TOOLS, "bin", "diamaneos"), "--help"],
-            capture_output=True, text=True, cwd=TOOLS, timeout=30).stdout)
 
     def test_unknown_command(self):
         out = subprocess.run([os.path.join(TOOLS, "bin", "diamaneos"), "nope"],

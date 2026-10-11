@@ -39,11 +39,8 @@ def documents():
 
 
 class DocLengthTests(unittest.TestCase):
-    def test_documents_are_found(self):
-        names = {path.name for path in documents()}
-        self.assertLessEqual({'README.md', 'TERMS.md', 'BUILD.md'}, names)
-
     def test_no_block_exceeds_the_word_limit(self):
+        self.assertLessEqual({'README.md', 'TERMS.md', 'BUILD.md'}, {path.name for path in documents()})
         long_blocks = []
         for path in documents():
             for line, text in blocks(path.read_text()):

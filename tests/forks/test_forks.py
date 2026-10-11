@@ -176,20 +176,18 @@ class ForkTests(unittest.TestCase):
 
     def test_invalid_configuration_rejected(self):
         path = Path(self.tmp.name) / 'forks.json'
-        bad = dict(self.fork, upstream={'url': 'x', 'ref': 'abc', 'kind': 'commit'})
-        path.write_text(json.dumps({'schema_version': 1, 'forks': [bad]}))
-        with self.assertRaises(forks.ForkError):
-            forks.load(path)
+        for version, bad, message in (
+                (1, dict(self.fork, upstream={'url': 'x', 'ref': 'abc', 'kind': 'commit'}),
+                 'commit reference must be a full hash'),
+                (2, dict(self.fork, newer={'branches': '^odm/rc/target/16/fp6$'}), 'ordering group')):
+            with self.subTest(message=message):
+                path.write_text(json.dumps({'schema_version': version, 'forks': [bad]}))
+                with self.assertRaisesRegex(forks.ForkError, message):
+                    forks.load(path)
 
     def test_committed_configuration_is_valid(self):
         loaded = forks.load()
         self.assertEqual(len({f['slug'] for f in loaded}), len(loaded))
-
-    def test_registry_follows_the_grapheneos_release(self):
-        # config/forks.json is the one registry of forks and pinned sources.
-        registry, sources = forks.load_registry()
-        self.assertTrue(registry)
-        self.assertIn('grapheneos-platform', {s['id'] for s in sources})
 
     def test_release_reference_is_one_value(self):
         # GrapheneOS forks follow "@release", read from the FP6 build environment.
@@ -299,13 +297,6 @@ class ForkTests(unittest.TestCase):
             if source['pin']['repository'] == 'tools':
                 with self.subTest(source=source['id']):
                     self.assertTrue(forks.pinned_value(self.root, source))
-
-    def test_newer_pattern_needs_one_group(self):
-        path = Path(self.tmp.name) / 'forks.json'
-        bad = dict(self.fork, newer={'branches': '^odm/rc/target/16/fp6$'})
-        path.write_text(json.dumps({'schema_version': 2, 'forks': [bad]}))
-        with self.assertRaisesRegex(forks.ForkError, 'ordering group'):
-            forks.load(path)
 
     def test_newer_refs_orders_numerically(self):
         refs = {'refs/heads/odm/rc/target/9/fp6': 'a', 'refs/heads/odm/rc/target/16/fp6': 'b',

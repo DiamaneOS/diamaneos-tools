@@ -404,10 +404,6 @@ class CommandLine(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn('--weights', result.stderr)
 
-    def test_help_lists_the_command(self):
-        result = subprocess.run([str(ROOT / 'bin/diamaneos'), '--help'], capture_output=True, text=True, timeout=30)
-        self.assertIn('fonts check', result.stdout)
-
 
 if __name__ == '__main__':
     unittest.main()

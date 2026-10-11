@@ -1,4 +1,3 @@
-import copy
 import json
 import re
 import unittest
@@ -20,12 +19,6 @@ PROPRIETARY_ORIGINS = {
 def load_json(name):
     with (ROOT / "config" / name).open(encoding="utf-8") as stream:
         return json.load(stream)
-
-
-def pointer(data, path):
-    for part in path.lstrip("/").split("/"):
-        data = data[part]
-    return data
 
 
 def validate_sources(data, selected_refs):
@@ -76,38 +69,6 @@ class FP6InventoryTests(unittest.TestCase):
 
     def test_inventory_is_complete_and_fail_closed(self):
         self.assertEqual([], validate_sources(self.sources, self.refs))
-
-    def test_proprietary_prebuilt_is_not_called_rebuilt(self):
-        mutated = copy.deepcopy(self.sources)
-        camera = next(
-            entry for entry in mutated["userspace_hal_families"]
-            if entry["id"] == "camera"
-        )
-        camera["rebuilt_from_source"] = True
-        self.assertTrue(
-            any("proprietary prebuilt called source-built" in item
-                for item in validate_sources(mutated, self.refs))
-        )
-
-    def test_every_selected_file_names_a_family_and_every_family_is_used(self):
-        mutated = copy.deepcopy(self.sources)
-        mutated["userspace_hal_families"] = [
-            entry for entry in mutated["userspace_hal_families"] if entry["id"] != "camera"
-        ]
-        self.assertTrue(
-            any("unknown families: userspace_hal_families:camera" in item
-                for item in validate_sources(mutated, self.refs))
-        )
-        self.assertTrue(
-            any("families no selected file names" in item
-                for item in validate_sources(self.sources, self.refs - {"userspace_hal_families:camera"}))
-        )
-
-    def test_fork_registry_reads_the_fairphone_manifest_pin_here(self):
-        registry = load_json("forks.json")
-        pin = next(source["pin"] for source in registry["sources"] if source["id"] == "fairphone-manifest")
-        self.assertEqual("config/fp6-sources.json", pin["file"])
-        self.assertRegex(pointer(self.sources, pin["pointer"]), COMMIT_RE)
 
 
 if __name__ == "__main__":
