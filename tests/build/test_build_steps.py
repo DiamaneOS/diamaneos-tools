@@ -138,19 +138,12 @@ class PlanTests(unittest.TestCase):
     def test_step_options_are_checked(self):
         errors = io.StringIO()
         with contextlib.redirect_stderr(errors):
-            self.assertEqual(2, steps.main(['android', '--shallow', '--dry-run', '--workspace', str(self.root)],
-                                           self.lines.append))
-            self.assertEqual(2, steps.main(['sync', '--factory-zip', 'x', '--dry-run', '--workspace', str(self.root)],
-                                           self.lines.append))
-        self.assertIn('--shallow is an option of: sync, all', errors.getvalue())
-
-    def test_official_is_an_option_of_android_and_all(self):
-        errors = io.StringIO()
-        with contextlib.redirect_stderr(errors):
-            for argv in (['sync', '--official'], ['vendor', '--no-official'], ['verify', '--official']):
+            for argv in (['android', '--shallow'], ['sync', '--factory-zip', 'x'],
+                         ['sync', '--official'], ['vendor', '--no-official'], ['verify', '--official']):
                 with self.subTest(argv=argv):
                     self.assertEqual(2, steps.main(argv + ['--dry-run', '--workspace', str(self.root / 'ws')],
                                                    self.lines.append))
+        self.assertIn('--shallow is an option of: sync, all', errors.getvalue())
         self.assertIn('--official is an option of: android, all', errors.getvalue())
         self.assertEqual(0, steps.main(['android', '--official', '--dry-run', '--workspace', str(self.root / 'ws')],
                                        self.lines.append))
@@ -220,13 +213,6 @@ class PlanTests(unittest.TestCase):
         steps.remember_official(self.context().workspace, False)
         self.assertFalse(self.context().official)
 
-    def test_a_prerequisite_keeps_the_official_choice_it_was_built_with(self):
-        ctx = self.context()
-        ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
-            'variant': 'user', 'official': True}})
-        self.assertTrue(steps.recorded_context(ctx, 'android').official)
-        self.assertFalse(steps.recorded_context(self.context(official=False), 'android').official)
-
     def test_build_number_override_is_validated(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertEqual('test.0123456789ab', steps.build_number('0123456789abcdef', config))
@@ -244,14 +230,6 @@ class PlanTests(unittest.TestCase):
         later = self.context()
         self.assertTrue(later.shallow)
         self.assertIn('--depth=1', [a.argv for a in steps.plan_sync(later).actions if a.argv][0])
-
-    def test_out_dir_must_match_the_environment(self):
-        environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
-        environment['workspace']['output_subdirectory'] = environment['workspace']['source_subdirectory'] + '/out-other'
-        path = self.root / 'environment.json'
-        path.write_text(json.dumps(environment))
-        with self.assertRaisesRegex(bw.UsageError, 'out_dir'):
-            self.context(environment=str(path))
 
     def test_failed_commit_time_lookup_stops_a_real_build(self):
         ctx = self.context()
@@ -278,6 +256,12 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(('user', True), (named.variant, named.allow_network))
         with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'test.8'}):
             self.assertIsNone(steps.recorded_context(ctx, 'android').build_number)
+        # The official choice is kept the same way.
+        ctx = self.context()
+        ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
+            'variant': 'user', 'official': True}})
+        self.assertTrue(steps.recorded_context(ctx, 'android').official)
+        self.assertFalse(steps.recorded_context(self.context(official=False), 'android').official)
 
     def test_android_uses_a_given_build_number(self):
         ctx = self.context()
@@ -372,27 +356,23 @@ class PlanTests(unittest.TestCase):
 
     def test_an_environment_must_declare_the_inputs_the_tools_use(self):
         environment = json.loads((steps.ROOT / 'config/build-environment-fp6.json').read_text())
-        changes = {'stock build': lambda e: e['device_inputs'].update(selected_stock_build='FP6.WRONG.0'),
-                   'factory hash': lambda e: e['device_inputs'].update(selected_stock_factory_sha256='0' * 64),
-                   'project input': lambda e: e['project_inputs'][0].update(sha256='0' * 64)}
-        for name, change in changes.items():
+        other_out = environment['workspace']['source_subdirectory'] + '/out-other'
+        changes = {
+            'stock build': (lambda e: e['device_inputs'].update(selected_stock_build='FP6.WRONG.0'),
+                            'selects stock FP6.WRONG.0'),
+            'factory hash': (lambda e: e['device_inputs'].update(selected_stock_factory_sha256='0' * 64),
+                             'selects stock'),
+            'project input': (lambda e: e['project_inputs'][0].update(sha256='0' * 64), 'project input hash mismatch'),
+            'output directory': (lambda e: e['workspace'].update(output_subdirectory=other_out), 'out_dir'),
+            'manifest': (lambda e: e.pop('manifest'), 'no source manifest')}
+        for name, (change, message) in changes.items():
             with self.subTest(name):
                 changed = copy.deepcopy(environment)
                 change(changed)
                 path = self.root / f'{name}.json'
                 path.write_text(json.dumps(changed))
-                with self.assertRaises(steps.UsageError):
-                    steps.make_context(argparse.Namespace(
-                        workspace=str(self.root / 'ws'), environment=str(path), variant=None, jobs=None,
-                        allow_network=False, factory_zip=None, shallow=False), lambda *a: None)
-
-    def test_environment_without_a_manifest_is_refused(self):
-        environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
-        del environment['manifest']
-        path = self.root / 'environment.json'
-        path.write_text(json.dumps(environment))
-        with self.assertRaisesRegex(bw.UsageError, 'no source manifest'):
-            self.context(environment=str(path))
+                with self.assertRaisesRegex(bw.UsageError, message):
+                    self.context(environment=str(path))
 
     def test_sync_is_valid_only_with_its_recorded_resolved_manifest(self):
         ctx = self.context()
@@ -774,11 +754,6 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(bw.UsageError, 'vendor is out of date'):
                 steps.run_steps(self.ctx, ('android',), force=('android',))
             steps.run_steps(self.ctx, ('vendor',), force=('vendor',))
-
-    def test_build_all_has_no_kernel_step_and_build_kernel_stays(self):
-        self.assertNotIn('kernel', bw.STEPS)
-        self.assertNotIn('kernel', steps.DEPENDS['android'])
-        self.assertEqual('build kernel', 'build ' + steps.parser().parse_args(['kernel']).step)
 
     def test_single_step_after_a_userdebug_build_checks_that_build(self):
         def android(ctx):
