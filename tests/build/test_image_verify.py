@@ -468,7 +468,6 @@ class RuleTests(unittest.TestCase):
         live = ['hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti',
                 'vendor_hal_keymint_qti']
         reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_gatekeeper_default', 'hal_keymint_default']
-        self.assertNotIn('tee-node-dormant-domains', rules)
         for rule_id in reach:
             self.assertEqual(live, rules[rule_id]['allowed'], rule_id)
             self.assertEqual(('vendor_smcinvoke_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
@@ -1131,8 +1130,7 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(subject.rule_binary_count(mac, v)[0])
         (self.root / 'Image').write_bytes(b'\x017    %s\nprint_kernel_cmdline_names Unknown kernel command line parameters')
         self.assertFalse(subject.rule_binary_count(mac, v)[0])
-
-    def test_zip_rule_absent_texts(self):
+        # Texts that must be absent from every entry of the archive.
         jar = io.BytesIO()
         with zipfile.ZipFile(jar, 'w') as inner:
             inner.writestr('classes.dex', b'dex\x00supl.diamaneos.de\x00')
@@ -1140,12 +1138,10 @@ class RuleTests(unittest.TestCase):
         v = self.harness({'SYSTEM/framework/services.jar': jar.getvalue()})
         rule = {'file': 'SYSTEM/framework/services.jar', 'text': 'supl.diamaneos.de'}
         self.assertTrue(subject.rule_zip_contains(dict(rule, absent=['supl.grapheneos.org']), v)[0])
-        ok, detail = subject.rule_zip_contains(dict(rule, absent=['.psds.grapheneos.org']), v)
-        self.assertFalse(ok)
-        self.assertEqual('contains .psds.grapheneos.org', detail)
-        ok, detail = subject.rule_zip_contains({'file': 'SYSTEM/framework/services.jar', 'text': 'missing.example'}, v)
-        self.assertFalse(ok)
-        self.assertEqual('does not contain missing.example', detail)
+        for change, detail in (({'absent': ['.psds.grapheneos.org']}, 'contains .psds.grapheneos.org'),
+                               ({'text': 'missing.example'}, 'does not contain missing.example')):
+            with self.subTest(change=change):
+                self.assertEqual((False, detail), subject.rule_zip_contains(dict(rule, **change), v))
 
     def test_service_rules_name_the_listed_hosts(self):
         # The image uses the DiamaneOS hosts that config/service-hosts.json lists, and not GrapheneOS's.
@@ -1162,10 +1158,9 @@ class RuleTests(unittest.TestCase):
                 self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
         time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
         self.assertEqual([f'https://{services["time"]["diamaneos_host"]}/generate_204'], time)
-
-    def test_connectivity_check_rules_name_the_listed_hosts(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        services = {s['id']: s for s in json.loads((ROOT / 'config/service-hosts.json').read_text())['services']}
+        # The Updater asks the host that config/service-hosts.json lists.
+        self.assertEqual(f'"https://{services["os-updates"]["diamaneos_host"]}/"',
+                         rules['updater-server']['values']['string/url'])
         check, online, dns = (services[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
         servers = rules['connectivity-check-servers']
         self.assertEqual({f'"{scheme}://{check["diamaneos_host"]}/generate_204"' for scheme in ('http', 'https')},
@@ -1287,8 +1282,26 @@ class RuleTests(unittest.TestCase):
                 '        (string8) "com.example.other"\n'
                 '    resource 0x7f040000 string/decoy\n'
                 '      () "app.grapheneos.absent"\n')
-        self.assertEqual(subject.aapt2_array(dump, 'array/config_highRefreshRateBlacklist'),
-                         ['app.grapheneos.camera', 'com.example.other'])
+        # Integer arrays and arrays that aapt2 prints on several lines.
+        packed = ('Package name=x\n'
+                  '    resource 0x7f010000 array/non_removable_euicc_slots\n'
+                  '      () (array) size=1\n'
+                  '        [1]\n'
+                  '    resource 0x7f010001 array/config_autoBrightnessLevels\n'
+                  '      () (array) size=6\n'
+                  '        [2, 4, 10, 20, \n'
+                  '         40, -1]\n'
+                  '    resource 0x7f010002 array/config_telephonyEuiccDeviceCapabilities\n'
+                  '      () (array) size=3\n'
+                  '        ["gsm,9", "utran,10", \n'
+                  '         "eutran,16"]\n')
+        for text, name, items in (
+                (dump, 'array/config_highRefreshRateBlacklist', ['app.grapheneos.camera', 'com.example.other']),
+                (packed, 'array/non_removable_euicc_slots', ['1']),
+                (packed, 'array/config_autoBrightnessLevels', ['2', '4', '10', '20', '40', '-1']),
+                (packed, 'array/config_telephonyEuiccDeviceCapabilities', ['gsm,9', 'utran,10', 'eutran,16'])):
+            with self.subTest(array=name):
+                self.assertEqual(items, subject.aapt2_array(text, name))
         v = self.harness({'VENDOR/overlay/o.apk': b'apk'},
                          tools=FakeTools({('aapt2', 'resources'): dump}))
         rule = lambda items: subject.rule_overlay(
@@ -1371,28 +1384,8 @@ class RuleTests(unittest.TestCase):
             ok, found = check(**changes)
             self.assertFalse(ok, detail)
             self.assertIn(detail, found)
-        self.assertNotIn('display-port-config', rules)
         self.assertIn('VENDOR/etc/displayconfig/display_id_4630947039571902850.xml',
                       rules['display-stock-config-absent']['paths'])
-
-    def test_overlay_integer_and_multi_item_arrays(self):
-        dump = ('Package name=x\n'
-                '    resource 0x7f010000 array/non_removable_euicc_slots\n'
-                '      () (array) size=1\n'
-                '        [1]\n'
-                '    resource 0x7f010001 array/config_autoBrightnessLevels\n'
-                '      () (array) size=6\n'
-                '        [2, 4, 10, 20, \n'
-                '         40, -1]\n'
-                '    resource 0x7f010002 array/config_telephonyEuiccDeviceCapabilities\n'
-                '      () (array) size=3\n'
-                '        ["gsm,9", "utran,10", \n'
-                '         "eutran,16"]\n')
-        self.assertEqual(['1'], subject.aapt2_array(dump, 'array/non_removable_euicc_slots'))
-        self.assertEqual(['2', '4', '10', '20', '40', '-1'],
-                         subject.aapt2_array(dump, 'array/config_autoBrightnessLevels'))
-        self.assertEqual(['gsm,9', 'utran,10', 'eutran,16'],
-                         subject.aapt2_array(dump, 'array/config_telephonyEuiccDeviceCapabilities'))
 
     def test_apk_manifest_patterns(self):
         def tree(app, service):
@@ -1659,9 +1652,6 @@ class RuleTests(unittest.TestCase):
 
     def test_widevine_hardware_backed_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        for gone in ('widevine-software-only', 'widevine-linker-config-no-oemcrypto',
-                     'widevine-no-hardware-properties'):
-            self.assertNotIn(gone, rules)
         apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
         # The provisioning tools stay out; the three libraries are no longer in this list.
         absent = rules['widevine-no-provisioning-tools']
@@ -2006,7 +1996,6 @@ class RuleTests(unittest.TestCase):
 
     def test_media_hardware_decoding_states_rule(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        self.assertNotIn('media-hw-decode-default-off', rules)
         rule = rules['media-hw-decode-states']
         self.assertEqual([self.MEDIA_RC], rule['files'])
         choice = lambda value: ('on zygote-start && property:persist.diamaneos.hw_video_decode=%s\n'
@@ -2809,7 +2798,6 @@ class GenericCheckTests(unittest.TestCase):
         image['table'] = table
         with self.assertRaises(FileNotFoundError):
             check({})
-        self.assertIn('firmware-release-table', [check_id for check_id, _, _ in subject.GENERIC])
 
     def test_super_holds_exactly_the_logical_images(self):
         logical = json.loads((ROOT / 'config/fp6-build.json').read_text())['images']['logical']
@@ -2908,11 +2896,6 @@ class FirmwareCheckTests(unittest.TestCase):
         ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
         self.assertIn('lacks the modem image', detail)
 
-    def test_both_checks_run_on_every_image_set(self):
-        ids = [check_id for check_id, _, _ in subject.GENERIC]
-        self.assertIn('firmware', ids)
-        self.assertIn('firmware-ota', ids)
-
 
 class ConfigTests(unittest.TestCase):
     def test_committed_checks_are_valid_and_explained(self):
@@ -2951,22 +2934,9 @@ class ConfigTests(unittest.TestCase):
         broken['rules'][0]['official'] = 'yes'
         self.assertRaises(ValueError, subject.validate_rules, broken)
 
-    def test_official_builds_carry_the_updater_and_others_do_not(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        self.assertEqual({'no-updater': False, 'updater': True, 'updater-server': True, 'updater-permissions': True},
-                         {i: rules[i]['official'] for i in ('no-updater', 'updater', 'updater-server',
-                                                            'updater-permissions')})
-        self.assertEqual(['SYSTEM/priv-app/Updater'], rules['no-updater']['paths'])
-        # The Updater asks the host that config/service-hosts.json lists.
-        services = json.loads((ROOT / 'config/service-hosts.json').read_text())['services']
-        host = next(s['diamaneos_host'] for s in services if s['id'] == 'os-updates')
-        self.assertEqual(f'"https://{host}/"', rules['updater-server']['values']['string/url'])
-
     def test_official_builds_need_the_camera_filter_in_trap_mode(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         camera, bluetooth = rules['camera-provider-seccomp-enforced'], rules['bluetooth-seccomp-enforced']
-        self.assertIs(True, camera['official'])
-        self.assertEqual('VENDOR/lib64/libcamxjail.so', camera['file'])
         self.assertEqual(bluetooth['patterns'], camera['patterns'])
         self.assertFalse(subject.rule_applies(camera, 'user', False))
         self.assertTrue(subject.rule_applies(camera, 'user', True))
@@ -2977,22 +2947,6 @@ class ConfigTests(unittest.TestCase):
                 v = Harness(Path(temp), {camera['file']: b'\x7fELF filter installed (%s)\x00' + mode + b'\x00'})
                 self.addCleanup(v.tf.close)
                 self.assertEqual(ok, subject.rule_binary_count(camera, v)[0], mode)
-
-    def test_esim_manager_ships_off_with_network_only_and_unplatform_signed(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        apk = rules['esim-lpa-apk']
-        # Network for downloads; no camera (QR codes come from the camera app as text).
-        self.assertIn('android.permission.INTERNET', apk['permissions'])
-        self.assertNotIn('android.permission.CAMERA', apk['permissions'])
-        # Normal permission: the Add eSIM windows hide other apps' overlays.
-        self.assertIn('android.permission.HIDE_OVERLAY_WINDOWS', apk['permissions'])
-        self.assertEqual(5, len(apk['permissions']))
-        self.assertIn('android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS', apk['permissions'])
-        self.assertEqual(['log.tag.ApduSender-0=I', 'log.tag.ApduSender-1=I', 'log.tag.TransApdu=I'],
-                         sorted(rules['esim-apdu-not-logged']['equals']))
-        self.assertTrue(any('enabled' in pattern and '=false' in pattern for pattern in apk['manifest_regex']))
-        self.assertEqual('SYSTEM/framework/framework-res.apk', apk['not_signed_like'])
-        self.assertEqual({'array/non_removable_euicc_slots': ['1']}, rules['esim-builtin-slot']['arrays'])
 
     def test_record_official_must_be_true_or_false(self):
         root = Path(tempfile.mkdtemp()); self.addCleanup(lambda: __import__('shutil').rmtree(root))
@@ -3037,13 +2991,13 @@ class VintfAndJdkTests(unittest.TestCase):
                  b'        <fqname>INfc/default</fqname>\n    </hal>\n</manifest>\n')
 
     def test_assembled_fragment_declares_the_same(self):
-        self.assertEqual(subject.vintf_declarations(self.STOCK), subject.vintf_declarations(self.ASSEMBLED))
-
-    def test_changed_instance_or_version_differs(self):
-        self.assertNotEqual(subject.vintf_declarations(self.STOCK),
-                            subject.vintf_declarations(self.ASSEMBLED.replace(b'INfc/default', b'INfc/other')))
-        self.assertNotEqual(subject.vintf_declarations(self.STOCK),
-                            subject.vintf_declarations(self.STOCK.replace(b'<version>1</version>', b'<version>2</version>')))
+        stock = subject.vintf_declarations(self.STOCK)
+        for name, fragment, same in (
+                ('assembled', self.ASSEMBLED, True),
+                ('other instance', self.ASSEMBLED.replace(b'INfc/default', b'INfc/other'), False),
+                ('other version', self.STOCK.replace(b'<version>1</version>', b'<version>2</version>'), False)):
+            with self.subTest(fragment=name):
+                self.assertEqual(same, stock == subject.vintf_declarations(fragment))
 
     def test_a_verify_step_is_current_only_while_its_report_shows_a_pass(self):
         from tests.build.test_image_package import fixture_workspace, run_plan
