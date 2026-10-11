@@ -30,8 +30,9 @@ TARGET_PRODUCT = 'FP6'
 KERNEL_PREBUILTS = 'device/fairphone/FP6-kernel'
 # Generated trees and where the device configuration expects them.
 DESTINATIONS = {'vendor': 'vendor/fairphone/FP6'}
-# Trees earlier tools generated where the manifest now has a project. A sync
-# moves such a tree aside (it has no .git) so repo can check out the project.
+# Manifest project paths where a workspace may hold a tree older tools
+# generated. A sync moves such a tree aside (it has no .git) so repo can check
+# out the project.
 LEGACY_DESTINATIONS = {'kernel': KERNEL_PREBUILTS}
 # The recipes the vendor tree records about itself in its provenance.
 # Installation and the preflight require them to equal the recipes in this

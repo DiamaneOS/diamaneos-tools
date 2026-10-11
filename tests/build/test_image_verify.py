@@ -1653,7 +1653,7 @@ class RuleTests(unittest.TestCase):
     def test_widevine_hardware_backed_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
-        # The provisioning tools stay out; the three libraries are no longer in this list.
+        # The provisioning tools stay out; this list does not name the three libraries.
         absent = rules['widevine-no-provisioning-tools']
         self.assertEqual(['VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox', 'VENDOR/bin/hdcp1prov',
                           'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'], absent['paths'])

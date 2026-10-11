@@ -237,7 +237,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_linux_msm_daemons_replace_the_stock_ones(self):
         # The device builds tqftpserv and pd-mapper from linux-msm; the stock
-        # tftp_server, pd-mapper, tftp_server's libqsocket and its rc are gone.
+        # tftp_server, pd-mapper, tftp_server's libqsocket and its rc are not selected.
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
         bp = rendered['Android.bp'].decode()
@@ -322,7 +322,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('audioadsprpcd', vendor_product.ACTIVATION)
         self.assertNotIn('audio-adsprpc', make)
         # The closed libraries the source build links keep their library name,
-        # so the source modules can link them; they are roots now.
+        # so the source modules can link them; they are roots.
         for stem in sorted(vendor_product.SOURCE_LINKED_STOCK):
             path = 'vendor/lib64/' + stem + '.so'
             self.assertEqual(stem, vendor_product.module(path))

@@ -349,7 +349,7 @@ def plan_sync(ctx: Context) -> StepPlan:
             ctx.pinned_manifest.unlink(missing_ok=True)
 
     def clear():
-        # Before repo sync: a generated tree where the manifest now has a
+        # Before repo sync: a generated tree at the path of a manifest
         # project (the kernel prebuilts) would stop the checkout.
         moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256) + retire_overlay(ws.src)
         if moved:
@@ -666,7 +666,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
 def source_record(sync: dict) -> dict:
     record = {key: sync['outputs'].get(key) for key in SOURCE_KEYS}
     # Local changes are a source input only when there are any, so a clean
-    # tree keeps the source identity it had before they were allowed.
+    # tree has the same source identity whether or not they are allowed.
     if sync['outputs'].get('modified_sha256'):
         record['modified_sha256'] = sync['outputs']['modified_sha256']
     return record
