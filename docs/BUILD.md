@@ -826,8 +826,14 @@ from `notice_kind` in `config/fp6-build.json`.
   - It checks the two service definitions in the device init file and that one starts per boot:
     the stock groups with the library, or `media` and `mediadrm` with the built-in software
     protection when the user chose no hardware decoding.
-  - It checks that the Widevine service is one of the five domains allowed on the TEE node, and
-    that the image holds none of the provisioning tools.
+  - The second definition must name its own SELinux domain, `hal_drm_widevine_sw`, and the first
+    none. The compiled policy must give that domain its executable and its data and nothing else
+    by name, and no automatic transition into it.
+  - Lists of the domains allowed on the TEE node, the QSEECom heap, the crypto engine node,
+    qseecomd's socket, the memory-buffer node and the bitstream node cover rules on attributes.
+    None names `hal_drm_widevine_sw`.
+  - It checks that the Widevine domain with the library is one of the five allowed on the TEE
+    node, and that the image holds none of the provisioning tools.
 
 - **Vendor patch level.**
   - `VENDOR_SECURITY_PATCH` in the generated `BoardConfigVendor.mk`, which the build reports as

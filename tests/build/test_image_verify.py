@@ -1777,6 +1777,7 @@ class RuleTests(unittest.TestCase):
         software = ('# Widevine with its built-in software protection.\n'
                     'service vendor.drm-widevine-hal-sw ' + binary + '\n'
                     '    class hal\n    disabled\n    user media\n    group media mediadrm\n'
+                    '    seclabel u:r:hal_drm_widevine_sw:s0\n'
                     '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
         start = lambda state, service: ('on boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
                                         '    start %s\n' % (state, service))
@@ -1788,6 +1789,9 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(check('\n'.join([software, hardware, clearkey, starts])))
         group, sw_group = '    group media mediadrm drmrpc system\n', '    group media mediadrm\n'
         env, interface = '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n', '    interface aidl android.hardware.drm.IDrmFactory/widevine\n'
+        label, other_label = '    seclabel u:r:hal_drm_widevine_sw:s0\n', '    seclabel u:r:hal_drm_widevine:s0\n'
+        # The order of the lines inside a definition is free.
+        self.assertTrue(check(good.replace(label + env, env + label)))
         for case, text in [
                 # The definition with the hardware-backed library.
                 ('the software-only groups', good.replace(group, sw_group)),
@@ -1801,6 +1805,9 @@ class RuleTests(unittest.TestCase):
                 ('started with its class', '\n'.join([clearkey, hardware.replace('    disabled\n', ''), software, starts])),
                 ('forced to software protection', good.replace(group, group + env)),
                 ('names the interface', good.replace(group, interface + group)),
+                # It enters its domain through the executable's type: no domain line.
+                ('in the domain of the software definition', good.replace(group, group + label)),
+                ('names its own domain', good.replace(group, group + other_label)),
                 ('no definition with the library', '\n'.join([clearkey, software, starts])),
                 # The definition with the built-in software protection.
                 ('software definition with the TEE node group', good.replace(sw_group, '    group media mediadrm drmrpc\n')),
@@ -1812,6 +1819,14 @@ class RuleTests(unittest.TestCase):
                 ('software definition started with its class',
                  '\n'.join([clearkey, hardware, software.replace('    disabled\n', ''), starts])),
                 ('software definition names the interface', good.replace(sw_group, interface + sw_group)),
+                # Only its domain line takes it out of the domain that may use the TEE.
+                ('software definition without its domain', good.replace(label, '')),
+                ('software definition in the domain of the library', good.replace(label, other_label)),
+                ('software definition in a domain of a longer name',
+                 good.replace(label, '    seclabel u:r:hal_drm_widevine_sw2:s0\n')),
+                ('software definition with a second domain line', good.replace(label, label + other_label)),
+                ('its domain only on another service',
+                 good.replace(label, '') + '\nservice other /vendor/bin/other\n' + label),
                 ('software definition with another binary', good.replace(
                     'service vendor.drm-widevine-hal-sw ' + binary, 'service vendor.drm-widevine-hal-sw /vendor/bin/hw/drm')),
                 ('no software definition', '\n'.join([clearkey, hardware, starts])),
@@ -1844,6 +1859,148 @@ class RuleTests(unittest.TestCase):
                 self.assertNotEqual(good, text)
                 self.assertFalse(check(text))
         self.assertFalse(subject.rule_text(rule, self.harness({'VENDOR/etc/init/other.rc': good.encode()}))[0])
+
+    def test_widevine_software_domain_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule, sw, vendor = rules['widevine-software-domain'], 'hal_drm_widevine_sw', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        self.assertEqual([vendor], rule['files'])
+        node = '(chr_file (ioctl read getattr lock map open watch watch_reads))'
+        rw_node = '(chr_file (ioctl read write open))'
+        entry = '(file (read getattr map execute open entrypoint))'
+        data, tee_node = 'vendor_mediadrm_vendor_data_file', 'vendor_smcinvoke_device_202604'
+        members = lambda *names: ''.join(f'(typeattributeset {attribute} ({" ".join(names)}))\n' for attribute in (
+            'domain', 'halserverdomain', 'hal_drm', 'hal_drm_server'))
+        # The compiled form: platform types carry the vendor API level, vendor types do not.
+        library = ('(type hal_drm_widevine)\n(type hal_drm_widevine_exec)\n'
+                   '(allow init_202604 hal_drm_widevine (process (transition)))\n'
+                   f'(allow hal_drm_widevine hal_drm_widevine_exec {entry})\n'
+                   '(typetransition init_202604 hal_drm_widevine_exec process hal_drm_widevine)\n'
+                   f'(allow hal_drm_widevine {data} (dir (read write open add_name remove_name search)))\n'
+                   f'(allow hal_drm_widevine {data} (file (read write create unlink open)))\n'
+                   f'(allow hal_drm_widevine vendor_dmabuf_qseecom_heap_device {node})\n'
+                   '(allow hal_drm_widevine vendor_notify-topology_socket (sock_file (write)))\n'
+                   '(allow hal_drm_widevine tee_202604 (unix_stream_socket (connectto)))\n'
+                   f'(allow hal_drm_widevine vendor_qce_device {rw_node})\n'
+                   '(allow hal_drm_widevine mediacodec (fd (use)))\n'
+                   f'(allow hal_drm_widevine vendor_membuf_dev {node})\n'
+                   f'(allow hal_drm_widevine vendor_vm_cp_bitstream_device {node})\n'
+                   f'(allow hal_drm_widevine {tee_node} {rw_node})\n'
+                   f'(allowx hal_drm_widevine {tee_node} (ioctl chr_file (0x9801 0x9803)))\n')
+        start = f'(allow init_202604 {sw} (process (transition)))\n'
+        entrypoint = f'(allow {sw} hal_drm_widevine_exec {entry})\n'
+        data_dir = f'(allow {sw} {data} (dir (read write open add_name remove_name search)))\n'
+        data_file = f'(allow {sw} {data} (file (read write create unlink open)))\n'
+        software = (f'(type {sw})\n' + start + entrypoint + f'(dontaudit init_202604 {sw} (process (noatsecure)))\n'
+                    + f'(allow init_202604 {sw} (process (siginh rlimitinh)))\n' + data_dir + data_file)
+        attributes = members('hal_drm_clearkey_aidl', 'hal_drm_widevine', sw)
+        good = attributes + library + software
+        check = lambda text: subject.rule_text(rule, self.harness({vendor: text.encode()}))[0]
+        self.assertTrue(check(good))
+        self.assertTrue(check(good.replace(f'init_202604 {sw} ', f'init {sw} ')))
+        for names in ((sw, 'hal_drm_widevine'), ('hal_drm_widevine', sw, 'hal_drm_default'), (sw,)):
+            self.assertTrue(check(members(*names) + library + software), names)
+        # The rules that name the domain: each grant of the hardware-backed path fails.
+        named = {'the TEE node': f'(allow {sw} {tee_node} {rw_node})\n',
+                 'the QSEECom heap': f'(allow {sw} vendor_dmabuf_qseecom_heap_device {node})\n',
+                 'the crypto engine node': f'(allow {sw} vendor_qce_device {rw_node})\n',
+                 "qseecomd's socket": f'(allow {sw} vendor_notify-topology_socket (sock_file (write)))\n',
+                 'the memory-buffer driver': f'(allow {sw} vendor_membuf_dev {node})\n',
+                 'the bitstream node': f'(allow {sw} vendor_vm_cp_bitstream_device {node})\n'}
+        for case, text in [
+                ('no such domain', good.replace(f'(type {sw})\n', '')),
+                ('not a DRM HAL', members('hal_drm_widevine', sw).replace(
+                    f'(typeattributeset hal_drm_server (hal_drm_widevine {sw}))', '(typeattributeset hal_drm_server (hal_drm_widevine))')
+                 + library + software),
+                ('init may not start it', good.replace(start, '')),
+                ('only another domain may start it', good.replace(start, start.replace('init_202604', 'vendor_init_202604'))),
+                ('no entry point', good.replace(entrypoint, '')),
+                ('the executable is not an entry point', good.replace(entrypoint, entrypoint.replace(' entrypoint', ''))),
+                ('no data directory', good.replace(data_dir, '')),
+                ('no data files', good.replace(data_file, '')),
+                # init enters it by the seclabel line only.
+                ('an automatic transition', good + f'(typetransition init_202604 hal_drm_widevine_exec process {sw})\n'),
+                ('an automatic transition from another file', good + f'(typetransition init_202604 vendor_file process {sw})\n'),
+                *((case, good + line) for case, line in named.items()),
+                ("qseecomd's listener", good + f'(allow {sw} tee_202604 (unix_stream_socket (connectto)))\n'),
+                ("the codec service's descriptors", good + f'(allow {sw} mediacodec (fd (use)))\n'),
+                ('ioctl commands', good + f'(allowx {sw} {tee_node} (ioctl chr_file (0x9801 0x9803)))\n'),
+                ('a socket in its data', good + f'(allow {sw} {data} (sock_file (write)))\n'),
+                ('another class on its executable', good + f'(allow {sw} hal_drm_widevine_exec (chr_file (read open)))\n'),
+                # Its attributes are those of a DRM HAL: a rule on another attribute would reach it unseen.
+                ('one more attribute', good + f'(typeattributeset hal_gatekeeper_server (vendor_hal_gatekeeper_qti {sw}))\n'),
+                ('an attribute of its own', good + f'(typeattributeset tee_client ({sw}))\n')]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+        self.assertFalse(subject.rule_text(rule, self.harness({'ODM/etc/selinux/odm_sepolicy.cil': good.encode()}))[0])
+
+        # Rules on attributes do not name the domain: the lists of each node judge those, and none names it.
+        lists = {
+            'qseecom-heap-users': ('vendor_dmabuf_qseecom_heap_device', 'chr_file', 'open', [
+                'hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']),
+            'crypto-engine-node-users': ('vendor_qce_device', 'chr_file', 'open', ['hal_drm_widevine']),
+            'membuf-node-users': ('vendor_membuf_dev', 'chr_file', 'open', [
+                'hal_drm_widevine', 'hal_graphics_allocator_default', 'hal_graphics_composer_default', 'mediacodec']),
+            'qseecomd-socket-users': ('vendor_notify-topology_socket', 'sock_file', 'write', ['hal_drm_widevine'])}
+        for rule_id, expected in lists.items():
+            users = rules[rule_id]
+            self.assertEqual(expected, (users['target'], users['cls'], users['perm'], users['allowed']), rule_id)
+        reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
+        every = (*lists, 'media-secure-buffer-node-users', *reach)
+        for rule_id in every:
+            self.assertEqual('sepolicy_sources', rules[rule_id]['type'], rule_id)
+            self.assertNotIn(sw, rules[rule_id]['allowed'], rule_id)
+        self.assertNotIn(sw, rules['tee-node-ioctl-limit']['sources'])
+        nodes = ['vendor_dmabuf_qseecom_heap_device', 'vendor_qce_device', 'vendor_membuf_dev', 'vendor_vm_cp_bitstream_device']
+        peers = ['hal_fingerprint_default', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti', 'hal_graphics_allocator_default',
+                 'hal_graphics_composer_default', 'mediacodec', 'hal_drm_clearkey_aidl']
+        tee_users = ('tee_202604', 'vendor_hal_keymint_qti', 'vendor_hal_gatekeeper_qti', 'hal_fingerprint_default')
+        policy = (good + ''.join(f'(type {name})\n' for name in nodes + peers + ['vendor_notify-topology_socket', data])
+                  + f'(typeattributeset dev_type ({" ".join(nodes)} vendor_smcinvoke_device))\n'
+                  + ''.join(f'(allow {domain} vendor_dmabuf_qseecom_heap_device {node})\n' for domain in tee_users)
+                  + ''.join(f'(allow {domain} {tee_node} {rw_node})\n' for domain in tee_users)
+                  + ''.join(f'(allow {domain} vendor_membuf_dev {node})\n' for domain in (
+                      'hal_graphics_allocator_default', 'hal_graphics_composer_default', 'mediacodec'))
+                  + f'(allow mediacodec vendor_vm_cp_bitstream_device {node})\n')
+        others = {'SYSTEM/etc/selinux/plat_sepolicy.cil': (
+                      b'(type init)\n(type ueventd)\n(type tee)\n(type vendor_smcinvoke_device)\n'
+                      b'(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
+                      b'(allow ueventd dev_type (chr_file (create setattr unlink)))\n'),
+                  'SYSTEM/etc/selinux/mapping/202604.cil': (
+                      b'(typeattributeset init_202604 (init))\n(typeattributeset tee_202604 (tee))\n'
+                      b'(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n'),
+                  'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+                  'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        judge = lambda rule_id, text: subject.rule_sepolicy_sources(
+            rules[rule_id], self.harness({**others, vendor: text.encode()}))[0]
+        self.assertTrue(check(policy))
+        for rule_id in every:
+            self.assertTrue(judge(rule_id, policy), rule_id)
+        heap, engine, membuf, socket, bitstream = (
+            'qseecom-heap-users', 'crypto-engine-node-users', 'membuf-node-users', 'qseecomd-socket-users',
+            'media-secure-buffer-node-users')
+        for failing, line in [
+                (reach, named['the TEE node']), ((heap,), named['the QSEECom heap']),
+                ((engine,), named['the crypto engine node']), ((socket,), named["qseecomd's socket"]),
+                ((membuf,), named['the memory-buffer driver']), ((bitstream,), named['the bitstream node']),
+                (reach, f'(allow hal_drm_server {tee_node} {rw_node})\n'),
+                ((heap,), f'(allow hal_drm_server vendor_dmabuf_qseecom_heap_device {node})\n'),
+                ((engine,), f'(allow hal_drm vendor_qce_device {rw_node})\n'),
+                ((socket,), '(allow hal_drm_server vendor_notify-topology_socket (sock_file (write)))\n'),
+                ((membuf,), f'(allow halserverdomain vendor_membuf_dev {node})\n'),
+                ((bitstream,), f'(allow domain vendor_vm_cp_bitstream_device {node})\n'),
+                ((heap, engine, membuf, bitstream, 'tee-node-open', 'tee-node-read'),
+                 '(allow hal_drm_server dev_type (chr_file (read open)))\n'),
+                # Its own data and the rules of other classes change nothing.
+                ((), f'(allow hal_drm_server {data} (file (read open)))\n'),
+                ((), '(allow domain dev_type (lnk_file (read open)))\n')]:
+            for rule_id in every:
+                with self.subTest(rule=rule_id, line=line):
+                    self.assertEqual(rule_id not in failing, judge(rule_id, policy + line))
+            with self.subTest(line=line):
+                self.assertEqual(line not in named.values(), check(policy + line))
+        # Without the type a list cannot be judged.
+        self.assertFalse(judge(engine, policy.replace('(type vendor_qce_device)\n', '')))
 
     MEDIA_RC = 'VENDOR/etc/init/init.fp6.media.rc'
 

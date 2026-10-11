@@ -5735,7 +5735,7 @@
     },
     {
       "id": "widevine-service-groups",
-      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only. Neither names an interface, so init starts neither on a client's request. The ClearKey service, which never uses the TEE, stays without drmrpc.",
+      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only and, by its seclabel line, in the domain hal_drm_widevine_sw (widevine-software-domain). The definition with the library has no seclabel line: init enters hal_drm_widevine through the executable's type. Neither names an interface, so init starts neither on a client's request. The ClearKey service, which never uses the TEE, stays without drmrpc.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.drm.rc"
@@ -5745,6 +5745,7 @@
         "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
         "^service vendor\\.drm-widevine-hal-sw /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm\\n",
         "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv FORCE_LEVEL3_OEMCRYPTO yes\\n",
+        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel u:r:hal_drm_widevine_sw:s0\\n",
         "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
         "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    start vendor\\.drm-widevine-hal-sw\\n(?:\\n|\\Z)",
         "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    start vendor\\.drm-widevine-hal\\n(?:\\n|\\Z)",
@@ -5756,10 +5757,129 @@
         "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm drmrpc system$)",
         "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm$)",
         "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv ",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel ",
+        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel (?!u:r:hal_drm_widevine_sw:s0$)",
         "^service vendor\\.drm-widevine-hal[^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+interface ",
         "(?s)(^service [^\\n]*android\\.hardware\\.drm-service\\.widevine\\n.*){3}",
         "(?s)(^[ \\t]+start vendor\\.drm-widevine-hal[^\\n]*\\n.*){4}",
         "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!mediadrm$)"
+      ]
+    },
+    {
+      "id": "widevine-software-domain",
+      "why": "With its built-in software protection the Widevine service runs in hal_drm_widevine_sw, a DRM HAL domain of its own. The rules that name it cover its executable and its data in /data/vendor/mediadrm and nothing else; it has no rule for ioctl commands and is in no attribute but the four of a DRM HAL (domain, halserverdomain, hal_drm, hal_drm_server). So no rule of its own reaches the TEE node, the QSEECom heap, the crypto engine node, qseecomd's socket, the memory-buffer driver, the bitstream node or the codec service's descriptors. init may start it, and no automatic transition leads to it: only the seclabel line does (widevine-service-groups). Rules on attributes are judged per node, by lists that do not name this domain: tee-node-open, -read, -write and -ioctl, media-secure-buffer-node-users, qseecom-heap-users, crypto-engine-node-users, membuf-node-users and qseecomd-socket-users. The codec service's descriptors, which many domains use, have no such list.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_sepolicy.cil"
+      ],
+      "regex": [
+        "^\\(type hal_drm_widevine_sw\\)$",
+        "^\\(typeattributeset hal_drm_server \\((?:[^()\\n]* )?hal_drm_widevine_sw(?: [^()\\n]*)?\\)\\)$",
+        "^\\(allow init(_[0-9_]+)? hal_drm_widevine_sw \\(process \\(transition\\)\\)\\)$",
+        "^\\(allow hal_drm_widevine_sw hal_drm_widevine_exec \\(file \\((?:[^()\\n]* )?entrypoint(?: [^()\\n]*)?\\)\\)\\)$",
+        "^\\(allow hal_drm_widevine_sw vendor_mediadrm_vendor_data_file \\(dir \\(",
+        "^\\(allow hal_drm_widevine_sw vendor_mediadrm_vendor_data_file \\(file \\("
+      ],
+      "absent_regex": [
+        "^\\(allow hal_drm_widevine_sw (?!hal_drm_widevine_exec \\(file \\(|vendor_mediadrm_vendor_data_file \\((?:dir|file) \\()",
+        "^\\(allowx hal_drm_widevine_sw ",
+        "^\\(typetransition \\S+ \\S+ process hal_drm_widevine_sw\\)",
+        "^\\(typeattributeset (?!(?:domain|halserverdomain|hal_drm|hal_drm_server) )\\S+ \\((?:[^()\\n]* )?hal_drm_widevine_sw(?: [^()\\n]*)?\\)\\)$"
+      ]
+    },
+    {
+      "id": "qseecom-heap-users",
+      "why": "Only the five domains that talk to trusted apps may open the QSEECom heap, from which the buffers they share with a trusted app come: qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine service with the hardware-backed library. The domain of the service with its built-in software protection, hal_drm_widevine_sw, is not among them.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_dmabuf_qseecom_heap_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_drm_widevine",
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "crypto-engine-node-users",
+      "why": "Only the Widevine service with the hardware-backed library may open the crypto engine node (/dev/qce). The service with its built-in software protection runs in another domain, hal_drm_widevine_sw, which may not.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_qce_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_drm_widevine"
+      ]
+    },
+    {
+      "id": "membuf-node-users",
+      "why": "Only the graphics allocator, the composer, the codec service and the Widevine service with the hardware-backed library may open the memory-buffer driver's node (/dev/membuf), through which a buffer is lent to another memory domain. The domain of the service with its built-in software protection, hal_drm_widevine_sw, is not among them.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_membuf_dev",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_drm_widevine",
+        "hal_graphics_allocator_default",
+        "hal_graphics_composer_default",
+        "mediacodec"
+      ]
+    },
+    {
+      "id": "qseecomd-socket-users",
+      "why": "Only the Widevine service with the hardware-backed library may write to qseecomd's socket (/dev/socket/notify-topology), over which liboemcrypto.so announces itself to the daemon's listeners. The service with its built-in software protection runs in another domain, hal_drm_widevine_sw, which may not.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_notify-topology_socket",
+      "cls": "sock_file",
+      "perm": "write",
+      "allowed": [
+        "hal_drm_widevine"
       ]
     }
   ]
