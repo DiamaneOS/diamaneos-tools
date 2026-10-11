@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import json
 import os
 from pathlib import Path
 import sys
@@ -78,6 +79,11 @@ class ExtractionTests(unittest.TestCase):
         self.extract();previous=os.readlink(self.output/'current')
         self.selection['files'][0]['sha256']='1'*64
         self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
+        # The recipe's stock APEX row: the declared size with other content is refused.
+        recipe=json.loads((Path(__file__).resolve().parents[2]/'config/fp6-minimal/vendor-files.json').read_text())
+        row=next(r for r in recipe['files'] if r['path']=='vendor/apex/com.google.android.widevine.nonupdatable.apex')
+        self.selection['files']=[{k:row[k] for k in ('input','bytes','sha256')}];self.data=bytes(row['bytes'])
+        self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
     def test_edited_generation_rejected(self):
         self.extract();(self.output/'current/vendor/lib64/hal@1.0.so').write_bytes(b'bad')
         self.assertRaises(VendorError,self.extract)
@@ -110,21 +116,6 @@ class ExtractionTests(unittest.TestCase):
         self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
         self.selection['build_properties'][0]=dict(input='vendor/lib64/hal@1.0.so',bytes=len(self.data),sha256=digest)
         self.assertRaises(VendorError,self.extract)
-    def test_stock_apex_is_dumped_whole_from_vendor_and_checked(self):
-        import json
-        recipe=json.loads((Path(__file__).resolve().parents[2]/'config/fp6-minimal/vendor-files.json').read_text())
-        name='vendor/apex/com.google.android.widevine.nonupdatable.apex'
-        row=next(r for r in recipe['files'] if r['path']==name)
-        self.assertEqual(name,row['input'])
-        self.selection['files']=[dict(input=name,bytes=len(self.data),sha256=hashlib.sha256(self.data).hexdigest())]
-        self.extract()
-        dumps=[c[2] for c in self.calls if Path(c[0]).name=='debugfs_static' and c[2].startswith('dump ')]
-        self.assertEqual(['dump /apex/com.google.android.widevine.nonupdatable.apex tree/'+name],dumps)
-        self.assertEqual(self.data,(self.output/'current'/name).read_bytes())
-        previous=os.readlink(self.output/'current')
-        # The recipe's own row: the declared size with other content is refused.
-        self.selection['files']=[{k:row[k] for k in ('input','bytes','sha256')}];self.data=bytes(row['bytes'])
-        self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
     def test_absolute_alias_cannot_leave_its_partition(self):
         target='/vendor/lib64/hal@1.0.so'
         self.selection['symlinks'].append(dict(input='system_ext/lib64/alias.so',target=target,

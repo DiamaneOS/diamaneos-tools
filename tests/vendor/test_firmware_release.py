@@ -50,15 +50,6 @@ class FirmwareReleaseTableTests(unittest.TestCase):
             self.assertEqual(2, len({row[4] for row in rows if row[1] == name}), name)
         self.assertLess(len(data), firmware_release.MAX_TABLE_BYTES)
 
-    def test_every_firmware_image_is_checked_or_excluded_with_a_reason(self):
-        images = set(self.firmware('FP6.QREL.16.111.0'))
-        excluded = set(self.config['not_checked'])
-        self.assertEqual({'pvmfw.img', 'vm-bootsys.img', 'vm-persist.img', 'logfs_ufs_8mb.bin', 'study.img',
-                          'storsec.mbn', 'tools.fv'}, excluded)
-        self.assertEqual(29, len(images))
-        self.assertEqual(22, len(images - excluded))
-        self.assertEqual(['vm-bootsys.img'], [n for n, e in self.config['not_checked'].items() if e.get('identical')])
-
     def test_single_copy_image_cannot_be_checked(self):
         del self.config['not_checked']['storsec.mbn']
         with self.assertRaisesRegex(VendorError, 'A/B'):

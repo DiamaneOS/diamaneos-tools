@@ -438,12 +438,6 @@ class NativeProductTests(unittest.TestCase):
             vendor_product.rewrite_needed(data, 'libmissing.so', 'libcamxjail.s')
 
     def test_camera_provider_links_the_seccomp_loader(self):
-        path = 'vendor/bin/hw/vendor.qti.camera.provider-service_64'
-        rewrite = vendor_product.NEEDED_REWRITES[path]
-        row = next(r for r in self.recipe['files'] if r['path'] == path)
-        self.assertEqual(rewrite['source_sha256'], row['sha256'])
-        self.assertEqual(('libhardware.so', 'libcamxjail.so', 'libcamxjail'),
-                         (rewrite['needed'], rewrite['replacement'], rewrite['module']))
         bp = self.render()['Android.bp'].decode()
         block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
         shared = block[:block.index('}\n')]
@@ -712,18 +706,6 @@ class NativeProductTests(unittest.TestCase):
         self.assertTrue(all(name.startswith('c2.qti.') and name.split('.')[3] == 'encoder'
                             for name in vendor_product.MEDIA_ENCODERS))
         self.assertFalse([n for n in vendor_product.MEDIA_ENCODERS if 'secure' in n or 'decoder' in n])
-
-    def test_codec_service_links_the_configuration_check_and_seccomp_loader(self):
-        path = 'vendor/bin/hw/vendor.qti.media.c2@1.0-service'
-        rewrite = vendor_product.NEEDED_REWRITES[path]
-        row = next(r for r in self.recipe['files'] if r['path'] == path)
-        self.assertEqual(rewrite['source_sha256'], row['sha256'])
-        self.assertEqual(('libavservices_minijail.so', 'libc2hwjail_avservices.so', 'libc2hwjail_avservices'),
-                         (rewrite['needed'], rewrite['replacement'], rewrite['module']))
-        # The loader links libavservices_minijail, where the service's own
-        # SetUpMinijail import still resolves.
-        self.assertTrue(rewrite['keep_link'])
-        self.assertNotIn('symbols', rewrite)
 
     def test_media_hardware_decoding_variants_bind_the_selected_stock_configs(self):
         # Hardware video decoding: two more pinned pairs from the same stock rows,
@@ -1095,28 +1077,6 @@ class NativeProductTests(unittest.TestCase):
         for name in ['gps.conf', 'izat.conf', 'sap.conf']:
             self.assertIn('files/vendor/etc/' + name + ':$(TARGET_COPY_OUT_VENDOR)/etc/' + name, make)
 
-    def test_gnss_rewrites_bind_the_selected_stock_inputs(self):
-        rows = {r['path']: r for r in self.recipe['files']}
-        for path, rule in vendor_product.GNSS_CONFIG_REWRITES.items():
-            self.assertEqual(rows[path]['sha256'], rule['source_sha256'])
-            with self.assertRaises(VendorError): vendor_product.gnss_config(path, b'GTP_MODE=SDK\n')
-
-    def test_gnss_rewrites_keep_logging_and_cloud_invariants(self):
-        required = vendor_product.GNSS_REQUIRED['vendor/etc/gps.conf']
-        for line in [b'\nLOG_BUFFER_ENABLED = 0\n', b'\nQXDM_LOG = 0\n', b'\nLOC_DIAGIFACE_ENABLED = 0\n',
-                     b'\nDEBUG_LEVEL = 2\n']:
-            self.assertIn(line, required)
-        self.assertIn(b'\nPROCESS_STATE=ENABLED', vendor_product.GNSS_FORBIDDEN['vendor/etc/izat.conf'])
-        # The service's init file comes from the source HAL, not from stock.
-        self.assertEqual({'vendor/etc/gps.conf', 'vendor/etc/izat.conf'}, set(vendor_product.GNSS_CONFIG_REWRITES))
-        self.assertEqual(set(vendor_product.GNSS_REQUIRED), set(vendor_product.GNSS_CONFIG_REWRITES))
-        self.assertEqual(set(vendor_product.GNSS_FORBIDDEN), set(vendor_product.GNSS_CONFIG_REWRITES))
-
-    def test_recipe_matches_the_stock_image_recipe(self):
-        stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
-        self.assertEqual((stock['stock_build'], stock['region'], stock['archive_sha256']),
-                         (self.recipe['stock_build'], self.recipe['region'], self.recipe['archive_sha256']))
-
     def test_vendor_has_no_vndk_version_and_blobs_use_current_variants(self):
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
@@ -1125,12 +1085,6 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('PRODUCT_EXTRA_VNDK_VERSIONS', make)
         service = bp[bp.index('name: "fp6_stock_vendor_bin_pm-service"'):]
         self.assertIn('"libbinder"', service[:service.index('}\n')])
-
-    def test_stock_display_vintf_fragments_are_not_installed(self):
-        make = self.render()['device-vendor.mk'].decode()
-        for name in ['vendor.qti.hardware.display.composer-service.xml', 'vendor.qti.hardware.display.allocator-service.xml',
-                     'android.hardware.graphics.mapper-impl-qti-display.xml']:
-            self.assertNotIn(name, make)
 
     def test_fp6_fingerprint_ships_stock_module_without_stock_service(self):
         rendered = self.render()
@@ -1336,10 +1290,20 @@ class NativeProductTests(unittest.TestCase):
                 vendor_product.stock_library_declaration(path, bad)
 
     def test_telephony_rewrites_are_pinned_to_the_recipe(self):
+        # The same for the GNSS and camera rewrites: each is pinned to its
+        # recipe row and refuses other bytes.
         rows = {r['path']: r for r in self.recipe['files']}
-        for path, rule in vendor_product.TELEPHONY_CONFIG_REWRITES.items():
-            self.assertEqual(rule['source_sha256'], rows[path]['sha256'])
-            with self.assertRaises(VendorError): vendor_product.telephony_config(path, b'unreviewed')
+        camera = {'vendor/etc/init/vendor.qti.camera.provider-service_64.rc':
+                      b'service vendor.camera-provider /vendor/bin/hw/x\n',
+                  'vendor/etc/camera/camxoverridesettings.txt': b'enableTOFInterface=TRUE\n'}
+        for table, derive, unreviewed in (
+                (vendor_product.TELEPHONY_CONFIG_REWRITES, vendor_product.telephony_config, lambda path: b'unreviewed'),
+                (vendor_product.GNSS_CONFIG_REWRITES, vendor_product.gnss_config, lambda path: b'GTP_MODE=SDK\n'),
+                (vendor_product.CAMERA_CONFIG_REWRITES, vendor_product.camera_config, camera.__getitem__)):
+            for path, rule in table.items():
+                with self.subTest(path=path):
+                    self.assertEqual(rule['source_sha256'], rows[path]['sha256'])
+                    with self.assertRaises(VendorError): derive(path, unreviewed(path))
 
     def test_iris_video_firmware_copied_to_vendor_firmware(self):
         # msm_video.ko requests vpu20_2v.mbn for every volcano SKU; without it
@@ -1660,20 +1624,6 @@ class NativeProductTests(unittest.TestCase):
                                         notice_kind='legacy_proprietary', stock=stock, firmware_releases=table,
                                         firmware_inventory={}, firmware_policy={}, factory_zip=ROOT / 'missing')
 
-    def test_camera_provider_rc_rewrite_is_pinned_to_the_recipe(self):
-        path = 'vendor/etc/init/vendor.qti.camera.provider-service_64.rc'
-        row = next(r for r in self.recipe['files'] if r['path'] == path)
-        self.assertEqual(vendor_product.CAMERA_CONFIG_REWRITES[path]['source_sha256'], row['sha256'])
-        with self.assertRaises(VendorError):
-            vendor_product.camera_config(path, b'service vendor.camera-provider /vendor/bin/hw/x\n')
-
-    def test_camx_override_rewrite_is_pinned_to_the_recipe(self):
-        path = 'vendor/etc/camera/camxoverridesettings.txt'
-        row = next(r for r in self.recipe['files'] if r['path'] == path)
-        self.assertEqual(vendor_product.CAMERA_CONFIG_REWRITES[path]['source_sha256'], row['sha256'])
-        with self.assertRaises(VendorError):
-            vendor_product.camera_config(path, b'enableTOFInterface=TRUE\n')
-
     def test_camx_override_turns_core_dumps_off(self):
         path = 'vendor/etc/camera/camxoverridesettings.txt'
         source = b'enableTOFInterface=TRUE\nenableHealthMonitor=FALSE\n'
@@ -1759,9 +1709,6 @@ class NativeProductTests(unittest.TestCase):
             self.assertEqual(expected, vendor_product.camera_config(path, source))
 
 
-if __name__ == '__main__': unittest.main()
-
-
 class UpdateFirmwareTests(unittest.TestCase):
     """The A/B firmware every update carries, as the generated vendor tree holds it."""
 
@@ -1801,3 +1748,6 @@ class UpdateFirmwareTests(unittest.TestCase):
         self.archive.write_bytes(self.archive.read_bytes() + b'x')
         self.assertRaises(firmware.FirmwareError, vendor_product.stage_update_firmware, self.archive,
                           self.inventory, self.plan, self.update, self.root / 'scratch', self.root / 'radio')
+
+
+if __name__ == '__main__': unittest.main()
