@@ -168,7 +168,22 @@ expected identities. Qualification requires the explicit `--qualification` flag.
 OTA reconstruction mismatches remain fatal. Their bounded diagnostic reports
 partition names, input format, full raw-image sizes/hashes, first differing
 offset, matched prefix and sampled range hashes. It contains no image bytes or
-file paths; it does not approve padding or unused-block differences.
+file paths.
+
+Raw targets follow update_engine's 4096-byte `kBlockSize` contract in
+`payload_generator/delta_diff_generator.h`. `generate_delta_main.cc::RoundUpPartitions`
+extends target working images before loading their sizes.
+`scripts/brillo_update_payload` explicitly specifies zero padding for targets.
+
+Verification compares the entire applied image with the original bytes plus
+exactly the zero-filled block remainder. It requires full canonical SHA-256
+equality, exact rounded length and a zero tail. Diagnostics retain original and
+canonical sizes/hashes.
+
+Already aligned images admit no extra bytes. Native sparse normalization must
+remain aligned and match exactly. Truncation, nonzero tails, content changes and
+unused-block differences are refused. Signature, source attribution, public trust
+and production acceptance requirements remain unchanged.
 
 Fixtures create disposable material in temporary storage. Native signature cases require
 explicit source and otatools inputs; Linux or `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` refuses

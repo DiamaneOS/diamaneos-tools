@@ -76,7 +76,13 @@ def raw_image(tools, path, destination):
     return path
 
 
-def ota_partition_comparison(expected, applied):
+# Authenticated update_engine platform contract: delta_diff_generator.h::kBlockSize.
+# generate_delta_main.cc::RoundUpPartitions rounds targets to this size; the
+# recorded brillo_update_payload wrapper explicitly specifies zero-filled extension.
+OTA_PAYLOAD_BLOCK_SIZE = 4096
+
+
+def ota_partition_comparison(expected, applied, *, canonical_payload=False):
     """Full byte hashes and bounded range metadata; never return image bytes/paths."""
     def opened(path):
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -96,13 +102,25 @@ def ota_partition_comparison(expected, applied):
         left.close()
         raise
     with left, right:
-        left_hash, right_hash = hashlib.sha256(), hashlib.sha256()
+        padding = (-left_before.st_size) % OTA_PAYLOAD_BLOCK_SIZE if canonical_payload else 0
+        canonical_size = left_before.st_size + padding
+        left_hash, right_hash, canonical_hash = hashlib.sha256(), hashlib.sha256(), hashlib.sha256()
+        remaining, tail_seen, tail_zero = padding, 0, True
         offset, first = 0, None
         while True:
             a, b = left.read(1024 * 1024), right.read(1024 * 1024)
+            left_hash.update(a)
+            if remaining and len(a) < 1024 * 1024:
+                count = min(remaining, 1024 * 1024 - len(a))
+                a += bytes(count)
+                remaining -= count
             if not a and not b:
                 break
-            left_hash.update(a); right_hash.update(b)
+            canonical_hash.update(a); right_hash.update(b)
+            start, stop = max(0, left_before.st_size - offset), min(len(b), canonical_size - offset)
+            if stop > start:
+                tail_seen += stop - start
+                tail_zero = tail_zero and not any(b[start:stop])
             if first is None and a != b:
                 common = min(len(a), len(b))
                 first = offset + next((i for i in range(common) if a[i] != b[i]), common)
@@ -123,9 +141,13 @@ def ota_partition_comparison(expected, applied):
                 == identity(os.stat(expected, follow_symlinks=False))
                 and identity(right_before) == identity(os.fstat(right.fileno()))
                 == identity(os.stat(applied, follow_symlinks=False)), 'OTA comparison inputs changed')
-        matched = first is None and left_before.st_size == right_before.st_size
+        zero_padding = tail_seen == padding and tail_zero
+        matched = (first is None and canonical_size == right_before.st_size
+                   and zero_padding and canonical_hash.digest() == right_hash.digest())
         return {'expected_size': left_before.st_size, 'applied_size': right_before.st_size,
                 'expected_sha256': left_hash.hexdigest(), 'applied_sha256': right_hash.hexdigest(),
+                'canonical_expected_size': canonical_size, 'canonical_expected_sha256': canonical_hash.hexdigest(),
+                'padding_size': padding, 'padding_zero': zero_padding if padding else None,
                 'matched': matched, 'first_mismatch_offset': first,
                 'matched_prefix_size': common_size if first is None else first, 'samples': samples}
 
@@ -286,6 +308,9 @@ class NativeTools:
                         path = za.extract(handle, member, root / (prefix + name + '.img'))
                         result[name] = raw_image(self, path, root / (prefix + name + '.raw.img'))
                         formats[prefix + name] = 'raw' if result[name] == path else 'android-sparse'
+                        if result[name] != path:
+                            require(result[name].stat().st_size % OTA_PAYLOAD_BLOCK_SIZE == 0,
+                                    'Sparse OTA normalization lacks platform block alignment')
                 return result
             target = images(target_files, 'target-')
             old = images(source_files, 'source-') if source_files is not None else {}
@@ -294,7 +319,8 @@ class NativeTools:
             outputs = []
             for name in names:
                 path = root / (name + '.img')
-                with path.open('xb') as stream: stream.truncate(target[name].stat().st_size)
+                size = target[name].stat().st_size
+                with path.open('xb') as stream: stream.truncate(size + (-size) % OTA_PAYLOAD_BLOCK_SIZE)
                 outputs.append(path)
             args = ['--in_file=' + str(payload), '--partition_names=' + ':'.join(names),
                     '--new_partitions=' + ':'.join(map(str, outputs))]
@@ -302,7 +328,8 @@ class NativeTools:
                 args += ['--old_partitions=' + ':'.join(str(old[name]) for name in names)]
             self.run('delta_generator', args)
             comparisons = [{'partition': name, 'expected_input_format': formats['target-' + name],
-                            **ota_partition_comparison(target[name], path)}
+                            **ota_partition_comparison(target[name], path,
+                                canonical_payload=formats['target-' + name] == 'raw')}
                            for name, path in zip(names, outputs)]
             if not all(row['matched'] for row in comparisons):
                 error = SigningError('Applied OTA partitions differ from signed target-files')

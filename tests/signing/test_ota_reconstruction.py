@@ -15,9 +15,41 @@ class ComparisonTests(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
         self.expected = self.root/'expected.img'; self.applied = self.root/'applied.img'
 
-    def compare(self, a, b):
+    def compare(self, a, b, *, canonical_payload=False):
         self.expected.write_bytes(a); self.applied.write_bytes(b)
-        return native.ota_partition_comparison(self.expected, self.applied)
+        return native.ota_partition_comparison(self.expected, self.applied, canonical_payload=canonical_payload)
+
+    def test_platform_firmware_rounding_hashes_all_expected_bytes_and_zero_tail(self):
+        # Actual firmware lengths; expected canonical length is independent of helper arithmetic.
+        data = (bytes(range(256)) * 960)[:245560]
+        canonical = data + bytes(200)
+        result = self.compare(data, canonical, canonical_payload=True)
+        self.assertTrue(result['matched']); self.assertTrue(result['padding_zero'])
+        self.assertEqual(245760, result['canonical_expected_size'])
+        self.assertEqual(200, result['padding_size'])
+        self.assertEqual(hashlib.sha256(data).hexdigest(), result['expected_sha256'])
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(), result['canonical_expected_sha256'])
+        self.assertEqual(result['canonical_expected_sha256'], result['applied_sha256'])
+        self.assertEqual(245560, self.expected.stat().st_size)
+
+    def test_canonicalization_refuses_nonzero_tail_wrong_rounding_and_content_changes(self):
+        data = b'a' * 245560
+        good = data + bytes(200)
+        for bad in (data, good[:-1], good + bytes(4096), data + bytes(199) + b'x',
+                    b'b' + good[1:], bytes(len(good))):
+            with self.subTest(size=len(bad)):
+                self.assertFalse(self.compare(data, bad, canonical_payload=True)['matched'])
+
+    def test_aligned_image_rejects_any_extra_data_even_zero(self):
+        data = b'a' * 4096
+        self.assertTrue(self.compare(data, data, canonical_payload=True)['matched'])
+        for tail in (bytes(1), bytes(4096), b'x'):
+            self.assertFalse(self.compare(data, data + tail, canonical_payload=True)['matched'])
+
+    def test_padding_crosses_stream_chunk_boundary_without_discarding_bytes(self):
+        data = b'a' * (1024 * 1024 + 1)
+        result = self.compare(data, data + bytes(4095), canonical_payload=True)
+        self.assertTrue(result['matched']); self.assertEqual(4095, result['padding_size'])
 
     def test_equal_bytes_hash_the_complete_files_without_mismatch_samples(self):
         data = b'partition data' + bytes(8192)
@@ -84,14 +116,14 @@ class ApplyTests(unittest.TestCase):
 
     def test_multiple_partitions_success_and_unchanged_api_result(self):
         values={'vendor':b'vendor','boot':b'boot'};self.target_files(values)
-        self.assertIsNone(self.apply(values))
+        self.assertIsNone(self.apply({'vendor':b'vendor'+bytes(4090),'boot':b'boot'+bytes(4092)}))
         self.assertEqual('delta_generator',self.calls[0][0])
         self.assertFalse(any(p.is_dir() for p in self.root.iterdir()))
 
     def test_failure_reports_all_partition_hashes_and_no_paths_or_image_data(self):
         values={'vendor':b'do-not-print-image-content','boot':b'boot'};self.target_files(values)
         with self.assertRaisesRegex(inputs.SigningError,'Applied OTA partitions differ') as error:
-            self.apply({'vendor':b'wrong-image-reconstruction','boot':b'boot'})
+            self.apply({'vendor':b'wrong-image-reconstruction','boot':b'boot'+bytes(4092)})
         detail=json.loads(error.exception.diagnostic)
         self.assertEqual(1,detail['mismatch_count']);self.assertEqual(2,detail['partition_count'])
         rows={x['partition']:x for x in detail['partitions']}
@@ -109,10 +141,23 @@ class ApplyTests(unittest.TestCase):
         self.assertTrue(all(x['expected_size']!=x['applied_size'] for x in rows))
 
     def test_sparse_target_uses_existing_native_normalization_before_strict_hash(self):
-        raw=b'normalized raw partition'+bytes(8192)
+        raw=b'normalized raw partition'+bytes(8192-24)
         self.target_files({'vendor':b'\x3a\xff\x26\xed' + b'controlled sparse input'})
         self.assertIsNone(self.apply({'vendor':raw},sparse=raw))
         self.assertEqual(['simg2img','delta_generator'],[x[0] for x in self.calls])
+
+    def test_sparse_normalization_cannot_claim_firmware_padding(self):
+        self.target_files({'vendor':b'\x3a\xff\x26\xed' + b'controlled sparse input'})
+        with self.assertRaisesRegex(inputs.SigningError,'Sparse OTA normalization'):
+            self.apply({'vendor':b'x'+bytes(4095)},sparse=b'x')
+        self.assertEqual(['simg2img'],[x[0] for x in self.calls])
+
+    def test_firmware_tail_mutation_remains_fatal_in_application(self):
+        self.target_files({'abl':b'a'*245560})
+        with self.assertRaises(inputs.SigningError) as error:
+            self.apply({'abl':b'a'*245560+bytes(199)+b'x'})
+        row=json.loads(error.exception.diagnostic)['partitions'][0]
+        self.assertFalse(row['padding_zero']);self.assertEqual(245759,row['first_mismatch_offset'])
 
     def test_delta_source_inventory_mismatch_refuses_before_application(self):
         self.target_files({'boot':b'boot'})
