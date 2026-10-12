@@ -163,6 +163,29 @@ def validate_config(config):
     require(len(identities) == len(set(identities)), 'Duplicate presigned package policy')
     require(len({rule['metadata_name'] for rule in rules}) == len(rules),
             'Duplicate presigned metadata policy')
+    apexes = config.get('presigned_apexes', [])
+    require(len({r['metadata_name'] for r in apexes}) == len(apexes)
+            and len({r['artifact_path'] for r in apexes}) == len(apexes), 'Duplicate presigned APEX policy')
+    require(all(Path(r['artifact_path']).name == r['metadata_name'] for r in apexes),
+            'Presigned APEX metadata and artifact identity differ')
+    require(not {r['metadata_name'] for r in apexes} & {r['metadata_name'] for r in rules},
+            'Presigned APK/APEX policy identities overlap')
+
+
+def presigned_apex_rule(policy, logical):
+    matches = [r for r in policy.get('presigned_apexes', []) if r['artifact_path'] == logical]
+    require(len(matches) <= 1, 'Ambiguous presigned APEX policy')
+    return matches[0] if matches else None
+
+
+def public_inventory_fields(inventory):
+    names = {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'}
+    require(isinstance(inventory, dict) and set(inventory) in
+            (names, names | {'presigned_apex_payload_keys'}), 'Unknown public inventory fields')
+    require(type(inventory['schema_version']) is int and inventory['schema_version'] == 2,
+            'Unknown public key inventory format')
+    require(isinstance(inventory.get('presigned_apex_payload_keys', {}), dict),
+            'Malformed presigned APEX public authority inventory')
 
 
 def presigned_rule(policy, logical):
@@ -270,6 +293,7 @@ def source_files(source, projects):
     source = Path(source).resolve()
     clean_source_projects(source, projects)
     paths = {'script/generate-release.sh', 'script/generate-delta.sh', 'script/common.sh',
+             'external/avb/avbtool.py',
              'build/make/tools/releasetools/check_ota_package_signature.py',
              'tools/diamaneos/config/fp6-image-checks.json'}
     trees = {}

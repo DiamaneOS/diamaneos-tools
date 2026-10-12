@@ -88,7 +88,8 @@ class SourceBytesTests(TemporaryInputs, unittest.TestCase):
                            'target/product/security/testkey.x509.pem': b'public certificate fixture\n'},
             'tools/diamaneos': {'config/fp6-image-checks.json': b'{"rules":[]}\n'},
             'system/apex': {'test/key.x509.pem': b'apex public certificate fixture\n'},
-            'external/avb': {'test/data/testkey_rsa4096.pem': b'public test input fixture\n'},
+            'external/avb': {'test/data/testkey_rsa4096.pem': b'public test input fixture\n',
+                             'avbtool.py': b'platform parser source byte fixture\n'},
             'prebuilts/jdk/jdk25': {'linux-x86/bin/java': b'java executable fixture\n',
                                   'linux-x86/lib/modules': b'bytecode fixture\n',
                                   'linux-x86/conf/security/java.security': b'runtime data fixture\n'},
@@ -125,6 +126,7 @@ class SourceBytesTests(TemporaryInputs, unittest.TestCase):
     def test_assume_unchanged_and_skip_worktree_cannot_hide_bad_consumed_bytes(self):
         for flag in ('--assume-unchanged', '--skip-worktree'):
             for project, relative in (('script', 'generate-release.sh'),
+                                      ('external/avb', 'avbtool.py'),
                                       ('prebuilts/jdk/jdk25', 'linux-x86/lib/modules'),
                                       ('prebuilts/jdk/jdk25', 'linux-x86/conf/security/java.security'),
                                       ('build/make', 'target/product/security/testkey.x509.pem')):

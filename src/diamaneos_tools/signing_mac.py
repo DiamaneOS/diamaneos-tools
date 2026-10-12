@@ -190,7 +190,7 @@ def _replacements(handle, metadata, roles, public, tools, certificates, snapshot
 
     # These are independent policy approvals, never pins obtained from an APK or
     # the unsigned XML. Their package constraints remain the package verifier's job.
-    for rule in public.policy['presigned_packages']:
+    for rule in public.policy['presigned_packages'] + public.policy.get('presigned_apexes', []):
         pins = rule['certificate_sha256']
         require(isinstance(pins, list) and len(pins) == 1 and isinstance(pins[0], str)
                 and SHA256.fullmatch(pins[0]), 'Presigned MAC authority lacks one exact external pin')
@@ -226,7 +226,8 @@ def _replacements(handle, metadata, roles, public, tools, certificates, snapshot
         require(role['kind'] in {'apk', 'apex'} and name in metadata[role['kind']]
                 and role['container'] in CERT_ROLES | {'PRESIGNED'}, 'Unknown planned MAC role')
         if role['container'] == 'PRESIGNED':
-            require(sum(rule['metadata_name'] == name for rule in public.policy['presigned_packages']) == 1,
+            require(sum(rule['metadata_name'] == name for rule in
+                        public.policy['presigned_packages'] + public.policy.get('presigned_apexes', [])) == 1,
                     'Presigned MAC package lacks its exact external policy rule')
     for old in certificates:
         if old in kept:

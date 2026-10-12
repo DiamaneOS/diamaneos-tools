@@ -34,6 +34,15 @@
   "record_namespace": "diamaneos-release-record",
   "verification_namespace": "diamaneos-build-verification",
   "result_namespace": "diamaneos-signing-result",
+  "presigned_apexes": [
+    {
+      "metadata_name": "com.google.android.widevine.nonupdatable.apex",
+      "artifact_path": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
+      "artifact_sha256": "008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a",
+      "certificate_sha256": ["da57b4a35460c33bfbb9946567bd101eaf618d5d7dfbc8b43f47b5e85050f728"],
+      "payload_key_sha256": "eccb1a18e3d92c0d3212e337582d13973a88361d523dd251d88571a320f28ead"
+    }
+  ],
   "presigned_packages": [
     {"metadata_name": "AppCompatConfig.apk", "artifact_basename": "AppCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["e5044303e85b4cceaae00ecf8823c9c6f937a8e3a2fb632ec9fa45b2c33b4bd1"]},
     {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b"]},

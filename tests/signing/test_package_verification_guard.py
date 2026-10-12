@@ -28,6 +28,7 @@ class PackageVerificationGuardTests(TemporaryInputs, unittest.TestCase):
         allowed = self.public / 'allowed-signers-fixture'
         allowed.write_bytes(b'controlled external record authority; not a real key')
         self.keys = Mock()
+        self.keys.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
         self.keys.root = self.public
         self.keys.inventory = {'factory': {'allowed_signers': allowed.name, 'identity': 'fixture'}}
         self.keys.public_ids = {}

@@ -6,13 +6,32 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import zipfile
 
 from . import signing_archive as za
 from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
                              fields, load_json, require, safe_file, sha256_file)
-from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule
+from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule, presigned_apex_rule, public_inventory_fields
+from .signing_inputs import git_read
+
+
+# Header/footer decoding and key offsets belong to the recorded platform parser.
+# Crypto and descriptor verification still run through authenticated native avbtool.
+AVB_BINARY_AUTHORITY = '''import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("platform_avbtool",sys.argv[1])
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+image=module.ImageHandler(sys.argv[2],read_only=True)
+avb=module.Avb()
+_,header,_,_=avb._parse_image(image)
+blob=avb._load_vbmeta_blob(image)
+start=header.SIZE+header.authentication_data_block_size+header.public_key_offset
+key=blob[start:start+header.public_key_size]
+expected=pathlib.Path(sys.argv[3]).read_bytes()
+if not (0<len(expected)<=1048576 and len(key)==header.public_key_size and key==expected):
+ raise SystemExit(2)
+'''
 
 
 APK_SIGNER = (r'(?:Signer #1:?|V[12] Signer:|V3\.[012] Signer:'
@@ -57,8 +76,7 @@ def raw_image(tools, path, destination):
 
 def factory_authority(path, policy):
     inventory = load_json(path)
-    fields(inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
-    require(inventory['schema_version'] == 2, 'Unknown public key inventory format')
+    public_inventory_fields(inventory)
     factory = inventory['factory']
     fields(factory, {'allowed_signers', 'identity'})
     authority = safe_file(Path(path).resolve().parent, factory['allowed_signers'])
@@ -86,6 +104,7 @@ class NativeTools:
         validate_config(self.policy)
         self.denied_apk_public_keys = set()
         self.root, self.source, self.scratch = map(Path, (root, source, scratch))
+        self.projects = projects
         self.bin = self.root / 'bin'
         jdks = [self.source / path / 'linux-x86' for path in projects if path.startswith('prebuilts/jdk/')] if projects else list(self.source.glob('prebuilts/jdk/jdk*/linux-x86'))
         jdks = sorted(jdks,
@@ -124,12 +143,15 @@ class NativeTools:
         require(len(names) == 1, 'Native APK package identity is missing or ambiguous')
         return names[0]
 
-    def avb(self, path, expected, *, chains=(), payload=False):
+    def avb(self, path, expected, *, chains=(), payload=False, binary=False):
+        require(not binary or payload and not chains, 'Binary AVB authority is only supported for APEX payloads')
         info = self.run('avbtool', ['info_image', '--image', path])
         require(re.search(r'(?m)^Algorithm:\s+' + re.escape(self.policy['avb_algorithm']) + r'\s*$', info),
                 'AVB algorithm is not the role algorithm')
         require(re.search(r'(?m)^Flags:\s+0\s*$', info), 'AVB disables a verification property')
-        args = ['verify_image', '--image', path, '--key', expected]
+        args = ['verify_image', '--image', path]
+        if not binary:
+            args += ['--key', expected]
         for name, location, key in chains:
             args += ['--expected_chain_partition', f'{name}:{location}:{key}']
         alias = None
@@ -143,6 +165,18 @@ class NativeTools:
                 os.link(path, candidate); alias = candidate
         try:
             self.run('avbtool', args, cwd=Path(path).parent)
+            if binary:
+                parser = safe_file(self.source, 'external/avb/avbtool.py')
+                require(parser.stat().st_size <= 1024 * 1024, 'Platform AVB parser exceeds its bound')
+                revision = self.projects['external/avb'] if self.projects else 'HEAD'
+                selected = git_read(self.source / 'external/avb', ['show', revision + ':avbtool.py'])
+                require(len(selected) <= 1024 * 1024 and parser.read_bytes() == selected,
+                        'Platform AVB parser differs from selected source')
+                with tempfile.TemporaryDirectory(dir=self.scratch, prefix='avb-api-') as directory:
+                    frozen = Path(directory) / 'avbtool.py'
+                    with frozen.open('xb') as stream: stream.write(selected)
+                    frozen.chmod(0o600)
+                    command([sys.executable, '-I', '-c', AVB_BINARY_AUTHORITY, frozen, path, expected], env=self.env)
         finally:
             if alias is not None: alias.unlink()
         return info
@@ -227,7 +261,7 @@ class PublicKeys:
         self.root = Path(path).resolve().parent
         self.artifact_root = Path(artifact_root).resolve() if artifact_root is not None else None
         self.inventory = load_json(path)
-        fields(self.inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
+        public_inventory_fields(self.inventory)
         require(self.inventory['schema_version'] == 2 and isinstance(self.inventory['certificate_roles'], dict)
                 and set(self.inventory['certificate_roles']) == CERT_ROLES,
                 'Public key inventory has unknown or missing roles')
@@ -249,6 +283,11 @@ class PublicKeys:
                 'Public identities are reused across signing roles')
         authority, _identity = factory_authority(path, self.policy)
         self.file(authority.relative_to(self.root).as_posix())
+        apexes = {r['metadata_name']: r for r in self.policy.get('presigned_apexes', [])}
+        for name, relative in self.inventory.get('presigned_apex_payload_keys', {}).items():
+            require(name in apexes, 'Unknown presigned APEX public authority')
+            require(sha256_file(self.file(relative)) == apexes[name]['payload_key_sha256'],
+                    'Presigned APEX public authority differs from reviewed policy')
         if production:
             self.reject_public_test_keys()
 
@@ -265,7 +304,7 @@ class PublicKeys:
 
     def fingerprint(self, role, logical):
         if role == 'PRESIGNED':
-            rule = presigned_rule(self.policy, logical)
+            rule = presigned_apex_rule(self.policy, logical) or presigned_rule(self.policy, logical)
             require(rule is not None and len(rule['certificate_sha256']) == 1,
                     'Presigned package has no exact reviewed signer')
             return rule['certificate_sha256'][0]
@@ -277,7 +316,13 @@ class PublicKeys:
 
     def avb(self, logical=None):
         if logical is not None:
-            raise SigningError('Presigned APEX payload has no reviewed authority')
+            rule = presigned_apex_rule(self.policy, logical)
+            require(rule is not None, 'Presigned APEX payload has no reviewed authority')
+            relative = self.inventory.get('presigned_apex_payload_keys', {}).get(rule['metadata_name'])
+            require(relative is not None, 'Presigned APEX lacks independent external public authority')
+            key = self.file(relative)
+            require(sha256_file(key) == rule['payload_key_sha256'], 'Presigned APEX public authority changed')
+            return key
         return self.file(self.inventory['avb_public_key'])
 
     def reject_public_test_keys(self):
@@ -287,7 +332,8 @@ class PublicKeys:
         require(certificates, 'Public test certificate deny list is unavailable')
         pairs = [self.tools.certificate(cert) for cert in certificates]
         denied = {public for _certificate, public in pairs}
-        approved = {digest for rule in self.policy['presigned_packages'] for digest in rule['certificate_sha256']}
+        approved = {digest for rule in self.policy['presigned_packages'] + self.policy.get('presigned_apexes', [])
+                    for digest in rule['certificate_sha256']}
         require(not set(self.public_ids.values()) & denied
                 and not approved & {digest for digest, _public in pairs},
                 'Production refuses AOSP public test certificates')
@@ -297,10 +343,13 @@ class PublicKeys:
         output = self.tools.scratch / 'expected-avb.bin'
         self.tools.run('avbtool', ['extract_public_key', '--key', self.avb(), '--output', output])
         expected = output.read_bytes()
+        preserved = {self.file(relative).read_bytes() for relative in
+                     self.inventory.get('presigned_apex_payload_keys', {}).values()}
         for test in test_keys:
             output = self.tools.scratch / 'test-avb.bin'
             self.tools.run('avbtool', ['extract_public_key', '--key', test, '--output', output])
-            require(output.read_bytes() != expected, 'Production refuses AOSP public AVB test keys')
+            require(output.read_bytes() != expected and output.read_bytes() not in preserved,
+                    'Production refuses AOSP public AVB test keys')
 
 
 def package_members(target_files, tools):

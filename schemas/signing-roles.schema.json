@@ -30,6 +30,22 @@
     "record_namespace": {"const": "diamaneos-release-record"},
     "verification_namespace": {"const": "diamaneos-build-verification"},
     "result_namespace": {"const": "diamaneos-signing-result"},
+    "presigned_apexes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metadata_name", "artifact_path", "artifact_sha256", "certificate_sha256", "payload_key_sha256"],
+        "properties": {
+          "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+-]+\\.apex$"},
+          "artifact_path": {"type": "string", "pattern": "^(SYSTEM|SYSTEM_EXT|PRODUCT|VENDOR|ODM)/apex/[A-Za-z0-9._+-]+\\.apex$"},
+          "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "payload_key_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "certificate_sha256": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true,
+                                 "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+        }
+      }
+    },
     "presigned_packages": {
       "type": "array",
       "items": {

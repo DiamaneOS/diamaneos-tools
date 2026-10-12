@@ -9,7 +9,7 @@ from . import signing_archive as za
 from . import signing_mac
 from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
                              load_json, require, sha256_file, source_files, verified_build)
-from .signing_inputs import presigned_rule
+from .signing_inputs import presigned_rule, presigned_apex_rule
 from .signing_native import avb_descriptors, package_members
 
 
@@ -35,10 +35,15 @@ def role_map(metadata, policy, overrides, present=None):
                 continue
             require(name not in result, 'APK/APEX metadata names overlap')
             label = za.basename_role(record.get('certificate' if kind == 'apk' else 'container_certificate', ''))
-            if name in overrides:
+            kept_apex = kind == 'apex' and any(r['metadata_name'] == name for r in policy.get('presigned_apexes', []))
+            if kept_apex:
+                require(name not in overrides and label in {'PRESIGNED', 'EXTERNAL'},
+                        'Reviewed presigned APEX cannot be reassigned or resigned')
+                role = 'PRESIGNED'
+            elif name in overrides:
                 role = overrides[name]
             elif label in {'PRESIGNED', 'EXTERNAL'}:
-                require(any(rule['metadata_name'] == name for rule in policy['presigned_packages']),
+                require(kind == 'apk' and any(rule['metadata_name'] == name for rule in policy['presigned_packages']),
                         'Presigned package is outside the reviewed policy: ' + name)
                 role = 'PRESIGNED'
             elif kind == 'apex':
@@ -82,6 +87,8 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
         role = roles.get(name) if approved is not None else member_role(roles, kind, logical)
         require(role is not None, 'Packaged signing role is missing')
         if kind == 'payload':
+            if role['payload'] == 'PRESIGNED':
+                tools.avb(path, keys.avb(logical), payload=True, binary=True)
             continue
         present.add(name)
         if logical in packages:
@@ -91,6 +98,11 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
         if kind == 'apk':
             packages[logical]['package_id'] = tools.package_id(path)
         if role['container'] == 'PRESIGNED':
+            if kind == 'apex':
+                rule = presigned_apex_rule(policy, logical)
+                require(rule is not None and rule['metadata_name'] == name
+                        and sha256_file(path) == rule['artifact_sha256'],
+                        'Presigned APEX is not the exact reviewed artifact')
             packages[logical]['presigned_sha256'] = sha256_file(path)
             tools.apk(path, packages[logical]['certificate_sha256'])
         if kind == 'apex':

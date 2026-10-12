@@ -25,6 +25,46 @@ an external certificate; `avb_public_key` names its RSA public PEM; `factory` co
 `allowed_signers` and an exact SSH identity. File names are relative to the inventory.
 Private key material is rejected.
 
+The optional `presigned_apex_payload_keys` object maps each reviewed presigned
+APEX metadata name to an independently supplied AVB **binary** public-key file.
+For the exact stock Widevine package this is, for example:
+
+```json
+"presigned_apex_payload_keys": {
+  "com.google.android.widevine.nonupdatable.apex": "widevine.avbpubkey"
+}
+```
+
+The external file must match the policy's SHA-256 and remain outside publication.
+Missing, unknown, changed or publication-controlled authorities refuse. Expected
+authority is never enrolled from a submitted APEX.
+
+`presigned_apexes` binds the exact partition/path, complete APEX hash, container
+signer and payload key hash. It is not a wildcard exemption or release provenance
+record. Release-script overrides cannot reassign these APEXes.
+
+Platform `avbtool verify_image` verifies payload signatures and descriptors.
+Its PEM `--key` interface cannot directly consume AVB binaries. The recorded
+`external/avb/avbtool.py` API obtains embedded key bytes for exact comparison to
+the independent external binary.
+
+Header/footer decoding stays in the platform parser. No signature crypto or AVB
+parser is implemented here. The parser's Git blob and consumed bytes are bound
+in `source_files`; unsupported native APIs refuse.
+
+Prepare verifies container and payload before accepting preservation.
+Publication verification repeats both checks and requires unchanged complete
+APEX bytes.
+
+`--source-root` must match the actual clean revisions in the resolved manifest.
+Updating its tools checkout makes an older packet's source check fail. Qualify a
+new archive with truthful packaging/build metadata and fresh authenticated
+verification on the updated source basis.
+
+Never edit an old manifest, report or source identity to make comparison pass.
+New policy and public inventory hashes require a fresh signing plan; an earlier
+plan cannot be reused.
+
 ## Prepare and sign
 
 `prepare` requires the build record, complete PASS report, report signature, checksums,

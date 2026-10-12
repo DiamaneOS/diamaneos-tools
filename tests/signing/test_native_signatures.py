@@ -162,6 +162,7 @@ class NativeSignatureTests(unittest.TestCase):
         checker = Path('build/make/tools/releasetools/check_ota_package_signature.py')
         (source / checker).parent.mkdir(parents=True)
         shutil.copyfile(self.source / checker, source / checker)
+        shutil.copyfile(self.source / 'external/avb/avbtool.py', source / 'external/avb/avbtool.py')
         rules_path = source / 'tools/diamaneos/config/fp6-image-checks.json'
         rules_path.parent.mkdir()
         shutil.copyfile(inputs.ROOT / 'config/fp6-image-checks.json', rules_path)
@@ -364,6 +365,63 @@ class NativeSignatureTests(unittest.TestCase):
     def test_native_apex_wrong_payload_key_is_rejected(self):
         target, plan = self.apex_fixture(payload_role='platform')
         self.assert_apex_rejected_at(target, plan, 'payload')
+
+    def presigned_apex_fixture(self, *, payload_role='avb', container_role='releasekey', tamper=False, missing=False):
+        root = self.fixture_directory('presigned-apex-')
+        content = root / 'content'; content.mkdir(); (content / 'fixture.txt').write_text('no enclosed APK')
+        payload = root / 'apex_payload.img'
+        self.hashtree(content, payload, 'presigned_fixture', role=payload_role)
+        if tamper:
+            with payload.open('r+b') as stream:
+                stream.seek(8192); byte = stream.read(1); stream.seek(8192); stream.write(bytes([byte[0] ^ 1]))
+        unsigned = root / 'unsigned.apex'; self.apex_archive(unsigned, 'apex_payload.img', payload)
+        container = self.sign_apk(unsigned, container_role, root / 'Fixture.apex')
+        external = self.keys_dir / ('presigned-' + root.name + '.avbpubkey')
+        # Expected authority is generated independently from the disposable key,
+        # never enrolled from the submitted APEX's embedded public key.
+        self.tools.run('avbtool', ['extract_public_key', '--key', self.private/'avb.pem', '--output', external])
+        logical = 'VENDOR/apex/Fixture.apex'
+        policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        policy['presigned_apexes'] = [{'metadata_name': 'Fixture.apex', 'artifact_path': logical,
+            'artifact_sha256': inputs.sha256_file(container), 'certificate_sha256': [self.keys.fingerprints['releasekey']],
+            'payload_key_sha256': inputs.sha256_file(external)}]
+        inventory = dict(self.inventory)
+        if not missing: inventory['presigned_apex_payload_keys'] = {'Fixture.apex': external.name}
+        inventory_path = self.keys_dir / (root.name + '.json'); inventory_path.write_text(json.dumps(inventory))
+        keys = native.PublicKeys(inventory_path, self.tools, production=False, policy=policy)
+        target = root / 'target.zip'
+        write_zip(target, {logical: container, 'META/apkcerts.txt': '',
+            'META/apexkeys.txt': 'name="Fixture.apex" container_certificate="PRESIGNED" private_key="PRESIGNED"',
+            'META/misc_info.txt': 'ab_update=true\n'})
+        plan = {'metadata': za.package_metadata_shape(za.metadata(target)), 'packages': {logical: {
+            'kind': 'apex', 'container': 'PRESIGNED', 'payload': 'PRESIGNED',
+            'certificate_sha256': self.keys.fingerprints['releasekey'], 'payload_key_sha256': inputs.sha256_file(external),
+            'presigned_sha256': inputs.sha256_file(container)}}}
+        return target, plan, keys
+
+    def test_native_presigned_apex_binary_authority_verifies_without_modifying_container(self):
+        target, plan, keys = self.presigned_apex_fixture()
+        before = inputs.sha256_file(target)
+        self.assertEqual({'apk': 0, 'apex': 1, 'payload': 1}, api.verify_packages(target, plan, self.tools, keys))
+        self.assertEqual(before, inputs.sha256_file(target))
+
+    def test_native_presigned_apex_wrong_container_signer_refuses(self):
+        target, plan, keys = self.presigned_apex_fixture(container_role='platform')
+        with self.assertRaisesRegex(inputs.SigningError, 'certificate does not match'):
+            api.verify_packages(target, plan, self.tools, keys)
+
+    def test_native_presigned_apex_valid_crypto_but_wrong_embedded_payload_key_refuses(self):
+        target, plan, keys = self.presigned_apex_fixture(payload_role='platform')
+        with self.assertRaises(inputs.SigningError): api.verify_packages(target, plan, self.tools, keys)
+
+    def test_native_presigned_apex_missing_external_authority_refuses(self):
+        target, plan, keys = self.presigned_apex_fixture(missing=True)
+        with self.assertRaisesRegex(inputs.SigningError, 'independent external public authority'):
+            api.verify_packages(target, plan, self.tools, keys)
+
+    def test_native_presigned_apex_tampered_payload_refuses_before_binary_comparison(self):
+        target, plan, keys = self.presigned_apex_fixture(tamper=True)
+        with self.assertRaises(inputs.SigningError): api.verify_packages(target, plan, self.tools, keys)
 
     def test_native_apex_tampered_payload_in_correctly_signed_container_is_rejected(self):
         target, plan = self.apex_fixture(tamper_payload=True)

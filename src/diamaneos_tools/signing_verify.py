@@ -15,6 +15,7 @@ from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fie
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
 from .signing_inputs import MAX_JSON, snapshot_file, recheck_stamps
+from .signing_inputs import public_inventory_fields, presigned_apex_rule
 from .signing_native import (NativeTools, PublicKeys, apk_certificate_digests, package_members,
                              raw_image, verify_images, factory_authority, host_ssh_signature)
 
@@ -56,11 +57,12 @@ def metadata_inputs(args):
         frozen.config = capture(args.config)
         frozen.keys = capture(args.keys, destination=root / 'public' / args.keys.name)
         inventory = load_json(frozen.keys)
-        fields(inventory, {'schema_version', 'certificate_roles', 'avb_public_key', 'factory'})
+        public_inventory_fields(inventory)
         require(isinstance(inventory['certificate_roles'], dict), 'Malformed public certificate inventory')
         fields(inventory['factory'], {'allowed_signers', 'identity'})
         expected_root = args.keys.resolve().parent
         material = [*inventory['certificate_roles'].values(), inventory['avb_public_key'], inventory['factory']['allowed_signers']]
+        material += list(inventory.get('presigned_apex_payload_keys', {}).values())
         if args.command == 'verify':
             require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
                     'Expected public keys must be outside the artifacts')
@@ -118,10 +120,15 @@ def verify_packages(target_files, plan, tools, keys):
     for kind, logical, path in package_members(target_files, tools):
         role = plan['packages'].get(logical)
         require(role and role['kind'] == ('apk' if kind == 'apk' else 'apex'), 'Unlisted final package')
+        approved = presigned_apex_rule(keys.policy, logical) if kind in {'apex', 'payload'} else None
+        if approved is not None:
+            require(role['container'] == role['payload'] == 'PRESIGNED'
+                    and role.get('presigned_sha256') == approved['artifact_sha256'],
+                    'Reviewed presigned APEX plan changed its authority or bytes')
         if kind == 'payload':
             public = keys.avb(logical if role['payload'] == 'PRESIGNED' else None)
             require(sha256_file(public) == role['payload_key_sha256'], 'APEX payload authority changed')
-            tools.avb(path, public, payload=True)
+            tools.avb(path, public, payload=True, **({'binary': True} if role['payload'] == 'PRESIGNED' else {}))
         else:
             if role['container'] == 'PRESIGNED' and logical not in observed:
                 require(sha256_file(path) == role['presigned_sha256'], 'Presigned package was changed')
