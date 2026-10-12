@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
 import sys
+import stat
 import tempfile
 import zipfile
 
@@ -72,6 +74,60 @@ def raw_image(tools, path, destination):
         tools.run('simg2img', [path, destination])
         return destination
     return path
+
+
+def ota_partition_comparison(expected, applied):
+    """Full byte hashes and bounded range metadata; never return image bytes/paths."""
+    def opened(path):
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'OTA comparison requires regular owned scratch files')
+            return os.fdopen(fd, 'rb'), info
+        except BaseException:
+            os.close(fd)
+            raise
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    left, left_before = opened(expected)
+    try:
+        right, right_before = opened(applied)
+    except BaseException:
+        left.close()
+        raise
+    with left, right:
+        left_hash, right_hash = hashlib.sha256(), hashlib.sha256()
+        offset, first = 0, None
+        while True:
+            a, b = left.read(1024 * 1024), right.read(1024 * 1024)
+            if not a and not b:
+                break
+            left_hash.update(a); right_hash.update(b)
+            if first is None and a != b:
+                common = min(len(a), len(b))
+                first = offset + next((i for i in range(common) if a[i] != b[i]), common)
+            offset += max(len(a), len(b))
+        common_size = min(left_before.st_size, right_before.st_size)
+        samples = []
+        if first is not None:
+            for start in sorted({0, max(0, common_size // 2 - 2048), max(0, common_size - 4096)}):
+                length = min(4096, common_size - start)
+                if not length:
+                    continue
+                left.seek(start); right.seek(start)
+                a, b = left.read(length), right.read(length)
+                samples.append({'offset': start, 'size': length, 'matched': a == b,
+                                'expected_sha256': hashlib.sha256(a).hexdigest(),
+                                'applied_sha256': hashlib.sha256(b).hexdigest()})
+        require(identity(left_before) == identity(os.fstat(left.fileno()))
+                == identity(os.stat(expected, follow_symlinks=False))
+                and identity(right_before) == identity(os.fstat(right.fileno()))
+                == identity(os.stat(applied, follow_symlinks=False)), 'OTA comparison inputs changed')
+        matched = first is None and left_before.st_size == right_before.st_size
+        return {'expected_size': left_before.st_size, 'applied_size': right_before.st_size,
+                'expected_sha256': left_hash.hexdigest(), 'applied_sha256': right_hash.hexdigest(),
+                'matched': matched, 'first_mismatch_offset': first,
+                'matched_prefix_size': common_size if first is None else first, 'samples': samples}
 
 
 def factory_authority(path, policy):
@@ -215,11 +271,13 @@ class NativeTools:
         """Apply with delta_generator and compare every resulting partition byte."""
         with tempfile.TemporaryDirectory(dir=self.scratch) as directory:
             root = Path(directory)
+            formats = {}
             def images(archive_path, prefix):
                 result = {}
                 with za.archive(archive_path) as handle:
                     names = za.read_text(handle, 'META/ab_partitions.txt').split()
-                    require(names and len(set(names)) == len(names) and all(NAME.fullmatch(name) for name in names),
+                    require(names and len(names) <= 64 and len(set(names)) == len(names)
+                            and all(len(name) <= 128 and NAME.fullmatch(name) for name in names),
                             'Invalid OTA partition inventory')
                     for name in names:
                         member = next((p for p in ('IMAGES/' + name + '.img', 'RADIO/' + name + '.img')
@@ -227,6 +285,7 @@ class NativeTools:
                         require(member, 'Target-files lacks an OTA partition')
                         path = za.extract(handle, member, root / (prefix + name + '.img'))
                         result[name] = raw_image(self, path, root / (prefix + name + '.raw.img'))
+                        formats[prefix + name] = 'raw' if result[name] == path else 'android-sparse'
                 return result
             target = images(target_files, 'target-')
             old = images(source_files, 'source-') if source_files is not None else {}
@@ -242,8 +301,15 @@ class NativeTools:
             if old:
                 args += ['--old_partitions=' + ':'.join(str(old[name]) for name in names)]
             self.run('delta_generator', args)
-            require(all(sha256_file(path) == sha256_file(target[name]) for name, path in zip(names, outputs)),
-                    'Applied OTA partitions differ from signed target-files')
+            comparisons = [{'partition': name, 'expected_input_format': formats['target-' + name],
+                            **ota_partition_comparison(target[name], path)}
+                           for name, path in zip(names, outputs)]
+            if not all(row['matched'] for row in comparisons):
+                error = SigningError('Applied OTA partitions differ from signed target-files')
+                error.diagnostic = json.dumps({'schema_version': 1, 'profile': 'ota-partition-reconstruction',
+                    'partition_count': len(comparisons), 'mismatch_count': sum(not row['matched'] for row in comparisons),
+                    'partitions': comparisons}, sort_keys=True, separators=(',', ':'))
+                raise error
 
     def extract_filesystem(self, image, destination):
         with tempfile.TemporaryDirectory(dir=self.scratch) as directory:

@@ -165,6 +165,11 @@ expected identities. Qualification requires the explicit `--qualification` flag.
 
 ## Fixtures
 
+OTA reconstruction mismatches remain fatal. Their bounded diagnostic reports
+partition names, input format, full raw-image sizes/hashes, first differing
+offset, matched prefix and sampled range hashes. It contains no image bytes or
+file paths; it does not approve padding or unused-block differences.
+
 Fixtures create disposable material in temporary storage. Native signature cases require
 explicit source and otatools inputs; Linux or `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` refuses
 missing inputs. They exercise corrupt, unsigned, wrong-key, wrong-role and test-key artifacts.
