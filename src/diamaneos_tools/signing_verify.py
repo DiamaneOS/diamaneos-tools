@@ -292,6 +292,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
     partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
     verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
     full = False
+    source_artifacts = {}
     for ota in publication['ota']:
         path = files[ota['file']]
         tools.ota(path, keys.cert('releasekey', ''), plan['provenance'])
@@ -302,8 +303,13 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
         old = ota['source_target_files']
         if old is not None:
             source = safe_file(artifact_root, old)
-            require(plan['previous_artifacts'].get(old) == sha256_file(source), 'Delta source lacks a verified signing result')
-            require('pre-build' in metadata and 'pre-build-incremental' in metadata, 'Delta lacks source-build metadata')
+            digest = sha256_file(source)
+            require(plan['previous_artifacts'].get(old) == digest, 'Delta source lacks a verified signing result')
+            source_artifacts[old] = digest
+            identity = tools.target_identity(source)
+            require(metadata.get('pre-build') == identity['fingerprint']
+                    and metadata.get('pre-build-incremental') == identity['incremental'],
+                    'Delta source-build metadata differs from authenticated signed base')
         else:
             require('pre-build' not in metadata, 'OTA is incremental without a verified source')
             full = True
@@ -311,6 +317,8 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
         payload.unlink()
     require(full, 'Publication lacks a full OTA')
     require(artifacts == {name: sha256_file(path) for name, path in files.items()}, 'Artifacts changed during verification')
+    require(source_artifacts == {name: sha256_file(safe_file(artifact_root, name))
+                                 for name in source_artifacts}, 'Delta source changed during verification')
     return {'schema_version': 2, 'status': 'PASS', 'artifact_signatures_verified': True,
             'mode': plan['mode'], 'plan_sha256': plan['plan_sha256'], 'provenance': plan['provenance'],
             'changed_projects': plan['changed_projects'], 'public_identities': plan['public_identities'],

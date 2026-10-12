@@ -156,6 +156,7 @@ bin/diamaneos signing verify --plan "$PLAN" \
 - Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected.
 - The platform OTA checker verifies whole-file, payload and metadata signatures. Build metadata and payload properties bind the accepted build and final bytes.
 - Native payload application reproduces signed target-files partitions, using the verified source for deltas.
+- Incremental pre-build metadata must exactly match the authenticated signed base's platform BuildInfo identity. The base archive hash is rechecked before verification returns.
 - Factory and release signatures use the external authority and distinct namespaces. The factory contains exactly one flat member: the verified image archive.
 - Closing checks bind source, public material and publication bytes throughout verification. A changed input cannot produce a successful result.
 

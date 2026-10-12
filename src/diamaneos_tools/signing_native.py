@@ -289,6 +289,39 @@ class NativeTools:
         # with the independent certificate's public key for payload and metadata signatures.
         self.run('check_ota_package_signature', [expected, path])
 
+    def target_identity(self, target_files):
+        """Ask Git-bound platform BuildInfo for the authenticated base identity."""
+        project = self.source / 'build/make'
+        revision = self.projects['build/make'] if self.projects else 'HEAD'
+        names = git_read(project, ['ls-tree', '-r', '--name-only', revision, '--',
+                                  'tools/releasetools']).decode().splitlines()
+        names = [name for name in names if name.endswith('.py')]
+        require(0 < len(names) <= 256, 'Platform metadata module inventory exceeds its bound')
+        with tempfile.TemporaryDirectory(dir=self.scratch, prefix='platform-identity-') as directory:
+            root = Path(directory)
+            for name in names:
+                relative = Path(name).relative_to('tools/releasetools')
+                require('..' not in relative.parts, 'Unsafe platform metadata module')
+                source = safe_file(project, name)
+                selected = git_read(project, ['show', revision + ':' + name])
+                require(len(selected) <= 1024 * 1024 and source.read_bytes() == selected,
+                        'Platform metadata source differs from selected Git revision')
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with destination.open('xb') as stream: stream.write(selected)
+                destination.chmod(0o400)
+            code = ('import sys,json,zipfile; sys.path.insert(0,sys.argv[1]); import common; '
+                    'info=common.BuildInfo(common.LoadInfoDict(sys.argv[2])); '
+                    'print(json.dumps({"fingerprint":info.fingerprint,'
+                    '"incremental":info.GetBuildProp("ro.build.version.incremental")}))')
+            result = json.loads(command([sys.executable, '-I', '-B', '-c', code, root, target_files],
+                                        env=self.env))
+        require(isinstance(result, dict) and set(result) == {'fingerprint', 'incremental'}
+                and all(isinstance(value, str) and 0 < len(value) <= 4096
+                        and not any(char.isspace() for char in value) for value in result.values()),
+                'Platform source identity is missing or malformed')
+        return result
+
     def apply_payload(self, payload, target_files, source_files=None):
         """Apply with delta_generator and compare every resulting partition byte."""
         with tempfile.TemporaryDirectory(dir=self.scratch) as directory:
