@@ -117,6 +117,9 @@ as after Fairphone's own flash.
 - **Never older firmware.**
   - The FP6 bootloader reports empty `version-bootloader` and `version-baseband`, and releases can
     share every Qualcomm version string, so the phone cannot say which release it runs.
+  - `flash-all`, the clean-install script in each image set, cannot tell either and always writes the
+    carried firmware, as Fairphone's own flash script does. The user must not run it on a phone that
+    already runs a newer Fairphone release.
   - `flash-steps` takes the release from `--phone-firmware` (the stock build number) or from the
     image set given with `--since`, compares build numbers, and stops if the phone runs a newer
     release than the image set carries.

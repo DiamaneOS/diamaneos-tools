@@ -1,13 +1,15 @@
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
-from diamaneos_tools import flash_steps, image_package, image_verify
+from diamaneos_tools import flash_all, flash_steps, image_package, image_verify
 from tests.build.test_image_package import fixture_workspace, run_plan
 
 # What "fastboot getvar all" and "fastboot oem device-info" print on an
@@ -112,6 +114,62 @@ class FlashStepTests(unittest.TestCase):
             report.update(status='FAIL', failed=1)
             with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, f'verification failed \\({check}\\)'):
                 flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
+
+    def test_the_image_set_carries_install_scripts_for_a_clean_install(self):
+        # The same commands as flash-steps prints for a wipe that writes the firmware again.
+        printed = self.commands(wipe=True, phone=self.phone(), phone_firmware=SHIPPED, firmware='rewrite')
+        wanted = ['fastboot ' + ' '.join(arguments) for arguments in flash_all.commands(self.record)]
+        self.assertEqual(printed[:len(wanted)], wanted)
+        self.assertEqual(['fastboot --set-active=a', 'fastboot reboot'], wanted[-2:])
+        scripts = flash_all.scripts(self.record)
+        for name, text in scripts.items():
+            self.assertEqual(text, (self.directory / name).read_bytes().decode())
+            self.assertEqual(wanted, [line.split(' ||')[0] for line in text.splitlines()
+                                      if line.startswith(('fastboot flash', 'fastboot --set', 'fastboot reboot'))])
+            # Nothing else is run: no lock, unlock, erase or format command.
+            self.assertEqual([], [line for line in text.splitlines() if line.startswith('fastboot ')
+                                  and not line.startswith(('fastboot flash ', 'fastboot --set-active=',
+                                                           'fastboot reboot', 'fastboot getvar ',
+                                                           'fastboot oem device-info '))])
+            self.assertIn('keep the bootloader unlocked', text)
+            self.assertIn(f"Fairphone's {SHIPPED} firmware first", text)
+        self.assertTrue(image_package.check_sums(self.directory))
+        self.assertTrue(scripts[flash_all.BAT].endswith(' || exit /b 1\r\n'))
+
+    def run_install_script(self, answers):
+        """Run flash-all.sh against a fastboot stand-in; returns (status, fastboot calls, stderr)."""
+        work = self.root / 'run'
+        shutil.rmtree(work, ignore_errors=True)
+        (work / 'bin').mkdir(parents=True)
+        log = work / 'calls'
+        replies = '\n'.join(f'  "getvar {name}") echo "{line}" >&2 ;;' for name, line in answers.items())
+        (work / 'bin/fastboot').write_text(
+            '#!/bin/sh\necho "$*" >> "' + str(log) + '"\ncase "$*" in\n' + replies + '\n'
+            '  "oem device-info") echo "(bootloader) Device critical unlocked: true" >&2 ;;\nesac\n')
+        (work / 'bin/fastboot').chmod(0o755)
+        result = subprocess.run(['sh', str(self.directory / flash_all.SH)], capture_output=True, text=True, timeout=120,
+                                env=dict(os.environ, PATH=str(work / 'bin') + os.pathsep + os.environ['PATH']))
+        calls = log.read_text().splitlines() if log.exists() else []
+        return result.returncode, [c for c in calls if not c.startswith(('getvar', 'oem'))], result.stderr
+
+    def test_the_install_script_checks_the_phone_and_the_images_before_it_writes(self):
+        good = {'product': 'product: FP6', 'is-userspace': '(bootloader) is-userspace:no', 'unlocked': 'unlocked: yes'}
+        status, calls, _ = self.run_install_script(good)
+        self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)]), (status, calls))
+        for name, line, message in (('product', 'product: FP5', 'is for the FP6'),
+                                    ('unlocked', 'unlocked: no', 'bootloader is locked'),
+                                    ('is-userspace', 'is-userspace: yes', 'fastbootd')):
+            with self.subTest(name):
+                status, calls, stderr = self.run_install_script(dict(good, **{name: line}))
+                self.assertEqual((1, []), (status, calls))
+                self.assertIn(message, stderr)
+        # A changed image stops the install before the first write.
+        image = self.directory / 'boot.img'
+        image.chmod(0o640)
+        image.write_bytes(image.read_bytes() + b'x')
+        status, calls, _ = self.run_install_script(good)
+        self.assertEqual([], calls)
+        self.assertNotEqual(0, status)
 
     def test_empty_partial_or_failed_reports_are_refused(self):
         def changed(**values):
