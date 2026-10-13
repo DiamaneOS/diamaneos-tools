@@ -95,6 +95,24 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot flash super super.img'] + logical,
                          commands)
 
+    def test_failed_checks_stop_an_official_set_and_warn_otherwise(self):
+        self.report['checks'][3]['status'] = 'FAIL'
+        self.report.update(status='FAIL', failed=1)
+        text = self.text(firmware='skip')
+        self.assertIn('- 1 image checks failed (avb-chain): this build lacks what they check.', text)
+        self.assertIn('fastboot flash super super.img', text)
+        self.record['official'] = True
+        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\); do not flash'):
+            self.text(firmware='skip')
+        # The set's hashes, firmware and vendor files stop every build.
+        self.record['official'] = False
+        for check in image_verify.NEVER_WAIVED:
+            report = self.passing_report()
+            next(c for c in report['checks'] if c['id'] == check)['status'] = 'FAIL'
+            report.update(status='FAIL', failed=1)
+            with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, f'verification failed \\({check}\\)'):
+                flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
+
     def test_empty_partial_or_failed_reports_are_refused(self):
         def changed(**values):
             report = self.passing_report()
@@ -104,7 +122,7 @@ class FlashStepTests(unittest.TestCase):
         failed = self.passing_report()
         failed['checks'][3]['status'] = 'FAIL'
         cases = {'not been verified': None,
-                 'verification failed \\(avb-chain\\)': failed,
+                 'does not count its failed checks': failed,
                  'lists no checks': changed(checks=None),
                  'lacks checks: sums, record': changed(status='FAIL', checks=[], checked=0),
                  'lacks checks: firmware-ota': changed(checks=checks[:-1], checked=len(checks) - 1),

@@ -2,6 +2,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,20 @@ class BuildEnvironmentTests(unittest.TestCase):
             self.config["upstream"]["project_map_sha256"],
             identity["project_map_sha256"],
         )
+
+    def test_own_input_files_are_named_and_hashed_and_a_pin_is_optional(self):
+        self.assertTrue(all(set(item) == {"id", "repository_path"} for item in self.config["project_inputs"]))
+        hashes = build.declared_identity(self.config, self.raw, ROOT)["project_inputs"]
+        self.assertEqual({item["id"] for item in self.config["project_inputs"]}, set(hashes))
+        first = self.config["project_inputs"][0]
+        self.assertEqual(build.sha256_file(ROOT / first["repository_path"]), hashes[first["id"]])
+        pinned = copy.deepcopy(self.config)
+        pinned["project_inputs"][0]["sha256"] = hashes[first["id"]]
+        build.validate_config(pinned)
+        self.assertEqual(hashes, build.declared_identity(pinned, self.raw, ROOT)["project_inputs"])
+        pinned["project_inputs"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(build.BuildError, "project input hash mismatch: " + first["id"]):
+            build.declared_identity(pinned, self.raw, ROOT)
 
     def test_changed_manifest_pin_changes_build_identity(self):
         original = build.declared_identity(self.config, self.raw, ROOT)
@@ -366,6 +381,40 @@ class BranchCheckoutTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "local manifests"):
             self.verify()
 
+    def test_a_build_that_is_not_official_lists_what_an_official_one_refuses(self):
+        self.assertEqual(([], None), tuple(self.verify(allow_modified=True)[k]
+                                           for k in ("deviations", "deviations_sha256")))
+        self.assertEqual([], self.verify()["deviations"])
+        (self.source / "device" / "rogue.mk").write_text("undeclared")
+        (self.source / ".workspace.lock").write_text("")
+        with self.assertRaisesRegex(build.BuildError, "undeclared inputs outside its projects: "
+                                                      ".workspace.lock, device/rogue.mk"):
+            self.verify()
+        local = self.source / ".repo" / "local_manifests"
+        local.mkdir()
+        (local / "mine.xml").write_text("<manifest/>")
+        git(self.manifests, "remote", "set-url", "origin", "ssh://git@example.invalid/manifest")
+        git(self.source / ".repo" / "repo", "commit", "-q", "--allow-empty", "-m", "another repo tool")
+        self.resolved = self.resolved.replace(b"https://example.invalid/", b"git://example.invalid/")
+        result = self.verify(allow_modified=True)
+        self.assertEqual(5, len(result["deviations"]))
+        self.assertRegex(result["deviations"][0], "repo tool is not the pinned fixture-repo")
+        self.assertEqual(["the manifest checkout's origin is not " + self.config["manifest"]["url"],
+                          "the manifest fetches from a remote without HTTPS",
+                          "local manifests are in use (.repo/local_manifests)",
+                          "files outside the manifest's projects: .workspace.lock, device/rogue.mk"],
+                         result["deviations"][1:])
+        self.assertTrue(result["source_clean"])
+        # The deviations are bound like local changes: other content is another source.
+        self.assertRegex(result["deviations_sha256"], "^[0-9a-f]{64}$")
+        self.assertEqual(result["deviations_sha256"], self.verify(allow_modified=True)["deviations_sha256"])
+        (self.source / "device" / "rogue.mk").write_text("edited")
+        self.assertNotEqual(result["deviations_sha256"], self.verify(allow_modified=True)["deviations_sha256"])
+        # No checkout at all is never a deviation.
+        shutil.rmtree(self.source / ".repo" / "repo")
+        with self.assertRaisesRegex(build.BuildError, "lacks the pinned repo implementation"):
+            self.verify(allow_modified=True)
+
     def test_local_changes_pass_only_when_allowed_and_are_bound(self):
         (self.project / "untracked.txt").write_text("dirty")
         with self.assertRaisesRegex(build.BuildError, "dirty or untracked content: device/example"):
@@ -397,9 +446,9 @@ class BranchCheckoutTests(unittest.TestCase):
         self.resolved = self.resolved.replace(pinned.encode(), rev(self.project).encode())
         with self.assertRaisesRegex(build.BuildError, "not at the commits the manifest pins: device/example"):
             self.verify()
-        # Allowing local changes does not allow another commit.
-        with self.assertRaisesRegex(build.BuildError, "not at the commits the manifest pins: device/example"):
-            self.verify(allow_modified=True)
+        # A build that is not official records it as a deviation.
+        self.assertEqual(["projects are not at the commits the manifest pins: device/example"],
+                         self.verify(allow_modified=True)["deviations"])
         # A project that follows a branch may be at any clean commit.
         self.declared = self.declared.replace(f"revision='{pinned}' upstream='android17'".encode(),
                                               b"revision='android17'")

@@ -210,6 +210,9 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(0, steps.main(['all', '--dry-run', '--workspace', workspace], self.lines.append))
         self.assertIn('--no-official turns that off', '\n'.join(self.lines))
         self.assertFalse(self.context(official=False).official)
+        # A command that is refused leaves the choice as it was.
+        self.assertEqual(2, steps.main(['android', '--no-official', '--workspace', workspace], self.lines.append))
+        self.assertTrue(self.context().official)
         steps.remember_official(self.context().workspace, False)
         self.assertFalse(self.context().official)
 
@@ -304,6 +307,32 @@ class PlanTests(unittest.TestCase):
             changed = steps.plan_vendor(replace(ctx, config=config))
         self.assertNotEqual(plan.inputs['firmware_release'], changed.inputs['firmware_release'])
 
+    def test_only_an_official_build_reruns_the_vendor_step_for_a_new_source(self):
+        ctx = self.context()
+
+        def plan(source, official=False):
+            ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
+                                               'outputs': {'project_map_sha256': source}})
+            with patch.object(steps, 'newest_commit_time', return_value=1):
+                return steps.plan_vendor(replace(ctx, official=official))
+
+        made = {'inputs': plan('old').inputs, 'inputs_sha256': bw.digest(plan('old').inputs)}
+        self.assertTrue(steps.inputs_current(plan('old', official=True), made))
+        self.assertTrue(steps.inputs_current(plan('new'), made))
+        self.assertFalse(steps.inputs_current(plan('new', official=True), made))
+        # Another recipe, code or setting is another vendor tree for every build.
+        changed = dict(made, inputs=dict(made['inputs'], notice_kind='other'))
+        self.assertFalse(steps.inputs_current(plan('new'), changed))
+        # The step needs its generation and the factory package packaging reads.
+        vendor, archive = ctx.workspace.vendor, ctx.workspace.cache / 'factory.zip'
+        (vendor / 'generations/g').mkdir(parents=True)
+        (vendor / 'current').symlink_to('generations/g')
+        state = {'outputs': {'generation': 'g', 'factory_zip': str(archive)}}
+        self.assertFalse(plan('new').valid(state))
+        archive.parent.mkdir(parents=True)
+        archive.write_bytes(b'zip')
+        self.assertTrue(plan('new').valid(state))
+
     def test_the_vendor_step_installs_the_vendor_tree_in_the_source(self):
         ctx = self.context()
         ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
@@ -324,7 +353,7 @@ class PlanTests(unittest.TestCase):
                 patch.object(steps.bw, 'check_host', return_value={'warnings': []}):
             for step in ('vendor', 'sync', 'android'):
                 self.assertEqual(0, steps.main([step, '--workspace', str(self.root / 'ws')], self.lines.append))
-        self.assertEqual([(('sync', 'vendor'), ('sync', 'vendor'), True), (('sync',), ('sync',), False),
+        self.assertEqual([(('sync', 'vendor'), ('sync',), True), (('sync',), ('sync',), False),
                           (('android',), ('android',), False)], calls)
         # The checking sync runs no repo command.
         ctx = self.context()
@@ -604,6 +633,31 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertIn('    warning: policy files differ from their record in device/fairphone/FP6/sepolicy/'
                       'provenance.json: audio/hal_audio_default.te. --official refuses this', self.lines)
 
+    def test_android_builds_only_the_deviations_the_sync_recorded(self):
+        def checkout(found):
+            return lambda *args, **kw: {
+                'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p', 'modified': [],
+                'generated_input_descriptor_sha256': 'd', 'modified_sha256': None, 'deviations_sha256': found}
+        ctx = steps.make_context(arguments(self.workspace), self.lines.append)
+        for recorded, found, passes in (('e', 'e', True), (None, 'e', False), ('e', None, False), ('e', 'f', False)):
+            with self.subTest(recorded=recorded, found=found):
+                ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+                    'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k', 'resolved_manifest_sha256': 'r',
+                    'manifest_commit': self.commit, 'deviations_sha256': recorded}})
+                ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {}})
+                with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                        patch.object(steps, 'newest_commit_time', return_value=1), \
+                        patch.object(steps.build, 'verify_branch_checkout', side_effect=checkout(found)):
+                    preflight = steps.plan_android(ctx).actions[1].func
+                    if passes:
+                        preflight()
+                    else:
+                        with self.assertRaisesRegex(bw.BuildStepError, 'deviations of the source tree are not the ones'):
+                            preflight()
+        # Deviations are a source input only when there are any.
+        self.assertEqual('e', steps.source_record({'outputs': {'deviations_sha256': 'e'}})['deviations_sha256'])
+        self.assertNotIn('deviations_sha256', steps.source_record({'outputs': {}}))
+
 
 def git(path, *args):
     return subprocess.run(['git', '-C', str(path), '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
@@ -674,10 +728,20 @@ class ToolsSkewTests(unittest.TestCase):
         self.synced(new)
         stale = replace(self.ctx, tools_commit=old)
         with patch.object(steps, 'tools_skew', return_value=('stale', 'these tools are old')):
+            # Only an official build stops; others build with a warning.
             with self.assertRaisesRegex(bw.UsageError, 'these tools are old'):
-                steps.check_tools(stale, False)
-            steps.check_tools(stale, False, dry_run=True)
-            self.assertIn('note: these tools are old', self.lines)
+                steps.check_tools(replace(stale, official=True), False)
+            steps.check_tools(replace(stale, official=True), False, dry_run=True)
+            steps.check_tools(stale, False)
+            self.assertEqual(['warning: these tools are old'] * 2, self.lines)
+            self.assertEqual('stale', stale.cache['tools_skew'])
+            # Packaging and checking an official build are official, whatever the command says.
+            stale.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x',
+                                                    'outputs': {'official': True}})
+            steps.check_tools(stale, False, step='android')
+            for step in ('package', 'verify'):
+                with self.assertRaisesRegex(bw.UsageError, 'these tools are old'):
+                    steps.check_tools(stale, False, step=step)
         with patch.object(steps, 'tools_skew', return_value=('moved', 'the sync moved these tools')):
             with self.assertRaises(steps.ToolsUpdated) as raised:
                 steps.check_tools(stale, True)
@@ -759,6 +823,16 @@ class RunnerTests(unittest.TestCase):
         self.inputs['vendor']['value'] = 2
         self.run_all()
         self.assertEqual(['vendor', 'android', 'package', 'verify'], self.calls)
+
+    def test_build_vendor_on_its_own_skips_current_vendor_files_but_installs_them(self):
+        self.run_all()
+        self.calls.clear()
+        ctx = replace(self.ctx, check_only=True)
+        with patch.dict(steps.PLANS, {n: self.fake(n) for n in bw.STEPS}):
+            steps.run_steps(ctx, ('sync', 'vendor'), force=('sync',))
+        # The fake plan's only action stands for "Install the vendor tree".
+        self.assertEqual(['sync', 'vendor'], self.calls)
+        self.assertIn('vendor: up to date', self.lines)
 
     def test_forced_step_reruns_and_unchanged_outputs_stop_the_cascade(self):
         self.run_all()

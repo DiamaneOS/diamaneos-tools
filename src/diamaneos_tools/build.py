@@ -221,7 +221,10 @@ def validate_config(config: dict) -> None:
         raise BuildError("project inputs must be a non-empty list")
     ids = set()
     for item in inputs:
-        _require_keys(item, {"id", "repository_path", "sha256"}, "project input")
+        # A pin is optional: the tools commit already fixes these files, so
+        # the public environment names them and build.json records their hashes.
+        pinned = isinstance(item, dict) and "sha256" in item
+        _require_keys(item, {"id", "repository_path"} | ({"sha256"} if pinned else set()), "project input")
         if not isinstance(item["id"], str) or not SAFE_ID_RE.fullmatch(item["id"]):
             raise BuildError("project input id is invalid")
         if item["id"] in ids:
@@ -230,7 +233,8 @@ def validate_config(config: dict) -> None:
         path = Path(item["repository_path"])
         if path.is_absolute() or ".." in path.parts or not path.parts:
             raise BuildError("project input path is unsafe")
-        _require_sha(item["sha256"], "project input hash")
+        if pinned:
+            _require_sha(item["sha256"], "project input hash")
 
     device = config["device_inputs"]
     _require_keys(device, {
@@ -258,7 +262,7 @@ def declared_identity(config: dict, raw: bytes, project_root: Path) -> dict:
     for item in config["project_inputs"]:
         path = project_root / item["repository_path"]
         observed = sha256_file(path)
-        if observed != item["sha256"]:
+        if "sha256" in item and observed != item["sha256"]:
             raise BuildError(f"project input hash mismatch: {item['id']}")
         input_hashes[item["id"]] = observed
     identity = {
@@ -495,8 +499,12 @@ def _source_relative_path(value) -> bool:
 
 
 def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
-                         resolved_xml: bytes, generated=frozenset()) -> None:
+                         resolved_xml: bytes, generated=frozenset(), strict: bool = True) -> list:
     """Reject undeclared inputs outside projects without traversing build output.
+
+    Returns the undeclared paths. They, and local manifests, are errors when
+    ``strict``; otherwise local manifests are repo's business (their projects
+    are in the resolved manifest) and the caller reports the paths.
 
     Git status covers each project's files. This covers the gaps between those
     projects and authenticates the manifest's copy/link files, which the project
@@ -510,7 +518,7 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
     directory = source / ".repo/local_manifests"
     if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
         raise BuildError("local manifest directory is invalid")
-    if directory.exists() and any(directory.iterdir()):
+    if strict and directory.exists() and any(directory.iterdir()):
         raise BuildError("local manifests are not declared by this environment")
     exports = _manifest_exports(declared_xml)
     if exports != _manifest_exports(resolved_xml):
@@ -549,6 +557,7 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
             if current.is_symlink() or not current.is_dir():
                 raise BuildError("source project has a missing or redirected directory")
             current = current.parent
+    undeclared = []
     pending = [source]
     while pending:
         directory = pending.pop()
@@ -562,7 +571,10 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
             elif relative in containers and entry.is_dir() and not entry.is_symlink():
                 pending.append(entry)
             else:
-                raise BuildError("source tree contains an undeclared input outside its projects")
+                undeclared.append(relative)
+    undeclared.sort()
+    if undeclared and strict:
+        raise BuildError("source tree contains undeclared inputs outside its projects: " + _listed(undeclared))
 
     for kind, project, origin, destination in exports:
         expected = source / project / origin
@@ -579,6 +591,45 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
         elif (target.is_symlink() or not target.is_file() or not expected.is_file()
               or sha256_file(target) != sha256_file(expected)):
             raise BuildError("manifest copyfile content mismatch")
+    return undeclared
+
+
+def _listed(names, limit: int = 20) -> str:
+    return ", ".join(names[:limit]) + (f" and {len(names) - limit} more" if len(names) > limit else "")
+
+
+# Above this size, and inside an undeclared directory, a file counts by its
+# size and time: reading everything a stray output tree holds is not worth it.
+UNDECLARED_HASH_LIMIT = 64 * 1024 * 1024
+UNDECLARED_DIRECTORY_ENTRIES = 20000
+
+
+def undeclared_fingerprint(source: Path, paths) -> list:
+    """What is at each undeclared path, so that a change there is a change of the source."""
+    def stamp(path):
+        status = path.lstat()
+        return [status.st_size, status.st_mtime_ns]
+
+    result = []
+    for relative in paths:
+        target = source / relative
+        if target.is_symlink():
+            result.append([relative, "link", os.readlink(target)])
+        elif target.is_file():
+            large = target.stat().st_size > UNDECLARED_HASH_LIMIT
+            result.append([relative, "file", stamp(target) if large else sha256_file(target)])
+        elif target.is_dir():
+            entries = []
+            for root, directories, files in os.walk(target):
+                directories.sort()
+                entries += [[(Path(root) / name).relative_to(target).as_posix(), *stamp(Path(root) / name)]
+                            for name in sorted(files)]
+                if len(entries) >= UNDECLARED_DIRECTORY_ENTRIES:
+                    break
+            result.append([relative, "directory", sha256_bytes(json.dumps(entries).encode())])
+        else:
+            result.append([relative, "other"])
+    return result
 
 
 def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
@@ -671,8 +722,25 @@ def verify_repo_tool(config: dict, source: Path) -> dict:
     }
 
 
-def verify_pinned_revisions(declared_xml: bytes, rows) -> None:
+def check_repo_tool(config: dict, source: Path, strict: bool = True) -> tuple[dict, str | None]:
+    """verify_repo_tool, or for a build that is not ``strict`` a note when the
+    checkout uses another repo than the pinned one. A directory without a
+    repo checkout is an error either way."""
+    try:
+        return verify_repo_tool(config, source), None
+    except BuildError as error:
+        if strict or not (source / ".repo" / "repo").is_dir():
+            raise
+        tag = config["upstream"]["repo_tool"]["release_tag"]
+        unchecked = {"repo_tool_release_tag": None, "repo_tool_tag_object": None, "repo_tool_commit": None,
+                     "repo_tool_signature_verification": "NOT CHECKED"}
+        return unchecked, f"the checkout's repo tool is not the pinned {tag} ({error})"
+
+
+def verify_pinned_revisions(declared_xml: bytes, rows, strict: bool = True) -> list:
     """Projects the manifest pins to a commit are checked out at that commit.
+
+    Returns the projects that are not; an error when ``strict``.
 
     ``repo manifest -r`` records each project's checked-out commit, so it
     cannot show a project moved off its pin; the declared manifest
@@ -696,9 +764,10 @@ def verify_pinned_revisions(declared_xml: bytes, rows) -> None:
                     or default.get("revision"))
         if revision and SHA1_RE.fullmatch(revision) and resolved.get(path) != revision:
             moved.append(path)
-    if moved:
+    if moved and strict:
         raise BuildError("source projects are not at the commits the manifest pins: "
                          + ", ".join(moved[:20]))
+    return moved
 
 
 def _status_entries(checkout: Path, status: bytes):
@@ -775,8 +844,12 @@ def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
     return modified
 
 
-def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None) -> str:
+def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None,
+                               notes: list | None = None) -> str:
     """The manifest checkout follows the declared manifest; returns its commit.
+
+    With ``notes`` (a build that is not official) another origin URL, such as
+    an SSH clone or a fork of the manifest, is appended there, not an error.
 
     The checkout must be at the head of the declared branch. A sync that
     reproduces a recorded resolved manifest passes the manifest commit that
@@ -790,7 +863,9 @@ def verify_manifest_repository(config: dict, source: Path, manifest_commit: str 
         raise BuildError("source checkout lacks .repo/manifests")
     origin = _run(["git", "-C", str(manifests), "remote", "get-url", "origin"])
     if origin.stdout.decode("utf-8", "strict").strip() != manifest["url"]:
-        raise BuildError("manifest origin does not match the declared manifest URL")
+        if notes is None:
+            raise BuildError("manifest origin does not match the declared manifest URL")
+        notes.append("the manifest checkout's origin is not " + manifest["url"])
     head = _run(["git", "-C", str(manifests), "rev-parse", "HEAD"]).stdout.decode().strip()
     branch = manifest["branch"]
     reference = branch if branch.startswith("refs/tags/") else "refs/remotes/origin/" + branch
@@ -834,19 +909,43 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     resolved manifest (see verify_manifest_repository). With
     ``allow_modified``, projects with local changes pass and are listed in
     ``modified``, with ``modified_sha256`` binding their changes.
+
+    ``allow_modified`` is every build that is not official. For it, what an
+    official build refuses beyond local changes passes and is listed in
+    ``deviations``: another repo tool, another manifest origin, a remote
+    without HTTPS, local manifests, pinned projects at another commit, and
+    files between the projects.
     """
     if "manifest" not in config:
         raise BuildError("the build environment does not declare a manifest")
-    result = verify_repo_tool(config, source)
-    manifest_commit = verify_manifest_repository(config, source, manifest_commit)
+    strict = not allow_modified
+    notes = []
+    result, note = check_repo_tool(config, source, strict)
+    if note:
+        notes.append(note)
+    manifest_commit = verify_manifest_repository(config, source, manifest_commit, None if strict else notes)
     resolved = _run(["repo", "manifest", "-r"], cwd=source, timeout=300).stdout
     rows, project_map_sha256 = parse_project_map(resolved)
     if any(not remote.get("fetch", "").startswith("https://")
            for remote in ET.fromstring(resolved).findall("remote")):
-        raise BuildError("resolved manifest fetches from a remote without HTTPS")
-    verify_pinned_revisions(repo_manifest(source, resolved=False), rows)
+        if strict:
+            raise BuildError("resolved manifest fetches from a remote without HTTPS")
+        notes.append("the manifest fetches from a remote without HTTPS")
+    moved = verify_pinned_revisions(repo_manifest(source, resolved=False), rows, strict)
+    if moved:
+        notes.append("projects are not at the commits the manifest pins: " + _listed(moved))
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
-    verify_source_layout(config, source, rows, resolved, resolved, generated)
+    local_manifests = source / ".repo/local_manifests"
+    if not strict and local_manifests.is_dir() and any(local_manifests.iterdir()):
+        notes.append("local manifests are in use (.repo/local_manifests)")
+    undeclared = verify_source_layout(config, source, rows, resolved, resolved, generated, strict)
+    if undeclared:
+        notes.append("files outside the manifest's projects: " + _listed(undeclared))
+    # Binds the deviations like local changes: another set, or another content
+    # of the undeclared files, is another source.
+    deviations_sha256 = sha256_bytes(json.dumps(
+        {"notes": notes, "undeclared": undeclared_fingerprint(source, undeclared)}, sort_keys=True).encode()) \
+        if notes else None
     modified = verify_projects(source, rows, allow_modified)
     if resolved_path is not None:
         resolved_path.parent.mkdir(parents=True, exist_ok=True)
@@ -863,6 +962,8 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
         "source_clean": not modified,
         "modified": sorted(modified),
         "modified_sha256": sha256_bytes(json.dumps(modified, sort_keys=True).encode()) if modified else None,
+        "deviations": notes,
+        "deviations_sha256": deviations_sha256,
         "source_layout_verified": True,
         "generated_inputs": sorted(generated),
         "generated_input_descriptor_sha256": descriptor_sha256,

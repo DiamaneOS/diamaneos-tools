@@ -142,7 +142,7 @@ class PlainFlowCommandTests(unittest.TestCase):
     def test_vendor_checks_the_checkout_and_package_records_out(self):
         for argv in (('vendor',), ('package',), ('android',), ('sync',)):
             self.assertEqual(0, self.main(*argv))
-        self.assertEqual([(('sync', 'vendor'), ('sync', 'vendor'), True, False),
+        self.assertEqual([(('sync', 'vendor'), ('sync',), True, False),
                           (('sync', 'android', 'package', 'verify'), ('sync', 'android', 'package', 'verify'),
                            True, True),
                           (('android',), ('android',), False, False),

@@ -1764,16 +1764,28 @@ GENERIC = [
 REQUIRED_CHECKS = ('sums',) + tuple(check_id for check_id, _, _ in GENERIC)
 
 
-def report_problem(report, build_id: str, sums_sha256: str) -> str:
+# Checks no build may fail and still be flashed: the set's own hashes, the
+# firmware it carries and the vendor files it was built with.
+NEVER_WAIVED = ('sums', 'firmware', 'firmware-ota', 'vendor-binding')
+
+
+def failed_checks(report) -> list:
+    """The ids of the checks a verify report lists as not passed."""
+    return [str(c.get('id')) for c in report.get('checks') or [] if c.get('status') != 'PASS']
+
+
+def report_problem(report, build_id: str, sums_sha256: str, allow_failed: bool = False) -> str:
     """Why a verify report does not show that this image set passed, or ''.
 
     Every listed check passed, the generic checks are all there once, and the
-    totals and status agree: an empty or partial report passes nothing."""
+    totals and status agree: an empty or partial report passes nothing. With
+    ``allow_failed`` (an image set that is not official) failed checks are no
+    problem as long as the report counts them itself."""
     checks = report.get('checks') if isinstance(report, dict) else None
     if not isinstance(checks, list) or not all(isinstance(c, dict) for c in checks):
         return 'the verification report lists no checks'
-    failed = [str(c.get('id')) for c in checks if c.get('status') != 'PASS']
-    if failed:
+    failed = failed_checks(report)
+    if failed and (not allow_failed or any(check in NEVER_WAIVED for check in failed)):
         return 'verification failed (' + ', '.join(failed[:20]) + ')'
     if report.get('schema_version') != 1:
         return 'the verification report has an unknown format'
@@ -1785,7 +1797,10 @@ def report_problem(report, build_id: str, sums_sha256: str) -> str:
         return 'the verification report lacks checks: ' + ', '.join(missing)
     if len(ids) != len(set(ids)):
         return 'the verification report lists a check twice'
-    if report.get('status') != 'PASS' or report.get('checked') != len(checks) or report.get('failed') != 0:
+    if failed:
+        if (report.get('status'), report.get('checked'), report.get('failed')) != ('FAIL', len(checks), len(failed)):
+            return 'the verification report does not count its failed checks'
+    elif report.get('status') != 'PASS' or report.get('checked') != len(checks) or report.get('failed') != 0:
         return 'the verification report does not say that all its checks passed'
     return ''
 
@@ -1853,7 +1868,13 @@ def plan(ctx):
             if result['status'] != 'PASS':
                 ctx.echo(f'    FAIL {result["id"]}: {result["detail"]}')
         if report['status'] != 'PASS':
-            raise CheckFailed(f'{report["failed"]} of {report["checked"]} checks failed; report: {path}')
+            message = f'{report["failed"]} of {report["checked"]} checks failed; report: {path}'
+            # The image set says whether it is official, whatever this command was given.
+            if (record.get('official') is True or ctx.official
+                    or any(check in NEVER_WAIVED for check in failed_checks(report))):
+                raise CheckFailed(message)
+            ctx.echo(f'    warning: {message}. An official build stops here; flash-steps names the failed checks')
+            return
         ctx.echo(f'    all {report["checked"]} checks passed')
 
     def outputs():
