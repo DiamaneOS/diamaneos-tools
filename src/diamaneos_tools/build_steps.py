@@ -1221,6 +1221,7 @@ def make_context(args, echo=print) -> Context:
     if args.jobs is not None and not 1 <= args.jobs <= 1024:
         raise UsageError('--jobs must be between 1 and 1024')
     workspace = bw.Workspace(args.workspace or bw.default_workspace())
+    workspace.check_root()
     # A workspace synced shallow stays shallow; a plain "build all" must not
     # turn it into a full download.
     shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
@@ -1249,7 +1250,8 @@ def parser() -> argparse.ArgumentParser:
         epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging. '
                '"diamaneos build kernel" builds the kernel from source (maintainers; not part of build all).')
     result.add_argument('step', choices=('all',) + bw.STEPS + bw.MAINTAINER_STEPS)
-    result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE or ~/diamaneos-build)')
+    result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, the workspace of '
+                                            'the checkout these tools run from, or ~/diamaneos-build)')
     result.add_argument('--dry-run', action='store_true', help='print the plan and change nothing')
     result.add_argument('--variant', help='user (default) or userdebug')
     result.add_argument('--official', action=argparse.BooleanOptionalAction, default=None,
@@ -1339,6 +1341,8 @@ def main(argv=None, echo=print) -> int:
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
                  'Updater; --no-official turns that off')
+        if not args.workspace and not os.environ.get('DIAMANEOS_WORKSPACE') and not args.dry_run:
+            echo(f'workspace: {ctx.workspace.root}')
         if args.dry_run:
             echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant}{", official" if ctx.official else ""})')
             run_steps(ctx, steps, force, dry_run=True)
