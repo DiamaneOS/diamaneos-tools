@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import zipfile
 
-from . import firmware, product_inputs
+from . import firmware, flash_all, product_inputs
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError
 
@@ -182,7 +182,7 @@ def plan(ctx):
     android = ws.passed('android')
     vendor = ws.passed('vendor')
     inventory = ctx.firmware_inventory or firmware.load_inventory()
-    code = bw.sha_file(Path(__file__))
+    code = bw.digest([bw.sha_file(Path(__file__)), bw.sha_file(Path(flash_all.__file__))])
     inputs = None if android is None else {
         'android': android['outputs'], 'build_config': bw.digest({k: config.get(k) for k in PACKAGE_CONFIG}),
         'code': code, 'firmware': {'inventory': bw.digest(inventory), 'code': bw.sha_file(Path(firmware.__file__)),
@@ -376,6 +376,9 @@ def plan(ctx):
             'firmware': dict(state['firmware_record'], validated=config['firmware']['validated']),
         }
         bw.write_atomic(state['partial'] / RECORD, bw.encoded(value), 0o640)
+        # From the record as it reads back, so the scripts and flash-steps agree on the order.
+        for name, text in flash_all.scripts(json.loads(bw.encoded(value))).items():
+            bw.write_atomic(state['partial'] / name, text.encode(), 0o640)
         write_sums(state['partial'])
 
     def publish():

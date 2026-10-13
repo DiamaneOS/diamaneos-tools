@@ -74,15 +74,16 @@ bootloader](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-t
 as Fairphone describes, with `fastboot flashing unlock_critical`. Then, in the bootloader:
 
 ```sh
-{ fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1
-tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware <BUILD_NUMBER>
+cd ~/diamaneos-build/images/latest
+bash flash-all.sh
 ```
 
-- This prints, and never runs, the fastboot commands for the newest checked image set.
-- `--phone-firmware` is the build number in Settings > About phone, for example
-  `FP6.QREL.16.100.0`; `--wipe` erases the phone.
+- It checks the phone and the images, then erases the phone and installs the image set. On Windows,
+  run `flash-all.bat`.
+- It writes Fairphone's firmware of the release the build's vendor files come from, then the OS. Do
+  not run it on a phone that already runs a newer Fairphone release.
 - Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
-- [Flashing](BUILD.md#flashing) covers firmware, updates and going back to stock.
+- [Flashing](BUILD.md#flashing) covers updates that keep data, firmware and going back to stock.
 
 ## Updating
 

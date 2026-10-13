@@ -431,7 +431,8 @@ For test builds only. The rules:
   package does.
 - The OS goes to slot a only. The firmware steps write both slots of each A/B firmware partition, as
   Fairphone's own flash does.
-- Never install firmware older than the phone already runs; `flash-steps` refuses to.
+- Never install firmware older than the phone already runs; `flash-steps` refuses to, and
+  `flash-all` must not be run on a phone with a newer Fairphone release than the set carries.
 - To flash from another computer, copy the whole image directory there.
 
 **Firmware.** Each image set carries Fairphone's firmware of the release its vendor files come from,
@@ -448,13 +449,19 @@ named in the set's `build.json`.
 
 **First install** (from stock Android or another system):
 
-1. Note the build number in Settings > About phone, for example `FP6.QREL.16.100.0`.
+1. Check the build number in Settings > About phone: it must not be a newer Fairphone release than
+   the one the image set carries (`firmware.release` in `build.json`).
 2. Unlock the bootloader as [Fairphone
    describes](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-to-unlock-or-lock-your-Fairphone-s-bootloader),
-   including `fastboot flashing unlock_critical`, because the steps write firmware.
-3. In the bootloader, save the phone's state as above, then print the flash steps and run them:
-   `tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmware
-   <BUILD_NUMBER>`.
+   including `fastboot flashing unlock_critical`, because the install writes firmware.
+3. In the bootloader, run `bash flash-all.sh` in the image directory (`flash-all.bat` on Windows).
+
+- Each image set carries both scripts. They check that the phone is an unlocked FP6 in the
+  bootloader and that the files match `SHA256SUMS`, and stop at the first failed command.
+- They always write the carried firmware, both slots in the stock order, as Fairphone's own flash
+  script does: the FP6 bootloader cannot say which release the phone runs.
+- `flash-steps --wipe --phone phone.txt --phone-firmware <BUILD_NUMBER>` prints the same install as
+  commands and leaves out the firmware when the phone already runs that release.
 
 - The wipe erases everything on the phone.
 - It flashes empty userdata, metadata and misc images and Fairphone's factory FRP image, so factory
