@@ -3048,6 +3048,26 @@ class VintfAndJdkTests(unittest.TestCase):
             path.write_text('not json')
             self.assertFalse(plan.valid(previous))
 
+    def test_failed_checks_stop_only_an_official_image_set(self):
+        from dataclasses import replace
+        from tests.build.test_image_package import fixture_workspace, run_plan
+        from diamaneos_tools import image_package
+        with tempfile.TemporaryDirectory() as temp:
+            lines = []
+            ctx = replace(fixture_workspace(Path(temp)), echo=lines.append)
+            package = run_plan(ctx, image_package.plan(ctx))
+            ctx.workspace.write_state('package', {'status': 'PASS', 'inputs_sha256': 'p', 'outputs': package})
+            report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
+                      'status': 'FAIL', 'checked': 2, 'failed': 1,
+                      'checks': [{'id': 'sums', 'status': 'PASS'}, {'id': 'avb-chain', 'status': 'FAIL', 'detail': 'no'}]}
+            with mock.patch.object(subject, 'verify', return_value=report), \
+                    mock.patch.object(subject, 'kernel_prebuilts', return_value=(None, None)):
+                outputs = run_plan(ctx, subject.plan(ctx))
+                self.assertEqual('FAIL', outputs['status'])
+                self.assertTrue(any('warning: 1 of 2 checks failed' in line for line in lines))
+                with self.assertRaisesRegex(subject.CheckFailed, '1 of 2 checks failed'):
+                    run_plan(replace(ctx, official=True), subject.plan(replace(ctx, official=True)))
+
     def test_newest_jdk_is_chosen_numerically(self):
         with tempfile.TemporaryDirectory() as temp:
             src = Path(temp)

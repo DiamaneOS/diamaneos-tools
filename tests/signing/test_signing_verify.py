@@ -107,7 +107,9 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
     def test_dirty_or_nonrelease_build_does_not_get_production_signing(self):
         record = self.fixture()
         for change in (lambda r: r.update(variant='userdebug'), lambda r: r.update(official=False),
-                       lambda r: r.update(modified=['script']), lambda r: r['tools'].update(clean=False)):
+                       lambda r: r.update(modified=['script']), lambda r: r['tools'].update(clean=False),
+                       lambda r: r.update(source=dict(r.get('source') or {}, deviations=['local manifests'])),
+                       lambda r: r.update(tools_skew='stale')):
             value = copy.deepcopy(record); change(value)
             (self.root / 'build.json').write_text(json.dumps(value)); self.refresh_report()
             with self.assertRaises(inputs.SigningError): self.verify()

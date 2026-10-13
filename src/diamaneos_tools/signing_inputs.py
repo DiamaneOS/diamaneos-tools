@@ -227,7 +227,8 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
     require(otatools is not None and sha256_file(otatools) == tools.get('sha256') == checksums.get(tools.get('file')),
             'Otatools does not match the build that passed build verify')
     require(isinstance(record.get('tools'), dict)
-            and record.get('modified') == [] and record['tools'].get('clean') is True,
+            and record.get('modified') == [] and record['tools'].get('clean') is True
+            and not (record.get('source') or {}).get('deviations') and not record.get('tools_skew'),
             'Signing requires a clean recorded build')
     if production:
         require(record.get('variant') == 'user' and record.get('official') is True,

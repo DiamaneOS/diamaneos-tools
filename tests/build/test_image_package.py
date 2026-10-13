@@ -30,7 +30,7 @@ def fixture_workspace(root: Path, variant='user', **firmware_options):
     inventory, policy, archive, _ = synthetic_firmware(root / 'stock', **firmware_options)
     ctx.firmware_inventory = inventory
     config['firmware'] = policy
-    ws.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v', 'outputs': {
+    ws.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v', 'inputs': {'sync': 'p' * 64}, 'outputs': {
         'factory_zip': str(archive), 'factory_sha256': inventory['releases'][inventory['selected_build']]['archive']['sha256']}})
     product = ctx.out / 'target/product/FP6/obj/PACKAGING/target_files_intermediates'
     product.mkdir(parents=True)
@@ -236,6 +236,47 @@ class PackageTests(unittest.TestCase):
         record = json.loads((self.ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
         self.assertEqual(['device/fairphone/FP6'], record['modified'])
         self.assertIs(False, record['reproducible'])
+
+    def test_deviations_a_tools_skew_or_older_vendor_files_are_recorded_and_not_reproducible(self):
+        clean = {'commit': 'a' * 40, 'clean': True}
+
+        def packaged(number, change):
+            ctx = fixture_workspace(self.root / str(number))
+            android = ctx.workspace.passed('android')
+            android['outputs'].update(tools=clean)
+            change(ctx, android)
+            ctx.workspace.write_state('android', android)
+            with patch.object(image_package.product_inputs, 'tools_identity', return_value=clean):
+                outputs = run_plan(ctx, image_package.plan(ctx))
+            return json.loads((ctx.workspace.root / outputs['directory'] / 'build.json').read_text())
+
+        def deviations(ctx, android):
+            sync = ctx.workspace.passed('sync')
+            sync['outputs'].update(deviations=['files outside the manifest\'s projects: x'], deviations_sha256='e')
+            ctx.workspace.write_state('sync', sync)
+
+        def other_source(ctx, android):
+            vendor = ctx.workspace.passed('vendor')
+            ctx.workspace.write_state('vendor', dict(vendor, inputs={'sync': 'q' * 64}))
+
+        plain = packaged(0, lambda ctx, android: None)
+        self.assertEqual((True, True), (plain['reproducible'], plain['generated_inputs']['vendor_made_from_this_source']))
+        self.assertEqual(set(steps.make_context(argparse.Namespace(
+            workspace=str(self.root / 'x'), environment=None, variant='user', jobs=None, allow_network=True,
+            factory_zip=None, shallow=False), lambda *a: None).project_inputs), set(plain['environment']['project_inputs']))
+        self.assertNotIn('tools_skew', plain)
+        with_deviations = packaged(1, deviations)
+        self.assertEqual((False, 1), (with_deviations['reproducible'], len(with_deviations['source']['deviations'])))
+        skewed = packaged(2, lambda ctx, android: android['outputs'].update(tools_skew='stale'))
+        self.assertEqual((False, 'stale'), (skewed['reproducible'], skewed['tools_skew']))
+        older = packaged(3, other_source)
+        self.assertEqual((False, False), (older['reproducible'], older['generated_inputs']['vendor_made_from_this_source']))
+
+        def official_with_deviations(ctx, android):
+            android['outputs'].update(official=True)
+            deviations(ctx, android)
+        with self.assertRaisesRegex(image_package.BuildStepError, 'built official images, but the source record'):
+            packaged(4, official_with_deviations)
 
     def test_misc_is_zeros_sized_from_the_stock_partition_table(self):
         factory = self.root / 'factory.zip'

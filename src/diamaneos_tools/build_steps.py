@@ -136,6 +136,8 @@ class Context:
     firmware_inventory: dict | None = None
     # The tools commit this command started with (its code is that commit's).
     tools_commit: str | None = None
+    # SHA-256 of the tools' own input files the environment names, for build.json.
+    project_inputs: dict = field(default_factory=dict)
     # The command started again after its sync moved the running tools.
     restarted: bool = False
     # sync checks the checkout as it is (after a plain "repo sync") instead of
@@ -187,6 +189,15 @@ class StepPlan:
     outputs: object
     valid: object
     waiting_for: str | None = None
+    # Optional: whether a passed record's inputs are as good as these (called
+    # with the recorded inputs when their digest differs).
+    accepts: object = None
+
+
+def inputs_current(plan: 'StepPlan', passed: dict) -> bool:
+    if passed.get('inputs_sha256') == bw.digest(plan.inputs):
+        return True
+    return bool(plan.accepts and isinstance(passed.get('inputs'), dict) and plan.accepts(passed['inputs']))
 
 
 # ----------------------------------------------------------------- helpers
@@ -287,11 +298,12 @@ def project_revision(resolved: bytes, path: str) -> str | None:
     return next((row[3] for row in rows if row[0] == path), None)
 
 
-def retire_overlay(src: Path) -> list:
+def retire_overlay(src: Path, strict: bool = True) -> list:
     """Move the manifest overlay the tools used to install out of the way.
 
     The full DiamaneOS manifest replaces it; left in place, repo would apply
-    it on top. Other local manifests are the user's and stop the sync.
+    it on top. Other local manifests are the user's: they stop the sync of an
+    official build (``strict``) and are left to repo otherwise.
     """
     directory = src / '.repo/local_manifests'
     if not directory.exists() and not directory.is_symlink():
@@ -301,13 +313,18 @@ def retire_overlay(src: Path) -> list:
     entries = sorted(p.name for p in directory.iterdir())
     if not entries:
         return []
-    if entries != ['diamaneos.xml'] or (directory / 'diamaneos.xml').is_symlink():
-        raise UsageError(f'{directory} holds local manifests the build does not use ({", ".join(entries)}); '
-                         'move them away and run the sync again')
+    own = directory / 'diamaneos.xml'
+    if entries != ['diamaneos.xml'] or own.is_symlink():
+        if strict:
+            raise UsageError(f'{directory} holds local manifests the build does not use ({", ".join(entries)}); '
+                             'move them away and run the sync again')
+        if 'diamaneos.xml' not in entries or own.is_symlink() or not own.is_file():
+            return []
     previous = src / '.repo/diamaneos-previous-local-manifests'
     previous.mkdir(exist_ok=True)
-    os.replace(directory / 'diamaneos.xml', previous / 'diamaneos.xml')
-    directory.rmdir()
+    os.replace(own, previous / 'diamaneos.xml')
+    if entries == ['diamaneos.xml']:
+        directory.rmdir()
     return ['the old manifest overlay']
 
 
@@ -351,19 +368,23 @@ def plan_sync(ctx: Context) -> StepPlan:
     def clear():
         # Before repo sync: a generated tree at the path of a manifest
         # project (the kernel prebuilts) would stop the checkout.
-        moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256) + retire_overlay(ws.src)
+        moved = product_inputs.retire_stale(ws.src, ctx.environment_sha256) + retire_overlay(ws.src, ctx.official)
         if moved:
             ctx.echo('    moved aside: ' + ', '.join(moved))
 
     def check_manifest():
+        if not (ws.src / '.repo' / 'repo').is_dir():
+            raise BuildStepError(f'{ws.src} is not a repo checkout; run "repo init" and "repo sync" there, or '
+                                 '"diamaneos build sync"')
         try:
-            build.verify_repo_tool(env, ws.src)
+            build.check_repo_tool(env, ws.src, ctx.official)
         except build.BuildError as error:
             if not ctx.check_only:
                 raise
-            raise BuildStepError(f'{error}: the checkout needs the pinned repo tool; run "repo init '
+            raise BuildStepError(f'{error}: an official build needs the pinned repo tool; run "repo init '
                                  f'--repo-rev={repo["release_tag"]}" and "repo sync" again') from None
-        build.verify_manifest_repository(env, ws.src)
+        # A build that is not official reports another origin with its other deviations.
+        build.verify_manifest_repository(env, ws.src, notes=None if ctx.official else [])
 
     def repo_manifest() -> bytes:
         """The checked-out manifest as repo reads it ("repo manifest", no network)."""
@@ -409,6 +430,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                                               manifest_commit=pinned.manifest_commit if pinned else None,
                                               allow_modified=not ctx.official)
         warn_modified(ctx, result['modified'])
+        for note in result.get('deviations') or ():
+            ctx.echo(f'    warning: {note}; build.json records it, and --official refuses it')
         if pinned and result['resolved_manifest_sha256'] != pinned.sha256:
             raise BuildStepError('the synced source is not the pinned resolved manifest: "repo manifest -r" '
                                  f'gives SHA-256 {result["resolved_manifest_sha256"]}, the pinned manifest has '
@@ -481,6 +504,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                   'shallow': ctx.shallow,
                   'pinned_manifest': pinned.record() if pinned else None,
                   'modified': result['modified'], 'modified_sha256': result['modified_sha256']}
+        if result.get('deviations'):
+            values.update(deviations=result['deviations'], deviations_sha256=result['deviations_sha256'])
         different = sorted(k for k, v in (pinned.expected_source if pinned else {}).items() if values.get(k) != v)
         if different:
             raise BuildStepError('the synced source differs from the one build.json records: ' + ', '.join(different))
@@ -662,10 +687,23 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 'network_isolation': 'off' if ctx.allow_network else 'on'}
 
     def valid(state):
-        link = ws.vendor / 'current'
-        return link.is_symlink() and os.readlink(link) == 'generations/' + state['outputs']['generation']
+        # Packaging takes the firmware from the factory package, so that
+        # belongs to a usable vendor step like the generation itself.
+        link, generation = ws.vendor / 'current', state['outputs']['generation']
+        return (link.is_symlink() and os.readlink(link) == 'generations/' + generation
+                and (ws.vendor / 'generations' / generation).is_dir()
+                and Path(state['outputs'].get('factory_zip') or ws.vendor / 'missing').is_file())
 
-    return StepPlan('vendor', inputs, actions, outputs, valid, waiting_for=None if sync else 'sync')
+    def accepts(recorded):
+        # The vendor files come from the factory package by pinned hash; of the
+        # source they need only the image tools. An official build binds them
+        # to the exact source all the same; other builds keep them across a
+        # sync, and build.json says when they come from another source.
+        without = lambda value: {k: v for k, v in value.items() if k != 'sync'}
+        return not ctx.official and without(recorded) == without(inputs)
+
+    return StepPlan('vendor', inputs, actions, outputs, valid, waiting_for=None if sync else 'sync',
+                    accepts=accepts)
 
 
 def source_record(sync: dict) -> dict:
@@ -674,6 +712,8 @@ def source_record(sync: dict) -> dict:
     # tree has the same source identity whether or not they are allowed.
     if sync['outputs'].get('modified_sha256'):
         record['modified_sha256'] = sync['outputs']['modified_sha256']
+    if sync['outputs'].get('deviations_sha256'):
+        record['deviations_sha256'] = sync['outputs']['deviations_sha256']
     return record
 
 
@@ -784,6 +824,9 @@ def plan_android(ctx: Context) -> StepPlan:
             if result['modified_sha256'] != sync['outputs'].get('modified_sha256'):
                 raise BuildStepError('the local changes are not the ones "diamaneos build sync" recorded; '
                                      'run "diamaneos build sync" again')
+            if result.get('deviations_sha256') != sync['outputs'].get('deviations_sha256'):
+                raise BuildStepError('the deviations of the source tree are not the ones "diamaneos build sync" '
+                                     'recorded; run "diamaneos build sync" again')
             if key == 'preflight':
                 warn_modified(ctx, result['modified'])
             ctx.cache[key] = result
@@ -811,7 +854,8 @@ def plan_android(ctx: Context) -> StepPlan:
 
     def outputs():
         before, after = ctx.cache['preflight'], ctx.cache['postflight']
-        if any(before[key] != after[key] for key in ('resolved_project_map_sha256', 'modified_sha256')):
+        if any(before.get(key) != after.get(key)
+               for key in ('resolved_project_map_sha256', 'modified_sha256', 'deviations_sha256')):
             raise BuildStepError('the source tree changed during the build')
         target_files = find_target_files(ctx)
         target_sha256 = bw.sha_file(target_files)
@@ -830,7 +874,8 @@ def plan_android(ctx: Context) -> StepPlan:
                 'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
                 'modified': after['modified'],
                 'descriptor_sha256': after['generated_input_descriptor_sha256'],
-                'network_isolation': isolation}
+                'network_isolation': isolation,
+                **({'tools_skew': ctx.cache['tools_skew']} if ctx.cache.get('tools_skew') else {})}
 
     def valid(state):
         return android_outputs_match(ws, state['outputs'])
@@ -891,8 +936,9 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
         result = ctx.cache.get('sync') or build.verify_branch_checkout(
             ctx.environment, ws.src, ctx.environment_sha256, manifest_commit=commit, allow_modified=not ctx.official)
-        if (result['resolved_manifest_sha256'], result['modified_sha256']) != (
-                sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256')):
+        if (result['resolved_manifest_sha256'], result['modified_sha256'], result.get('deviations_sha256')) != (
+                sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256'),
+                sync['outputs'].get('deviations_sha256')):
             raise BuildStepError('the source changed since "diamaneos build vendor" checked it; run it again, then m')
         state['source'] = result
 
@@ -999,7 +1045,7 @@ def step_status(ctx: Context, name: str, plan: StepPlan | None = None) -> str:
         return 'waiting'
     if passed is None:
         return 'missing'
-    return 'current' if passed.get('inputs_sha256') == bw.digest(plan.inputs) and plan.valid(passed) else 'stale'
+    return 'current' if inputs_current(plan, passed) and plan.valid(passed) else 'stale'
 
 
 def recorded_context(ctx: Context, name: str) -> Context:
@@ -1079,9 +1125,16 @@ def tools_skew(ctx: Context, synced_now: bool, root: Path = ROOT) -> tuple[str, 
                      f'tree. Run {checkout / "bin/diamaneos"} instead, or update this checkout')
 
 
-def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False) -> None:
-    """Stop before a step that uses the tools' recipes when the tools are not
-    the source's; start again with the new tools when the sync moved them."""
+def built_official(ctx: Context) -> bool:
+    """The passed Android step built official images, whatever this command was given."""
+    return ((ctx.workspace.passed('android') or {}).get('outputs') or {}).get('official') is True
+
+
+def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False, step: str | None = None) -> None:
+    """Stop an official build before a step that uses the tools' recipes when
+    the tools are not the source's, and warn otherwise; start again with the
+    new tools when the sync moved them. Packaging and checking an official
+    build are official too."""
     skew = tools_skew(ctx, synced_now)
     if skew is None:
         return
@@ -1090,9 +1143,13 @@ def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False) -> None:
         if ctx.restarted:
             raise UsageError(message + '; run the same command again')
         raise ToolsUpdated(message, synced_tools(ctx))
-    if kind == 'stale' and not dry_run:
+    official = ctx.official or (step in ('package', 'verify') and built_official(ctx))
+    if kind == 'stale' and official and not dry_run:
         raise UsageError(message)
-    ctx.echo('note: ' + message)
+    if kind in ('stale', 'unknown'):
+        # For build.json: these tools may not match the source's.
+        ctx.cache['tools_skew'] = kind
+    ctx.echo(('warning: ' if kind == 'stale' else 'note: ') + message)
 
 
 def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
@@ -1105,14 +1162,13 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             check_prerequisites(ctx, name, steps)
         if name in TOOLS_CHECKED and not tools_checked:
             tools_checked = True
-            check_tools(ctx, synced_now, dry_run)
+            check_tools(ctx, synced_now, dry_run, name)
         plan = PLANS[name](ctx)
         passed = ws.passed(name)
         if plan.inputs is None:
             status, fresh = f'waiting for {plan.waiting_for}', True
         else:
-            fresh = (name in force or passed is None or passed.get('inputs_sha256') != bw.digest(plan.inputs)
-                     or not plan.valid(passed))
+            fresh = name in force or passed is None or not inputs_current(plan, passed) or not plan.valid(passed)
             status = 'to run' if fresh else 'up to date'
             if dry_run and not fresh and earlier_runs:
                 status = f'up to date unless {earlier_runs} changes its outputs'
@@ -1128,6 +1184,10 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             raise UsageError(f'run "diamaneos build {plan.waiting_for}" first')
         if not fresh:
             ctx.echo(f'{name}: up to date')
+            if name == 'vendor' and ctx.check_only:
+                # A plain "m" follows, so the source must hold the vendor tree
+                # even when a sync moved it aside.
+                plan.actions[-1].func()
             continue
         log = ws.new_log(name)
         doing = 'checking the checkout' if name == 'sync' and ctx.check_only else \
@@ -1201,7 +1261,7 @@ def make_context(args, echo=print) -> Context:
     # What the environment declares about its inputs must be what the tools
     # use: the project input files and the stock release the vendor step takes.
     try:
-        build.declared_identity(environment, environment_raw, ROOT)
+        project_inputs = build.declared_identity(environment, environment_raw, ROOT)['project_inputs']
     except build.BuildError as error:
         raise UsageError(f'{environment_path.name}: {error}') from None
     recipe, _ = bw.load_config('fp6-stock-image-recipe.json')
@@ -1235,7 +1295,7 @@ def make_context(args, echo=print) -> Context:
         pinned = source_sync.load_pinned(
             Path(args.resolved_manifest), Path(record) if record else None, getattr(args, 'manifest_commit', None),
             environment, hashlib.sha256(environment_raw).hexdigest(), tools_commit if record else None)
-    return Context(workspace=workspace, tools_commit=tools_commit,
+    return Context(workspace=workspace, tools_commit=tools_commit, project_inputs=project_inputs,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
                    official=official, official_given=given is not None, jobs=args.jobs,
@@ -1313,9 +1373,10 @@ def main(argv=None, echo=print) -> int:
             force = (args.from_step,)
         elif args.step == 'vendor' and not pinned_sync(ctx.workspace):
             # After a plain "repo sync": check the checkout as it is and record
-            # it, as "build sync" does after its own repo sync.
+            # it, as "build sync" does after its own repo sync. The vendor
+            # files are made again only when they are out of date.
             ctx.check_only = True
-            steps = force = ('sync', 'vendor')
+            steps, force = ('sync', 'vendor'), ('sync',)
         elif args.step == 'package' and wants_manual_build(ctx):
             # After a plain "m": record out/ as the Android step, then package
             # and check the images.
@@ -1352,6 +1413,8 @@ def main(argv=None, echo=print) -> int:
         need_isolation = not ctx.allow_network and any(s in compiles for s in pending)
         with ctx.workspace.lock():
             if ctx.official_given:
+                # Only for a command that may run: a refused one changes nothing.
+                check_prerequisites(ctx, steps[0], steps)
                 remember_official(ctx.workspace, ctx.official)
             present = {s for s in pending if output_present(ctx, s)}
             ctx.host = bw.check_host(ctx.workspace, pending, ctx.environment, ctx.config, need_isolation,

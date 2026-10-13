@@ -325,6 +325,14 @@ def plan(ctx):
         official = out.get('official') is True
         # Projects the Android build took with local changes (never official).
         modified = out.get('modified') or []
+        deviations = sync['outputs'].get('deviations') or []
+        if official and (modified or deviations or sync['outputs'].get('modified')):
+            raise BuildStepError('the Android step built official images, but the source record now has local '
+                                 'changes or deviations; run "diamaneos build all --official" again')
+        skew = out.get('tools_skew') or ctx.cache.get('tools_skew')
+        # Vendor files a build that is not official kept from an earlier source.
+        vendor_source = ((vendor or {}).get('inputs') or {}).get('sync')
+        same_source = vendor_source == sync['outputs'].get('project_map_sha256')
         # "manual": a plain m built the images and "build package" recorded them.
         android_build = out.get('android_build', 'tools')
         value = {
@@ -338,9 +346,12 @@ def plan(ctx):
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),
             'tools': tools, 'packaging_tools': packaging_tools, 'modified': modified, 'android_build': android_build,
+            **({'tools_skew': skew} if skew else {}),
             'reproducible': bool(tools.get('clean') and packaging_tools.get('clean') and not modified
+                                 and not deviations and not skew and same_source
                                  and android_build == 'tools' and tools.get('commit') == packaging_tools.get('commit')),
-            'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256},
+            'environment': {'id': ctx.environment['environment_id'], 'sha256': ctx.environment_sha256,
+                            'project_inputs': ctx.project_inputs},
             'source': sync['outputs'],
             'manifest': {'url': sync['outputs'].get('manifest_url'), 'branch': sync['outputs'].get('manifest_branch'),
                          'commit': sync['outputs'].get('manifest_commit'), 'file': MANIFEST_COPY,
@@ -348,7 +359,8 @@ def plan(ctx):
             'kernel_prebuilts': {'path': product_inputs.KERNEL_PREBUILTS,
                                  'commit': sync['outputs'].get('kernel_prebuilts_commit')},
             'generated_inputs': {'descriptor_sha256': out['descriptor_sha256'],
-                                 'vendor': public_vendor_outputs(vendor['outputs']) if vendor else None},
+                                 'vendor': public_vendor_outputs(vendor['outputs']) if vendor else None,
+                                 'vendor_made_from_this_source': same_source},
             'stock_build': ctx.environment['device_inputs']['selected_stock_build'],
             'target_files': {'file': TARGET_FILES_COPY, 'sha256': out['target_files_sha256']},
             'otatools': {'file': OTATOOLS_COPY, 'sha256': tool['sha256']} if tool else None,

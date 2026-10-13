@@ -222,9 +222,21 @@ class SyncFlowTests(unittest.TestCase):
         official.check_only = True
         with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
             self.sync(official)
-        # A checkout made with another repo tool is told how to get the pinned one.
+        # Another repo tool is a warning; an official build is told how to get the pinned one.
         git(self.src / '.repo/repo', 'commit', '-q', '--allow-empty', '-m', 'another repo tool')
+        (self.src / 'device/example/example.mk').write_text('PRODUCT := example\n')
+        deviations = self.sync(ctx)['deviations']
+        self.assertEqual(1, len(deviations))
+        self.assertRegex(deviations[0], 'repo tool is not the pinned v-test')
+        self.assertTrue(any('warning: the checkout\'s repo tool' in line and '--official refuses it' in line
+                            for line in self.lines))
         with self.assertRaisesRegex(bw.BuildStepError, 'run "repo init --repo-rev=v-test" and "repo sync" again'):
+            self.sync(official)
+
+    def test_a_directory_without_a_checkout_is_named_as_such(self):
+        ctx = self.context()
+        ctx.check_only = True
+        with self.assertRaisesRegex(bw.BuildStepError, 'is not a repo checkout'):
             self.sync(ctx)
 
     def move_on(self):
@@ -299,13 +311,20 @@ class SyncFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'is not the pinned resolved manifest'):
             self.sync(self.context(resolved_manifest=str(resolved), manifest_commit=self.manifest_commit))
 
-    def test_another_local_manifest_stops_the_sync_before_repo_runs(self):
+    def test_another_local_manifest_stops_an_official_sync_before_repo_runs(self):
         local = self.src / '.repo/local_manifests'
         local.mkdir(parents=True)
         (local / 'mine.xml').write_text('<manifest/>')
         with self.assertRaisesRegex(bw.UsageError, 'mine.xml'):
-            self.sync()
+            self.sync(self.context(official=True))
         self.assertFalse((self.src / '.repo/manifests').exists())
+        # Otherwise local manifests are repo's: the sync leaves them alone.
+        self.assertEqual([], steps.retire_overlay(self.src, strict=False))
+        self.assertTrue((local / 'mine.xml').is_file())
+        # The overlay the tools used to install goes all the same.
+        (local / 'diamaneos.xml').write_text('<manifest/>')
+        self.assertEqual(['the old manifest overlay'], steps.retire_overlay(self.src, strict=False))
+        self.assertEqual(['mine.xml'], sorted(p.name for p in local.iterdir()))
 
 
 if __name__ == '__main__':
