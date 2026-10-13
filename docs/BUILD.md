@@ -29,14 +29,14 @@ Schema conformance tests use the pinned development dependencies in `requirement
 ## Source checkout
 
 - **Workspace.**
-  - The tools keep everything in one workspace directory, `~/diamaneos-build` by default, with the
-    source in its `src` directory.
-  - For another place, run `repo init` in `DIR/src` and pass `--workspace DIR` to every `diamaneos`
-    command (or set `DIAMANEOS_WORKSPACE`).
+  - The tools keep everything in one workspace directory, with the source in its `src` directory.
+  - The workspace is `--workspace DIR`, else `DIAMANEOS_WORKSPACE`, else the one whose source the
+    tools run from (`src/tools/diamaneos`; the command prints it), else `~/diamaneos-build`.
+  - A source checkout itself is refused as the workspace.
 - **Tools.**
   - Run the tools from the source tree (`tools/diamaneos`).
-  - Another tools checkout must contain the commit the sync checked out there ([tools and
-    source](#the-build-commands)).
+  - For an official build, another tools checkout must contain the commit the sync checked out
+    there ([tools and source](#the-build-commands)).
 - **Smaller download.**
   - Add `--depth=1` to `repo init`, use `repo sync -c --no-tags -j8`, and pass `--shallow` to the
     first `build sync` or `build all`.
@@ -47,7 +47,7 @@ Schema conformance tests use the pinned development dependencies in `requirement
   - A newer release can take a project from another repository at the same path (GrapheneOS forking
     an AOSP project).
   - `diamaneos build` removes the clean old checkout before syncing.
-  - A plain `repo sync` needs `--force-sync <path>` for it.
+  - A plain `repo sync` needs `--force-sync` for it.
 - **Manifest signatures.**
   - The manifest commits are signed with SSH keys.
   - No allowed-signers file is published; with one that lists the keys:
@@ -59,12 +59,13 @@ Schema conformance tests use the pinned development dependencies in `requirement
 
 ## The build commands
 
-- `diamaneos build all` runs five steps in one workspace directory (`~/diamaneos-build`, or
-  `--workspace`, or `DIAMANEOS_WORKSPACE`); the source is its `src` directory.
+- `diamaneos build all` runs five steps in one [workspace](#source-checkout) directory; the source
+  is its `src` directory.
 - Each step can also run on its own.
-- It then always runs again, and it refuses to start while an earlier step it consumes has not run
-  or is out of date (`build vendor` and `build package` check or record those steps themselves:
-  [building by hand](#building-by-hand)).
+- It then runs again (`build vendor` only when the vendor files are out of date).
+- It refuses to start while an earlier step it consumes has not run or is out of date (`build
+  vendor` and `build package` check or record those steps themselves: [building by
+  hand](#building-by-hand)).
 
 - The build environment
   ([`config/build-environment-fp6.json`](../config/build-environment-fp6.json)) names the source:
@@ -78,8 +79,8 @@ Schema conformance tests use the pinned development dependencies in `requirement
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
-| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean (local changes only outside official builds, see below), no local manifests, no undeclared files. Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync; after a sync that reproduced a resolved manifest it keeps that record. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
+| `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way; runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned; at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean, no local manifests, no undeclared files (a build that is not official warns about these instead, see below). Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the Fairphone factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync; after a sync that reproduced a resolved manifest it keeps that record. After a plain `repo sync` it then makes the vendor files only when they are out of date, and installs them in the source either way. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source; their hashes are recorded in the extraction identity. |
 | `android` | Installs (or re-checks) the generated vendor tree, then `lunch FP6-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor; the tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash; the factory package and each firmware image against the firmware inventory; the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
@@ -111,7 +112,8 @@ Schema conformance tests use the pinned development dependencies in `requirement
   - A later step runs again only when an earlier step's outputs changed.
   - Each step prints its log path when it starts, and each action a short title.
   - The log and `--dry-run` have the full description and command.
-  - A second command on the same workspace fails at once (`.workspace.lock`).
+  - A second command on the same workspace fails at once (`.workspace.lock`, removed when the
+    command ends).
   - `--dry-run` prints every command and changes nothing.
   - Any failure is recorded in the step's state with a plain message.
 
@@ -121,8 +123,8 @@ with the commit the sync checked out at `tools/diamaneos`:
 
 - The same commit, or a source without that project: nothing to say.
 - Tools that contain that commit (a newer checkout): a note; `build.json` records the tools commit.
-- Tools that do not contain it (an older or diverged checkout): the command stops and names the
-  synced tools to run instead.
+- Tools that do not contain it (an older or diverged checkout): a warning that names the synced
+  tools to run instead. An official build stops.
 - The sync moved the very checkout the command runs from: the command starts again with the new
   tools, keeping the sync that just passed, as `repo` does after updating itself.
 
@@ -136,8 +138,20 @@ or deleted files):
 - `build.json` marks the set not reproducible (`reproducible: false`).
 
 - `--official` refuses them.
-- Every build still fails on a project the manifest pins to a commit at another commit, a changed
-  `.repo/manifests`, local manifests and files outside the projects.
+
+**Other deviations.** A build that is not official also passes, with a warning each, with:
+
+- another `repo` tool than the pinned one, or another origin of the manifest checkout;
+- a remote without HTTPS, or local manifests (`.repo/local_manifests`, left to `repo`);
+- a project the manifest pins to a commit at another commit;
+- files outside the projects, which the warning names.
+
+- The sync state and `build.json` list them (`source.deviations`), and the set is not reproducible.
+- They count like local changes: other files between the projects are another source, and the
+  Android step stops when they differ from what the sync recorded.
+- `build.json` also says when the tools were not the source's (`tools_skew`) and whether the vendor
+  files were made from this source (`generated_inputs.vendor_made_from_this_source`).
+- `--official` refuses each of them, and every build fails on a changed `.repo/manifests`.
 - With an environment that pins one manifest commit, `build all` keeps its sync; after an edit, run
   `build all --from sync`.
 
@@ -310,7 +324,10 @@ or deleted files):
 
 - **Flash steps.**
   - `diamaneos flash-steps` prints commands only for a test build whose set matches its `SHA256SUMS`
-    and whose verify report belongs to that set and passed.
+    and whose verify report belongs to that set.
+  - An official set must have passed every check. For other sets failed checks become a warning that
+    names them, except the set's hashes, its firmware and its vendor files, which stop every build.
+  - `build verify` then ends with status 0 for a set that is not official: read the report.
   - The flash order, slot and wipe images come from `config/fp6-build.json`, the firmware steps from
     `build.json`: first, in the stock order, both slots of each A/B firmware partition, then the
     modem file system reset, and only when the phone runs older firmware than the set carries.
@@ -332,8 +349,9 @@ or deleted files):
     two hosts' builds.
   - `build.json` names the tools commit that built the Android images and the one that packaged
     them.
-  - A modified tools checkout, or packaging by another commit than the build, is recorded as not
-    reproducible.
+  - A modified tools checkout, packaging by another commit than the build, tools that are not the
+    source's, deviations of the source and vendor files kept from an earlier source are each
+    recorded as not reproducible.
 
 - **Reproducing a build.**
   - `build sync --resolved-manifest DIR/resolved-manifest.xml --build-json DIR/build.json` syncs the
@@ -376,8 +394,10 @@ then `build package`.
 
 - `build vendor` on its own checks the checkout as `sync` does after its `repo sync`, runs no `repo`
   command and records it as the sync.
-- The checkout must use the pinned `repo` tool: `repo init --repo-rev=<tag>` with the environment's
-  `repo_tool` release tag, as in [BUILDING.md](BUILDING.md#1-get-the-source).
+- An official build needs the pinned `repo` tool, the environment's `repo_tool` release tag: `repo
+  init --repo-rev=v2.65`. Other builds warn about another version.
+- `build vendor` makes the vendor files again only when its recipes, code or settings changed; an
+  official build also when the source changed.
 - `m target-files-package otatools-package` builds the images, the target-files archive and the host
   tools that packaging and the checks use; a plain `m` builds the images only.
 - `build package` on its own, when the Android step has no current record of its own, checks the
@@ -460,21 +480,22 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 | --- | --- |
 | `this host cannot run the build` | It lists everything that is missing. Fix those and run the command again. |
 | `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
-| `repo implementation commit does not match the pin` | The checkout uses another `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. |
+| `repo implementation commit does not match the pin` | An official build needs the pinned `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. Other builds only warn. |
+| `is a source checkout, not a workspace` | `--workspace` names the directory that holds the checkout as `src`. Run the tools from the checkout without the option, or pass the directory above it. |
 | `out/ holds no complete FP6 build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
 | `the source changed since "diamaneos build vendor" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can; otherwise add `--allow-network`, and `build.json` records that the build had network access. |
-| `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source. Run the copy it names (`src/tools/diamaneos/bin/diamaneos`), or update your tools checkout. |
+| `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source: a warning, and a stop for an official build. Run the copy it names (`src/tools/diamaneos/bin/diamaneos`), or update your tools checkout. |
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
 | `not our ref` during sync | A commit the manifest selects is not published yet. Run the command again after the push. |
-| `holds local manifests the build does not use` | Move the files in `.repo/local_manifests` away; the build uses the manifest alone. |
+| `holds local manifests the build does not use` | An official build uses the manifest alone: move the files in `.repo/local_manifests` away. Other builds leave them to `repo`. |
 | `contains dirty or untracked content` | An official build, or the manifest checkout (`.repo/manifests`), has local changes. Undo them (or move them aside) and run the command again; other builds only warn about changed projects. |
-| `undeclared input` | Files were added between projects. Move them away and run the command again. |
+| `undeclared inputs outside its projects` | An official build found the files it names between the projects. Move them away and run the command again. Other builds warn. |
 | `bytes of body are still expected` during sync | A long download broke off. Run the same command again; sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
 | `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause; finished steps are skipped. |
-| `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. Do not flash that build. |
+| `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. An official build stops and is never flashed. For other builds it is a warning, and `flash-steps` names the failed checks. |
 | `the verification report belongs to another image set` | Run `tools/diamaneos/bin/diamaneos build verify` again for this set. |
 | Flashing `super` stops after its first part | Use the fastbootd steps printed under the main steps. |
 
@@ -494,7 +515,8 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 - An `upstream` record binds the GrapheneOS tag, tag object, peeled manifest commit, official
   signer-list hash, signer identity, tagged `default.xml`, canonical project commit map and the
   GPG-verified `repo` tag object and commit.
-- The file also binds host packages, external tools and project and device input hashes.
+- The file also binds host packages, external tools and device input hashes. It names the tools'
+  own input files; `build.json` records their hashes (`environment.project_inputs`).
 - The distribution's `repo` package is only the launcher; the self-updating implementation is a
   separate input, pinned to a tag and commit (`upstream.repo_tool`) instead of its moving `stable`
   branch.

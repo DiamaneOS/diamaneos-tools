@@ -21,18 +21,14 @@ sudo apt install git git-lfs repo python3 python3-jsonschema gnupg openssh-clien
 
 ```sh
 mkdir -p ~/diamaneos-build/src && cd ~/diamaneos-build/src
-repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17 --repo-rev=v2.65
+repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17
 repo sync -j8
 ```
 
-- Downloads every project of the DiamaneOS manifest, including the build tools in `tools/diamaneos`,
-  with the `repo` version they check.
-- `--repo-rev` takes that pinned `repo` release: `upstream.repo_tool.release_tag` in
-  `config/build-environment-fp6.json`. The `v2.65` above is an example; a test keeps it equal to
-  the pin.
+- Downloads every project of the DiamaneOS manifest, including the build tools in `tools/diamaneos`.
+- Another directory works as well, as long as the checkout is its `src`: the tools use the
+  directory above the checkout they run from as their workspace.
 - Stay in this directory.
-- If a later sync stops because a project now comes from another repository at the same path, run
-  `repo sync --force-sync PATH` for it; `diamaneos build` does that itself.
 
 ## 2. Add the vendor files
 
@@ -40,9 +36,12 @@ repo sync -j8
 tools/diamaneos/bin/diamaneos build vendor
 ```
 
-Checks the source (every project at the commit the manifest selects, nothing else in the tree; local
-changes are named), then takes the vendor files from Fairphone's factory package, checked by its
+Checks the source and takes the vendor files from Fairphone's factory package, checked by its
 SHA-256, into `vendor/fairphone/FP6`.
+
+- It warns about what only an official build refuses: local changes, local manifests, files between
+  the projects, another `repo` version. `build.json` records them.
+- Run again, it makes the vendor files only when their recipe changed.
 
 ## 3. Build
 
@@ -84,6 +83,23 @@ tools/diamaneos/bin/diamaneos flash-steps --wipe --phone phone.txt --phone-firmw
   `FP6.QREL.16.100.0`; `--wipe` erases the phone.
 - Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
 - [Flashing](BUILD.md#flashing) covers firmware, updates and going back to stock.
+
+## Updating
+
+```sh
+repo sync --force-sync -j8
+tools/diamaneos/bin/diamaneos build vendor
+m target-files-package otatools-package
+tools/diamaneos/bin/diamaneos build package
+```
+
+- `--force-sync` lets `repo` replace a project that now comes from another repository at the same
+  path.
+- Run `m` in a shell set up as in step 3 (`envsetup.sh` and `lunch`).
+- DiamaneOS rebases its branches onto new GrapheneOS releases: rebase your own commits onto the new
+  branch tips (`git rebase --onto`).
+- `build vendor` is quick unless DiamaneOS moved to another Fairphone release or changed the vendor
+  file list.
 
 ## More detail
 
