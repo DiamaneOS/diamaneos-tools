@@ -108,9 +108,17 @@ def load_config(name: str) -> tuple[dict, bytes]:
     return json.loads(raw), raw
 
 
-def default_workspace() -> Path:
+def default_workspace(tools: Path = ROOT) -> Path:
+    """$DIAMANEOS_WORKSPACE, else the workspace whose checkout these tools run
+    from (<workspace>/src/tools/diamaneos), else ~/diamaneos-build."""
     value = os.environ.get('DIAMANEOS_WORKSPACE')
-    return Path(value) if value else Path.home() / 'diamaneos-build'
+    if value:
+        return Path(value)
+    source = tools.parent.parent
+    if (tools.name, tools.parent.name, source.name) == ('diamaneos', 'tools', 'src') and (source / '.repo').is_dir() \
+            and source.parent not in (Path(source.anchor), Path.home()):
+        return source.parent
+    return Path.home() / 'diamaneos-build'
 
 
 class Workspace:
@@ -132,6 +140,15 @@ class Workspace:
 
     def exists(self) -> bool:
         return self.root.is_dir()
+
+    def check_root(self) -> None:
+        """Refuse a source checkout as the workspace, before anything is created in it."""
+        if self.root.is_symlink():
+            raise UsageError('the workspace must not be a symlink')
+        if (self.root / '.repo').exists() or (self.root / '.repo').is_symlink():
+            hint = f': use --workspace {self.root.parent}' if self.root.name == 'src' else ''
+            raise UsageError(f'{self.root} is a source checkout, not a workspace. The workspace is the directory '
+                             f'that holds the checkout as src/{hint}')
 
     def state(self, step: str) -> dict | None:
         path = self.state_dir / (step + '.json')
@@ -164,18 +181,53 @@ class Workspace:
 
     @contextmanager
     def lock(self):
-        if self.root.is_symlink():
-            raise UsageError('the workspace must not be a symlink')
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o750)
-        fd = os.open(self.root / '.workspace.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, 'rb') as handle:
-            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
-                raise UsageError('the workspace lock is not a regular file')
-            try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                raise UsageError('another build command is using this workspace') from None
+        """One build command per workspace. The lock file is removed when the
+        command ends, and so is a workspace directory this command created and
+        left empty."""
+        self.check_root()
+        created = not self.root.exists()
+        path = self.root / '.workspace.lock'
+        handle = None
+        try:
+            while handle is None:
+                self.root.mkdir(parents=True, exist_ok=True, mode=0o750)
+                try:
+                    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+                except FileNotFoundError:
+                    # A command that ended just now removed the empty workspace.
+                    continue
+                candidate = os.fdopen(fd, 'rb')
+                try:
+                    if not stat.S_ISREG(os.fstat(fd).st_mode):
+                        raise UsageError('the workspace lock is not a regular file')
+                    try:
+                        fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        raise UsageError('another build command is using this workspace') from None
+                    # A command that just ended removed its lock file: hold
+                    # the file the path names now, or two commands could run.
+                    try:
+                        current = os.path.samestat(os.fstat(fd), os.stat(path, follow_symlinks=False))
+                    except FileNotFoundError:
+                        current = False
+                    if current:
+                        handle, candidate = candidate, None
+                finally:
+                    if candidate is not None:
+                        candidate.close()
             yield
+        finally:
+            if handle is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                handle.close()
+            if created:
+                try:
+                    self.root.rmdir()
+                except OSError:
+                    pass
 
 
 @dataclass

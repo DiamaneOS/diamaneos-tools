@@ -281,7 +281,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog='diamaneos flash-steps', description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('images', nargs='?', help='image directory (default: the latest build in the workspace)')
-    parser.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE or ~/diamaneos-build)')
+    parser.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, the workspace of '
+                                            'the checkout these tools run from, or ~/diamaneos-build)')
     parser.add_argument('--since', help='only images that differ from this earlier image directory, the one '
                                         'last flashed to the phone')
     parser.add_argument('--wipe', action='store_true', help='also wipe all data (needed for a first install)')

@@ -34,6 +34,76 @@ class WorkspaceTests(unittest.TestCase):
         with self.ws.lock():
             pass
 
+    def test_the_lock_file_goes_when_the_command_ends(self):
+        with self.ws.lock():
+            self.assertTrue((self.ws.root / '.workspace.lock').is_file())
+            self.ws.write_state('sync', {'status': 'PASS'})
+        self.assertEqual(['state'], sorted(p.name for p in self.ws.root.iterdir()))
+
+    def test_a_command_that_stops_early_leaves_no_workspace_behind(self):
+        with self.assertRaises(bw.HostError):
+            with self.ws.lock():
+                raise bw.HostError('this host cannot run the build')
+        self.assertFalse(self.ws.root.exists())
+
+    def test_the_lock_is_taken_on_the_file_the_path_names(self):
+        # Another command ends between this one's open and its lock, and removes the file.
+        real, calls = bw.fcntl.flock, []
+
+        def flock(handle, mode):
+            real(handle, mode)
+            if not calls:
+                (self.ws.root / '.workspace.lock').unlink()
+            calls.append(handle)
+
+        with patch.object(bw.fcntl, 'flock', flock):
+            with self.ws.lock():
+                self.assertEqual(2, len(calls))
+                with self.assertRaisesRegex(bw.UsageError, 'another build command'):
+                    with bw.Workspace(self.ws.root).lock():
+                        pass
+
+    def test_a_new_workspace_another_command_just_removed_is_made_again(self):
+        real, failed = os.open, []
+
+        def open_once(path, *args, **kw):
+            if not failed and str(path).endswith('.workspace.lock'):
+                failed.append(path)
+                self.ws.root.rmdir()
+                raise FileNotFoundError(path)
+            return real(path, *args, **kw)
+
+        with patch.object(bw.os, 'open', open_once):
+            with self.ws.lock():
+                self.assertTrue((self.ws.root / '.workspace.lock').is_file())
+        self.assertEqual(1, len(failed))
+
+    def test_a_source_checkout_is_not_a_workspace(self):
+        source = self.root / 'ws' / 'src'
+        (source / '.repo').mkdir(parents=True)
+        before = sorted(p.name for p in source.iterdir())
+        with self.assertRaisesRegex(bw.UsageError, f'source checkout.*--workspace {self.root / "ws"}$'):
+            with bw.Workspace(source).lock():
+                pass
+        self.assertEqual(before, sorted(p.name for p in source.iterdir()))
+
+    def test_the_default_workspace_is_the_one_the_tools_run_from(self):
+        tools = self.root / 'ws' / 'src' / 'tools' / 'diamaneos'
+        tools.mkdir(parents=True)
+        with patch.dict(os.environ, {'HOME': str(self.root / 'home')}):
+            os.environ.pop('DIAMANEOS_WORKSPACE', None)
+            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(tools))
+            (self.root / 'ws' / 'src' / '.repo').mkdir()
+            self.assertEqual(self.root / 'ws', bw.default_workspace(tools))
+            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(self.root / 'elsewhere'))
+            other = self.root / 'ws' / 'src' / 'tools' / 'other'
+            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(other))
+            in_home = self.root / 'home' / 'src' / 'tools' / 'diamaneos'
+            (self.root / 'home' / 'src' / '.repo').mkdir(parents=True)
+            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(in_home))
+            os.environ['DIAMANEOS_WORKSPACE'] = str(self.root / 'named')
+            self.assertEqual(self.root / 'named', bw.default_workspace(tools))
+
     def test_compile_actions_run_without_network_unless_allowed(self):
         action = bw.Action('Build', argv=['m', 'droid'], compile=True, env={'OUT_DIR': 'out'}, unset=('OFFICIAL_BUILD',))
         self.assertIn('unshare --user --map-current-user --net -- m droid', action.text(True))
