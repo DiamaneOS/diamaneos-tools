@@ -577,13 +577,18 @@ def plan_vendor(ctx: Context) -> StepPlan:
         'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(VENDOR_RECIPES),
         'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
         'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER,
+        'host_tools_variant': ctx.variant,
         'firmware_release': config_subset(config, ('firmware_release',)),
         'firmware': config_subset(config, ('firmware',))}
     # A fixed build number and the sources' own date: without them the build
     # stamps the current date into the tools (aapt2's version string), their
     # hashes reach the vendor inventory, and the same sources would give a
     # different build identity on another day.
-    tool_env = {'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': ctx.environment['build']['generic_qualification_target'],
+    # The image tools take the image's variant: another one in the same out directory makes the
+    # Android step redo everything that depends on the variant.
+    tool_lunch = re.sub(r'-(?:user|userdebug|eng)$', f'-{ctx.variant}',
+                        ctx.environment['build']['generic_qualification_target'])
+    tool_env = {'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': tool_lunch,
                 'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
                 'BUILD_NUMBER': HOST_TOOLS_BUILD_NUMBER}
     if sync is not None:
