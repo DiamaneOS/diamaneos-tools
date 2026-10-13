@@ -224,6 +224,10 @@ class NativeTools:
     def avb(self, path, expected, *, chains=(), payload=False, binary=False):
         require(not binary or payload and not chains, 'Binary AVB authority is only supported for APEX payloads')
         info = self.run('avbtool', ['info_image', '--image', path])
+        # avbtool prints the image's release string into this text as it is, so
+        # a header field counts only while no second line claims it.
+        require(all(len(re.findall(rf'(?m)^{field}:', info)) == 1 for field in ('Algorithm', 'Flags')),
+                'AVB description repeats a header field')
         require(re.search(r'(?m)^Algorithm:\s+' + re.escape(self.policy['avb_algorithm']) + r'\s*$', info),
                 'AVB algorithm is not the role algorithm')
         require(re.search(r'(?m)^Flags:\s+0\s*$', info), 'AVB disables a verification property')

@@ -569,6 +569,23 @@ class NativeOrchestrationTests(unittest.TestCase):
         real.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
         with self.assertRaises(inputs.SigningError): real.avb(Path('/image'), Path('/external/key'))
 
+    def test_avb_refuses_a_header_field_the_release_string_repeats(self):
+        # An unsigned image whose release string carries its own algorithm line.
+        real = native.NativeTools.__new__(native.NativeTools)
+        real.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        algorithm = real.policy['avb_algorithm']
+        signed = (f"Algorithm:                {algorithm}\nRollback Index:           0\n"
+                  "Flags:                    0\nRelease String:           'avbtool 1.3.0'\nDescriptors:\n")
+        unsigned = signed.replace(algorithm, 'NONE').replace("'avbtool 1.3.0'", f"'x'\nAlgorithm: {algorithm}\n''")
+        for field in ('Algorithm', 'Flags'):
+            real.run = Mock(return_value=unsigned if field == 'Algorithm' else signed + 'Flags: 0\n')
+            with self.assertRaisesRegex(inputs.SigningError, 'repeats a header field'):
+                real.avb(Path('/image'), Path('/external/key'))
+            real.run.assert_called_once()
+        real.run = Mock(return_value=signed)
+        real.avb(Path('/image'), Path('/external/key'))
+        self.assertEqual(['info_image', 'verify_image'], [call.args[1][0] for call in real.run.call_args_list])
+
 
 if __name__ == '__main__':
     unittest.main()
