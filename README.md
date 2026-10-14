@@ -49,6 +49,7 @@ fastboot --version
 - [Build DiamaneOS for the Fairphone 6](docs/BUILDING.md)
 - [Build reference](docs/BUILD.md)
 - [Testing and command setup](docs/TESTING.md)
+- [Releases](docs/RELEASE.md)
 - [FP6 firmware](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
 - [FP6 kernel build and capability contract](docs/FP6-KERNEL.md)

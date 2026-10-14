@@ -679,6 +679,8 @@ commits are replayed on it.
   convenient.
 - Full and incremental OTA generation are signing operations because they sign both the payload and
   package.
+- `diamaneos release` makes the OTA packages of a verified official build on the build host with the
+  public test key only, which the images already carry ([RELEASE.md](RELEASE.md)).
 
 ## Generated inputs step by step
 
