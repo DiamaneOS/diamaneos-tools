@@ -2349,12 +2349,41 @@
     },
     {
       "id": "psds-server",
-      "why": "The PSDS server choice names the DiamaneOS server for Qualcomm's files, not GrapheneOS's. PSDS stays off on the FP6 while config_gnssPsdsType is empty.",
+      "why": "The PSDS server choice names the DiamaneOS server for Qualcomm's files, not GrapheneOS's.",
       "type": "zip_contains",
       "file": "SYSTEM/framework/services.jar",
       "text": "psds.diamaneos.de",
       "absent": [
         ".psds.grapheneos.org"
+      ]
+    },
+    {
+      "id": "psds-qualcomm-xtra",
+      "why": "PSDS is on with Qualcomm's XTRA file: the type turns on the framework's download and its rewrite of the host to the DiamaneOS server, which keeps the path, and the long-term server names the one file that server serves.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
+      "values": {
+        "string/config_gnssPsdsType": "\"qualcomm\""
+      },
+      "arrays": {
+        "array/config_gnssParameters": [
+          "LONGTERM_PSDS_SERVER_1=https://path1.xtracloud.net/xtra3Mgrbeji.bin"
+        ]
+      },
+      "target": "android"
+    },
+    {
+      "id": "gnss-psds-hal",
+      "why": "The GNSS HAL takes the framework's PSDS data and injects it into the modem as XTRA data (IGnssPsds in the AIDL implementation, the QMI injection in libloc_api_v02), so the PSDS type above has a HAL behind it.",
+      "type": "text",
+      "files": [
+        "VENDOR/lib64/hw/android.hardware.gnss-aidl-impl-qti.so",
+        "VENDOR/lib64/libloc_api_v02.so"
+      ],
+      "match": "any",
+      "contains": [
+        "Injecting %zu bytes of PSDS data",
+        "XTRA injection failed at part %zu of %zu"
       ]
     },
     {
