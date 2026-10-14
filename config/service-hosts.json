@@ -15,12 +15,12 @@
     {
       "id": "connectivity-check",
       "upstream_host": "connectivitycheck.grapheneos.network",
-      "diamaneos_host": "connectivitycheck.diamaneos.de"
+      "diamaneos_host": "connectivitycheck.diamane.de"
     },
     {
       "id": "online-probe",
       "upstream_host": "grapheneos.online",
-      "diamaneos_host": "online.diamaneos.de"
+      "diamaneos_host": "online.diamane.de"
     },
     {
       "id": "psds-cache",

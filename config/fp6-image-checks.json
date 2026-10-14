@@ -2438,13 +2438,13 @@
       "type": "overlay",
       "apk": "SYSTEM/priv-app/NetworkStack/NetworkStack.apk",
       "values": {
-        "string/default_captive_portal_http_url_grapheneos": "\"http://connectivitycheck.diamaneos.de/generate_204\"",
-        "string/default_captive_portal_https_url_grapheneos": "\"https://connectivitycheck.diamaneos.de/generate_204\""
+        "string/default_captive_portal_http_url_grapheneos": "\"http://connectivitycheck.diamane.de/generate_204\"",
+        "string/default_captive_portal_https_url_grapheneos": "\"https://connectivitycheck.diamane.de/generate_204\""
       },
       "arrays": {
         "array/default_captive_portal_fallback_urls_grapheneos": [
-          "http://online.diamaneos.de/gen_204",
-          "http://online.diamaneos.de/generate_204"
+          "http://online.diamane.de/gen_204",
+          "http://online.diamane.de/generate_204"
         ]
       }
     },
