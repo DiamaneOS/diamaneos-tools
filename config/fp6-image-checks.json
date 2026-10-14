@@ -2897,6 +2897,18 @@
       ]
     },
     {
+      "id": "sim-secure-element-declared",
+      "why": "The radio daemon offers the SIM's secure element to OMAPI (SIM1, as on stock and on Pixels).",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/vintf/manifest.xml"
+      ],
+      "contains": [
+        "<name>android.hardware.secure_element</name>",
+        "<fqname>ISecureElement/SIM1</fqname>"
+      ]
+    },
+    {
       "id": "no-perf2-declared",
       "why": "Nothing declares, labels or starts the perf2 service.",
       "type": "text",
