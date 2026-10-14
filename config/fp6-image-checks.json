@@ -88,14 +88,15 @@
     },
     {
       "id": "device-overlays",
-      "why": "The FP6 framework, Settings, SystemUI, tethering and Wi-Fi overlays are installed.",
+      "why": "The FP6 framework, Settings, SystemUI, tethering, Wi-Fi and NFC overlays are installed.",
       "type": "files_present",
       "paths": [
         "VENDOR/overlay/FP6FrameworksOverlay.apk",
         "VENDOR/overlay/FP6SettingsOverlay.apk",
         "VENDOR/overlay/FP6SystemUIOverlay.apk",
         "VENDOR/overlay/FP6TetheringOverlay.apk",
-        "VENDOR/overlay/FP6WifiOverlay.apk"
+        "VENDOR/overlay/FP6WifiOverlay.apk",
+        "VENDOR/overlay/FP6NfcOverlay.apk"
       ]
     },
     {
@@ -3175,6 +3176,16 @@
         "bool/config_wifi_background_scan_support": "true"
       },
       "target": "com.android.wifi.resources"
+    },
+    {
+      "id": "secure-nfc",
+      "why": "Secure NFC is offered, on by default as on Pixels: card emulation needs an unlocked phone.",
+      "type": "overlay",
+      "apk": "VENDOR/overlay/FP6NfcOverlay.apk",
+      "values": {
+        "bool/enable_secure_nfc_support": "true"
+      },
+      "target": "com.android.nfc"
     },
     {
       "id": "wifi-hotspot-direct-aware",
