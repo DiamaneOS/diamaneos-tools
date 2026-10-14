@@ -2147,6 +2147,15 @@
       ]
     },
     {
+      "id": "esim-reset-choice",
+      "why": "A factory reset offers \"Erase eSIMs\" as a choice, as on Pixels.",
+      "type": "properties",
+      "file": "PRODUCT/etc/build.prop",
+      "equals": [
+        "masterclear.allow_retain_esim_profiles_after_fdr=true"
+      ]
+    },
+    {
       "id": "product-identity",
       "why": "Fairphone stock product identity, as GrapheneOS keeps Google's.",
       "type": "properties",
