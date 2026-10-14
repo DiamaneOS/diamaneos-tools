@@ -173,11 +173,12 @@ class KernelDenyListTests(unittest.TestCase):
 
     def test_committed_recipe_keeps_denied_modules_out(self):
         denied = kernel.denied_modules(self.recipe)
-        for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko', 'eud.ko'):
+        for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko', 'eud.ko',
+                     'coresight.ko', 'stm_core.ko', 'usb_f_qdss.ko'):
             self.assertIn(name, denied)
-        # Kept on purpose: glink_probe imports qcom_glink_spss, KGSL imports
-        # coresight and the audio machine driver wcd937x.
-        for name in ('qcom_glink_spss.ko', 'coresight.ko', 'wcd937x_dlkm.ko'):
+        # Kept on purpose: glink_probe imports qcom_glink_spss, the audio machine
+        # driver wcd937x, and stmvl53l1 is the laser autofocus sensor, not STM.
+        for name in ('qcom_glink_spss.ko', 'wcd937x_dlkm.ko', 'stmvl53l1.ko'):
             self.assertNotIn(name, denied)
             self.assertTrue(any(name in names for names in self.recipe['partitions'].values()))
 

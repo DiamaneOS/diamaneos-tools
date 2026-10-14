@@ -112,9 +112,11 @@ tools/bazel query --output=label \
 - A cut needs no remaining importer, enforced by the build's dependency check
   (`module-interfaces.json`), since libmodprobe loads dependencies a list omits.
 - Device-tree references count as importers too.
-- Kept: `qcom_glink_spss` because `glink_probe` imports it, `coresight` because KGSL is built with
-  CoreSight support, and `wcd937x`, `wcd939x` and `wsa883x` because the audio machine driver imports
-  them; those need a configuration or device-tree change first.
+- Cut since KGSL is built without its CoreSight source: the 15 CoreSight and 5 STM modules and
+  `usb_f_qdss`. `stmvl53l1` is the laser autofocus sensor and stays.
+- Kept: `qcom_glink_spss` because `glink_probe` imports it, and `wcd937x`, `wcd939x` and `wsa883x`
+  because the audio machine driver imports them. Those need a configuration or device-tree change
+  first.
 
 How the phone loads the modules:
 
