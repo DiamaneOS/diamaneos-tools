@@ -1,4 +1,5 @@
 import json
+import re
 import os
 from pathlib import Path
 import shutil
@@ -135,6 +136,10 @@ class FlashStepTests(unittest.TestCase):
             self.assertIn(f"Fairphone's {SHIPPED} firmware first", text)
         self.assertTrue(image_package.check_sums(self.directory))
         self.assertTrue(scripts[flash_all.BAT].endswith(' || exit /b 1\r\n'))
+        # fastboot is never piped into a filter that stops early (grep -q, head): that ends it
+        # mid-reply and leaves the bootloader unable to answer the next command.
+        self.assertEqual([], [line for line in scripts[flash_all.SH].splitlines()
+                              if re.search(r'fastboot [^|;]*\|\s*(grep -q|head)', line)])
 
     def run_install_script(self, answers):
         """Run flash-all.sh against a fastboot stand-in; returns (status, fastboot calls, stderr)."""

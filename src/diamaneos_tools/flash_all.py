@@ -51,12 +51,16 @@ def shell(record: dict) -> str:
            'fail() { echo "$1" >&2; exit 1; }',
            'command -v fastboot >/dev/null 2>&1 || fail "fastboot is not installed (Android platform-tools)."',
            # A value is on a line "name: value", which some bootloaders prefix with "(bootloader)".
-           'value() { fastboot getvar "$1" 2>&1 | sed -n -e "s/^(bootloader) *//" -e "s/^$1: *//p" | head -n 1; }']
+           # Each reply is read to the end before it is filtered: a filter that stops early ends
+           # fastboot mid-reply, and the bootloader then answers no further command.
+           'value() { reply=$(fastboot getvar "$1" 2>&1) || true; '
+           'printf "%s\\n" "$reply" | sed -n -e "s/^(bootloader) *//" -e "s/^$1: *//p" | head -n 1; }']
     for name, wanted, message in CHECKS:
         wanted, message = wanted.format(**record), message.format(**record)
         out.append(f'[ "$(value {name})" = "{wanted}" ] || fail \'{message}\'')
     if record.get('firmware'):
-        out.append(f'fastboot oem device-info 2>&1 | grep -q "{CRITICAL[0]}" || fail \'{CRITICAL[1]}\'')
+        out.append('info=$(fastboot oem device-info 2>&1) || true')
+        out.append(f'printf "%s\\n" "$info" | grep -q "{CRITICAL[0]}" || fail \'{CRITICAL[1]}\'')
     out += ['if command -v sha256sum >/dev/null 2>&1; then sha256sum --quiet -c SHA256SUMS',
             'elif command -v shasum >/dev/null 2>&1; then shasum -a 256 --quiet -c SHA256SUMS',
             'else fail "Neither sha256sum nor shasum is installed, so the images cannot be checked."; fi', '']
