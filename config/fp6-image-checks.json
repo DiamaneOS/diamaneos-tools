@@ -957,7 +957,7 @@
     },
     {
       "id": "no-adb-over-network",
-      "why": "Nothing turns on adb over the network: no TCP port or TLS server property in the build properties or vendor and odm init files.",
+      "why": "Nothing turns on adb over the network: no TCP port or TLS server property in the build properties or init files.",
       "type": "text",
       "files": [
         "SYSTEM/build.prop",
@@ -965,6 +965,9 @@
         "PRODUCT/etc/build.prop",
         "VENDOR/build.prop",
         "ODM/etc/build.prop",
+        "SYSTEM/etc/init/**",
+        "SYSTEM_EXT/etc/init/**",
+        "PRODUCT/etc/init/**",
         "VENDOR/etc/init/**",
         "ODM/etc/init/**"
       ],
@@ -2097,6 +2100,9 @@
       "why": "No init file writes 1 to the EUD switch and no module options turn it on (the bootconfig check also refuses eud.enable on the command line).",
       "type": "text",
       "files": [
+        "SYSTEM/etc/init/**",
+        "SYSTEM_EXT/etc/init/**",
+        "PRODUCT/etc/init/**",
         "VENDOR/etc/init/**",
         "ODM/etc/init/**",
         "VENDOR/lib/modules/*.options",

@@ -9,6 +9,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -2642,6 +2643,31 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn('stream second lists modules outside modules.load: e.ko',
                       check(first=b'a.ko\nb-x.ko\nc.ko\n', second=b'd.ko\ne.ko\n')[1])
 
+    def pin_vendor_files(self, recipe):
+        pinned = self.root / 'pinned-vendor-files.json'
+        pinned.write_text(json.dumps(recipe))
+        patcher = mock.patch.object(subject, 'VENDOR_FILES', pinned)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_vendor_binding_refuses_a_recipe_edited_with_its_blob(self):
+        # A blob changed together with the workspace recipe still differs from the tools' pin.
+        vendor = self.root / 'vendor'
+        rel = 'vendor/firmware/touch.bin'
+        (vendor / 'files' / rel).parent.mkdir(parents=True)
+        (vendor / 'files' / rel).write_bytes(b'edited')
+        (vendor / 'recipe.json').write_text(json.dumps({'files': [{'path': rel, 'sha256': hashlib.sha256(b'edited').hexdigest()}]}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        self.pin_vendor_files({'files': [{'path': rel, 'sha256': hashlib.sha256(b'fw').hexdigest()}]})
+        v = self.harness({'VENDOR/firmware/touch.bin': b'edited'})
+        v.vendor_dir = vendor
+        self.assertEqual((False, "the vendor generation's recipe differs from the pinned vendor-files.json: " + rel),
+                         subject.check_vendor(v))
+        # A file the pin selects but the recipe left out is named too.
+        self.pin_vendor_files({'files': [{'path': rel, 'sha256': hashlib.sha256(b'edited').hexdigest()},
+                                         {'path': 'vendor/lib64/libextra.so', 'sha256': '0' * 64}]})
+        self.assertIn('vendor/lib64/libextra.so', subject.check_vendor(v)[1])
+
     def test_vendor_binding_compares_generated_bytes(self):
         from diamaneos_tools import carrier_data
         vendor = self.root / 'vendor'
@@ -2652,6 +2678,7 @@ class GenericCheckTests(unittest.TestCase):
             (vendor / 'files' / rel).write_bytes(data)
         recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(data).hexdigest()} for rel, data in files.items()]}
         (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
         (vendor / 'provenance.json').write_text(json.dumps({'source_interface_replacements': ['vendor/lib64/libreplaced.so'],
                                                             'uninstalled_optional_libraries': [], 'derived_files': []}))
         members = {'VENDOR/firmware/touch.bin': b'fw', 'ODM/lib64/libkeymaster_messages.so': b'km',
@@ -2687,8 +2714,9 @@ class GenericCheckTests(unittest.TestCase):
             (vendor / 'files' / rel).parent.mkdir(parents=True, exist_ok=True)
             (vendor / 'files' / rel).write_bytes(data)
         sha = {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
-        (vendor / 'recipe.json').write_text(json.dumps({'files': [{'path': 'vendor/etc/codecs.xml',
-                                                                   'sha256': sha['vendor/etc/codecs.xml']}]}))
+        recipe = {'files': [{'path': 'vendor/etc/codecs.xml', 'sha256': sha['vendor/etc/codecs.xml']}]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
         (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [
             {'path': 'vendor/etc/codecs_hwdec.xml', 'from': 'vendor/etc/codecs.xml',
              'sha256': sha['vendor/etc/codecs_hwdec.xml']},
@@ -2713,8 +2741,9 @@ class GenericCheckTests(unittest.TestCase):
         vendor = self.root / 'vendor'
         (vendor / 'files' / rel).parent.mkdir(parents=True)
         (vendor / 'files' / rel).write_bytes(b'stock apex')
-        (vendor / 'recipe.json').write_text(json.dumps({'files': [
-            {'path': rel, 'sha256': hashlib.sha256(b'stock apex').hexdigest()}]}))
+        recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(b'stock apex').hexdigest()}]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
         (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
         member = 'VENDOR/apex/com.google.android.widevine.nonupdatable.apex'
 
