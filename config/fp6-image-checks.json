@@ -4101,13 +4101,13 @@
     },
     {
       "id": "module-streams",
-      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and there is no serial modprobe of the whole list.",
+      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and there is no serial modprobe of the whole list. Right after display loads, init sets the backlight to Android's boot default.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/hw/init.qcom.rc"
       ],
       "contains": [
-        "    start vendor.modprobe_system\n    exec_start vendor.modprobe_platform\n    start vendor.modprobe_wireless\n    start vendor.modprobe_audio\n    start vendor.modprobe_data\n    start vendor.modprobe_crypto\n    start vendor.modprobe_media\n    exec_start vendor.modprobe_display\n    start vendor.modprobe_touch\n    wait_for_prop init.svc.vendor.modprobe_system stopped\n    wait_for_prop init.svc.vendor.modprobe_wireless stopped\n    wait_for_prop init.svc.vendor.modprobe_audio stopped\n    wait_for_prop init.svc.vendor.modprobe_data stopped\n    wait_for_prop init.svc.vendor.modprobe_crypto stopped\n    wait_for_prop init.svc.vendor.modprobe_media stopped\n    chown root system /mnt/vendor/persist\n"
+        "    start vendor.modprobe_system\n    exec_start vendor.modprobe_platform\n    start vendor.modprobe_wireless\n    start vendor.modprobe_audio\n    start vendor.modprobe_data\n    start vendor.modprobe_crypto\n    start vendor.modprobe_media\n    exec_start vendor.modprobe_display\n    # The display driver starts the backlight at its maximum and applies it\n    # when the boot animation first draws. Android holds its default during\n    # boot (config_screenBrightnessSettingDefaultFloat, 100 nits, written as\n    # 822) and expects the boot brightness to match it.\n    write /sys/class/backlight/panel0-backlight/brightness 822\n    start vendor.modprobe_touch\n    wait_for_prop init.svc.vendor.modprobe_system stopped\n    wait_for_prop init.svc.vendor.modprobe_wireless stopped\n    wait_for_prop init.svc.vendor.modprobe_audio stopped\n    wait_for_prop init.svc.vendor.modprobe_data stopped\n    wait_for_prop init.svc.vendor.modprobe_crypto stopped\n    wait_for_prop init.svc.vendor.modprobe_media stopped\n    chown root system /mnt/vendor/persist\n"
       ],
       "regex": [
         "^service vendor\\.modprobe_system /vendor/bin/modprobe -q -b -d /system/lib/modules --all=/system/lib/modules/modules\\.load\\n    user root\\n    group root\\n    capabilities SYS_MODULE\\n    seclabel u:r:vendor_modprobe:s0\\n    stdio_to_kmsg\\n    disabled\\n    oneshot\\n",
