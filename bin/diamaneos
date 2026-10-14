@@ -37,6 +37,9 @@ def main(argv=None):
     if argv[:2] == ['overlays', 'check']:
         from diamaneos_tools import overlays
         return overlays.main(argv[2:])
+    if argv[:2] == ['strings', 'check']:
+        from diamaneos_tools import strings
+        return strings.main(argv[2:])
     if argv[:2] == ['vendor', 'extract']:
         from diamaneos_tools import vendor_extract
         return vendor_extract.main(argv[2:])
@@ -49,12 +52,13 @@ def main(argv=None):
         print("  build kernel -> build the kernel from source (maintainers; the build uses the kernel prebuilts)")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
         print("routes: build all -> sync, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        fonts check -> product font customization as Android reads it")
         print("        overlays check -> resource overlays against their targets at a release")
+        print("        strings check -> string resources: escaping, placeholders, markup and plurals")
         print("        signing -> verified-build signing plans and native publication signature verification")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
         print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")

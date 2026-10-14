@@ -73,3 +73,22 @@ bin/diamaneos fonts check --xml <PRODUCT_OUT>/product/etc/fonts_customization.xm
   replaces or an alias points at a system one), and is stricter than Android's parser, which accepts
   a DTD and repeated attributes.
 - A pass is not a boot: `cmd font dump` and logcat stay part of the phone test.
+
+**Strings.** `bin/diamaneos strings check` reads string resources as aapt2 does and compares each
+translation with its default: escaping, Java and MessageFormat placeholders, spans, plurals and
+arrays. `--help` lists the findings. Tests use small resource trees and a local Git repository:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/strings -t .
+```
+
+For a fork, give the upstream base. The check covers the strings changed since then, in every
+locale, including stock translations of a changed default:
+
+```sh
+bin/diamaneos strings check --repo <FORK> --base <UPSTREAM_COMMIT> --head <BRANCH>
+```
+
+- A repository of its own takes the empty tree as base (`--help` names it).
+- It does not know which strings the code formats, so a lone `%` counts only in strings with
+  placeholders, and it cannot see an overlay target's defaults.
