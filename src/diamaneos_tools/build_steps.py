@@ -1202,6 +1202,7 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
             raise UsageError(f'run "diamaneos build {plan.waiting_for}" first')
         if not fresh:
             ctx.echo(f'{name}: up to date')
+            keep_official_choice(ctx, name)
             if name == 'vendor' and ctx.check_only:
                 # A plain "m" follows, so the source must hold the vendor tree
                 # even when a sync moved it aside.
@@ -1229,9 +1230,36 @@ def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
                 raise
             raise BuildStepError(f'{name} failed: {message}\nFull log: {log}') from error
         ws.write_state(name, dict(record, status='PASS', outputs=outputs))
+        keep_official_choice(ctx, name)
         ctx.echo(f'{name}: done')
         # A sync that only checked the checkout moved nothing.
         synced_now = synced_now or (name == 'sync' and not ctx.check_only)
+
+
+def keep_official_choice(ctx: Context, name: str) -> None:
+    """The workspace takes --official or --no-official only once the Android
+    step has built its images that way, so a refused or failed command leaves
+    the earlier choice."""
+    if name == 'android' and ctx.official_given and not ctx.manual:
+        remember_official(ctx.workspace, ctx.official)
+
+
+def refuse_after_failed_android(ctx: Context) -> None:
+    """After an Android step that failed or was stopped, out/ still holds the
+    build from before it. "build package" must not record that as a build by
+    hand, unless m has built again since."""
+    state = ctx.workspace.state('android')
+    if not state or state.get('status') == 'PASS' or (state.get('inputs') or {}).get('android_build') == 'manual':
+        return
+    try:
+        built = find_target_files(ctx).stat().st_mtime
+    except (BuildStepError, OSError):
+        return  # recording the manual build says what out/ lacks
+    if built <= (ctx.workspace.state_dir / 'android.json').stat().st_mtime:
+        reason = state.get('error') or 'it was stopped'
+        raise UsageError(f'the last "diamaneos build android" did not finish ({reason.splitlines()[0]}), so out/ '
+                         'holds the build from before it. Run "diamaneos build android" again, or build with m '
+                         'and then run "diamaneos build package"')
 
 
 def remember_official(ws: bw.Workspace, official: bool) -> None:
@@ -1398,6 +1426,7 @@ def main(argv=None, echo=print) -> int:
         elif args.step == 'package' and wants_manual_build(ctx):
             # After a plain "m": record out/ as the Android step, then package
             # and check the images.
+            refuse_after_failed_android(ctx)
             ctx.manual, ctx.check_only = True, not pinned_sync(ctx.workspace)
             steps = force = (('sync',) if ctx.check_only else ()) + ('android', 'package', 'verify')
         elif args.step != 'all':
@@ -1431,9 +1460,9 @@ def main(argv=None, echo=print) -> int:
         need_isolation = not ctx.allow_network and any(s in compiles for s in pending)
         with ctx.workspace.lock():
             if ctx.official_given:
-                # Only for a command that may run: a refused one changes nothing.
+                # A missing earlier step is the clearer message for a command
+                # that names --official or --no-official.
                 check_prerequisites(ctx, steps[0], steps)
-                remember_official(ctx.workspace, ctx.official)
             present = {s for s in pending if output_present(ctx, s)}
             ctx.host = bw.check_host(ctx.workspace, pending, ctx.environment, ctx.config, need_isolation,
                                      present=present)
