@@ -440,6 +440,16 @@ class PinnedSyncTests(unittest.TestCase):
             code = steps.main([*argv, '--workspace', str(self.workspace)], self.lines.append)
         return code, errors.getvalue()
 
+    def write_policy(self):
+        """A device policy file and the provenance record that matches it."""
+        policy = self.workspace / 'src' / steps.policy_provenance.POLICY_DIR
+        (policy / 'audio').mkdir(parents=True)
+        (policy / 'audio/hal_audio_default.te').write_text('type hal_audio_default;\n')
+        digest = hashlib.sha256(b'type hal_audio_default;\n').hexdigest()
+        (policy / 'provenance.json').write_text(json.dumps(
+            {'schema_version': 1, 'files': [{'path': 'audio/hal_audio_default.te', 'sha256': digest}]}))
+        return policy
+
     def test_dry_run_syncs_to_the_pinned_manifest_and_checks_the_recorded_commit(self):
         code, _ = self.main('sync', '--dry-run', '--resolved-manifest', str(self.resolved),
                             '--build-json', str(self.build_json))
@@ -539,6 +549,7 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertTrue(any('not at the branch head' in line for line in self.lines))
 
     def test_android_builds_the_local_changes_the_sync_recorded_unless_official(self):
+        self.write_policy()
         allowed = []
 
         def checkout(*args, **kw):
@@ -568,6 +579,30 @@ class PinnedSyncTests(unittest.TestCase):
         # Local changes are a source input only when there are any.
         self.assertEqual(steps.SOURCE_KEYS, tuple(steps.source_record({'outputs': {'modified_sha256': None}})))
         self.assertEqual('c', steps.source_record({'outputs': {'modified_sha256': 'c'}})['modified_sha256'])
+
+    def test_a_stale_policy_provenance_record_stops_only_official_builds(self):
+        policy = self.write_policy()
+        (policy / 'audio/hal_audio_default.te').write_text('type hal_audio_default, edited;\n')
+        clean = {'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p',
+                 'generated_input_descriptor_sha256': 'd', 'modified': [], 'modified_sha256': None}
+        for official in (False, True):
+            ctx = steps.make_context(arguments(self.workspace, official=official), self.lines.append)
+            ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+                'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k', 'resolved_manifest_sha256': 'r',
+                'manifest_commit': self.commit, 'modified_sha256': None}})
+            ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {}})
+            with self.subTest(official=official), \
+                    patch.object(steps, 'android_identity', return_value='a' * 64), \
+                    patch.object(steps, 'newest_commit_time', return_value=1), \
+                    patch.object(steps.build, 'verify_branch_checkout', return_value=clean):
+                preflight = steps.plan_android(ctx).actions[1].func
+                if official:
+                    with self.assertRaisesRegex(bw.BuildStepError, 'differ .*: audio/hal_audio_default.te'):
+                        preflight()
+                else:
+                    preflight()
+        self.assertIn('    warning: policy files differ from their record in device/fairphone/FP6/sepolicy/'
+                      'provenance.json: audio/hal_audio_default.te. --official refuses this', self.lines)
 
 
 def git(path, *args):

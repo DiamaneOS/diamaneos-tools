@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from . import build, product_inputs, source_sync
+from . import build, policy_provenance, product_inputs, source_sync
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -501,6 +501,23 @@ def warn_modified(ctx: Context, modified) -> None:
         ctx.echo(f'    warning: local changes in {shown}; build.json records them, and --official refuses them')
 
 
+def check_policy_provenance(ctx: Context) -> None:
+    """Official builds stop when the device policy differs from its provenance
+    record. Others warn and go on, so local policy changes still build."""
+    try:
+        stale = policy_provenance.mismatches(ctx.workspace.src)
+    except (OSError, ValueError) as error:
+        problem = f'cannot check {policy_provenance.LEDGER}: {error}'
+    else:
+        if not stale:
+            return
+        shown = ', '.join(stale[:10]) + (f' and {len(stale) - 10} more' if len(stale) > 10 else '')
+        problem = f'policy files differ from their record in {policy_provenance.LEDGER}: {shown}'
+    if ctx.official:
+        raise BuildStepError(problem + '. Update the record with the reviewed change')
+    ctx.echo(f'    warning: {problem}. --official refuses this')
+
+
 def synced_manifest(ctx: Context, sync: dict) -> bytes:
     """The resolved manifest recorded by the passed sync step."""
     resolved = ctx.resolved_manifest.read_bytes()
@@ -786,6 +803,7 @@ def plan_android(ctx: Context) -> StepPlan:
                                      'run "diamaneos build sync" again')
             if key == 'preflight':
                 warn_modified(ctx, result['modified'])
+                check_policy_provenance(ctx)
             ctx.cache[key] = result
         return check
 
@@ -804,7 +822,7 @@ def plan_android(ctx: Context) -> StepPlan:
              **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
     actions = [Action('Install the vendor tree', func=install),
                Action('Verify the source tree', func=preflight('preflight'),
-                      detail='the source tree and the generated inputs'),
+                      detail='the source tree, the generated inputs and the device policy provenance record'),
                compile_action,
                Action('Check the source is unchanged', func=preflight('postflight'),
                       detail='after the build')]

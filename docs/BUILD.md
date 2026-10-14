@@ -141,6 +141,11 @@ or deleted files):
 - With an environment that pins one manifest commit, `build all` keeps its sync; after an edit, run
   `build all --from sync`.
 
+- **Device policy record.** Before it compiles, the `android` step hashes each file that
+  `device/fairphone/FP6/sepolicy/provenance.json` lists and compares it with the recorded SHA-256.
+  - An official build stops on a difference or an unreadable record.
+  - Other builds print a warning and go on, so a local policy change still builds.
+
 - **Official builds.**
   - DiamaneOS's own builder adds `--official`: the image then includes the Updater, which checks
     DiamaneOS's update server (`releases.diamaneos.de`) for updates.
@@ -470,6 +475,7 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 | `holds local manifests the build does not use` | Move the files in `.repo/local_manifests` away; the build uses the manifest alone. |
 | `contains dirty or untracked content` | An official build, or the manifest checkout (`.repo/manifests`), has local changes. Undo them (or move them aside) and run the command again; other builds only warn about changed projects. |
 | `undeclared input` | Files were added between projects. Move them away and run the command again. |
+| `policy files differ from their record` | A device policy file changed without its row in `sepolicy/provenance.json`. Update the row in the device tree with the reviewed change. Only official builds stop on it. |
 | `bytes of body are still expected` during sync | A long download broke off. Run the same command again; sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
 | `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |
