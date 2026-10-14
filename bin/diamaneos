@@ -10,8 +10,30 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "src"))
 
 
+BUILD_HELP = """usage: diamaneos build {all|sync|vendor|android|package|verify|kernel|preflight|kernel-config|inputs} [...]
+  build all -> sync, vendor, android, package and verify in one workspace
+  build sync|vendor|android|package|verify -> the steps of build all, one at a time
+  build kernel -> build the kernel from source (for maintainers, the build uses the kernel prebuilts)
+  build preflight -> fail-closed pinned build-input verification
+  build kernel-config -> read-only generated kernel configuration policy check
+  build inputs -> install verified generated Android inputs
+Options of a step: diamaneos build <step> --help"""
+
+
+def line_buffered(*streams):
+    """Write each line at once, also into a log file, so a build log can be
+    followed while it runs and after the build starts again with new tools."""
+    for stream in streams:
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(line_buffering=True)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    line_buffered(sys.stdout, sys.stderr)
+    if argv[:1] == ['build'] and argv[1:2] in ([], ['-h'], ['--help']):
+        print(BUILD_HELP, file=sys.stdout if argv[1:] else sys.stderr)
+        return 0 if argv[1:] else 2
     if argv[:1] == ['build'] and argv[1:2] and argv[1] in ('sync', 'kernel', 'vendor', 'android',
                                                           'package', 'verify', 'all'):
         from diamaneos_tools import build_steps
