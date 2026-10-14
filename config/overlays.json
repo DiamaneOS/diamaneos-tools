@@ -91,10 +91,10 @@
       },
       "app.grapheneos.setupwizard": {
         "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
-        "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording)",
+        "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording), with the privacy policy link",
         "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\"",
         "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device; otherwise unchanged",
-        "network_location_enabled_desc": "rebrand: signal identifiers go to Apple through a DiamaneOS proxy instead of a GrapheneOS proxy; otherwise unchanged",
+        "network_location_enabled_desc": "rebrand: signal identifiers go to Apple in the USA through a DiamaneOS proxy instead of a GrapheneOS proxy, with the privacy policy link",
         "geocoder_enabled_desc": "rebrand: the geocoder is OpenStreetMap's public service instead of one hosted by GrapheneOS, and the text says what OpenStreetMap sees"
       },
       "app.grapheneos.speechservices": {
