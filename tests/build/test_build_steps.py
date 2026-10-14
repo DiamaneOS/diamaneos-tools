@@ -847,6 +847,34 @@ class RunnerTests(unittest.TestCase):
                                                        'run "diamaneos build android" or'):
                 steps.run_steps(named, ('verify',), force=('verify',))
 
+    def test_the_official_choice_changes_only_when_the_android_step_builds(self):
+        ws = self.ctx.workspace
+        steps.remember_official(ws, True)
+        plain = replace(self.ctx, official=False, official_given=True)
+        self.fail = 'android'
+        with patch.dict(steps.PLANS, {n: self.fake(n) for n in bw.STEPS}):
+            with self.assertRaisesRegex(bw.BuildStepError, 'android broke'):
+                steps.run_steps(plain, bw.STEPS)
+            self.assertTrue((ws.state_dir / steps.OFFICIAL_MARKER).is_file(), 'a failed build keeps the choice')
+            self.fail = None
+            steps.run_steps(plain, bw.STEPS)
+        self.assertFalse((ws.state_dir / steps.OFFICIAL_MARKER).is_file())
+
+    def test_package_does_not_record_old_output_after_a_failed_android_step(self):
+        ctx = self.ctx
+        out = ctx.out / 'target' / 'product' / ctx.config['product'] / 'obj/PACKAGING/target_files_intermediates'
+        out.mkdir(parents=True)
+        archive = out / 'FP6-target_files.zip'
+        archive.write_bytes(b'')
+        os.utime(archive, (1, 1))
+        ctx.workspace.write_state('android', {'inputs': {}, 'status': 'FAIL', 'error': 'android failed: refused'})
+        with self.assertRaisesRegex(bw.UsageError, 'did not finish \\(android failed: refused\\)'):
+            steps.refuse_after_failed_android(ctx)
+        # m built again after the failure: out/ is a build by hand.
+        newer = (ctx.workspace.state_dir / 'android.json').stat().st_mtime + 10
+        os.utime(archive, (newer, newer))
+        steps.refuse_after_failed_android(ctx)
+
     def test_failure_is_recorded_and_the_next_run_resumes(self):
         self.fail = 'android'
         with self.assertRaisesRegex(bw.BuildStepError, 'android broke'):
