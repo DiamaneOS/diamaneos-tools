@@ -33,6 +33,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(bare.returncode, 2)
         self.assertIn("build all", bare.stderr)
 
+    def test_release_help(self):
+        command = os.path.join(TOOLS, "bin", "diamaneos")
+        out = subprocess.run([command, "release", "--help"], capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("--incremental-from", out.stdout)
+        listed = subprocess.run([command, "--help"], capture_output=True, text=True, timeout=30)
+        self.assertIn("release -> factory package", listed.stdout)
+
     def test_output_is_line_buffered(self):
         module = runpy.run_path(os.path.join(TOOLS, "bin", "diamaneos"), run_name="diamaneos")
         stream = io.TextIOWrapper(io.BytesIO())
