@@ -26,8 +26,8 @@
 - The toolchains (Clang, the kernel build tools, Bazel, the JDK and others) are listed in
   `prebuilts.json` with exact revisions and fetched into `kernel_platform/prebuilts`, never
   committed; `sync_prebuilts.sh` in the repository fetches them for a plain clone.
-- Each upstream project was imported once on the repository's `upstream` branch; DiamaneOS changes
-  are commits on `android17`.
+- Each upstream project is imported on the repository's `upstream` branch. DiamaneOS's changes are
+  commits on `android17`, rebased onto each new import.
 - [`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records the upstream
   commit and release of the imports `forks check` follows ([upstream
   tracking](BUILD.md#upstream-tracking)).
