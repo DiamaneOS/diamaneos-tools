@@ -7,6 +7,12 @@
       "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20.1_1.tar.gz",
       "sha256": "3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e"
     },
+    "jdk21": {
+      "version": "21.0.12.1+1",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
+      "why": "Camera's Android Gradle Plugin runs lint on Java 21 APIs, so its Gradle runs on JDK 21 (gradle_jdk). Its code still compiles for Java 17."
+    },
     "cmdline_tools": {
       "version": "21.0",
       "url": "https://dl.google.com/android/repository/commandlinetools-linux-15641748_latest.zip",
@@ -15,14 +21,17 @@
     },
     "sdk_packages": [
       "build-tools;36.1.0",
+      "build-tools;37.0.0",
       "ndk;29.0.14206865",
-      "platforms;android-36"
+      "platforms;android-36",
+      "platforms;android-37.0"
     ],
     "build_tools": "36.1.0"
   },
   "grapheneos_signers": [
     "3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b",
-    "990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c"
+    "990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c",
+    "6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59"
   ],
   "apps": [
     {
@@ -48,6 +57,18 @@
       "environment": {},
       "test_catalog_key": false,
       "prebuilt": "external/Auditor",
+      "release_signer": null
+    },
+    {
+      "id": "camera",
+      "package": "app.grapheneos.camera",
+      "version_code": 93,
+      "gradle_jdk": "jdk21",
+      "repository": "https://github.com/DiamaneOS/Camera.git",
+      "commit": "e41a28b708620672ca4dec7878173188259e678b",
+      "environment": {},
+      "test_catalog_key": false,
+      "prebuilt": "external/Camera",
       "release_signer": null
     }
   ]

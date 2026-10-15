@@ -64,7 +64,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_committed_config_is_valid(self):
         config = subject.load()
-        self.assertEqual({'appstore', 'auditor'}, {a['id'] for a in config['apps']})
+        self.assertEqual({'appstore', 'auditor', 'camera'}, {a['id'] for a in config['apps']})
         self.assertIn(GRAPHENEOS, config['grapheneos_signers'])
         appstore = subject.app_config(config, 'appstore')
         self.assertEqual('https://apps.diamaneos.de', appstore['environment']['REPO_BASE_URL'])
@@ -76,7 +76,8 @@ class ConfigTests(unittest.TestCase):
                        lambda a: a.update(repository='https://github.com/GrapheneOS/AppStore.git'),
                        lambda a: a.update(release_signer=GRAPHENEOS),
                        lambda a: a.update(prebuilt='../external/AppStore'),
-                       lambda a: a['environment'].update(path='/x')):
+                       lambda a: a['environment'].update(path='/x'),
+                       lambda a: a.update(gradle_jdk='jdk11')):
             document = copy.deepcopy(self.config)
             change(document['apps'][0])
             with self.subTest(change=change), self.assertRaises(subject.AppsError):
@@ -85,6 +86,19 @@ class ConfigTests(unittest.TestCase):
     def test_rejects_an_unpinned_toolchain(self):
         document = copy.deepcopy(self.config)
         document['toolchain']['jdk']['sha256'] = 'latest'
+        with self.assertRaises(subject.AppsError):
+            self.load(document)
+
+    def test_camera_runs_gradle_on_jdk21_and_compiles_with_17(self):
+        config = subject.load()
+        self.assertEqual('jdk21', subject.app_config(config, 'camera')['gradle_jdk'])
+        with tempfile.TemporaryDirectory() as root:
+            toolchain = subject.Toolchain(Path(root), config)
+            self.assertEqual(['jdk', 'jdk21'], list(toolchain.jdks))
+            java_home = toolchain.environment(toolchain.jdks['jdk21'])['JAVA_HOME']
+        self.assertTrue(java_home.endswith('jdk-21.0.12.1+1'))
+        document = copy.deepcopy(self.config)
+        del document['toolchain']['jdk21']
         with self.assertRaises(subject.AppsError):
             self.load(document)
 

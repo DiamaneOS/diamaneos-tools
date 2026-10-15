@@ -2559,6 +2559,27 @@
       ]
     },
     {
+      "id": "camera-own-build",
+      "why": "Camera is DiamaneOS's build of its fork (config/apps.json): not signed with GrapheneOS's Camera key or the platform key, and it asks for the permissions of GrapheneOS's Camera 93 and nothing more.",
+      "type": "apk",
+      "path": "PRODUCT/app/Camera/Camera.apk",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.DISABLE_KEYGUARD",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "app.grapheneos.camera.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk",
+      "not_signed_by": [
+        "6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59"
+      ]
+    },
+    {
       "id": "tap-to-wake",
       "why": "Tap to wake and Tap to check phone: the controller's gesture switch belongs to system (the sensors HAL).",
       "type": "text",

@@ -1,9 +1,10 @@
-"""Build the apps DiamaneOS ships as presigned prebuilts: the App Store and Auditor.
+"""Build the apps DiamaneOS ships as presigned prebuilts: the App Store, Auditor and Camera.
 
-GrapheneOS builds both with Gradle and commits the signed release APKs to
-platform_external_AppStore and platform_external_Auditor. DiamaneOS builds its
-forks the same way, at the commits config/apps.json pins, with a pinned JDK and
-Android SDK kept apart from the OS tree:
+GrapheneOS builds them with Gradle and commits the signed release APKs to
+platform_external_AppStore, platform_external_Auditor and
+platform_external_Camera. DiamaneOS builds its forks the same way, at the
+commits config/apps.json pins, with a pinned JDK and Android SDK kept apart
+from the OS tree:
 
   apps toolchain --root ROOT        install the JDK and SDK packages (network)
   apps build --root ROOT --app ID   build the unsigned release APK (network: Gradle
@@ -67,7 +68,7 @@ def load(path=CONFIG):
     require(isinstance(document, dict) and document.get('schema_version') == 1, 'invalid apps config')
     tc = document.get('toolchain')
     require(isinstance(tc, dict), 'apps config has no toolchain')
-    for name in ('jdk', 'cmdline_tools'):
+    for name in ('jdk', 'cmdline_tools', *(['jdk21'] if 'jdk21' in tc else [])):
         part = tc.get(name)
         require(isinstance(part, dict) and isinstance(part.get('version'), str) and part['version']
                 and str(part.get('url', '')).startswith('https://') and SHA256.fullmatch(str(part.get('sha256'))),
@@ -95,6 +96,8 @@ def load(path=CONFIG):
         require(isinstance(env, dict) and all(re.fullmatch(r'[A-Z][A-Z0-9_]*', k) and isinstance(v, str)
                                               for k, v in env.items()), 'invalid environment of ' + app['id'])
         require(isinstance(app.get('test_catalog_key'), bool), 'invalid test_catalog_key of ' + app['id'])
+        require(app.get('gradle_jdk', 'jdk') in ('jdk', 'jdk21') and app.get('gradle_jdk', 'jdk') in tc,
+                'invalid gradle_jdk of ' + app['id'])
         require(re.fullmatch(r'external/[A-Za-z0-9_]+', str(app.get('prebuilt'))), 'invalid prebuilt of ' + app['id'])
         signer = app.get('release_signer')
         require(signer is None or (isinstance(signer, str) and SHA256.fullmatch(signer) and signer not in theirs),
@@ -129,19 +132,25 @@ class Toolchain:
         self.root = Path(root)
         self.dir = self.root / 'toolchain'
         self.jdk = self.dir / ('jdk-' + tc['jdk']['version'])
+        # Gradle runs on jdk; an app may need a newer JDK to run Gradle (gradle_jdk), still compiling
+        # with the JDK its build file asks for.
+        self.jdks = {name: self.dir / ('jdk-' + tc[name]['version']) for name in ('jdk', 'jdk21') if name in tc}
         self.sdk = self.dir / 'android-sdk'
         self.sdkmanager = self.sdk / 'cmdline-tools' / tc['cmdline_tools']['version'] / 'bin/sdkmanager'
         self.build_tools = self.sdk / 'build-tools' / tc['build_tools']
         self.record = self.dir / 'toolchain.json'
         self.expected = {'jdk': tc['jdk'], 'cmdline_tools': tc['cmdline_tools'], 'sdk_packages': tc['sdk_packages']}
+        if 'jdk21' in tc:
+            self.expected['jdk21'] = tc['jdk21']
 
-    def environment(self):
+    def environment(self, jdk=None):
         """A clean environment: the toolchain, private user state under ROOT, nothing from the caller."""
+        jdk = jdk or self.jdk
         state = {name: self.root / name for name in ('home', 'android-user-home', 'gradle-home', 'java-prefs')}
         for path in state.values():
             path.mkdir(parents=True, exist_ok=True)
-        return {'PATH': f'{self.jdk}/bin:/usr/bin:/bin', 'HOME': str(state['home']), 'LANG': 'C.UTF-8', 'TZ': 'UTC',
-                'JAVA_HOME': str(self.jdk), 'ANDROID_HOME': str(self.sdk),
+        return {'PATH': f'{jdk}/bin:/usr/bin:/bin', 'HOME': str(state['home']), 'LANG': 'C.UTF-8', 'TZ': 'UTC',
+                'JAVA_HOME': str(jdk), 'ANDROID_HOME': str(self.sdk),
                 'ANDROID_USER_HOME': str(state['android-user-home']), 'GRADLE_USER_HOME': str(state['gradle-home']),
                 'GRADLE_OPTS': '-Djava.util.prefs.userRoot=' + str(state['java-prefs']),
                 'SDKMANAGER_OPTS': '-Djava.util.prefs.userRoot=' + str(state['java-prefs'])}
@@ -186,8 +195,9 @@ def install_toolchain(root, config):
     downloads = root / 'downloads'
     downloads.mkdir(parents=True, exist_ok=True)
     t.record.unlink(missing_ok=True)
-    jdk = fetch(tc['jdk']['url'], downloads, tc['jdk']['sha256'])
-    unpack(jdk, t.jdk, lambda a, d: ['tar', '-xzf', a, '-C', d])
+    for name, target in t.jdks.items():
+        jdk = fetch(tc[name]['url'], downloads, tc[name]['sha256'])
+        unpack(jdk, target, lambda a, d: ['tar', '-xzf', a, '-C', d])
     tools = fetch(tc['cmdline_tools']['url'], downloads, tc['cmdline_tools']['sha256'])
     unpack(tools, t.sdkmanager.parents[1], lambda a, d: ['unzip', '-q', a, '-d', d])
     licence = t.sdk / 'licenses/android-sdk-license'
@@ -309,11 +319,13 @@ def build(root, app_id, test_key_dir=None, config=None, now=None):
     inputs = dict(app['environment'])
     if test_key_dir and app['test_catalog_key']:
         inputs['REPO_PUBLIC_KEY'] = test_catalog_key(test_key_dir)
-    jdk = str(toolchain.jdk)
+    gradle_jdk = toolchain.jdks[app.get('gradle_jdk', 'jdk')]
+    jdk = ','.join(str(path) for path in toolchain.jdks.values())
     call([source / 'gradlew', '--no-daemon', '--console=plain', '--dependency-verification', 'strict',
           '-Dorg.gradle.java.installations.auto-detect=false', '-Dorg.gradle.java.installations.auto-download=false',
           '-Dorg.gradle.java.installations.paths=' + jdk, '-Pkotlin.compiler.execution.strategy=in-process',
-          GRADLE_TASK], cwd=source, env={**env, **inputs}, timeout=3600, log=run / 'gradle.log')
+          GRADLE_TASK], cwd=source, env={**toolchain.environment(gradle_jdk), **inputs}, timeout=3600,
+         log=run / 'gradle.log')
     unsigned = run / 'app-release-unsigned.apk'
     shutil.copyfile(source / UNSIGNED_OUTPUT, unsigned)
     package, version = badging(call([toolchain.build_tools / 'aapt2', 'dump', 'badging', unsigned], env=env))
