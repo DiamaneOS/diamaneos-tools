@@ -613,6 +613,10 @@ commands](#the-build-commands).
 - `newer` patterns name the branches or tags that would supersede a followed reference, such as
   Fairphone's next `odm/rc/target/<android>/fp6` branch or the next CodeLinaro release tag.
 - Matches are ordered by the pattern's capture group.
+- `reviewed` names the newest upstream tag of an entry that is handled without moving its pin:
+  backported, nothing to take, or already in a fork that follows a branch when no clone can tell.
+- Tags up to it are not newer, and a followed branch whose head is that tag is `reviewed`, not moved.
+- On an entry that follows a branch, `reviewed` can name a reviewed head commit instead.
 - Fairphone forks and imports follow the public-build branch where one exists, otherwise `rc`.
 - CodeLinaro forks and imports follow a release tag, or the newest release branch that contains
   the pinned commit, with its release tags as `newer`.

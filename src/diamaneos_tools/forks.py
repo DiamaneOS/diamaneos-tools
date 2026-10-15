@@ -4,7 +4,9 @@ check: read only the remote refs of every fork and pinned source and report
 which followed references moved and which newer branches or tags appeared.
 The upstream projects imported into kernel_qcom-6.1 are pinned sources: their
 import record holds the imported upstream commit and the newest release tag it
-contains.
+contains. An entry's `reviewed` tag (or, on a followed branch, head commit)
+records upstream changes that were backported or have nothing to take: tags up
+to it no longer count and a head at it is not reported as moved.
 status: fetch (optionally) each fork's upstream reference and report how many
 upstream commits the fork lacks and how many DiamaneOS patches it carries.
 update: rebase the fork's patches onto a newer upstream reference into a new
@@ -20,6 +22,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -124,8 +127,19 @@ def load_sources(sources):
             if not (follow['kind'] == 'branch' and 'newer_tags' in follow and 'list' in pin
                     and NAME.match(pin.get('release_field', ''))):
                 raise ForkError(f"newer_tags need a followed branch and a release_field in a list pin: {source['id']}")
+        check_reviewed(source, follow.get('pattern') if follow['kind'] == 'tags' else follow.get('newer_tags'),
+                       follow['kind'] == 'branch')
         seen.add(source['id'])
     return sources
+
+
+def check_reviewed(entry, pattern, branch):
+    """`reviewed` is a tag matching the entry's tag pattern or, on a followed branch, a head commit."""
+    if 'reviewed' not in entry:
+        return
+    value = entry['reviewed'] if isinstance(entry['reviewed'], str) else ''
+    if not (pattern and re.fullmatch(pattern, value) or branch and re.fullmatch(r'[0-9a-f]{40}', value)):
+        raise ForkError(f"reviewed must be a tag matching the entry's tag pattern or a followed head: {entry['id']}")
 
 
 def load_forks(forks):
@@ -149,6 +163,7 @@ def load_forks(forks):
             if kind not in ('branches', 'tags'):
                 raise ForkError(f"invalid newer reference kind: {fork['id']}")
             newer_pattern(pattern, fork['id'])
+        check_reviewed(fork, fork.get('newer', {}).get('tags'), upstream['kind'] == 'branch')
         seen.add(fork['id'])
     return forks
 
@@ -384,9 +399,23 @@ def is_ancestor(repo, commit, branch):
     return git(repo, 'merge-base', '--is-ancestor', commit, branch, check=False, offline=True).returncode == 0
 
 
+def later(pattern, *refs):
+    """The latest of refs that match pattern, by its ordering group, or ''."""
+    matching = [r for r in refs if r and pattern.fullmatch(r)]
+    return max(matching, key=lambda r: order_key(pattern.fullmatch(r).group(1)), default='')
+
+
+def reviewed_head(entry, refs, head):
+    """True when the followed branch head is the commit, or the commit of the tag, recorded as reviewed."""
+    reviewed = entry.get('reviewed')
+    return head is not None and bool(reviewed) and head in (reviewed, refs.get('refs/tags/' + reviewed))
+
+
 def check_fork(root, fork, refs):
     upstream = fork['upstream']
     result = {'id': fork['id'], 'type': 'fork', 'follows': upstream['ref']}
+    if 'reviewed' in fork:
+        result['reviewed'] = fork['reviewed']
     if fork.get('scope') == 'server':
         result['scope'] = 'server'
     if upstream['kind'] == 'branch':
@@ -403,6 +432,8 @@ def check_fork(root, fork, refs):
                 contained = is_ancestor(Path(root) / fork['slug'], head, fork['branch'])
             result['upstream_head'] = head
             result['state'] = {None: 'clone-missing', True: 'current', False: 'update-available'}[contained]
+            if not contained and reviewed_head(fork, refs, head):
+                result['state'] = 'reviewed'
     elif upstream['kind'] == 'tag':
         result['state'] = 'current' if 'refs/tags/' + upstream['ref'] in refs else 'followed-tag-missing'
     else:
@@ -423,11 +454,11 @@ def check_fork(root, fork, refs):
                          if is_ancestor(repo, refs['refs/tags/' + t], fork['branch'])]
             current = contained[-1] if contained else ''
             result['latest_release_contained'] = current or None
-        # With no release contained yet, the fork predates the whole series: every release is newer.
-        found += newer_refs(refs, 'refs/tags/', pattern, current)
+        # With no release contained or reviewed, the fork predates the whole series: every release is newer.
+        found += newer_refs(refs, 'refs/tags/', pattern, later(pattern, current, fork.get('reviewed')))
     if found:
         result['newer'] = found
-        if result['state'] in ('current', 'pinned-commit'):
+        if result['state'] in ('current', 'pinned-commit', 'reviewed'):
             result['state'] = 'newer-release'
     return result
 
@@ -435,13 +466,16 @@ def check_fork(root, fork, refs):
 def check_source(root, source, refs):
     follow = source['follow']
     result = {'id': source['id'], 'type': 'source', 'pin': pinned_value(root, source)}
+    if 'reviewed' in source:
+        result['reviewed'] = source['reviewed']
     if result['pin'] is None:
         result['state'] = 'pin-unavailable'
     if follow['kind'] == 'manual':
         result.update(state='manual-check', note=follow['note'], url=source['url'])
         return result
     if follow['kind'] == 'tags':
-        newer = newer_refs(refs, 'refs/tags/', re.compile(follow['pattern']), result['pin'] or '')
+        pattern = re.compile(follow['pattern'])
+        newer = newer_refs(refs, 'refs/tags/', pattern, later(pattern, result['pin'], source.get('reviewed')))
         result.setdefault('state', 'current' if not newer else 'newer-release')
         if newer:
             result['newer'] = newer
@@ -450,7 +484,8 @@ def check_source(root, source, refs):
     result['follows'] = follow['ref']
     result['upstream_head'] = head
     if 'state' not in result:
-        result['state'] = 'followed-branch-missing' if head is None else 'current' if head == result['pin'] else 'update-available'
+        result['state'] = ('followed-branch-missing' if head is None else 'current' if head == result['pin']
+                           else 'reviewed' if reviewed_head(source, refs, head) else 'update-available')
     newer = []
     if 'newer_branches' in follow:
         newer += newer_refs(refs, 'refs/heads/', re.compile(follow['newer_branches']), follow['ref'])
@@ -458,10 +493,11 @@ def check_source(root, source, refs):
         # No history is fetched, so the release the pinned commit contains is read from the pin's row;
         # with none recorded, the pin predates the whole series and every release is newer.
         result['release'] = pinned_value(root, source, source['pin']['release_field'])
-        newer += newer_refs(refs, 'refs/tags/', re.compile(follow['newer_tags']), result['release'] or '')
+        pattern = re.compile(follow['newer_tags'])
+        newer += newer_refs(refs, 'refs/tags/', pattern, later(pattern, result['release'], source.get('reviewed')))
     if newer:
         result['newer'] = newer
-        if result['state'] == 'current':
+        if result['state'] in ('current', 'reviewed'):
             result['state'] = 'newer-release'
     return result
 
@@ -509,7 +545,10 @@ def main(argv=None):
         if args.command == 'check':
             results = check(args.root, registry, sources)
             print(json.dumps(results, indent=2))
-            if any(r['state'] == 'error' for r in results):
+            errors = [r for r in results if r['state'] == 'error']
+            for r in errors:
+                print(f"{r['id']}: {r['error']}", file=sys.stderr)
+            if errors:
                 return 2
             return 1 if any(r['state'] in ('update-available', 'newer-release', 'followed-branch-missing',
                                             'followed-tag-missing') for r in results) else 0

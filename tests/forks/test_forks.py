@@ -1,5 +1,7 @@
 """Fork status and update preparation never move the fork branch or push."""
+import contextlib
 import datetime
+import io
 import json
 import os
 from pathlib import Path
@@ -290,6 +292,58 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(('update-available', ['r2']), (result['state'], result['newer']))
         # With no release recorded, the import predates the whole series.
         self.assertEqual(['r1', 'r2'], check(None)['newer'])
+
+    def test_reviewed_tag_ends_newer_releases_and_a_move_to_it(self):
+        record = Path(self.tmp.name) / 'kq' / 'imports.json'
+        record.parent.mkdir()
+        record.write_text(json.dumps({'imports': [{'path': 'k', 'commit': self.first, 'release': 'r1'}]}))
+        run(self.upstream, 'tag', 'r1')
+        self.advance_upstream()
+        run(self.upstream, 'tag', 'r2')
+        source = {'id': 'k', 'url': 'https://example.invalid', 'reviewed': 'r2',
+                  'follow': {'kind': 'branch', 'ref': 'odm/rc', 'newer_tags': r'^r([0-9]+)$'},
+                  'pin': {'repository': 'kq', 'file': 'imports.json', 'list': '/imports', 'match': {'path': 'k'},
+                          'field': 'commit', 'release_field': 'release'}}
+        forks.load_sources([source])
+        lister = lambda url: forks.remote_refs(str(self.upstream))
+        check = lambda: forks.check(Path(self.tmp.name), [], [source], lister)[0]
+        result = check()
+        self.assertEqual(('reviewed', 'r2', None), (result['state'], result['reviewed'], result.get('newer')))
+        run(self.upstream, 'tag', 'r3')
+        self.assertEqual(('newer-release', ['r3']), (check()['state'], check()['newer']))
+        moved = self.advance_upstream('c.txt')
+        self.assertEqual('update-available', check()['state'])
+        # A source without release tags: the head with nothing to take is recorded.
+        plain = dict(source, reviewed=moved, follow={'kind': 'branch', 'ref': 'odm/rc'},
+                     pin={k: v for k, v in source['pin'].items() if k != 'release_field'})
+        forks.load_sources([plain])
+        self.assertEqual('reviewed', forks.check(Path(self.tmp.name), [], [plain], lister)[0]['state'])
+        with self.assertRaisesRegex(forks.ForkError, 'reviewed'):
+            forks.load_sources([dict(source, reviewed='v2')])
+
+    def test_reviewed_tag_stands_in_for_a_missing_clone(self):
+        fork = dict(self.fork, newer={'tags': r'^([0-9]+)$'}, reviewed='2')
+        forks.load_forks([fork])
+        run(self.upstream, 'tag', '1')
+        run(self.upstream, 'tag', '2')
+        missing = Path(self.tmp.name) / 'no-checkouts'
+        check = lambda: forks.check(missing, [fork], [], self.lister())[0]
+        self.assertEqual(('reviewed', None), (check()['state'], check().get('newer')))
+        self.advance_upstream()
+        self.assertEqual(('clone-missing', None), (check()['state'], check().get('newer')))
+        run(self.upstream, 'tag', '3')
+        self.assertEqual(['3'], check()['newer'])
+        for bad in (dict(fork, reviewed='v2'), dict(self.fork, reviewed='2')):
+            with self.subTest(fork=bad), self.assertRaisesRegex(forks.ForkError, 'reviewed'):
+                forks.load_forks([bad])
+
+    def test_check_names_failed_lookups_on_stderr(self):
+        failed = [{'id': 'x', 'type': 'fork', 'state': 'error', 'error': 'cannot list https://example.invalid'}]
+        err = io.StringIO()
+        with mock.patch.object(forks, 'check', return_value=failed), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            self.assertEqual(2, forks.main(['check']))
+        self.assertEqual('x: cannot list https://example.invalid\n', err.getvalue())
 
     def test_tools_pins_resolve(self):
         _, sources = forks.load_registry()
