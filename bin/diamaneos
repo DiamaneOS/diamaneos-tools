@@ -47,6 +47,9 @@ def main(argv=None):
     if argv[:2] == ['kernel', 'publish']:
         from diamaneos_tools import kernel_publish
         return kernel_publish.main(argv[2:])
+    if argv[:2] == ['kernel', 'compare']:
+        from diamaneos_tools import kernel_compare
+        return kernel_compare.main(argv[2:])
     if argv[:1] == ['kernel']:
         from diamaneos_tools import kernel
         return kernel.main(argv[1:])
