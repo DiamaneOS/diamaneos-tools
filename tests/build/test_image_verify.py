@@ -465,10 +465,9 @@ class RuleTests(unittest.TestCase):
     def test_tee_node_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
-        # The Widevine DRM service is the fifth user: it reaches its trusted app through liboemcrypto.so.
-        live = ['hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti',
-                'vendor_hal_keymint_qti']
-        reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_gatekeeper_default', 'hal_keymint_default']
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_drm_widevine_sw', 'hal_gatekeeper_default',
+                     'hal_keymint_default']
         for rule_id in reach:
             self.assertEqual(live, rules[rule_id]['allowed'], rule_id)
             self.assertEqual(('vendor_smcinvoke_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
@@ -484,7 +483,7 @@ class RuleTests(unittest.TestCase):
                     f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
                     f'(allow hal_keymint_default tee_device {use})\n')
         vendor_cil = (''.join(f'(type {d})\n' for d in live + reference)
-                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl hal_drm_widevine))\n'
+                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl hal_drm_widevine_sw))\n'
                       + '(typeattributeset hal_gatekeeper_server (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
                       + ''.join(f'(allow {d} vendor_smcinvoke_device {use})\n' for d in live if d != 'hal_fingerprint_default')
                       + '(allow hal_fingerprint_default vendor_smcinvoke_device (chr_file (open read write ioctl)))\n')
@@ -500,9 +499,9 @@ class RuleTests(unittest.TestCase):
                 (('tee-node-read', 'tee-node-write'),
                  grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (read write)))')),
                 (('tee-node-open',), grant('(allow hal_camera_default dev_type (chr_file (open)))')),
-                # Widevine's grant is its own: one on the DRM HAL attribute would reach ClearKey too.
+                # No DRM HAL may reach it, Widevine included.
                 (reach, grant(f'(allow hal_drm_server vendor_smcinvoke_device {use})')),
-                (reach, grant(f'(allow hal_drm_clearkey_aidl vendor_smcinvoke_device {use})')),
+                (reach, grant(f'(allow hal_drm_widevine_sw vendor_smcinvoke_device {use})')),
                 (reach, grant(f'(allow hal_keymint_default vendor_smcinvoke_device {use})')),
                 # More grants on the platform's label change nothing: it is on no node.
                 ((), grant(f'(allow hal_camera_default tee_device {use})')),
@@ -512,11 +511,6 @@ class RuleTests(unittest.TestCase):
             for rule_id in reach:
                 with self.subTest(rule=rule_id, change=sorted(change), failing=failing):
                     self.assertEqual(rule_id not in failing, check(rule_id, members))
-        # The lists name who may reach the node, not who must: the ioctl limit rule requires each one.
-        without = vendor_cil.replace(f'(allow hal_drm_widevine vendor_smcinvoke_device {use})\n', '')
-        self.assertNotEqual(vendor_cil, without)
-        for rule_id in reach:
-            self.assertTrue(check(rule_id, {**good, vendor: without.encode()}), rule_id)
 
     def test_sepolicy_xperms_adds_up_rules_on_types_and_attributes(self):
         self.assertEqual({0x9801, 0x9803}, subject.cil_xperm_numbers('(0x9801 0x9803)'))
@@ -559,8 +553,7 @@ class RuleTests(unittest.TestCase):
     def test_tee_node_ioctl_limit_rule(self):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
             'tee-node-ioctl-limit']
-        live = ['hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti',
-                'vendor_hal_keymint_qti']
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
         self.assertEqual((live, ['0x9801', '0x9803'], 'vendor_smcinvoke_device', 'chr_file'),
                          (rule['sources'], rule['allowed'], rule['target'], rule['cls']))
         plat, vendor, mapping = ('SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil',
@@ -573,16 +566,13 @@ class RuleTests(unittest.TestCase):
         mapping_cil = ('(typeattributeset tee_202604 (tee))\n'
                        '(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n')
         vendor_cil = ('(type hal_fingerprint_default)\n(type vendor_hal_gatekeeper_qti)\n(type vendor_hal_keymint_qti)\n'
-                      '(type hal_drm_widevine)\n(type hal_drm_clearkey_aidl)\n'
-                      '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine))\n'
                       '(typeattributeset domain (tee hal_gatekeeper_default hal_fingerprint_default '
-                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti hal_drm_widevine hal_drm_clearkey_aidl))\n'
+                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti))\n'
                       '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx tee_202604 vendor_rpmb_device (ioctl chr_file (0xb301)))\n'
                       '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
-                      '(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
                       '(auditallowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
         empty = {'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
                  'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
@@ -597,14 +587,6 @@ class RuleTests(unittest.TestCase):
                  'tee: also 0x9802, 0x9804'),
                 (vendor_cil + '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
                  'hal_fingerprint_default: also 0x98ff'),
-                # The Widevine service needs its own list: without one it could send every command.
-                (vendor_cil.replace('(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
-                 'hal_drm_widevine has no ioctl allow-list'),
-                (vendor_cil.replace('(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
-                                    '(allowx hal_drm_widevine vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9802 0x9803)))'),
-                 'hal_drm_widevine: also 0x9802'),
-                (vendor_cil + '(allowx hal_drm_server vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
-                 'hal_drm_widevine: also 0x98ff'),
                 (vendor_cil + '(allowx hal_gatekeeper dev_type (ioctl chr_file (0x5451)))\n',
                  'vendor_hal_gatekeeper_qti: also 0x5451'),
                 (vendor_cil.replace('(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
@@ -612,9 +594,6 @@ class RuleTests(unittest.TestCase):
                  'vendor_hal_keymint_qti: lacks 0x9803')]:
             with self.subTest(detail=detail):
                 self.assertEqual((False, detail), check(change))
-        # A policy without the Widevine domain cannot satisfy the rule.
-        self.assertEqual((False, 'not a type in the policy: hal_drm_widevine'),
-                         check(vendor_cil.replace('(type hal_drm_widevine)\n', '')))
 
     def test_tee_node_label_and_owner_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
@@ -623,8 +602,7 @@ class RuleTests(unittest.TestCase):
         labels = (b'#\n/dev/smcinvoke                                  u:object_r:vendor_smcinvoke_device:s0\n'
                   b'/dev/qce                                        u:object_r:vendor_qce_device:s0\n'
                   b'/vendor/bin/qseecomd            u:object_r:tee_exec:s0\n')
-        nodes = (b'/dev/qce                  0660   system     drmrpc\n'
-                 b'/dev/smcinvoke            0660   system     drmrpc\n')
+        nodes = b'/dev/kgsl                 0666   system     system\n/dev/smcinvoke            0660   system     drmrpc\n'
         good = {plat: b'/dev/binder   u:object_r:binder_device:s0\n', vendor: labels, ueventd: nodes,
                 'SYSTEM_EXT/etc/selinux/system_ext_file_contexts': b'', 'PRODUCT/etc/selinux/product_file_contexts': b'',
                 'ODM/etc/selinux/odm_file_contexts': b''}
@@ -643,7 +621,8 @@ class RuleTests(unittest.TestCase):
                 ('tee-node-owner', {ueventd: nodes + b'/dev/qseecom              0660   system     drmrpc\n'}),
                 ('tee-node-owner', {ueventd: nodes.replace(b'/dev/smcinvoke            0660', b'/dev/smcinvoke            0666')}),
                 ('tee-node-owner', {ueventd: nodes.replace(b'system     drmrpc\n', b'system     system\n')}),
-                ('tee-node-owner', {ueventd: b'/dev/qce                  0660   system     drmrpc\n'})]:
+                ('tee-node-owner', {ueventd: b'/dev/qce                  0660   system     drmrpc\n'}),
+                ('tee-node-owner', {ueventd: nodes + b'/dev/qce                  0660   system     drmrpc\n'})]:
             with self.subTest(rule=rule_id, change=sorted(change)):
                 self.assertFalse(check(rule_id, {**good, **change}))
 
@@ -1594,161 +1573,48 @@ class RuleTests(unittest.TestCase):
             check(container=b'not an apex')
         self.assertIs(subject.rule_apex_payload, subject.RULES['apex_payload'])
 
-    WIDEVINE_LIBRARIES = {'widevine-liboemcrypto': 'vendor/lib64/liboemcrypto.so',
-                          'widevine-libcpion': 'vendor/lib64/libcpion.so',
-                          'widevine-libtrustedapploader': 'vendor/lib64/libtrustedapploader.so'}
-
-    def test_widevine_library_file_rules(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        recipe = {r['path']: r for r in json.loads(
-            (ROOT / 'config/fp6-minimal/vendor-files.json').read_text())['files']}
-        (self.root / 'vendor.img').write_bytes(b'not sparse')
-        config = 'META/vendor_filesystem_config.txt'
-        for rule_id, path in self.WIDEVINE_LIBRARIES.items():
-            committed, row = rules[rule_id], recipe[path]
-            # Each rule states the stock identity the recipe selects.
-            self.assertEqual(('file_metadata', path, 'vendor', row['sha256'], row['metadata']['selinux'],
-                              row['metadata']['uid'], row['metadata']['gid'], row['metadata']['mode']),
-                             (committed['type'], committed['path'], committed['image'], committed['sha256'],
-                              committed['label'], committed['uid'], committed['gid'], int(committed['mode'], 8)))
-            self.assertEqual(('0644', 0, 0, 'u:object_r:vendor_file:s0'),
-                             (committed['mode'], committed['uid'], committed['gid'], committed['label']))
-            data = b'stock ' + path.encode()
-            rule = dict(committed, sha256=hashlib.sha256(data).hexdigest())
-            member = 'VENDOR/' + path.removeprefix('vendor/')
-            line = path.encode() + b' 0 0 644 capabilities=0x0\n'
-            good = {member: data, config: b'vendor/lib64 0 2000 755 capabilities=0x0\n' + line}
-
-            def check(members=good, rule=rule, content=data, mode=0o100644, uid=0, gid=0,
-                      label='u:object_r:vendor_file:s0'):
-                def debugfs(args):
-                    command = str(args[1]).split()
-                    self.assertEqual('/' + path.removeprefix('vendor/'), command[1])
-                    if command[0] == 'dump':
-                        Path(command[2]).write_bytes(content)
-                    return self.debugfs_stat(mode, uid, gid, label, len(content))
-                v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
-                return subject.rule_file_metadata(rule, v)
-            with self.subTest(rule=rule_id):
-                self.assertEqual((True, ''), check())
-            for detail, change in [
-                    ('bytes differ in target-files', {'members': dict(good, **{member: b'another build'})}),
-                    ('bytes differ in target-files', {'rule': committed}),
-                    ('owner or mode differ in the filesystem config',
-                     {'members': dict(good, **{config: line.replace(b' 0 0 644 ', b' 0 2000 644 ')})}),
-                    ('owner or mode differ in the filesystem config',
-                     {'members': dict(good, **{config: line.replace(b' 644 ', b' 755 ')})}),
-                    ('bytes differ in vendor.img', {'content': b'another build'}),
-                    ('owner or mode differ in vendor.img', {'mode': 0o100755}),
-                    ('owner or mode differ in vendor.img', {'gid': 2000}),
-                    ('owner or mode differ in vendor.img', {'uid': 1000}),
-                    ('label differs in vendor.img', {'label': 'u:object_r:same_process_hal_file:s0'})]:
-                with self.subTest(rule=rule_id, detail=detail, change=sorted(change)):
-                    ok, found = check(**change)
-                    self.assertFalse(ok)
-                    self.assertIn(detail, found)
-            # A missing library is an error (a failed check), never a pass.
-            with self.subTest(rule=rule_id, missing=True), self.assertRaises(FileNotFoundError):
-                check(members={config: line})
-
-    def test_widevine_hardware_backed_rules(self):
+    def test_widevine_software_only_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
-        # The provisioning tools stay out; this list does not name the three libraries.
-        absent = rules['widevine-no-provisioning-tools']
-        self.assertEqual(['VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox', 'VENDOR/bin/hdcp1prov',
-                          'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'], absent['paths'])
-        libraries = {'VENDOR/' + path.removeprefix('vendor/'): b'stock' for path in self.WIDEVINE_LIBRARIES.values()}
-        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex', **libraries}))[0])
+        absent = rules['widevine-software-only']
+        self.assertEqual({'VENDOR/lib64/liboemcrypto.so', 'VENDOR/lib64/libcpion.so',
+                          'VENDOR/lib64/libtrustedapploader.so', 'VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox',
+                          'VENDOR/bin/hdcp1prov', 'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'},
+                         set(absent['paths']))
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex'}))[0])
         for path in absent['paths']:
             with self.subTest(path=path):
                 self.assertEqual((False, 'present: ' + path),
                                  subject.rule_files_absent(absent, self.harness({apex: b'apex', path: b'stock'})))
                 self.assertFalse(subject.rule_files_absent(
                     absent, self.harness({apex: b'apex'}, symlinks={path: '/odm/' + path.split('/', 1)[1]}))[0])
-
-    def test_widevine_linker_configuration_rule(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        linker, config = rules['widevine-linker-config'], 'VENDOR/etc/linker.config.pb'
+        # The build always writes the vendor linker configuration, which offers no library.
+        linker, config = rules['widevine-linker-config-no-oemcrypto'], 'VENDOR/etc/linker.config.pb'
         self.assertEqual(('binary_count', config), (linker['type'], linker['file']))
-        self.assertNotIn('optional', linker)
-        # A provided-library entry: field 3, length-delimited, then the 15-byte name.
         entry = b'\x1a\x0fliboemcrypto.so'
-        self.assertEqual(entry, bytes.fromhex(linker['patterns'][0]['hex']))
         check = lambda data: subject.rule_binary_count(linker, self.harness({config: data}))[0]
-        self.assertTrue(check(entry))
-        for name, data in [('empty, as without the device fragment', b''),
-                           ('another library only', b'\x1a\x0blibother.so'),
-                           ('twice, as stock writes it', entry + entry),
-                           ('a second library offered', entry + b'\x1a\x0blibother.so'),
-                           ('a second library offered first', b'\x1a\x0blibother.so' + entry),
-                           ('a longer name', b'\x1a\x13liboemcrypto.so.bak'),
-                           ('required, not provided', b'\x22\x0fliboemcrypto.so'),
-                           ('the name without its entry', b'liboemcrypto.so')]:
-            with self.subTest(case=name):
+        self.assertTrue(check(b''))
+        for data in (entry, entry + entry, b'\x1a\x0blibother.so', b'\x22\x0fliboemcrypto.so'):
+            with self.subTest(data=data):
                 self.assertFalse(check(data))
-        # The build always writes the file; without it the check fails instead of passing.
         with self.assertRaises(FileNotFoundError):
             subject.rule_binary_count(linker, self.harness({'VENDOR/build.prop': b''}))
-
-    def test_widevine_property_rules(self):
-        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        vendor = 'VENDOR/build.prop'
-        others = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'ODM/etc/build.prop']
-        prov40 = b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'
-        data_path = b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'
-        base = b'ro.vendor.build.security_patch=2026-09-05\n'
-        good = {name: base for name in others}
-        good[vendor] = base + data_path + b'ro.hardware.egl=adreno\n' + prov40
-        wanted, no_other, vendor_only = (rules['widevine-hardware-properties'], rules['widevine-no-other-properties'],
-                                         rules['widevine-properties-vendor-only'])
-        self.assertEqual(('properties', vendor, sorted([prov40.decode().strip(), data_path.decode().strip()])),
-                         (wanted['type'], wanted['file'], sorted(wanted['equals'])))
-        self.assertEqual(sorted([vendor, *others]), sorted(no_other['files']))
-        self.assertEqual(sorted(others), sorted(vendor_only['files']))
-        run = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))
-        for rule in (wanted, no_other, vendor_only):
-            self.assertTrue(run(rule, good)[0], rule['id'])
-        # Both values, each once, with the stock value.
-        for name, text in [('prov40 missing', base + data_path),
-                           ('data path missing', base + prov40),
-                           ('none set', base),
-                           ('prov40 off', base + data_path + prov40.replace(b'=true', b'=false')),
-                           ('data path off', base + prov40 + data_path.replace(b'=true', b'=0')),
-                           ('prov40 twice', base + data_path + prov40 + prov40),
-                           ('prov40 set again to another value', base + data_path + prov40 + prov40.replace(b'true', b'false'))]:
-            with self.subTest(case=name):
-                ok, detail = run(wanted, dict(good, **{vendor: text}))
+        properties = rules['widevine-no-hardware-properties']
+        files = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'VENDOR/build.prop',
+                 'ODM/etc/build.prop']
+        self.assertEqual(files, properties['files'])
+        good = {name: b'ro.vendor.build.security_patch=2026-09-05\nro.drm.service.enabled=true\n' for name in files}
+        self.assertTrue(subject.rule_text(properties, self.harness(good))[0])
+        for name, line in [('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'),
+                           ('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'),
+                           ('ODM/etc/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=false\n'),
+                           ('SYSTEM/build.prop', b'  vendor.wv.oemcrypto.enable_prov40 = true\n'),
+                           ('VENDOR/build.prop', b'drm.service.enabled=true\n')]:
+            with self.subTest(name=name, line=line):
+                ok, detail = subject.rule_text(properties, self.harness(dict(good, **{name: good[name] + line})))
                 self.assertFalse(ok)
-                self.assertIn('vendor.wv.oemcrypto.debug.', detail)
-        # No other switch of the library, in any property file, and no legacy DRM server.
-        for line in [b'vendor.wv.oemcrypto.debug.enable_smcinvoke=false\n',
-                     b'vendor.wv.oemcrypto.debug.enable_decrypt_hash_tests=true\n',
-                     b'vendor.wv.oemcrypto.debug.enable_secure_buffer_tests=true\n',
-                     b'vendor.wv.oemcrypto.debug.enable_ce_smmu=false\n',
-                     b'vendor.wv.oemcrypto.debug.scratch_buf_size=1\n',
-                     b'vendor.wv.oemcrypto.debug.enable_prov40x=true\n',
-                     b'vendor.wv.oemcrypto.enable_prov40=true\n',
-                     b'  vendor.wv.oemcrypto.debug.measure_elapsed_time = true\n',
-                     b'drm.service.enabled=true\n', b'drm.service.enabled=1\n', b'drm.service.enabled = false\n']:
-            for name in [vendor, *others]:
-                with self.subTest(line=line, name=name):
-                    ok, detail = run(no_other, dict(good, **{name: good[name] + line}))
-                    self.assertFalse(ok)
-                    self.assertIn(name, detail)
-        for line in [b'# vendor.wv.oemcrypto.debug.enable_smcinvoke=false\n', b'ro.drm.service.enabled=true\n',
-                     b'drm.service.enabledx=true\n', b'vendor.wv.oemcrypto.debug.enable_prov40 = true\n']:
-            with self.subTest(allowed=line):
-                self.assertTrue(run(no_other, dict(good, **{vendor: good[vendor] + line}))[0])
-        # The two values belong to the vendor file only: a later file would replace them.
-        for name in others:
-            for line in (prov40, data_path, prov40.replace(b'=true', b'=false')):
-                with self.subTest(name=name, line=line):
-                    ok, detail = run(vendor_only, dict(good, **{name: good[name] + line}))
-                    self.assertFalse(ok)
-                    self.assertIn(name, detail)
-        self.assertFalse(run(vendor_only, {vendor: good[vendor]})[0])
-        self.assertFalse(run(no_other, {vendor: good[vendor]})[0])
+                self.assertIn(name, detail)
+        self.assertFalse(subject.rule_text(properties, self.harness({'VENDOR/build.prop': b''}))[0])
 
     def test_widevine_service_groups_rule(self):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
@@ -1761,91 +1627,49 @@ class RuleTests(unittest.TestCase):
                     '    class hal\n    user media\n    group mediadrm\n    ioprio rt 4\n'
                     '    task_profiles ProcessCapacityHigh\n'
                     '    interface aidl android.hardware.drm.IDrmFactory/clearkey\n    override\n')
-        hardware = ('# Widevine with the hardware-backed library.\n'
-                    'service vendor.drm-widevine-hal ' + binary + '\n'
-                    '    class hal\n    disabled\n    user media\n'
-                    '    group media mediadrm drmrpc system\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
-        software = ('# Widevine with its built-in software protection.\n'
-                    'service vendor.drm-widevine-hal-sw ' + binary + '\n'
-                    '    class hal\n    disabled\n    user media\n    group media mediadrm\n'
-                    '    seclabel u:r:hal_drm_widevine_sw:s0\n'
-                    '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
-        start = lambda state, service: ('on boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
-                                        '    start %s\n' % (state, service))
-        starts = '\n'.join([start('0', 'vendor.drm-widevine-hal-sw'), start('1', 'vendor.drm-widevine-hal'),
-                            start('2', 'vendor.drm-widevine-hal')])
-        good = '\n'.join([clearkey, hardware, software, starts])
+        group, env = '    group media mediadrm\n', '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n'
+        interface = '    interface aidl android.hardware.drm.IDrmFactory/widevine\n'
+        widevine = ('# Widevine with its built-in software protection.\n'
+                    'service vendor.drm-widevine-hal ' + binary + '\n' + interface
+                    + '    class hal\n    user media\n' + group + env
+                    + '    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
+        good = '\n'.join([clearkey, widevine])
+        changed = lambda old, new: '\n'.join([clearkey, widevine.replace(old, new)])
         check = lambda text: subject.rule_text(rule, self.harness({name: text.encode()}))[0]
         self.assertTrue(check(good))
-        self.assertTrue(check('\n'.join([software, hardware, clearkey, starts])))
-        group, sw_group = '    group media mediadrm drmrpc system\n', '    group media mediadrm\n'
-        env, interface = '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n', '    interface aidl android.hardware.drm.IDrmFactory/widevine\n'
-        label, other_label = '    seclabel u:r:hal_drm_widevine_sw:s0\n', '    seclabel u:r:hal_drm_widevine:s0\n'
+        self.assertTrue(check('\n'.join([widevine, clearkey])))
         # The order of the lines inside a definition is free.
-        self.assertTrue(check(good.replace(label + env, env + label)))
+        self.assertTrue(check(changed(group + env, env + group)))
         for case, text in [
-                # The definition with the hardware-backed library.
-                ('the software-only groups', good.replace(group, sw_group)),
-                ('no group that owns the TEE node', good.replace(group, '    group media mediadrm system\n')),
-                ('no group that reads the trusted app', good.replace(group, '    group media mediadrm drmrpc\n')),
-                ('one more group', good.replace(group, '    group media mediadrm drmrpc system inet\n')),
-                ('a second group line', good.replace(group, group + '    group inet\n')),
-                ('no group line', good.replace(group, '')),
-                ('another binary under the service name', good.replace(
+                ('the stock groups', changed(group, '    group media mediadrm drmrpc system\n')),
+                ('the TEE node group', changed(group, '    group media mediadrm drmrpc\n')),
+                ('a group that reads the trusted app', changed(group, '    group media mediadrm system\n')),
+                ('a second group line', changed(group, group + '    group drmrpc\n')),
+                ('no group line', changed(group, '')),
+                ('no environment line', changed(env, '')),
+                ('another value', changed(env, '    setenv FORCE_LEVEL3_OEMCRYPTO no\n')),
+                ('another environment line', changed(env, env + '    setenv LD_PRELOAD /data/x.so\n')),
+                ('started only by an action', changed('    class hal\n', '    class hal\n    disabled\n')),
+                ('no class', changed('    class hal\n', '')),
+                ('no interface', changed(interface, '')),
+                ('a domain line', changed(group, group + '    seclabel u:r:hal_drm_widevine:s0\n')),
+                ('another binary under the service name', changed(
                     'service vendor.drm-widevine-hal ' + binary, 'service vendor.drm-widevine-hal /vendor/bin/hw/drm')),
-                ('started with its class', '\n'.join([clearkey, hardware.replace('    disabled\n', ''), software, starts])),
-                ('forced to software protection', good.replace(group, group + env)),
-                ('names the interface', good.replace(group, interface + group)),
-                # It enters its domain through the executable's type: no domain line.
-                ('in the domain of the software definition', good.replace(group, group + label)),
-                ('names its own domain', good.replace(group, group + other_label)),
-                ('no definition with the library', '\n'.join([clearkey, software, starts])),
-                # The definition with the built-in software protection.
-                ('software definition with the TEE node group', good.replace(sw_group, '    group media mediadrm drmrpc\n')),
-                ('software definition with the stock groups', good.replace(sw_group, group)),
-                ('software definition that may read the trusted app', good.replace(sw_group, '    group media mediadrm system\n')),
-                ('software definition without a group line', good.replace(sw_group, '')),
-                ('software definition without the environment line', good.replace(env, '')),
-                ('software definition with another value', good.replace(env, '    setenv FORCE_LEVEL3_OEMCRYPTO no\n')),
-                ('software definition started with its class',
-                 '\n'.join([clearkey, hardware, software.replace('    disabled\n', ''), starts])),
-                ('software definition names the interface', good.replace(sw_group, interface + sw_group)),
-                # Only its domain line takes it out of the domain that may use the TEE.
-                ('software definition without its domain', good.replace(label, '')),
-                ('software definition in the domain of the library', good.replace(label, other_label)),
-                ('software definition in a domain of a longer name',
-                 good.replace(label, '    seclabel u:r:hal_drm_widevine_sw2:s0\n')),
-                ('software definition with a second domain line', good.replace(label, label + other_label)),
-                ('its domain only on another service',
-                 good.replace(label, '') + '\nservice other /vendor/bin/other\n' + label),
-                ('software definition with another binary', good.replace(
-                    'service vendor.drm-widevine-hal-sw ' + binary, 'service vendor.drm-widevine-hal-sw /vendor/bin/hw/drm')),
-                ('no software definition', '\n'.join([clearkey, hardware, starts])),
-                ('a third definition', good + '\nservice vendor.drm-widevine-hal-x ' + binary + '\n    class hal\n'),
-                # Exactly one of the two starts, by the state.
-                ('no start for state 0', good.replace(start('0', 'vendor.drm-widevine-hal-sw'), '')),
-                ('no start for state 1', '\n'.join([clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
-                                                    start('2', 'vendor.drm-widevine-hal')])),
-                ('no start for state 2', '\n'.join([clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
-                                                    start('1', 'vendor.drm-widevine-hal')])),
-                ('state 0 starts the library', good.replace(start('0', 'vendor.drm-widevine-hal-sw'),
-                                                            start('0', 'vendor.drm-widevine-hal'))),
-                ('state 2 starts the software definition', '\n'.join([
-                    clearkey, hardware, software, start('0', 'vendor.drm-widevine-hal-sw'),
-                    start('1', 'vendor.drm-widevine-hal'), start('2', 'vendor.drm-widevine-hal-sw')])),
-                ('state 0 starts both', good.replace('    start vendor.drm-widevine-hal-sw\n',
-                                                     '    start vendor.drm-widevine-hal-sw\n    start vendor.drm-widevine-hal\n')),
-                ('a fourth start', good + '\non boot\n    start vendor.drm-widevine-hal\n'),
+                ('no Widevine service', clearkey),
+                ('a second definition', good + '\nservice vendor.drm-widevine-hal-sw ' + binary + '\n    class hal\n'),
+                ('a start by the state',
+                 good + '\non boot && property:ro.vendor.diamaneos.hw_video_decode=1\n    start vendor.drm-widevine-hal\n'),
+                ('a stop', good + '\non boot\n    stop vendor.drm-widevine-hal\n'),
                 # ClearKey.
                 ('ClearKey with the TEE node group', good.replace('    group mediadrm\n', '    group mediadrm drmrpc\n')),
-                ('ClearKey with the Widevine groups', good.replace('    group mediadrm\n', group)),
+                ('ClearKey with the stock Widevine groups',
+                 good.replace('    group mediadrm\n', '    group media mediadrm drmrpc system\n')),
                 ('ClearKey without a group line', good.replace('    group mediadrm\n', '')),
                 ('ClearKey without the override', good.replace('    override\n', '')),
-                ('no ClearKey service', '\n'.join([hardware, software, starts])),
+                ('no ClearKey service', widevine),
                 # The group line of one service does not count for the other.
                 ('the groups only on another service',
-                 '\n'.join([clearkey, hardware.replace(group, sw_group), software, starts])
-                 + '\nservice other /vendor/bin/other\n' + group)]:
+                 changed(group, '') + '\nservice other /vendor/bin/other\n' + group)]:
             with self.subTest(case=case):
                 self.assertNotEqual(good, text)
                 self.assertFalse(check(text))
@@ -1862,34 +1686,21 @@ class RuleTests(unittest.TestCase):
         members = lambda *names: ''.join(f'(typeattributeset {attribute} ({" ".join(names)}))\n' for attribute in (
             'domain', 'halserverdomain', 'hal_drm', 'hal_drm_server'))
         # The compiled form: platform types carry the vendor API level, vendor types do not.
-        library = ('(type hal_drm_widevine)\n(type hal_drm_widevine_exec)\n'
-                   '(allow init_202604 hal_drm_widevine (process (transition)))\n'
-                   f'(allow hal_drm_widevine hal_drm_widevine_exec {entry})\n'
-                   '(typetransition init_202604 hal_drm_widevine_exec process hal_drm_widevine)\n'
-                   f'(allow hal_drm_widevine {data} (dir (read write open add_name remove_name search)))\n'
-                   f'(allow hal_drm_widevine {data} (file (read write create unlink open)))\n'
-                   f'(allow hal_drm_widevine vendor_dmabuf_qseecom_heap_device {node})\n'
-                   '(allow hal_drm_widevine vendor_notify-topology_socket (sock_file (write)))\n'
-                   '(allow hal_drm_widevine tee_202604 (unix_stream_socket (connectto)))\n'
-                   f'(allow hal_drm_widevine vendor_qce_device {rw_node})\n'
-                   '(allow hal_drm_widevine mediacodec (fd (use)))\n'
-                   f'(allow hal_drm_widevine vendor_membuf_dev {node})\n'
-                   f'(allow hal_drm_widevine vendor_vm_cp_bitstream_device {node})\n'
-                   f'(allow hal_drm_widevine {tee_node} {rw_node})\n'
-                   f'(allowx hal_drm_widevine {tee_node} (ioctl chr_file (0x9801 0x9803)))\n')
         start = f'(allow init_202604 {sw} (process (transition)))\n'
         entrypoint = f'(allow {sw} hal_drm_widevine_exec {entry})\n'
+        transition = f'(typetransition init_202604 hal_drm_widevine_exec process {sw})\n'
         data_dir = f'(allow {sw} {data} (dir (read write open add_name remove_name search)))\n'
         data_file = f'(allow {sw} {data} (file (read write create unlink open)))\n'
-        software = (f'(type {sw})\n' + start + entrypoint + f'(dontaudit init_202604 {sw} (process (noatsecure)))\n'
+        software = (f'(type {sw})\n(type hal_drm_widevine_exec)\n' + start + entrypoint + transition
+                    + f'(dontaudit init_202604 {sw} (process (noatsecure)))\n'
                     + f'(allow init_202604 {sw} (process (siginh rlimitinh)))\n' + data_dir + data_file)
-        attributes = members('hal_drm_clearkey_aidl', 'hal_drm_widevine', sw)
-        good = attributes + library + software
+        attributes = members('hal_drm_clearkey_aidl', sw)
+        good = attributes + software
         check = lambda text: subject.rule_text(rule, self.harness({vendor: text.encode()}))[0]
         self.assertTrue(check(good))
-        self.assertTrue(check(good.replace(f'init_202604 {sw} ', f'init {sw} ')))
-        for names in ((sw, 'hal_drm_widevine'), ('hal_drm_widevine', sw, 'hal_drm_default'), (sw,)):
-            self.assertTrue(check(members(*names) + library + software), names)
+        self.assertTrue(check(good.replace('init_202604 ', 'init ')))
+        for names in ((sw, 'hal_drm_clearkey_aidl'), ('hal_drm_clearkey_aidl', sw, 'hal_drm_default'), (sw,)):
+            self.assertTrue(check(members(*names) + software), names)
         # The rules that name the domain: each grant of the hardware-backed path fails.
         named = {'the TEE node': f'(allow {sw} {tee_node} {rw_node})\n',
                  'the QSEECom heap': f'(allow {sw} vendor_dmabuf_qseecom_heap_device {node})\n',
@@ -1899,18 +1710,23 @@ class RuleTests(unittest.TestCase):
                  'the bitstream node': f'(allow {sw} vendor_vm_cp_bitstream_device {node})\n'}
         for case, text in [
                 ('no such domain', good.replace(f'(type {sw})\n', '')),
-                ('not a DRM HAL', members('hal_drm_widevine', sw).replace(
-                    f'(typeattributeset hal_drm_server (hal_drm_widevine {sw}))', '(typeattributeset hal_drm_server (hal_drm_widevine))')
-                 + library + software),
+                ('not a DRM HAL', members('hal_drm_clearkey_aidl', sw).replace(
+                    f'(typeattributeset hal_drm_server (hal_drm_clearkey_aidl {sw}))',
+                    '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl))') + software),
                 ('init may not start it', good.replace(start, '')),
                 ('only another domain may start it', good.replace(start, start.replace('init_202604', 'vendor_init_202604'))),
                 ('no entry point', good.replace(entrypoint, '')),
                 ('the executable is not an entry point', good.replace(entrypoint, entrypoint.replace(' entrypoint', ''))),
                 ('no data directory', good.replace(data_dir, '')),
                 ('no data files', good.replace(data_file, '')),
-                # init enters it by the seclabel line only.
-                ('an automatic transition', good + f'(typetransition init_202604 hal_drm_widevine_exec process {sw})\n'),
+                # init enters it through the executable's type, which leads nowhere else.
+                ('no automatic transition', good.replace(transition, '')),
                 ('an automatic transition from another file', good + f'(typetransition init_202604 vendor_file process {sw})\n'),
+                ('an automatic transition from another domain',
+                 good + f'(typetransition vendor_init_202604 hal_drm_widevine_exec process {sw})\n'),
+                ('the executable leads to another domain',
+                 good + '(typetransition su_202604 hal_drm_widevine_exec process su)\n'),
+                ('the hardware-backed domain', good + '(type hal_drm_widevine)\n'),
                 *((case, good + line) for case, line in named.items()),
                 ("qseecomd's listener", good + f'(allow {sw} tee_202604 (unix_stream_socket (connectto)))\n'),
                 ("the codec service's descriptors", good + f'(allow {sw} mediacodec (fd (use)))\n'),
@@ -1928,11 +1744,11 @@ class RuleTests(unittest.TestCase):
         # Rules on attributes do not name the domain: the lists of each node judge those, and none names it.
         lists = {
             'qseecom-heap-users': ('vendor_dmabuf_qseecom_heap_device', 'chr_file', 'open', [
-                'hal_drm_widevine', 'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']),
-            'crypto-engine-node-users': ('vendor_qce_device', 'chr_file', 'open', ['hal_drm_widevine']),
+                'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']),
+            'crypto-engine-node-users': ('vendor_qce_device', 'chr_file', 'open', []),
             'membuf-node-users': ('vendor_membuf_dev', 'chr_file', 'open', [
-                'hal_drm_widevine', 'hal_graphics_allocator_default', 'hal_graphics_composer_default', 'mediacodec']),
-            'qseecomd-socket-users': ('vendor_notify-topology_socket', 'sock_file', 'write', ['hal_drm_widevine'])}
+                'hal_graphics_allocator_default', 'hal_graphics_composer_default']),
+            'qseecomd-socket-users': ('vendor_notify-topology_socket', 'sock_file', 'write', [])}
         for rule_id, expected in lists.items():
             users = rules[rule_id]
             self.assertEqual(expected, (users['target'], users['cls'], users['perm'], users['allowed']), rule_id)
@@ -1951,8 +1767,7 @@ class RuleTests(unittest.TestCase):
                   + ''.join(f'(allow {domain} vendor_dmabuf_qseecom_heap_device {node})\n' for domain in tee_users)
                   + ''.join(f'(allow {domain} {tee_node} {rw_node})\n' for domain in tee_users)
                   + ''.join(f'(allow {domain} vendor_membuf_dev {node})\n' for domain in (
-                      'hal_graphics_allocator_default', 'hal_graphics_composer_default', 'mediacodec'))
-                  + f'(allow mediacodec vendor_vm_cp_bitstream_device {node})\n')
+                      'hal_graphics_allocator_default', 'hal_graphics_composer_default')))
         others = {'SYSTEM/etc/selinux/plat_sepolicy.cil': (
                       b'(type init)\n(type ueventd)\n(type tee)\n(type vendor_smcinvoke_device)\n'
                       b'(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
@@ -1982,6 +1797,9 @@ class RuleTests(unittest.TestCase):
                 ((bitstream,), f'(allow domain vendor_vm_cp_bitstream_device {node})\n'),
                 ((heap, engine, membuf, bitstream, 'tee-node-open', 'tee-node-read'),
                  '(allow hal_drm_server dev_type (chr_file (read open)))\n'),
+                # The codec service has no secure decoder.
+                ((membuf, bitstream), f'(allow mediacodec vendor_membuf_dev {node})\n'
+                                      f'(allow mediacodec vendor_vm_cp_bitstream_device {node})\n'),
                 # Its own data and the rules of other classes change nothing.
                 ((), f'(allow hal_drm_server {data} (file (read open)))\n'),
                 ((), '(allow domain dev_type (lnk_file (read open)))\n')]:
@@ -1999,69 +1817,55 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         rule = rules['media-hw-decode-states']
         self.assertEqual([self.MEDIA_RC], rule['files'])
-        choice = lambda value: ('on zygote-start && property:persist.diamaneos.hw_video_decode=%s\n'
-                                '    setprop ro.vendor.diamaneos.hw_video_decode %s\n' % (value, value))
-        default = 'on zygote-start\n    setprop ro.vendor.diamaneos.hw_video_decode 2\n'
+        choice = ('on zygote-start && property:persist.diamaneos.hw_video_decode=1\n'
+                  '    setprop ro.vendor.diamaneos.hw_video_decode 1\n')
+        default = 'on zygote-start\n    setprop ro.vendor.diamaneos.hw_video_decode 0\n'
         node = '    wait /dev/video32\n    chown root mediacodec /dev/video32\n    chmod 0660 /dev/video32\n'
         state = lambda value, variant, open_node: (
             'on early-boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
             '    setprop ro.media.xml_variant.codecs %s\n' % (value, variant)
             + ('    setprop vendor.media.target_variant %s\n' % variant + node if open_node else ''))
-        never, all_video, protected = (state('0', '_volcano_v1', False), state('1', '_volcano_v1_hwdec', True),
-                                       state('2', '_volcano_v1_secdec', True))
+        never, all_video = state('0', '_volcano_v1', False), state('1', '_volcano_v1_hwdec', True)
         service = ('# The codec service; its decoders open only /dev/video32.\n'
                    'service vendor-qti-media-c2-hal-1-0 /vendor/bin/hw/vendor.qti.media.c2@1.0-service\n'
                    '    class hal\n    user mediacodec\n    group mediacodec\n')
-        parts = [service, choice('0'), choice('1'), default, never, all_video, protected]
+        parts = [service, choice, default, never, all_video]
         good = '\n'.join(parts)
         check = lambda text: subject.rule_text(rule, self.harness({self.MEDIA_RC: text.encode()}))[0]
         self.assertTrue(check(good))
-        # The order of the explicit choices and of the three states is free.
-        self.assertTrue(check('\n'.join([service, choice('1'), choice('0'), default, protected, never, all_video])))
+        # The order of the two states is free.
+        self.assertTrue(check('\n'.join([service, choice, default, all_video, never])))
         swap = lambda old, new: '\n'.join(new if part == old else part for part in parts)
         for case, text in [
                 # A read-only property keeps its first value: the default must come last.
-                ('the default before a stored 0', '\n'.join([service, choice('1'), default, choice('0'), never, all_video, protected])),
-                ('the default before a stored 1', '\n'.join([service, choice('0'), default, choice('1'), never, all_video, protected])),
-                ('the default first', '\n'.join([service, default, choice('0'), choice('1'), never, all_video, protected])),
-                ('no stored 0', '\n'.join([service, choice('1'), default, never, all_video, protected])),
-                ('no stored 1', '\n'.join([service, choice('0'), default, never, all_video, protected])),
-                ('no default', '\n'.join([service, choice('0'), choice('1'), never, all_video, protected])),
-                ('default all video', swap(default, default.replace(' 2\n', ' 1\n'))),
-                ('default never', swap(default, default.replace(' 2\n', ' 0\n'))),
-                ('a stored 0 sets all video', swap(choice('0'), choice('0').replace('decode 0\n', 'decode 1\n'))),
+                ('the default first', '\n'.join([service, default, choice, never, all_video])),
+                ('no stored 1', '\n'.join([service, default, never, all_video])),
+                ('no default', '\n'.join([service, choice, never, all_video])),
+                ('default all video', swap(default, default.replace(' 0\n', ' 1\n'))),
+                ('default protected video only', swap(default, default.replace(' 0\n', ' 2\n'))),
+                ('a stored 1 sets never', swap(choice, choice.replace('decode 1\n', 'decode 0\n'))),
+                ('a stored 2 sets protected video only', '\n'.join([service, choice, choice.replace('1', '2'), default,
+                                                                    never, all_video])),
                 # The first step sets only the state: the default action always runs.
-                ('the default action also selects a codec list',
-                 swap(default, default + '    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n')),
                 ('the default action also opens the node', swap(default, default + node)),
-                ('a stored 0 also selects a codec list',
-                 swap(choice('0'), choice('0') + '    setprop ro.media.xml_variant.codecs _volcano_v1\n')),
+                ('a stored 1 also selects a codec list',
+                 swap(choice, choice + '    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n')),
                 # Each state selects its own files, and state 0 never opens the decoder node.
                 ('never opens the node', swap(never, never + node)),
-                ('never selects the secure list', swap(never, state('0', '_volcano_v1_secdec', False))),
+                ('never selects the decoders', swap(never, state('0', '_volcano_v1_hwdec', False))),
                 ('never switches the target specification',
                  swap(never, never + '    setprop vendor.media.target_variant _volcano_v1_hwdec\n')),
-                ('protected selects all decoders', swap(protected, state('2', '_volcano_v1_hwdec', True))),
-                ('protected selects no decoder', swap(protected, state('2', '_volcano_v1', False))),
-                ('protected mixes the two files', swap(protected, protected.replace(
-                    'target_variant _volcano_v1_secdec', 'target_variant _volcano_v1_hwdec'))),
-                ('protected keeps the node closed', swap(protected, protected.replace(node, ''))),
-                ('protected opens the node to all', swap(protected, protected.replace('chmod 0660', 'chmod 0666'))),
-                ('protected gives the node to system', swap(protected, protected.replace(
-                    'chown root mediacodec', 'chown system mediacodec'))),
                 ('all video selects the secure list', swap(all_video, state('1', '_volcano_v1_secdec', True))),
+                ('all video selects no decoder', swap(all_video, state('1', '_volcano_v1', False))),
                 ('all video keeps the node closed', swap(all_video, all_video.replace(node, ''))),
-                ('no action for state 0', '\n'.join([service, choice('0'), choice('1'), default, all_video, protected])),
-                ('no action for state 1', '\n'.join([service, choice('0'), choice('1'), default, never, protected])),
-                ('no action for state 2', '\n'.join([service, choice('0'), choice('1'), default, never, all_video])),
+                ('all video opens the node to all', swap(all_video, all_video.replace('chmod 0660', 'chmod 0666'))),
+                ('no action for state 0', '\n'.join([service, choice, default, all_video])),
+                ('no action for state 1', '\n'.join([service, choice, default, never])),
                 # Nothing else acts on the choice or the state.
+                ('a state for protected video only', good + '\n' + state('2', '_volcano_v1_secdec', True)),
                 ('a property-only trigger', good + '\non property:persist.diamaneos.hw_video_decode=1\n' + node),
                 ('a later trigger on the state',
                  good + '\non boot && property:ro.vendor.diamaneos.hw_video_decode=0\n' + node),
-                ('an unknown stored value',
-                 good + '\non zygote-start && property:persist.diamaneos.hw_video_decode=3\n'
-                 '    setprop ro.vendor.diamaneos.hw_video_decode 1\n'),
-                ('a fourth state', good + '\n' + state('3', '_volcano_v1_hwdec', True)),
                 ('another action opens the node', good + '\non boot\n    chmod 0666 /dev/video32\n'),
                 ('another action selects a codec list',
                  good + '\non boot\n    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n'),
@@ -2076,15 +1880,13 @@ class RuleTests(unittest.TestCase):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
             'media-hw-decode-property-types']
         system_ext, vendor = rule['files']
-        choice = b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1 2\n'
-        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1 2\n'
+        choice = b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
+        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
         check = lambda a, b: subject.rule_text(rule, self.harness({system_ext: b'# choice\n' + a, vendor: b'# state\n' + b}))[0]
         self.assertTrue(check(choice, state))
-        for case, a, b in [('the choice as a switch', choice.replace(b'0 1 2', b'0 1'), state),
-                           ('the state as a switch', choice, state.replace(b'0 1 2', b'0 1')),
-                           ('a fourth choice', choice.replace(b'0 1 2', b'0 1 2 3'), state),
-                           ('a fourth state', choice, state.replace(b'0 1 2', b'0 1 2 3')),
-                           ('the choice as any string', choice.replace(b'exact enum 0 1 2', b'exact string'), state),
+        for case, a, b in [('a third choice', choice.replace(b'0 1', b'0 1 2'), state),
+                           ('a third state', choice, state.replace(b'0 1', b'0 1 2')),
+                           ('the choice as any string', choice.replace(b'exact enum 0 1', b'exact string'), state),
                            ('the state under another type', choice, state.replace(b'vendor_diamaneos_hw_video_decode_prop',
                                                                                     b'vendor_default_prop')),
                            ('no entry for the choice', b'', state), ('no entry for the state', choice, b'')]:
@@ -2107,114 +1909,95 @@ class RuleTests(unittest.TestCase):
                 '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
                 '    <Encoders>\n' + encoders + '    </Encoders>\n</MediaCodecs>\n').encode()
 
-    def test_media_codec_list_rules_for_the_hardware_decoding_states(self):
+    def test_media_hwdec_codec_list_rule(self):
         from diamaneos_tools import vendor_product
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         stock = self.stock_shaped_codec_list()
-        lists = {variant: vendor_product.media_decoder_codec_list(stock, decoders)
-                 for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items()}
-        by_variant = {'_volcano_v1_secdec': rules['media-secdec-codec-list'],
-                      '_volcano_v1_hwdec': rules['media-hwdec-codec-list']}
-        self.assertEqual(set(lists), set(by_variant))
-        for variant, rule in by_variant.items():
-            name = 'VENDOR/etc/media_codecs' + variant + '.xml'
-            self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
-            self.assertIn(name, rules['media-codec2-service']['paths'])
-            check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
-            good = lists[variant]
-            with self.subTest(variant=variant):
-                self.assertTrue(check(good))
-                # The other variant's list, the stock list and the encoders-only one fail.
-                for other in [lists[v] for v in lists if v != variant] + [
-                        stock, vendor_product.media_encoders_only_codec_list(stock)]:
-                    self.assertFalse(check(other))
-                for case, data in [
-                        ('a secure decoder that does not require secure playback',
-                         good.replace(b'<Feature name="secure-playback" required="true" />',
-                                      b'<Feature name="secure-playback" />', 1)),
-                        ('a secure decoder missing', good.replace(b'"c2.qti.vp9.decoder.secure"', b'"c2.qti.vp9.decoder.sec"')),
-                        ('a low-latency decoder', good.replace(b'"c2.qti.avc.decoder.secure"',
-                                                               b'"c2.qti.avc.decoder.low_latency"')),
-                        ('a fourth secure decoder', good.replace(
-                            b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder.secure" />\n    </Decoders>')),
-                        ('a clear decoder more', good.replace(
-                            b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder" />\n    </Decoders>')),
-                        ('a second decoder section', good + b'    <Decoders>\n    </Decoders>\n'),
-                        ('no encoder', good.replace(b'"c2.qti.avc.encoder"', b'"c2.qti.avc.enc"'))]:
-                    with self.subTest(case=case):
-                        self.assertNotEqual(good, data)
-                        self.assertFalse(check(data))
-                with self.assertRaises(FileNotFoundError):
-                    subject.rule_binary_count(rule, self.harness({'VENDOR/build.prop': b''}))
+        good = vendor_product.media_decoder_codec_list(stock)
+        rule, name = rules['media-hwdec-codec-list'], 'VENDOR/etc/media_codecs_volcano_v1_hwdec.xml'
+        self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+        self.assertIn(name, rules['media-codec2-service']['paths'])
+        check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+        self.assertTrue(check(good))
+        for other in (stock, vendor_product.media_encoders_only_codec_list(stock)):
+            self.assertFalse(check(other))
+        for case, data in [
+                ('a secure decoder', good.replace(
+                    b'    </Decoders>', b'        <MediaCodec name="c2.qti.avc.decoder.secure" />\n    </Decoders>')),
+                ('a decoder that requires secure playback', good.replace(
+                    b'            <Limit name="size"',
+                    b'            <Feature name="secure-playback" required="true" />\n            <Limit name="size"', 1)),
+                ('a low-latency decoder', good.replace(b'"c2.qti.avc.decoder"', b'"c2.qti.avc.decoder.low_latency"')),
+                ('a decoder missing', good.replace(b'"c2.qti.vp9.decoder"', b'"c2.qti.vp9.dec"')),
+                ('a decoder more', good.replace(
+                    b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder" />\n    </Decoders>')),
+                ('a second decoder section', good + b'    <Decoders>\n    </Decoders>\n'),
+                ('no encoder', good.replace(b'"c2.qti.avc.encoder"', b'"c2.qti.avc.enc"'))]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, data)
+                self.assertFalse(check(data))
+        with self.assertRaises(FileNotFoundError):
+            subject.rule_binary_count(rule, self.harness({'VENDOR/build.prop': b''}))
+        # The protected-video-only pair is not installed.
+        absent = rules['media-no-secdec-configuration']
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({name: good}))[0])
+        for path in absent['paths']:
+            with self.subTest(path=path):
+                self.assertFalse(subject.rule_files_absent(absent, self.harness({name: good, path: good}))[0])
+                self.assertNotIn(path, rules['media-codec2-service']['paths'])
 
-    def test_media_target_spec_rules_for_the_hardware_decoding_states(self):
+    def test_media_hwdec_target_spec_rule(self):
         from diamaneos_tools import vendor_product
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         stock = (b'// Qualcomm\n{\n    "Video": {\n'
                  b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
                  b'        // "c2.qti.dv.decoder",\n        // "c2.qti.dv.decoder.secure",\n'
                  b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
-        specs = {variant: vendor_product.media_encoders_only_target_spec(stock, decoders)
-                 for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items()}
-        by_variant = {'_volcano_v1_secdec': rules['media-secdec-target-spec'],
-                      '_volcano_v1_hwdec': rules['media-hwdec-target-spec']}
-        for variant, rule in by_variant.items():
-            name = 'VENDOR/etc/media' + variant + '/video_system_specs.json'
-            self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
-            self.assertIn(name, rules['media-codec2-service']['paths'])
-            check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
-            good = specs[variant]
-            with self.subTest(variant=variant):
-                self.assertTrue(check(good))
-                for other in [specs[v] for v in specs if v != variant] + [
-                        stock, vendor_product.media_encoders_only_target_spec(stock)]:
-                    self.assertFalse(check(other))
-                for case, data in [
-                        ('an optional codec', good.replace(b'"OptionalCodecs": [\n        ]',
-                                                           b'"OptionalCodecs": [\n            "c2.qti.dv.decoder"\n        ]')),
-                        ('a decoder more', good.replace(b'"c2.qti.vp9.decoder.secure"\n',
-                                                        b'"c2.qti.vp9.decoder.secure",\n                "c2.qti.av1.decoder"\n')),
-                        ('a decoder less', good.replace(b'                "c2.qti.avc.decoder.secure",\n', b'')),
-                        ('a second codec list', good.replace(b'"codecs-available"', b'"codecs-available": {}, "codecs-available"')),
-                        ('no encoders', good.replace(b'"c2.qti.heic.encoder"', b'"c2.qti.heic.enc"'))]:
-                    with self.subTest(case=case):
-                        self.assertNotEqual(good, data)
-                        self.assertFalse(check(data))
+        good = vendor_product.media_encoders_only_target_spec(stock, vendor_product.MEDIA_HW_DECODERS)
+        rule, name = rules['media-hwdec-target-spec'], 'VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json'
+        self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+        self.assertIn(name, rules['media-codec2-service']['paths'])
+        check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+        self.assertTrue(check(good))
+        for other in (stock, vendor_product.media_encoders_only_target_spec(stock)):
+            self.assertFalse(check(other))
+        for case, data in [
+                ('an optional codec', good.replace(b'"OptionalCodecs": [\n        ]',
+                                                   b'"OptionalCodecs": [\n            "c2.qti.dv.decoder"\n        ]')),
+                ('a secure decoder more', good.replace(b'"c2.qti.vp9.decoder"\n',
+                                                       b'"c2.qti.vp9.decoder",\n                "c2.qti.vp9.decoder.secure"\n')),
+                ('a decoder less', good.replace(b'                "c2.qti.avc.decoder",\n', b'')),
+                ('a second codec list', good.replace(b'"codecs-available"', b'"codecs-available": {}, "codecs-available"')),
+                ('no encoders', good.replace(b'"c2.qti.heic.encoder"', b'"c2.qti.heic.enc"'))]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, data)
+                self.assertFalse(check(data))
 
-    def test_media_secure_buffer_node_rules(self):
+    def test_media_no_secure_buffer_node_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        node, name = rules['media-secure-buffer-node'], 'VENDOR/etc/ueventd.rc'
+        node, name = rules['media-no-secure-buffer-node'], 'VENDOR/etc/ueventd.rc'
         self.assertEqual([name], node['files'])
-        stanza = 'subsystem mem_buf_vm\n    devname uevent_devpath\n    dirname /dev/mem_buf_vm\n'
-        line = '/dev/mem_buf_vm/qcom,cp_bitstream 0444 system system\n'
-        good = ('firmware_directories /vendor/firmware_mnt/image/\n\n' + stanza
-                + '\n/dev/membuf               0664   system     system\n# Protected video.\n' + line
-                + '/dev/smcinvoke            0660   system     drmrpc\n')
+        good = ('firmware_directories /vendor/firmware_mnt/image/\n\n'
+                '/dev/membuf               0664   system     system\n'
+                '/dev/dma_heap/qcom,*      0444   system     system\n'
+                '/dev/smcinvoke            0660   system     drmrpc\n')
         check = lambda text: subject.rule_text(node, self.harness({name: text.encode()}))[0]
         self.assertTrue(check(good))
         for case, text in [
-                ('no stanza: the nodes would be created directly in /dev', good.replace(stanza, '')),
-                ('another directory', good.replace('dirname /dev/mem_buf_vm', 'dirname /dev/vm')),
-                ('no rule for the node', good.replace(line, '')),
-                ('writable', good.replace(line, line.replace('0444', '0666'))),
-                ('another owner', good.replace(line, line.replace('system system', 'root system'))),
-                ('every VM node, as stock', good.replace(line, '/dev/mem_buf_vm/*         0444   system     system\n')),
-                ('a second VM node', good + '/dev/mem_buf_vm/qcom,cp_pixel 0444 system system\n'),
-                ('a node with the same prefix', good + '/dev/mem_buf_vm/qcom,cp_bitstream2 0444 system system\n')]:
+                ('the bitstream node readable', good + '/dev/mem_buf_vm/qcom,cp_bitstream 0444 system system\n'),
+                ('every VM node, as stock', good + '/dev/mem_buf_vm/*         0444   system     system\n'),
+                ('the node directly in /dev', good + '/dev/qcom,cp_bitstream 0444 system system\n')]:
             with self.subTest(case=case):
-                self.assertNotEqual(good, text)
                 self.assertFalse(check(text))
         users = rules['media-secure-buffer-node-users']
-        self.assertEqual((['hal_drm_widevine', 'mediacodec'], 'vendor_vm_cp_bitstream_device', 'chr_file', 'open'),
+        self.assertEqual(([], 'vendor_vm_cp_bitstream_device', 'chr_file', 'open'),
                          (users['allowed'], users['target'], users['cls'], users['perm']))
         vendor = 'VENDOR/etc/selinux/vendor_sepolicy.cil'
         use = '(chr_file (ioctl read getattr lock map open watch watch_reads))'
         cil = ('(type vendor_vm_cp_bitstream_device)\n(type vendor_vm_cp_pixel_device)\n(type mediacodec)\n'
-               '(type hal_drm_widevine)\n(type hal_drm_clearkey_aidl)\n(type hal_graphics_composer_default)\n'
-               '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine))\n'
+               '(type hal_drm_widevine_sw)\n(type hal_drm_clearkey_aidl)\n(type hal_graphics_composer_default)\n'
+               '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine_sw))\n'
                '(typeattributeset dev_type (vendor_vm_cp_bitstream_device vendor_vm_cp_pixel_device))\n'
-               f'(allow mediacodec vendor_vm_cp_bitstream_device {use})\n'
-               f'(allow hal_drm_widevine vendor_vm_cp_bitstream_device {use})\n'
                f'(allow hal_graphics_composer_default vendor_vm_cp_pixel_device {use})\n'
                '(allow init dev_type (chr_file (getattr setattr relabelto)))\n')
         empty = {'SYSTEM/etc/selinux/plat_sepolicy.cil': b'(type init)\n', 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'',
@@ -2223,9 +2006,9 @@ class RuleTests(unittest.TestCase):
         allowed = lambda text: subject.rule_sepolicy_sources(users, self.harness({**empty, vendor: text.encode()}))[0]
         self.assertTrue(allowed(cil))
         for case, extra in [
-                ('the composer', f'(allow hal_graphics_composer_default vendor_vm_cp_bitstream_device {use})\n'),
+                ('the codec service', f'(allow mediacodec vendor_vm_cp_bitstream_device {use})\n'),
+                ('Widevine', '(allow hal_drm_widevine_sw vendor_vm_cp_bitstream_device (chr_file (open)))\n'),
                 ('every DRM HAL', f'(allow hal_drm_server vendor_vm_cp_bitstream_device {use})\n'),
-                ('ClearKey', '(allow hal_drm_clearkey_aidl vendor_vm_cp_bitstream_device (chr_file (open)))\n'),
                 ('every device node', '(allow hal_graphics_composer_default dev_type (chr_file (read open)))\n')]:
             with self.subTest(case=case):
                 self.assertFalse(allowed(cil + extra))

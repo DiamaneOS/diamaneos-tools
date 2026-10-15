@@ -3354,7 +3354,7 @@
     },
       {
         "id": "tee-node-open",
-        "why": "Only qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service, which reaches its trusted app through liboemcrypto.so, may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey included (tee-node-label).",
+        "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey and Widevine included (tee-node-label).",
         "type": "sepolicy_sources",
         "files": [
           "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -3371,7 +3371,6 @@
         "cls": "chr_file",
         "perm": "open",
         "allowed": [
-          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3397,7 +3396,6 @@
         "cls": "chr_file",
         "perm": "read",
         "allowed": [
-          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3423,7 +3421,6 @@
         "cls": "chr_file",
         "perm": "write",
         "allowed": [
-          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3449,7 +3446,6 @@
         "cls": "chr_file",
         "perm": "ioctl",
         "allowed": [
-          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -3478,7 +3474,7 @@
       },
       {
         "id": "tee-node-owner",
-        "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660, and has no rule for a /dev/qseecom node.",
+        "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660. It has no rule for a /dev/qseecom node or for the crypto engine node (/dev/qce), which stays root-only.",
         "type": "text",
         "files": [
           "VENDOR/etc/ueventd.rc"
@@ -3487,12 +3483,13 @@
           "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
         ],
         "absent_regex": [
-          "^[ \\t]*/dev/qseecom[ \\t]"
+          "^[ \\t]*/dev/qseecom[ \\t]",
+          "^[ \\t]*/dev/qce[ \\t]"
         ]
       },
       {
         "id": "tee-node-ioctl-limit",
-        "why": "qseecomd (tee), KeyMint, Gatekeeper, the fingerprint HAL and the Widevine DRM service may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+        "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
         "type": "sepolicy_xperms",
         "files": [
           "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -3508,7 +3505,6 @@
         "target": "vendor_smcinvoke_device",
         "cls": "chr_file",
         "sources": [
-          "hal_drm_widevine",
           "hal_fingerprint_default",
           "tee",
           "vendor_hal_gatekeeper_qti",
@@ -5095,7 +5091,7 @@
     },
     {
       "id": "media-codec2-service",
-      "why": "The hardware video codec service is installed with its Codec2 libraries, device rc and manifest, configuration check, seccomp loader and policy, and the three codec configurations (encoders only, with the secure decoders, with all hardware decoders); the Android 14 Codec2 framework libraries are on odm.",
+      "why": "The hardware video codec service is installed with its Codec2 libraries, device rc and manifest, configuration check, seccomp loader and policy, and the two codec configurations (encoders only, and with the clear hardware decoders). The Android 14 Codec2 framework libraries are on odm.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.media.c2@1.0-service",
@@ -5117,8 +5113,6 @@
         "VENDOR/lib64/libavservices_minijail.so",
         "VENDOR/etc/seccomp_policy/codec2-service.policy",
         "VENDOR/etc/seccomp_policy/codec2.vendor.ext-arm64.policy",
-        "VENDOR/etc/media_codecs_volcano_v1_secdec.xml",
-        "VENDOR/etc/media_volcano_v1_secdec/video_system_specs.json",
         "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
         "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json"
       ]
@@ -5232,27 +5226,25 @@
     },
     {
       "id": "media-hw-decode-states",
-      "why": "The user's hardware video decoding choice applies once per boot: a stored 0 (never) or 1 (all video), otherwise 2 (protected video only). The state selects the codec list and target specification; only 1 and 2 open the decoder node to the codec service.",
+      "why": "The user's hardware video decoding choice applies once per boot: a stored 1 (all video), otherwise 0 (never). The state selects the codec list and target specification, and only 1 opens the decoder node to the codec service.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.media.rc"
       ],
       "regex": [
-        "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=0\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n\\n",
         "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 1\\n\\n",
-        "^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n\\n",
-        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=0\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n",
-        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 2\\n",
+        "^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n\\n",
+        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n",
         "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1\\n(?:\\n|\\Z)",
-        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)",
-        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=2\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_secdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_secdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)"
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)"
       ],
       "absent_regex": [
-        "^on (?!zygote-start && property:persist\\.diamaneos\\.hw_video_decode=[01]$|early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=[012]$).*hw_video_decode",
-        "(?s)(^[ \\t]+setprop ro\\.vendor\\.diamaneos\\.hw_video_decode .*){4}",
-        "(?s)(^[ \\t]+setprop ro\\.media\\.xml_variant\\.codecs .*){4}",
-        "(?s)(^[ \\t]+setprop vendor\\.media\\.target_variant .*){3}",
-        "(?s)(^[ \\t]+ch(?:own|mod) [^\\n]*/dev/video32\\n.*){5}"
+        "^on (?!zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1$|early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=[01]$).*hw_video_decode",
+        "(?s)(^[ \\t]+setprop ro\\.vendor\\.diamaneos\\.hw_video_decode .*){3}",
+        "(?s)(^[ \\t]+setprop ro\\.media\\.xml_variant\\.codecs .*){3}",
+        "(?s)(^[ \\t]+setprop vendor\\.media\\.target_variant .*){2}",
+        "(?s)(^[ \\t]+ch(?:own|mod) [^\\n]*/dev/video32\\n.*){3}",
+        "_secdec"
       ]
     },
     {
@@ -5273,80 +5265,8 @@
       ]
     },
     {
-      "id": "media-secdec-codec-list",
-      "why": "With hardware decoding for protected video only, the default, the codec list adds only the three secure Qualcomm decoders, each requiring secure playback: no clear and no low-latency decoder.",
-      "type": "binary_count",
-      "file": "VENDOR/etc/media_codecs_volcano_v1_secdec.xml",
-      "patterns": [
-        {
-          "text": "<Decoders>",
-          "count": 1
-        },
-        {
-          "text": ".decoder\"",
-          "count": 0
-        },
-        {
-          "text": ".decoder.secure\"",
-          "count": 3
-        },
-        {
-          "text": "<Feature name=\"secure-playback\" required=\"true\" />",
-          "count": 3
-        },
-        {
-          "text": "secure-playback",
-          "count": 3
-        },
-        {
-          "text": "low_latency",
-          "count": 0
-        },
-        {
-          "text": "\"c2.qti.avc.decoder.secure\"",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.hevc.decoder.secure\"",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.vp9.decoder.secure\"",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.avc.encoder\"",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "id": "media-secdec-target-spec",
-      "why": "With hardware decoding for protected video only, the Codec2 target specification registers the five encoders and the three secure decoders; the optional codec list stays empty.",
-      "type": "binary_count",
-      "file": "VENDOR/etc/media_volcano_v1_secdec/video_system_specs.json",
-      "patterns": [
-        {
-          "text": "\"codecs-available\"",
-          "count": 1
-        },
-        {
-          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder.secure\",\n                \"c2.qti.hevc.decoder.secure\",\n                \"c2.qti.vp9.decoder.secure\"\n            ],",
-          "count": 1
-        },
-        {
-          "text": "\"OptionalCodecs\": [\n        ]",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.heic.encoder\"",
-          "min": 1
-        }
-      ]
-    },
-    {
       "id": "media-hwdec-codec-list",
-      "why": "With hardware decoding for all video, the codec list adds the three clear Qualcomm decoders and the three secure ones, which require secure playback: no low-latency variant.",
+      "why": "With hardware decoding for all video, the codec list adds only the three clear Qualcomm decoders: no secure (DRM) and no low-latency variant.",
       "type": "binary_count",
       "file": "VENDOR/etc/media_codecs_volcano_v1_hwdec.xml",
       "patterns": [
@@ -5355,24 +5275,20 @@
           "count": 1
         },
         {
-          "text": ".decoder\"",
-          "count": 3
-        },
-        {
-          "text": ".decoder.secure\"",
-          "count": 3
-        },
-        {
-          "text": "<Feature name=\"secure-playback\" required=\"true\" />",
-          "count": 3
+          "text": ".secure",
+          "count": 0
         },
         {
           "text": "secure-playback",
-          "count": 3
+          "count": 0
         },
         {
           "text": "low_latency",
           "count": 0
+        },
+        {
+          "text": ".decoder\"",
+          "count": 3
         },
         {
           "text": "\"c2.qti.avc.decoder\"",
@@ -5387,18 +5303,6 @@
           "count": 1
         },
         {
-          "text": "\"c2.qti.avc.decoder.secure\"",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.hevc.decoder.secure\"",
-          "count": 1
-        },
-        {
-          "text": "\"c2.qti.vp9.decoder.secure\"",
-          "count": 1
-        },
-        {
           "text": "\"c2.qti.avc.encoder\"",
           "count": 1
         }
@@ -5406,7 +5310,7 @@
     },
     {
       "id": "media-hwdec-target-spec",
-      "why": "With hardware decoding for all video, the Codec2 target specification registers the five encoders, the three clear decoders and the three secure ones; the optional codec list stays empty.",
+      "why": "With hardware decoding for all video, the Codec2 target specification registers the five encoders and the three clear decoders. The optional codec list stays empty.",
       "type": "binary_count",
       "file": "VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json",
       "patterns": [
@@ -5415,7 +5319,7 @@
           "count": 1
         },
         {
-          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder\",\n                \"c2.qti.hevc.decoder\",\n                \"c2.qti.vp9.decoder\",\n                \"c2.qti.avc.decoder.secure\",\n                \"c2.qti.hevc.decoder.secure\",\n                \"c2.qti.vp9.decoder.secure\"\n            ],",
+          "text": "\"decoders\": [\n                \"c2.qti.avc.decoder\",\n                \"c2.qti.hevc.decoder\",\n                \"c2.qti.vp9.decoder\"\n            ],",
           "count": 1
         },
         {
@@ -5426,6 +5330,15 @@
           "text": "\"c2.qti.heic.encoder\"",
           "min": 1
         }
+      ]
+    },
+    {
+      "id": "media-no-secdec-configuration",
+      "why": "No codec configuration offers the secure decoders: the protected-video-only pair of codec list and target specification is not installed.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/etc/media_codecs_volcano_v1_secdec.xml",
+        "VENDOR/etc/media_volcano_v1_secdec/video_system_specs.json"
       ]
     },
     {
@@ -5561,7 +5474,7 @@
     },
     {
       "id": "media-hw-decode-property-types",
-      "why": "Both hardware video decoding properties accept only 0 (never), 1 (all video) and 2 (protected video only).",
+      "why": "Both hardware video decoding properties accept only 0 (never) and 1 (all video).",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/selinux/system_ext_property_contexts",
@@ -5569,28 +5482,25 @@
       ],
       "match": "any",
       "regex": [
-        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+2$",
-        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+2$"
+        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$",
+        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$"
       ]
     },
     {
-      "id": "media-secure-buffer-node",
-      "why": "Protected video: ueventd puts the memory-buffer driver's VM nodes in /dev/mem_buf_vm, as stock, and makes only the content-protection bitstream node readable by all; no rule opens another VM node.",
+      "id": "media-no-secure-buffer-node",
+      "why": "No secure decoder: ueventd has no rule for the memory-buffer driver's VM nodes, the content-protection bitstream node included, so they keep its default (root only).",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
       ],
-      "regex": [
-        "^subsystem mem_buf_vm\\n[ \\t]+devname uevent_devpath\\n[ \\t]+dirname /dev/mem_buf_vm\\n",
-        "^/dev/mem_buf_vm/qcom,cp_bitstream[ \\t]+0444[ \\t]+system[ \\t]+system[ \\t]*$"
-      ],
       "absent_regex": [
-        "^[ \\t]*/dev/mem_buf_vm/(?!qcom,cp_bitstream[ \\t])"
+        "^[ \\t]*/dev/mem_buf_vm/",
+        "^[ \\t]*/dev/qcom,"
       ]
     },
     {
       "id": "media-secure-buffer-node-users",
-      "why": "Only the codec service and the Widevine service may open the content-protection bitstream node, which every user may open by its mode: SELinux is what limits it.",
+      "why": "No domain may open the content-protection bitstream node: neither a secure decoder nor the TEE-backed Widevine library is installed.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5606,10 +5516,7 @@
       "target": "vendor_vm_cp_bitstream_device",
       "cls": "chr_file",
       "perm": "open",
-      "allowed": [
-        "hal_drm_widevine",
-        "mediacodec"
-      ]
+      "allowed": []
     },
     {
       "id": "codec2-graphicbuffer-abi",
@@ -5653,7 +5560,7 @@
     },
     {
       "id": "widevine-apex-payload",
-      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label. liboemcrypto.so is not inside it: the package loads it from /vendor/lib64 (widevine-liboemcrypto).",
+      "why": "The Widevine package holds exactly its five stock files, each with its stock bytes, owner, mode and label: the DRM service, its init file, its VINTF fragment, its own libcrypto and the package manifest. It holds no liboemcrypto.so.",
       "type": "apex_payload",
       "file": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
       "payload": {
@@ -5695,46 +5602,13 @@
       }
     },
     {
-      "id": "widevine-liboemcrypto",
-      "why": "The stock TEE-backed Widevine library in /vendor/lib64, which the Widevine package loads: exact stock bytes, root 0644, vendor_file.",
-      "type": "file_metadata",
-      "path": "vendor/lib64/liboemcrypto.so",
-      "image": "vendor",
-      "uid": 0,
-      "gid": 0,
-      "mode": "0644",
-      "label": "u:object_r:vendor_file:s0",
-      "sha256": "442f52b2dfaa9873e22d7ffbe1045f24be2d3d9d3d3e2f42985c9bf3e1d80aef"
-    },
-    {
-      "id": "widevine-libcpion",
-      "why": "The stock buffer library liboemcrypto.so links (QSEECom heap, protected buffers, crypto engine): exact stock bytes, root 0644, vendor_file.",
-      "type": "file_metadata",
-      "path": "vendor/lib64/libcpion.so",
-      "image": "vendor",
-      "uid": 0,
-      "gid": 0,
-      "mode": "0644",
-      "label": "u:object_r:vendor_file:s0",
-      "sha256": "593f1a94afdd5543577a0a1dc68a46ec748d431ba8e3f2ba70e300ebded5f999"
-    },
-    {
-      "id": "widevine-libtrustedapploader",
-      "why": "The stock library liboemcrypto.so links to load the Widevine trusted app: exact stock bytes, root 0644, vendor_file.",
-      "type": "file_metadata",
-      "path": "vendor/lib64/libtrustedapploader.so",
-      "image": "vendor",
-      "uid": 0,
-      "gid": 0,
-      "mode": "0644",
-      "label": "u:object_r:vendor_file:s0",
-      "sha256": "ecc9e3ace811ecae5843ea91ec9f74c08b74601cd22be2a07ec4d155c8f21aa2"
-    },
-    {
-      "id": "widevine-no-provisioning-tools",
-      "why": "The keybox and HDCP provisioning tools and the Wi-Fi display HDCP service are not shipped. They are separate stock clients of the TEE; neither the Widevine service nor its library names them.",
+      "id": "widevine-software-only",
+      "why": "No hardware-backed Widevine path is shipped: the TEE-backed liboemcrypto.so and the two libraries it needs are absent, as are the keybox and HDCP provisioning tools and the Wi-Fi display HDCP service.",
       "type": "files_absent",
       "paths": [
+        "VENDOR/lib64/liboemcrypto.so",
+        "VENDOR/lib64/libcpion.so",
+        "VENDOR/lib64/libtrustedapploader.so",
         "VENDOR/bin/StoreKeybox",
         "VENDOR/bin/KmInstallKeybox",
         "VENDOR/bin/hdcp1prov",
@@ -5743,34 +5617,24 @@
       ]
     },
     {
-      "id": "widevine-linker-config",
-      "why": "The vendor linker configuration offers liboemcrypto.so, and no other library, to vendor packages, so the Widevine package can load it from /vendor/lib64 as on stock. The pattern is the configuration's provided-library entry for that name.",
+      "id": "widevine-linker-config-no-oemcrypto",
+      "why": "The vendor linker configuration, which the build always writes, offers no library to vendor packages. Stock offers liboemcrypto.so there, so that the Widevine package can load it from /vendor/lib64.",
       "type": "binary_count",
       "file": "VENDOR/etc/linker.config.pb",
       "patterns": [
         {
-          "hex": "1a0f6c69626f656d63727970746f2e736f",
-          "count": 1
+          "text": "liboemcrypto",
+          "count": 0
         },
         {
           "text": ".so",
-          "count": 1
+          "count": 0
         }
       ]
     },
     {
-      "id": "widevine-hardware-properties",
-      "why": "The vendor build properties set the two values stock sets for the TEE-backed Widevine library, each exactly once: its provisioning method (enable_prov40) and its data path (enable_hlos_data_path).",
-      "type": "properties",
-      "file": "VENDOR/build.prop",
-      "equals": [
-        "vendor.wv.oemcrypto.debug.enable_prov40=true",
-        "vendor.wv.oemcrypto.debug.enable_hlos_data_path=true"
-      ]
-    },
-    {
-      "id": "widevine-no-other-properties",
-      "why": "No build property sets another switch of the TEE-backed Widevine library (its test and debug switches stay at their defaults), and none starts the legacy DRM server (drm.service.enabled), which Widevine does not use.",
+      "id": "widevine-no-hardware-properties",
+      "why": "No build property configures the TEE-backed Widevine library (stock sets two vendor.wv.oemcrypto. properties for it), and none starts the legacy DRM server (drm.service.enabled), which Widevine does not use.",
       "type": "text",
       "files": [
         "SYSTEM/build.prop",
@@ -5780,59 +5644,38 @@
         "ODM/etc/build.prop"
       ],
       "absent_regex": [
-        "^[ \\t]*vendor\\.wv\\.oemcrypto\\.(?!debug\\.enable_prov40[ \\t]*=|debug\\.enable_hlos_data_path[ \\t]*=)",
+        "^[ \\t]*vendor\\.wv\\.oemcrypto\\.",
         "^[ \\t]*drm\\.service\\.enabled[ \\t]*="
       ]
     },
     {
-      "id": "widevine-properties-vendor-only",
-      "why": "Only the vendor build properties configure the TEE-backed Widevine library: a value in a property file that is loaded later would replace the checked one.",
-      "type": "text",
-      "files": [
-        "SYSTEM/build.prop",
-        "SYSTEM_EXT/etc/build.prop",
-        "PRODUCT/etc/build.prop",
-        "ODM/etc/build.prop"
-      ],
-      "absent": [
-        "vendor.wv.oemcrypto."
-      ]
-    },
-    {
       "id": "widevine-service-groups",
-      "why": "The device init file defines the Widevine service twice and starts one per boot from the hardware video decoding state. With hardware decoders (states 1 and 2) it runs in the stock groups: media, mediadrm for its data, drmrpc for the TEE node and system to read its trusted app. Without (state 0) it runs with its built-in software protection, in media and mediadrm only, in hal_drm_widevine_sw by its seclabel line (widevine-software-domain); the other definition has none, so init enters hal_drm_widevine through the executable's type. Neither names an interface, so init starts neither on a client's request. ClearKey, which never uses the TEE, stays without drmrpc.",
+      "why": "The device init file defines the Widevine service once, with its built-in software protection in every hardware video decoding state: groups media and mediadrm only, FORCE_LEVEL3_OEMCRYPTO=yes, started with its class and on a client's request. No action starts or stops it by the state. Its name shadows the package's own definition, which adds the drmrpc and system groups. The ClearKey service, which never uses the TEE, stays without drmrpc.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.drm.rc"
       ],
       "regex": [
-        "^service vendor\\.drm-widevine-hal /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm drmrpc system\\n",
-        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
-        "^service vendor\\.drm-widevine-hal-sw /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm\\n",
-        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv FORCE_LEVEL3_OEMCRYPTO yes\\n",
-        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel u:r:hal_drm_widevine_sw:s0\\n",
-        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+disabled\\n",
-        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    start vendor\\.drm-widevine-hal-sw\\n(?:\\n|\\Z)",
-        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    start vendor\\.drm-widevine-hal\\n(?:\\n|\\Z)",
-        "^on boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=2\\n    start vendor\\.drm-widevine-hal\\n(?:\\n|\\Z)",
+        "^service vendor\\.drm-widevine-hal /apex/com\\.google\\.android\\.widevine/bin/hw/android\\.hardware\\.drm-service\\.widevine\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group media mediadrm\\n",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv FORCE_LEVEL3_OEMCRYPTO yes\\n",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+class hal\\n",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+interface aidl android\\.hardware\\.drm\\.IDrmFactory/widevine\\n",
         "^service vendor\\.drm-clearkey-service /vendor/bin/hw/android\\.hardware\\.drm-service\\.clearkey\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group mediadrm\\n",
         "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+override[ \\t]*$"
       ],
       "absent_regex": [
-        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm drmrpc system$)",
-        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm$)",
-        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv ",
-        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel ",
-        "^service vendor\\.drm-widevine-hal-sw [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+seclabel (?!u:r:hal_drm_widevine_sw:s0$)",
-        "^service vendor\\.drm-widevine-hal[^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+interface ",
-        "(?s)(^service [^\\n]*android\\.hardware\\.drm-service\\.widevine\\n.*){3}",
-        "(?s)(^[ \\t]+start vendor\\.drm-widevine-hal[^\\n]*\\n.*){4}",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!media mediadrm$)",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+setenv (?!FORCE_LEVEL3_OEMCRYPTO yes$)",
+        "^service vendor\\.drm-widevine-hal [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+(?:disabled|seclabel)\\b",
+        "(?s)(^service [^\\n]*android\\.hardware\\.drm-service\\.widevine\\n.*){2}",
+        "^[ \\t]+(?:start|stop|restart|enable) vendor\\.drm-widevine",
+        "^on [^\\n]*hw_video_decode",
         "^service vendor\\.drm-clearkey-service [^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+group (?!mediadrm$)"
       ]
     },
     {
       "id": "widevine-software-domain",
-      "why": "With its built-in software protection the Widevine service runs in hal_drm_widevine_sw, a DRM HAL domain of its own. Its own rules cover only its executable and its data in /data/vendor/mediadrm, without ioctl commands, so none reaches the TEE node, the QSEECom heap, the crypto engine node, qseecomd's socket, the memory-buffer driver, the bitstream node or the codec service's descriptors. init may start it, and only the seclabel line leads to it (widevine-service-groups). It is in the four DRM HAL attributes only; rules on those are judged per node, by lists that do not name it: tee-node-open, -read, -write and -ioctl, media-secure-buffer-node-users, qseecom-heap-users, crypto-engine-node-users, membuf-node-users and qseecomd-socket-users. The codec service's descriptors, which many domains use, have no such list.",
+      "why": "The Widevine service runs in hal_drm_widevine_sw, a DRM HAL domain of its own, which init enters through the executable's type. That transition is the only one into the domain and the only one from the executable, and the policy has no hal_drm_widevine domain. Its own rules cover only its executable and its data in /data/vendor/mediadrm, without ioctl commands, so none reaches the TEE node, the QSEECom heap, the crypto engine node, qseecomd's socket, the memory-buffer driver, the bitstream node or the codec service's descriptors. It is in the four DRM HAL attributes only. Rules on those are judged per node, by lists that do not name it: tee-node-open, -read, -write and -ioctl, media-secure-buffer-node-users, qseecom-heap-users, crypto-engine-node-users, membuf-node-users and qseecomd-socket-users. The codec service's descriptors, which many domains use, have no such list.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -5842,19 +5685,22 @@
         "^\\(typeattributeset hal_drm_server \\((?:[^()\\n]* )?hal_drm_widevine_sw(?: [^()\\n]*)?\\)\\)$",
         "^\\(allow init(_[0-9_]+)? hal_drm_widevine_sw \\(process \\(transition\\)\\)\\)$",
         "^\\(allow hal_drm_widevine_sw hal_drm_widevine_exec \\(file \\((?:[^()\\n]* )?entrypoint(?: [^()\\n]*)?\\)\\)\\)$",
+        "^\\(typetransition init(_[0-9_]+)? hal_drm_widevine_exec process hal_drm_widevine_sw\\)$",
         "^\\(allow hal_drm_widevine_sw vendor_mediadrm_vendor_data_file \\(dir \\(",
         "^\\(allow hal_drm_widevine_sw vendor_mediadrm_vendor_data_file \\(file \\("
       ],
       "absent_regex": [
         "^\\(allow hal_drm_widevine_sw (?!hal_drm_widevine_exec \\(file \\(|vendor_mediadrm_vendor_data_file \\((?:dir|file) \\()",
         "^\\(allowx hal_drm_widevine_sw ",
-        "^\\(typetransition \\S+ \\S+ process hal_drm_widevine_sw\\)",
+        "^\\(typetransition (?!init(_[0-9_]+)? hal_drm_widevine_exec process)\\S+ \\S+ process hal_drm_widevine_sw\\)",
+        "^\\(typetransition \\S+ hal_drm_widevine_exec process (?!hal_drm_widevine_sw\\)$)",
+        "^\\(type hal_drm_widevine\\)$",
         "^\\(typeattributeset (?!(?:domain|halserverdomain|hal_drm|hal_drm_server) )\\S+ \\((?:[^()\\n]* )?hal_drm_widevine_sw(?: [^()\\n]*)?\\)\\)$"
       ]
     },
     {
       "id": "qseecom-heap-users",
-      "why": "Only the five domains that talk to trusted apps may open the QSEECom heap, from which the buffers they share with a trusted app come. hal_drm_widevine_sw (the Widevine service with built-in software protection) is not among them.",
+      "why": "Only the four domains that talk to trusted apps may open the QSEECom heap, from which the buffers they share with a trusted app come. The Widevine service (hal_drm_widevine_sw) is not among them.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5871,7 +5717,6 @@
       "cls": "chr_file",
       "perm": "open",
       "allowed": [
-        "hal_drm_widevine",
         "hal_fingerprint_default",
         "tee",
         "vendor_hal_gatekeeper_qti",
@@ -5880,7 +5725,7 @@
     },
     {
       "id": "crypto-engine-node-users",
-      "why": "Only the Widevine service with the hardware-backed library may open the crypto engine node (/dev/qce). The service with its built-in software protection runs in another domain, hal_drm_widevine_sw, which may not.",
+      "why": "No domain may open the crypto engine node (/dev/qce): its one client, the TEE-backed Widevine library, is not installed.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5896,13 +5741,11 @@
       "target": "vendor_qce_device",
       "cls": "chr_file",
       "perm": "open",
-      "allowed": [
-        "hal_drm_widevine"
-      ]
+      "allowed": []
     },
     {
       "id": "membuf-node-users",
-      "why": "Only the graphics allocator, the composer, the codec service and the Widevine service with the hardware-backed library may open the memory-buffer driver's node (/dev/membuf), through which a buffer is lent to another memory domain. hal_drm_widevine_sw (the service with built-in software protection) is not among them.",
+      "why": "Only the graphics allocator and the composer may open the memory-buffer driver's node (/dev/membuf), through which a buffer is lent to another memory domain. The codec service, which has no secure decoder, and the Widevine service are not among them.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5919,15 +5762,13 @@
       "cls": "chr_file",
       "perm": "open",
       "allowed": [
-        "hal_drm_widevine",
         "hal_graphics_allocator_default",
-        "hal_graphics_composer_default",
-        "mediacodec"
+        "hal_graphics_composer_default"
       ]
     },
     {
       "id": "qseecomd-socket-users",
-      "why": "Only the Widevine service with the hardware-backed library may write to qseecomd's socket (/dev/socket/notify-topology), over which liboemcrypto.so announces itself to the daemon's listeners. The service with its built-in software protection runs in another domain, hal_drm_widevine_sw, which may not.",
+      "why": "No domain may write to qseecomd's socket (/dev/socket/notify-topology): its one client, the TEE-backed Widevine library, is not installed.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -5943,9 +5784,7 @@
       "target": "vendor_notify-topology_socket",
       "cls": "sock_file",
       "perm": "write",
-      "allowed": [
-        "hal_drm_widevine"
-      ]
+      "allowed": []
     }
   ]
 }
