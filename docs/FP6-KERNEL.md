@@ -106,6 +106,7 @@ tools/bazel query --output=label \
     WCD938x codec and FM radio.
   - The TrustZone log reader, the legacy QSEECom driver, the HDCP client module, the SPSS loader and
     bridge, the FocalTech touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
+  - The Hexagon DSP remote debugger (`rdbg`).
 - It survives regeneration of the Fairphone-derived lists.
 - `kernel build` fails when a denied module is back in any list (`-` and `_` match) or no longer
   built (renamed or dropped: review the entry).

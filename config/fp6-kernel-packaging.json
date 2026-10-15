@@ -247,7 +247,6 @@
       "qti_qmi_sensor_v2.ko",
       "qti_thermal_vendor_hooks.ko",
       "qti_userspace_cdev.ko",
-      "rdbg.ko",
       "reboot-mode.ko",
       "redriver.ko",
       "repeater-qti-pmic-eusb2.ko",
@@ -456,7 +455,6 @@
       "qti_thermal_vendor_hooks.ko",
       "qti_userspace_cdev.ko",
       "qts.ko",
-      "rdbg.ko",
       "reboot-mode.ko",
       "redriver.ko",
       "repeater-qti-pmic-eusb2.ko",
@@ -804,7 +802,6 @@
       "qti-ocp-notifier.ko",
       "hvc_gunyah.ko",
       "msm_geni_serial.ko",
-      "rdbg.ko",
       "drm_dp_aux_bus.ko",
       "drm_display_helper.ko",
       "bhs-irq-controller.ko",
@@ -981,7 +978,6 @@
       "qti-ocp-notifier.ko",
       "hvc_gunyah.ko",
       "msm_geni_serial.ko",
-      "rdbg.ko",
       "drm_dp_aux_bus.ko",
       "drm_display_helper.ko",
       "bhs-irq-controller.ko",
@@ -1326,6 +1322,12 @@
         "qti_battery_debug.ko"
       ],
       "reason": "Debug interfaces with no product use and no dependent module: clock measurement (debugcc), the data capture engine (DCC), IOMMU, cpufreq, SPMI arbiter and PMIC glink debug, and the battery debug node. On the FP6 build 12 they loaded with nothing using them. Modules other drivers depend on (minidump, ramdump, regmap and regulator debug) stay."
+    },
+    {
+      "modules": [
+        "rdbg.ko"
+      ],
+      "reason": "The Hexagon remote debugger: /dev/rdbg_adsp, /dev/rdbg_cdsp and two more nodes carry debugger traffic to the DSPs through shared memory. Nothing on the phone opens them and no module depends on it."
     }
   ],
   "dtbs": [
