@@ -361,6 +361,11 @@ def newer_refs(refs, prefix, pattern, current):
     return sorted((n for n, k in matched.items() if k > order_key(here.group(1))), key=matched.get)
 
 
+def without_retags(refs, names, commit):
+    """Drop tags of commit itself: CodeLinaro retags unchanged projects at every release."""
+    return [n for n in names if commit is None or refs.get('refs/tags/' + n) != commit]
+
+
 def json_pointer(data, pointer):
     for part in pointer.lstrip('/').split('/'):
         data = data[int(part)] if isinstance(data, list) else data[part]
@@ -455,7 +460,8 @@ def check_fork(root, fork, refs):
             current = contained[-1] if contained else ''
             result['latest_release_contained'] = current or None
         # With no release contained or reviewed, the fork predates the whole series: every release is newer.
-        found += newer_refs(refs, 'refs/tags/', pattern, later(pattern, current, fork.get('reviewed')))
+        found += without_retags(refs, newer_refs(refs, 'refs/tags/', pattern, later(pattern, current, fork.get('reviewed'))),
+                                refs.get('refs/tags/' + current) if current else None)
     if found:
         result['newer'] = found
         if result['state'] in ('current', 'pinned-commit', 'reviewed'):
@@ -494,7 +500,8 @@ def check_source(root, source, refs):
         # with none recorded, the pin predates the whole series and every release is newer.
         result['release'] = pinned_value(root, source, source['pin']['release_field'])
         pattern = re.compile(follow['newer_tags'])
-        newer += newer_refs(refs, 'refs/tags/', pattern, later(pattern, result['release'], source.get('reviewed')))
+        newer += without_retags(refs, newer_refs(refs, 'refs/tags/', pattern,
+                                                 later(pattern, result['release'], source.get('reviewed'))), result['pin'])
     if newer:
         result['newer'] = newer
         if result['state'] in ('current', 'reviewed'):

@@ -284,14 +284,19 @@ class ForkTests(unittest.TestCase):
         result = check('r1')
         self.assertEqual(('current', imported, 'r1'), (result['state'], result['pin'], result['release']))
         self.assertNotIn('newer', result)
+        # A retag of the imported commit is not a newer release.
         run(self.upstream, 'tag', 'r2')
+        self.assertNotIn('newer', check('r1'))
+        run(self.upstream, 'checkout', '-q', '-b', 'side')
+        commit(self.upstream, 'side.txt', 'x\n', 'side release')
+        run(self.upstream, 'tag', 'r3')
         result = check('r1')
-        self.assertEqual(('newer-release', ['r2']), (result['state'], result['newer']))
+        self.assertEqual(('newer-release', ['r3']), (result['state'], result['newer']))
         self.advance_upstream()
         result = check('r1')
-        self.assertEqual(('update-available', ['r2']), (result['state'], result['newer']))
-        # With no release recorded, the import predates the whole series.
-        self.assertEqual(['r1', 'r2'], check(None)['newer'])
+        self.assertEqual(('update-available', ['r3']), (result['state'], result['newer']))
+        # With no release recorded, every release except the imported commit's own tags is newer.
+        self.assertEqual(['r3'], check(None)['newer'])
 
     def test_reviewed_tag_ends_newer_releases_and_a_move_to_it(self):
         record = Path(self.tmp.name) / 'kq' / 'imports.json'
@@ -410,6 +415,15 @@ class ForkTests(unittest.TestCase):
         run(self.upstream, 'tag', '1100')
         result = forks.check(self.root, [self.fork], [], self.lister())[0]
         self.assertEqual(['1100'], result['newer'])
+
+    def test_tag_fork_ignores_retags_of_its_tag(self):
+        self.fork['newer'] = {'tags': r'^r([0-9]+)$'}
+        self.fork['upstream'] = dict(self.fork['upstream'], ref='r1', kind='tag')
+        run(self.upstream, 'tag', 'r1'); run(self.upstream, 'tag', 'r2')
+        self.assertNotIn('newer', forks.check(self.root, [self.fork], [], self.lister())[0])
+        self.advance_upstream()
+        run(self.upstream, 'tag', 'r3')
+        self.assertEqual(['r3'], forks.check(self.root, [self.fork], [], self.lister())[0]['newer'])
 
     def test_fork_older_than_every_release_reports_them_all(self):
         self.fork['newer'] = {'tags': r'^r([0-9]+)$'}
