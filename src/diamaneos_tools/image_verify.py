@@ -1231,6 +1231,11 @@ def check_avb(v):
     chains = avb_chains(info)
     want = {name: (location, 0) for name, location in v.config['avb']['chains'].items()}
     problems = [] if chains == want else [f'chains are {chains} (want {want})']
+    header = info.split('Descriptors:')[0]
+    rollback = (re.search(r'(?m)^Rollback Index:\s+(\d+)\s*$', header),
+                re.search(r'(?m)^Rollback Index Location:\s+(\d+)\s*$', header))
+    if not all(rollback) or any(int(found[1]) for found in rollback):
+        problems.append('vbmeta does not keep rollback index 0 at location 0, as stock does')
     system = v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta_system.img'])
     if not re.search(r'Partition Name:\s+pvmfw\b', system):
         problems.append('vbmeta_system lacks the pvmfw descriptor')

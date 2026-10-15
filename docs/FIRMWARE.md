@@ -149,14 +149,18 @@ as after Fairphone's own flash.
 
 ## Rollback rules
 
-- The bootloader stores AVB rollback indices at locations 1 (recovery), 2 (vbmeta_system), 3 (boot)
-  and 4 (init_boot) and enforces them while locked.
-- Once a locked phone boots a stock release, locations 2 to 4 hold that release's index
-  (`avb_rollback_index` in the inventory, the security patch date as Unix time), and images with a
-  lower index no longer boot locked.
-- A DiamaneOS build relocked with its own key must use indices at or above the stored values.
+- The bootloader keeps 32 AVB rollback index locations and enforces them while locked.
+- Stock chains recovery, vbmeta_system, boot and init_boot at locations 1 to 4.
+  - Once a locked phone boots a stock release, locations 2 to 4 hold that release's index
+    (`avb_rollback_index` in the inventory, the security patch date as Unix time), and images with
+    a lower index no longer boot locked.
 - The stock script's `oem reset-rollback` (unlocked only) resets them; Fairphone warns that locking
   on older software than before may brick the phone.
+- DiamaneOS chains the same partitions at 28 to 31, so the indices it stores never limit a stock
+  relock.
+  - The top-level vbmeta keeps location 0 and index 0, as on stock.
+  - A DiamaneOS build relocked with its own key must use indices at or above those stored at 28
+    to 31.
 - Qualcomm's own anti-rollback version (signing metadata, enforceable from fuses or protected
   storage) is recorded in the inventory (`qualcomm_anti_rollback_version`).
 - Never downgrade firmware: it is untested even at equal anti-rollback version, and the stock flash

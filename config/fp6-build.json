@@ -72,10 +72,10 @@
   "avb": {
     "test_key": "external/avb/test/data/testkey_rsa4096.pem",
     "chains": {
-      "recovery": 1,
-      "vbmeta_system": 2,
-      "boot": 3,
-      "init_boot": 4
+      "recovery": 28,
+      "vbmeta_system": 29,
+      "boot": 30,
+      "init_boot": 31
     },
     "zero_header_os_fields": [
       "boot",

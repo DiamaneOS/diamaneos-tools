@@ -2248,10 +2248,10 @@ class ParserTests(unittest.TestCase):
         footer = b'AVBf' + bytes(8) + struct.pack('>Q', len(payload)) + bytes(44)
         self.assertEqual(payload, subject.avb_payload(payload + bytes(20) + footer))
         info = ('    Chain Partition descriptor:\n      Partition Name:          boot\n'
-                '      Rollback Index Location: 3\n      Public key (sha1):       x\n      Flags:                   0\n'
+                '      Rollback Index Location: 30\n      Public key (sha1):       x\n      Flags:                   0\n'
                 '    Chain Partition descriptor:\n      Partition Name:          recovery\n'
-                '      Rollback Index Location: 1\n      Flags:                   0\n')
-        self.assertEqual({'boot': (3, 0), 'recovery': (1, 0)}, subject.avb_chains(info))
+                '      Rollback Index Location: 28\n      Flags:                   0\n')
+        self.assertEqual({'boot': (30, 0), 'recovery': (28, 0)}, subject.avb_chains(info))
 
     def test_avb_hashtree_algorithms(self):
         def tree(name, algorithm):
@@ -2419,17 +2419,18 @@ class GenericCheckTests(unittest.TestCase):
                     f'      Partition Name:        {name}\n')
         chains = ''.join(f'    Chain Partition descriptor:\n      Partition Name:          {name}\n'
                          f'      Rollback Index Location: {location}\n      Flags:                   0\n'
-                         for name, location in (('recovery', 1), ('vbmeta_system', 2), ('boot', 3), ('init_boot', 4)))
+                         for name, location in (('recovery', 28), ('vbmeta_system', 29), ('boot', 30), ('init_boot', 31)))
         system = ['system', 'system_ext', 'product']
 
-        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm')):
+        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm'), index=0):
             def avbtool(args):
                 if args[0] == 'verify_image':
                     return ''
                 if str(args[-1]).endswith('vbmeta_system.img'):
                     return ('    Hash descriptor:\n      Partition Name:        pvmfw\n'
                             + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in system))
-                return chains + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in vendor)
+                header = f'Rollback Index:           {index}\nRollback Index Location:  0\nDescriptors:\n'
+                return header + chains + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in vendor)
             return FakeTools({('avbtool',): avbtool})
 
         def check(tools):
@@ -2443,6 +2444,9 @@ class GenericCheckTests(unittest.TestCase):
         ok, detail = check(outputs({}, vendor=('vendor', 'odm', 'vendor_dlkm')))
         self.assertFalse(ok)
         self.assertIn('hashtrees for', detail)
+        ok, detail = check(outputs({}, index=1785888000))
+        self.assertFalse(ok)
+        self.assertIn('rollback index 0 at location 0', detail)
 
     def test_kernel_binding(self):
         kernel = self.root / 'kernel'

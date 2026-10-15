@@ -299,8 +299,8 @@ or deleted files):
   - Generic checks: `SHA256SUMS`.
   - The record (a test build that must never be locked, matching hashes).
   - test-keys in every fingerprint.
-  - The AVB chain with the test key and the published layout (recovery 1, vbmeta_system 2, boot 3,
-    init_boot 4, flags 0, pvmfw in vbmeta_system).
+  - The AVB chain with the test key and the device layout (vbmeta index 0 at location 0, recovery 28,
+    vbmeta_system 29, boot 30, init_boot 31, flags 0, pvmfw in vbmeta_system).
   - Zero OS fields in the boot-family headers with the versions in AVB properties.
   - `super.img` holding exactly the logical images.
   - `validate_target_files` and `check_target_files_vintf`.
@@ -485,6 +485,9 @@ named in the set's `build.json`.
 instructions](https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone).
 Relock only after stock is back, and only with the checks in the installer's [recovery
 preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-preflight.md).
+
+- DiamaneOS stores its rollback indices apart from stock's, so it does not limit which stock release
+  can relock ([rollback rules](FIRMWARE.md#rollback-rules)).
 
 ## Troubleshooting
 
