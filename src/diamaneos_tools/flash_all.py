@@ -5,6 +5,8 @@ Fairphone's firmware of the release the vendor files come from, both slots of
 each A/B partition in the stock order, then the OS and the empty data images.
 They always write the firmware, as Fairphone's own flash script does, so the
 phone must not already run a newer Fairphone release than the set carries.
+A set signed with private keys also installs its AVB public key and stops in
+the bootloader, so the user can lock it before Android first starts.
 "flash-steps" prints the commands for anything else (an update that keeps
 data, only the images that changed).
 """
@@ -15,6 +17,9 @@ SH, BAT = 'flash-all.sh', 'flash-all.bat'
 CHECKS = (('product', '{product}', 'This image set is for the {product}: connect that phone in fastboot mode.'),
           ('is-userspace', 'no', 'The phone is in fastbootd. Run "fastboot reboot bootloader" and start again.'),
           ('unlocked', 'yes', 'The bootloader is locked. Unlock it as Fairphone describes, then start again.'))
+# Printed again when the script ends, because the lock is the user's next step.
+LOCK = ('To lock, run fastboot flashing get_unlock_ability (it must report 1), then fastboot flashing lock, '
+        'and confirm on the phone. Do not start Android before the lock.')
 CRITICAL = ('Device critical unlocked: true',
             'The critical partitions are locked, and the firmware is written to them. Run "fastboot flashing '
             'unlock_critical" as Fairphone describes (it erases the phone), then start again.')
@@ -31,7 +36,17 @@ def commands(record: dict) -> list[list[str]]:
     if record['flash']['logical']:
         result.append(['flash', 'super', 'super.img'])
     result += [['flash', name, image['file']] for name, image in record['wipe']['images'].items()]
+    key = custom_key(record)
+    if key:
+        return result + [['flash', 'avb_custom_key', key], [f'--set-active={slot}'], ['reboot-bootloader']]
     return result + [[f'--set-active={slot}'], ['reboot']]
+
+
+def custom_key(record: dict) -> str | None:
+    """The AVB public key file a set signed with private keys installs, or None."""
+    if record.get('never_lock'):
+        return None
+    return (record.get('avb_custom_key') or {}).get('file')
 
 
 def notes(record: dict) -> list[str]:
@@ -43,6 +58,8 @@ def notes(record: dict) -> list[str]:
                      'already runs a newer Fairphone release.')
     if record.get('never_lock'):
         lines.append('This build is signed with public test keys: keep the bootloader unlocked while it is installed.')
+    elif custom_key(record):
+        lines.append('It installs the signing key and stops in the bootloader. ' + LOCK)
     return lines
 
 
@@ -66,6 +83,8 @@ def shell(record: dict) -> str:
             'else fail "Neither sha256sum nor shasum is installed, so the images cannot be checked."; fi', '']
     out += [f'echo "{line}"' for line in notes(record)]
     out += ['fastboot ' + ' '.join(arguments) for arguments in commands(record)]
+    if custom_key(record):
+        out.append(f'echo "{LOCK}"')
     return '\n'.join(out) + '\n'
 
 
@@ -81,6 +100,8 @@ def batch(record: dict) -> str:
     out.append('')
     out += [f'echo {_escaped(line)}' for line in notes(record)]
     out += ['fastboot ' + ' '.join(arguments) + ' || exit /b 1' for arguments in commands(record)]
+    if custom_key(record):
+        out.append(f'echo {_escaped(LOCK)}')
     return '\r\n'.join(out) + '\r\n'
 
 
