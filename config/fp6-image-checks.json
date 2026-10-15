@@ -998,7 +998,7 @@
     },
     {
       "id": "usb-port-control-triggers",
-      "why": "The port states drive the USB controller's data switch and the charger firmware's input suspend. Off (ports_disabled) cuts data, then suspends the input: no charging while the OS runs. Every other state, charger mode and shutdown lift the suspend, so charging when powered off, in charger mode, fastboot and recovery is unaffected. User builds start every normal boot with both off, as GrapheneOS starts Pixels with the port off, until the framework applies the stored mode; the input write waits for the charger firmware's node and repeats at boot. Debuggable builds keep the port on. Only ports_disabled, charging-only_immediate and the user-build boot cut turn data off, and only ports_enabled turns it on. charging-only cuts no data: the kernel refuses the next connection and the current one stays.",
+      "why": "The port states drive the USB controller's data switch (GrapheneOS's three data commands: 1 on, 0 off now and for later connections, -1 the current connection only, alt modes ignored unless 1) and the charger firmware's input suspend. Off (ports_disabled) cuts data, then suspends the input: no charging while the OS runs. Every other state, charger mode and shutdown lift the suspend, so charging when powered off, in charger mode, fastboot and recovery is unaffected. User builds start every normal boot with both off, as GrapheneOS starts Pixels with the port off, until the framework applies the stored mode. The kernel starts with data off and early-boot repeats it, the input write waits for the charger firmware's node and repeats at boot. Debuggable builds keep the port on, and charger mode turns data on as on Pixels. Only ports_disabled, charging-only_immediate and the user-build boot cut write 0, only charging-only writes -1, only ports_enabled and charger mode write 1. The controller's older dynamic_disable switch is not written.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.qcom.usb.rc"
@@ -1014,45 +1014,73 @@
         "on charger",
         "on shutdown",
         "    wait /sys/class/qcom-battery/suspend_input_current 5",
-        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 1",
-        "    write /sys/devices/platform/soc/a600000.ssusb/dynamic_disable 0",
+        "    wait /sys/devices/platform/soc/a600000.ssusb/data_path_enable 5",
+        "    write /sys/devices/platform/soc/a600000.ssusb/data_path_enable 0",
+        "    write /sys/devices/platform/soc/a600000.ssusb/data_path_enable -1",
+        "    write /sys/devices/platform/soc/a600000.ssusb/data_path_enable 1",
         "    write /sys/class/qcom-battery/suspend_input_current 1",
         "    write /sys/class/qcom-battery/suspend_input_current 0"
       ],
       "regex": [
-        "^on property:sys\\.port_security_mode=ports_disabled\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
-        "^on property:sys\\.port_security_mode=charging-only_immediate\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1$",
-        "^on property:sys\\.port_security_mode=charging-only\\n    write /sys/class/qcom-battery/suspend_input_current 0$",
-        "^on property:sys\\.port_security_mode=ports_enabled\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 0$",
-        "^on early-boot && property:ro\\.debuggable=0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1\\n    wait /sys/class/qcom-battery/suspend_input_current 5\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
+        "^on property:sys\\.port_security_mode=ports_disabled\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 0\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
+        "^on property:sys\\.port_security_mode=charging-only_immediate\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 0$",
+        "^on property:sys\\.port_security_mode=charging-only\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable -1$",
+        "^on property:sys\\.port_security_mode=ports_enabled\\n    write /sys/class/qcom-battery/suspend_input_current 0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 1$",
+        "^on early-boot && property:ro\\.debuggable=0\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 0\\n    wait /sys/class/qcom-battery/suspend_input_current 5\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
         "^on boot && property:ro\\.debuggable=0\\n    write /sys/class/qcom-battery/suspend_input_current 1$",
         "^on early-boot && property:ro\\.debuggable=1\\n    wait /sys/class/qcom-battery/suspend_input_current 5\\n    write /sys/class/qcom-battery/suspend_input_current 0$",
         "^on charger\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$",
+        "^on charger\\n(?:    .*\\n)*?    wait /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 5\\n    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 1$",
         "^on shutdown\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0$"
       ],
       "absent_regex": [
-        "^on property:sys\\.port_security_mode=charging-only\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable ",
+        "^    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable ",
         "^on (?!property:sys\\.port_security_mode=ports_disabled$|early-boot && property:ro\\.debuggable=0$|boot && property:ro\\.debuggable=0$).*\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 1",
         "^on (?:early-)?boot(?: && property:ro\\.debuggable=0)?\\n(?:    .*\\n)*?    write /sys/class/qcom-battery/suspend_input_current 0",
-        "^on (?:early-)?boot(?: && property:ro\\.debuggable=1)?\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable ",
-        "^on (?!property:sys\\.port_security_mode=(?:ports_disabled|charging-only_immediate)$|early-boot && property:ro\\.debuggable=0$).*\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 1",
-        "^on (?!property:sys\\.port_security_mode=ports_enabled$).*\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/dynamic_disable 0"
+        "^on (?:early-)?boot(?: && property:ro\\.debuggable=1)?\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable ",
+        "^on (?!property:sys\\.port_security_mode=(?:ports_disabled|charging-only_immediate)$|early-boot && property:ro\\.debuggable=0$).*\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 0",
+        "^on (?!property:sys\\.port_security_mode=charging-only$).*\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable -1",
+        "^on (?!property:sys\\.port_security_mode=ports_enabled$|charger$).*\\n(?:    .*\\n)*?    write /sys/devices/platform/soc/a600000\\.ssusb/data_path_enable 1"
       ]
     },
     {
       "id": "usb-port-control-label",
-      "why": "The data switch has its own type instead of the label shared with the controller role and other USB nodes.",
+      "why": "The data switch and the controller's older dynamic_disable switch have their own types instead of the generic sysfs label and the label shared with the controller role and other USB nodes.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
       ],
       "lines": [
+        "(genfscon sysfs \"/devices/platform/soc/a600000.ssusb/data_path_enable\" (u object_r vendor_sysfs_usb_data_path ((s0) (s0))))",
         "(genfscon sysfs \"/devices/platform/soc/a600000.ssusb/dynamic_disable\" (u object_r vendor_sysfs_usb_data_disable ((s0) (s0))))"
       ]
     },
     {
+      "id": "usb-port-control-data-path-writers",
+      "why": "Only vendor_init (the port-state triggers) and ueventd, which the platform lets write all of sysfs, may write the data switch. The USB HAL may not: it parses data from the Type-C partner.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_sysfs_usb_data_path",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "ueventd",
+        "vendor_init"
+      ]
+    },
+    {
       "id": "usb-port-control-writers",
-      "why": "Only vendor_init (the port-state triggers) and ueventd, which the platform lets write all of sysfs, may write the data switch; the USB HAL may not.",
+      "why": "Only vendor_init and ueventd, which the platform lets write all of sysfs, may write the controller's older dynamic_disable switch. The USB HAL may not.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -1071,6 +1099,79 @@
       "allowed": [
         "ueventd",
         "vendor_init"
+      ]
+    },
+    {
+      "id": "usb-port-control-kernel",
+      "why": "The kernel has the data switch the triggers write and its user-build boot default, and the alt mode paths follow it: the alt mode driver drops notifications and the UCSI driver refuses alt mode entry while alt modes are ignored.",
+      "type": "binary_count",
+      "file": "VENDOR_DLKM/lib/modules/dwc3-msm.ko",
+      "patterns": [
+        {
+          "text": "data_path_enable",
+          "min": 1
+        },
+        {
+          "text": "disable_usb_data_by_default",
+          "min": 1
+        },
+        {
+          "text": "altmode_set_ignore_alt_modes",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "usb-port-control-kernel-ucsi",
+      "why": "The UCSI driver refuses alt mode entry while USB-C port control ignores alt modes.",
+      "type": "binary_count",
+      "file": "VENDOR_DLKM/lib/modules/ucsi_glink.ko",
+      "patterns": [
+        {
+          "text": "altmode_alt_modes_ignored",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "usb-port-control-boot-default",
+      "why": "User builds load the USB controller driver with data and alt modes off, so no USB data flows from kernel start until the port setting applies, as GrapheneOS starts Pixels with the port off.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.options"
+      ],
+      "lines": [
+        "options dwc3_msm disable_usb_data_by_default=1"
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
+      "id": "usb-port-control-boot-default-debuggable",
+      "why": "Debuggable builds keep USB data on at boot, for USB debugging of early boot.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.options"
+      ],
+      "optional": true,
+      "absent": [
+        "disable_usb_data_by_default"
+      ],
+      "variants": [
+        "userdebug"
+      ]
+    },
+    {
+      "id": "usb-port-control-recovery-default",
+      "why": "Recovery and fastbootd load their own modules without the boot default, so USB stays on there.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/RAMDISK/lib/modules/modules.options"
+      ],
+      "optional": true,
+      "absent": [
+        "disable_usb_data_by_default"
       ]
     },
     {
