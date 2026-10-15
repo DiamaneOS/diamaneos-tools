@@ -164,6 +164,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "db6f4e634b4439f3b5e82be983bf043c4fa6b649",
+      "reviewed": "b3cc2238f2c7cbd87d720843bc919595d62b696a",
       "upstream": {
         "url": "https://github.com/GrapheneOS/infrastructure",
         "ref": "main",
@@ -177,6 +178,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "0a91d03a16b6e3842fd0d0c5c74ce571429867f9",
+      "reviewed": "38276a8a05a3191650b496256d4999d32de4f3c2",
       "upstream": {
         "url": "https://github.com/GrapheneOS/grapheneos.org",
         "ref": "main",
@@ -203,6 +205,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "19e3cee815cfb476212136a2e03be6f318837289",
+      "reviewed": "094eb7303c581ae7e5a36a374ee16f9acd30bd37",
       "upstream": {
         "url": "https://github.com/GrapheneOS/apps.grapheneos.org",
         "ref": "main",
