@@ -16,6 +16,8 @@ from diamaneos_tools import apps as subject
 from diamaneos_tools.vendor_extract import sha
 
 OURS = 'd' * 64
+TEST_KEY = 'RWRlgoQmgCKJ6boDkenw9LnWZSQeouO95xkWreuiGWu1xZo8+xwKpbkz'
+RELEASE_KEY = 'RW' + 'A' * 54
 GRAPHENEOS = '3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b'
 
 
@@ -67,9 +69,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual({'appstore', 'auditor', 'camera'}, {a['id'] for a in config['apps']})
         self.assertIn(GRAPHENEOS, config['grapheneos_signers'])
         appstore = subject.app_config(config, 'appstore')
-        self.assertEqual('https://apps.diamaneos.de', appstore['environment']['REPO_BASE_URL'])
-        # The repository key is never pinned here: it comes from the fork or a test key directory.
-        self.assertNotIn('REPO_PUBLIC_KEY', appstore['environment'])
+        self.assertEqual({'REPO_KEY_VERSION': '0'}, appstore['environment'])
 
     def test_rejects_unpinned_foreign_or_grapheneos_signed_apps(self):
         for change in (lambda a: a.update(commit='android17'),
@@ -82,6 +82,23 @@ class ConfigTests(unittest.TestCase):
             change(document['apps'][0])
             with self.subTest(change=change), self.assertRaises(subject.AppsError):
                 self.load(document)
+
+    def test_catalog_key_follows_the_build_kind(self):
+        config = subject.load()
+        appstore, camera = subject.app_config(config, 'appstore'), subject.app_config(config, 'camera')
+        with tempfile.TemporaryDirectory() as keys:
+            (Path(keys) / subject.TEST_CATALOG_KEY).write_text('untrusted comment: test\n' + TEST_KEY + '\n')
+            self.assertEqual({'REPO_PUBLIC_KEY': TEST_KEY, 'REPO_SERVER': 'staging'},
+                             subject.catalog_inputs(appstore, keys, staging=True))
+            self.assertEqual({}, subject.catalog_inputs(camera, keys))
+            with self.assertRaisesRegex(subject.AppsError, 'staging'):
+                subject.catalog_inputs(camera, keys, staging=True)
+        with self.assertRaisesRegex(subject.AppsError, 'no release catalog key'):
+            subject.catalog_inputs(appstore)
+        release = dict(appstore, catalog_key=RELEASE_KEY)
+        self.assertEqual({'REPO_PUBLIC_KEY': RELEASE_KEY}, subject.catalog_inputs(release))
+        with self.assertRaisesRegex(subject.AppsError, 'staging'):
+            subject.catalog_inputs(release, staging=True)
 
     def test_rejects_an_unpinned_toolchain(self):
         document = copy.deepcopy(self.config)
@@ -150,6 +167,7 @@ class PublishTests(unittest.TestCase):
         self.result = {'status': 'PASS', 'operation': 'apps-build', 'app': 'appstore', 'package': 'app.grapheneos.apps',
                        'version_code': 3601, 'repository': 'https://github.com/DiamaneOS/AppStore.git',
                        'commit': '7' * 40, 'tools': {'commit': '8' * 40, 'clean': True},
+                       'inputs': {'REPO_PUBLIC_KEY': RELEASE_KEY},
                        'unsigned_sha256': sha(self.run / 'app-release-unsigned.apk'),
                        'signed': {'key': 'test', 'signer_sha256': OURS, 'sha256': sha(self.run / 'app-release.apk'),
                                   'idsig_sha256': sha(self.run / 'app-release.apk.idsig')}}
@@ -190,7 +208,7 @@ class PublishTests(unittest.TestCase):
         with self.assertRaisesRegex(subject.AppsError, 'no release key'):
             self.publish(signed=other, idsig=self.run / 'app-release.apk.idsig')
         config = copy.deepcopy(self.config)
-        subject.app_config(config, 'appstore')['release_signer'] = OURS
+        subject.app_config(config, 'appstore').update(release_signer=OURS, catalog_key=RELEASE_KEY)
         with self.assertRaisesRegex(subject.AppsError, 'unsigned build plus a signature'):
             subject.publish(self.run, self.checkout, signed=other, idsig=self.run / 'app-release.apk.idsig',
                             config=config, apksigner=lambda apk, sig: verify_output(OURS))
@@ -202,10 +220,18 @@ class PublishTests(unittest.TestCase):
 
     def test_publishes_an_owner_signed_release(self):
         config = copy.deepcopy(self.config)
-        subject.app_config(config, 'appstore')['release_signer'] = OURS
-        summary = subject.publish(self.run, self.checkout, signed=self.run / 'app-release.apk',
-                                  idsig=self.run / 'app-release.apk.idsig', config=config,
-                                  apksigner=lambda apk, sig: verify_output(OURS))
+        subject.app_config(config, 'appstore').update(release_signer=OURS, catalog_key=RELEASE_KEY)
+        release = lambda: subject.publish(self.run, self.checkout, signed=self.run / 'app-release.apk',
+                                          idsig=self.run / 'app-release.apk.idsig', config=config,
+                                          apksigner=lambda apk, sig: verify_output(OURS))
+        for inputs in ({'REPO_PUBLIC_KEY': TEST_KEY}, {'REPO_PUBLIC_KEY': RELEASE_KEY, 'REPO_SERVER': 'staging'}):
+            self.result['inputs'] = inputs
+            self.write_result()
+            with self.subTest(inputs=inputs), self.assertRaisesRegex(subject.AppsError, 'release catalog key'):
+                release()
+        self.result['inputs'] = {'REPO_PUBLIC_KEY': RELEASE_KEY}
+        self.write_result()
+        summary = release()
         self.assertEqual('release', summary['key'])
         self.assertIn('DiamaneOS release key', (self.checkout / 'README.md').read_text())
 

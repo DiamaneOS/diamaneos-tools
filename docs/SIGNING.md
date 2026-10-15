@@ -220,7 +220,7 @@ when its signer changes, so the user's Camera settings survive the switch.
 | `appstore` | RSA-4096 app key, PKCS#12 | certificate SHA-256: `release_signer` of `appstore` in `config/apps.json`; `signatures` of `app.grapheneos.apps` in the app repository |
 | `auditor` | RSA-4096 app key, PKCS#12 | certificate SHA-256: `release_signer` of `auditor`; `AUDITOR_APP_SIGNATURE_DIGEST_RELEASE` in the Auditor and AttestationServer forks; `read_additional_security_state_known_signers` in frameworks/base; `signatures` of `app.attestation.auditor` in the app repository |
 | `camera` | RSA-4096 app key, PKCS#12 | certificate SHA-256: `release_signer` of `camera`; `signatures` of `app.grapheneos.camera` in the app repository |
-| `apps.0` | signify Ed25519, generation 0 | `repo-public-key.pub` in the App Store fork (the whole `apps.0.pub`) |
+| `apps.0` | signify Ed25519, generation 0 | `catalog_key` of `appstore` in `config/apps.json` (the key line of `apps.0.pub`) |
 
 On the offline signer, use `keytool` (OpenJDK), `signify-openbsd` and the build
 tools' `apksigner.jar`. The builds are checked with apksigner 36.1.0, SHA-256

@@ -153,20 +153,25 @@ OS tree (`--root`):
     SHA-256 in `runs/<app>-<time>/result.json`.
   - Gradle fetches the dependencies the app's verification metadata pins, so
     this step needs the network.
-- The App Store reads its repository key at build time, with no fallback to
-  GrapheneOS's key. While the fork's `repo-public-key.pub` is a placeholder,
-  only test builds succeed.
+- The App Store gets its catalog key from the build kind, never from GrapheneOS:
+  - a release build carries `catalog_key` from `config/apps.json`. While it is
+    null, only test builds succeed.
+  - a test build carries the test catalog key (`apps-test.0.pub`).
 - `--test-key-dir DIR` signs the build with the DiamaneOS test app key
-  (`apps-test.p12`, alias `test`, its password in `keystore-password`) and
-  builds the App Store against the test catalog key (`apps-test.0.pub`). Test
+  (`apps-test.p12`, alias `test`, its password in `keystore-password`). Test
   keys never sign a release. Keep the directory private and outside every
   repository.
+- `--staging`, for test builds of the App Store only, sends all its requests to
+  `apps.staging.diamaneos.de`. Release builds reach only `apps.diamaneos.de`
+  and `apps-na.diamaneos.de`.
 - `apps publish --run RUN --to CHECKOUT --test` (or `--signed APK --idsig FILE`
   for a build signed offline) copies the APK and its v4 signature into the
   prebuilt checkout and updates its README's "This build" lines. It never
   commits.
   - It refuses a GrapheneOS signer and a release signer other than
     `release_signer`.
+  - A release of the App Store must be a build with `catalog_key` and without
+    `--staging`.
   - It refuses any APK that is not exactly the run's unsigned APK plus a
     signing block.
 

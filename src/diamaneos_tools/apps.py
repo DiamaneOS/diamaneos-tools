@@ -10,7 +10,8 @@ from the OS tree:
   apps build --root ROOT --app ID   build the unsigned release APK (network: Gradle
                                     fetches the dependencies the app's verification
                                     metadata pins); with --test-key-dir, also sign it
-                                    with the DiamaneOS test app key
+                                    with the DiamaneOS test app key, and with --staging
+                                    point a test App Store at the staging catalog
   apps publish --run RUN --to DIR   copy the signed APK and its v4 signature into a
                                     checkout of the app's prebuilt project (no commit):
                                     --test for a test-signed build, or --signed APK
@@ -43,6 +44,8 @@ SHA256 = re.compile(r'[0-9a-f]{64}')
 PACKAGE = re.compile(r'[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+')
 RUN_NAME = re.compile(r'([a-z0-9-]+)-([0-9]{8})T[0-9]{6}Z')
 SDK_PACKAGE = re.compile(r'[a-z-]+;[A-Za-z0-9.-]+')
+SIGNIFY_KEY = re.compile(r'RW[A-Za-z0-9+/]{54}')
+GRAPHENEOS_CATALOG_KEY = 'RWQtZwEu1br1lMh911L3yPOs97cQb9LOks/ALBbqGl21ul695ocWR/ir'
 # Files of a test key directory (BUILD.md "Building the apps").
 TEST_KEYSTORE, TEST_KEY_ALIAS, TEST_KEYSTORE_PASS, TEST_CATALOG_KEY = (
     'apps-test.p12', 'test', 'keystore-password', 'apps-test.0.pub')
@@ -96,6 +99,12 @@ def load(path=CONFIG):
         require(isinstance(env, dict) and all(re.fullmatch(r'[A-Z][A-Z0-9_]*', k) and isinstance(v, str)
                                               for k, v in env.items()), 'invalid environment of ' + app['id'])
         require(isinstance(app.get('test_catalog_key'), bool), 'invalid test_catalog_key of ' + app['id'])
+        key = app.get('catalog_key')
+        require(key is None or (app['test_catalog_key'] and isinstance(key, str) and SIGNIFY_KEY.fullmatch(key)
+                                and key != GRAPHENEOS_CATALOG_KEY),
+                'catalog_key of ' + app['id'] + ' must be our own signify key or null')
+        require(not {'REPO_PUBLIC_KEY', 'REPO_SERVER'} & set(env), 'the catalog key and server of ' + app['id']
+                + ' come from the build kind, not its environment')
         require(app.get('gradle_jdk', 'jdk') in ('jdk', 'jdk21') and app.get('gradle_jdk', 'jdk') in tc,
                 'invalid gradle_jdk of ' + app['id'])
         require(re.fullmatch(r'external/[A-Za-z0-9_]+', str(app.get('prebuilt'))), 'invalid prebuilt of ' + app['id'])
@@ -273,9 +282,24 @@ def tools_state():
 def test_catalog_key(directory):
     lines = [l for l in (Path(directory) / TEST_CATALOG_KEY).read_text().splitlines()
              if l.strip() and not l.startswith('untrusted comment:')]
-    require(len(lines) == 1 and re.fullmatch(r'RW[A-Za-z0-9+/]{54}', lines[0]),
-            TEST_CATALOG_KEY + ' is not a signify public key')
+    require(len(lines) == 1 and SIGNIFY_KEY.fullmatch(lines[0]), TEST_CATALOG_KEY + ' is not a signify public key')
     return lines[0]
+
+
+def catalog_inputs(app, test_key_dir=None, staging=False):
+    """The App Store's catalog key and server, chosen by the build kind as the OS chooses its keys:
+    a release build carries catalog_key and the production servers, a test build its test key and,
+    with staging, apps.staging.diamaneos.de."""
+    require(not staging or (test_key_dir and app['test_catalog_key']), '--staging is only for test builds of the App Store')
+    if not app['test_catalog_key']:
+        return {}
+    if test_key_dir:
+        key = test_catalog_key(test_key_dir)
+        require(key not in (app.get('catalog_key'), GRAPHENEOS_CATALOG_KEY), 'the test catalog key is a release key')
+    else:
+        key = app.get('catalog_key')
+        require(key, 'config/apps.json has no release catalog key for ' + app['id'] + ' yet: build with --test-key-dir')
+    return {'REPO_PUBLIC_KEY': key, **({'REPO_SERVER': 'staging'} if staging else {})}
 
 
 def sign_test(toolchain, unsigned, run, key_dir, env):
@@ -299,7 +323,7 @@ def verify_signed(toolchain, apk, idsig, unsigned, config, env):
     return digest
 
 
-def build(root, app_id, test_key_dir=None, config=None, now=None):
+def build(root, app_id, test_key_dir=None, config=None, now=None, staging=False):
     root = Path(root).absolute()
     config = config or load()
     app = app_config(config, app_id)
@@ -316,9 +340,7 @@ def build(root, app_id, test_key_dir=None, config=None, now=None):
     git('-c', 'advice.detachedHead=false', 'checkout', '-q', '--detach', app['commit'])
     require(git('rev-parse', 'HEAD').strip() == app['commit'] and not git('status', '--porcelain').strip(),
             'the source checkout is not the pinned commit')
-    inputs = dict(app['environment'])
-    if test_key_dir and app['test_catalog_key']:
-        inputs['REPO_PUBLIC_KEY'] = test_catalog_key(test_key_dir)
+    inputs = {**app['environment'], **catalog_inputs(app, test_key_dir, staging)}
     gradle_jdk = toolchain.jdks[app.get('gradle_jdk', 'jdk')]
     jdk = ','.join(str(path) for path in toolchain.jdks.values())
     call([source / 'gradlew', '--no-daemon', '--console=plain', '--dependency-verification', 'strict',
@@ -392,6 +414,11 @@ def publish(run, checkout, test=False, signed=None, idsig=None, config=None, apk
     else:
         require(not test and idsig, 'an owner-signed APK needs its --idsig and no --test')
         require(app['release_signer'], 'config/apps.json records no release key for ' + app['id'])
+        if app['test_catalog_key']:
+            inputs = result.get('inputs') or {}
+            require(app['catalog_key'] and inputs.get('REPO_PUBLIC_KEY') == app['catalog_key']
+                    and 'REPO_SERVER' not in inputs,
+                    'a release needs a build with the release catalog key and the production servers')
         apk, sig = Path(signed).absolute(), Path(idsig).absolute()
     if apksigner is None:
         toolchain = Toolchain(run.parents[1], config)
@@ -414,7 +441,7 @@ def publish(run, checkout, test=False, signed=None, idsig=None, config=None, apk
     record = {'key': 'test' if signed is None else 'release', 'signer_sha256': digest, 'sha256': sha(apk)}
     lines = readme_lines(result, record, run)
     text = update_readme(readme.read_text() if readme.is_file() else '', lines,
-                         {'appstore': 'App Store', 'auditor': 'Auditor'}.get(app['id'], app['id']))
+                         {'appstore': 'App Store', 'auditor': 'Auditor', 'camera': 'Camera'}.get(app['id'], app['id']))
     for source, name in ((apk, 'app-release.apk'), (sig, 'app-release.apk.idsig')):
         target = checkout / 'prebuilt' / name
         shutil.copyfile(source, target)
@@ -435,6 +462,7 @@ def main(argv=None):
     build_cmd.add_argument('--root', type=Path, required=True)
     build_cmd.add_argument('--app', required=True)
     build_cmd.add_argument('--test-key-dir', type=Path, help='sign with the DiamaneOS test app key in this directory')
+    build_cmd.add_argument('--staging', action='store_true', help='a test App Store that uses apps.staging.diamaneos.de')
     publish_cmd = commands.add_parser('publish', help='copy a signed build into a prebuilt project checkout')
     publish_cmd.add_argument('--run', type=Path, required=True)
     publish_cmd.add_argument('--to', type=Path, required=True)
@@ -446,7 +474,7 @@ def main(argv=None):
         if args.command == 'toolchain':
             output = install_toolchain(args.root, load())
         elif args.command == 'build':
-            output = build(args.root, args.app, args.test_key_dir)
+            output = build(args.root, args.app, args.test_key_dir, staging=args.staging)
         else:
             output = publish(args.run, args.to, args.test, args.signed, args.idsig)
         print(json.dumps(output, indent=2))
