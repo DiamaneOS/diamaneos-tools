@@ -1,7 +1,7 @@
 # FP6 kernel build and capability contract
 
-- The native entry points, checks and deliberate settings behind `kernel prepare`, `kernel build`
-  and `kernel publish`.
+- The native entry points, checks and deliberate settings behind `kernel prepare`, `kernel build`,
+  `kernel compare` and `kernel publish`.
 - The Android build does not build the kernel: it uses the published kernel prebuilts, which the
   DiamaneOS manifest checks out at `device/fairphone/FP6-kernel`.
 - These commands make and publish that set.
@@ -312,6 +312,18 @@ environment listing); kernel parameters keep their values.
   `hdcpsrm`).
 - `build verify` checks that no image or module list carries the module and that `msm_drm.ko`
   imports none of its functions.
+
+## Compare two builds
+
+```sh
+diamaneos kernel compare --run "$WORKSPACE_A/runs/<run>" --against "$WORKSPACE_B/runs/<run>"
+```
+
+- Two builds of one pin, each in a workspace of its own, must package the same files with the same
+  bytes.
+- Each build makes its own module signing key, so a module may differ only in its appended
+  signature, and the Image only in its built-in certificate and the build ID that hashes it.
+- Any other difference, a file only one build has or runs of different sources fail the check.
 
 ## Publish a kernel build
 
