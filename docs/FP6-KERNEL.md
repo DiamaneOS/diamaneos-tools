@@ -107,6 +107,8 @@ tools/bazel query --output=label \
   - The TrustZone log reader, the legacy QSEECom driver, the HDCP client module, the SPSS loader and
     bridge, the FocalTech touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
   - The Hexagon DSP remote debugger (`rdbg`).
+  - The PCIe host and MHI drivers with QRTR over MHI (the FP6 has no PCIe device), and the USB
+    CCID function.
 - It survives regeneration of the Fairphone-derived lists.
 - `kernel build` fails when a denied module is back in any list (`-` and `_` match) or no longer
   built (renamed or dropped: review the entry).
@@ -118,6 +120,7 @@ tools/bazel query --output=label \
 - Kept: `qcom_glink_spss` because `glink_probe` imports it, and `wcd937x`, `wcd939x` and `wsa883x`
   because the audio machine driver imports them. Those need a configuration or device-tree change
   first.
+- `sg` stays: the TEE reaches the UFS replay-protected memory through `/dev/sg*`.
 
 How the phone loads the modules:
 
