@@ -3177,11 +3177,13 @@
     },
     {
       "id": "stock-properties",
-      "why": "Stock key, telephony and audio properties, each set once (stock property review).",
+      "why": "Stock key, telephony and audio properties, each set once (stock property review). No remote provisioning hostname: the TEE gives this system no attestation keys.",
       "type": "properties",
       "file": "VENDOR/build.prop",
+      "absent": [
+        "remote_provisioning.hostname"
+      ],
       "equals": [
-        "remote_provisioning.hostname=remoteprovisioning.googleapis.com",
         "remote_provisioning.tee.rkp_only=true",
         "ro.crypto.metadata_init_delete_all_keys.enabled=true",
         "ro.hardware.keystore_desede=true",
