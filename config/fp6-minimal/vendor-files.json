@@ -16130,7 +16130,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock codec list and limits for SoC variant _volcano_v1 (ro.media.xml_variant.codecs, device media.mk); installed as three pinned derivations: without the hardware decoder section, with the three secure decoders, and with the clear and the secure decoders.",
+      "purpose": "Stock codec list and limits for SoC variant _volcano_v1 (ro.media.xml_variant.codecs, device media.mk). Installed as two pinned derivations: without the hardware decoder section, and with the three non-secure decoders.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -16170,7 +16170,7 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock Qualcomm Codec2 target specification read by libqcodec2_platform from /vendor/etc/media${vendor.media.target_variant}/ (codec plugins, presets; dumps off); installed as three pinned derivations that list as available the hardware encoders alone, with the three secure decoders, or with the clear and the secure decoders.",
+      "purpose": "Stock Qualcomm Codec2 target specification read by libqcodec2_platform from /vendor/etc/media${vendor.media.target_variant}/ (codec plugins and presets, dumps off). Installed as two pinned derivations that list as available the hardware encoders alone, or with the three non-secure decoders.",
       "metadata": {
         "uid": 0,
         "gid": 0,
@@ -16330,84 +16330,12 @@
       "notices": [
         "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
       ],
-      "purpose": "Stock Widevine DRM HAL package, unchanged and with its own signatures: the service, its init file, its VINTF fragment and its own libcrypto. Installed as a prebuilt APEX; it loads the TEE-backed liboemcrypto.so from /vendor/lib64.",
+      "purpose": "Stock Widevine DRM HAL package, unchanged and with its own signatures: the service, its init file, its VINTF fragment and its own libcrypto. Installed as a prebuilt APEX and run with its built-in software protection only. The TEE-backed liboemcrypto.so is not selected.",
       "metadata": {
         "uid": 0,
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_apex_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/liboemcrypto.so",
-      "path": "vendor/lib64/liboemcrypto.so",
-      "sha256": "442f52b2dfaa9873e22d7ffbe1045f24be2d3d9d3d3e2f42985c9bf3e1d80aef",
-      "bytes": 246728,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:widevine-drm",
-      "dependencies": [
-        "vendor/lib64/libQSEEComAPI.so",
-        "vendor/lib64/libcpion.so",
-        "vendor/lib64/libminkdescriptor.so",
-        "vendor/lib64/libtrustedapploader.so",
-        "vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock TEE-backed Widevine library (OEMCrypto). The Widevine package loads it with dlopen from /vendor/lib64, which the vendor linker configuration offers to it; it reaches the Widevine trusted app through /dev/smcinvoke.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libcpion.so",
-      "path": "vendor/lib64/libcpion.so",
-      "sha256": "593f1a94afdd5543577a0a1dc68a46ec748d431ba8e3f2ba70e300ebded5f999",
-      "bytes": 31992,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:widevine-drm",
-      "dependencies": [
-        "vendor/lib64/libvmmem.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock buffer library linked by liboemcrypto.so: QSEECom heap allocations, lending protected buffers and the crypto engine mappings.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
-        "capabilities_hex": ""
-      }
-    },
-    {
-      "input": "vendor/lib64/libtrustedapploader.so",
-      "path": "vendor/lib64/libtrustedapploader.so",
-      "sha256": "ecc9e3ace811ecae5843ea91ec9f74c08b74601cd22be2a07ec4d155c8f21aa2",
-      "bytes": 62224,
-      "component_id": "graphics-display-media",
-      "inventory_ref": "userspace_hal_families:widevine-drm",
-      "dependencies": [
-        "vendor/lib64/libminkdescriptor.so",
-        "vendor/lib64/libminksocket_vendor.so",
-        "vendor/lib64/libqcbor.so"
-      ],
-      "notices": [
-        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
-      ],
-      "purpose": "Stock library linked by liboemcrypto.so: reads the Widevine trusted app from the modem partition and loads it into the TEE.",
-      "metadata": {
-        "uid": 0,
-        "gid": 0,
-        "mode": 420,
-        "selinux": "u:object_r:vendor_file:s0",
         "capabilities_hex": ""
       }
     }

@@ -820,14 +820,11 @@ from `notice_kind` in `config/fp6-build.json`.
   `libsdmextension` against the source `libsdm*` libraries and CamX against `libgralloc.qti`; the
   ELF checks cannot catch a layout change there either.
 - Derived configuration files keep their original and derived hashes distinct.
-- The stock codec list and Codec2 target specification are installed as three pinned derivations;
-  the device picks one pair at boot from the user's hardware video decoding choice:
-  - never: the five hardware encoders and no decoder;
-  - protected video only, the default: those and the three secure decoders, which the Widevine
-    hardware-backed library needs;
-  - all video: those and the three clear decoders. No list has a low-latency decoder.
-  - Image checks confirm each file's codec names, that every secure decoder requires secure
-    playback, and the three states in the device init file.
+- The stock codec list and Codec2 target specification are installed as two pinned derivations.
+  The device picks one pair at boot from the user's hardware video decoding choice:
+  - never, the default: the five hardware encoders and no decoder.
+  - all video: those and the three clear decoders. No list has a secure or a low-latency decoder.
+  - Image checks confirm each file's codec names and the two states in the device init file.
 - Some stock blobs get one dependency renamed in place, to a device library of the same name length,
   with both hashes pinned:
   - The display colour manager links an old-ABI tinyxml2 copy, and the camera provider links the
@@ -852,30 +849,22 @@ from `notice_kind` in `config/fp6-build.json`.
   - It becomes a Soong `prebuilt_apex` named after the APEX, installed whole under its stock file
     name with its own signatures.
   - The table holds one package, Fairphone's stock Widevine DRM HAL: the service, its init file, its
-    VINTF fragment and its own libcrypto.
-  - The package loads the TEE-backed `liboemcrypto.so` from `/vendor/lib64` with `dlopen`. That
-    library and the two stock libraries it links (`libcpion.so`, `libtrustedapploader.so`) are
-    selected; nothing links `liboemcrypto.so`, so it is a root of the ELF selection.
-  - The device tree supplies the rest: the vendor linker configuration entry that offers the
-    library to the package, two `vendor.wv.oemcrypto.` build properties, the service's groups and
-    its policy.
-  - The keybox and HDCP provisioning tools and the Wi-Fi display HDCP service are not selected.
+    VINTF fragment and its own libcrypto. It runs with its built-in software protection only.
+  - The hardware-backed path is not selected: the TEE-backed `liboemcrypto.so`, the two libraries
+    it links (`libcpion.so`, `libtrustedapploader.so`), and the keybox and HDCP provisioning tools.
   - `build verify` checks the package's bytes, owner, mode and label, and the five files inside it
     (`apex_payload` rule in `config/fp6-image-checks.json`).
-  - It also checks the three libraries' bytes, owner, mode and label, that the vendor linker
-    configuration names `liboemcrypto.so` and no other library, and that only the two build
-    properties are set.
-  - It checks the two service definitions in the device init file and that one starts per boot:
-    the stock groups with the library, or `media` and `mediadrm` with the built-in software
-    protection when the user chose no hardware decoding.
-  - The second definition must name its own SELinux domain, `hal_drm_widevine_sw`, and the first
-    none. The compiled policy must give that domain its executable and its data and nothing else
-    by name, and no automatic transition into it.
+  - It also checks that the image holds none of the files left out, that the vendor linker
+    configuration offers no library and that no build property sets a `vendor.wv.oemcrypto.`
+    value.
+  - It checks the one service definition in the device init file: groups `media` and `mediadrm`,
+    the built-in software protection in every hardware video decoding state, and no action that
+    starts or stops it by the state.
+  - The compiled policy must enter `hal_drm_widevine_sw` from the executable's type and give it
+    its executable and its data and nothing else by name. There is no `hal_drm_widevine` domain.
   - Lists of the domains allowed on the TEE node, the QSEECom heap, the crypto engine node,
     qseecomd's socket, the memory-buffer node and the bitstream node cover rules on attributes.
     None names `hal_drm_widevine_sw`.
-  - It checks that the Widevine domain with the library is one of the five allowed on the TEE
-    node, and that the image holds none of the provisioning tools.
 
 - **Vendor patch level.**
   - `VENDOR_SECURITY_PATCH` in the generated `BoardConfigVendor.mk`, which the build reports as

@@ -707,15 +707,12 @@ class NativeProductTests(unittest.TestCase):
                             for name in vendor_product.MEDIA_ENCODERS))
         self.assertFalse([n for n in vendor_product.MEDIA_ENCODERS if 'secure' in n or 'decoder' in n])
 
-    def test_media_hardware_decoding_variants_bind_the_selected_stock_configs(self):
-        # Hardware video decoding: two more pinned pairs from the same stock rows,
-        # one with the three secure decoders (protected video only), one with
-        # those and the three clear decoders (all video), and nothing else.
+    def test_media_hardware_decoding_variant_binds_the_selected_stock_configs(self):
+        # Hardware video decoding for all video: a second pinned pair from the
+        # same stock rows, with the three non-secure decoders and nothing else.
         rows = {r['path']: r for r in self.recipe['files']}
         self.assertEqual(set(vendor_product.MEDIA_HWDEC_COPIES),
-                         {'vendor/etc/media_codecs_volcano_v1_secdec.xml',
-                          'vendor/etc/media_volcano_v1_secdec/video_system_specs.json',
-                          'vendor/etc/media_codecs_volcano_v1_hwdec.xml',
+                         {'vendor/etc/media_codecs_volcano_v1_hwdec.xml',
                           'vendor/etc/media_volcano_v1_hwdec/video_system_specs.json'})
         for path, rule in vendor_product.MEDIA_HWDEC_COPIES.items():
             self.assertNotIn(path, rows)
@@ -723,24 +720,17 @@ class NativeProductTests(unittest.TestCase):
             self.assertEqual(rule['source_sha256'], rows[rule['from']]['sha256'])
             self.assertEqual(rule['source_sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['source_sha256'])
             self.assertNotEqual(rule['sha256'], vendor_product.MEDIA_CONFIG_REWRITES[rule['from']]['sha256'])
-            # The path names the variant whose decoders the file lists.
-            self.assertIn(rule['variant'], vendor_product.MEDIA_DECODER_VARIANTS)
-            self.assertEqual(rule['from'].replace('_volcano_v1', rule['variant']), path)
+            self.assertEqual(rule['from'].replace('_volcano_v1', '_volcano_v1_hwdec'), path)
             with self.assertRaises(VendorError): vendor_product.media_hwdec_config(path, b'unreviewed')
-        self.assertEqual(4, len({rule['sha256'] for rule in vendor_product.MEDIA_HWDEC_COPIES.values()}))
         self.assertEqual(('c2.qti.avc.decoder', 'c2.qti.hevc.decoder', 'c2.qti.vp9.decoder'),
                          vendor_product.MEDIA_HW_DECODERS)
         self.assertFalse([n for n in vendor_product.MEDIA_HW_DECODERS if 'secure' in n or 'low_latency' in n])
-        self.assertEqual(tuple(name + '.secure' for name in vendor_product.MEDIA_HW_DECODERS),
-                         vendor_product.MEDIA_SECURE_DECODERS)
-        self.assertEqual({'_volcano_v1_secdec': vendor_product.MEDIA_SECURE_DECODERS,
-                          '_volcano_v1_hwdec': vendor_product.MEDIA_HW_DECODERS + vendor_product.MEDIA_SECURE_DECODERS},
-                         vendor_product.MEDIA_DECODER_VARIANTS)
         # Every derived file is copied into the vendor image.
         make = self.render()['device-vendor.mk'].decode()
         for path in vendor_product.MEDIA_HWDEC_COPIES:
             self.assertIn('PRODUCT_COPY_FILES += vendor/fairphone/FP6/files/' + path + ':$(TARGET_COPY_OUT_VENDOR)/'
                           + path.removeprefix('vendor/') + '\n', make)
+        self.assertNotIn('secdec', make)
 
     def test_media_codec_list_with_hardware_decoders_keeps_only_the_allowed_ones(self):
         def codec(name, kind, extra=''):
@@ -757,78 +747,41 @@ class NativeProductTests(unittest.TestCase):
                  '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
                  '    <Encoders>\n' + encoders + '    </Encoders>\n'
                  '    <Include href="media_codecs_google_c2.xml" />\n</MediaCodecs>\n').encode()
-        clear, secure = vendor_product.MEDIA_HW_DECODERS, vendor_product.MEDIA_SECURE_DECODERS
-        names = lambda data: [n.decode() for n in re.findall(rb'<MediaCodec name="([^"]+)"', data)]
-        # Protected video only: the three secure decoders, each still requiring secure playback.
-        derived = vendor_product.media_decoder_codec_list(stock, secure)
-        self.assertEqual(sorted(secure + vendor_product.MEDIA_ENCODERS), sorted(names(derived)))
-        self.assertEqual(3, derived.count(b'<Feature name="secure-playback" required="true" />'))
+        derived = vendor_product.media_decoder_codec_list(stock)
+        self.assertNotIn(b'secure', derived)
         self.assertNotIn(b'low_latency', derived)
-        self.assertNotIn(b'.decoder"', derived)
+        for name in vendor_product.MEDIA_HW_DECODERS + vendor_product.MEDIA_ENCODERS:
+            self.assertIn(b'"' + name.encode() + b'"', derived)
         self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <Decoders>')[0])
         self.assertEqual(stock.split(b'    </Decoders>')[1], derived.split(b'    </Decoders>')[1])
-        # All video: those and the three clear decoders, every block with its stock bytes.
-        derived = vendor_product.media_decoder_codec_list(stock, clear + secure)
-        self.assertEqual(sorted(clear + secure + vendor_product.MEDIA_ENCODERS), sorted(names(derived)))
-        self.assertEqual(3, derived.count(b'secure-playback'))
-        self.assertNotIn(b'low_latency', derived)
-        self.assertEqual(stock.split(b'    <Decoders>')[0], derived.split(b'    <Decoders>')[0])
-        self.assertEqual(stock.split(b'    </Decoders>')[1], derived.split(b'    </Decoders>')[1])
-        for name in clear + secure:
-            block = codec(name, 'video/avc', '            <Feature name="secure-playback" required="true" />\n'
-                          if name in secure else '').encode()
-            self.assertIn(block, derived)
-        # The clear decoders alone are still a valid list; no decoder, an
-        # unreviewed name or a low-latency one is not.
-        self.assertNotIn(b'secure', vendor_product.media_decoder_codec_list(stock, clear))
-        for decoders in ((), ('c2.qti.av1.decoder',), clear + ('c2.qti.avc.decoder.low_latency',)):
-            with self.subTest(decoders=decoders), self.assertRaises(VendorError):
-                vendor_product.media_decoder_codec_list(stock, decoders)
-        for decoders in (secure, clear + secure):
-            with self.subTest(decoders=decoders):
-                # A missing allowed decoder, an unknown one left in Encoders or a
-                # second section is refused.
-                with self.assertRaises(VendorError):
-                    vendor_product.media_decoder_codec_list(
-                        stock.replace(b'c2.qti.vp9.decoder.secure"', b'c2.qti.vp8.decoder.secure"'), decoders)
-                with self.assertRaises(VendorError):
-                    vendor_product.media_decoder_codec_list(stock.replace(
-                        b'    <Encoders>\n',
-                        b'    <Encoders>\n' + codec('c2.qti.av1.decoder.secure', 'video/av01').encode()), decoders)
-                with self.assertRaises(VendorError):
-                    vendor_product.media_decoder_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'), decoders)
-                # A secure decoder that no longer requires secure playback could
-                # be picked for clear video.
-                with self.assertRaises(VendorError):
-                    vendor_product.media_decoder_codec_list(
-                        stock.replace(b'<Feature name="secure-playback" required="true" />',
-                                      b'<Feature name="secure-playback" />', 1), decoders)
-        # A clear decoder must not require secure playback.
-        marked = stock.replace(codec(clear[0], 'video/avc').encode(), codec(
-            clear[0], 'video/avc', '            <Feature name="secure-playback" required="true" />\n').encode())
+        # A missing allowed decoder, an unknown one left in Encoders, a second
+        # section or a clear decoder that requires secure playback is refused.
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(b'c2.qti.vp9.decoder"', b'c2.qti.vp8.decoder"'))
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(
+                b'    <Encoders>\n', b'    <Encoders>\n' + codec('c2.qti.av1.decoder.secure', 'video/av01').encode()))
+        with self.assertRaises(VendorError):
+            vendor_product.media_decoder_codec_list(stock.replace(b'    <Decoders>', b'    <Decoderz>'))
+        marked = stock.replace(codec('c2.qti.avc.decoder', 'video/avc').encode(), codec(
+            'c2.qti.avc.decoder', 'video/avc', '            <Feature name="secure-playback" required="true" />\n').encode())
         self.assertNotEqual(stock, marked)
         with self.assertRaises(VendorError):
-            vendor_product.media_decoder_codec_list(marked, clear + secure)
+            vendor_product.media_decoder_codec_list(marked)
 
     def test_media_target_spec_with_hardware_decoders(self):
         stock = (b'// Qualcomm\n{\n    "Video": {\n'
                  b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
                  b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
-        notes = set()
-        for variant, decoders in vendor_product.MEDIA_DECODER_VARIANTS.items():
-            with self.subTest(variant=variant):
-                derived = vendor_product.media_encoders_only_target_spec(stock, decoders)
-                available, optional = vendor_product.media_target_spec_codecs(derived)
-                self.assertEqual({'decoders': list(decoders), 'encoders': list(vendor_product.MEDIA_ENCODERS)},
-                                 available)
-                self.assertEqual([], optional)
-                notes.add(derived.split(b'"codecs-available"')[0])
-        # Each variant says what it lists.
-        self.assertEqual(2, len(notes))
-        self.assertTrue(any(b'protected video only' in note for note in notes))
-        self.assertTrue(any(b'all video' in note for note in notes))
-        with self.assertRaises(VendorError):
-            vendor_product.media_encoders_only_target_spec(stock, ('c2.qti.av1.decoder.secure',))
+        derived = vendor_product.media_encoders_only_target_spec(stock, vendor_product.MEDIA_HW_DECODERS)
+        available, optional = vendor_product.media_target_spec_codecs(derived)
+        self.assertEqual({'decoders': list(vendor_product.MEDIA_HW_DECODERS),
+                          'encoders': list(vendor_product.MEDIA_ENCODERS)}, available)
+        self.assertEqual([], optional)
+        # Only the reviewed clear decoders, all three.
+        for decoders in (('c2.qti.avc.decoder.secure',), vendor_product.MEDIA_HW_DECODERS[:2]):
+            with self.subTest(decoders=decoders), self.assertRaises(VendorError):
+                vendor_product.media_encoders_only_target_spec(stock, decoders)
 
     def test_media_codec_list_keeps_only_hardware_encoders(self):
         encoders = ''.join('        <MediaCodec name="%s" type="video/avc">\n'
@@ -1364,153 +1317,15 @@ class NativeProductTests(unittest.TestCase):
         apex = vendor_product.STOCK_APEXES[self.WIDEVINE_APEX]
         self.assertEqual((row['sha256'], row['bytes'], row['metadata']),
                          (apex['sha256'], apex['bytes'], apex['metadata']))
-        # The provisioning tools stay out, and the vendor tree configures nothing: the linker
-        # configuration entry and the build properties belong to the device tree.
-        paths = {r['path'] for r in self.recipe['files']}
-        for other in ['vendor/etc/linker.config.pb', 'vendor/bin/StoreKeybox', 'vendor/bin/KmInstallKeybox',
+        # Nothing of the hardware-backed path is selected or configured.
+        paths = {r['path'] for r in self.recipe['files']} | {r['path'] for r in self.selection['files']}
+        for other in ['vendor/lib64/liboemcrypto.so', 'vendor/lib64/libcpion.so', 'vendor/lib64/libtrustedapploader.so',
+                      'vendor/etc/linker.config.pb', 'vendor/bin/StoreKeybox', 'vendor/bin/KmInstallKeybox',
                       'vendor/bin/hdcp1prov', 'vendor/bin/hdcp2p2prov', 'vendor/bin/wfdhdcphalservice']:
             self.assertNotIn(other, paths)
-        for marker in ['linker.config', 'LINKER_CONFIG', 'vendor.wv.oemcrypto', 'drm.service.enabled']:
+        for marker in ['oemcrypto', 'libcpion', 'libtrustedapploader', 'linker.config', 'LINKER_CONFIG',
+                       'drm.service.enabled']:
             self.assertNotIn(marker, bp + make)
-
-    WIDEVINE_LIBRARIES = {
-        'vendor/lib64/liboemcrypto.so': (
-            '442f52b2dfaa9873e22d7ffbe1045f24be2d3d9d3d3e2f42985c9bf3e1d80aef', 246728,
-            ['vendor/lib64/libQSEEComAPI.so', 'vendor/lib64/libcpion.so', 'vendor/lib64/libminkdescriptor.so',
-             'vendor/lib64/libtrustedapploader.so', 'vendor/lib64/vendor.qti.hardware.display.config-V7-ndk.so'],
-            ['libutils.so', 'liblog.so', 'libQSEEComAPI.so', 'libcpion.so', 'libminkdescriptor.so', 'libcutils.so',
-             'libtrustedapploader.so', 'vendor.qti.hardware.display.config-V7-ndk.so', 'libpower.so', 'libcrypto.so',
-             'libbinder_ndk.so', 'libc++.so', 'libc.so', 'libm.so', 'libdl.so']),
-        'vendor/lib64/libcpion.so': (
-            '593f1a94afdd5543577a0a1dc68a46ec748d431ba8e3f2ba70e300ebded5f999', 31992,
-            ['vendor/lib64/libvmmem.so'],
-            ['liblog.so', 'libdmabufheap.so', 'libvmmem.so', 'libc++.so', 'libc.so', 'libm.so', 'libdl.so']),
-        'vendor/lib64/libtrustedapploader.so': (
-            'ecc9e3ace811ecae5843ea91ec9f74c08b74601cd22be2a07ec4d155c8f21aa2', 62224,
-            ['vendor/lib64/libminkdescriptor.so', 'vendor/lib64/libminksocket_vendor.so', 'vendor/lib64/libqcbor.so'],
-            ['liblog.so', 'libminkdescriptor.so', 'libminksocket_vendor.so', 'libqcbor.so', 'libc++.so', 'libc.so',
-             'libm.so', 'libdl.so']),
-    }
-    OEMCRYPTO = 'vendor/lib64/liboemcrypto.so'
-
-    def test_widevine_hardware_backed_library_is_selected_with_what_it_links(self):
-        rows = {r['path']: r for r in self.recipe['files']}
-        elfs = {r['path']: r for r in self.selection['files']}
-        apex = rows[self.WIDEVINE_APEX]
-        for path, (sha256, size, dependencies, needed) in self.WIDEVINE_LIBRARIES.items():
-            with self.subTest(path=path):
-                row = rows[path]
-                # The exact stock file, in the Widevine family, with its stock owner, mode and label.
-                self.assertEqual((path, sha256, size, apex['component_id'], apex['inventory_ref'], dependencies),
-                                 (row['input'], row['sha256'], row['bytes'], row['component_id'],
-                                  row['inventory_ref'], row['dependencies']))
-                self.assertNotIn('runtime_dependencies', row)
-                self.assertEqual({'uid': 0, 'gid': 0, 'mode': 0o644, 'selinux': 'u:object_r:vendor_file:s0',
-                                  'capabilities_hex': ''}, row['metadata'])
-                self.assertEqual({'path': path, 'sha256': sha256, 'bytes': size}, elfs[path])
-                # One edge for every library the file names, and no other.
-                edges = [e for e in self.selection['edges'] if e['consumer'] == path]
-                self.assertEqual(sorted(needed), [e['needed'] for e in edges])
-                self.assertEqual(dependencies, sorted(e['provider'] for e in edges if e['kind'] == 'selected-stock'))
-                self.assertEqual({'selected-stock', 'platform-or-vndk34'}, {e['kind'] for e in edges})
-        # Each edge has the form every other consumer of that library uses.
-        forms = {}
-        for edge in self.selection['edges']:
-            form = {k: v for k, v in edge.items() if k != 'consumer'}
-            if edge['consumer'] not in self.WIDEVINE_LIBRARIES:
-                forms.setdefault(edge['needed'], form)
-        for edge in self.selection['edges']:
-            if edge['consumer'] in self.WIDEVINE_LIBRARIES and edge['needed'] in forms:
-                self.assertEqual(forms[edge['needed']], {k: v for k, v in edge.items() if k != 'consumer'})
-        self.assertEqual('/etc/vndkcore.libraries.34.txt', next(
-            e for e in self.selection['edges']
-            if e['consumer'] == self.OEMCRYPTO and e['needed'] == 'libcrypto.so')['export_lists'][0])
-        # Nothing links liboemcrypto.so (the package opens it with dlopen), so it is a root.
-        self.assertIn(self.OEMCRYPTO, self.selection['roots'])
-        self.assertFalse([e for e in self.selection['edges'] if e.get('provider') == self.OEMCRYPTO])
-        for path in ('vendor/lib64/libcpion.so', 'vendor/lib64/libtrustedapploader.so'):
-            self.assertNotIn(path, self.selection['roots'])
-            self.assertEqual([self.OEMCRYPTO],
-                             [e['consumer'] for e in self.selection['edges'] if e.get('provider') == path][:1])
-        self.assertLessEqual(set(self.WIDEVINE_LIBRARIES), vendor_product.reachable(self.selection))
-
-    def test_widevine_libraries_are_rendered_as_vendor_libraries(self):
-        rendered = self.render()
-        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
-        modules = json.loads(rendered['modules.json'])
-        packages = make.split('PRODUCT_PACKAGES += ')[1].split('\n')[0].split()
-        expected = {
-            'liboemcrypto': ['fp6_stock_vendor_lib64_libQSEEComAPI', 'fp6_stock_vendor_lib64_libcpion',
-                             'fp6_stock_vendor_lib64_libminkdescriptor', 'fp6_stock_vendor_lib64_libtrustedapploader',
-                             'libbinder_ndk', 'libc', 'libc++', 'libcrypto', 'libcutils', 'libdl', 'liblog', 'libm',
-                             'libpower', 'libutils', 'vendor.qti.hardware.display.config-V7-ndk'],
-            # The source-built libvmmem replaces the stock one it was linked against.
-            'libcpion': ['libc', 'libc++', 'libdl', 'libdmabufheap', 'liblog', 'libm', 'libvmmem'],
-            'libtrustedapploader': ['fp6_stock_vendor_lib64_libminkdescriptor',
-                                    'fp6_stock_vendor_lib64_libminksocket_vendor', 'fp6_stock_vendor_lib64_libqcbor',
-                                    'libc', 'libc++', 'libdl', 'liblog', 'libm'],
-        }
-        for stem, shared in expected.items():
-            name = 'fp6_stock_vendor_lib64_' + stem
-            with self.subTest(stem=stem):
-                self.assertIn('cc_prebuilt_library_shared {\n'
-                              '    name: "' + name + '",\n'
-                              '    vendor: true,\n'
-                              '    compile_multilib: "64",\n'
-                              '    srcs: ["files/vendor/lib64/' + stem + '.so"],\n'
-                              '    stem: "' + stem + '",\n'
-                              '    strip: { none: true, },\n'
-                              '    shared_libs: ' + json.dumps(shared) + ',\n'
-                              '    system_shared_libs: [],\n'
-                              '}\n', bp)
-                self.assertIn(name, modules)
-                self.assertIn(name, packages)
-        # Installed by their modules in /vendor/lib64, never copied; no init or VINTF file comes with them.
-        for marker in ['lib64/liboemcrypto.so:', 'lib64/libcpion.so:', 'lib64/libtrustedapploader.so:']:
-            self.assertNotIn(marker, make)
-        self.assertFalse({'liboemcrypto', 'libcpion', 'libtrustedapploader'} & vendor_product.ODM_LIBRARIES)
-        self.assertFalse({'liboemcrypto', 'libcpion', 'libtrustedapploader'} & vendor_product.SOURCE_INTERFACES)
-
-    def test_widevine_library_is_installed_only_as_a_root_with_its_whole_closure(self):
-        # Without the root nothing reaches the three libraries: they would stay uninstalled.
-        self.selection['roots'].remove(self.OEMCRYPTO)
-        kept = vendor_product.reachable(self.selection)
-        self.assertFalse(set(self.WIDEVINE_LIBRARIES) & kept)
-        rendered = self.render()
-        for marker in ('liboemcrypto', 'libcpion', 'libtrustedapploader'):
-            self.assertNotIn(marker.encode(), rendered['Android.bp'] + rendered['device-vendor.mk'])
-        self.assertIn(b'name: "com.google.android.widevine"', rendered['Android.bp'])
-
-    def test_widevine_library_with_a_missing_or_changed_dependency_is_rejected(self):
-        for path in ('vendor/lib64/libcpion.so', 'vendor/lib64/libtrustedapploader.so'):
-            with self.subTest(missing_row=path):
-                recipe = copy.deepcopy(self.recipe)
-                recipe['files'] = [r for r in recipe['files'] if r['path'] != path]
-                with self.assertRaises(VendorError):
-                    vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
-            with self.subTest(missing_edge=path):
-                selection = copy.deepcopy(self.selection)
-                selection['edges'] = [e for e in selection['edges']
-                                      if not (e['consumer'] == self.OEMCRYPTO and e.get('provider') == path)]
-                with self.assertRaisesRegex(VendorError, 'incomplete selected ELF dependency edges'):
-                    vendor_product.render(self.recipe, selection, 'synthetic_notice_kind')
-            with self.subTest(missing_elf=path):
-                selection = copy.deepcopy(self.selection)
-                selection['files'] = [r for r in selection['files'] if r['path'] != path]
-                with self.assertRaises(VendorError):
-                    vendor_product.render(self.recipe, selection, 'synthetic_notice_kind')
-        for path in self.WIDEVINE_LIBRARIES:
-            with self.subTest(changed=path):
-                selection = copy.deepcopy(self.selection)
-                next(r for r in selection['files'] if r['path'] == path)['sha256'] = '0' * 64
-                with self.assertRaisesRegex(VendorError, 'identity differs'):
-                    vendor_product.render(self.recipe, selection, 'synthetic_notice_kind')
-            with self.subTest(undeclared=path):
-                recipe = copy.deepcopy(self.recipe)
-                row = next(r for r in recipe['files'] if r['path'] == path)
-                row['dependencies'] = row['dependencies'][1:]
-                with self.assertRaises(VendorError):
-                    vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
 
     def test_unreviewed_or_changed_stock_apex_rejected(self):
         row = next(r for r in self.recipe['files'] if r['path'] == self.WIDEVINE_APEX)
