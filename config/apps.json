@@ -62,10 +62,10 @@
     {
       "id": "camera",
       "package": "app.grapheneos.camera",
-      "version_code": 93,
+      "version_code": 9301,
       "gradle_jdk": "jdk21",
       "repository": "https://github.com/DiamaneOS/Camera.git",
-      "commit": "e41a28b708620672ca4dec7878173188259e678b",
+      "commit": "db2a15d572722a5bc039ee74274752ffe685715e",
       "environment": {},
       "test_catalog_key": false,
       "prebuilt": "external/Camera",
