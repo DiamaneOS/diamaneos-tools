@@ -78,7 +78,7 @@
       "path": "vendor/qcom/opensource/video-driver",
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver",
       "commit": "976400c73395c8cc681c8bd13a3dc18a91804caa",
-      "release": "VIDEO.LA.4.0.r2-08400-lanai.0",
+      "release": "VIDEO.LA.4.0.r2-08500-lanai.0",
       "fairphone_changes": true
     },
     {
@@ -92,7 +92,7 @@
       "path": "vendor/qcom/opensource/audio-kernel",
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/audio-kernel-ar",
       "commit": "3176d0df29c2930a287d2840121fe76e056cfdba",
-      "release": "AUDIO.LA.9.0.r1-09000-lanai.0",
+      "release": "AUDIO.LA.9.0.r1-09100-lanai.0",
       "fairphone_changes": true
     },
     {
