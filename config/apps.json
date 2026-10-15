@@ -53,7 +53,7 @@
       "package": "app.attestation.auditor",
       "version_code": 9201,
       "repository": "https://github.com/DiamaneOS/Auditor.git",
-      "commit": "a89bc82890c38f72fc2b3a4b3ab34e5afa3805c2",
+      "commit": "87384d9b5ed3a81ae5702fc256e10fb17c83bef1",
       "environment": {},
       "test_catalog_key": false,
       "prebuilt": "external/Auditor",
