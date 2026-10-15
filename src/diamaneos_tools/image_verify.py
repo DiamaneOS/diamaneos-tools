@@ -677,6 +677,33 @@ def rule_overlay(rule, v):
     return not problems, '; '.join(problems)
 
 
+def overlay_target(manifest: str) -> str | None:
+    """The target package of an overlay manifest dump, or None when it is no overlay."""
+    match = re.search(r'E: overlay\b.*?targetPackage\([^)]*\)="([^"]+)"', manifest, re.S)
+    return match.group(1) if match else None
+
+
+def rule_overlay_resources_denied(rule, v):
+    """No preinstalled overlay for the target package defines a resource whose
+    name matches one of the patterns."""
+    patterns = [re.compile(p) for p in rule['patterns']]
+    names = sorted({n for pattern in rule['files'] for n in v.tf.glob(pattern) if n.endswith('.apk')})
+    problems, checked = [], 0
+    with v.tools.scratch() as temporary:
+        for name in names:
+            apk = v.tf.extract(name, Path(temporary))
+            manifest = v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk])
+            if overlay_target(manifest) != rule['target']:
+                continue
+            checked += 1
+            dump = v.tools.run('aapt2', ['dump', 'resources', apk])
+            found = re.findall(r'resource 0x[0-9a-f]+ ([a-z]+)/([A-Za-z0-9_.]+)', dump)
+            bad = sorted({f'{kind}/{res}' for kind, res in found if any(p.search(res) for p in patterns)})
+            if bad:
+                problems.append(name + ': ' + ', '.join(bad[:8]))
+    return not problems, '; '.join(problems) or f'{checked} overlays for {rule["target"]} checked'
+
+
 def panel_nits(reference: list, level: float) -> float:
     """Luminance at a panel level, from measured (level, nits) pairs:
     straight lines between neighbours in log-log space."""
@@ -1114,7 +1141,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
          'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_dormant': rule_sepolicy_dormant,
          'sepolicy_xperms': rule_sepolicy_xperms,
-         'overlay': rule_overlay, 'display_config': rule_display_config,
+         'overlay': rule_overlay, 'overlay_resources_denied': rule_overlay_resources_denied,
+         'display_config': rule_display_config,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
