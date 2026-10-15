@@ -2200,6 +2200,16 @@
       ]
     },
     {
+      "id": "no-auditor",
+      "why": "The FP6 never gets attestation keys: its TEE refuses remote key provisioning with a custom AVB key. So no Auditor, its sysconfig file or the hardware attestation feature, which shows Attestation key provisioning in Settings and Auditor in the App Store (vendor/diamaneos DIAMANEOS_HARDWARE_ATTESTATION).",
+      "type": "files_absent",
+      "paths": [
+        "PRODUCT/app/Auditor",
+        "PRODUCT/etc/sysconfig/app.attestation.auditor.xml",
+        "PRODUCT/etc/permissions/de.diamaneos.hardware_attestation.xml"
+      ]
+    },
+    {
       "id": "gallery",
       "why": "LineageOS's Glimpse is the gallery, with its own overlay that names it the system gallery, its sysconfig files and the notices of its bundled libraries; Gallery2 stays installed for its crop screen.",
       "type": "files_present",
