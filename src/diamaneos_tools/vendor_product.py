@@ -1628,7 +1628,7 @@ def main(argv=None):
     parser.add_argument('--notice-kind', required=True, help='reviewed Android notice classification')
     parser.add_argument('--aapt2', type=Path, help='aapt2 for selected stock carrier data extraction')
     parser.add_argument('--factory-zip', type=Path, required=True,
-                        help='the Fairphone factory package, for the firmware every update carries')
+                        help='the device maker\'s factory package, for the firmware every update carries')
     args = parser.parse_args(argv)
     try:
         stock = safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json')

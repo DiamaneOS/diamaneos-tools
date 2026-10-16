@@ -1750,7 +1750,7 @@ GENERIC = [
     ('vendor-patch-level', 'The vendor partition reports the patch level of the stock vendor image its files come '
      'from.', check_vendor_patch_level),
     ('firmware-release-table', 'The vendor image carries the firmware release table the firmware inventory gives, so '
-     'Settings names the installed Fairphone firmware from current hashes.', check_firmware_release_table),
+     'Settings names the installed stock firmware from current hashes.', check_firmware_release_table),
     ('selinux-enforcing', 'No permissive domain beyond the variant\'s allowance.', check_permissive),
     ('bootconfig', 'Required bootconfig present. Nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
     ('kernel-arguments', 'No device tree, overlay, boot image header or bootconfig entry sets a kernel argument '
