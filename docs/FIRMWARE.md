@@ -21,8 +21,9 @@ DiamaneOS delivers it.
   records them per image).
 - So `fwrelease` (device `firmware/`) hashes the slot's A/B firmware partitions once per boot and
   compares them with a table the vendor step writes from the inventory
-  (`/vendor/etc/diamaneos/firmware-releases.txt`; the images left out, each with its reason, are
-  under `firmware_release` in `config/fp6-build.json`).
+  (`/vendor/etc/diamaneos/firmware-releases.txt`).
+- The images the table leaves out, each with its reason, are under `firmware_release` in
+  `config/fp6-build.json`.
 
 - "Mixed releases": the partitions come from different releases.
 - "Unknown": a partition matches no release in the inventory, for example firmware of a release it
@@ -30,7 +31,7 @@ DiamaneOS delivers it.
 
 ## Partitions and sources
 
-Qualcomm and Fairphone build and sign all firmware; DiamaneOS must ship the exact stock bytes. A/B
+Qualcomm and Fairphone build and sign all firmware. DiamaneOS must ship the exact stock bytes. A/B
 partitions have two slots that updates switch between.
 
 | Group | Partitions (image) | Slots |
@@ -45,7 +46,7 @@ partitions have two slots that updates switch between.
 
 `modem` is a FAT filesystem with the modem (MPSS), audio and compute DSPs (ADSP, CDSP), Wi-Fi
 processor firmware (WPSS, `image/qca6750/`), IPA firmware, carrier modem profiles (MCFG) and
-TrustZone applications; its stale `verinfo/ver_info.txt` names older builds, so use the images' own
+TrustZone applications. Its stale `verinfo/ver_info.txt` names older builds, so use the images' own
 version strings.
 
 - Not firmware: the replaced OS images, the wipe images (`userdata`, `metadata`, `frp`) and the
@@ -58,16 +59,16 @@ version strings.
 
 `flash_fp6_factory.command` (`stock_flash_script` in the inventory records its SHA-256 and order):
 
-1. refuses to run unless `fastboot oem device-info` reports both `Device unlocked: true` and `Device
-   critical unlocked: true`, and never locks or unlocks;
-2. writes the firmware partitions, `_a` and `_b` of each A/B one, in alphabetical order from `abl`
-   to `xbl_ramdump` (exact order in the inventory);
-3. writes the OS partitions boot, dtbo, init_boot, recovery, super, vbmeta, vbmeta_system and
-   vendor_boot (both slots, except the single super);
-4. by default writes userdata, metadata and frp (a full wipe);
-5. erases `misc`, `modemst1` and `modemst2` (the modem's runtime settings copy, restored from its
-   backup);
-6. selects slot a, then tries `fastboot oem reset-rollback` and accepts failure.
+1. It refuses to run unless `fastboot oem device-info` reports both `Device unlocked: true` and
+   `Device critical unlocked: true`, and never locks or unlocks.
+2. It writes the firmware partitions, `_a` and `_b` of each A/B one, in alphabetical order from
+   `abl` to `xbl_ramdump` (exact order in the inventory).
+3. It writes the OS partitions boot, dtbo, init_boot, recovery, super, vbmeta, vbmeta_system and
+   vendor_boot (both slots, except the single super).
+4. By default it writes userdata, metadata and frp (a full wipe).
+5. It erases `misc`, `modemst1` and `modemst2` (the modem's runtime settings copy, restored from its
+   backup).
+6. It selects slot a, then tries `fastboot oem reset-rollback` and accepts failure.
 
 ## Delivery
 
@@ -92,7 +93,7 @@ that script (reasons in the `firmware` block of `config/fp6-build.json`):
 | Stock `pvmfw` on both slots | DiamaneOS's own pvmfw, slot a, with the OS |
 | OS images on both slots | Slot a only |
 | `super` from the bootloader | `super_empty.img`, then each logical image to slot a, from fastbootd |
-| `userdata`, `metadata`, `frp` | With `--wipe`; FRP image identical to stock |
+| `userdata`, `metadata`, `frp` | With `--wipe`, FRP image identical to stock |
 | `erase misc` | Zeros, with `--wipe` only: misc holds the OS's boot messages |
 | `erase modemst1`, `modemst2` | Zeros over both whole partitions, right after the firmware, whenever firmware is written |
 | `--set-active=a` | Same |
@@ -155,7 +156,7 @@ as after Fairphone's own flash.
   - Once a locked phone boots a stock release, locations 2 to 4 hold that release's index
     (`avb_rollback_index` in the inventory, the security patch date as Unix time), and images with
     a lower index no longer boot locked.
-- The stock script's `oem reset-rollback` (unlocked only) resets them; Fairphone warns that locking
+- The stock script's `oem reset-rollback` (unlocked only) resets them. Fairphone warns that locking
   on older software than before may brick the phone.
 - DiamaneOS chains the same partitions at 28 to 31, so the indices it stores never limit a stock
   relock.
@@ -173,6 +174,6 @@ as after Fairphone's own flash.
 - The factory package matches its pinned SHA-256, the value Fairphone publishes and its own
   checksum list (`verification` in `config/stock-inputs.json`).
 - Each firmware image in an image set matches the inventory's SHA-256, at packaging and again in
-  `build verify`; `SHA256SUMS` covers the set.
-- On the phone, Qualcomm secure boot checks each image against the SoC's OEM key; AVB covers only
+  `build verify`. `SHA256SUMS` covers the set.
+- On the phone, Qualcomm secure boot checks each image against the SoC's OEM key. AVB covers only
   the OS partitions and pvmfw, so byte-exact stock images keep firmware authentic.
