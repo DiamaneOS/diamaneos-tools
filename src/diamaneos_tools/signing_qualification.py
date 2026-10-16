@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 
 from . import signing_archive as za
-from . import signing_mac
+from . import signing_mac, signing_factory, signing_layout
 from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
                              load_json, require, sha256_file, source_files, verified_build)
 from .signing_inputs import presigned_rule, presigned_apex_rule
@@ -159,6 +159,11 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
         result['previous_artifacts'] = previous['artifacts']
     else:
         result['previous_artifacts'] = {}
+    if production or signing_factory.INPUT_FIELDS <= set(record):
+        result['factory_input'] = signing_factory.input_record(record, result)
+    if logical:
+        result['super_layout'] = signing_layout.super_layout(record, misc, result['mode'])
+        signing_layout.super_members(result)
     result['plan_sha256'] = canonical_sha256(result)
     return result
 

@@ -150,6 +150,51 @@ class NativeSignatureTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         return Path(temporary.name)
 
+    def test_native_vbmeta_binary_authority_matches_only_the_external_key(self):
+        root = self.fixture_directory('factory-authority-')
+        expected, wrong = root / 'expected.bin', root / 'wrong.bin'
+        for key, output in ((self.keys.avb(), expected), (self.private / 'platform.pem', wrong)):
+            self.tools.run('avbtool', ['extract_public_key', '--key', key, '--output', output])
+        self.tools.avb_binary_authority(self.vbmeta, expected)
+        with self.assertRaises(inputs.SigningError):
+            self.tools.avb_binary_authority(self.vbmeta, wrong)
+
+    def test_native_super_requires_complete_admitted_slot_membership(self):
+        root = self.fixture_directory('super-membership-')
+        for slot, extra, missing in [('a', None, False), ('b', None, False),
+                                     ('a', 'unknown_b', False), ('a', None, True),
+                                     ('a', 'system_b', False)]:
+            with self.subTest(slot=slot, extra=extra, missing=missing):
+                super_image = root / 'super.img'
+                command = ['--metadata-size', '65536', '--metadata-slots', '3', '--super-name', 'super',
+                           '--device', 'super:268435456', '--group', 'fixture_a:100663296',
+                           '--group', 'fixture_b:100663296', '--sparse', '--output', super_image]
+                if not missing:
+                    command += ['--partition', f'system_{slot}:readonly:{self.system.stat().st_size}:fixture_{slot}',
+                                '--image', f'system_{slot}={self.system}']
+                other = 'b' if slot == 'a' else 'a'
+                inactive_size = self.system.stat().st_size if extra == f'system_{other}' else 0
+                command += ['--partition', f'system_{other}:readonly:{inactive_size}:fixture_{other}']
+                if inactive_size:
+                    command += ['--image', f'system_{other}={self.system}']
+                if extra and extra != f'system_{other}':
+                    command += ['--partition', f'{extra}:readonly:0:fixture_{other}']
+                self.tools.run('lpmake', command)
+                images = root / 'images.zip'
+                write_zip(images, {**{p.name: p for p in (self.boot, self.vbmeta, self.system)},
+                                   'super.img': super_image})
+                plan = {'mode': 'qualification', 'partitions': ['boot', 'system', 'vbmeta'],
+                        'logical_partitions': ['system'], 'super_layout': {'kind': 'slot-suffixed', 'active_slot': slot},
+                        'factory_input': {'flash': {'slot': slot}}, 'passthrough_images': {}, 'chains': {},
+                        'packages': {n: {} for n in ('SYSTEM/app/Fixture/Fixture.apk', 'SYSTEM/apex/Fixture.apex')},
+                        'mac_permissions': {self.mac_member: []}}
+                if extra or missing:
+                    with self.assertRaises(inputs.SigningError):
+                        api.publication_images(images, self.target, plan, self.tools, self.keys)
+                else:
+                    self.assertEqual(['boot', 'system', 'vbmeta'],
+                                     api.publication_images(images, self.target, plan, self.tools, self.keys))
+
     def test_native_prepare_cli_authenticates_snapshots_and_emits_bound_plan(self):
         root = self.fixture_directory('prepare-cli-')
         source = root / 'source'; source.mkdir()
@@ -166,6 +211,9 @@ class NativeSignatureTests(unittest.TestCase):
         rules_path = source / 'tools/diamaneos/config/fp6-image-checks.json'
         rules_path.parent.mkdir()
         shutil.copyfile(inputs.ROOT / 'config/fp6-image-checks.json', rules_path)
+        generator = source / 'tools/diamaneos/src/diamaneos_tools/flash_all.py'
+        generator.parent.mkdir(parents=True)
+        shutil.copyfile(inputs.ROOT / 'src/diamaneos_tools/flash_all.py', generator)
         certificate = source / 'build/make/target/product/security/testkey.x509.pem'
         certificate.parent.mkdir(parents=True)
         shutil.copyfile(self.keys_dir / 'releasekey.x509.pem', certificate)

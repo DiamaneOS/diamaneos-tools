@@ -248,20 +248,24 @@ class NativeTools:
         try:
             self.run('avbtool', args, cwd=Path(path).parent)
             if binary:
-                parser = safe_file(self.source, 'external/avb/avbtool.py')
-                require(parser.stat().st_size <= 1024 * 1024, 'Platform AVB parser exceeds its bound')
-                revision = self.projects['external/avb'] if self.projects else 'HEAD'
-                selected = git_read(self.source / 'external/avb', ['show', revision + ':avbtool.py'])
-                require(len(selected) <= 1024 * 1024 and parser.read_bytes() == selected,
-                        'Platform AVB parser differs from selected source')
-                with tempfile.TemporaryDirectory(dir=self.scratch, prefix='avb-api-') as directory:
-                    frozen = Path(directory) / 'avbtool.py'
-                    with frozen.open('xb') as stream: stream.write(selected)
-                    frozen.chmod(0o600)
-                    command([sys.executable, '-I', '-c', AVB_BINARY_AUTHORITY, frozen, path, expected], env=self.env)
+                self.avb_binary_authority(path, expected)
         finally:
             if alias is not None: alias.unlink()
         return info
+
+    def avb_binary_authority(self, path, expected):
+        """Compare embedded public bytes through the Git-bound platform parser."""
+        parser = safe_file(self.source, 'external/avb/avbtool.py')
+        require(parser.stat().st_size <= 1024 * 1024, 'Platform AVB parser exceeds its bound')
+        revision = self.projects['external/avb'] if self.projects else 'HEAD'
+        selected = git_read(self.source / 'external/avb', ['show', revision + ':avbtool.py'])
+        require(len(selected) <= 1024 * 1024 and parser.read_bytes() == selected,
+                'Platform AVB parser differs from selected source')
+        with tempfile.TemporaryDirectory(dir=self.scratch, prefix='avb-api-') as directory:
+            frozen = Path(directory) / 'avbtool.py'
+            with frozen.open('xb') as stream: stream.write(selected)
+            frozen.chmod(0o600)
+            command([sys.executable, '-I', '-c', AVB_BINARY_AUTHORITY, frozen, path, expected], env=self.env)
 
     def ssh_signature(self, path, signature, allowed_signers, identity, namespace):
         host_ssh_signature(path, signature, allowed_signers, identity, namespace, self.scratch)

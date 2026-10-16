@@ -23,6 +23,9 @@ On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
     external trust material and artifact tampering.
   - Native fixtures generate disposable keys and check APK, APEX, AVB, OTA and SSH verification,
     including corrupt, unsigned, wrong-key, wrong-role and public-test-key rejection.
+  - Factory fixtures exercise the production publication caller, complete ZIP membership, immutable
+    inputs, script regeneration, key and manifest substitution, repaired checksums, archive attacks
+    and interrupted output publication. Controlled native seams establish orchestration only.
 
 - **Vendor files.**
   - `tests/vendor/test_vendor_files.py` covers selected regular-file generation with the stock

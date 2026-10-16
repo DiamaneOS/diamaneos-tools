@@ -102,6 +102,10 @@ The plan binds archive hashes, selected source-project revisions, consumed Git b
 JDK bytes and the native signer. Changed source, tools, reports or build identity
 are rejected. Git index flags and ignored runtime files cannot bypass source admission.
 
+Super-bearing plans bind `super_layout` before signing. Factory slots come from the admitted
+install record. Legacy qualification uses the platform A/B bootstrap or non-A/B naming contract;
+older plans without this binding require preparation again. Extraction output never chooses the expected layout.
+
 Use `--previous-result` with `--previous-signature` for subsequent runs. The externally
 verified result must contain successful artifact verification in a compatible mode.
 Each plan reports changed signing projects. The first includes every signing project.
@@ -121,12 +125,78 @@ The command runs from the verified source root to resolve original certificates.
 requires the build-bound signer and rejects altered plans, changed source or target-files,
 input replacement and existing outputs.
 
+## Assemble factory images
+
+`signing factory` uses only public trust material. It authenticates the build report before
+loading otatools, verifies signed packages and partitions, rebuilds super from signed target-files,
+and copies the admitted firmware, reset and wipe images. Existing outputs are never replaced.
+
+```sh
+bin/diamaneos signing factory --plan "$PLAN" \
+  --build-record "$IMAGES/build.json" \
+  --verification-report "$VERIFY_REPORT" \
+  --verification-signature "$VERIFY_REPORT_SIGNATURE" \
+  --target-files "$IMAGES/target-files.zip" \
+  --resolved-manifest "$IMAGES/resolved-manifest.xml" \
+  --signed-target-files "$SIGNED_TARGET_FILES" \
+  --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
+  --keys "$TRUST/inventory.json" --scratch "$SCRATCH" \
+  --images-archive "$PUBLICATION/images.zip" \
+  --output "$PUBLICATION/FP6-factory.zip"
+```
+
+The ZIP has one directory named from the product and build number. It contains every signed
+partition, direct logical images and super, immutable passthrough images, `build.json`,
+`SHA256SUMS`, `resolved-manifest.xml`, `flash-all.sh`, `flash-all.bat` and `avb_pkmd.bin`.
+
+The original build record and report remain unchanged. The derived record binds their identities,
+the signing plan, signed target-files and actual image hashes. Its public AVB key must exactly
+match the external authority and the embedded vbmeta key.
+
+Checksums cover every contained file except the checksum list itself. Scripts are regenerated
+from the plan-bound source generator and derived record. Installs use fastbootd for logical
+partitions, cancel a pending snapshot first, and stop in the bootloader after installing a production AVB key.
+
+Before entering fastbootd, scripts select the admitted slot and require a successful
+`current-slot` check. Selection or verification failure stops the install. The manual sequence
+requires the same check before continuing.
+
+Before starting Android, check unlock ability and lock as the generated instructions describe.
+The scripts never lock critical partitions. Archive verification does not establish device
+installation or relock acceptance.
+
+The batch script requires PowerShell to verify every listed SHA-256 before writing images.
+
+The ZIP contains no final result or its own archive hash. The external release record and final
+independent result bind the completed ZIP. Full and incremental OTA generation, factory signing
+and release-record signing require the offline signing environment.
+
 ## Verify publication
 
 Keep the inventory, plan, result and scratch outside the dedicated publication directory.
 The publication description has `schema_version`, `signed_target_files`, `images_archive`,
 `ota`, `factory_archive`, `factory_signature`, `release_record` and `release_signature`.
 Paths are relative. Unknown files, duplicates and links are rejected.
+
+Production uses publication `schema_version: 2` and the full factory ZIP. The
+[publication schema](../schemas/signing-publication.schema.json) defines its fields.
+Version 1 retains the single-image-archive tar format only with `--qualification`.
+Both formats require the external factory and release signatures.
+
+For example, keep this description outside the publication directory:
+
+```json
+{
+  "schema_version": 2,
+  "signed_target_files": "target-files.zip",
+  "images_archive": "images.zip",
+  "ota": [{"file": "ota.zip", "source_target_files": null}],
+  "factory_archive": "FP6-factory.zip",
+  "factory_signature": "FP6-factory.zip.sig",
+  "release_record": "release.json",
+  "release_signature": "release.json.sig"
+}
+```
 
 Each `ota` entry has `file` and `source_target_files`, and a full OTA uses `null`.
 Delta sources must match previous verified artifact hashes. A full OTA is mandatory.
@@ -152,12 +222,13 @@ bin/diamaneos signing verify --plan "$PLAN" \
 - Native verification checks every APK, both compressed APEX containers, their payloads and enclosed APKs against assigned external identities.
 - Package IDs, SELinux certificate selectors, package isolation and installed policy bytes must match the accepted plan and target-files.
 - Published partitions match signed target-files, including unpacked logical images. Direct logical images must match their `super` contents.
+- Super extraction must contain every expected active logical image. Only known empty inactive counterparts are allowed. Slots come from the admitted install record; qualification layouts explicitly bind slot suffixes or unsuffixed platform output.
 - Flat image membership includes every declared firmware, wipe and modem-reset file. Unknown members and partial logical sets are rejected.
 - Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected.
 - The platform OTA checker verifies whole-file, payload and metadata signatures. Build metadata and payload properties bind the accepted build and final bytes.
 - Native payload application reproduces signed target-files partitions, using the verified source for deltas.
 - Incremental pre-build metadata must exactly match the authenticated signed base's platform BuildInfo identity. The base archive hash is rechecked before verification returns.
-- Factory and release signatures use the external authority and distinct namespaces. The factory contains exactly one flat member: the verified image archive.
+- Factory and release signatures use the external authority and distinct namespaces. Factory ZIP membership, metadata, scripts, public key and every image must match the admitted plan and verified images.
 - Closing checks bind source, public material and publication bytes throughout verification. A changed input cannot produce a successful result.
 
 Success records `artifact_signatures_verified: true`, public identities, artifact hashes

@@ -372,7 +372,7 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
     def verify_bootstrap_inputs(self):
         _arguments, identity, _signature = self.bootstrap_inputs()
         publication_root = self.root / 'publication'; publication_root.mkdir()
-        plan = {'schema_version': 2, 'mode': 'production', 'policy_sha256': inputs.canonical_sha256(self.policy),
+        plan = {'schema_version': 2, 'mode': 'qualification', 'policy_sha256': inputs.canonical_sha256(self.policy),
                 'provenance': {'otatools_sha256': inputs.sha256_file(self.root / 'otatools.zip'), 'projects': {}},
                 'packages': {}, 'roles': {}, 'metadata': {}, 'mac_permissions': {}}
         plan['plan_sha256'] = inputs.canonical_sha256(plan)
@@ -381,10 +381,11 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         record.write_text(json.dumps({'schema_version': 1, 'plan_sha256': plan['plan_sha256'], 'artifacts': {}}))
         signature = publication_root / 'record.sig'; signature.write_text('invalid signature')
         publication = {'schema_version': 1, 'signed_target_files': 'target.zip', 'images_archive': 'images.zip',
-                       'ota': [], 'factory_archive': 'factory.zip', 'factory_signature': 'factory.sig',
+                       'ota': [{'file': 'ota.zip', 'source_target_files': None}],
+                       'factory_archive': 'factory.zip', 'factory_signature': 'factory.sig',
                        'release_record': 'record.json', 'release_signature': 'record.sig'}
         (self.root / 'publication.json').write_text(json.dumps(publication))
-        arguments = ['verify', '--plan', str(self.root / 'plan-input.json'), '--publication', str(self.root / 'publication.json'),
+        arguments = ['verify', '--qualification', '--plan', str(self.root / 'plan-input.json'), '--publication', str(self.root / 'publication.json'),
             '--artifact-root', str(publication_root), '--source-root', str(self.source), '--otatools', str(self.root / 'otatools.zip'),
             '--keys', str(self.root / 'authority/inventory.json'), '--scratch', str(self.root / 'scratch'),
             '--output', str(self.root / 'result.json')]

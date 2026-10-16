@@ -296,6 +296,7 @@ def source_files(source, projects):
     paths = {'script/generate-release.sh', 'script/generate-delta.sh', 'script/common.sh',
              'external/avb/avbtool.py',
              'build/make/tools/releasetools/check_ota_package_signature.py',
+             'tools/diamaneos/src/diamaneos_tools/flash_all.py',
              'tools/diamaneos/config/fp6-image-checks.json'}
     trees = {}
     for project, revision in projects.items():
