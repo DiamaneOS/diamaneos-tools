@@ -2,6 +2,11 @@
   "schema_version": 1,
   "scope": "How the public build commands build, package and flash an FP6 test image. Identity pins live in build-environment-fp6.json; this file holds no host paths.",
   "product": "FP6",
+  "device": {
+    "name": "Fairphone 6",
+    "maker": "Fairphone",
+    "bootloader_keys": "Power and Volume down"
+  },
   "release_config": "cur",
   "default_variant": "user",
   "variants": {

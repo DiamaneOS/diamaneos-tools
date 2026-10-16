@@ -5,6 +5,7 @@ from diamaneos_tools import flash_all
 
 def record(**extra):
     base = {'build_id': 'test', 'product': 'FP6',
+            'device': {'name': 'Fairphone 6', 'maker': 'Fairphone', 'bootloader_keys': 'Power and Volume down'},
             'flash': {'slot': 'a', 'bootloader': ['boot', 'vbmeta'], 'logical': ['system']},
             'wipe': {'images': {'userdata': {'file': 'userdata.img'}}}}
     return {**base, **extra}
