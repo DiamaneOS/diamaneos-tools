@@ -21,7 +21,7 @@ NO_SIM_REPAIR_SHA256 = 'fb9407aad050f2e8d250582788108a9574e9e8199096542628688cb4
 
 
 def decode_xml_dump(text):
-    """Decode aapt2's strict XML tree output; reject unsupported syntax."""
+    """Decode aapt2's strict XML tree output. Reject unsupported syntax."""
     stack, root = [], None
     for line in text.splitlines():
         element = re.fullmatch(r'(\s*)E: ([\w-]+) \(line=\d+\)', line)
@@ -66,7 +66,7 @@ def extract(apk, aapt2):
 
     The caller authenticates the complete APK with its stock recipe before this
     step. Keep asset bytes and filter order. The stock service uses the same
-    carrier-ID and mccmnc prefixes as Android; obsolete numeric-only assets
+    carrier-ID and mccmnc prefixes as Android. Obsolete numeric-only assets
     are not used by either service and must not be renamed into active data.
     """
     if aapt2 is None:
@@ -123,7 +123,7 @@ def extract(apk, aapt2):
             else:
                 if root.tag not in ('carrier_config', 'carrier_config_list'):
                     raise VendorError('unexpected carrier asset root')
-            # The numeric carrier ID is authoritative; the suffix is only a
+            # The numeric carrier ID is authoritative. The suffix is only a
             # display label. Soong's assets copy rule interpolates paths into
             # a shell script without quoting them. Never send stock labels
             # (spaces, apostrophes, &, parentheses, etc.) to that rule.
@@ -199,7 +199,7 @@ def main():
     except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile):
         parser.exit(1, 'ERROR: carrier APK does not match supplied generation provenance\n')
     print(json.dumps({'status': 'PASS', 'device_assets': count,
-                      'scope': 'packaged data comparison; not runtime or carrier acceptance'}))
+                      'scope': 'packaged data comparison. Not runtime or carrier acceptance'}))
 
 
 if __name__ == '__main__':

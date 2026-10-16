@@ -70,7 +70,7 @@ SOURCE_INTERFACES = {
     'android.hardware.sensors@2.1',
     'android.hardware.sensors-V2-ndk',
     # AOSP radio, secure-element and netd interfaces linked by the stock radio
-    # daemon, its data module and nicmd; built from source (vendor variants).
+    # daemon, its data module and nicmd. Built from source (vendor variants).
     'android.hardware.radio-V2-ndk',
     'android.hardware.radio.config-V2-ndk',
     'android.hardware.radio.data-V2-ndk',
@@ -118,7 +118,7 @@ SOURCE_MODULE_DEPENDENCIES = {
     'vendor.qti.hardware.display.allocator@4.0',
     'vendor.qti.hardware.display.config-V2-ndk',
     # Display: thermal interfaces linked by the stock SDM
-    # composition-strategy extension; the tree builds all three.
+    # composition-strategy extension. The tree builds all three.
     'android.hardware.thermal-V1-ndk',
     'android.hardware.thermal@1.0',
     'android.hardware.thermal@2.0',
@@ -126,7 +126,7 @@ SOURCE_MODULE_DEPENDENCIES = {
     # AIDL V1 interfaces, the minijail helper and the display-config V5
     # interface linked by the stock Qualcomm Codec2 service and its plugins.
     # The last two are also SOURCE_INTERFACES (their stock rows belong to
-    # radio-ims-data and public-hal-services); listing them here admits the
+    # radio-ims-data and public-hal-services). Listing them here admits the
     # media source-module edges without a component dependency on those lanes.
     'android.hardware.media.bufferpool2-V1-ndk',
     'android.hardware.media.c2@1.0',
@@ -152,21 +152,21 @@ ACTIVATION={
  # Not selected: tftp_server and pd-mapper. The device builds the open
  # linux-msm tqftpserv and pd-mapper instead (device modem/modem.mk).
  # Stock starts these from its board-wide init.target.rc and init.qti.kernel.rc,
- # which are not selected; the FP6 device init.qcom.rc defines their services.
+ # which are not selected. The FP6 device init.qcom.rc defines their services.
  'pm-service':(None,None),
  'pm-proxy':(None,None),
  # ssr_setup enables subsystem restart (recovery) for the modem and DSPs from
- # persist.vendor.ssr.restart_level; stock starts it from init.qcom.rc, which
+ # persist.vendor.ssr.restart_level. Stock starts it from init.qcom.rc, which
  # is not selected. The FP6 device modem/init.modem.rc defines the service.
  'ssr_setup':(None,None),
- # sscrpcd starts the sensors protection domain on the ADSP; the sensors
+ # sscrpcd starts the sensors protection domain on the ADSP. The sensors
  # multi-HAL itself is built from source (device.mk).
  'sscrpcd':('vendor.sensors.sscrpcd.rc',None),
  # Not selected: audioadsprpcd, which starts the audio protection domain on
  # the ADSP. The device builds it from Fairphone's published audio-ar source
  # with the same init file (audio/audio.mk).
  # Not selected: the stock GNSS HAL (IGnss v3) and its location libraries. The
- # device builds them from CodeLinaro source (device gnss/gnss.mk); only the
+ # device builds them from CodeLinaro source (device gnss/gnss.mk). Only the
  # stock gps.conf, izat.conf (pinned derivations, GNSS_CONFIG_REWRITES) and
  # sap.conf stay.
  # The stock CamX/CHI camera provider (AIDL ICameraProvider/vendor_qti/0).
@@ -183,10 +183,10 @@ ACTIVATION={
  # nicmd configures the rmnet data interfaces for modem data calls.
  'nicmd':('nicmd.rc',None),
  # Not selected: the stock Bluetooth HCI service. It links FM, ANT, SAR,
- # config-store and TPI libraries it never registers here; the device's own
+ # config-store and TPI libraries it never registers here. The device's own
  # service (bluetooth/service.cpp) registers the stock HCI implementation, a
  # runtime root, and the device manifest.xml declares IBluetoothHci 1.1.
- # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default); its rc also sets the
+ # Stock Samsung S3NRN4V NFC HAL (AIDL INfc/default). Its rc also sets the
  # /dev/sec-nfc owner at boot.
  'android.hardware.nfc-service.sec':('nfc-service-sec.rc','nfc-service-sec.xml'),
  # Stock Qualcomm Codec2 video service (HIDL IComponentStore/default): the
@@ -199,15 +199,15 @@ ACTIVATION={
  'vendor.qti.media.c2@1.0-service':(None,None),
 }
 
-# Reviewed stock Java components outside vendor (bring-up). They keep
-# the stock signature (presigned); their privileges come only from the device's
+# Reviewed stock Java components outside vendor. They keep
+# the stock signature (presigned). Their privileges come only from the device's
 # privileged-permission allowlist, never from the DiamaneOS platform key.
 # path -> (module name = install directory, privileged). Every privileged app
 # needs a complete device allowlist entry (grants and denials).
 STOCK_APPS = {
  # The coupled Qualcomm IWLAN and modem-certificate frontend, without CNE.
- # Privileged placement keeps their shared UID closed to new ordinary installs;
- # they request only normal permissions and receive no additional privileged grants.
+ # Privileged placement keeps their shared UID closed to new ordinary installs.
+ # They request only normal permissions and receive no additional privileged grants.
  'vendor/app/IWlanService/IWlanService.apk':('IWlanService', True),
  'vendor/app/CACertService/CACertService.apk':('CACertService', True),
  'system_ext/priv-app/ims/ims.apk':('ims', True),
@@ -235,7 +235,7 @@ STOCK_LIBRARIES = {
 STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml'}
 # Reviewed stock vendor APEXes, each bound to the exact stock file. An APEX is
 # installed whole under its stock file name with Soong prebuilt_apex, which
-# keeps the stock container and payload signatures; the module is named after
+# keeps the stock container and payload signatures. The module is named after
 # the APEX. Its service, init file, VINTF fragment and file labels are inside
 # the package, so other bytes need a new review here and of the payload rule
 # in config/fp6-image-checks.json. Any other vendor/apex path is refused.
@@ -257,7 +257,7 @@ STOCK_APEXES = {
 # /odm/lib64 instead, which the vendor and sphal linker namespaces search before
 # /vendor/lib64, so their stock consumers still load the stock copy.
 # The Codec2 framework libraries are the Android 14 builds the Qualcomm codec
-# plugins were built against; the Android 17 ones are not ABI compatible.
+# plugins were built against. The Android 17 ones are not ABI compatible.
 ODM_LIBRARIES = {'libkeymaster_messages',
                  'libcodec2_hidl@1.0', 'libcodec2_hidl@1.1', 'libcodec2_hidl@1.2',
                  'libcodec2_hidl_plugin', 'libcodec2_vndk',
@@ -304,7 +304,7 @@ def blueprint(kind, properties):
 # registration. The library logs the refusal and the provider carries on.
 LIBRARY_VINTF = {}
 # Non-ELF data the stock CamX reads from /vendor/lib64 (sensor modules, tuning,
-# flash/face-detection tables, BitML networks). Copied as is; generate()
+# flash/face-detection tables, BitML networks). Copied as is, and generate()
 # rejects ELF content under these paths.
 LIB64_DATA = (
     re.compile(r'vendor/lib64/camera/[A-Za-z0-9_.]+\.bin'),
@@ -312,7 +312,7 @@ LIB64_DATA = (
 )
 # Hexagon (DSP) libraries loaded over FastRPC. Installed with Soong
 # prebuilt_rfsa into /vendor/lib/rfsa/adsp, which the stock FastRPC loader
-# searches (libcdsprpc/libadsprpc path strings); the stock
+# searches (libcdsprpc/libadsprpc path strings). The stock
 # /vendor/lib64/rfs/dsp copies move there because no Soong type installs to
 # that directory and PRODUCT_COPY_FILES rejects ELF files.
 DSP_DIRECTORIES = ('vendor/lib/rfsa/adsp/', 'vendor/lib64/rfs/dsp/')
@@ -329,13 +329,13 @@ RUNTIME_EDGE = 'selected-stock-runtime'
 RUNTIME_ONLY_AIDL = {'android.hardware.graphics.allocator-V1-ndk'}
 
 # One DT_NEEDED name of a stock blob renamed to a source-built device module
-# of the same name length; input and output bytes are pinned.
+# of the same name length. Input and output bytes are pinned.
 # - The colour manager was built against the Android 14 VNDK tinyxml2, whose
 #   Android 17 ABI differs: it links an old-ABI copy (device compat module).
 # - The camera provider links the seccomp loader (device camera/seccomp) in
 #   place of libhardware, which the loader and camx.provider-impl.so link, so
 #   nothing else changes. The loader's constructor runs before the provider's
-#   main(), so before CamX loads; without it the provider does not start.
+#   main(), so before CamX loads. Without it the provider does not start.
 NEEDED_REWRITES = {
  'vendor/lib64/libsnapdragoncolor-manager.so': {
   'needed': 'libtinyxml2.so', 'replacement': 'libtxml2v34.so', 'module': 'libtxml2v34',
@@ -348,14 +348,14 @@ NEEDED_REWRITES = {
   'sha256': 'fcec163779acab018729a028fec7ed9d431a2355bc0b714a3911b62367c890ff',
   'reason': 'Load the seccomp loader (libcamxjail, which links libhardware) before the provider starts'},
  # Hardware video encoders (device compat/codec2-v34):
- # - libcodec2_vndk allocates Android 14's 256-byte GraphicBuffer itself;
+ # - libcodec2_vndk allocates Android 14's 256-byte GraphicBuffer itself.
  #   Android 17 libui's constructor expects 3376 bytes and would overflow the
  #   codec service's heap. Its six GraphicBuffer imports bind to uiv34's
  #   Android 14 sized one (GRAPHICBUFFER_V34_SYMBOLS), which fails closed
  #   unless hardware video decoding is on and then wraps Surface buffers as
  #   Android 14 does. uiv34 links the real libui for every other symbol.
  # - libcodec2_hidl@1.0-1.2 need GraphicBufferSource::getHGraphicBufferProducer,
- #   which Android 17 lacks (same class layout); the compat helper adds it.
+ #   which Android 17 lacks (same class layout). The compat helper adds it.
  # Both keep the original library in shared_libs (keep_link): Soong's ELF check
  # resolves their other imports only against the listed libraries.
  # Hardware video codec service: the device's seccomp filter and codec gate
@@ -365,7 +365,7 @@ NEEDED_REWRITES = {
  # It installs DiamaneOS's filter (and the stock one on top), checks the codec
  # configuration (the Qualcomm library registers every codec when it cannot
  # read it) and builds the store around a filter that offers only the codecs
- # this boot allows, or none; the store always registers. Without the gate the
+ # this boot allows, or none. The store always registers. Without the gate the
  # service does not start.
  'vendor/bin/hw/vendor.qti.media.c2@1.0-service': {
   'needed': 'libavservices_minijail.so', 'replacement': 'libc2hwjail_avservices.so',
@@ -407,7 +407,7 @@ NEEDED_REWRITES = {
  # working GraphicBuffers, which Android 17 libui's constructor would overflow
  # in the provider's heap. Its three GraphicBuffer imports bind to uiv34's
  # Android 14 sized one (GRAPHICBUFFER_V34_NODE_SYMBOLS). No keep_link: they
- # are its only libui imports, so Soong's ELF check needs only uiv34 listed;
+ # are its only libui imports, so Soong's ELF check needs only uiv34 listed.
  # libundistort.so, which the node links, imports no libui symbol.
  'vendor/lib64/camera/components/com.fp.node.distortion.so': {
   'needed': 'libui.so', 'replacement': 'uiv34.so', 'module': 'uiv34',
@@ -421,7 +421,7 @@ NEEDED_REWRITES = {
 # and constructs at the Android 14 size, renamed to a 13-character name only the
 # uiv34 compat defines (GraphicBuffer and GraphicBufV34 are both 13 characters,
 # so every Itanium length prefix stays valid and the strings keep their length).
-# Only these six undefined symbols are renamed; the library's own defined
+# Only these six undefined symbols are renamed. The library's own defined
 # sp<GraphicBuffer> template symbols keep their names.
 GRAPHICBUFFER_V34_SYMBOLS = (
     ('_ZN7android13GraphicBufferC1Ev',
@@ -454,7 +454,7 @@ SYMBOL_RENAMES = {'GRAPHICBUFFER_V34_SYMBOLS': GRAPHICBUFFER_V34_SYMBOLS,
 
 
 def rename_dynamic_symbols(data, pairs):
-    """Rename specific undefined dynamic symbols in place; refuse anything unsafe.
+    """Rename specific undefined dynamic symbols in place. Refuse anything unsafe.
 
     Each new name must have the same length as the old one (so .dynstr offsets
     stay valid). Every old name must resolve to exactly one symbol, that symbol
@@ -508,7 +508,7 @@ def rename_dynamic_symbols(data, pairs):
 
 
 def rewrite_needed(data, needed, replacement):
-    """Rename one DT_NEEDED string in place; refuse if any other reference shares its bytes."""
+    """Rename one DT_NEEDED string in place. Refuse if any other reference shares its bytes."""
     import struct
     if len(needed) != len(replacement) or data[:5] != b'\x7fELF\x02' or data[5] != 1:
         raise VendorError('unsupported dependency rewrite')
@@ -564,7 +564,7 @@ def rewrite_needed(data, needed, replacement):
 
 
 def needed_rewrite(path, original):
-    """Apply the reviewed dependency rewrite of one stock blob; its input and result are pinned."""
+    """Apply the reviewed dependency rewrite of one stock blob. Its input and result are pinned."""
     rewrite = NEEDED_REWRITES[path]
     if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
         raise VendorError('dependency rewrite input differs from reviewed blob')
@@ -653,7 +653,7 @@ def render(recipe, selection, notice_kind):
                     # The blob imports the original library's other symbols
                     # and reaches them through the replacement, which links
                     # it. Soong's ELF check resolves imports only against the
-                    # listed shared_libs, so both are listed; the blob's
+                    # listed shared_libs, so both are listed. The blob's
                     # DT_NEEDED names only the replacement.
                     dependencies[edge['consumer']].append(dep)
                 dep = rewrite['module']
@@ -693,7 +693,7 @@ def render(recipe, selection, notice_kind):
                 or any(rows[path][k] != item[k] for k in ('sha256', 'bytes'))
                 or not item.get('consumer') or not item.get('source')):
             raise VendorError('missing or inconsistent firmware dependency')
-    text = '// Generated from the selected stock recipe; do not edit.\n'
+    text = '// Generated from the selected stock recipe. Do not edit.\n'
     text += blueprint('package', {'default_applicable_licenses': ['fp6_selected_stock_notices']})
     text += blueprint('license', {'name': 'fp6_selected_stock_notices',
                                  'license_kinds': [notice_kind], 'license_text': ['NOTICE.xml']})
@@ -976,7 +976,7 @@ BT_OFFLOAD_PORTS = (b'BT A2DP Out', b'BT A2DP Headphones', b'BT A2DP Speaker', b
 
 
 def bluetooth_software_audio_policy(data):
-    """Drop the offload-only Bluetooth ports and compressed offload; use the AOSP Bluetooth module."""
+    """Drop the offload-only Bluetooth ports and compressed offload. Use the AOSP Bluetooth module."""
     names = b'|'.join(re.escape(n) for n in BT_OFFLOAD_PORTS)
     derived = re.sub(rb'^[ \t]*<devicePort tagName="(?:' + names + rb')"[^>]*>.*?</devicePort>\n',
                      b'', data, flags=re.S | re.M)
@@ -985,7 +985,7 @@ def bluetooth_software_audio_policy(data):
     derived = re.sub(rb'sources="([^"]*)"', lambda m: b'sources="' + b','.join(
         s for s in m[1].split(b',') if s not in (b'A2DP In', b'BLE In')) + b'"', derived)
     # No compressed offload: apps cannot hand MP3, AAC, FLAC and other bitstreams to the
-    # closed DSP decoders; Android's sandboxed software codecs decode them instead.
+    # closed DSP decoders. Android's sandboxed software codecs decode them instead.
     derived = re.sub(rb'^[ \t]*<mixPort name="compressed_offload".*?</mixPort>\n', b'', derived, flags=re.S | re.M)
     derived = derived.replace(b',compressed_offload', b'')
     return derived.replace(
@@ -1017,8 +1017,8 @@ CAMERA_CONFIG_REWRITES = {
         'source_sha256': 'ccc0c2b945c1be4fee8061ddc519d090c2c8f76ea70b3c733b11429eb20175f8',
         'sha256': 'da955f72ded8e2d93776745149958b7f421c158ce54365330e629828af6e496d',
         'reason': 'Limit camera provider groups to camera, media (secure FastRPC node), oem_2907 (thermal) '
-                  'and wakelock; drop the undeclared offline camera, postproc and AON interface lines and the '
-                  'cam_event_inject fault-injection chown; add class cameraWatchdog so init restarts the '
+                  'and wakelock. Drop the undeclared offline camera, postproc and AON interface lines and the '
+                  'cam_event_inject fault-injection chown. Add class cameraWatchdog so init restarts the '
                   'provider with cameraserver'},
     'vendor/etc/camera/camxoverridesettings.txt': {
         'source_sha256': '620b6aeb7fc0e57cb19971f0c64796563ccfb9439dba2ddb4151cd314d9ad3af',
@@ -1161,7 +1161,7 @@ def nfc_config(path, data):
 
 # The stock sensors multi-HAL configuration also loads the AOSP dynamic-sensor
 # sub-HAL, which parses HID sensor descriptors from Bluetooth and USB devices
-# (head trackers). The HAL has no hidraw access, so it cannot serve one; only
+# (head trackers). The HAL has no hidraw access, so it cannot serve one. Only
 # the Qualcomm sub-HAL is loaded.
 SENSORS_CONFIG_REWRITES = {
     'vendor/etc/sensors/hals.conf': {
@@ -1219,7 +1219,7 @@ GNSS_CONFIG_REWRITES = {
     'vendor/etc/gps.conf': {
         'source_sha256': 'a89ca530acfa96685d87160ecf61ac49f3a26128dfa24372c4eb917ec7ccdd57',
         'sha256': '29dee8ed4ebde298418da8bd31669eaa2bb162f2085a698e8de767dd6114fbb8',
-        'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface; log warnings and errors only'},
+        'reason': 'Remove the Qualcomm XTRA time server and the diagnostic logging interface. Log warnings and errors only'},
 }
 IZAT_DISABLED_PROCESSES = ('lowi-server', 'xtwifi-client', 'slim_daemon', 'xtra-daemon', 'edgnss-daemon', 'blpsvc')
 GNSS_REQUIRED = {
@@ -1267,8 +1267,8 @@ def gnss_config(path, data):
 # - the target specification gets a "codecs-available" list with the five
 #   encoders and no decoder. libqcodec2_v4l2codec registers, for store listing
 #   and component creation, only the set libqcodec2_platform merges from the
-#   decoders, encoders and OptionalCodecs lists; an empty set means every
-#   codec, so the invariants below also keep OptionalCodecs empty;
+#   decoders, encoders and OptionalCodecs lists. An empty set means every
+#   codec, so the invariants below also keep OptionalCodecs empty.
 # - the codec list loses its decoder section, so MediaCodec, which creates
 #   only what MediaCodecList lists, cannot pick one even if one is registered.
 MEDIA_ENCODERS = ('c2.qti.avc.encoder', 'c2.qti.hevc.encoder', 'c2.qti.hevc.encoder.cq',
@@ -1298,7 +1298,7 @@ MEDIA_CONFIG_REWRITES = {
     'vendor/etc/media_codecs_volcano_v1.xml': {
         'source_sha256': '19704733060e7eaabc8d1cdd5b3101e9b6111af1fa379ef52c6f4f7370f68b9f',
         'sha256': 'f3bab56928d262ef354814d4a77bbace55cd80c4c0ed56965a3e496c852090b5',
-        'reason': 'Drop the hardware decoder section from the codec list; decoding stays in the software codecs'},
+        'reason': 'Drop the hardware decoder section from the codec list. Decoding stays in the software codecs'},
     'vendor/etc/media_volcano_v1/video_system_specs.json': {
         'source_sha256': '994abc6e26e3225e3ee64cd6b460817036624a17b78d7a3a9bcb4930e96ccc09',
         'sha256': 'eca3f4cbae94b0a19d4847085544f66501775eb94592f3c5198871a77e8d3dcd',
@@ -1307,7 +1307,7 @@ MEDIA_CONFIG_REWRITES = {
 
 
 def media_encoders_only_codec_list(data):
-    """Replace the codec list's Decoders section with a note; every other byte stays."""
+    """Replace the codec list's Decoders section with a note. Every other byte stays."""
     derived, count = re.subn(
         rb'\n    <Decoders>\n.*?\n    </Decoders>\n',
         b'\n    <!-- DiamaneOS: no hardware decoders. Decoding stays in the platform\n'
@@ -1326,7 +1326,7 @@ def media_encoders_only_codec_list(data):
 
 
 def media_decoder_codec_list(data):
-    """Keep only the allowed hardware decoders in the codec list; every other byte stays."""
+    """Keep only the allowed hardware decoders in the codec list. Every other byte stays."""
     section = re.search(rb'\n    <Decoders>\n.*?\n    </Decoders>\n', data, flags=re.S)
     if section is None or data.count(b'<Decoders>') != 1:
         raise VendorError('codec list differs from reviewed structure')
@@ -1580,7 +1580,7 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                     records[str(p.relative_to(tree))] = {'bytes': p.stat().st_size,
                         'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
             # Closure records describe authenticated source bytes. Derivations
-            # explicitly bind changed output; neither claims runtime acceptance.
+            # explicitly bind changed output. Neither claims runtime acceptance.
             vendor_files.verify_tree(tree, records)
             final = generations / identity
             if final.exists() or final.is_symlink():
