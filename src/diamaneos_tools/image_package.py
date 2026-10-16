@@ -160,7 +160,7 @@ def check_wipe_against_fstab(fstab: str, wipe: dict) -> None:
     entries = fstab_entries(fstab)
     data, metadata = entries.get('/data'), entries.get('/metadata')
     if data is None or 'formattable' not in data['flags']:
-        raise BuildStepError('the device fstab does not let first boot format /data; the zeroed userdata image needs it')
+        raise BuildStepError('the device fstab does not let first boot format /data. The zeroed userdata image needs it')
     if metadata is None or metadata['type'] != wipe['images']['metadata']['kind']:
         raise BuildStepError('the metadata image type does not match the device fstab')
 
@@ -172,7 +172,7 @@ def factory_package(ws) -> Path:
     path = Path(name) if name else None
     if path is None or not path.is_file():
         raise BuildStepError('packaging needs the factory package the vendor step used: the firmware comes from it'
-                             + (f' ({path.name} is gone)' if path else '') + '; run "diamaneos build vendor" again')
+                             + (f' ({path.name} is gone)' if path else '') + '. Run "diamaneos build vendor" again')
     return path
 
 
@@ -201,7 +201,7 @@ def plan(ctx):
         out, identifier, final, partial = paths()
         target_files = ws.root / out['target_files']
         if bw.sha_file(target_files) != out['target_files_sha256']:
-            raise BuildStepError('the target-files archive changed after the build; run "diamaneos build android" again')
+            raise BuildStepError('the target-files archive changed after the build. Run "diamaneos build android" again')
         tool = out.get('otatools')
         if out.get('official') is True and not tool:
             raise BuildStepError('official build record lacks its otatools archive')
@@ -224,7 +224,7 @@ def plan(ctx):
                      reuse=final.is_dir() and same_build(final, out, firmware_plan, inputs['build_config']))
         if final.exists() and not state['reuse']:
             raise BuildStepError(f'{final} exists but is not this build (its record, packaging configuration or '
-                                 'SHA256SUMS differ); move it aside')
+                                 'SHA256SUMS differ). Move it aside')
         if partial.exists():
             shutil.rmtree(partial)
         if not state['reuse']:
@@ -308,7 +308,7 @@ def plan(ctx):
         out = android['outputs']
         sync, vendor = ws.passed('sync'), ws.passed('vendor')
         if sync is None:
-            raise BuildStepError('the sync step has no passed record; run "diamaneos build sync" again')
+            raise BuildStepError('the sync step has no passed record. Run "diamaneos build sync" again')
         shutil.copy2(state['target_files'], state['partial'] / TARGET_FILES_COPY)
         tool = out.get('otatools')
         if tool:
@@ -317,7 +317,7 @@ def plan(ctx):
                 raise BuildStepError('otatools changed during packaging')
         shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
-            raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
+            raise BuildStepError('the recorded resolved manifest changed. Run "diamaneos build all" again')
         # The tools that built the Android images are in their build identity.
         # Packaging may run from a later checkout and is recorded beside them.
         tools = out.get('tools') or {'commit': None, 'clean': None}
@@ -328,7 +328,7 @@ def plan(ctx):
         deviations = sync['outputs'].get('deviations') or []
         if official and (modified or deviations or sync['outputs'].get('modified')):
             raise BuildStepError('the Android step built official images, but the source record now has local '
-                                 'changes or deviations; run "diamaneos build all --official" again')
+                                 'changes or deviations. Run "diamaneos build all --official" again')
         skew = out.get('tools_skew') or ctx.cache.get('tools_skew')
         # Vendor files a build that is not official kept from an earlier source.
         vendor_source = ((vendor or {}).get('inputs') or {}).get('sync')

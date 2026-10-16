@@ -12,7 +12,7 @@ installed or run.
 Input, one of:
   --module-dir DIR    a build module directory: its Android.bp installs the file
                       (a product prebuilt_etc named fonts_customization.xml) and
-                      the fonts (product prebuilt_font modules); a source.json
+                      the fonts (product prebuilt_font modules). A source.json
                       there, if present, records each file's SHA-256
   --xml FILE --font-dir DIR
                       an installed file and its font directory, for example
@@ -36,7 +36,7 @@ Errors (exit 1):
   path           a font name with a '..' part, which leaves the font directory
   weight         a variable font's default wght instance is not its declared
                  weight, so a request for exactly that weight draws the default
-                 instance; or a weight given with --weights is outside a font's
+                 instance. Or a weight given with --weights is outside a font's
                  wght axis, so it is clamped
   slant          the font's italic flag differs from its declared style
   font-file      the check cannot read a font's name, OS/2, head or fvar table
@@ -483,7 +483,7 @@ class Reader:
                      'the font with the XML', label, font['file'])
             return None
         if isinstance(info, FontFileError):
-            self.add('error', 'boot', f'{font["file"]}: {info}; Skia cannot open it and Font.Builder throws '
+            self.add('error', 'boot', f'{font["file"]}: {info}. Skia cannot open it and Font.Builder throws '
                      'IllegalArgumentException', label, font['file'])
             return None
         font['info'] = info
@@ -566,7 +566,7 @@ def directory_resolver(font_dir):
     def resolve(name):
         # Android reads fontDir + name, so a leading '/' stays inside the directory.
         if '..' in name.split('/') or '\0' in name:
-            return None, 'path', f'the name leaves {FONT_DIR}; the check reads only files inside it'
+            return None, 'path', f'the name leaves {FONT_DIR}. The check reads only files inside it'
         path = Path(f'{font_dir}/{name}')
         if name and path.is_file():
             return path, None, None
@@ -782,7 +782,7 @@ def _parser():
     parser.add_argument('--module-dir', type=Path, help='directory of the Android.bp that installs the file')
     parser.add_argument('--xml', type=Path, help='an installed fonts_customization.xml')
     parser.add_argument('--font-dir', type=Path, help='the font directory the file is read with')
-    parser.add_argument('--weights', help='comma-separated weights the product asks for; each must be '
+    parser.add_argument('--weights', help='comma-separated weights the product asks for. Each must be '
                         'inside every variable font\'s wght axis')
     parser.add_argument('--strict', action='store_true', help='fail on warnings too')
     parser.add_argument('--json', action='store_true', help='print the machine-readable report')

@@ -112,7 +112,7 @@ class PinnedManifestTests(unittest.TestCase):
 
     def test_another_environment_or_tools_commit_is_noted(self):
         self.record['official'] = True
-        self.assertEqual(('build.json records an official build; build it with --official to make the same images',),
+        self.assertEqual(('build.json records an official build. Build it with --official to make the same images',),
                          self.load().notes)
         del self.record['official']
         self.record['environment']['sha256'] = 'f' * 64

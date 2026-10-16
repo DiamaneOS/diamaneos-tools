@@ -1,9 +1,9 @@
-"""Build a DiamaneOS test image for the Fairphone 6 in one workspace.
+"""Build a DiamaneOS test image in one workspace.
 
-The steps are sync, vendor, android, package and verify; "all" runs them in
+The steps are sync, vendor, android, package and verify. "all" runs them in
 order and skips steps whose inputs did not change. Every step checks what it
 consumes and records what it produced. The kernel comes from the kernel
-prebuilts in the manifest; "build kernel" builds it from source for
+prebuilts in the manifest, and "build kernel" builds it from source for
 maintainers. --dry-run prints the plan.
 """
 from __future__ import annotations
@@ -316,8 +316,8 @@ def retire_overlay(src: Path, strict: bool = True) -> list:
     own = directory / 'diamaneos.xml'
     if entries != ['diamaneos.xml'] or own.is_symlink():
         if strict:
-            raise UsageError(f'{directory} holds local manifests the build does not use ({", ".join(entries)}); '
-                             'move them away and run the sync again')
+            raise UsageError(f'{directory} holds local manifests the build does not use ({", ".join(entries)}). '
+                             'Move them away and run the sync again')
         if 'diamaneos.xml' not in entries or own.is_symlink() or not own.is_file():
             return []
     previous = src / '.repo/diamaneos-previous-local-manifests'
@@ -374,14 +374,14 @@ def plan_sync(ctx: Context) -> StepPlan:
 
     def check_manifest():
         if not (ws.src / '.repo' / 'repo').is_dir():
-            raise BuildStepError(f'{ws.src} is not a repo checkout; run "repo init" and "repo sync" there, or '
+            raise BuildStepError(f'{ws.src} is not a repo checkout. Run "repo init" and "repo sync" there, or '
                                  '"diamaneos build sync"')
         try:
             build.check_repo_tool(env, ws.src, ctx.official)
         except build.BuildError as error:
             if not ctx.check_only:
                 raise
-            raise BuildStepError(f'{error}: an official build needs the pinned repo tool; run "repo init '
+            raise BuildStepError(f'{error}: an official build needs the pinned repo tool. Run "repo init '
                                  f'--repo-rev={repo["release_tag"]}" and "repo sync" again') from None
         # A build that is not official reports another origin with its other deviations.
         build.verify_manifest_repository(env, ws.src, notes=None if ctx.official else [])
@@ -398,7 +398,7 @@ def plan_sync(ctx: Context) -> StepPlan:
 
     def check_recorded():
         ctx.echo(f'    reproducing a pinned resolved manifest: the manifest checkout must be at the recorded '
-                 f'commit {pinned.manifest_commit}, in the history of {manifest["branch"]}; the check that it is '
+                 f'commit {pinned.manifest_commit}, in the history of {manifest["branch"]}. The check that it is '
                  f'at the head of {manifest["branch"]} does not apply')
         build.verify_manifest_repository(env, ws.src, pinned.manifest_commit)
         source_sync.check_against_manifest(pinned.data, repo_manifest(), pinned.manifest_commit)
@@ -412,7 +412,7 @@ def plan_sync(ctx: Context) -> StepPlan:
     def clear_renamed():
         removed = source_sync.clear_renamed(ws.src, source_sync.manifest_projects(repo_manifest()))
         for path, old, new in removed:
-            ctx.echo(f'    {path}: now {new} (was {old}); the clean old checkout was removed')
+            ctx.echo(f'    {path}: now {new} (was {old}). The clean old checkout was removed')
 
     def prefetch():
         targets = source_sync.prefetch_targets(pinned.data if pinned else repo_manifest(), settings['projects'],
@@ -431,7 +431,7 @@ def plan_sync(ctx: Context) -> StepPlan:
                                               allow_modified=not ctx.official)
         warn_modified(ctx, result['modified'])
         for note in result.get('deviations') or ():
-            ctx.echo(f'    warning: {note}; build.json records it, and --official refuses it')
+            ctx.echo(f'    warning: {note}. build.json records it, and --official refuses it')
         if pinned and result['resolved_manifest_sha256'] != pinned.sha256:
             raise BuildStepError('the synced source is not the pinned resolved manifest: "repo manifest -r" '
                                  f'gives SHA-256 {result["resolved_manifest_sha256"]}, the pinned manifest has '
@@ -456,12 +456,12 @@ def plan_sync(ctx: Context) -> StepPlan:
     if pinned:
         actions += [
             Action('Check out the recorded manifest', func=checkout_recorded, network=True,
-                   detail=f'the recorded manifest commit {pinned.manifest_commit}; a shallow manifest checkout '
+                   detail=f'the recorded manifest commit {pinned.manifest_commit}. A shallow manifest checkout '
                           f'first fetches the history of {manifest["branch"]}'),
             Action('Check the recorded manifest', func=check_recorded,
                    detail=f'the manifest checkout is at the recorded commit, in the history of '
-                          f'{manifest["branch"]}, and the pinned manifest has that commit\'s projects and remotes; '
-                          'the branch-head check does not apply to a pinned manifest'),
+                          f'{manifest["branch"]}, and the pinned manifest has that commit\'s projects and remotes. '
+                          'The branch-head check does not apply to a pinned manifest'),
         ]
     if settings:
         actions += [
@@ -470,7 +470,7 @@ def plan_sync(ctx: Context) -> StepPlan:
                           'them shallow again'),
             Action('Fetch large prebuilts', func=prefetch, network=True,
                    detail=f'the large prebuilt projects first, one revision each at depth 1, {settings["jobs"]} at a '
-                          f'time; a transfer below {settings["low_speed_limit_bytes"]} bytes/s for '
+                          f'time. A transfer below {settings["low_speed_limit_bytes"]} bytes/s for '
                           f'{settings["low_speed_time_seconds"]} s stops, up to {settings["attempts"]} attempts each: '
                           + ', '.join(settings['projects'])),
         ]
@@ -484,7 +484,7 @@ def plan_sync(ctx: Context) -> StepPlan:
                cwd=ws.src, network=True, env=GIT_HTTP),
         Action('Clear stale inputs', func=retire, detail='move stale generated inputs aside'),
         Action('Verify the source tree', func=verify,
-               detail='every project at its resolved commit, nothing undeclared; record the resolved manifest'),
+               detail='every project at its resolved commit, nothing undeclared, then record the resolved manifest'),
     ]
     if ctx.check_only:
         # After a plain "repo sync": the checks and the record of a sync, without repo.
@@ -523,7 +523,7 @@ def warn_modified(ctx: Context, modified) -> None:
     """Name the projects with local changes a build accepts (not an official one)."""
     if modified:
         shown = ', '.join(modified[:20]) + (f' and {len(modified) - 20} more' if len(modified) > 20 else '')
-        ctx.echo(f'    warning: local changes in {shown}; build.json records them, and --official refuses them')
+        ctx.echo(f'    warning: local changes in {shown}. build.json records them, and --official refuses them')
 
 
 def check_policy_provenance(ctx: Context) -> None:
@@ -547,7 +547,7 @@ def synced_manifest(ctx: Context, sync: dict) -> bytes:
     """The resolved manifest recorded by the passed sync step."""
     resolved = ctx.resolved_manifest.read_bytes()
     if build.sha256_bytes(resolved) != sync['outputs'].get('resolved_manifest_sha256'):
-        raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build sync" again')
+        raise BuildStepError('the recorded resolved manifest changed. Run "diamaneos build sync" again')
     return resolved
 
 
@@ -640,7 +640,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 subprocess.SubprocessError) as error:
             if not ctx.dry_run:
                 raise BuildStepError('cannot read the commit times of the synced sources for the image tools '
-                                     f'({error}); run "diamaneos build sync" again') from error
+                                     f'({error}). Run "diamaneos build sync" again') from error
     host_tools = Action(
         'Build the image tools', detail='aapt2, simg2img, lpunpack and debugfs_static from the synced source',
         argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
@@ -815,7 +815,7 @@ def plan_android(ctx: Context) -> StepPlan:
                 subprocess.SubprocessError) as error:
             if not ctx.dry_run:
                 raise BuildStepError('cannot read the commit times of the synced sources for BUILD_DATETIME '
-                                     f'({error}); run "diamaneos build sync" again') from error
+                                     f'({error}). Run "diamaneos build sync" again') from error
             datetime = None
 
     def install():
@@ -836,14 +836,14 @@ def plan_android(ctx: Context) -> StepPlan:
             result = build.verify_branch_checkout(ctx.environment, ws.src, ctx.environment_sha256,
                                                   manifest_commit=commit, allow_modified=not ctx.official)
             if result['resolved_manifest_sha256'] != sync['outputs']['resolved_manifest_sha256']:
-                raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded; '
+                raise BuildStepError('the source tree is not the one "diamaneos build sync" recorded. '
                                      'run "diamaneos build sync" again')
             if result['modified_sha256'] != sync['outputs'].get('modified_sha256'):
-                raise BuildStepError('the local changes are not the ones "diamaneos build sync" recorded; '
+                raise BuildStepError('the local changes are not the ones "diamaneos build sync" recorded. '
                                      'run "diamaneos build sync" again')
             if result.get('deviations_sha256') != sync['outputs'].get('deviations_sha256'):
                 raise BuildStepError('the deviations of the source tree are not the ones "diamaneos build sync" '
-                                     'recorded; run "diamaneos build sync" again')
+                                     'recorded. Run "diamaneos build sync" again')
             if key == 'preflight':
                 warn_modified(ctx, result['modified'])
                 check_policy_provenance(ctx)
@@ -930,7 +930,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         with zipfile.ZipFile(target_files) as archive:
             properties = build_properties(archive.read('SYSTEM/build.prop'))
     except (BuildStepError, KeyError, OSError, zipfile.BadZipFile) as error:
-        raise UsageError(f'out/ holds no complete {config["product"]} build ({error}); after lunch, build it with '
+        raise UsageError(f'out/ holds no complete {config["product"]} build ({error}). After lunch, build it with '
                          f'"{MANUAL_TARGETS}"') from None
     variant = properties.get('ro.build.type')
     if variant not in config['variants']:
@@ -939,7 +939,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         raise UsageError(f'out/ holds a {variant} build, not {ctx.variant}: run lunch '
                          f'{config["product"]}-{config["release_config"]}-{ctx.variant} and m, or leave out --variant')
     if ctx.official:
-        raise UsageError('official images come only from "diamaneos build all"; a build by hand is never official')
+        raise UsageError('official images come only from "diamaneos build all". A build by hand is never official')
     lunch = f'{config["product"]}-{config["release_config"]}-{variant}'
     inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync), 'vendor': vendor['outputs'],
               'variant': variant, 'build_config': config_subset(config, ANDROID_CONFIG), 'android_build': 'manual'}
@@ -948,7 +948,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
     def check_out():
         missing = [tool for tool in MANUAL_HOST_TOOLS if not (ctx.host_bin / tool).is_file()]
         if missing:
-            raise BuildStepError(f'out/ lacks {", ".join(missing)}; after lunch, build them with "{MANUAL_TARGETS}"')
+            raise BuildStepError(f'out/ lacks {", ".join(missing)}. After lunch, build them with "{MANUAL_TARGETS}"')
 
     def check_source():
         commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
@@ -957,7 +957,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         if (result['resolved_manifest_sha256'], result['modified_sha256'], result.get('deviations_sha256')) != (
                 sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256'),
                 sync['outputs'].get('deviations_sha256')):
-            raise BuildStepError('the source changed since "diamaneos build vendor" checked it; run it again, then m')
+            raise BuildStepError('the source changed since "diamaneos build vendor" checked it. Run it again, then m')
         state['source'] = result
 
     def check_vendor_files():
@@ -970,7 +970,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         except (OSError, ValueError, KeyError, TypeError):
             installed = None
         if installed != generation:
-            raise BuildStepError('the source has not the vendor tree "diamaneos build vendor" made; run it again, '
+            raise BuildStepError('the source has not the vendor tree "diamaneos build vendor" made. Run it again, '
                                  'then m')
         archive = image_verify.TargetFiles(target_files)
         try:
@@ -979,8 +979,8 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         finally:
             archive.close()
         if not passed:
-            raise BuildStepError(f'out/ was not built with the vendor tree of "diamaneos build vendor" ({detail}); '
-                                 'run m again')
+            raise BuildStepError(f'out/ was not built with the vendor tree of "diamaneos build vendor" ({detail}). '
+                                 'Run m again')
 
     def check_age():
         # Times cannot prove what m built, so a newer input is a note, not a stop.
@@ -990,7 +990,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         if (ws.state_dir / 'vendor.json').stat().st_mtime > built:
             newer.insert(0, 'the vendor files')
         if newer:
-            ctx.echo(f'    note: out/ is older than {", ".join(newer[:10])}; if m has not run since, run it and '
+            ctx.echo(f'    note: out/ is older than {", ".join(newer[:10])}. If m has not run since, run it and '
                      'package again')
 
     actions = [Action('Check the manual build', func=check_out, detail=f'{lunch} in out/'),
@@ -1103,9 +1103,9 @@ def check_prerequisites(ctx: Context, name: str, steps) -> None:
             reason = 'is out of date (its inputs changed)'
         option = '' if recorded.variant == ctx.config['default_variant'] else ' --variant ' + recorded.variant
         if ctx.manual:
-            raise UsageError(f'{dependency} {reason}; run "diamaneos build vendor", then m, then '
+            raise UsageError(f'{dependency} {reason}. Run "diamaneos build vendor", then m, then '
                              '"diamaneos build package" again')
-        raise UsageError(f'{dependency} {reason}; run "diamaneos build {dependency}{option}" '
+        raise UsageError(f'{dependency} {reason}. Run "diamaneos build {dependency}{option}" '
                          f'or "diamaneos build all{option}"')
 
 
@@ -1132,12 +1132,12 @@ def tools_skew(ctx: Context, synced_now: bool, root: Path = ROOT) -> tuple[str, 
         return None
     checkout = ctx.workspace.src / TOOLS_PROJECT
     if running is None:
-        return 'unknown', f'cannot tell the commit of these tools ({root}); the source\'s {TOOLS_PROJECT} is at {synced}'
+        return 'unknown', f'cannot tell the commit of these tools ({root}). The source\'s {TOOLS_PROJECT} is at {synced}'
     if synced_now and checkout.resolve() == root.resolve():
         return 'moved', f'the sync moved these tools from {running[:12]} to {synced[:12]}'
     if run_git(['-C', root, 'merge-base', '--is-ancestor', synced, running], check=False).returncode == 0:
         return 'newer', (f'these tools ({running[:12]}) are newer than the source\'s {TOOLS_PROJECT} '
-                         f'({synced[:12]}); build.json records the tools commit')
+                         f'({synced[:12]}). build.json records the tools commit')
     return 'stale', (f'these tools ({root}, commit {running[:12]}) do not contain the source\'s {TOOLS_PROJECT} '
                      f'commit {synced[:12]}, so their vendor selection and image checks may not match the device '
                      f'tree. Run {checkout / "bin/diamaneos"} instead, or update this checkout')
@@ -1159,7 +1159,7 @@ def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False, step: str
     kind, message = skew
     if kind == 'moved':
         if ctx.restarted:
-            raise UsageError(message + '; run the same command again')
+            raise UsageError(message + '. Run the same command again')
         raise ToolsUpdated(message, synced_tools(ctx))
     official = ctx.official or (step in ('package', 'verify') and built_official(ctx))
     if kind == 'stale' and official and not dry_run:
@@ -1267,7 +1267,7 @@ def remember_official(ws: bw.Workspace, official: bool) -> None:
     marker = ws.state_dir / OFFICIAL_MARKER
     if official:
         ws.state_dir.mkdir(parents=True, exist_ok=True)
-        marker.write_text('Build official images in this workspace (DIAMANEOS_OFFICIAL_BUILD=true); '
+        marker.write_text('Build official images in this workspace (DIAMANEOS_OFFICIAL_BUILD=true). '
                           '"diamaneos build all --no-official" turns it off.\n')
     else:
         marker.unlink(missing_ok=True)
@@ -1354,7 +1354,7 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         prog='diamaneos build', description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging. '
-               '"diamaneos build kernel" builds the kernel from source (maintainers; not part of build all).')
+               '"diamaneos build kernel" builds the kernel from source (for maintainers, not part of build all).')
     result.add_argument('step', choices=('all',) + bw.STEPS + bw.MAINTAINER_STEPS)
     result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, the workspace of '
                                             'the checkout these tools run from, or ~/diamaneos-build)')
@@ -1362,12 +1362,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument('--variant', help='user (default) or userdebug')
     result.add_argument('--official', action=argparse.BooleanOptionalAction, default=None,
                         help='build official images (DIAMANEOS_OFFICIAL_BUILD=true): they include the Updater, '
-                             'which checks DiamaneOS\'s update server. For DiamaneOS\'s own builder; leave it off '
-                             'for other builds. The workspace remembers the choice; --no-official turns it off')
+                             'which checks DiamaneOS\'s update server. For DiamaneOS\'s own builder. Leave it off '
+                             'for other builds. The workspace remembers the choice. --no-official turns it off')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
                         help='compile with network access instead of without it. Only for hosts where '
-                             'unprivileged user namespaces are unavailable; recorded in build.json')
+                             'unprivileged user namespaces are unavailable. build.json records it')
     result.add_argument('--shallow', action='store_true',
                         help='sync: fetch only the resolved commits, not their history. Saves roughly '
                              'half of the source download and disk, but the checkout has no history '
@@ -1407,7 +1407,7 @@ def main(argv=None, echo=print) -> int:
         if (args.build_json or args.manifest_commit) and not args.resolved_manifest:
             raise UsageError('--build-json and --manifest-commit go with --resolved-manifest')
         if args.resolved_manifest and args.from_step not in (None, 'sync'):
-            raise UsageError('--resolved-manifest runs the sync step; it does not go with --from ' + args.from_step)
+            raise UsageError('--resolved-manifest runs the sync step. It does not go with --from ' + args.from_step)
         ctx = make_context(args, echo)
         ctx.restarted = restarted is not None
         for note in ctx.pinned.notes if ctx.pinned else ():
@@ -1436,8 +1436,8 @@ def main(argv=None, echo=print) -> int:
         elif ctx.follows_branch and pinned_sync(ctx.workspace):
             # A reproduction keeps its source until "build sync" moves on.
             commit = pinned_sync(ctx.workspace).get('manifest_commit')
-            echo(f'note: the last sync reproduced a pinned resolved manifest (manifest commit {commit}); '
-                 '"build all" builds that source. Run "diamaneos build sync" to move to the head of '
+            echo(f'note: the last sync reproduced a pinned resolved manifest (manifest commit {commit}), '
+                 'and "build all" builds that source. Run "diamaneos build sync" to move to the head of '
                  f'{ctx.environment["manifest"]["branch"]}.')
         elif ctx.follows_branch:
             # Like repo sync before a build: move to the branch head. Later
@@ -1448,7 +1448,7 @@ def main(argv=None, echo=print) -> int:
             force = tuple(step for step in force if step != 'sync')
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
-                 'Updater; --no-official turns that off')
+                 'Updater. --no-official turns that off')
         if not args.workspace and not os.environ.get('DIAMANEOS_WORKSPACE') and not args.dry_run:
             echo(f'workspace: {ctx.workspace.root}')
         if args.dry_run:
@@ -1479,18 +1479,18 @@ def main(argv=None, echo=print) -> int:
     except ToolsUpdated as update:
         # Like repo after it updates itself: run the command again with the
         # new tools, so no step mixes their code with the old.
-        echo(f'note: {update}; starting again with the new tools')
+        echo(f'note: {update}. Starting again with the new tools')
         os.environ[RESTARTED] = update.commit
         sys.stdout.flush()
         sys.stderr.flush()
         try:
             os.execv(sys.executable, [sys.executable, str(DIAMANEOS), 'build', *argv])
         except OSError as error:
-            print(f'ERROR: cannot start again ({error}); run the same command again', file=sys.stderr)
+            print(f'ERROR: cannot start again ({error}). Run the same command again', file=sys.stderr)
             return 2
         return 0
     except KeyboardInterrupt:
-        echo('interrupted; run the same command again to continue')
+        echo('interrupted. Run the same command again to continue')
         return 130
     except BuildStepError as error:
         print('ERROR: ' + str(error), file=sys.stderr)

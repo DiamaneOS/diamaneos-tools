@@ -876,7 +876,7 @@ def verify_manifest_repository(config: dict, source: Path, manifest_commit: str 
         expected = None
     if manifest_commit is None:
         if expected != head:
-            raise BuildError(f"manifest checkout is not at {branch}; run repo init with -b {branch}")
+            raise BuildError(f"manifest checkout is not at {branch}. Run repo init with -b {branch}")
     else:
         if not isinstance(manifest_commit, str) or SHA1_RE.fullmatch(manifest_commit) is None:
             raise BuildError("the recorded manifest commit is not a full commit id")
@@ -1050,8 +1050,8 @@ def _parser() -> argparse.ArgumentParser:
         "--thermal-check", "--fan-check", dest="thermal_check", type=Path,
         default=None,
         help=("absolute executable which exits zero only when the build host's "
-              "current thermal and cooling state is safe; required for host "
-              "and full preflight; --fan-check is a backwards-compatible alias"),
+              "current thermal and cooling state is safe. Required for host "
+              "and full preflight. --fan-check is a backwards-compatible alias"),
     )
     return parser
 

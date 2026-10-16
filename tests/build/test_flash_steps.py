@@ -115,7 +115,7 @@ class FlashStepTests(unittest.TestCase):
         self.assertIn('- 1 image checks failed (avb-chain): this build lacks what they check.', text)
         self.assertIn('fastboot wipe-super super_empty.img', text)
         self.record['official'] = True
-        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\); do not flash'):
+        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\). Do not flash'):
             self.text(firmware='skip')
         # The set's hashes, firmware and vendor files stop every build.
         self.record['official'] = False
