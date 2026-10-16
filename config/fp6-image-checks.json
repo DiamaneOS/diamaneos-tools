@@ -2422,6 +2422,31 @@
       }
     },
     {
+      "id": "systemui-overlays-indicators",
+      "why": "No preinstalled overlay may change SystemUI's privacy indicator or Tally resources (finding -216). The source check only sees DiamaneOS's own overlay folders, this one sees every overlay in the image.",
+      "official": true,
+      "type": "overlay_resources_denied",
+      "target": "com.android.systemui",
+      "files": [
+        "SYSTEM/overlay/*.apk",
+        "SYSTEM/overlay/*/*.apk",
+        "SYSTEM_EXT/overlay/*.apk",
+        "SYSTEM_EXT/overlay/*/*.apk",
+        "PRODUCT/overlay/*.apk",
+        "PRODUCT/overlay/*/*.apk",
+        "VENDOR/overlay/*.apk",
+        "VENDOR/overlay/*/*.apk",
+        "ODM/overlay/*.apk",
+        "ODM/overlay/*/*.apk"
+      ],
+      "patterns": [
+        "^ongoing_appops_",
+        "^ongoing_privacy_",
+        "^privacy_",
+        "^tally_"
+      ]
+    },
+    {
       "id": "updater-permissions",
       "why": "The Updater asks for the permissions of GrapheneOS's Updater at the pin and nothing more (the last one comes from AndroidX).",
       "official": true,

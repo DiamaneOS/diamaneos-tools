@@ -1342,6 +1342,34 @@ class RuleTests(unittest.TestCase):
         # A value that only appears under a different resource is not a match.
         self.assertFalse(rule(['app.grapheneos.absent']))
 
+    def test_systemui_overlay_resources_denied(self):
+        rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                    if r['id'] == 'systemui-overlays-indicators')
+        overlays = json.loads((ROOT / 'config/overlays.json').read_text())
+        self.assertEqual(sorted(overlays['product_rules']['denied_patterns']['com.android.systemui']),
+                         sorted(rule['patterns']))
+        target = lambda pkg: ('E: manifest\n  E: overlay (line=3)\n'
+                              f'    A: http://schemas.android.com/apk/res/android:targetPackage(0x01010021)="{pkg}"\n')
+        manifests = {'good.apk': target('com.android.systemui'), 'bad.apk': target('com.android.systemui'),
+                     'other.apk': target('com.android.settings'), 'app.apk': 'E: manifest\n  E: application\n'}
+        resources = {'good.apk': '    resource 0x7f010000 dimen/status_bar_height\n',
+                     'bad.apk': '    resource 0x7f010000 color/tally_lamp_camera\n'
+                                '    resource 0x7f010001 dimen/privacy_dot_size\n',
+                     'other.apk': '    resource 0x7f010000 string/privacy_title\n', 'app.apk': ''}
+        pick = lambda table: lambda args: next(v for k, v in table.items() if str(args[-1]).endswith(k))
+        tools = FakeTools({('aapt2', 'xmltree'): pick(manifests), ('aapt2', 'resources'): pick(resources)})
+        members = {'PRODUCT/overlay/good.apk': b'apk', 'VENDOR/overlay/x/other.apk': b'apk',
+                   'SYSTEM/app/A/app.apk': b'apk'}
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertTrue(ok, detail)
+        self.assertIn('1 overlays for com.android.systemui', detail)
+        members['SYSTEM_EXT/overlay/bad.apk'] = b'apk'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertFalse(ok)
+        self.assertIn('color/tally_lamp_camera', detail)
+        self.assertIn('dimen/privacy_dot_size', detail)
+        self.assertNotIn('other.apk', detail)
+
     def display_config(self, rule, nits=lambda n: n, brightness=lambda b: b, manual=None, time_max=86400,
                        battery_saver='true', plain_top=1.0, doze=True, dimmer='true', overlay_dimmer='true',
                        overlay_min=None):
