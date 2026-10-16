@@ -2,7 +2,7 @@
   "schema_version": 1,
   "repository": "https://github.com/DiamaneOS/kernel_qcom-6.1",
   "branch": "upstream",
-  "policy": "Import record of the upstream projects in kernel_qcom-6.1 that config/forks.json follows one by one (the sources whose pin names this file). Each import is one commit on the repository's upstream branch, which is merged into android17. commit: the upstream commit the folder comes from. fairphone_changes: the folder is that commit with Fairphone's FP6 changes, so the next import must carry them too. release: the newest release tag matching the source's newer_tags that the commit contains, or null. After an import, update commit and release in the change that moves config/kernel-sources-fp6.json to a revision containing it.",
+  "policy": "Import record of the upstream projects in kernel_qcom-6.1 that config/forks.json follows one by one (the sources whose pin names this file). Each import is one commit on the repository's upstream branch, and android17 is rebased onto it. commit: the upstream commit the folder comes from. fairphone_changes: the folder is that commit with Fairphone's FP6 changes, so the next import must carry them too. release: the newest release tag matching the source's newer_tags that the commit contains, or null. After an import, update commit and release in the change that moves config/kernel-sources-fp6.json to a revision containing it.",
   "imports": [
     {
       "path": "kernel_platform/msm-kernel",

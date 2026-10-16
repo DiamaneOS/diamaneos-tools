@@ -639,22 +639,30 @@ commands](#the-build-commands).
 - The kernel's upstream projects are folders of
   [`kernel_qcom-6.1`](https://github.com/DiamaneOS/kernel_qcom-6.1), except the common kernel
   submodule.
-- Each was imported as one commit on its `upstream` branch, which is merged into `android17`, so
-  upstream commits are not in the history of `android17`.
+- Each is imported as one commit on its `upstream` branch, so upstream's own history is not in the
+  repository.
+- `android17` is `upstream` with DiamaneOS's commits on top. `upstream` is never merged into it.
 - [`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records the imports
   followed one by one (the vendor kernel, the techpack drivers, two device trees and edk2): the
   upstream commit, the newest release tag that commit contains (matching the source's `newer_tags`,
   or `null`) and whether the folder also carries Fairphone's FP6 changes.
 - The other imports are followed through Fairphone's source manifest.
-- An import is `current` while its followed branch still points at the recorded commit. Release tags
-  after the recorded release are `newer`.
-- To take an update, import the new upstream state on `upstream` and merge it into `android17`.
+- An import is `current` while its followed branch still points at the recorded commit. Release
+  tags after the recorded release are `newer`.
+- To take an update:
+  - Import the new upstream state on `upstream`, one commit per project.
+  - Rebase DiamaneOS's commits from `android17` onto the new `upstream`, with a squash review:
+    commits that belong together are squashed.
+  - Backports that the new state already contains drop out as empty commits.
+  - The rebased branch replaces `android17`. The old head stays reachable on a dated branch, so the
+    sources of published kernel builds stay available.
 - Where `fairphone_changes` is true, the import must carry Fairphone's FP6 changes too (Fairphone's
   rebased branch, or the difference between the recorded commit and the folder on `upstream`,
-  applied to the new state), or the merge drops them.
-- The change that moves `config/kernel-sources-fp6.json` to the merged commit also sets the
-  project's `commit` and `release`. `git tag --merged <commit>` in a clone of the upstream project
-  lists the releases a commit contains.
+  applied to the new state), or the rebased branch loses them.
+- The change that moves `config/kernel-sources-fp6.json` to the rebased commit also sets the
+  project's `commit` and `release`.
+- `git tag --merged <commit>` in a clone of the upstream project lists the releases a commit
+  contains.
 
 ```sh
 bin/diamaneos forks check           # remote refs only, exit 1 when something moved
