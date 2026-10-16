@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "FP6 development kernel placement; runtime and production qualification are separate.",
+  "scope": "FP6 kernel module placement. Runtime and production qualification are separate.",
   "partitions": {
     "system_dlkm": [
       "8021q.ko",
