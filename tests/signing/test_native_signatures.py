@@ -29,7 +29,7 @@ def require_native_inputs():
         return
     message = 'Native signature fixtures require explicit platform paths: ' + ', '.join(missing)
     if sys.platform.startswith('linux') or os.environ.get('DIAMANEOS_SIGNING_REQUIRE_NATIVE') == '1':
-        raise RuntimeError(message + '; required native verification cannot be skipped')
+        raise RuntimeError(message + '. Required native verification cannot be skipped')
     raise unittest.SkipTest(message)
 
 

@@ -4,8 +4,8 @@ Generic checks bind the set to its record, the kernel prebuilts it was built
 with and the vendor generation, and check the security properties every public
 build must have.
 The device checks in config/fp6-image-checks.json run on the same archive.
-File-level checks read the target-files archive the images were made from;
-image-level checks read the exported images.
+File-level checks read the target-files archive the images were made from.
+Image-level checks read the exported images.
 """
 from __future__ import annotations
 

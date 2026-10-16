@@ -267,7 +267,7 @@ def update(root, fork, ref=None, today=None, rerere=None):
     Like GrapheneOS: the new release is the base and the fork's commits are replayed on it, merges dropped and
     `fixup!` commits folded into the commit they name (autosquash). The fork branch is never moved.
     rerere: a directory of recorded resolutions (one subdirectory per fork slug). A stop whose every
-    conflict a recorded resolution settles continues; the files are reported as rerere_resolved.
+    conflict a recorded resolution settles continues. The files are reported as rerere_resolved.
     """
     repo = Path(root) / fork['slug']
     if not (repo / '.git').exists():
