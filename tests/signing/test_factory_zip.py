@@ -55,6 +55,7 @@ class FactoryInputs(TemporaryInputs):
         record = {'schema_version': 1, **{n: provenance[n] for n in
                    ('product', 'build_id', 'build_number', 'build_datetime', 'build_identity')},
                   'variant': 'user', 'official': True,
+                  'device': {'name': 'Fairphone 6', 'maker': 'Fairphone', 'bootloader_keys': 'Power and Volume down'},
                   'manifest': {'file': self.manifest.name, 'resolved_sha256': si.sha256_file(self.manifest)},
                   'flash': {'slot': 'a', 'bootloader': ['boot', 'recovery', 'vbmeta'], 'logical': ['system', 'vendor']},
                   'firmware': {'release': 'fixture-firmware', 'validated': True,
@@ -236,7 +237,9 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
                    lambda v: v['flash']['bootloader'].remove('vbmeta'),
                    lambda v: v['flash']['logical'].pop(),
                    lambda v: v.update(build_id='name$(false)'),
-                   lambda v: v['firmware']['steps'][0].update(partition='abl_a;false')]
+                   lambda v: v['firmware']['steps'][0].update(partition='abl_a;false'),
+                   lambda v: v['device'].update(maker="Fairphone'; false; '"),
+                   lambda v: v.pop('device')]
         for change in changes:
             value = copy.deepcopy(self.plan['factory_input']); change(value)
             with self.assertRaises(si.SigningError): factory.validate_input(value, self.plan)

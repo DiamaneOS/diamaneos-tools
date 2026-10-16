@@ -337,6 +337,8 @@ or deleted files):
   - The flash order, slot and wipe images come from `config/fp6-build.json`, the firmware steps from
     `build.json`: first, in the stock order, both slots of each A/B firmware partition, then the
     modem file system reset, and only when the phone runs older firmware than the set carries.
+  - The device's name, maker and bootloader keys in the printed steps and the install scripts come
+    from the `device` block of `config/fp6-build.json`, which `build.json` carries.
   - The phone's firmware release comes from `--phone-firmware` or the `--since` image set, because
     the FP6 bootloader does not report it.
   - Firmware steps also need the phone's saved bootloader state (`--phone`), and a newer release on
@@ -519,7 +521,7 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause; finished steps are skipped. |
 | `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. An official build stops and is never flashed. For other builds it is a warning, and `flash-steps` names the failed checks. |
 | `the verification report belongs to another image set` | Run `tools/diamaneos/bin/diamaneos build verify` again for this set. |
-| `flash-all` waits for fastbootd or the bootloader and the phone does not get there | Hold Power and Volume down until the phone restarts into the bootloader, then run the script again. |
+| `flash-all` waits for fastbootd or the bootloader and the phone does not get there | Hold the device's bootloader keys (Power and Volume down on the FP6) until the phone restarts into the bootloader, then run the script again. |
 
 ## Pinned Android environment
 

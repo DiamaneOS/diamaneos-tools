@@ -90,7 +90,7 @@ class FlashStepTests(unittest.TestCase):
         for line in ('fastboot flash userdata userdata.img', 'fastboot flash metadata metadata.img',
                      'fastboot flash frp frp.img', 'fastboot flash misc misc.img'):
             self.assertIn(line, text)
-        self.assertIn('not yet tested on a phone', text)
+        self.assertIn('not been tested on a phone', text)
         self.assertNotIn('erase', '\n'.join(l for l in text.splitlines() if 'fastboot' in l and l.startswith('  ')))
         # Left alone, the firmware partitions stay as they are, the state ones too.
         self.assertNotIn('vm-persist', text)
@@ -166,6 +166,21 @@ class FlashStepTests(unittest.TestCase):
         # mid-reply and leaves the bootloader unable to answer the next command.
         self.assertEqual([], [line for line in scripts[flash_all.SH].splitlines()
                               if re.search(r'fastboot [^|;]*\|\s*(grep -q|head)', line)])
+
+    def test_the_device_texts_come_from_the_build_profile(self):
+        record = json.loads(json.dumps(self.record))
+        record['device'] = {'name': 'Example 1', 'maker': 'Example', 'bootloader_keys': 'Power and Volume up'}
+        steps = '\n'.join(flash_steps.steps(self.directory, record, report=self.report, wipe=True,
+                                            phone=self.phone(), phone_firmware=OLDER))
+        scripts = flash_all.scripts(record)
+        for text in [steps, *scripts.values()]:
+            self.assertNotIn('Fairphone', text)
+            self.assertIn("Example's", text)
+        self.assertIn('unlock the bootloader as Example describes', steps)
+        self.assertIn('hold Power and Volume up until the bootloader appears', steps)
+        self.assertIn('for the Example 1', scripts[flash_all.SH])
+        for text in scripts.values():
+            self.assertIn('Hold Power and Volume up until it restarts into the bootloader', text)
 
     def run_install_script(self, answers, initial_slot='a', selection_status=0, slot_reply=None, slot_status=0):
         """Run flash-all.sh against a fastboot stand-in. Returns (status, fastboot calls, stderr)."""
@@ -244,7 +259,7 @@ class FlashStepTests(unittest.TestCase):
             status, calls, _ = self.run_install_script(dict(good, **{'snapshot-update-status': line}))
             self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)
                                   if a != flash_all.CANCEL]), (status, calls))
-        for name, line, message in (('product', 'product: FP5', 'is for the FP6'),
+        for name, line, message in (('product', 'product: FP5', 'is for the Fairphone 6 (FP6)'),
                                     ('unlocked', 'unlocked: no', 'bootloader is locked'),
                                     ('is-userspace', 'is-userspace: yes', 'fastbootd')):
             with self.subTest(name):
@@ -331,7 +346,7 @@ class FlashStepTests(unittest.TestCase):
         self.assertIn('both slots', text)
         # The firmware steps are tested on a phone, so no warning. A record that says
         # otherwise still gets it.
-        warning = 'The firmware steps are not yet tested on a phone'
+        warning = 'The firmware steps have not been tested on a phone'
         self.assertNotIn(warning, text)
         untested = dict(self.record, firmware=dict(self.record['firmware'], validated=False))
         self.assertIn(warning, '\n'.join(flash_steps.steps(
@@ -349,7 +364,7 @@ class FlashStepTests(unittest.TestCase):
         self.assertNotIn('abl', text)
         self.assertNotIn('modemst', text)
         self.assertIn('already runs FP6.QREL.16.111.0', text)
-        self.assertNotIn('not yet tested on a phone', text)
+        self.assertNotIn('not been tested on a phone', text)
         # A wipe still resets the firmware's state partitions, back in the bootloader.
         commands = self.commands(phone_firmware=SHIPPED, wipe=True)
         self.assertLess(commands.index('fastboot reboot-bootloader'),

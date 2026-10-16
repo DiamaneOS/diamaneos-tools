@@ -20,7 +20,9 @@ from .signing_inputs import (MAX_JSON, SHA256, fields, require, safe_file,
 GENERATOR = 'tools/diamaneos/src/diamaneos_tools/flash_all.py'
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}')
 PARTITION = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}')
-INPUT_FIELDS = {'schema_version', 'product', 'build_id', 'build_identity', 'build_number',
+# The device profile's texts, which the install scripts quote.
+DEVICE_TEXT = re.compile(r'[A-Za-z0-9][A-Za-z0-9 .+-]{0,63}')
+INPUT_FIELDS = {'schema_version', 'product', 'device', 'build_id', 'build_identity', 'build_number',
                 'build_datetime', 'variant', 'official', 'manifest', 'flash', 'firmware', 'wipe'}
 
 
@@ -54,6 +56,10 @@ def validate_input(value, plan):
             'Factory build metadata differs from the signing plan')
     require(value['variant'] in {'user', 'userdebug', 'eng'} and type(value['official']) is bool,
             'Invalid factory build type')
+    device = value['device']
+    fields(device, {'name', 'maker', 'bootloader_keys'})
+    require(all(isinstance(text, str) and DEVICE_TEXT.fullmatch(text) for text in device.values()),
+            'Invalid factory device profile')
     if plan['mode'] == 'production':
         require(value['variant'] == 'user' and value['official'] is True,
                 'Production factory requires an official user build')
