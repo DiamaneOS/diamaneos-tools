@@ -230,7 +230,7 @@ class SyncFlowTests(unittest.TestCase):
         self.assertRegex(deviations[0], 'repo tool is not the pinned v-test')
         self.assertTrue(any('warning: the checkout\'s repo tool' in line and '--official refuses it' in line
                             for line in self.lines))
-        with self.assertRaisesRegex(bw.BuildStepError, 'run "repo init --repo-rev=v-test" and "repo sync" again'):
+        with self.assertRaisesRegex(bw.BuildStepError, 'Run "repo init --repo-rev=v-test" and "repo sync" again'):
             self.sync(official)
 
     def test_a_directory_without_a_checkout_is_named_as_such(self):
@@ -280,7 +280,7 @@ class SyncFlowTests(unittest.TestCase):
         manifests = self.src / '.repo/manifests'
         self.assertEqual(self.manifest_commit, git(manifests, 'rev-parse', 'HEAD'))
         self.assertEqual(newer, git(manifests, 'rev-parse', 'refs/remotes/origin/android17'))
-        self.assertTrue(any('the check that it is at the head of android17 does not apply' in line
+        self.assertTrue(any('The check that it is at the head of android17 does not apply' in line
                             for line in self.lines))
         self.assertEqual(resolved.read_bytes(), self.ctx.pinned_manifest.read_bytes())
         # The android preflight checks the recorded commit too. The branch-head check would fail here.

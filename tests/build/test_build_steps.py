@@ -487,7 +487,7 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertIn('repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17', text)
         self.assertIn(f'Check out the recorded manifest (the recorded manifest commit {self.commit}', text)
         self.assertIn('in the history of android17', text)
-        self.assertIn('the branch-head check does not apply to a pinned manifest', text)
+        self.assertIn('The branch-head check does not apply to a pinned manifest', text)
         self.assertIn('--retry-fetches=4 -m ' + str(self.workspace / 'state/pinned-manifest.xml'), text)
         self.assertIn('note: build.json records tools commit ' + 'c' * 40, text)
         self.assertFalse(self.workspace.exists())
@@ -603,7 +603,7 @@ class PinnedSyncTests(unittest.TestCase):
                             with self.assertRaisesRegex(bw.BuildStepError, 'local changes are not the ones'):
                                 preflight()
                     self.assertEqual(not official, allowed[-1])
-        self.assertIn('    warning: local changes in device/example; build.json records them, and --official '
+        self.assertIn('    warning: local changes in device/example. build.json records them, and --official '
                       'refuses them', self.lines)
         # Local changes are a source input only when there are any.
         self.assertEqual(steps.SOURCE_KEYS, tuple(steps.source_record({'outputs': {'modified_sha256': None}})))
@@ -746,7 +746,7 @@ class ToolsSkewTests(unittest.TestCase):
             with self.assertRaises(steps.ToolsUpdated) as raised:
                 steps.check_tools(stale, True)
             self.assertEqual(new, raised.exception.commit)
-            with self.assertRaisesRegex(bw.UsageError, 'run the same command again'):
+            with self.assertRaisesRegex(bw.UsageError, 'Run the same command again'):
                 steps.check_tools(replace(stale, restarted=True), True)
 
     def test_a_sync_that_moves_the_running_checkout_restarts_the_command(self):
@@ -767,7 +767,7 @@ class ToolsSkewTests(unittest.TestCase):
             self.assertEqual(0, steps.main(argv, self.lines.append))
             self.assertEqual(new, os.environ[steps.RESTARTED])
         self.assertEqual([(sys.executable, [sys.executable, str(steps.DIAMANEOS), 'build', *argv])], calls)
-        self.assertIn('note: the sync moved these tools; starting again with the new tools', self.lines)
+        self.assertIn('note: the sync moved these tools. Starting again with the new tools', self.lines)
 
     def test_the_restarted_command_keeps_the_sync_that_moved_the_tools(self):
         plan = steps.plan_sync(self.ctx)
@@ -878,8 +878,8 @@ class RunnerTests(unittest.TestCase):
             steps.run_steps(self.ctx, ('verify',), force=('verify',))
             self.assertEqual(['verify'], self.calls)
             named = replace(self.ctx, variant_given=True)
-            with self.assertRaisesRegex(bw.UsageError, 'android was built as userdebug, not user; '
-                                                       'run "diamaneos build android" or'):
+            with self.assertRaisesRegex(bw.UsageError, 'android was built as userdebug, not user. '
+                                                       'Run "diamaneos build android" or'):
                 steps.run_steps(named, ('verify',), force=('verify',))
 
     def test_the_official_choice_changes_only_when_the_android_step_builds(self):

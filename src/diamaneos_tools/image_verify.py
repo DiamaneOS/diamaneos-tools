@@ -1353,7 +1353,7 @@ def kernel_prebuilts(src: Path, record: dict) -> tuple[Path | None, str]:
         return None, f'cannot read the kernel prebuilts checkout: {error}'
     if head.returncode or head.stdout.strip() != named['commit']:
         return None, (f'{KERNEL_PREBUILTS} is at {head.stdout.strip()[:12] or "no commit"}, the build used '
-                      f'{named["commit"][:12]}; sync the source the set was built from')
+                      f'{named["commit"][:12]}. Sync the source the set was built from')
     if status.returncode or status.stdout:
         return None, f'{KERNEL_PREBUILTS} has local changes'
     return directory, ''
@@ -1572,7 +1572,7 @@ def check_vendor(v):
             if '/etc/vintf/' in rel and vintf_declarations(data) == vintf_declarations(path.read_bytes()):
                 continue
             problems.append('differs ' + member)
-    return not problems, (f'{checked} files; ' if problems else f'{checked} files') + '; '.join(problems[:20])
+    return not problems, (f'{checked} files: ' if problems else f'{checked} files') + '; '.join(problems[:20])
 
 
 def check_vendor_patch_level(v):
@@ -1740,8 +1740,8 @@ GENERIC = [
     ('record', 'The image set matches its build record and is marked as a test build that must never be locked.', check_record),
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
     ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees.', check_avb),
-    ('boot-header', 'Boot-family headers carry zero OS fields; the versions live in AVB properties.', check_boot_headers),
-    ('super', 'super.img holds exactly the exported logical images; slot b is empty.', check_super),
+    ('boot-header', 'Boot-family headers carry zero OS fields. The versions live in AVB properties.', check_boot_headers),
+    ('super', 'super.img holds exactly the exported logical images. Slot b is empty.', check_super),
     ('validators', 'validate_target_files and check_target_files_vintf pass on the archive.', check_validators),
     ('kernel-binding', 'boot, vendor_boot and dtbo carry the kernel prebuilts the build record names.', check_kernel),
     ('modules', 'Module placement and load lists match the kernel prebuilts, the parallel vendor_dlkm load streams '
@@ -1752,14 +1752,14 @@ GENERIC = [
     ('firmware-release-table', 'The vendor image carries the firmware release table the firmware inventory gives, so '
      'Settings names the installed Fairphone firmware from current hashes.', check_firmware_release_table),
     ('selinux-enforcing', 'No permissive domain beyond the variant\'s allowance.', check_permissive),
-    ('bootconfig', 'Required bootconfig present; nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
+    ('bootconfig', 'Required bootconfig present. Nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
     ('kernel-arguments', 'No device tree, overlay, boot image header or bootconfig entry sets a kernel argument '
      'that turns a protection off.', check_kernel_arguments),
     ('adb-keys', 'No pre-trusted adb key.', check_adb_keys),
     ('wipe-images', 'The wipe images are the declared deterministic images.', check_wipe),
     ('firmware', 'The set carries every firmware image of the stock release its vendor files come from, byte for '
      'byte as the firmware inventory pins it, with the stock flash order and the declared modem file system reset '
-     'images; no image lowers a Qualcomm anti-rollback version.', check_firmware),
+     'images. No image lowers a Qualcomm anti-rollback version.', check_firmware),
     ('firmware-ota', 'An A/B update built from this target-files carries the A/B firmware of that release, '
      'byte for byte, and writes no other firmware partition.', check_firmware_ota),
 ]
@@ -1873,12 +1873,12 @@ def plan(ctx):
             if result['status'] != 'PASS':
                 ctx.echo(f'    FAIL {result["id"]}: {result["detail"]}')
         if report['status'] != 'PASS':
-            message = f'{report["failed"]} of {report["checked"]} checks failed; report: {path}'
+            message = f'{report["failed"]} of {report["checked"]} checks failed. Report: {path}'
             # The image set says whether it is official, whatever this command was given.
             if (record.get('official') is True or ctx.official
                     or any(check in NEVER_WAIVED for check in failed_checks(report))):
                 raise CheckFailed(message)
-            ctx.echo(f'    warning: {message}. An official build stops here; flash-steps names the failed checks')
+            ctx.echo(f'    warning: {message}. An official build stops here. flash-steps names the failed checks')
             return
         ctx.echo(f'    all {report["checked"]} checks passed')
 

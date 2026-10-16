@@ -14,7 +14,7 @@ Errors (exit 1):
                        best variant, so the overlay never applies there
   target-qualifier     (product overlays) the target defines the resource for
                        qualifiers the overlay does not cover and no reviewed
-                       waiver names them; a warning for device overlays
+                       waiver names them, a warning for device overlays
   not-allowed          (product overlays) the type or name is not on the
                        product allowlist
   denied               (product overlays) the name, pattern or type is on the
@@ -584,12 +584,12 @@ def make_findings(directories, label_base):
                     findings.append(finding('error', 'android-mk', f'{label}: cannot read ({error.strerror})'))
                     continue
                 if name == 'Android.mk' and 'BUILD_RRO_PACKAGE' in text:
-                    findings.append(finding('error', 'android-mk', f'{label} defines an overlay in make; '
-                                            'declare it as runtime_resource_overlay in Android.bp so it can be checked'))
+                    findings.append(finding('error', 'android-mk', f'{label} defines an overlay in make. '
+                                            'Declare it as runtime_resource_overlay in Android.bp so it can be checked'))
                 if MAKE_OVERLAYS.search(text):
                     findings.append(finding('error', 'android-mk', f'{label} sets PRODUCT_PACKAGE_OVERLAYS or '
                                             'DEVICE_PACKAGE_OVERLAYS, which change target resources at build time '
-                                            'where this check cannot see them; use runtime_resource_overlay modules'))
+                                            'where this check cannot see them. Use runtime_resource_overlay modules'))
     return findings
 
 
@@ -623,7 +623,7 @@ def discover(roots, label_base, make_roots=()):
                     if kind.endswith('resource_overlay'):
                         findings.append(finding('error', 'module', f'{label}/Android.bp:{module["line"]}: {kind} '
                                                 'can change the package name and target, which this check does '
-                                                'not model; use runtime_resource_overlay'))
+                                                'not model. Use runtime_resource_overlay'))
                     continue
                 overlay, problems, manifest_path = read_overlay(module, here, root['role'], label, label_base)
                 findings.extend(problems)
@@ -658,7 +658,7 @@ def read_overlay(module, directory, role, label, label_base):
     manifest = props.get('manifest', 'AndroidManifest.xml')
     if 'defaults' in props:
         used = (directory / manifest).resolve() if _safe(manifest) else None
-        return None, [finding('error', 'module', f'{where}: defaults are not resolved by this check; set the '
+        return None, [finding('error', 'module', f'{where}: defaults are not resolved by this check. Set the '
                               'properties on the module itself', overlay=name)], used
     resource_dirs = props.get('resource_dirs', ['res'])
     if (not _safe(manifest) or not isinstance(resource_dirs, list)
@@ -701,7 +701,7 @@ def read_overlay(module, directory, role, label, label_base):
                                 f'{required} matches', overlay=name, target=target))
     if props.get('static_libs') or props.get('resource_libs'):
         problems.append(finding('error', 'static-libs', f'{name} takes resources from libraries, which this '
-                                'check cannot read; put the values in the overlay\'s own resource_dirs',
+                                'check cannot read. Put the values in the overlay\'s own resource_dirs',
                                 overlay=name, target=target))
     for resource_dir in resource_dirs:
         base = directory / resource_dir
@@ -1098,10 +1098,10 @@ def module_checks(overlay):
                               name, target))
     certificate = overlay['certificate']
     if certificate == 'platform':
-        result.append(finding('error', 'platform-key', f'{name} is signed with the platform key; overlays use the '
+        result.append(finding('error', 'platform-key', f'{name} is signed with the platform key. Overlays use the '
                               'default key', name, target))
     elif certificate is not None:
-        result.append(finding('error', 'certificate', f'{name} sets certificate; overlays use the default key',
+        result.append(finding('error', 'certificate', f'{name} sets certificate. Overlays use the default key',
                               name, target))
     return result
 
@@ -1254,11 +1254,11 @@ def resource_checks(overlay, target, config, incomplete=False):
         if not policies & fulfilled:
             if policies & KEY_POLICIES:
                 result.append(finding('error', 'needs-key', f'{name}: {resource} is overlayable only with policy '
-                                      f'{"|".join(sorted(policies))}, which needs a signing key; the overlay '
+                                      f'{"|".join(sorted(policies))}, which needs a signing key. The overlay '
                                       f'fulfils {"|".join(sorted(fulfilled))}', name, package, resource))
             else:
                 result.append(finding('error', 'policy', f'{name}: {resource} is overlayable only with policy '
-                                      f'{"|".join(sorted(policies)) or "none"}; the overlay fulfils '
+                                      f'{"|".join(sorted(policies)) or "none"}. The overlay fulfils '
                                       f'{"|".join(sorted(fulfilled))}', name, package, resource))
     return result
 
@@ -1287,7 +1287,7 @@ def product_checks(overlay, rules):
                                       f'for {package}', name, package, resource))
         elif rtype not in rules['allowed_types']:
             result.append(finding('error', 'not-allowed', f'{name}: {resource}: {rtype} resources are not on the '
-                                  f'product allowlist; name it in product_rules.allowed_names after review',
+                                  f'product allowlist. Name it in product_rules.allowed_names after review',
                                   name, package, resource))
         elif rname.startswith(rules['restricted_prefixes']):
             result.append(finding('error', 'not-allowed', f'{name}: {resource} is a config name that is not on '
@@ -1311,7 +1311,7 @@ def cross_checks(package, group):
             # partitions the partition order decides, whatever the priorities.
             if first['partition'] == second['partition'] and first['priority'] == second['priority']:
                 result.append(finding('error', 'same-priority', f'{pair} both target {package} with priority '
-                                      f'{first["priority"]}; the APK path decides their order',
+                                      f'{first["priority"]}. The APK path decides their order',
                                       f'{first["module"]},{second["module"]}', package))
             shared = sorted(set(first['resources'].entries) & set(second['resources'].entries))
             for key in shared:
@@ -1378,7 +1378,7 @@ def render_text(report):
     source = report['source']
     if source['kind'] == 'fetch':
         lines.append(f'Overlay check against GrapheneOS {source.get("release_tag") or "(untagged manifest)"} '
-                     f'(manifest {source["manifest"]}, sha256 {source["manifest_sha256"][:12]}; fetched sources)')
+                     f'(manifest {source["manifest"]}, sha256 {source["manifest_sha256"][:12]}, fetched sources)')
     else:
         lines.append(f'Overlay check against the source tree {source["path"]} ({source["layout"]} layout)')
     for overlay in report['overlays']:
@@ -1404,9 +1404,9 @@ def _parser():
     parser.add_argument('--root', type=Path, default=ROOT.parent,
                         help='directory holding the overlay repositories named in the configuration')
     parser.add_argument('--product-overlays', type=Path, action='append', default=[],
-                        help='product overlay directory (replaces the configured roots; repeatable)')
+                        help='product overlay directory (replaces the configured roots, repeatable)')
     parser.add_argument('--device-overlays', type=Path, action='append', default=[],
-                        help='device overlay directory (replaces the configured roots; repeatable)')
+                        help='device overlay directory (replaces the configured roots, repeatable)')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--source-tree', type=Path, help='checked-out source tree holding the targets')
     source.add_argument('--fetch', action='store_true',
@@ -1416,7 +1416,7 @@ def _parser():
     parser.add_argument('--cache', type=Path, help='download cache directory (needed with --fetch)')
     parser.add_argument('--tag', help='GrapheneOS release tag (default: the pinned build environment)')
     parser.add_argument('--allowed-signers', type=Path,
-                        help='GrapheneOS allowed_signers file (its SHA-256 must match the build environment); '
+                        help='GrapheneOS allowed_signers file (its SHA-256 must match the build environment). '
                              'verifies the signature of a fetched tag, needed for a tag other than the pinned one')
     parser.add_argument('--allow-unpinned', action='store_true',
                         help='fetch a tag other than the pinned one without verifying its signature (TLS only)')

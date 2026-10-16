@@ -118,7 +118,7 @@ def schema_errors(value, filename):
     except JsonError as error:
         return [str(error)]
     if Draft7Validator is None:
-        return ["missing jsonschema; install requirements-dev.txt in a virtual environment"]
+        return ["missing jsonschema. Install requirements-dev.txt in a virtual environment"]
     try:
         schema = json.loads((ROOT / "schemas" / filename).read_text(
             encoding="utf-8"))

@@ -165,7 +165,7 @@ def load_pinned(resolved_path: Path, build_json_path: Path | None, manifest_comm
         commit = recorded_commit
         if (manifest.get('url'), manifest.get('branch')) != (declared['url'], declared['branch']):
             raise UsageError(f'{build_json_path} was built from another manifest URL or branch than the build '
-                             f'environment declares ({declared["url"]}, {declared["branch"]}); pass the '
+                             f'environment declares ({declared["url"]}, {declared["branch"]}). Pass the '
                              'environment it was built with (--environment)')
         expected = {key: source[key] for key in ('project_map_sha256', 'project_count', 'kernel_prebuilts_commit')
                     if key in source}
@@ -174,14 +174,14 @@ def load_pinned(resolved_path: Path, build_json_path: Path | None, manifest_comm
         record_sha256 = hashlib.sha256(raw).hexdigest()
         part = lambda key, name: record[key].get(name) if isinstance(record.get(key), dict) else None
         if part('environment', 'sha256') != environment_sha256:
-            notes.append('build.json was made with another build environment file; the source identity and the '
+            notes.append('build.json was made with another build environment file. The source identity and the '
                          'build number will differ')
         if record.get('official') is True:
-            notes.append('build.json records an official build; build it with --official to make the same images')
+            notes.append('build.json records an official build. Build it with --official to make the same images')
         recorded_tools = part('tools', 'commit')
         if tools_commit and recorded_tools != tools_commit:
             notes.append(f'build.json records tools commit {shown(recorded_tools, build.SHA1_RE)}, this checkout is '
-                         f'{tools_commit}; the image set\'s build identity and directory name include it')
+                         f'{tools_commit}. The image set\'s build identity and directory name include it')
     elif commit is None:
         raise UsageError('--resolved-manifest needs --build-json (the image set\'s build.json) or --manifest-commit '
                          '(the manifest commit the build recorded)')
@@ -313,7 +313,7 @@ def prefetch_targets(data: bytes, paths, echo=print) -> list:
     for path in paths:
         project = projects.get(path)
         if project is None:
-            echo(f'    {path}: not in the manifest; nothing to prefetch')
+            echo(f'    {path}: not in the manifest. Nothing to prefetch')
             continue
         if not project.url or not project.url.startswith('https://') or not safe_path(project.name):
             raise BuildStepError(f'{path}: the manifest gives it no HTTPS fetch URL')
@@ -324,7 +324,7 @@ def prefetch_targets(data: bytes, paths, echo=print) -> list:
             targets.append(PrefetchTarget(path, project.name, project.url, f'+{revision}:{revision}',
                                           revision + '^{commit}'))
         else:
-            echo(f'    {path}: follows {revision or "no revision"}, not a commit or tag; repo fetches it')
+            echo(f'    {path}: follows {revision or "no revision"}, not a commit or tag. repo fetches it')
     return targets
 
 
@@ -400,7 +400,7 @@ def prefetch(source: Path, targets, settings: dict, echo=print, run=git, wait=No
             raise
     if failures:
         raise BuildStepError('prefetching the large projects failed:\n  ' + '\n  '.join(failures)
-                             + '\nRun the sync again; it starts these fetches over.')
+                             + '\nRun the sync again. It starts these fetches over.')
 
 
 def has_refs(directory: Path) -> bool:
@@ -487,7 +487,7 @@ def clear_renamed(source: Path, projects: dict, run=git) -> list:
         worktree = source / path
         if any(p.startswith(path + '/') for p in projects):
             raise BuildStepError(f'{path}: the manifest now takes it from {project.name} instead of {old}, and '
-                                 'other projects are nested in it; move it aside by hand')
+                                 'other projects are nested in it. Move it aside by hand')
         if worktree.is_dir():
             status = run(['-C', worktree, 'status', '--porcelain', '--untracked-files=all'])
             if status.returncode != 0 or status.stdout.strip():

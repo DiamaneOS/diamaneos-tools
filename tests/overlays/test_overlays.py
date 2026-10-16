@@ -546,7 +546,7 @@ class CrossOverlayTests(Fixture):
                    'android:isStatic="true" android:priority="2"/></manifest>')
         self.write('workspace/vendor_example/overlay/Second/res/values/config.xml', '<resources/>')
         _, report, _ = self.check()
-        self.assertIn('the APK path decides their order', self.only(report, 'same-priority')['message'])
+        self.assertIn('The APK path decides their order', self.only(report, 'same-priority')['message'])
 
     def test_two_overlays_defining_one_resource(self):
         self.edit('workspace/device_example/rro/DeviceFrameworkOverlay/res/values/config.xml', '</resources>',

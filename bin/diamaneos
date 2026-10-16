@@ -71,7 +71,7 @@ def main(argv=None):
     if not argv or argv[0] in ("-h", "--help"):
         print("Build a test image: diamaneos build all [--variant userdebug], then diamaneos flash-steps.")
         print("  build sync|vendor|android|package|verify -> the steps of build all, one at a time")
-        print("  build kernel -> build the kernel from source (maintainers; the build uses the kernel prebuilts)")
+        print("  build kernel -> build the kernel from source (for maintainers, the build uses the kernel prebuilts)")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
         print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
