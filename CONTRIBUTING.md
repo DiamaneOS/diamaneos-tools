@@ -21,7 +21,6 @@ last guard, not permission.
 - Name supported platforms and tested tool versions only when they help reproduce a build or result.
 - Keep every list item and paragraph to 45 words at most. Split longer text into sub-bullets
   instead of extending it (`tests/docs/test_doc_length.py` enforces this).
-- Write plain sentences without semicolons.
 - CLI help, user-visible output and report values describe behaviour, without internal identifiers.
 - Stable file paths, schema keys, source pins and test/requirement IDs are technical interface. Do
   not rename them for editorial cleanup.
