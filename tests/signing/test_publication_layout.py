@@ -1,4 +1,4 @@
-"""Publication layout and byte consistency fixtures; no native signature proof."""
+"""Publication layout and byte consistency fixtures, no native signature proof."""
 import hashlib
 from pathlib import Path
 import stat

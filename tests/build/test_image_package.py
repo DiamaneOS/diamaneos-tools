@@ -128,8 +128,8 @@ class PackageTests(unittest.TestCase):
         self.assertIn('installs none while the build is signed with public test keys', record['notice'])
 
     def test_missing_factory_archive_is_refused_without_probing_the_working_directory(self):
-        # The firmware comes from the factory package, so packaging needs it;
-        # a vendor record without one must not make the step look at '.'.
+        # The firmware comes from the factory package, so packaging needs it.
+        # A vendor record without one must not make the step look at '.'.
         self.ctx.workspace.write_state('vendor', {'status': 'PASS', 'inputs_sha256': 'v',
                                                   'outputs': {'generation': 'authenticated'}})
         original = Path.is_file

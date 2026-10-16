@@ -33,7 +33,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_perf2_daemon_and_client_are_not_selected(self):
         # The device builds the libperfmgr power HAL and its own
-        # libqti-perfd-client; the closed perf2 daemon, its client, plugins and
+        # libqti-perfd-client. The closed perf2 daemon, its client, plugins and
         # configuration stay out of the selection and the rendered tree.
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
@@ -75,7 +75,7 @@ class NativeProductTests(unittest.TestCase):
                 self.assertIn(property, block)
 
     def test_touch_controller_firmware_copied_to_vendor_firmware(self):
-        # eswin_ts.ko requests EPH86XX_fw.bin at probe; without it ueventd's
+        # eswin_ts.ko requests EPH86XX_fw.bin at probe. Without it ueventd's
         # firmware fallback waits out the kernel's 60 s timeout.
         path = 'vendor/firmware/EPH86XX_fw.bin'
         make = self.render()['device-vendor.mk'].decode()
@@ -141,8 +141,8 @@ class NativeProductTests(unittest.TestCase):
         self.assertIn('"vendor.qti.hardware.display.config-V7-ndk"', bp)
 
     def test_unused_qseecom_proxy_service_not_selected(self):
-        # No installed file looks up the userspace QSEECom AIDL proxy; qseecomd
-        # and the TEE clients use libQSEEComAPI directly.
+        # No installed file looks up the userspace QSEECom AIDL proxy. The TEE
+        # clients and qseecomd use libQSEEComAPI directly.
         rendered = self.render()
         paths = {r['path'] for r in self.recipe['files']}
         self.assertFalse([p for p in paths if 'vendor.qti.hardware.qseecom' in p])
@@ -154,7 +154,7 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn(name, modules)
 
     def test_unused_display_colour_service_not_selected(self):
-        # Nothing is a client of the lazy colour service; the composer dlopens
+        # Nothing is a client of the lazy colour service. The composer dlopens
         # libsdm-disp-vndapis and loads the colour libraries itself.
         rendered = self.render()
         paths = {r['path'] for r in self.recipe['files']}
@@ -218,7 +218,7 @@ class NativeProductTests(unittest.TestCase):
         bp = rendered['Android.bp'].decode()
         for stem in ['pm-service', 'pm-proxy', 'rmt_storage', 'ssr_setup']:
             self.assertIn('fp6_stock_vendor_bin_' + stem, modules)
-        # The device modem/init.modem.rc starts ssr_setup; no stock rc is installed.
+        # The device modem/init.modem.rc starts ssr_setup. No stock rc is installed.
         block = bp[bp.index('name: "fp6_stock_vendor_bin_ssr_setup"'):]
         self.assertNotIn('init_rc:', block[:block.index('}\n')])
         # The full-RAM subsystem dump collector stays out (privacy).
@@ -236,7 +236,7 @@ class NativeProductTests(unittest.TestCase):
                           and p.startswith(('vendor/bin/', 'vendor/lib64/'))])
 
     def test_linux_msm_daemons_replace_the_stock_ones(self):
-        # The device builds tqftpserv and pd-mapper from linux-msm; the stock
+        # The device builds tqftpserv and pd-mapper from linux-msm. The stock
         # tftp_server, pd-mapper, tftp_server's libqsocket and its rc are not selected.
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
@@ -253,7 +253,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('tftp_server', vendor_product.ACTIVATION)
         self.assertNotIn('pd-mapper', vendor_product.ACTIVATION)
         self.assertNotIn(b'vendor.qti.tftp.rc', rendered['device-vendor.mk'])
-        # Qualcomm's libqrtr stays for the stock libraries that link it; the
+        # Qualcomm's libqrtr stays for the stock libraries that link it. The
         # linux-msm daemons use the source library as libqrtr_linux_msm.so.
         self.assertIn('libqrtr', [Path(p).name.removesuffix('.so') for p in paths if p.startswith('vendor/lib64/')])
         self.assertNotIn('libqrtr', vendor_product.SOURCE_INTERFACES)
@@ -322,7 +322,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertNotIn('audioadsprpcd', vendor_product.ACTIVATION)
         self.assertNotIn('audio-adsprpc', make)
         # The closed libraries the source build links keep their library name,
-        # so the source modules can link them; they are roots.
+        # so the source modules can link them. They are roots.
         for stem in sorted(vendor_product.SOURCE_LINKED_STOCK):
             path = 'vendor/lib64/' + stem + '.so'
             self.assertEqual(stem, vendor_product.module(path))
@@ -461,7 +461,7 @@ class NativeProductTests(unittest.TestCase):
                 self.assertIn(rewrite['symbols'], vendor_product.SYMBOL_RENAMES)
 
     def test_symbol_rename_only_touches_one_undefined_symbol(self):
-        # Rename an undefined symbol in place; the length must match and the byte
+        # Rename an undefined symbol in place. The length must match and the byte
         # span must belong to no other symbol. "sym" is an undefined dynsym here.
         data = self.synthetic_elf([26])
         renamed = vendor_product.rename_dynamic_symbols(data, [('sym', 'syX')])
@@ -614,7 +614,7 @@ class NativeProductTests(unittest.TestCase):
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
         block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.media.c2@1.0-service"'):]
         block = block[:block.index('}\n')]
-        # The device rc and manifest.xml activate it; the stock rc and the
+        # The device rc and manifest.xml activate it. The stock rc and the
         # fragment that also claims the platform's software store are not used.
         self.assertNotIn('init_rc', block)
         self.assertNotIn('vintf_fragments', block)
@@ -632,15 +632,15 @@ class NativeProductTests(unittest.TestCase):
         shared = block[:block.index('}\n')]
         self.assertIn('"vendor.qti.hardware.display.config-V5-ndk"', shared)
         self.assertIn('"libgralloc.qti"', shared)
-        # Frozen interfaces are source-built; audio codecs, OMX and test plugins stay out.
+        # Frozen interfaces are source-built. Audio codecs, OMX and test plugins stay out.
         for stem in ['android.hardware.media.c2@1.0', 'android.hardware.media.c2@1.2',
                      'android.hardware.media.bufferpool2-V1-ndk', 'libOmxCore', 'libstagefrighthw',
                      'libqcodec2_mockfilter', 'libqc2audio_core', 'libvideooptfeature', 'libvideoml']:
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
         self.assertNotIn('fp6_stock_vendor_bin_hw_vendor.qti.media.c2audio@1.0-service', modules)
         # The Android 14 Codec2 framework libraries share their names with AOSP
-        # vendor-available libraries, whose install rules Soong always defines;
-        # they install on odm, which the vendor namespace searches first.
+        # vendor-available libraries, whose install rules Soong always defines.
+        # They install on odm, which the vendor namespace searches first.
         for stem in ['libcodec2_hidl@1.0', 'libcodec2_hidl@1.1', 'libcodec2_hidl@1.2', 'libcodec2_hidl_plugin',
                      'libcodec2_vndk', 'libstagefright_aidl_bufferpool2', 'libstagefright_bufferpool@2.0.1']:
             self.assertIn(stem, vendor_product.ODM_LIBRARIES)
@@ -672,8 +672,8 @@ class NativeProductTests(unittest.TestCase):
         block = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
         shared = block[:block.index('}\n')]
         self.assertNotIn('"libhardware"', shared[shared.index('shared_libs:'):].split('\n')[0])
-        # Both stock seccomp policies are installed; the device configs and the
-        # firmware are copied; the generic and other-variant configs are not.
+        # Both stock seccomp policies are installed. The device configs and the
+        # firmware are copied. The generic and other-variant configs are not.
         for path in ['media_codecs_volcano_v1.xml', 'media_codecs_performance_volcano_v1.xml',
                      'media_volcano_v1/video_system_specs.json', 'media_codecs_google_c2_video.xml',
                      'seccomp_policy/codec2.vendor.base-arm64.policy',
@@ -834,7 +834,7 @@ class NativeProductTests(unittest.TestCase):
                      'fp6_stock_vendor_lib64_libssc_default_listener',
                      'fp6_stock_vendor_lib64_libprotobuf-cpp-lite-21.7']:
             self.assertIn(name, modules)
-        # The AOSP multi-HAL and sensors interfaces are source-built; the AOSP
+        # The AOSP multi-HAL and sensors interfaces are source-built. The AOSP
         # dynamic sub-HAL is neither stock nor loaded (SENSORS_CONFIG_REWRITES).
         for name in ['fp6_stock_vendor_bin_hw_android.hardware.sensors-service.multihal',
                      'fp6_stock_vendor_lib64_hw_sensors.dynamic_sensor_hal',
@@ -864,7 +864,7 @@ class NativeProductTests(unittest.TestCase):
                      'fp6_stock_vendor_lib64_libbtnv', 'fp6_stock_vendor_lib64_libsoc_helper']:
             self.assertIn(name, modules)
         # The device's own service registers the stock implementation, so the
-        # implementation is a root; the stock service and the FM, ANT, SAR,
+        # implementation is a root. The stock service and the FM, ANT, SAR,
         # config-store and TPI libraries it links are not selected.
         self.assertIn('vendor/lib64/hw/android.hardware.bluetooth@1.1-impl-qti.so', self.selection['roots'])
         self.assertNotIn('android.hardware.bluetooth@1.1-service-qti', vendor_product.ACTIVATION)
@@ -873,7 +873,7 @@ class NativeProductTests(unittest.TestCase):
                        'btconfigstore', 'bttpi']:
             self.assertFalse([p for p in paths if marker in p], marker)
             self.assertNotIn(marker, bp + make)
-        # AOSP HCI interfaces are source-built; the stock Bluetooth audio stack
+        # AOSP HCI interfaces are source-built. The stock Bluetooth audio stack
         # is not installed.
         for name in ['fp6_stock_vendor_lib64_android.hardware.bluetooth@1.0',
                      'fp6_stock_vendor_lib64_android.hardware.bluetooth@1.1',
@@ -950,7 +950,7 @@ class NativeProductTests(unittest.TestCase):
         for name in ['fp6_stock_vendor_bin_hw_android.hardware.nfc-service.sec',
                      'fp6_stock_vendor_lib64_nfc_nci_sec']:
             self.assertIn(name, modules)
-        # The NFC AIDL and HIDL interfaces are source-built; the factory test
+        # The NFC AIDL and HIDL interfaces are source-built. The factory test
         # tool is not selected.
         for name in ['fp6_stock_vendor_lib64_android.hardware.nfc-V1-ndk',
                      'fp6_stock_vendor_lib64_android.hardware.nfc@1.2',
@@ -976,7 +976,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_nfc_default_route_rewrite_binds_the_selected_stock_config(self):
         # The pinned host-route rewrite applies to exactly the selected stock
-        # config; any other input is rejected before anything is derived.
+        # config. Any other input is rejected before anything is derived.
         rows = {r['path']: r for r in self.recipe['files']}
         for path, rule in vendor_product.NFC_CONFIG_REWRITES.items():
             self.assertEqual(rows[path]['sha256'], rule['source_sha256'])
@@ -989,7 +989,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_gnss_hal_is_built_from_source(self):
         # The device builds the GNSS HAL and its location libraries from
-        # CodeLinaro source; no stock GNSS code, interface library or activation
+        # CodeLinaro source. No stock GNSS code, interface library or activation
         # file is selected. The stock engine configuration stays.
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])
@@ -1042,7 +1042,7 @@ class NativeProductTests(unittest.TestCase):
     def test_fp6_fingerprint_ships_stock_module_without_stock_service(self):
         rendered = self.render()
         bp = rendered['Android.bp'].decode()
-        # The device tree builds the AIDL service; only the FocalTech module is
+        # The device tree builds the AIDL service. Only the FocalTech module is
         # taken from stock, under its own SONAME so it cannot shadow AOSP's
         # libhardware stub and Soong's ELF checks hold.
         self.assertNotIn('android.hardware.biometrics.fingerprint-service', bp)
@@ -1121,7 +1121,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_camera_runs_without_the_opencl_runtime(self):
         # The Adreno OpenCL runtime and compiler were selected only for the
-        # camera, and the software CAC library links the runtime; CamX's GPU
+        # camera, and the software CAC library links the runtime. CamX's GPU
         # node and the OpenCV users fall back without them.
         removed = ['libOpenCL', 'libOpenCL_adreno', 'libllvm-qcom', 'libadreno_compiler_cl', 'libmmcamera_cac']
         paths = {r['path'] for r in self.recipe['files']}
@@ -1136,7 +1136,7 @@ class NativeProductTests(unittest.TestCase):
             self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
         self.assertFalse([e for e in self.selection['edges']
                           if e['needed'] in {s + '.so' for s in removed}])
-        # The GLES driver still loads the compute backend; the GPU node stays.
+        # The GLES driver still loads the compute backend. The GPU node stays.
         for stem in ['libCB', 'camera_components_com.qti.node.gpu', 'camera_components_com.qti.node.swcac']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
 
@@ -1183,7 +1183,7 @@ class NativeProductTests(unittest.TestCase):
         for stem in ['libqcrilNrVoiceModule', 'libqcrilNrImsModule', 'libqcrilDataModule', 'libqcrilNrSmsModule']:
             self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', loader[loader.index('required:'):])
         self.assertIn('fp6_stock_vendor_bin_nicmd', modules)
-        # Interfaces are source-built; excluded daemons and plugins are absent.
+        # Interfaces are source-built. Excluded daemons and plugins are absent.
         for stem in ['lib64_android.hardware.radio.data-V2-ndk', 'lib64_android.hardware.radio@1.6',
                      'lib64_libavservices_minijail', 'lib64_libqcrilNrSocketModule',
                      'lib64_deviceInfoServiceModuleNr', 'lib64_libqcrildataqos', 'bin_cnd', 'bin_qms',
@@ -1259,7 +1259,7 @@ class NativeProductTests(unittest.TestCase):
                     with self.assertRaises(VendorError): derive(path, unreviewed(path))
 
     def test_iris_video_firmware_copied_to_vendor_firmware(self):
-        # msm_video.ko requests vpu20_2v.mbn for every volcano SKU; without it
+        # msm_video.ko requests vpu20_2v.mbn for every volcano SKU. Without it
         # the video core fails "sys init" at probe.
         make = self.render()['device-vendor.mk'].decode()
         self.assertIn('vendor/firmware/vpu20_2v.mbn:$(TARGET_COPY_OUT_VENDOR)/firmware/vpu20_2v.mbn', make)
@@ -1274,7 +1274,7 @@ class NativeProductTests(unittest.TestCase):
         paths = {r['path'] for r in self.recipe['files']}
         self.assertIn('system_ext/priv-app/ims/ims.apk', paths)
         # The stock call-audio client is not selected (the device builds its own
-        # bridge); QCRIL keeps its IQcRilAudio interface library and VINTF
+        # bridge). QCRIL keeps its IQcRilAudio interface library and VINTF
         # declaration, which the bridge talks to.
         self.assertFalse(any('QtiTelephonyService' in p for p in paths))
         self.assertIn('vendor/lib64/vendor.qti.hardware.radio.am-V1-ndk.so', paths)
@@ -1305,7 +1305,7 @@ class NativeProductTests(unittest.TestCase):
                       '    licenses: ["fp6_selected_stock_notices"],\n'
                       '}\n', bp)
         self.assertEqual(1, bp.count('prebuilt_apex {'))
-        # The module installs it; it is neither copied nor unpacked.
+        # The module installs it. It is neither copied nor unpacked.
         self.assertIn('com.google.android.widevine', json.loads(rendered['modules.json']))
         self.assertIn('com.google.android.widevine', make.split('PRODUCT_PACKAGES += ')[1].split('\n')[0].split())
         self.assertNotIn('vendor/apex/', make)
@@ -1347,7 +1347,7 @@ class NativeProductTests(unittest.TestCase):
             next(r for r in recipe['files'] if r['path'] == self.WIDEVINE_APEX)[key] = value
             with self.subTest(key=key, value=value), self.assertRaisesRegex(VendorError, 'reviewed identity'):
                 vendor_product.render(recipe, self.selection, 'synthetic_notice_kind')
-        # The table lists this one package; without its row no module is rendered.
+        # The table lists this one package. Without its row no module is rendered.
         self.assertEqual([self.WIDEVINE_APEX], list(vendor_product.STOCK_APEXES))
         self.recipe['files'] = [r for r in self.recipe['files'] if r['path'] != self.WIDEVINE_APEX]
         self.assertNotIn(b'prebuilt_apex', self.render()['Android.bp'])
@@ -1375,7 +1375,7 @@ class NativeProductTests(unittest.TestCase):
                 b'ro.vendor.build.security_patch_extra=2020-01-01\n')
         self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, '2026-09-28', today))
         self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, None, today))
-        # The build date may precede the patch level; the release date bounds it.
+        # The build date may precede the patch level. The release date bounds it.
         self.assertEqual('2026-09-05', vendor_product.vendor_patch_level(prop, '2026-09-05', today))
         for data in (b'ro.vendor.build.date.utc=1788145138\n', b'ro.vendor.build.security_patch=\n',
                      prop + b'ro.vendor.build.security_patch=2026-09-05\n',
@@ -1414,7 +1414,7 @@ class NativeProductTests(unittest.TestCase):
         rows = self.recipe['build_properties']
         self.assertEqual(['vendor/build.prop'], [r['input'] for r in rows])
         self.assertNotIn('vendor/build.prop', {r['input'] for r in self.recipe['files']})
-        # The generation writes the patch level it read; rendering has none.
+        # The generation writes the patch level it read. Rendering has none.
         self.assertNotIn('BoardConfigVendor.mk', self.render())
         self.assertEqual(b'# ro.vendor.build.security_patch of the stock vendor image (vendor/build.prop).\n'
                          b'VENDOR_SECURITY_PATCH := 2026-09-05\n', vendor_product.board_config('2026-09-05'))
@@ -1430,7 +1430,7 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(b'PRODUCT_COPY_FILES += vendor/fairphone/FP6/firmware-releases.txt:'
                          b'$(TARGET_COPY_OUT_VENDOR)/etc/diamaneos/firmware-releases.txt\n',
                          vendor_product.firmware_table_copy())
-        # Rendering alone has no table; the generation needs one.
+        # Rendering alone has no table. The generation needs one.
         self.assertNotIn(vendor_product.FIRMWARE_TABLE, self.render())
         stock = json.loads((ROOT / 'config/fp6-stock-image-recipe.json').read_bytes())
         for table in (b'', None, 'image tz 16.111.0 1 ' + '0' * 64 + '\n'):
@@ -1452,7 +1452,7 @@ class NativeProductTests(unittest.TestCase):
             self.assertIn(b'\n' + key + b'=FALSE\n', derived)
 
     def test_sensors_config_loads_only_the_qualcomm_sub_hal(self):
-        # The stock list is just two library names; the dynamic-sensor (HID)
+        # The stock list is just two library names. The dynamic-sensor (HID)
         # sub-HAL is dropped and the AOSP module is not installed (device.mk).
         path = 'vendor/etc/sensors/hals.conf'
         row = next(r for r in self.recipe['files'] if r['path'] == path)
@@ -1470,8 +1470,8 @@ class NativeProductTests(unittest.TestCase):
                 vendor_product.sensors_config(path, other)
 
     def test_wifi_config_drops_only_the_magic_packet_wake(self):
-        # gEnableWoW goes in before the END marker the driver's parser stops at;
-        # 2 keeps pattern wake-ups and drops the magic packet.
+        # gEnableWoW goes in before the END marker the driver's parser stops at.
+        # The value 2 keeps pattern wake-ups and drops the magic packet.
         path = 'vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini'
         row = next(r for r in self.recipe['files'] if r['path'] == path)
         rule = vendor_product.WIFI_CONFIG_REWRITES[path]
@@ -1495,7 +1495,7 @@ class NativeProductTests(unittest.TestCase):
 
     def test_offline_camera_service_is_linked_but_not_declared(self):
         # The CHI override and libchifeature2 link the offline camera library,
-        # so it stays; its service has no client, so neither its VINTF
+        # so it stays. Its service has no client, so neither its VINTF
         # declaration nor the provider's interface line is installed.
         rendered = self.render()
         bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()

@@ -1,4 +1,4 @@
-"""Real scratch bytes and controlled application results; no OTA crypto acceptance."""
+"""Real scratch bytes and controlled application results, no OTA crypto acceptance."""
 import hashlib
 import json
 from pathlib import Path
@@ -20,7 +20,7 @@ class ComparisonTests(unittest.TestCase):
         return native.ota_partition_comparison(self.expected, self.applied, canonical_payload=canonical_payload)
 
     def test_platform_firmware_rounding_hashes_all_expected_bytes_and_zero_tail(self):
-        # Actual firmware lengths; expected canonical length is independent of helper arithmetic.
+        # Actual firmware lengths. Expected canonical length is independent of helper arithmetic.
         data = (bytes(range(256)) * 960)[:245560]
         canonical = data + bytes(200)
         result = self.compare(data, canonical, canonical_payload=True)
@@ -104,7 +104,7 @@ class ApplyTests(unittest.TestCase):
         def run(tool,args,**kwargs):
             self.calls.append((tool,args))
             if tool=='simg2img':
-                # Explicit native-normalization response only; no sparse decoder is mirrored.
+                # Explicit native-normalization response only. No sparse decoder is mirrored.
                 Path(args[1]).write_bytes(sparse);return ''
             self.assertEqual('delta_generator',tool)
             values=dict(x[2:].split('=',1) for x in args)

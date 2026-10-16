@@ -165,7 +165,7 @@ class FlashStepTests(unittest.TestCase):
                               if re.search(r'fastboot [^|;]*\|\s*(grep -q|head)', line)])
 
     def run_install_script(self, answers):
-        """Run flash-all.sh against a fastboot stand-in; returns (status, fastboot calls, stderr)."""
+        """Run flash-all.sh against a fastboot stand-in. Returns (status, fastboot calls, stderr)."""
         work = self.root / 'run'
         shutil.rmtree(work, ignore_errors=True)
         (work / 'bin').mkdir(parents=True)
@@ -280,7 +280,7 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual('fastboot --set-active=a', commands[-2])
         self.assertIn(OLDER, text)
         self.assertIn('both slots', text)
-        # The firmware steps are tested on a phone, so no warning; a record that says
+        # The firmware steps are tested on a phone, so no warning. A record that says
         # otherwise still gets it.
         warning = 'The firmware steps are not yet tested on a phone'
         self.assertNotIn(warning, text)

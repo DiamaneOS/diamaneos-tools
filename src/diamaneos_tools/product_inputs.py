@@ -233,7 +233,7 @@ def move_aside(source, label, destination):
     if previous.exists():
         shutil.rmtree(previous)
     destination.rename(previous)
-    # Parents left empty (vendor/fairphone) are not source projects;
+    # Parents left empty (vendor/fairphone) are not source projects, and
     # the source tree check would reject them.
     for parent in destination.parents:
         if parent == source or any(parent.iterdir()):

@@ -27,7 +27,7 @@ def safe_path(value):
 
 @contextmanager
 def regular_input(root, name):
-    """Walk using directory descriptors; no ancestor or leaf symlink is followed."""
+    """Walk using directory descriptors. No ancestor or leaf symlink is followed."""
     parts = safe_path(name).split('/')
     directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
@@ -94,7 +94,7 @@ def copy_verified(root, item, destination):
 
 
 def selection(recipe, stock):
-    """Check the selected-file recipe; stock is the stock image recipe."""
+    """Check the selected-file recipe. stock is the stock image recipe."""
     if safe_json.schema_errors(recipe, 'vendor-files.schema.json'):
         raise VendorError('invalid selected-file recipe')
     if (recipe['stock_build'] != stock['stock_build'] or recipe['region'] != stock['region']

@@ -595,7 +595,8 @@ commands](#the-build-commands).
 - [`config/forks.json`](../config/forks.json) lists the upstreams used by builds and server
   deployments.
 - `forks` are the repositories DiamaneOS forks and patches: the forks the DiamaneOS manifest
-  selects, the common kernel (`kernel_common-6.1`), and the server forks.
+  selects, the GrapheneOS app forks and their prebuilt projects, the common kernel
+  (`kernel_common-6.1`), and the server forks.
 - A fork's branch is its pin; `upstream` is the reference it follows.
 - To add a fork, add its entry here and select the fork in the DiamaneOS manifest.
 - Server entries have `scope: "server"`, branch `main`, and an `upstream_revision` recording the

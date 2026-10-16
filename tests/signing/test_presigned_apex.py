@@ -1,4 +1,4 @@
-"""Presigned APEX authority and byte-preservation boundaries; no committed keys."""
+"""Presigned APEX authority and byte-preservation boundaries, with no committed keys."""
 import copy
 import hashlib
 from pathlib import Path

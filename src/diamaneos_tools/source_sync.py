@@ -6,7 +6,7 @@ manifest checkout at the manifest commit that build recorded.
 
 Shallow syncs (--shallow): the very large prebuilt projects are fetched first,
 one revision each at depth 1, with a low-speed abort and a bounded number of
-attempts; project git directories an interrupted sync left without data are
+attempts. Project git directories an interrupted sync left without data are
 removed so repo creates them again as shallow projects.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ from . import build
 from .build_workspace import BuildStepError, UsageError
 
 MAX_RECORD_BYTES = 4 * 1024 * 1024
-# Manifest composition that "repo manifest -r" flattens; a resolved manifest
+# Manifest composition that "repo manifest -r" flattens. A resolved manifest
 # never contains it.
 COMPOSITION = ('include', 'extend-project', 'remove-project')
 # What "repo manifest -r" adds to a project of "repo manifest": its commit and
@@ -42,12 +42,12 @@ PREFETCH_KEYS = {'projects', 'jobs', 'attempts', 'retry_delay_seconds', 'low_spe
                  'low_speed_time_seconds', 'reason'}
 PREFETCH_LIMITS = {'jobs': (1, 16), 'attempts': (1, 50), 'retry_delay_seconds': (0, 3600),
                    'low_speed_limit_bytes': (1, 1 << 30), 'low_speed_time_seconds': (1, 3600)}
-# The low-speed abort ends a stalled transfer; this only bounds a slow one.
+# The low-speed abort ends a stalled transfer. This only bounds a slow one.
 FETCH_TIMEOUT = 8 * 3600
 
 
 def git(argv, timeout=3600) -> subprocess.CompletedProcess:
-    """git without hooks or prompts; a failure or timeout is a return code."""
+    """git without hooks or prompts. A failure or timeout is a return code."""
     command = ['git', '-c', 'core.hooksPath=/dev/null', *map(str, argv)]
     try:
         return subprocess.run(command, capture_output=True, text=True, timeout=timeout,
@@ -344,7 +344,7 @@ def remove_partial_packs(directory: Path) -> None:
 def fetch_target(source: Path, target: PrefetchTarget, settings: dict, echo=print, run=git, wait=None) -> None:
     """Fetch one revision at depth 1 where repo will look for it.
 
-    An existing project git directory gets the fetch; otherwise the project's
+    An existing project git directory gets the fetch, otherwise the project's
     object directory does. repo (the version the environment pins) creates a
     missing git directory from the object directory, copying its refs and
     shallow file, so it finds the revision and does not fetch the project.
@@ -381,7 +381,7 @@ def fetch_target(source: Path, target: PrefetchTarget, settings: dict, echo=prin
 
 
 def prefetch(source: Path, targets, settings: dict, echo=print, run=git, wait=None) -> None:
-    """Fetch the targets, ``settings['jobs']`` at a time; every failure is reported."""
+    """Fetch the targets, ``settings['jobs']`` at a time. Every failure is reported."""
     stop = threading.Event()
     wait = wait or stop.wait
 
@@ -467,10 +467,10 @@ def clear_half_initialised(source: Path, projects: dict) -> list:
 def clear_renamed(source: Path, projects: dict, run=git) -> list:
     """Remove the checkouts of projects the manifest now takes from another repository at the same path.
 
-    A GrapheneOS release that forks a former AOSP project keeps its path but changes its name; repo then
+    A GrapheneOS release that forks a former AOSP project keeps its path but changes its name. repo then
     refuses to reuse the work tree, whose git directory still points at the old project's objects
     ("--force-sync not enabled"). A clean work tree with no project nested in it is removed with its git
-    directory, so the sync checks out the new project; the old objects stay. A changed work tree stops
+    directory, so the sync checks out the new project. The old objects stay. A changed work tree stops
     the sync. Returns (path, old name, new name) per removed project.
     """
     objects_root = os.path.normpath(source / '.repo/project-objects')

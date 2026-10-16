@@ -18,7 +18,7 @@ class ProductInputTests(unittest.TestCase):
         vtree=self.vendor/'generations'/('a'*64);vtree.mkdir(parents=True)
         (vtree/'input').write_bytes(b'fixture');(vtree/'input').chmod(0o640)
         # The generations record the recipes they were made from, as the real
-        # generators do; the fixture uses this checkout's recipes.
+        # generators do. The fixture uses this checkout's recipes.
         self.recipes=subject.current_recipes()
         provenance=vtree/'provenance.json'
         provenance.write_text(json.dumps({'recipe_sha256':self.recipes['vendor_files'],
@@ -147,7 +147,7 @@ class ProductInputTests(unittest.TestCase):
 
     def test_kernel_tree_of_earlier_tools_moves_aside_but_the_manifest_project_stays(self):
         # Earlier tools installed a generated kernel where the manifest now
-        # has the kernel prebuilts project; the old descriptor names both.
+        # has the kernel prebuilts project. The old descriptor names both.
         legacy=self.source/'device/fairphone/FP6-kernel';legacy.mkdir(parents=True);(legacy/'Image').write_bytes(b'old')
         (self.source/'.repo/diamaneos-generated-inputs.json').write_text(json.dumps({'schema_version':2,'status':'PASS'}))
         self.assertEqual(['kernel'],subject.retire_stale(self.source))

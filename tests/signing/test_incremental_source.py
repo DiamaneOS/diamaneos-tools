@@ -1,4 +1,4 @@
-"""Incremental identity and closing-source guards; controlled native responses."""
+"""Incremental identity and closing-source guards, with controlled native responses."""
 import hashlib,json,pathlib,tempfile,unittest
 from unittest.mock import Mock,patch
 from types import SimpleNamespace

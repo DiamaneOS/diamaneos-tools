@@ -47,7 +47,7 @@ class DocLengthTests(unittest.TestCase):
                 words = len(text.split())
                 if words > MAX_WORDS:
                     long_blocks.append(f'{path.relative_to(ROOT)}:{line}: {words} words: {text[:60]}...')
-        self.assertEqual(long_blocks, [], f'blocks over {MAX_WORDS} words; split them into sub-bullets')
+        self.assertEqual(long_blocks, [], f'blocks over {MAX_WORDS} words. Split them into sub-bullets')
 
     def test_blocks_skips_code_tables_and_headings(self):
         text = '# Title\n\n| a | b |\n\n```\n' + 'word ' * 80 + '\n```\n\n- one two\n  three\n\nfour five\n'

@@ -1,4 +1,4 @@
-"""Native X.509 representation fixtures; no APK signing or device qualification."""
+"""Native X.509 representation fixtures, no APK signing or device qualification."""
 import copy
 import hashlib
 import json

@@ -102,7 +102,7 @@ def _local(name):
 
 
 def attr(element, name, any_namespace=True):
-    """KXmlParser.getAttributeValue: the last attribute with this local name; namespace null
+    """KXmlParser.getAttributeValue: the last attribute with this local name. Namespace null
     (any_namespace) matches any namespace, "" only attributes without one."""
     for key in reversed(list(element.attrib)):
         if _local(key) == name and (any_namespace or not key.startswith('{')):
@@ -263,7 +263,7 @@ class Reader:
         self.findings.append(finding(severity, code, message, family, font))
 
     def fail(self, message, family=None, font=None):
-        """Android throws here, so it reads nothing more; the check goes on with the next element."""
+        """Android throws here, so it reads nothing more. The check goes on with the next element."""
         self.add('error', 'boot', message, family, font)
         raise _Thrown
 
@@ -272,7 +272,7 @@ class Reader:
             root = parse_xml(data)
         except OverlayCheckError as error:
             # Android's KXmlParser rejects most of what expat rejects (and then drops every system
-            # font), but accepts a DTD and repeated attributes (reading the last); the check does not.
+            # font), but accepts a DTD and repeated attributes (reading the last). The check does not.
             self.add('error', 'xml', f'{error}: Android drops every system font when its parser rejects the file')
             return
         if _local(root.tag) != 'fonts-modification':
@@ -369,7 +369,7 @@ class Reader:
         if name is None or target is None:
             self.add('error', 'dropped', 'an alias without a name or a target, which Android drops')
         # An alias to a family that neither this file nor the system font list defines is also
-        # dropped; the system list is not an input here.
+        # dropped. The system list is not an input here.
 
     def fonts(self, element, label, allow_ignore=False):
         """FontListParser.readFamily: the fonts Android keeps, or None when the family is ignored."""

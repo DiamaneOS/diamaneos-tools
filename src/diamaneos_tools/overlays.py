@@ -59,7 +59,7 @@ CONFIG = ROOT / 'config/overlays.json'
 ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
 ANDROID = '{http://schemas.android.com/apk/res/android}'
 ROLES = {'product': {'product'}, 'device': {'vendor', 'odm'}}
-# PackagePartitions order; OverlayConfig applies static overlays in this order,
+# PackagePartitions order. OverlayConfig applies static overlays in this order,
 # then by android:priority, then by APK path, so later entries win.
 PARTITION_ORDER = ['system', 'vendor', 'odm', 'oem', 'product', 'system_ext']
 PARTITION_POLICY = {'system': 'system', 'system_ext': 'system', 'vendor': 'vendor',
@@ -84,7 +84,7 @@ SHA1 = re.compile(r'^[0-9a-f]{40}$')
 API_QUALIFIER = re.compile(r'^v([0-9]+)$')
 SW_QUALIFIER = re.compile(r'^sw([0-9]+)dp$')
 DENSITY_QUALIFIER = re.compile(r'^(?:ldpi|mdpi|tvdpi|hdpi|xhdpi|xxhdpi|xxxhdpi|nodpi|anydpi|([0-9]+)dpi)$')
-# ResTable_config densities; a config without one counts as DENSITY_MEDIUM when compared.
+# ResTable_config densities. A config without one counts as DENSITY_MEDIUM when compared.
 DENSITIES = {'ldpi': 120, 'mdpi': 160, 'tvdpi': 213, 'hdpi': 240, 'xhdpi': 320, 'xxhdpi': 480,
              'xxxhdpi': 640, 'anydpi': 0xfffe, 'nodpi': 0xffff}
 DENSITY_MEDIUM, DENSITY_ANY = 160, 0xfffe
@@ -282,7 +282,7 @@ class Resources:
         self.entries.setdefault((rtype, name), {}).setdefault(qualifier, set()).add(flag)
 
     def add_path(self, relative, read):
-        """Record one file below a resource directory; read() returns values XML bytes."""
+        """Record one file below a resource directory. read() returns values XML bytes."""
         parsed = classify(relative)
         if parsed is None:
             return
@@ -335,7 +335,7 @@ class Resources:
                                          f'{"|".join(sorted(policies - POLICIES))}')
                 items = [item for item in child if item.tag == 'item']
             elif child.tag == 'item':
-                policies, items = set(), [child]  # aapt2 rejects this; it grants nothing
+                policies, items = set(), [child]  # aapt2 rejects this, and it grants nothing
             else:
                 continue
             for item in items:
@@ -816,7 +816,7 @@ class ManifestRemote:
     """Target sources fetched from each project's manifest remote into a partial-clone cache.
 
     Every project is fetched at the full commit the manifest pins, with trees
-    only; values files are then fetched in batches. Nothing leaves the cache.
+    only. Values files are then fetched in batches. Nothing leaves the cache.
     """
 
     kind = 'fetch'
@@ -1175,7 +1175,7 @@ def device_model(mine, theirs, config):
     """(shadowed, covered) target qualifiers on the configured device. AssetManager2 uses an
     overlay's value only when the overlay's best configuration is equal to or better than the
     target's best (AssetManager2.cpp, FindEntry). Only qualifiers made of smallest width, density
-    and API level are modelled; the rest are compared by name."""
+    and API level are modelled. The rest are compared by name."""
     density = config['device']['density']
     targets = {q: m for q in theirs if applies(q, config) and (m := modelled(q)) is not None}
     own = [m for q in mine if applies(q, config) and (m := modelled(q)) is not None]
@@ -1296,7 +1296,7 @@ def product_checks(overlay, rules):
 
 
 def _order(overlay):
-    """OverlayConfig's order for static overlays; the last one wins. APKs tie-break by path."""
+    """OverlayConfig's order for static overlays. The last one wins. APKs tie-break by path."""
     partition = overlay['partition'] if overlay['partition'] in PARTITION_ORDER else 'system'
     return (PARTITION_ORDER.index(partition), overlay['priority'], overlay['module'])
 
@@ -1307,7 +1307,7 @@ def cross_checks(package, group):
     for index, first in enumerate(ordered):
         for second in ordered[index + 1:]:
             pair = f'{first["module"]} ({first["partition"]}) and {second["module"]} ({second["partition"]})'
-            # android:priority only orders overlays within one partition; across
+            # android:priority only orders overlays within one partition. Across
             # partitions the partition order decides, whatever the priorities.
             if first['partition'] == second['partition'] and first['priority'] == second['priority']:
                 result.append(finding('error', 'same-priority', f'{pair} both target {package} with priority '

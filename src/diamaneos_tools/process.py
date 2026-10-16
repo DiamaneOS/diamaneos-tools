@@ -12,7 +12,7 @@ import time
 
 def _signal_group(process, signum):
     # Darwin can report EPERM while the group's last member is a zombie.
-    # Reap the group leader and retry that race; never suppress a persistent denial.
+    # Reap the group leader and retry that race. Never suppress a persistent denial.
     for attempt in range(3):
         process.poll()
         try:
@@ -39,10 +39,10 @@ def terminate_group(process, grace_seconds=0.25):
 
 def run(argv, timeout_seconds, max_output_bytes=262_144, *, cwd=None,
         env=None, input_data=None, log_path=None, capture_bytes=None):
-    """Return bytes and one transport status; never return a live owned child.
+    """Return bytes and one transport status. Never return a live owned child.
 
     Small commands retain their bounded streams. With log_path, both streams
-    are merged and streamed to a private exclusive file; capture_bytes may keep
+    are merged and streamed to a private exclusive file. capture_bytes may keep
     only a bounded tail for diagnostics. Output limits still apply to the full
     stream, not just the retained tail. stdin is a temporary file, so input and
     output cannot deadlock each other. Callers own signal-handler policy.

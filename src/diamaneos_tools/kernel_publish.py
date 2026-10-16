@@ -24,7 +24,7 @@ import tempfile
 from .vendor_extract import sha
 
 TOOLS_URL = 'https://github.com/DiamaneOS/diamaneos-tools'
-# Every path a kernel candidate may contain; anything else is refused.
+# Every path a kernel candidate may contain. Anything else is refused.
 ALLOWED = (re.compile(r'Image'), re.compile(r'dtbo\.img'), re.compile(r'dtbs/[A-Za-z0-9_.,+-]+\.dtb'),
            re.compile(r'modules/[A-Za-z0-9_.,+-]+\.ko'), re.compile(r'BoardConfigKernel\.mk'),
            re.compile(r'device-kernel\.mk'), re.compile(r'[a-z_]+-modules\.blocklist'))

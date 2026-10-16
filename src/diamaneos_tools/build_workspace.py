@@ -2,7 +2,7 @@
 
 The public build commands keep everything in one directory owned by the
 invoking user. Each step records what it consumed and produced in
-``state/<step>.json``; a rerun skips a step whose inputs are unchanged and
+``state/<step>.json``. A rerun skips a step whose inputs are unchanged and
 whose outputs still verify.
 """
 from __future__ import annotations
@@ -49,12 +49,12 @@ MEMORY_MARGIN = 2 * GIB
 # container daemons). A network-off build has no use for them.
 SCRUBBED = ('SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'GPG_AGENT_INFO', 'XDG_RUNTIME_DIR', 'WAYLAND_DISPLAY',
             'DISPLAY', 'XAUTHORITY', 'DOCKER_HOST', 'CONTAINER_HOST', 'PULSE_SERVER', 'KRB5CCNAME')
-# Full build logs are large; keep the whole stream in the log, a tail in memory.
+# Full build logs are large. Keep the whole stream in the log, a tail in memory.
 MAX_LOG_BYTES = 64 * GIB
 
 
 class BuildStepError(RuntimeError):
-    """A step failed; ``exit_code`` follows the command's documented codes."""
+    """A step failed. ``exit_code`` follows the command's documented codes."""
     exit_code = 4
 
 
@@ -242,8 +242,8 @@ class Action:
     network: bool = False
     # Compile actions run in a network namespace (see Runner.isolated).
     compile: bool = False
-    # What the action does in more words. The log and the dry run show it;
-    # the terminal shows only the short description.
+    # What the action does in more words. The log and the dry run show it,
+    # the terminal only the short description.
     detail: str = ''
 
     def text(self, isolated: bool) -> str:
@@ -298,7 +298,7 @@ def scrubbed_environment(env: dict) -> dict:
 
 
 class Runner:
-    """Runs actions with logging; network-off for compile steps by default."""
+    """Runs actions with logging, network-off for compile steps by default."""
 
     def __init__(self, allow_network: bool = False, echo=print, tmpdir: Path | None = None):
         self.allow_network = allow_network
@@ -391,7 +391,7 @@ def package_versions(names) -> dict | None:
     return versions
 
 
-# Commands each step runs itself; checked before a step starts.
+# Commands each step runs itself, checked before a step starts.
 STEP_COMMANDS = {
     'sync': ('git', 'repo', 'ssh-keygen', 'gpg'),
     'kernel': ('git', 'bash', 'make', 'perl', 'openssl', 'modinfo', 'modprobe', 'nm', 'readelf'),
@@ -407,16 +407,16 @@ def module_available(name: str) -> bool:
 
 
 def needed_space(build_config: dict, steps, present=()) -> int:
-    """Bytes the given steps still need; steps whose output already exists
+    """Bytes the given steps still need. Steps whose output already exists
     (a resumed or repeated run) reuse most of their space."""
     return sum(build_config['disk_estimate_gib'].get(step, 0) for step in steps if step not in present) * GIB
 
 
 def check_host(workspace: Workspace, steps, environment: dict, build_config: dict,
                need_isolation: bool, probe=None, present=()) -> dict:
-    """Stop early with every missing requirement; record the host for build.json.
+    """Stop early with every missing requirement, and record the host for build.json.
 
-    ``steps`` are the steps that will run; ``present`` those of them whose
+    ``steps`` are the steps that will run, ``present`` those of them whose
     output already exists. ``probe`` replaces system queries in tests.
     """
     probe = probe or {}

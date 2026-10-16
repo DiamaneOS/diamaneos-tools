@@ -50,7 +50,7 @@ class Fixture(unittest.TestCase):
         path.write_text(text.replace(old, new))
 
     def check(self, *extra, source=None):
-        """Run the command; return (exit code, JSON report or None, stderr)."""
+        """Run the command and return (exit code, JSON report or None, stderr)."""
         source = source or ['--source-tree', str(self.tree)]
         argv = ['--config', str(self.config), '--root', str(self.workspace), *source, '--json', *extra]
         stdout, stderr = io.StringIO(), io.StringIO()
@@ -153,8 +153,8 @@ class ResourceTests(Fixture):
         self.assertEqual(code, 1)
         found = sorted((f['severity'], f['overlay'], f['resource'], tuple(f['qualifiers']))
                        for f in report['findings'] if f['code'] == 'target-qualifier')
-        # Rule 2 is an error for product overlays and a warning for the device's own overlays;
-        # pseudo-locales and widths above the device's never apply.
+        # Rule 2 is an error for product overlays and a warning for the device's own overlays.
+        # Pseudo-locales and widths above the device's never apply.
         self.assertEqual(found, [
             ('error', 'ExampleFrameworkOverlay', 'bool/config_buttonTextAllCaps', ('night',)),
             ('warning', 'DeviceFrameworkOverlay', 'integer/config_screenBrightnessDoze', ('night',))])
@@ -219,7 +219,7 @@ class ResourceTests(Fixture):
                    '<resources><dimen name="config_buttonCornerRadius">6dp</dimen></resources>')
         code, report, _ = self.check()
         self.assertEqual(code, 1)
-        # sw360dp matches the FP6 (372 dp) and beats the overlay's default; sw400dp never matches.
+        # sw360dp matches the FP6 (372 dp) and beats the overlay's default, and sw400dp never matches.
         self.assertEqual(self.codes(report), ['shadowed'])
         self.assertEqual(self.only(report, 'shadowed')['qualifiers'], ['sw360dp'])
         self.write('workspace/vendor_example/overlay/ExampleFrameworkOverlay/res/values-sw360dp/config.xml',
@@ -531,7 +531,7 @@ class CrossOverlayTests(Fixture):
 
     def test_same_priority_across_partitions_is_fine(self):
         # Priority is only compared within a partition, so a vendor and a
-        # product overlay may share one; the product overlay wins either way.
+        # product overlay may share one. The product overlay wins either way.
         self.edit(self.DEVICE_MANIFEST, 'android:priority="1"', 'android:priority="2"')
         code, report, _ = self.check()
         self.assertEqual(code, 0)

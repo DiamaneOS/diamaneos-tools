@@ -1,4 +1,4 @@
-"""Controlled orchestration guards; these tests do not establish cryptographic validity."""
+"""Controlled orchestration guards. These tests do not establish cryptographic validity."""
 import copy
 import hashlib
 from pathlib import Path

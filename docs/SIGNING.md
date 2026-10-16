@@ -21,13 +21,13 @@ to each run. Unknown roles and presigned exceptions are rejected.
 | Previous signing result | External SSH authority, `diamaneos-signing-result` namespace |
 
 The public inventory uses schema version 2. `certificate_roles` maps every role to
-an external certificate; `avb_public_key` names its RSA public PEM; `factory` contains
+an external certificate, `avb_public_key` names its RSA public PEM, and `factory` contains
 `allowed_signers` and an exact SSH identity. File names are relative to the inventory.
 Private key material is rejected.
 
 The optional `presigned_apex_payload_keys` object maps each reviewed presigned
 APEX metadata name to an independently supplied AVB **binary** public-key file.
-For the exact stock Widevine package this is, for example:
+For the FP6's stock Widevine package, for example:
 
 ```json
 "presigned_apex_payload_keys": {
@@ -50,7 +50,7 @@ the independent external binary.
 
 Header/footer decoding stays in the platform parser. No signature crypto or AVB
 parser is implemented here. The parser's Git blob and consumed bytes are bound
-in `source_files`; unsupported native APIs refuse.
+in `source_files`. Unsupported native APIs refuse.
 
 Prepare verifies container and payload before accepting preservation.
 Publication verification repeats both checks and requires unchanged complete
@@ -62,7 +62,7 @@ new archive with truthful packaging/build metadata and fresh authenticated
 verification on the updated source basis.
 
 Never edit an old manifest, report or source identity to make comparison pass.
-New policy and public inventory hashes require a fresh signing plan; an earlier
+New policy and public inventory hashes require a fresh signing plan. An earlier
 plan cannot be reused.
 
 ## Prepare and sign
@@ -83,7 +83,7 @@ that authenticated provenance before native verification begins.
 The private copies include the policy, build record, checksums, resolved manifest,
 report and signatures, previous result, and external public inventory/material.
 Original filenames and relative public-key references are preserved. Original
-path changes refuse publication; copying does not make publication-controlled
+path changes refuse publication. Copying does not make publication-controlled
 keys an external authority.
 
 ```sh
@@ -104,9 +104,9 @@ are rejected. Git index flags and ignored runtime files cannot bypass source adm
 
 Use `--previous-result` with `--previous-signature` for subsequent runs. The externally
 verified result must contain successful artifact verification in a compatible mode.
-Each plan reports changed signing projects; the first includes every signing project.
+Each plan reports changed signing projects. The first includes every signing project.
 
-Release-script overrides supply package roles; archive contents determine absent metadata.
+Release-script overrides supply package roles. Archive contents determine absent metadata.
 Presigned bytes remain identical and verify against exact policy identities. Enclosed APKs
 receive complete role checks. SELinux certificate replacement follows the native default
 key mapping and preserves independently approved certificates.
@@ -126,9 +126,9 @@ input replacement and existing outputs.
 Keep the inventory, plan, result and scratch outside the dedicated publication directory.
 The publication description has `schema_version`, `signed_target_files`, `images_archive`,
 `ota`, `factory_archive`, `factory_signature`, `release_record` and `release_signature`.
-Paths are relative; unknown files, duplicates and links are rejected.
+Paths are relative. Unknown files, duplicates and links are rejected.
 
-Each `ota` entry has `file` and `source_target_files`; a full OTA uses `null`.
+Each `ota` entry has `file` and `source_target_files`, and a full OTA uses `null`.
 Delta sources must match previous verified artifact hashes. A full OTA is mandatory.
 
 The release record contains `schema_version`, `plan_sha256` and the exact `artifacts`
@@ -139,7 +139,7 @@ archive tools run. Plan, publication, record, signature and authority reads use
 their frozen copies throughout verification.
 
 The authenticated plan binds the otatools snapshot. Expected
-public authority stays outside the publication; native artifact checks still run
+public authority stays outside the publication. Native artifact checks still run
 after bootstrap authentication.
 
 ```sh
@@ -187,7 +187,7 @@ unused-block differences are refused. Signature, source attribution, public trus
 and production acceptance requirements remain unchanged.
 
 Fixtures create disposable material in temporary storage. Native signature cases require
-explicit source and otatools inputs; Linux or `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` refuses
+explicit source and otatools inputs. Linux or `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` refuses
 missing inputs. They exercise corrupt, unsigned, wrong-key, wrong-role and test-key artifacts.
 
 ```sh
@@ -197,6 +197,6 @@ PYTHONPATH=src "$VENV/bin/python" -m unittest tests.signing.test_native_signatur
 ```
 
 `apksigner`, `avbtool`, `check_ota_package_signature`, `delta_generator` and payload tooling
-perform cryptographic verification. Policy code compares native results with external trust;
-it contains no signature parser. Controlled orchestration fixtures do not establish
+perform cryptographic verification. Policy code compares native results with external trust.
+It contains no signature parser. Controlled orchestration fixtures do not establish
 cryptographic or device acceptance.

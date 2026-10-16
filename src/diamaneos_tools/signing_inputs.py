@@ -256,7 +256,7 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
                      and set(rule['variants']) <= {'user', 'userdebug', 'eng'}), 'Invalid resolved device rule')
         ids.append(rule['id'])
     require(len(ids) == len(set(ids)), 'Duplicate resolved device rule')
-    # The resolved verifier implements rule types; signing requires their complete PASS coverage.
+    # The resolved verifier implements rule types. Signing requires their complete PASS coverage.
     required = set(image_verify.REQUIRED_CHECKS) | {
         rule['id'] for rule in rules['rules']
         if image_verify.rule_applies(rule, record.get('variant'), record.get('official') is True)}

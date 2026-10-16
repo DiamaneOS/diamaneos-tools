@@ -186,7 +186,7 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
         raise FlashError('flash-steps only prints commands for test builds')
     if report is None:
         raise FlashError('this image set has not been verified; run "diamaneos build verify" first')
-    # Failed checks stop an official image set; for others they are a warning below.
+    # Failed checks stop an official image set. For others they are a warning below.
     problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS),
                              allow_failed=record.get('official') is not True)
     if problem:
@@ -243,7 +243,7 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
     wipe_lines = []
     if wipe:
         if carried and decision['why'] == 'same':
-            # The firmware's state partitions are reset with a wipe; with
+            # The firmware's state partitions are reset with a wipe. With
             # firmware steps they come at their stock place among them.
             wipe_lines += [f'  fastboot flash {s["partition"]} {s["image"]}' for s in carried['steps']
                            if s.get('wipe_only')]

@@ -503,7 +503,7 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
     """Reject undeclared inputs outside projects without traversing build output.
 
     Returns the undeclared paths. They, and local manifests, are errors when
-    ``strict``; otherwise local manifests are repo's business (their projects
+    ``strict``. Otherwise local manifests are repo's business (their projects
     are in the resolved manifest) and the caller reports the paths.
 
     Git status covers each project's files. This covers the gaps between those
@@ -512,7 +512,7 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
     exports are expected (the signed release manifest, or in manifest mode the
     resolved manifest itself). ``generated`` names generated-input trees whose
     complete contents the caller has already verified against the bound
-    generated-input descriptor; nothing else outside projects is accepted.
+    generated-input descriptor. Nothing else outside projects is accepted.
     """
     source = source.resolve(strict=True)
     directory = source / ".repo/local_manifests"
@@ -678,7 +678,7 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
 
 
 def repo_manifest(source: Path, resolved: bool = True) -> bytes:
-    """``repo manifest`` of a checkout; ``resolved`` adds -r (each project at its checked-out commit)."""
+    """``repo manifest`` of a checkout. ``resolved`` adds -r (each project at its checked-out commit)."""
     return _run(["repo", "manifest", *(["-r"] if resolved else [])], cwd=source, timeout=300).stdout
 
 
@@ -740,10 +740,10 @@ def check_repo_tool(config: dict, source: Path, strict: bool = True) -> tuple[di
 def verify_pinned_revisions(declared_xml: bytes, rows, strict: bool = True) -> list:
     """Projects the manifest pins to a commit are checked out at that commit.
 
-    Returns the projects that are not; an error when ``strict``.
+    Returns the projects that are not, or raises an error when ``strict``.
 
     ``repo manifest -r`` records each project's checked-out commit, so it
-    cannot show a project moved off its pin; the declared manifest
+    cannot show a project moved off its pin. The declared manifest
     (``repo manifest``) names the pins. Projects that follow a branch or tag
     are not pinned here.
     """
@@ -846,14 +846,14 @@ def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
 
 def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None,
                                notes: list | None = None) -> str:
-    """The manifest checkout follows the declared manifest; returns its commit.
+    """The manifest checkout follows the declared manifest. Returns its commit.
 
     With ``notes`` (a build that is not official) another origin URL, such as
     an SSH clone or a fork of the manifest, is appended there, not an error.
 
     The checkout must be at the head of the declared branch. A sync that
     reproduces a recorded resolved manifest passes the manifest commit that
-    build recorded as ``manifest_commit``; the checkout must then be at that
+    build recorded as ``manifest_commit``. The checkout must then be at that
     commit instead, because the branch may have moved since, and the commit
     must be in the branch's history.
     """

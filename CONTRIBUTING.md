@@ -1,12 +1,12 @@
 # Contributing to diamaneos-tools
 
-GitHub is the source, issue and pull-request host; remotes are
+GitHub is the source, issue and pull-request host. Remotes are
 `https://github.com/DiamaneOS/<slug>.git`.
 
 ## Privacy
 
 Never commit serials, IMEI, SIM/eSIM data, purchase prices, recovery codes, raw diagnostics, tester
-contacts, custody details or production secrets/shares. Redact before staging; `.gitignore` is a
+contacts, custody details or production secrets/shares. Redact before staging. `.gitignore` is a
 last guard, not permission.
 
 ## Public documentation and identifiers
@@ -15,16 +15,16 @@ last guard, not permission.
   prerequisites, in plain language.
 - Describe the current state: no status or history notes, plans or dates.
 - Point at the config file or command that holds a release name, tag, commit or count instead of
-  repeating the value; mark a literal value in a command line as an example.
-- Use repository-relative links and configurable workspace placeholders; no home directory, private
+  repeating the value. Mark a literal value in a command line as an example.
+- Use repository-relative links and configurable workspace placeholders. No home directory, private
   checkout path, hostname, workstation inventory, account state or chat/review transcript.
 - Name supported platforms and tested tool versions only when they help reproduce a build or result.
-- Keep every list item and paragraph to 45 words at most; split longer text into sub-bullets
+- Keep every list item and paragraph to 45 words at most. Split longer text into sub-bullets
   instead of extending it (`tests/docs/test_doc_length.py` enforces this).
 - CLI help, user-visible output and report values describe behaviour, without internal identifiers.
-- Stable file paths, schema keys, source pins and test/requirement IDs are technical interface; do
+- Stable file paths, schema keys, source pins and test/requirement IDs are technical interface. Do
   not rename them for editorial cleanup.
-- Review the whole staged diff, filenames and commit message for public suitability; removing text
+- Review the whole staged diff, filenames and commit message for public suitability. Removing text
   from the checkout leaves it in Git history.
 - Preserve third-party source attribution and genuine unresolved safety requirements.
 
@@ -38,16 +38,16 @@ last guard, not permission.
   use.
 - Exact upstream tags, commits, tool versions and file digests are reproducibility data: change one
   only together with the input it pins.
-- One validated machine-readable authority per pin; derive scripts, paths and docs from it. Tests
+- One validated machine-readable authority per pin. Derive scripts, paths and docs from it. Tests
   should reject duplicated authorities that drift.
 - Use the smallest permanent mechanism that meets a named requirement or threat, with a clear
   owning component, failure mode, verification and reusable boundary.
 - One-off diagnosis, deployment glue and raw evidence stay outside this repository.
 - Security boundaries and reproducibility checks are not simplification targets.
 - Shared mechanisms (bounded processes, strict JSON loading) live in their small owning modules.
-  Domain workflows stay direct; no general workflow engine for similar-looking steps.
+  Domain workflows stay direct, with no general workflow engine for similar-looking steps.
 - A fix spanning provenance, locking or process completion needs a test of the composed acceptance
-  boundary; passing helper tests do not prove the caller's end-to-end result.
+  boundary. Passing helper tests do not prove the caller's end-to-end result.
 
 ## Device security policy
 
@@ -61,15 +61,16 @@ last guard, not permission.
 - Removing a permission does not prove a feature still works: verify the affected startup, IPC and
   hardware behaviour.
 - Do not present behaviour as verified without native and device checks.
-- Check production `user` policy separately; it needs zero permissive domains.
+- Check production `user` policy separately. It needs zero permissive domains.
 - Exceptions that only `userdebug` builds inherit are no production acceptance and no permission to
   make hardware domains permissive.
 - Policy compilation proves neither least privilege nor runtime function.
 - Omit unnecessary components.
 - Prefer maintained source to opaque prebuilts when interfaces, security properties and device
-  behaviour can be verified; keep required functionality (source availability alone is not enough).
+  behaviour can be verified, but keep required functionality (source availability alone is not
+  enough).
 - Keep necessary prebuilts pinned by hash, each with its purpose in the recipe that selects it
-  (`config/fp6-minimal/vendor-files.json`).
+  (`config/fp6-minimal/vendor-files.json` for the FP6).
 
 ## Upstream licences
 
@@ -77,7 +78,7 @@ last guard, not permission.
   licence and copyright notices.
 - Pin the exact upstream revision, inspect per-file SPDX/licence declarations and record downstream
   patches.
-- Generate the notice and corresponding-source inventory from the files the build consumes; a public
+- Generate the notice and corresponding-source inventory from the files the build consumes. A public
   repository, another ROM's use or a top-level licence file is not sufficient evidence.
 - Do not merge or release code whose licence is unknown, incompatible with the intended use, or
   carries an unmet attribution, notice, corresponding-source, relinking or Installation Information
@@ -97,10 +98,10 @@ last guard, not permission.
 - Keep accurate upstream names, source links, technical identifiers and required copyright/licence
   notices.
 - A project overview or distribution page states the separate identity as the README does: based on
-  GrapheneOS, not made or endorsed by GrapheneOS or Fairphone.
+  GrapheneOS, not made or endorsed by GrapheneOS or by any device maker.
 - Component READMEs and technical docs repeat it only if their presentation could suggest
   affiliation.
-- Commit messages name the upstream or device when relevant; they need no tagline or disclaimer.
+- Commit messages name the upstream or device when relevant. They need no tagline or disclaimer.
 
 ## Pull requests
 
@@ -110,24 +111,24 @@ last guard, not permission.
 
 ## Branches and repositories
 
-- `main` for tools and standalone services; `android17` for every OS repository (manifest, device,
+- `main` for tools and standalone services, `android17` for every OS repository (manifest, device,
   shared product and kernel repositories).
-- Preserve upstream history in forks; keep commits signed.
+- Preserve upstream history in forks and keep commits signed.
 - ROM images and build output stay outside source Git.
-- Forks and their upstreams: `config/forks.json`; exact build pins: the manifest and environment
-  records.
+- Forks and their upstreams are in `config/forks.json`. Exact build pins are in the manifest and the
+  environment records.
 
 ## Translations and accessibility
 
-- Source locale: English. A locale is advertised only after its critical flows are reviewed;
+- Source locale: English. A locale is advertised only after its critical flows are reviewed.
   AI-assisted locales are never advertised as fully reviewed.
 - Low-risk AI drafts are allowed after structural checks.
 - Critical wording (credentials, permissions, erase, updates, recovery, installation) ships only
   after fluent review, otherwise with a disclosed source-language fallback for that flow.
 - Suggest via Git (resource/docs paths, review branches only), reporting app/screen, locale and
   affected text.
-- No screenshot upload or personal content by default; no contributor personal-data or disability
-  disclosure required.
+- No screenshot upload or personal content by default. Contributors need not disclose personal data
+  or disability.
 - The translation path cannot touch code, keys or production branches.
-- Accessibility reports are welcome in the same format; assistive checks are manual, on device,
+- Accessibility reports are welcome in the same format. Assistive checks are manual, on device,
   never proven by scanners alone.

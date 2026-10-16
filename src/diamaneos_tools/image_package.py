@@ -45,7 +45,7 @@ def reserved_names(config: dict) -> set[str]:
 
 
 def check_firmware_names(names, config: dict) -> None:
-    """Stock firmware keeps its stock file names; none may take the place of an
+    """Stock firmware keeps its stock file names. None may take the place of an
     image DiamaneOS builds or generates (the stock pvmfw.img, for one)."""
     clashes = sorted(set(names) & reserved_names(config))
     if clashes:
@@ -318,8 +318,8 @@ def plan(ctx):
         shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed; run "diamaneos build all" again')
-        # The tools that built the Android images are in their build identity;
-        # packaging may run from a later checkout and is recorded beside them.
+        # The tools that built the Android images are in their build identity.
+        # Packaging may run from a later checkout and is recorded beside them.
         tools = out.get('tools') or {'commit': None, 'clean': None}
         packaging_tools = product_inputs.tools_identity()
         official = out.get('official') is True

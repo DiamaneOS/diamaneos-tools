@@ -55,7 +55,7 @@ class KernelConfigTests(unittest.TestCase):
             (flipped((b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y'),
                      (b'CONFIG_ARM64_VA_BITS=48', b'CONFIG_ARM64_VA_BITS=39')),
              ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48']),
-            # Qualcomm's data stack needs TIPC; its network bearer, crypto and diag must stay out.
+            # Qualcomm's data stack needs TIPC. Its network bearer, crypto and diag must stay out.
             disabled('CONFIG_TIPC', 'm'), disabled('CONFIG_TIPC_LOCAL_ONLY'), enabled('CONFIG_TIPC_MEDIA_UDP'),
             enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
             # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
@@ -69,7 +69,7 @@ class KernelConfigTests(unittest.TestCase):
             (flipped(no_confidentiality, (off(integrity), on(integrity))), [confidentiality, integrity]),
             (flipped(no_confidentiality) + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y', [confidentiality]),
             # These interfaces would read or replace kernel memory. Lockdown refuses them
-            # at run time; leaving them out of the build keeps them away from a bypass.
+            # at run time. Leaving them out of the build keeps them away from a bypass.
             *map(enabled, ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE',
                            'CONFIG_HIBERNATION')),
             # The USB controller glue's kretprobe hooks, ueventd's firmware fallback and
@@ -77,7 +77,7 @@ class KernelConfigTests(unittest.TestCase):
             *map(disabled, ('CONFIG_KPROBES', 'CONFIG_KRETPROBES', 'CONFIG_FW_LOADER_USER_HELPER',
                             'CONFIG_DEBUG_FS', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT')),
             # debugfs keeps its in-kernel API but refuses mounts (the forks fix that
-            # mode); going back to a mountable debugfs fails the check.
+            # mode). Going back to a mountable debugfs fails the check.
             (flipped((off('CONFIG_DEBUG_FS_ALLOW_ALL'), on('CONFIG_DEBUG_FS_ALLOW_ALL')),
                      (on('CONFIG_DEBUG_FS_DISALLOW_MOUNT'), off('CONFIG_DEBUG_FS_DISALLOW_MOUNT'))),
              ['CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_DEBUG_FS_DISALLOW_MOUNT'])]

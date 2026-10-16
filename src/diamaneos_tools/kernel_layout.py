@@ -61,7 +61,7 @@ def scan_one(pahole, obj):
 
 
 def compare(results):
-    """Group definitions by structure name and member set; more than one member
+    """Group definitions by structure name and member set. More than one member
     order is a layout split."""
     grouped = defaultdict(lambda: defaultdict(set))
     count = 0
