@@ -1242,7 +1242,7 @@
         "hidp.ko",
         "rfcomm.ko"
       ],
-      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill; the RFCOMM kernel thread is denied its socket bind."
+      "reason": "In-kernel Bluetooth stack: Android's Bluetooth runs through the stock HCI HAL and btpower, which needs only rfkill. The RFCOMM kernel thread is denied its socket bind."
     },
     {
       "modules": [
@@ -1264,7 +1264,7 @@
         "qca_cld3_peach_v2.ko",
         "qca_cld3_wcn6450.ko"
       ],
-      "reason": "WLAN host drivers for other chips: the FP6 runs its QCA6750 through icnss2 and qca_cld3_qca6750; the device tree has no cnss2 (PCIe) node, cnss2's only user is peach_v2, and wcn6450 fails with \"Driver already registered\"."
+      "reason": "WLAN host drivers for other chips: the FP6 runs its QCA6750 through icnss2 and qca_cld3_qca6750. The device tree has no cnss2 (PCIe) node, cnss2's only user is peach_v2, and wcn6450 fails with \"Driver already registered\"."
     },
     {
       "modules": [
@@ -1289,7 +1289,7 @@
       "modules": [
         "qseecom_dlkm.ko"
       ],
-      "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone; qseecom_proxy is another module and stays."
+      "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone. qseecom_proxy is another module and stays."
     },
     {
       "modules": [
@@ -1314,7 +1314,7 @@
       "modules": [
         "f_fs_ipc_log.ko"
       ],
-      "reason": "FunctionFS debug logging through kretprobes; two of its probes fail. Debug only, imported by nothing."
+      "reason": "FunctionFS debug logging through kretprobes. Two of its probes fail. Debug only, imported by nothing."
     },
     {
       "modules": [
@@ -1358,18 +1358,18 @@
       "modules": [
         "dwc3-msm.ko"
       ],
-      "reason": "KPROBES stays on only for the dwc3-msm USB hooks; any other kretprobe user is new and needs review."
+      "reason": "KPROBES stays on only for the dwc3-msm USB hooks. Any other kretprobe user is new and needs review."
     }
   },
   "forbidden_symbols": [],
   "required_symbols": [
     {
       "symbol": "names_command_line",
-      "reason": "/proc/cmdline shows parameter names only, keeping module option values; without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line."
+      "reason": "/proc/cmdline shows parameter names only, keeping module option values. Without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line."
     },
     {
       "symbol": "selinux_enforcing_lock",
-      "reason": "SELinux development mode is on so that an update's first boot can hand the snapshot daemon over before enforcing; once enforcing is on, this lock refuses to turn it off and makes the enforcing mode read-only."
+      "reason": "SELinux development mode is on so that an update's first boot can hand the snapshot daemon over before enforcing. Once enforcing is on, this lock refuses to turn it off and makes the enforcing mode read-only."
     }
   ]
 }
