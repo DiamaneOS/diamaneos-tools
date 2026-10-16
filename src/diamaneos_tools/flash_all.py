@@ -26,6 +26,10 @@ LOCK = ('To lock, run fastboot flashing get_unlock_ability (it must report 1), t
 # reports once the phone is there, and what the scripts call it.
 MODES = {('reboot', 'fastboot'): ('yes', 'fastbootd'), ('reboot-bootloader',): ('no', 'the bootloader')}
 SUPER_EMPTY = 'super_empty.img'
+# An update the OS left pending is cancelled in the bootloader before the boot
+# images, as fastboot flashall and fastboot.js do, and only when the bootloader
+# reports one.
+CANCEL = ['snapshot-update', 'cancel']
 STUCK = ('The phone did not reach $2. Hold Power and Volume down until it restarts into the bootloader, then run '
          'this script again.')
 CRITICAL = ('Device critical unlocked: true',
@@ -40,6 +44,8 @@ def commands(record: dict) -> list[list[str]]:
     if carried:
         result += [['flash', step['partition'], step['image']] for step in carried['steps']]
         result += [['flash', name, image['file']] for name, image in carried['reset'].items()]
+    if record['flash']['logical']:
+        result.append(CANCEL)
     result += [['flash', f'{name}_{slot}', f'{name}.img'] for name in record['flash']['bootloader']]
     result += logical(record)
     result += [['flash', name, image['file']] for name, image in record['wipe']['images'].items()]
@@ -117,7 +123,11 @@ def shell(record: dict) -> str:
             'else fail "Neither sha256sum nor shasum is installed, so the images cannot be checked."; fi', '']
     out += [f'echo "{line}"' for line in notes(record)]
     for arguments, mode in script_steps(record):
+        if arguments == CANCEL:
+            out += ['status=$(value snapshot-update-status)', 'if [ -n "$status" ] && [ "$status" != none ]; then']
         out.append('fastboot ' + ' '.join(arguments))
+        if arguments == CANCEL:
+            out.append('fi')
         if mode:
             out.append('waitfor {} "{}"'.format(*mode))
     if custom_key(record):
@@ -137,7 +147,12 @@ def batch(record: dict) -> str:
     out.append('')
     out += [f'echo {_escaped(line)}' for line in notes(record)]
     for arguments, mode in script_steps(record):
+        if arguments == CANCEL:
+            out.append('fastboot getvar snapshot-update-status 2>&1 | findstr /r /c:"snapshot-update-status: *[a-z]" '
+                       '| findstr /v /r /c:"snapshot-update-status: *none" >nul || goto no_snapshot')
         out.append('fastboot ' + ' '.join(arguments) + ' || exit /b 1')
+        if arguments == CANCEL:
+            out.append(':no_snapshot')
         if mode:
             out.append('call :waitfor {} "{}" || exit /b 1'.format(*mode))
     if custom_key(record):

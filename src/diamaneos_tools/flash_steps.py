@@ -257,6 +257,9 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
             out += [f'  fastboot flash {s["partition"]} {s["image"]}' for s in carried['steps']
                     if wipe or not s.get('wipe_only')]
             out += [f'  fastboot flash {name} {image["file"]}' for name, image in carried['reset'].items()]
+        if logical:
+            out += ['', 'If "fastboot getvar snapshot-update-status" reports anything but none, cancel the pending',
+                    'update first:', '', '  fastboot ' + ' '.join(flash_all.CANCEL), '']
         for name in bootloader:
             out.append(f'  fastboot flash {name}_{slot} {name}.img')
         if logical:

@@ -65,7 +65,9 @@ class FlashStepTests(unittest.TestCase):
     def test_full_flash_is_slot_a_without_lock_erase_or_wipe(self):
         text = self.text(firmware='skip')
         order = [line.strip() for line in text.splitlines() if line.strip().startswith('fastboot')]
-        self.assertEqual('fastboot flash boot_a boot.img', order[0])
+        # A pending update is cancelled first, as fastboot flashall does.
+        self.assertEqual(['fastboot snapshot-update cancel', 'fastboot flash boot_a boot.img'], order[:2])
+        self.assertIn('reports anything but none', text)
         # The logical partitions go through fastbootd, which recovery holds.
         fastbootd = order.index('fastboot reboot fastboot')
         self.assertEqual('fastboot wipe-super super_empty.img', order[fastbootd + 1])
@@ -98,7 +100,8 @@ class FlashStepTests(unittest.TestCase):
         previous['images']['vendor'] = '0' * 64
         # wipe-super leaves no logical partition, so every one is written, not only vendor.
         logical = [f'fastboot flash {n}_a {n}.img' for n in self.record['flash']['logical']]
-        self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot reboot fastboot',
+        self.assertEqual(['fastboot snapshot-update cancel', 'fastboot flash vendor_boot_a vendor_boot.img',
+                          'fastboot reboot fastboot',
                           'fastboot wipe-super super_empty.img', *logical, 'fastboot reboot-bootloader',
                           'fastboot --set-active=a', 'fastboot reboot'], self.commands(previous=previous))
 
@@ -130,10 +133,12 @@ class FlashStepTests(unittest.TestCase):
         for name, text in scripts.items():
             self.assertEqual(text, (self.directory / name).read_bytes().decode())
             self.assertEqual(wanted, [line.split(' ||')[0] for line in text.splitlines() if line.startswith(
-                ('fastboot flash', 'fastboot wipe-super', 'fastboot --set', 'fastboot reboot'))])
+                ('fastboot flash', 'fastboot snapshot-update', 'fastboot wipe-super', 'fastboot --set',
+                 'fastboot reboot'))])
             # Nothing else is run: no lock, unlock, erase or format command.
             self.assertEqual([], [line for line in text.splitlines() if line.startswith('fastboot ')
-                                  and not line.startswith(('fastboot flash ', 'fastboot wipe-super ',
+                                  and not line.startswith(('fastboot flash ', 'fastboot snapshot-update cancel',
+                                                           'fastboot wipe-super ',
                                                            'fastboot --set-active=', 'fastboot reboot',
                                                            'fastboot getvar ', 'fastboot oem device-info '))])
             self.assertIn('keep the bootloader unlocked', text)
@@ -141,9 +146,15 @@ class FlashStepTests(unittest.TestCase):
         self.assertTrue(image_package.check_sums(self.directory))
         # Each restart is followed by a wait for the mode, and every command stops the batch file on failure.
         lines = scripts[flash_all.SH].splitlines()
+        cancel = lines.index('fastboot snapshot-update cancel')
+        self.assertEqual('fi', lines[cancel + 1])
+        self.assertIn('[ "$status" != none ]', lines[cancel - 1])
         self.assertEqual('waitfor yes "fastbootd"', lines[lines.index('fastboot reboot fastboot') + 1])
         self.assertEqual('waitfor no "the bootloader"', lines[lines.index('fastboot reboot-bootloader') + 1])
         lines = scripts[flash_all.BAT].split('\r\n')
+        cancel = lines.index('fastboot snapshot-update cancel || exit /b 1')
+        self.assertTrue(lines[cancel - 1].endswith('|| goto no_snapshot'))
+        self.assertEqual(':no_snapshot', lines[cancel + 1])
         self.assertEqual('call :waitfor yes "fastbootd" || exit /b 1',
                          lines[lines.index('fastboot reboot fastboot || exit /b 1') + 1])
         self.assertEqual([], [line for line in lines if line.startswith(('fastboot', 'call'))
@@ -175,9 +186,15 @@ class FlashStepTests(unittest.TestCase):
         return result.returncode, [c for c in calls if not c.startswith(('getvar', 'oem'))], result.stderr
 
     def test_the_install_script_checks_the_phone_and_the_images_before_it_writes(self):
-        good = {'product': 'product: FP6', 'is-userspace': '(bootloader) is-userspace:no', 'unlocked': 'unlocked: yes'}
+        good = {'product': 'product: FP6', 'is-userspace': '(bootloader) is-userspace:no', 'unlocked': 'unlocked: yes',
+                'snapshot-update-status': '(bootloader) snapshot-update-status:merging'}
         status, calls, _ = self.run_install_script(good)
         self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)]), (status, calls))
+        # Without a pending update, or a bootloader that reports none, nothing is cancelled.
+        for line in ('snapshot-update-status: none', ''):
+            status, calls, _ = self.run_install_script(dict(good, **{'snapshot-update-status': line}))
+            self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)
+                                  if a != flash_all.CANCEL]), (status, calls))
         for name, line, message in (('product', 'product: FP5', 'is for the FP6'),
                                     ('unlocked', 'unlocked: no', 'bootloader is locked'),
                                     ('is-userspace', 'is-userspace: yes', 'fastbootd')):
@@ -254,7 +271,8 @@ class FlashStepTests(unittest.TestCase):
                     if not s.get('wipe_only')]
         self.assertEqual(['fastboot flash abl_a abl.elf', 'fastboot flash abl_b abl.elf'], firmware[:2])
         self.assertEqual(firmware + ['fastboot flash modemst1 modemst1.img', 'fastboot flash modemst2 modemst2.img',
-                                     'fastboot flash boot_a boot.img'], commands[:len(firmware) + 3])
+                                     'fastboot snapshot-update cancel', 'fastboot flash boot_a boot.img'],
+                         commands[:len(firmware) + 4])
         self.assertIn('fastboot flash storsec storsec.mbn', commands)
         self.assertIn('fastboot flash study study.img', commands)
         for absent in ('logfs', 'vm-persist', 'pvmfw_b', 'boot_b', 'erase', ' -w', 'oem', 'flashing'):
