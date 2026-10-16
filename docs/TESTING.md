@@ -10,11 +10,11 @@ python3 -m venv .venv
 PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
-The suite covers the build, signing, CLI, overlay and font checks with fixtures and needs no phone;
-schema validation needs the development dependencies.
+The suite covers the build, signing, CLI, overlay, font and string checks with fixtures and needs no
+phone. Schema validation needs the development dependencies.
 
 On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
-`DIAMANEOS_SIGNING_OTATOOLS`; missing inputs fail the native fixture setup.
+`DIAMANEOS_SIGNING_OTATOOLS`. Missing inputs fail the native fixture setup.
 `DIAMANEOS_SIGNING_REQUIRE_NATIVE=1` enforces the same rule on any host.
 
 - **Signing.**
@@ -41,7 +41,7 @@ On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
 
 ## Other checks
 
-**Overlays.** [OVERLAYS.md](OVERLAYS.md) explains `bin/diamaneos overlays check`; its tests use
+**Overlays.** [OVERLAYS.md](OVERLAYS.md) explains `bin/diamaneos overlays check`. Its tests use
 fixture trees and local Git remotes, no network:
 
 ```sh
@@ -50,7 +50,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlay
 
 **Fonts.** `bin/diamaneos fonts check` reads a product `fonts_customization.xml` and its fonts as
 Android does at boot (FontCustomizationParser, FontListParser and SystemFonts at the pinned
-release); a mistake there can drop every system font or stop boot. `--help` lists the findings.
+release). A mistake there can drop every system font or stop boot. `--help` lists the findings.
 Tests use synthetic fonts, no network:
 
 ```sh
