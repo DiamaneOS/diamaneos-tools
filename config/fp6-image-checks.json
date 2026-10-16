@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Per-build device checks. build verify runs every rule on the exported image set; each rule states why it exists. Paths are target-files member paths; kernel: paths are files of the recorded kernel run.",
+  "scope": "Per-build device checks. build verify runs every rule on the exported image set. Each rule states why it exists. Paths are target-files member paths. Kernel: paths are files of the recorded kernel run.",
   "rules": [
     {
       "id": "sensors-stack",
@@ -43,7 +43,7 @@
     },
     {
       "id": "sensors-qualcomm-sub-hal-only",
-      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL; the dynamic-sensor (HID) sub-HAL has no hidraw access and cannot serve a head tracker. The odm list adds only DiamaneOS's tap sub-HAL (tap-check-phone-sub-hal-listed).",
+      "why": "The vendor multi-HAL list loads only the Qualcomm sub-HAL. The dynamic-sensor (HID) sub-HAL has no hidraw access and cannot serve a head tracker. The odm list adds only DiamaneOS's tap sub-HAL (tap-check-phone-sub-hal-listed).",
       "type": "text",
       "files": [
         "VENDOR/etc/sensors/hals.conf"
@@ -112,7 +112,7 @@
     },
     {
       "id": "camera-ubwc-preview",
-      "why": "The camera preview is allocated UBWC so the display can compose it (16:9 within the 1088-line inline-rotation limit); without this every preview frame is composed on the GPU.",
+      "why": "The camera preview is allocated UBWC so the display can compose it (16:9 within the 1088-line inline-rotation limit). Without this every preview frame is composed on the GPU.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -121,7 +121,7 @@
     },
     {
       "id": "audio-stack",
-      "why": "AudioReach user space: the source-built primary HAL, PAL, AGM, ALSA plugins and audioadsprpcd, the stock graph services, calibration and configuration, and the AOSP service and adapters; no placeholder HAL.",
+      "why": "AudioReach user space: the source-built primary HAL, PAL, AGM, ALSA plugins and audioadsprpcd, the stock graph services, calibration and configuration, and the AOSP service and adapters. No placeholder HAL.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/hw/audio.primary.volcano.so",
@@ -634,7 +634,7 @@
     },
     {
       "id": "audio-declared",
-      "why": "AGM is declared in the vendor manifest; the HAL registers no PAL HIDL service.",
+      "why": "AGM is declared in the vendor manifest. The HAL registers no PAL HIDL service.",
       "type": "text",
       "files": [
         "VENDOR/etc/vintf/manifest.xml"
@@ -679,7 +679,7 @@
     },
     {
       "id": "display-brightness-map",
-      "why": "The brightness table follows the measured panel (level and nits; white, 20 % window): linear in nits from level 10 to 3480, manual range to level 2048, sunlight above. A table that does not rise stops the system at boot.",
+      "why": "The brightness table follows the measured panel (level and nits, white, 20 % window): linear in nits from level 10 to 3480, manual range to level 2048, sunlight above. A table that does not rise stops the system at boot.",
       "type": "display_config",
       "path": "VENDOR/etc/displayconfig/display_port_130.xml",
       "overlay": "VENDOR/overlay/FP6FrameworksOverlay.apk",
@@ -714,7 +714,7 @@
     },
     {
       "id": "sdm-extension-libraries",
-      "why": "Libraries the SDM extension loads by name; without them the composer crashes.",
+      "why": "Libraries the SDM extension loads by name. Without them the composer crashes.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/libsdm-colormgr-algo.so",
@@ -1217,7 +1217,7 @@
     },
     {
       "id": "usb-port-control-off-at-boot",
-      "why": "A stored Off is applied when system_server starts, so data and charging stay off after a reboot of a user build; Pixels get this from first-stage init.",
+      "why": "A stored Off is applied when system_server starts, so data and charging stay off after a reboot of a user build. Pixels get this from first-stage init.",
       "type": "zip_contains",
       "file": "SYSTEM/framework/services.jar",
       "text": "USB-C port Off at boot"
@@ -1580,7 +1580,7 @@
     },
     {
       "id": "wlan-factory-mac-firmware-dir",
-      "why": "ueventd looks for firmware in the factory MAC tree, so the driver's request for wlan/qca_cld/qca6750/wlan_mac.bin finds imeiprovd's file (the kernel's own firmware path does not reach it; firmware-fallback keeps the sysfs fallback on).",
+      "why": "ueventd looks for firmware in the factory MAC tree, so the driver's request for wlan/qca_cld/qca6750/wlan_mac.bin finds imeiprovd's file (the kernel's own firmware path does not reach it. firmware-fallback keeps the sysfs fallback on).",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -1721,7 +1721,7 @@
     },
     {
       "id": "wlan-driver-own-mac-not-logged",
-      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state; as Wi-Fi starts that peer is the phone itself, so the unpatched line carries four octets of the factory MAC.",
+      "why": "The WLAN driver logs the peer id, not the MAC, when a peer has no receive state. As Wi-Fi starts that peer is the phone itself, so the unpatched line carries four octets of the factory MAC.",
       "type": "binary_count",
       "file": "VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko",
       "patterns": [
@@ -1773,7 +1773,7 @@
     },
     {
       "id": "firmware-release-nodes",
-      "why": "Only fwrelease's group may read the 44 firmware partition nodes of both slots; owner root keeps write access for update_engine, which has no CAP_DAC_OVERRIDE. No other node is given to the group.",
+      "why": "Only fwrelease's group may read the 44 firmware partition nodes of both slots. Root, the owner, keeps write access for update_engine, which has no CAP_DAC_OVERRIDE. No other node is given to the group.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -1830,7 +1830,7 @@
     },
     {
       "id": "firmware-release-labels",
-      "why": "The 17 firmware partitions of vendor_custom_ab_block_device that fwrelease checks have their own type, so it cannot read vbmeta, dtbo, pvmfw, multiimgqti or qweslicstore; fwrelease runs in its own domain.",
+      "why": "The 17 firmware partitions of vendor_custom_ab_block_device that fwrelease checks have their own type, so it cannot read vbmeta, dtbo, pvmfw, multiimgqti or qweslicstore. fwrelease runs in its own domain.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_file_contexts"
@@ -1897,7 +1897,7 @@
     },
     {
       "id": "firmware-release-readers",
-      "why": "Only Settings, fwrelease, init, vendor_init and dumpstate (which reads every property) can read the firmware release property; shell cannot.",
+      "why": "Only Settings, fwrelease, init, vendor_init and dumpstate (which reads every property) can read the firmware release property. Shell cannot.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -2057,7 +2057,7 @@
     },
     {
       "id": "soc-serial-readers",
-      "why": "Only the platform domains whose sysfs-wide read the platform policy fixes may read the SoC serial number; no vendor service may.",
+      "why": "Only the platform domains whose sysfs-wide read the platform policy fixes may read the SoC serial number. No vendor service may.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -2103,7 +2103,7 @@
     },
     {
       "id": "ufs-serial-root-only",
-      "why": "ueventd makes the UFS storage's serial number and its LUNs' SCSI serial and identification pages root-only; their generic sysfs label is readable by the fingerprint HAL, the composer and other non-root services.",
+      "why": "ueventd makes the UFS storage's serial number and its LUNs' SCSI serial and identification pages root-only. Their generic sysfs label is readable by the fingerprint HAL, the composer and other non-root services.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -2116,7 +2116,7 @@
     },
     {
       "id": "boot-hal-own-user",
-      "why": "init starts the boot control HAL as its own user with CAP_SYS_RAWIO only (the UFS BSG ioctl that switches the boot LUN needs it); stock runs it as root with every capability.",
+      "why": "init starts the boot control HAL as its own user with CAP_SYS_RAWIO only (the UFS BSG ioctl that switches the boot LUN needs it). Stock runs it as root with every capability.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/android.hardware.boot-service.qti.rc"
@@ -2142,7 +2142,7 @@
     },
     {
       "id": "boot-hal-nodes",
-      "why": "ueventd gives the boot control HAL's group the GPT disks of the A/B LUNs (sdb: xbl_a, sdc: xbl_b, sde: the rest), misc and the UFS BSG node; the other LUNs, userdata's among them, keep the root-only default.",
+      "why": "ueventd gives the boot control HAL's group the GPT disks of the A/B LUNs (sdb: xbl_a, sdc: xbl_b, sde: the rest), misc and the UFS BSG node. The other LUNs, userdata's among them, keep the root-only default.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -2175,7 +2175,7 @@
     },
     {
       "id": "eud-enable-writers",
-      "why": "Only the platform's sysfs-wide writers, ueventd and vendor_init, may write the EUD switch; they act only on the reviewed ueventd and init files (eud-stays-off).",
+      "why": "Only the platform's sysfs-wide writers, ueventd and vendor_init, may write the EUD switch. They act only on the reviewed ueventd and init files (eud-stays-off).",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -2233,7 +2233,7 @@
     },
     {
       "id": "keymaster-messages-on-odm",
-      "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm; AOSP owns the vendor path.",
+      "why": "The stock KeyMint HAL keeps its libkeymaster_messages on odm. AOSP owns the vendor path.",
       "type": "files_present",
       "paths": [
         "ODM/lib64/libkeymaster_messages.so"
@@ -2302,7 +2302,7 @@
     },
     {
       "id": "gallery",
-      "why": "LineageOS's Glimpse is the gallery, with its own overlay that names it the system gallery, its sysconfig files and the notices of its bundled libraries; Gallery2 stays installed for its crop screen.",
+      "why": "LineageOS's Glimpse is the gallery, with its own overlay that names it the system gallery, its sysconfig files and the notices of its bundled libraries. Gallery2 stays installed for its crop screen.",
       "type": "files_present",
       "paths": [
         "PRODUCT/app/Glimpse/Glimpse.apk",
@@ -2392,7 +2392,7 @@
     },
     {
       "id": "no-updater",
-      "why": "Only official builds include the Updater; other builds ask no update server.",
+      "why": "Only official builds include the Updater. Other builds ask no update server.",
       "official": false,
       "type": "files_absent",
       "paths": [
@@ -2621,7 +2621,7 @@
     },
     {
       "id": "tap-to-wake-switch-exclusive",
-      "why": "Only the sensors HAL may write the controller's gesture switch; the power HAL does not switch the double tap.",
+      "why": "Only the sensors HAL may write the controller's gesture switch. The power HAL does not switch the double tap.",
       "type": "sepolicy_exclusive",
       "file": "VENDOR/etc/selinux/vendor_sepolicy.cil",
       "target": "vendor_sysfs_touch_gesture",
@@ -2902,7 +2902,7 @@
     },
     {
       "id": "thermal-hal-trip-nodes",
-      "why": "The thermal HAL, as system, can set the next severity threshold of each zone it monitors; the nodes stay root-owned for the thermal engine.",
+      "why": "The thermal HAL, as system, can set the next severity threshold of each zone it monitors. The nodes stay root-owned for the thermal engine.",
       "type": "text",
       "files": [
         "VENDOR/etc/ueventd.rc"
@@ -2930,7 +2930,7 @@
     },
     {
       "id": "perf-client-stub-only",
-      "why": "The perf client never reaches the perf2 service; the only service it looks up is the power HAL.",
+      "why": "The perf client never reaches the perf2 service. The only service it looks up is the power HAL.",
       "type": "text",
       "files": [
         "VENDOR/lib64/libqti-perfd-client.so"
@@ -3086,7 +3086,7 @@
     },
     {
       "id": "power-stats-labels",
-      "why": "The HAL runs in the platform power stats HAL domain; /dev/stats has its own label.",
+      "why": "The HAL runs in the platform power stats HAL domain. /dev/stats has its own label.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_file_contexts"
@@ -3147,7 +3147,7 @@
     },
     {
       "id": "aod-brightness",
-      "why": "Factory AOD idle brightness in every panel timing of the DTBO; no D2 at power-on (display device tree d94b9d8).",
+      "why": "Factory AOD idle brightness in every panel timing of the DTBO. No D2 at power-on (display device tree d94b9d8).",
       "type": "binary_count",
       "file": "kernel:dtbo.img",
       "patterns": [
@@ -3239,7 +3239,7 @@
     },
     {
       "id": "virtual-ab",
-      "why": "Compressed Virtual A/B (lz4) with snapuserd in the first-stage ramdisk and recovery; a property may repeat but only as true.",
+      "why": "Compressed Virtual A/B (lz4) with snapuserd in the first-stage ramdisk and recovery. A property may repeat but only as true.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "mode": "all",
@@ -3277,7 +3277,7 @@
     },
     {
       "id": "ncm-tethering",
-      "why": "USB tethering over NCM; the kernel has no RNDIS gadget function.",
+      "why": "USB tethering over NCM. The kernel has no RNDIS gadget function.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6TetheringOverlay.apk",
       "values": {
@@ -3337,7 +3337,7 @@
     },
     {
       "id": "wifi-aware-interface",
-      "why": "Aware uses the driver's own NAN interface, as on stock; without it the Wi-Fi HAL sends the NAN commands on wlan0.",
+      "why": "Aware uses the driver's own NAN interface, as on stock. Without it the Wi-Fi HAL sends the NAN commands on wlan0.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -3346,7 +3346,7 @@
     },
     {
       "id": "wifi-no-magic-packet-wake",
-      "why": "No wake-on-LAN: the qcacld driver takes its wake setting from this file (it ignores the supplicant's WoWLAN triggers), and 2 keeps pattern wake-ups but not the magic packet; the parser stops at END.",
+      "why": "No wake-on-LAN: the qcacld driver takes its wake setting from this file (it ignores the supplicant's WoWLAN triggers), and 2 keeps pattern wake-ups but not the magic packet. The parser stops at END.",
       "type": "text",
       "files": [
         "VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini"
@@ -3397,7 +3397,7 @@
     },
     {
       "id": "no-qseecom-proxy",
-      "why": "No QSEECom AIDL proxy; nothing looks it up. qseecomd and the kernel proxy stay.",
+      "why": "No QSEECom AIDL proxy. Nothing looks it up. qseecomd and the kernel proxy stay.",
       "type": "files_absent",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.hardware.qseecom@1.0-service",
@@ -3555,7 +3555,7 @@
       },
       {
         "id": "tee-node-label",
-        "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains; the legacy /dev/qseecom node is not shipped.",
+        "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains. The legacy /dev/qseecom node is not shipped.",
         "type": "text",
         "files": [
           "SYSTEM/etc/selinux/plat_file_contexts",
@@ -3712,7 +3712,7 @@
     },
     {
       "id": "camera-core-dump-dir-closed",
-      "why": "CamX creates an empty dump folder for every dumpsys media.camera even with its core dumps off; init makes the dump directory system-owned and read-only so the camera provider cannot write there.",
+      "why": "CamX creates an empty dump folder for every dumpsys media.camera even with its core dumps off. init makes the dump directory system-owned and read-only so the camera provider cannot write there.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.camera.rc"
@@ -3760,7 +3760,7 @@
     },
     {
       "id": "offline-camera-library-kept",
-      "why": "The CHI override and libchifeature2 link the offline camera library; without it the camera provider cannot load them.",
+      "why": "The CHI override and libchifeature2 link the offline camera library. Without it the camera provider cannot load them.",
       "type": "files_present",
       "paths": [
         "VENDOR/lib64/vendor.qti.hardware.camera.offlinecamera-service-impl.so",
@@ -3769,7 +3769,7 @@
     },
     {
       "id": "no-camera-opencl",
-      "why": "The Adreno OpenCL runtime and compiler, selected only for the camera, and the software CAC library that links the runtime stay out; CamX's GPU node and its OpenCV users run without them.",
+      "why": "The Adreno OpenCL runtime and compiler, selected only for the camera, and the software CAC library that links the runtime stay out. CamX's GPU node and its OpenCV users run without them.",
       "type": "files_absent",
       "paths": [
         "VENDOR/lib64/libOpenCL.so",
@@ -3838,7 +3838,7 @@
     },
     {
       "id": "camera-provider-seccomp-policy",
-      "why": "The camera provider may start threads but no processes (clone3 hides its flags from the filter), open only Unix and QRTR sockets and never map memory writable and executable; it may not run programs or trace or write other processes.",
+      "why": "The camera provider may start threads but no processes (clone3 hides its flags from the filter), open only Unix and QRTR sockets and never map memory writable and executable. It may not run programs or trace or write other processes.",
       "type": "text",
       "files": [
         "VENDOR/etc/seccomp_policy/camera-provider.policy"
@@ -3952,7 +3952,7 @@
     },
     {
       "id": "no-display-colour-service",
-      "why": "The stock display colour service has no client in this build; platform apps could start it.",
+      "why": "The stock display colour service has no client in this build. Platform apps could start it.",
       "type": "files_absent",
       "paths": [
         "VENDOR/bin/hw/vendor.qti.hardware.display.color-service",
@@ -4011,7 +4011,7 @@
     },
     {
       "id": "bluetooth-own-service",
-      "why": "DiamaneOS's Bluetooth service registers the stock HCI implementation; init starts it in the Bluetooth HAL domain.",
+      "why": "DiamaneOS's Bluetooth service registers the stock HCI implementation. init starts it in the Bluetooth HAL domain.",
       "type": "files_present",
       "paths": [
         "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
@@ -4070,7 +4070,7 @@
     },
     {
       "id": "bluetooth-service-applies-seccomp",
-      "why": "DiamaneOS's Bluetooth service compiles the installed policy and installs it as a seccomp filter before it loads the closed HCI implementation; it aborts if it cannot, so it never runs unconfined.",
+      "why": "DiamaneOS's Bluetooth service compiles the installed policy and installs it as a seccomp filter before it loads the closed HCI implementation. It aborts if it cannot, so it never runs unconfined.",
       "type": "binary_count",
       "file": "VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6",
       "patterns": [
@@ -4116,7 +4116,7 @@
     },
     {
       "id": "no-bluetooth-value-add-contexts",
-      "why": "No hwservice context maps the ANT, ANT HCI or Bluetooth SAR interfaces, whose libraries are not shipped, to the Bluetooth HAL's label; unmapped, nobody may register them.",
+      "why": "No hwservice context maps the ANT, ANT HCI or Bluetooth SAR interfaces, whose libraries are not shipped, to the Bluetooth HAL's label. Unmapped, nobody may register them.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_hwservice_contexts"
@@ -4198,7 +4198,7 @@
     },
     {
       "id": "module-streams",
-      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE; init waits for all of them but touch before it goes on, and there is no serial modprobe of the whole list. Right after display loads, init sets the backlight to Android's boot default.",
+      "why": "Kernel modules load in parallel streams, each a modprobe in the vendor_modprobe domain with only CAP_SYS_MODULE. init waits for all of them but touch before it goes on, and there is no serial modprobe of the whole list. Right after display loads, init sets the backlight to Android's boot default.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/hw/init.qcom.rc"
@@ -4239,7 +4239,7 @@
     },
     {
       "id": "fingerprint-factory-service",
-      "why": "The fingerprint HAL answers the module's factory service registration in-process; nothing labels it.",
+      "why": "The fingerprint HAL answers the module's factory service registration in-process. Nothing labels it.",
       "type": "elf_exports",
       "path": "VENDOR/bin/hw/android.hardware.biometrics.fingerprint-service.fp6",
       "symbols": [
@@ -4264,7 +4264,7 @@
     },
     {
       "id": "touch-firmware",
-      "why": "The stock touch firmware in /vendor/firmware: exact stock bytes, root 0644, vendor_firmware_file; the kernel reads it directly.",
+      "why": "The stock touch firmware in /vendor/firmware: exact stock bytes, root 0644, vendor_firmware_file. The kernel reads it directly.",
       "type": "file_metadata",
       "path": "vendor/firmware/EPH86XX_fw.bin",
       "image": "vendor",
@@ -4362,7 +4362,7 @@
     },
     {
       "id": "esim-lpa-apk",
-      "why": "The eSIM manager asks only for its two privileged permissions, network access for eSIM downloads and hiding other apps' overlays over its Add eSIM windows (no camera; the last is AndroidX's). It ships disabled until the user turns on eSIM support and is not platform-signed.",
+      "why": "The eSIM manager asks only for its two privileged permissions, network access for eSIM downloads and hiding other apps' overlays over its Add eSIM windows (no camera. The last is AndroidX's). It ships disabled until the user turns on eSIM support and is not platform-signed.",
       "type": "apk",
       "path": "SYSTEM_EXT/priv-app/DiamaneOSEuicc/DiamaneOSEuicc.apk",
       "permissions": [
@@ -4392,7 +4392,7 @@
     },
     {
       "id": "esim-apdu-not-logged",
-      "why": "The framework's eUICC transport logs every eUICC command and answer in full at verbose level (ICCIDs; during a download the matching ID, the IMEI and the EID); these tags stay at info.",
+      "why": "The framework's eUICC transport logs every eUICC command and answer in full at verbose level (ICCIDs. During a download the matching ID, the IMEI and the EID). These tags stay at info.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -4403,7 +4403,7 @@
     },
     {
       "id": "esim-builtin-slot",
-      "why": "Android treats physical slot 1 as the built-in eUICC; stock leaves the list empty.",
+      "why": "Android treats physical slot 1 as the built-in eUICC. Stock leaves the list empty.",
       "type": "overlay",
       "apk": "VENDOR/overlay/FP6FrameworksOverlay.apk",
       "arrays": {
@@ -4414,7 +4414,7 @@
     },
     {
       "id": "pmsg-release-rule",
-      "why": "Release builds make /dev/pmsg0 unwritable; debuggable builds keep the platform default.",
+      "why": "Release builds make /dev/pmsg0 unwritable. Debuggable builds keep the platform default.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/hw/init.qcom.rc"
@@ -4460,7 +4460,7 @@
     },
     {
       "id": "ramoops",
-      "why": "pstore/ramoops is in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned; /soc has no ramoops node.",
+      "why": "pstore/ramoops is in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned. /soc has no ramoops node.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4603,7 +4603,7 @@
     },
     {
       "id": "privacy-switch-devicetree",
-      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position; gpio-keys does not have it, and nothing can disable it from sysfs.",
+      "why": "The Moments switch belongs to the privacy switch driver, which trusts only the GPIO level and blocks in the lower position. gpio-keys does not have it, and nothing can disable it from sysfs.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4712,7 +4712,7 @@
     },
     {
       "id": "privacy-switch-sealed-at-boot",
-      "why": "init writes the user's kernel floor policy once, after the persistent properties load; the kernel refuses later writes.",
+      "why": "init writes the user's kernel floor policy once, after the persistent properties load. The kernel refuses later writes.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/init/init.privacy_switch.rc"
@@ -4723,7 +4723,7 @@
     },
     {
       "id": "privacy-switch-policy-writers",
-      "why": "Only init writes the kernel floor policy; the platform also lets ueventd and vendor_init write every sysfs file.",
+      "why": "Only init writes the kernel floor policy. The platform also lets ueventd and vendor_init write every sysfs file.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -4883,42 +4883,42 @@
     },
     {
       "id": "pd-mapper-domain-list-adspr",
-      "why": "pd-mapper loads adspr.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads adspr.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/adspr.jsn",
       "target": "/vendor/firmware_mnt/image/adspr.jsn"
     },
     {
       "id": "pd-mapper-domain-list-adsps",
-      "why": "pd-mapper loads adsps.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads adsps.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/adsps.jsn",
       "target": "/vendor/firmware_mnt/image/adsps.jsn"
     },
     {
       "id": "pd-mapper-domain-list-adspua",
-      "why": "pd-mapper loads adspua.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads adspua.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/adspua.jsn",
       "target": "/vendor/firmware_mnt/image/adspua.jsn"
     },
     {
       "id": "pd-mapper-domain-list-battmgr",
-      "why": "pd-mapper loads battmgr.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads battmgr.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/battmgr.jsn",
       "target": "/vendor/firmware_mnt/image/battmgr.jsn"
     },
     {
       "id": "pd-mapper-domain-list-cdspr",
-      "why": "pd-mapper loads cdspr.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads cdspr.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/cdspr.jsn",
       "target": "/vendor/firmware_mnt/image/cdspr.jsn"
     },
     {
       "id": "pd-mapper-domain-list-modemr",
-      "why": "pd-mapper loads modemr.jsn from the modem partition; it exits if a listed file is missing.",
+      "why": "pd-mapper loads modemr.jsn from the modem partition. It exits if a listed file is missing.",
       "type": "symlink",
       "path": "VENDOR/firmware/modemr.jsn",
       "target": "/vendor/firmware_mnt/image/modemr.jsn"
@@ -5163,7 +5163,7 @@
     },
     {
       "id": "gnss-no-location-socket",
-      "why": "The HAL serves no socket in /dev/socket/location (it is only for the XTRA and DGNSS daemons); only its state directory is created.",
+      "why": "The HAL serves no socket in /dev/socket/location (it is only for the XTRA and DGNSS daemons). Only its state directory is created.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.gnss.rc"
@@ -5278,7 +5278,7 @@
     },
     {
       "id": "media-target-variant",
-      "why": "The Codec2 service finds the encoder-only target specification through vendor.media.target_variant; without it the library registers every codec, decoders included.",
+      "why": "The Codec2 service finds the encoder-only target specification through vendor.media.target_variant. Without it the library registers every codec, decoders included.",
       "type": "properties",
       "file": "VENDOR/build.prop",
       "equals": [
@@ -5287,7 +5287,7 @@
     },
     {
       "id": "media-target-variant-readable",
-      "why": "The Codec2 service may read vendor.media.target_variant; a denied read would make it fall back to registering every codec.",
+      "why": "The Codec2 service may read vendor.media.target_variant. A denied read would make it fall back to registering every codec.",
       "type": "sepolicy_allows",
       "files": [
         "VENDOR/etc/selinux/vendor_sepolicy.cil"
@@ -5307,7 +5307,7 @@
     },
     {
       "id": "media-decoder-node-root-only",
-      "why": "ueventd gives the encoder node to group mediacodec and creates the Iris decoder node root-only; the init file opens it to that group at boot unless hardware decoding is off (media-hw-decode-states). Root owns both, so no system-uid process gets them through the owner bits.",
+      "why": "ueventd gives the encoder node to group mediacodec and creates the Iris decoder node root-only. The init file opens it to that group at boot unless hardware decoding is off (media-hw-decode-states). Root owns both, so no system-uid process gets them through the owner bits.",
       "type": "binary_count",
       "file": "VENDOR/etc/ueventd.rc",
       "patterns": [
@@ -5478,7 +5478,7 @@
     },
     {
       "id": "media-codec2-seccomp-policy",
-      "why": "The codec service's own seccomp policy allows no process creation or execution, no socket family but AF_UNIX (no network) and no mapping that is writable and executable; other calls fail with EPERM.",
+      "why": "The codec service's own seccomp policy allows no process creation or execution, no socket family but AF_UNIX (no network) and no mapping that is writable and executable. Other calls fail with EPERM.",
       "type": "text",
       "files": [
         "VENDOR/etc/seccomp_policy/codec2-service.policy"
