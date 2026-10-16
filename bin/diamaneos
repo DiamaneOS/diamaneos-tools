@@ -86,7 +86,7 @@ def main(argv=None):
         print("        strings check -> string resources: escaping, placeholders, markup and plurals")
         print("        signing -> verified-build signing plans and native publication signature verification")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
-        print("        vendor product -> generate the pinned FP6 native Android integration\n        kernel prepare|build -> source, compile and package the FP6 kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")
+        print("        vendor product -> generate the pinned native Android integration\n        kernel prepare|build -> source, compile and package the kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")
         return 0
     if argv[:2] == ["build", "kernel-config"]:
         from diamaneos_tools import kernel_config

@@ -685,7 +685,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     actions = [host_tools,
                Action('Download the factory package', func=fetch, network=True,
-                      detail=f'Fairphone\'s {archive["filename"]}, checked against its pinned size and SHA-256'),
+                      detail=f'the device maker\'s {archive["filename"]}, checked against its pinned size and SHA-256'),
                Action('Stage the factory images', func=stage, detail='each image checked against the recipe'),
                Action('Extract the stock files', func=extract, detail='the stock files the recipe selects'),
                Action('Generate the vendor tree', func=product, detail='the vendor product from the stock files'),
@@ -1383,7 +1383,7 @@ def parser() -> argparse.ArgumentParser:
                         help='with --resolved-manifest and no --build-json: the manifest commit the build recorded')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
-    result.add_argument('--factory-zip', help='vendor: use this Fairphone factory package instead of downloading it')
+    result.add_argument('--factory-zip', help='vendor: use this copy of the device maker\'s factory package instead of downloading it')
     return result
 
 
