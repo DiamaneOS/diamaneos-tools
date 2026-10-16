@@ -1513,6 +1513,66 @@
       ]
     },
     {
+      "id": "imei-status-property",
+      "why": "imeiprovd reports whether this boot wrote the IMEIs in its own property type, readable by the setup wizard and set only within vendor.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_property_contexts"
+      ],
+      "regex": [
+        "^vendor\\.diamaneos\\.imei\\.status\\s+u:object_r:vendor_diamaneos_imei_status_prop:s0\\s+exact\\s+enum\\s+running\\s+written\\s+unchanged\\s+failed\\s*$"
+      ]
+    },
+    {
+      "id": "imei-status-setter",
+      "why": "Only imeiprovd (and init, which may set any property) can set the IMEI status.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_imei_status_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "diamaneos_imeiprov",
+        "init"
+      ]
+    },
+    {
+      "id": "imei-status-readers",
+      "why": "Only the setup wizard (platform_app), imeiprovd, init, vendor_init and dumpstate (which reads every property) can read the IMEI status. Shell cannot.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_diamaneos_imei_status_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "diamaneos_imeiprov",
+        "dumpstate",
+        "init",
+        "platform_app",
+        "vendor_init"
+      ]
+    },
+    {
       "id": "bluetooth-hal-address-setter",
       "why": "Only vendor_init (the copy trigger) and init can set the address property the HCI implementation reads.",
       "type": "sepolicy_sources",
