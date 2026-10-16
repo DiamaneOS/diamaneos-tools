@@ -1,7 +1,7 @@
-# Build DiamaneOS for the Fairphone 6
+# Build DiamaneOS
 
-Build a DiamaneOS test image from source and flash it. Test images are signed with public test keys:
-keep the bootloader unlocked while one is installed.
+Build DiamaneOS from source and install it on a supported device. These commands sign every build
+with Android's public test keys: keep the bootloader unlocked while such a build is installed.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ keep the bootloader unlocked while one is installed.
   GB minimum).
 - About 500 GB free on an SSD with a case-sensitive filesystem (ext4, xfs or btrfs), and a fast
   connection: the first sync downloads 100 to 150 GB.
-- These packages (`repo` is in Debian's `contrib` section; see [host setup](BUILD.md#host-setup)):
+- These packages (`repo` is in Debian's `contrib` section, see [host setup](BUILD.md#host-setup)):
 
 ```sh
 sudo apt install git git-lfs repo python3 python3-jsonschema gnupg openssh-client \
@@ -36,8 +36,8 @@ repo sync -j8
 tools/diamaneos/bin/diamaneos build vendor
 ```
 
-Checks the source and takes the vendor files from Fairphone's factory package, checked by its
-SHA-256, into `vendor/fairphone/FP6`.
+Checks the source, downloads the device maker's factory package, checks its SHA-256 and takes the
+vendor files out of it into the source tree.
 
 - It warns about what only an official build refuses: local changes, local manifests, files between
   the projects, another `repo` version. `build.json` records them.
@@ -47,12 +47,15 @@ SHA-256, into `vendor/fairphone/FP6`.
 
 ```sh
 source build/envsetup.sh
-lunch FP6-cur-userdebug
+lunch <codename>-cur-user
 m target-files-package otatools-package
 ```
 
-The usual Android build, plus what step 4 packages and checks; a plain `m` builds the images only.
-`FP6-cur-user` builds a `user` image without root.
+- `<codename>` is the device's codename, listed on the [supported
+  devices](https://diamaneos.de/devices/) page.
+- The usual Android build, plus what step 4 packages and checks. A plain `m` builds the images only.
+- `<codename>-cur-userdebug` builds a `userdebug` image with root debugging over adb, for
+  development.
 
 ## 4. Package and check
 
@@ -63,15 +66,14 @@ tools/diamaneos/bin/diamaneos build package
 Checks that `out/` holds this source's build with these vendor files, then writes and checks the
 image set step 5 flashes, marked as built by hand.
 
-**Or in one command:** after step 1, `tools/diamaneos/bin/diamaneos build all --variant userdebug`
-syncs and does steps 2 to 4 itself, compiling without network access and checking every step. After
-a stop, run it again.
+**Or in one command:** after step 1, `tools/diamaneos/bin/diamaneos build all` syncs and does steps
+2 to 4 itself, compiling without network access and checking every step. After a stop, run it
+again. `--variant userdebug` builds a `userdebug` image.
 
 ## 5. Flash
 
-[Unlock the
-bootloader](https://support.fairphone.com/hc/en-us/articles/10492476238865-How-to-unlock-or-lock-your-Fairphone-s-bootloader)
-as Fairphone describes, with `fastboot flashing unlock_critical`. Then, in the bootloader:
+Unlock the bootloader as the [install guide](https://diamaneos.de/install/#unlocking-the-bootloader)
+describes, including `fastboot flashing unlock_critical`. Then, in the bootloader:
 
 ```sh
 cd ~/diamaneos-build/images/latest
@@ -80,8 +82,8 @@ bash flash-all.sh
 
 - It checks the phone and the images, then erases the phone and installs the image set. On Windows,
   run `flash-all.bat`.
-- It writes Fairphone's firmware of the release the build's vendor files come from, then the OS. Do
-  not run it on a phone that already runs a newer Fairphone release.
+- It writes the device maker's firmware of the release the build's vendor files come from, then the
+  OS. Do not run it on a phone that already runs a newer stock release.
 - Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
 - [Flashing](BUILD.md#flashing) covers updates that keep data, firmware and going back to stock.
 
@@ -99,11 +101,12 @@ tools/diamaneos/bin/diamaneos build package
 - Run `m` in a shell set up as in step 3 (`envsetup.sh` and `lunch`).
 - DiamaneOS rebases its branches onto new GrapheneOS releases: rebase your own commits onto the new
   branch tips (`git rebase --onto`).
-- `build vendor` is quick unless DiamaneOS moved to another Fairphone release or changed the vendor
+- `build vendor` is quick unless DiamaneOS moved to another stock release or changed the vendor
   file list.
 
 ## More detail
 
-[Build reference](BUILD.md) (host setup, each step, [building by hand](BUILD.md#building-by-hand),
-[troubleshooting](BUILD.md#troubleshooting)), [FP6 kernel](FP6-KERNEL.md), [firmware](FIRMWARE.md),
-[signing](SIGNING.md), [terms](TERMS.md).
+- [Build reference](BUILD.md): host setup, each step, [building by hand](BUILD.md#building-by-hand)
+  and [troubleshooting](BUILD.md#troubleshooting).
+- [Signing](SIGNING.md) and [terms](TERMS.md).
+- The FP6 profile: [firmware](FIRMWARE.md) and [kernel](FP6-KERNEL.md).
