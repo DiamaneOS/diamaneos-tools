@@ -89,7 +89,7 @@ class ManualBuildTests(unittest.TestCase):
     def test_out_that_does_not_match_stops_with_one_message(self):
         cases = (
             (lambda: (self.ctx.host_bin / 'validate_target_files').unlink(),
-             'out/ lacks validate_target_files; after lunch, build them with "m target-files-package '
+             'out/ lacks validate_target_files. After lunch, build them with "m target-files-package '
              'otatools-package"'),
             (lambda: setattr(self, 'vendor_check', (False, 'differs VENDOR/lib64/libfoo.so')),
              'not built with the vendor tree of "diamaneos build vendor" \\(differs VENDOR/lib64/libfoo.so\\)'),
@@ -120,7 +120,7 @@ class ManualBuildTests(unittest.TestCase):
         os.utime(self.ctx.workspace.state_dir / 'vendor.json')
         os.utime(self.target_files, (1, 1))
         self.record()
-        self.assertIn('    note: out/ is older than the vendor files; if m has not run since, run it and package '
+        self.assertIn('    note: out/ is older than the vendor files. If m has not run since, run it and package '
                       'again', self.lines)
 
 

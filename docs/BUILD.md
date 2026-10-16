@@ -520,7 +520,7 @@ the stock OS installed, as that section describes.
 | `undeclared inputs outside its projects` | An official build found the files it names between the projects. Move them away and run the command again. Other builds warn. |
 | `policy files differ from their record` | A device policy file changed without its row in `sepolicy/provenance.json`. Update the row in the device tree with the reviewed change. Only official builds stop on it. |
 | `bytes of body are still expected` during sync | A long download broke off. Run the same command again. Sync already uses HTTP/1.1 and retries, and finished repositories are not downloaded again. |
-| `... is out of date; run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
+| `... is out of date. Run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause. Finished steps are skipped. |
 | `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. An official build stops and is never flashed. For other builds it is a warning, and `flash-steps` names the failed checks. |

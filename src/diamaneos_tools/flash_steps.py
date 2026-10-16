@@ -45,7 +45,7 @@ def load(directory: Path) -> dict:
     if not record_path.is_file():
         raise FlashError(f'{directory} is not a DiamaneOS image directory (no {RECORD})')
     if not check_sums(directory):
-        raise FlashError(f'{directory} does not match its SHA256SUMS; do not flash it')
+        raise FlashError(f'{directory} does not match its SHA256SUMS. Do not flash it')
     return json.loads(record_path.read_bytes())
 
 
@@ -56,7 +56,7 @@ def verification(directory: Path, record: dict) -> dict | None:
         return None
     value = json.loads(report.read_bytes())
     if value.get('sums_sha256') != bw.sha_file(directory / 'SHA256SUMS') or value.get('build_id') != record['build_id']:
-        raise FlashError('the verification report belongs to another image set; run "diamaneos build verify" again')
+        raise FlashError('the verification report belongs to another image set. Run "diamaneos build verify" again')
     return value
 
 
@@ -80,7 +80,7 @@ def parse_phone(text: str) -> dict:
             continue
         key = DEVICE_INFO.get(key, key)
         if key in values and values[key] != value:
-            raise FlashError(f'the saved phone state gives {key} twice, with different values; save one phone\'s state')
+            raise FlashError(f'the saved phone state gives {key} twice, with different values. Save one phone\'s state')
         values[key] = value
     return values
 
@@ -92,7 +92,7 @@ def check_phone(phone: dict, record: dict, writes_firmware: bool) -> None:
     if phone.get('unlocked') != 'yes':
         raise FlashError(f'the bootloader is locked. Unlock it as {device["maker"]} describes')
     if phone.get('is-userspace') != 'no':
-        raise FlashError('the phone was not in the bootloader (fastbootd, or not reported); run "fastboot reboot '
+        raise FlashError('the phone was not in the bootloader (fastbootd, or not reported). Run "fastboot reboot '
                          'bootloader" and save its state again')
     if writes_firmware:
         if 'device-unlocked' not in phone or 'critical-unlocked' not in phone:
@@ -130,7 +130,7 @@ def firmware_decision(record: dict, previous: dict | None, phone: dict | None, s
     if phone is not None:
         missing = [k for k in VERSIONS if k not in phone]
         if missing:
-            raise FlashError('the saved phone state lacks ' + ', '.join(missing) + '; save the whole output of '
+            raise FlashError('the saved phone state lacks ' + ', '.join(missing) + '. Save the whole output of '
                              '"fastboot getvar all"')
         reported = {k: phone[k] for k in VERSIONS}
         if any(reported.values()):
@@ -143,7 +143,7 @@ def firmware_decision(record: dict, previous: dict | None, phone: dict | None, s
     if release is None:
         raise FlashError('Which firmware does the phone run? Its bootloader does not report it. Give its stock '
                          'release with --phone-firmware (stock Android shows it in Settings > About phone > Build '
-                         'number; after a DiamaneOS flash it is the firmware those flash steps installed), use '
+                         'number, and after a DiamaneOS flash it is the firmware those flash steps installed), use '
                          '--since with the image set last flashed, or --no-firmware to leave the firmware as it is.')
     have, want = release_of(release, 'the phone firmware'), release_of(shipped, 'the carried firmware')
     if have > want:
@@ -171,7 +171,7 @@ def firmware_text(record: dict, decision: dict) -> list[str]:
         text = f'Firmware: the phone already runs {shipped} ({source}), so there are no firmware steps.'
     else:
         text = {'older': f'Firmware: the phone runs {release} ({source}), older than this build\'s {shipped}.',
-                'rewrite': f'Firmware: the phone runs {release} ({source}); --rewrite-firmware writes it again.',
+                'rewrite': f'Firmware: the phone runs {release} ({source}). --rewrite-firmware writes it again.',
                 'changed': f'Firmware: this build\'s {shipped} images differ from the earlier build\'s.'}[why]
         name = flash_all.fields(record)['name']
         text += (' The firmware steps write it first, then zero the modem file system so that the modem rebuilds it '
@@ -191,12 +191,12 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                          'again with these tools')
     device = flash_all.fields(record)
     if report is None:
-        raise FlashError('this image set has not been verified; run "diamaneos build verify" first')
+        raise FlashError('this image set has not been verified. Run "diamaneos build verify" first')
     # Failed checks stop an official image set. For others they are a warning below.
     problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS),
                              allow_failed=record.get('official') is not True)
     if problem:
-        raise FlashError(problem + '; do not flash this build (run "diamaneos build verify" again)')
+        raise FlashError(problem + '. Do not flash this build (run "diamaneos build verify" again)')
     failed = failed_checks(report)
     if firmware not in MODES:
         raise FlashError('unknown firmware mode ' + firmware)
@@ -288,7 +288,7 @@ def resolve(value: str | None, workspace: Path) -> Path:
         return Path(value).expanduser().absolute()
     latest = workspace / 'images' / 'latest'
     if not latest.is_symlink():
-        raise FlashError(f'no packaged build in {workspace}; run "diamaneos build all" first')
+        raise FlashError(f'no packaged build in {workspace}. Run "diamaneos build all" first')
     return latest.resolve()
 
 

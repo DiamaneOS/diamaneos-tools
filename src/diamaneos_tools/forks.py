@@ -11,8 +11,8 @@ status: fetch (optionally) each fork's upstream reference and report how many
 upstream commits the fork lacks and how many DiamaneOS patches it carries.
 update: rebase the fork's patches onto a newer upstream reference into a new
 local candidate branch. With --rerere, recorded conflict resolutions are loaded
-first, used for repeated conflicts, and saved back with any new ones. The fork branch is never moved and nothing is pushed;
-adopt a candidate only after it builds and passes review.
+first, used for repeated conflicts, and saved back with any new ones. The fork branch is never moved and nothing is pushed.
+Adopt a candidate only after it builds and passes review.
 """
 import argparse
 import datetime

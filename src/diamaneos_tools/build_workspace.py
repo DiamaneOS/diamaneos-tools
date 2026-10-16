@@ -460,7 +460,7 @@ def check_host(workspace: Workspace, steps, environment: dict, build_config: dic
     release = probe.get('os_release', os_release())
     host = environment['host']
     if (release.get('ID'), release.get('VERSION_ID')) != (host['os_id'], host['os_version_id']):
-        warnings.append(f'tested on {host["os_id"]} {host["os_version_id"]}; this host is '
+        warnings.append(f'tested on {host["os_id"]} {host["os_version_id"]}. This host is '
                         f'{release.get("ID", "unknown")} {release.get("VERSION_ID", "")}'.rstrip())
     versions = probe.get('packages', package_versions(host['required_packages']))
     deviations = None

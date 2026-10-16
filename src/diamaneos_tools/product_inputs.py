@@ -68,7 +68,7 @@ def generation_recipes(vendor_tree):
 def require_current(recipes, root=ROOT):
     stale = sorted(k for k, v in current_recipes(root).items() if recipes.get(k) != v)
     require(not stale, 'generated inputs were made with other recipes (' + ', '.join(stale) +
-            '); rebuild them with "diamaneos build all"')
+            '). Rebuild them with "diamaneos build all"')
 
 
 def tools_identity(root=ROOT):
@@ -203,7 +203,7 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
             'generated-input descriptor is missing or invalid')
     descriptor = json.loads(path.read_bytes())
     require(isinstance(descriptor, dict) and descriptor.get('schema_version') == DESCRIPTOR_SCHEMA,
-            'generated-input record predates the bound descriptor; reinstall the generated inputs')
+            'generated-input record predates the bound descriptor. Reinstall the generated inputs')
     require(descriptor.get('status') == 'PASS' and descriptor.get('target_product') == TARGET_PRODUCT,
             'generated-input descriptor is incomplete')
     if environment_sha256 is not None:
