@@ -467,6 +467,8 @@ named in the set's `build.json`.
   bootloader and that the files match `SHA256SUMS`, and stop at the first failed command.
 - They write the firmware and the boot images in the bootloader, restart the phone into fastbootd
   for the logical partitions, then return to the bootloader for the wipe images.
+- Before the boot images they cancel an update the OS left pending (`fastboot snapshot-update
+  cancel`), only when the bootloader reports one, as `fastboot flashall` does.
 - They always write the carried firmware, both slots in the stock order, as Fairphone's own flash
   script does: the FP6 bootloader cannot say which release the phone runs.
 - `flash-steps --wipe --phone phone.txt --phone-firmware <BUILD_NUMBER>` prints the same install as
