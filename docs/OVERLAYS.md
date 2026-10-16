@@ -16,11 +16,11 @@ It implements rules 1 to 5 of the DiamaneOS overlay rules (Tally is the DiamaneO
 - Rule 2: a product overlay covers every target qualifier.
 - Rules 3 and 4: product overlays stay within an allowlist of types and reviewed names, and off a
   denylist.
-- Rule 5: no brand overlay defines what an FP6 overlay defines (`overlap`).
+- Rule 5: no brand overlay defines what a device overlay defines (`overlap`).
 - Rule 6, idmap2 against built targets, stays a check on the phone and the build host.
 
 Product (Tally) overlays fail on rules 1 to 5 without `--strict`, which also fails warnings (mostly
-the FP6 hardware overlays' own qualifier gaps). A pass means names, qualifiers, allowlist and
+the device overlays' own qualifier gaps). A pass means names, qualifiers, allowlist and
 overlayable policies agree with the sources, nothing more.
 
 ```sh
@@ -44,7 +44,7 @@ holding this checkout):
 | Root | Role | Allowed partition |
 | --- | --- | --- |
 | `vendor_diamaneos/overlay` | product (DiamaneOS-wide) | product |
-| `device_fairphone_FP6/rro` | device | vendor or odm |
+| `device_fairphone_FP6/rro` (FP6) | device | vendor or odm |
 
 `--product-overlays DIR` and `--device-overlays DIR` (repeatable) replace these. Per module it reads
 the manifest (`targetPackage`, `targetName`, `isStatic`, `priority`, `hasCode`), partition
@@ -53,7 +53,7 @@ and `make_roots` (their repositories) for overlays defined in make.
 
 - **Device**:
   - `device` in the same file sets `density_dpi` and `smallest_width_dp` (at the default display
-    size), and `api_level` the API level; they decide which target variants always apply (see
+    size), and `api_level` the API level. They decide which target variants always apply (see
     `shadowed`).
   - A larger display-size setting lowers the smallest width, so variants above the configured width
     count as never applying.
@@ -81,9 +81,9 @@ and `make_roots` (their repositories) for overlays defined in make.
   recorded `default_manifest_sha256` for the pinned tag.
 - Then each target project at its pinned full commit as a trees-only partial clone, downloading only
   `values*` XML.
-- All is cached and reused under `DIR` (one bare repository per remote); only `https` remotes are
+- All is cached and reused under `DIR` (one bare repository per remote). Only `https` remotes are
   accepted.
-- `--manifest FILE` uses a local manifest; the report says whether its digest matches the pinned
+- `--manifest FILE` uses a local manifest. The report says whether its digest matches the pinned
   one.
 - A cached run needs no network.
 
@@ -109,22 +109,22 @@ Errors (exit status 1):
 - An overlay variant equal to or better than the target's best (for example its own `xxhdpi`, or
   `v33` against the target's `v31`) covers the target's variants.
 - Modelled qualifiers (the examples use the FP6 values in `config/overlays.json`):
-  - smallest width: `sw360dp` applies at 372 dp;
-  - density: at 480 dpi an `xxhdpi`, `hdpi` or `nodpi` target variant beats an overlay default;
-    `anydpi` beats every bucket;
+  - Smallest width: `sw360dp` applies at 372 dp.
+  - Density: at 480 dpi an `xxhdpi`, `hdpi` or `nodpi` target variant beats an overlay default, and
+    `anydpi` beats every bucket.
   - API level: `v31` applies at API 37, `v99` never.
 - `target-qualifier` (rule 2, product overlays): the target defines the resource for qualifiers the
   overlay leaves uncovered, where its own value still applies (a locale, night mode, a carrier),
-  with no `product_rules.qualifier_waivers` entry; for a translated string, every target locale.
-- `not-allowed` (rule 3): product overlay resource not on the allowlist; the only guard for
+  with no `product_rules.qualifier_waivers` entry. For a translated string, every target locale.
+- `not-allowed` (rule 3): product overlay resource not on the allowlist, the only guard for
   framework-res.
 - `denied` (rule 4, beats the allowlist): product overlay name, name pattern or type on the target's
   denylist:
   - PermissionController: privacy toggles, access notifications, password toggle, grant-dialog
-    switches and all its booleans and strings (roles, visibility, help URLs);
+    switches and all its booleans and strings (roles, visibility, help URLs).
   - SystemUI: privacy-indicator resources and every Tally token or indicator resource (`tally_*`:
-    sensor and capture colours, the privacy dot's size and margin, lamps and springs; the lens
-    config is a device value).
+    sensor and capture colours, the privacy dot's size and margin, lamps and springs). The lens
+    config is a device value.
 - `not-overlayable`: the target declares `<overlayable>` and the resource is in no group.
 - `target-name`: `android:targetName` differs from the resource's overlayable group (idmap2 requires
   equality).
@@ -133,14 +133,14 @@ Errors (exit status 1):
 - `policy`: no overlayable policy allows the overlay's partition.
 - `not-static`, `has-code`: not `android:isStatic="true"`, or no `android:hasCode="false"`.
 - `partition`: a product overlay not on product, or a device overlay not on vendor or odm.
-- `platform-key`, `certificate`: the module sets `certificate`; overlays use the default key, which
+- `platform-key`, `certificate`: the module sets `certificate`. Overlays use the default key, which
   release signing maps to its own.
 - `same-priority`: two overlays on one partition and target share `android:priority`.
 - Android orders static overlays by partition, then priority, then APK path, so the tie falls to
   file names.
 - Priority is never compared across partitions (a later partition, product after vendor, always
   wins), so overlays on different partitions may share one.
-- `overlap` (rule 5): two overlays on one target define the same resource; the message names the
+- `overlap` (rule 5): two overlays on one target define the same resource. The message names the
   winner.
 - `unknown-target`: the target package is not registered.
 - `target-source`: a registered source project or directory is unavailable, or a target file
@@ -153,10 +153,10 @@ Errors (exit status 1):
       `PRODUCT_PACKAGE_OVERLAYS`, `DEVICE_PACKAGE_OVERLAYS`) or resources from libraries
       (`static_libs`, `resource_libs`).
 
-Warnings (exit status 0; `--strict` fails them):
+Warnings (exit status 0, `--strict` fails them):
 
 - `qualifier-not-in-target`: the overlay adds a qualifier (such as a locale) the target lacks for
-  that resource; it applies, but upstream may have dropped a variant.
+  that resource. It applies, but upstream may have dropped a variant.
 - `target-qualifier`: the same gap in a device overlay.
 - `flagged-in-target`: every target definition is behind an aconfig feature flag.
 - `conditional`: the overlay depends on a system property.
@@ -164,23 +164,23 @@ Warnings (exit status 0; `--strict` fails them):
 - Qualifiers that never match the device go unreported: tokens in `inapplicable_qualifier_tokens`
   (pseudo-locales, TV and watch modes), smallest widths above the device's and API levels above
   `api_level`.
-- Others are compared as written in the directory name, ignoring case; implied version qualifiers
+- Others are compared as written in the directory name, ignoring case. Implied version qualifiers
   (`night` and `night-v8`) are not normalised.
 
 ## Product rules
 
-`product_rules` holds rules 2 to 4 for product overlays; the FP6 hardware (device) overlays are
-exempt from 3 and 4.
+`product_rules` holds rules 2 to 4 for product overlays. The device (hardware) overlays are exempt
+from rules 3 and 4.
 
 - `allowed_types`: types a Tally overlay may change freely (styles, colours, drawables, dimens,
-  fonts, mipmaps, reviewed anim files), never strings; allowed unless the name starts with a
+  fonts, mipmaps, reviewed anim files), never strings. A name is allowed unless it starts with a
   `restricted_prefixes` entry.
 - `restricted_prefixes`: prefixes (`config_`) needing a listed name even for an allowed type.
 - `allowed_names`, `allowed_strings`: per target, each reviewed name with its reason (such as
   framework-res's `config_buttonTextAllCaps`, DocumentsUI's `force_material3` and the listed rebrand
-  strings); required for any other type and every string.
-- `denied_names`, `denied_patterns` (regular expressions), `denied_types`: per target with a reason;
-  they beat the allowlist.
+  strings). Required for any other type and every string.
+- `denied_names`, `denied_patterns` (regular expressions), `denied_types`: per target with a reason.
+  They beat the allowlist.
 - `qualifier_waivers`: `{overlay, resource, qualifiers, reason}` for target qualifiers a product
   overlay deliberately leaves to the target (`*` for all).
 
@@ -201,6 +201,6 @@ Limits:
 - It reads sources, not built APKs: it misses resources removed by resource shrinking, resources
   from prebuilt libraries and build-time product variants, and replaces neither idmap2 on built
   targets nor `cmd overlay dump` on a phone.
-- The device model covers smallest width, density and API level only; other qualifiers are compared
+- The device model covers smallest width, density and API level only. Other qualifiers are compared
   by name.
 - Choosing allowlist and denylist names stays a review of each overlay change.
