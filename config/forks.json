@@ -143,7 +143,7 @@
     {"id": "kernel-common", "slug": "kernel_common-6.1", "path": "kernel_platform/common", "workspace": "kernel", "branch": "android17", "follow_note": "GrapheneOS hardened 6.1 common kernel at the GrapheneOS release tag.",
      "upstream": {"url": "https://github.com/GrapheneOS/kernel_common-6.1", "ref": "@release", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
-    {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master with upstream pull request 50 and DiamaneOS unlink, truncation and symlink changes. Drop the pull request's commits once upstream merges it.",
+    {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master (upstream merged pull request 50), with DiamaneOS unlink, truncation, symlink and short ERROR packet fixes, host tests and a static libqrtr link.", "reviewed": "b31de6db4f31d09119293203d39636b827f16321",
      "upstream": {"url": "https://github.com/linux-msm/tqftpserv", "ref": "master", "kind": "branch"}},
     {"id": "qrtr", "slug": "vendor_qcom_opensource_qrtr", "path": "vendor/qcom/opensource/qrtr", "branch": "android17", "follow_note": "linux-msm's QRTR library: master with one change, the library is installed as libqrtr_linux_msm.so so that Qualcomm's libqrtr.so stays for the stock display, VM and QTEE libraries. tqftpserv links it statically, pd-mapper dynamically.",
      "upstream": {"url": "https://github.com/linux-msm/qrtr", "ref": "master", "kind": "branch"}},
