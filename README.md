@@ -4,16 +4,17 @@ Host tooling and machine-readable project maps for DiamaneOS.
 
 ## Project context
 
-DiamaneOS is an operating system for the Fairphone 6, with GrapheneOS as its upstream OS base.
+DiamaneOS is a privacy and security focused operating system based on GrapheneOS, for the
+[supported devices](https://diamaneos.de/devices/).
 
-> DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or
-> Fairphone.
+> DiamaneOS is based on GrapheneOS. It is not made or endorsed by GrapheneOS or by any device
+> maker.
 
 ## Licence
 
 - Original DiamaneOS code, documentation and artwork here are [Apache-2.0](LICENSE) unless another
   licence is identified.
-- Third-party design assets are not in this repository; they carry their own licence notices
+- Third-party design assets are not in this repository. They carry their own licence notices
   ([NOTICE](NOTICE)).
 - The copyright licence does not cover the DiamaneOS name and logo as trademarks (Apache licence,
   section 6).
@@ -21,7 +22,7 @@ DiamaneOS is an operating system for the Fairphone 6, with GrapheneOS as its ups
 
 ## Workspace and tools
 
-Clone into any directory; run commands from the repository root unless stated otherwise.
+Clone into any directory. Run commands from the repository root unless stated otherwise.
 
 - `WORK_ROOT` in the docs: a directory you choose for related checkouts or work files, not a
   required path.
@@ -40,18 +41,16 @@ fastboot --version
 - Host-side fixtures need no full OS checkout or device.
 - Full Android builds run on Linux from a `repo` checkout of the [DiamaneOS
   manifest](https://github.com/DiamaneOS/platform_manifest), which includes these tools at
-  `tools/diamaneos`; run that copy.
+  `tools/diamaneos`. Run that copy.
 - The steps are in [BUILDING.md](docs/BUILDING.md): `repo sync`, `build vendor`, `lunch` and `m`,
   then `build package`, or `tools/diamaneos/bin/diamaneos build all` in one command.
 
 ## Documentation
 
-- [Build DiamaneOS for the Fairphone 6](docs/BUILDING.md)
+- [Build DiamaneOS](docs/BUILDING.md)
 - [Build reference](docs/BUILD.md)
 - [Testing and command setup](docs/TESTING.md)
-- [FP6 firmware](docs/FIRMWARE.md)
 - [Resource overlay check](docs/OVERLAYS.md)
-- [FP6 kernel build and capability contract](docs/FP6-KERNEL.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Signing roles and offline release boundary](docs/SIGNING.md)
 - [Carrier configuration and modem-backed Wi-Fi calling](docs/CARRIER-INTEGRATION.md)
@@ -60,3 +59,5 @@ fastboot --version
   upstream inputs. The DiamaneOS manifest lists every project a build uses.
 - [Verified stock factory packages](config/stock-inputs.json)
 - [Terms](docs/TERMS.md)
+- Fairphone 6 (FP6) profile: [firmware](docs/FIRMWARE.md), [kernel build and capability
+  contract](docs/FP6-KERNEL.md)
