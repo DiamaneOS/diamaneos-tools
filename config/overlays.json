@@ -54,16 +54,16 @@
         "default_wallpaper_component": "Tally's Paper wallpaper in SystemUI as the default wallpaper: grained stone paper, light or dark with the theme",
         "default_lock_wallpaper": "DiamaneOS default lock wallpaper",
         "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL",
-        "config_httpsTimeUrls": "network time over HTTPS from the DiamaneOS time server (time.diamaneos.de) instead of GrapheneOS's; the same request, response and TLS checks"
+        "config_httpsTimeUrls": "network time over HTTPS from the DiamaneOS time server (time.diamaneos.de) instead of GrapheneOS's. The same request, response and TLS checks"
       },
       "com.android.systemui": {
-        "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay; SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
+        "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay. SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
       },
       "com.android.documentsui": {
-        "force_material3": "Material 3 Files; the trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/ until their security review and tests"
+        "force_material3": "Material 3 Files. The trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/"
       },
       "com.android.customization.themes": {
-        "color_bundles": "the five DiamaneOS colour presets (Sodium, Phosphor, Signal violet, Rose, Lichen) instead of the 17 AOSP ones; an overlay cannot add names, so they reuse the stub keys rainbow1 to rainbow5",
+        "color_bundles": "the five DiamaneOS colour presets (Sodium, Phosphor, Signal violet, Rose, Lichen) instead of the 17 AOSP ones. An overlay cannot add names, so they reuse the stub keys rainbow1 to rainbow5",
         "color_style_rainbow1": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
         "color_style_rainbow2": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
         "color_style_rainbow3": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
@@ -75,18 +75,18 @@
       "com.android.settings": {
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
         "security_settings_fingerprint_v2_enroll_introduction_footer_message_consent_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
-        "duress_pwd_description": "rebrand: \"DiamaneOS will remain installed\" instead of GrapheneOS; otherwise unchanged",
-        "aep_compat_mode_summary": "rebrand: \"DiamaneOS exploit protections\" instead of GrapheneOS; otherwise unchanged",
+        "duress_pwd_description": "rebrand: \"DiamaneOS will remain installed\" instead of GrapheneOS. Otherwise unchanged",
+        "aep_compat_mode_summary": "rebrand: \"DiamaneOS exploit protections\" instead of GrapheneOS. Otherwise unchanged",
         "app_play_integrity_top_intro": "rebrand: DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (reviewed wording)",
-        "supl_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose SUPL proxy it uses (frameworks/base fork); otherwise unchanged",
-        "psds_enabled_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose PSDS server it uses (frameworks/base fork); otherwise unchanged",
-        "network_location_enabled_grapheneos_apple_proxy": "rebrand: the proxy choice names DiamaneOS, whose relay to Apple's location service it uses (NetworkLocation fork); otherwise unchanged",
-        "remote_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose attestation key provisioning proxy it uses (frameworks/base fork); otherwise unchanged",
-        "widevine_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose Widevine provisioning proxy it uses (frameworks/base fork); otherwise unchanged",
+        "supl_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose SUPL proxy it uses (frameworks/base fork). Otherwise unchanged",
+        "psds_enabled_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose PSDS server it uses (frameworks/base fork). Otherwise unchanged",
+        "network_location_enabled_grapheneos_apple_proxy": "rebrand: the proxy choice names DiamaneOS, whose relay to Apple's location service it uses (NetworkLocation fork). Otherwise unchanged",
+        "remote_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose attestation key provisioning proxy it uses (frameworks/base fork). Otherwise unchanged",
+        "widevine_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose Widevine provisioning proxy it uses (frameworks/base fork). Otherwise unchanged",
         "network_location_footer": "privacy notice: GrapheneOS's text plus one paragraph saying the identifiers go to Apple in the USA and what the proxy hides",
         "widevine_provisioning_footer": "privacy notice: GrapheneOS's sentence plus what Google in the USA receives and when, and what the proxy hides",
-        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it uses (Connectivity fork); otherwise unchanged",
-        "conn_checks_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose connectivity check servers it uses (NetworkStack, DnsResolver and Connectivity forks); otherwise unchanged"
+        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it uses (Connectivity fork). Otherwise unchanged",
+        "conn_checks_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose connectivity check servers it uses (NetworkStack, DnsResolver and Connectivity forks). Otherwise unchanged"
       },
       "android": {
         "deprecated_abi_message_grapheneos": "rebrand: the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
@@ -95,7 +95,7 @@
         "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
         "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording), with the privacy policy link",
         "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\"",
-        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device; otherwise unchanged",
+        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device. Otherwise unchanged",
         "network_location_enabled_desc": "rebrand: signal identifiers go to Apple in the USA through a DiamaneOS proxy instead of a GrapheneOS proxy, with the privacy policy link",
         "geocoder_enabled_desc": "rebrand: the geocoder is OpenStreetMap's public service instead of one hosted by GrapheneOS, and the text says what OpenStreetMap sees"
       },
@@ -118,8 +118,8 @@
         "show_access_notifications_default_config": "access notifications",
         "config_display_show_password_toggle": "password toggle",
         "config_useFocusIndicatorInPermissionDialogBeforeUserSetupComplete": "grant dialog behaviour",
-        "config_useMaterial3PermissionGrantDialog": "grant dialog implementation; a grant-UI change with its own tests",
-        "config_enableExpressiveDesignInRequestPermissionDialog": "grant dialog implementation; a grant-UI change with its own tests",
+        "config_useMaterial3PermissionGrantDialog": "grant dialog implementation. A grant-UI change with its own tests",
+        "config_enableExpressiveDesignInRequestPermissionDialog": "grant dialog implementation. A grant-UI change with its own tests",
         "config_enableExpressiveDesignInEnhancedConfirmationDialog": "confirmation dialog implementation",
         "config_enableExpressiveDesignInSafetyCenter": "not overlayable and no effect"
       }
@@ -135,7 +135,7 @@
         "^ongoing_appops_": "privacy indicators stay as the SystemUI fork sets them",
         "^ongoing_privacy_": "privacy indicators stay as the SystemUI fork sets them",
         "^privacy_": "privacy indicators stay as the SystemUI fork sets them",
-        "^tally_": "the Tally shell's tokens and indicator resources (sensor and capture colours, the privacy dot's size and margin, lamps, springs) come from the SystemUI fork and its token library; the lens config is a device value"
+        "^tally_": "the Tally shell's tokens and indicator resources (sensor and capture colours, the privacy dot's size and margin, lamps, springs) come from the SystemUI fork and its token library. The lens config is a device value"
       }
     },
     "qualifier_waivers": []
@@ -389,7 +389,7 @@
       "prebuilt": {
         "project": "external/SpeechServices",
         "revision": "c63d8d3ddc37a582ddda3e0325e63c2d4b573b24",
-        "evidence": "aapt2 dump resources prebuilt/arm64/app-release.apk (versionCode 3): string/app_name has the default configuration only; no <overlayable>",
+        "evidence": "aapt2 dump resources prebuilt/arm64/app-release.apk (versionCode 3): string/app_name has the default configuration only. No <overlayable>",
         "resources": {
           "string": [
             "app_name"
