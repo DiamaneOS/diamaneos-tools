@@ -5,7 +5,7 @@ from diamaneos_tools import flash_all
 
 def record(**extra):
     base = {'build_id': 'test', 'product': 'FP6',
-            'flash': {'slot': 'a', 'bootloader': ['boot', 'vbmeta'], 'logical': True},
+            'flash': {'slot': 'a', 'bootloader': ['boot', 'vbmeta'], 'logical': ['system']},
             'wipe': {'images': {'userdata': {'file': 'userdata.img'}}}}
     return {**base, **extra}
 
@@ -13,8 +13,11 @@ def record(**extra):
 class FlashAllRelockTest(unittest.TestCase):
     def test_a_set_signed_with_private_keys_installs_its_key_and_stops_in_the_bootloader(self):
         signed = record(never_lock=False, avb_custom_key={'file': 'avb_pkmd.bin'})
+        commands = flash_all.commands(signed)
         self.assertEqual([['flash', 'avb_custom_key', 'avb_pkmd.bin'], ['--set-active=a'], ['reboot-bootloader']],
-                         flash_all.commands(signed)[-3:])
+                         commands[-3:])
+        # The key goes in from the bootloader, after fastbootd wrote the logical partitions.
+        self.assertLess(commands.index(['reboot-bootloader']), commands.index(commands[-3]))
         for name, text in flash_all.scripts(signed).items():
             with self.subTest(name):
                 self.assertIn('fastboot flash avb_custom_key avb_pkmd.bin', text)

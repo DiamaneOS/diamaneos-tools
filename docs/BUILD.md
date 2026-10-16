@@ -302,7 +302,8 @@ or deleted files):
   - The AVB chain with the test key and the device layout (vbmeta index 0 at location 0, recovery 28,
     vbmeta_system 29, boot 30, init_boot 31, flags 0, pvmfw in vbmeta_system).
   - Zero OS fields in the boot-family headers with the versions in AVB properties.
-  - `super.img` holding exactly the logical images.
+  - `super.img` holding exactly the logical images, and `super_empty.img` listing the same
+    partitions.
   - `validate_target_files` and `check_target_files_vintf`.
   - The kernel prebuilts in boot, vendor_boot and dtbo (the `device/fairphone/FP6-kernel` checkout,
     which must be at the commit `build.json` names and unchanged).
@@ -340,8 +341,9 @@ or deleted files):
     the FP6 bootloader does not report it.
   - Firmware steps also need the phone's saved bootloader state (`--phone`), and a newer release on
     the phone stops the command.
-  - The fastbootd fallback writes every logical partition, because a stalled `super` flash may
-    already have written the new layout.
+  - The logical partitions are written in fastbootd: `fastboot wipe-super super_empty.img`, then
+    every logical image, also when only one changed. The bootloader can stall while it writes
+    `super.img`.
 
 - **Reproducibility.**
   - The same resolved manifest gives the same source map, generated inputs and source identity, and
@@ -463,6 +465,8 @@ named in the set's `build.json`.
 
 - Each image set carries both scripts. They check that the phone is an unlocked FP6 in the
   bootloader and that the files match `SHA256SUMS`, and stop at the first failed command.
+- They write the firmware and the boot images in the bootloader, restart the phone into fastbootd
+  for the logical partitions, then return to the bootloader for the wipe images.
 - They always write the carried firmware, both slots in the stock order, as Fairphone's own flash
   script does: the FP6 bootloader cannot say which release the phone runs.
 - `flash-steps --wipe --phone phone.txt --phone-firmware <BUILD_NUMBER>` prints the same install as
@@ -513,7 +517,7 @@ preflight](https://github.com/DiamaneOS/installer/blob/main/docs/recovery-prefli
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause; finished steps are skipped. |
 | `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. An official build stops and is never flashed. For other builds it is a warning, and `flash-steps` names the failed checks. |
 | `the verification report belongs to another image set` | Run `tools/diamaneos/bin/diamaneos build verify` again for this set. |
-| Flashing `super` stops after its first part | Use the fastbootd steps printed under the main steps. |
+| `flash-all` waits for fastbootd or the bootloader and the phone does not get there | Hold Power and Volume down until the phone restarts into the bootloader, then run the script again. |
 
 ## Pinned Android environment
 

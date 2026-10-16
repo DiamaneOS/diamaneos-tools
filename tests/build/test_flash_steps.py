@@ -66,8 +66,13 @@ class FlashStepTests(unittest.TestCase):
         text = self.text(firmware='skip')
         order = [line.strip() for line in text.splitlines() if line.strip().startswith('fastboot')]
         self.assertEqual('fastboot flash boot_a boot.img', order[0])
-        self.assertIn('fastboot flash super super.img', order)
-        self.assertLess(order.index('fastboot flash vbmeta_a vbmeta.img'), order.index('fastboot flash super super.img'))
+        # The logical partitions go through fastbootd, which recovery holds.
+        fastbootd = order.index('fastboot reboot fastboot')
+        self.assertEqual('fastboot wipe-super super_empty.img', order[fastbootd + 1])
+        self.assertLess(order.index('fastboot flash recovery_a recovery.img'), fastbootd)
+        self.assertLess(order.index('fastboot flash vbmeta_a vbmeta.img'), fastbootd)
+        self.assertNotIn('fastboot flash super super.img', order)
+        self.assertIn('Wait until the phone is in fastbootd, then:', text)
         self.assertIn('fastboot --set-active=a', order)
         commands = '\n'.join(order)
         for forbidden in ('flashing lock', ' -w', 'erase', '_b '):
@@ -91,19 +96,18 @@ class FlashStepTests(unittest.TestCase):
         self.assertIn('Nothing to flash', self.text(previous=previous))
         previous['images']['vendor_boot'] = '0' * 64
         previous['images']['vendor'] = '0' * 64
-        commands = [l.strip() for l in self.text(previous=previous).splitlines() if l.strip().startswith('fastboot flash')]
-        # A stalled super flash may have written the new layout already, so the
-        # fastbootd fallback lists every logical partition, not only vendor.
+        # wipe-super leaves no logical partition, so every one is written, not only vendor.
         logical = [f'fastboot flash {n}_a {n}.img' for n in self.record['flash']['logical']]
-        self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot flash super super.img'] + logical,
-                         commands)
+        self.assertEqual(['fastboot flash vendor_boot_a vendor_boot.img', 'fastboot reboot fastboot',
+                          'fastboot wipe-super super_empty.img', *logical, 'fastboot reboot-bootloader',
+                          'fastboot --set-active=a', 'fastboot reboot'], self.commands(previous=previous))
 
     def test_failed_checks_stop_an_official_set_and_warn_otherwise(self):
         self.report['checks'][3]['status'] = 'FAIL'
         self.report.update(status='FAIL', failed=1)
         text = self.text(firmware='skip')
         self.assertIn('- 1 image checks failed (avb-chain): this build lacks what they check.', text)
-        self.assertIn('fastboot flash super super.img', text)
+        self.assertIn('fastboot wipe-super super_empty.img', text)
         self.record['official'] = True
         with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\); do not flash'):
             self.text(firmware='skip')
@@ -125,17 +129,25 @@ class FlashStepTests(unittest.TestCase):
         scripts = flash_all.scripts(self.record)
         for name, text in scripts.items():
             self.assertEqual(text, (self.directory / name).read_bytes().decode())
-            self.assertEqual(wanted, [line.split(' ||')[0] for line in text.splitlines()
-                                      if line.startswith(('fastboot flash', 'fastboot --set', 'fastboot reboot'))])
+            self.assertEqual(wanted, [line.split(' ||')[0] for line in text.splitlines() if line.startswith(
+                ('fastboot flash', 'fastboot wipe-super', 'fastboot --set', 'fastboot reboot'))])
             # Nothing else is run: no lock, unlock, erase or format command.
             self.assertEqual([], [line for line in text.splitlines() if line.startswith('fastboot ')
-                                  and not line.startswith(('fastboot flash ', 'fastboot --set-active=',
-                                                           'fastboot reboot', 'fastboot getvar ',
-                                                           'fastboot oem device-info '))])
+                                  and not line.startswith(('fastboot flash ', 'fastboot wipe-super ',
+                                                           'fastboot --set-active=', 'fastboot reboot',
+                                                           'fastboot getvar ', 'fastboot oem device-info '))])
             self.assertIn('keep the bootloader unlocked', text)
             self.assertIn(f"Fairphone's {SHIPPED} firmware first", text)
         self.assertTrue(image_package.check_sums(self.directory))
-        self.assertTrue(scripts[flash_all.BAT].endswith(' || exit /b 1\r\n'))
+        # Each restart is followed by a wait for the mode, and every command stops the batch file on failure.
+        lines = scripts[flash_all.SH].splitlines()
+        self.assertEqual('waitfor yes "fastbootd"', lines[lines.index('fastboot reboot fastboot') + 1])
+        self.assertEqual('waitfor no "the bootloader"', lines[lines.index('fastboot reboot-bootloader') + 1])
+        lines = scripts[flash_all.BAT].split('\r\n')
+        self.assertEqual('call :waitfor yes "fastbootd" || exit /b 1',
+                         lines[lines.index('fastboot reboot fastboot || exit /b 1') + 1])
+        self.assertEqual([], [line for line in lines if line.startswith(('fastboot', 'call'))
+                              and '|' not in line])
         # fastboot is never piped into a filter that stops early (grep -q, head): that ends it
         # mid-reply and leaves the bootloader unable to answer the next command.
         self.assertEqual([], [line for line in scripts[flash_all.SH].splitlines()
@@ -146,10 +158,15 @@ class FlashStepTests(unittest.TestCase):
         work = self.root / 'run'
         shutil.rmtree(work, ignore_errors=True)
         (work / 'bin').mkdir(parents=True)
-        log = work / 'calls'
-        replies = '\n'.join(f'  "getvar {name}") echo "{line}" >&2 ;;' for name, line in answers.items())
+        log, mode = work / 'calls', work / 'mode'
+        replies = '\n'.join(f'  "getvar {name}") echo "{line}" >&2 ;;' for name, line in answers.items()
+                            if name != 'is-userspace')
+        # Answers is-userspace as given until the script restarts the phone into another mode.
         (work / 'bin/fastboot').write_text(
-            '#!/bin/sh\necho "$*" >> "' + str(log) + '"\ncase "$*" in\n' + replies + '\n'
+            f'#!/bin/sh\necho "$*" >> "{log}"\ncase "$*" in\n' + replies + '\n'
+            f'  "getvar is-userspace") if [ -f "{mode}" ]; then echo "is-userspace: $(cat "{mode}")" >&2; '
+            f'else echo "{answers["is-userspace"]}" >&2; fi ;;\n'
+            f'  "reboot fastboot") echo yes > "{mode}" ;;\n  "reboot-bootloader") echo no > "{mode}" ;;\n'
             '  "oem device-info") echo "(bootloader) Device critical unlocked: true" >&2 ;;\nesac\n')
         (work / 'bin/fastboot').chmod(0o755)
         result = subprocess.run(['sh', str(self.directory / flash_all.SH)], capture_output=True, text=True, timeout=120,
@@ -266,9 +283,9 @@ class FlashStepTests(unittest.TestCase):
         self.assertNotIn('modemst', text)
         self.assertIn('already runs FP6.QREL.16.111.0', text)
         self.assertNotIn('not yet tested on a phone', text)
-        # A wipe still resets the firmware's state partitions, after super.
+        # A wipe still resets the firmware's state partitions, back in the bootloader.
         commands = self.commands(phone_firmware=SHIPPED, wipe=True)
-        self.assertLess(commands.index('fastboot flash super super.img'),
+        self.assertLess(commands.index('fastboot reboot-bootloader'),
                         commands.index('fastboot flash vm-persist vm-persist.img'))
         self.assertIn('fastboot flash logfs logfs_ufs_8mb.bin', commands)
 

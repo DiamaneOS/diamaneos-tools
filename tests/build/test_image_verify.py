@@ -2672,6 +2672,17 @@ class GenericCheckTests(unittest.TestCase):
             (self.root / f'{name}.img').write_bytes(name.encode() * 10)
         (self.root / 'super.img').write_bytes(b'raw super' + bytes(91))
 
+        def super_empty(names, size=100):
+            # liblp's layout: geometry, header, partition entries, one block device.
+            partitions = b''.join(n.encode().ljust(36, b'\0') + bytes(16) for n in names)
+            device = struct.pack('<QIIQ', 0, 0, 0, size) + b'super'.ljust(40, b'\0')
+            end = len(partitions)
+            header = struct.pack('<IHHI', 0x414C5030, 10, 2, 256) + bytes(68) + struct.pack(
+                '<12I', 0, len(names), 52, end, 0, 24, end, 0, 48, end, 1, 64)
+            (self.root / 'super_empty.img').write_bytes(struct.pack('<I', 0x616C4467).ljust(4096, b'\0')
+                                                        + header.ljust(256, b'\0') + partitions + device)
+        super_empty([f'{n}_{s}' for n in logical for s in 'ab'])
+
         def lpunpack(args):
             out = Path(args[-1])
             for name in logical:
@@ -2682,6 +2693,10 @@ class GenericCheckTests(unittest.TestCase):
         v = self.harness({'META/dynamic_partitions_info.txt': b'super_partition_size=100\n'}, tools=tools)
         self.assertEqual((True, ''), subject.check_super(v))
         self.assertNotIn('simg2img', [c[0] for c in tools.calls])
+        super_empty([f'{n}_{s}' for n in logical if n != 'vendor' for s in 'ab'])
+        self.assertIn('super_empty.img lists system_a', subject.check_super(v)[1])
+        super_empty([f'{n}_{s}' for n in logical for s in 'ab'], size=99)
+        self.assertIn("super_empty.img describes {'super': 99} (partition 100)", subject.check_super(v)[1])
         (self.root / 'vendor.img').write_bytes(b'changed')
         ok, detail = subject.check_super(v)
         self.assertFalse(ok)

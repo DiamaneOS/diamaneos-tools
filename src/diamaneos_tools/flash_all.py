@@ -2,7 +2,9 @@
 
 Run from the bootloader, they erase the phone and install the whole set: first
 Fairphone's firmware of the release the vendor files come from, both slots of
-each A/B partition in the stock order, then the OS and the empty data images.
+each A/B partition in the stock order, then the boot images. The phone then
+restarts into fastbootd for the logical partitions and returns to the
+bootloader for the empty data images.
 They always write the firmware, as Fairphone's own flash script does, so the
 phone must not already run a newer Fairphone release than the set carries.
 A set signed with private keys also installs its AVB public key and stops in
@@ -20,6 +22,12 @@ CHECKS = (('product', '{product}', 'This image set is for the {product}: connect
 # Printed again when the script ends, because the lock is the user's next step.
 LOCK = ('To lock, run fastboot flashing get_unlock_ability (it must report 1), then fastboot flashing lock, '
         'and confirm on the phone. Do not start Android before the lock.')
+# The restarts between the bootloader and fastbootd: what "getvar is-userspace"
+# reports once the phone is there, and what the scripts call it.
+MODES = {('reboot', 'fastboot'): ('yes', 'fastbootd'), ('reboot-bootloader',): ('no', 'the bootloader')}
+SUPER_EMPTY = 'super_empty.img'
+STUCK = ('The phone did not reach $2. Hold Power and Volume down until it restarts into the bootloader, then run '
+         'this script again.')
 CRITICAL = ('Device critical unlocked: true',
             'The critical partitions are locked, and the firmware is written to them. Run "fastboot flashing '
             'unlock_critical" as Fairphone describes (it erases the phone), then start again.')
@@ -33,13 +41,33 @@ def commands(record: dict) -> list[list[str]]:
         result += [['flash', step['partition'], step['image']] for step in carried['steps']]
         result += [['flash', name, image['file']] for name, image in carried['reset'].items()]
     result += [['flash', f'{name}_{slot}', f'{name}.img'] for name in record['flash']['bootloader']]
-    if record['flash']['logical']:
-        result.append(['flash', 'super', 'super.img'])
+    result += logical(record)
     result += [['flash', name, image['file']] for name, image in record['wipe']['images'].items()]
     key = custom_key(record)
     if key:
         return result + [['flash', 'avb_custom_key', key], [f'--set-active={slot}'], ['reboot-bootloader']]
     return result + [[f'--set-active={slot}'], ['reboot']]
+
+
+def logical(record: dict) -> list[list[str]]:
+    """Every logical partition, written in fastbootd on empty super metadata.
+
+    The bootloader can stall while it writes super.img. Recovery, which holds
+    fastbootd, is written before this.
+    """
+    names, slot = record['flash']['logical'], record['flash']['slot']
+    if not names:
+        return []
+    return ([['reboot', 'fastboot'], ['wipe-super', SUPER_EMPTY]]
+            + [['flash', f'{name}_{slot}', f'{name}.img'] for name in names] + [['reboot-bootloader']])
+
+
+def script_steps(record: dict) -> list[tuple]:
+    """Each command, and the mode the scripts then wait for: after a switch
+    between the bootloader and fastbootd that more commands follow."""
+    result = commands(record)
+    return [(arguments, MODES.get(tuple(arguments)) if i < len(result) - 1 else None)
+            for i, arguments in enumerate(result)]
 
 
 def custom_key(record: dict) -> str | None:
@@ -56,6 +84,8 @@ def notes(record: dict) -> list[str]:
     if carried:
         lines.append(f'It writes Fairphone\'s {carried["release"]} firmware first. Do not run it on a phone that '
                      'already runs a newer Fairphone release.')
+    if record['flash']['logical']:
+        lines.append('The phone restarts into fastbootd for the system partitions, then back into the bootloader.')
     if record.get('never_lock'):
         lines.append('This build is signed with public test keys: keep the bootloader unlocked while it is installed.')
     elif custom_key(record):
@@ -71,7 +101,11 @@ def shell(record: dict) -> str:
            # Each reply is read to the end before it is filtered: a filter that stops early ends
            # fastboot mid-reply, and the bootloader then answers no further command.
            'value() { reply=$(fastboot getvar "$1" 2>&1) || true; '
-           'printf "%s\\n" "$reply" | sed -n -e "s/^(bootloader) *//" -e "s/^$1: *//p" | head -n 1; }']
+           'printf "%s\\n" "$reply" | sed -n -e "s/^(bootloader) *//" -e "s/^$1: *//p" | head -n 1; }',
+           # fastboot itself waits while no phone is connected, so this counts only the
+           # answers from the mode the phone is leaving.
+           'waitfor() { echo "Waiting for $2."; n=0; until [ "$(value is-userspace)" = "$1" ]; do n=$((n + 1)); '
+           f'[ $n -lt 90 ] || fail "{STUCK}"; sleep 2; done; }}']
     for name, wanted, message in CHECKS:
         wanted, message = wanted.format(**record), message.format(**record)
         out.append(f'[ "$(value {name})" = "{wanted}" ] || fail \'{message}\'')
@@ -82,7 +116,10 @@ def shell(record: dict) -> str:
             'elif command -v shasum >/dev/null 2>&1; then shasum -a 256 --quiet -c SHA256SUMS',
             'else fail "Neither sha256sum nor shasum is installed, so the images cannot be checked."; fi', '']
     out += [f'echo "{line}"' for line in notes(record)]
-    out += ['fastboot ' + ' '.join(arguments) for arguments in commands(record)]
+    for arguments, mode in script_steps(record):
+        out.append('fastboot ' + ' '.join(arguments))
+        if mode:
+            out.append('waitfor {} "{}"'.format(*mode))
     if custom_key(record):
         out.append(f'echo "{LOCK}"')
     return '\n'.join(out) + '\n'
@@ -99,9 +136,16 @@ def batch(record: dict) -> str:
                    f'(echo {_escaped(CRITICAL[1])} & exit /b 1)')
     out.append('')
     out += [f'echo {_escaped(line)}' for line in notes(record)]
-    out += ['fastboot ' + ' '.join(arguments) + ' || exit /b 1' for arguments in commands(record)]
+    for arguments, mode in script_steps(record):
+        out.append('fastboot ' + ' '.join(arguments) + ' || exit /b 1')
+        if mode:
+            out.append('call :waitfor {} "{}" || exit /b 1'.format(*mode))
     if custom_key(record):
         out.append(f'echo {_escaped(LOCK)}')
+    out += ['exit /b 0', '', ':waitfor', 'echo Waiting for %~2.', 'set n=0', ':waitfor_poll',
+            'fastboot getvar is-userspace 2>&1 | findstr /r /c:"is-userspace: *%1" >nul && exit /b 0',
+            'set /a n+=1', f'if %n% geq 90 (echo {_escaped(STUCK.replace("$2", "%~2"))} & exit /b 1)',
+            'ping -n 3 127.0.0.1 >nul', 'goto waitfor_poll']
     return '\r\n'.join(out) + '\r\n'
 
 

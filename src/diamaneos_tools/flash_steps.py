@@ -24,6 +24,7 @@ import textwrap
 
 from . import build_workspace as bw
 from . import firmware as fw
+from . import flash_all
 from .image_package import RECORD, SUMS, check_sums
 from .image_verify import failed_checks, report_problem
 
@@ -259,18 +260,13 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
         for name in bootloader:
             out.append(f'  fastboot flash {name}_{slot} {name}.img')
         if logical:
-            out.append('  fastboot flash super super.img')
+            # All of them, also when one changed: wipe-super leaves no logical partition.
+            for arguments in flash_all.logical(record):
+                out.append('  fastboot ' + ' '.join(arguments))
+                if tuple(arguments) in flash_all.MODES:
+                    out += ['', f'Wait until the phone is in {flash_all.MODES[tuple(arguments)][1]}, then:', '']
         out += wipe_lines
         out += [f'  fastboot --set-active={slot}', '  fastboot reboot']
-        if logical:
-            # A stalled super flash may already have written the new partition
-            # layout, so the fallback writes every logical partition.
-            out += ['', 'If flashing super stops after its first part, flash every logical partition',
-                    'through fastbootd instead, then set the slot and reboot:', '', '  fastboot reboot fastboot']
-            out += [f'  fastboot flash {name}_{slot} {name}.img' for name in record['flash']['logical']]
-            out += ['  fastboot reboot bootloader']
-            out += wipe_lines
-            out += [f'  fastboot --set-active={slot}', '  fastboot reboot']
     else:
         out += ['', 'Nothing to flash: every image equals the earlier build.']
     return out
