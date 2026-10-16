@@ -78,7 +78,7 @@ class ApkCertificateTest(unittest.TestCase):
 
 
 class SourceBytesTests(TemporaryInputs, unittest.TestCase):
-    """Real disposable Git trees; no native signer or Android build executes."""
+    """Real disposable Git trees. No native signer or Android build executes."""
 
     def setUp(self):
         super().setUp()

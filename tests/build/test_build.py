@@ -93,7 +93,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         declared["workspace"]["output_subdirectory"] = "source/out"
         declared["host"]["minimum_source_free_bytes"] = 1
         declared["host"]["minimum_build_free_bytes"] = 1
-        # The output the environment declares; an output elsewhere; a clean build onto old output.
+        # The output the environment declares, an output elsewhere, and a clean build onto old output.
         for config, output_path, stale, message in ((declared, "source/out", False, None),
                                                     (declared, "external-output", False, "source-local"),
                                                     (self.config, "source/out", True, "not empty")):

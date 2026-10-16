@@ -255,7 +255,7 @@ class NativeSignatureTests(unittest.TestCase):
 
     def apex_fixture(self, *, container_role='releasekey', payload_role='avb', enclosed_apk=None,
                      tamper_payload=False):
-        """Sign fresh payload and container; expected roles stay in external fixture keys."""
+        """Sign fresh payload and container. Expected roles stay in external fixture keys."""
         root = self.fixture_directory('apex-negative-')
         content = root / 'content'
         enclosed = content / 'app/Fixture/Fixture.apk'
@@ -590,7 +590,7 @@ class NativeSignatureTests(unittest.TestCase):
         publication = publication_description()
         record = release_record(publication_root, plan, publication)
         inputs.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', self.private / 'factory', '-n', 'diamaneos-release-record', record], env=self.tools.env)
-        # Source checkout verification has its own Git fixtures; cryptography here remains native.
+        # Source checkout verification has its own Git fixtures. Cryptography here remains native.
         with patch.object(api, 'source_files', return_value={}):
             result = api.verify_publication(plan, publication, publication_root, policy, self.tools, self.keys)
             self.assertIs(True, result['artifact_signatures_verified'])

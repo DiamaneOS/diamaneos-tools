@@ -143,7 +143,7 @@ class SyncFlowTests(unittest.TestCase):
     original_run = staticmethod(build._run)
 
     def run_without_signatures(self, command, cwd=None, env=None, timeout=120):
-        # The stand-in repo tool's tag is unsigned; everything else runs for real.
+        # The stand-in repo tool's tag is unsigned. Everything else runs for real.
         if 'verify-tag' in command:
             return subprocess.CompletedProcess(command, 0, b'', b'Good signature\n')
         return self.original_run(command, cwd=cwd, env=env, timeout=timeout)
@@ -222,7 +222,7 @@ class SyncFlowTests(unittest.TestCase):
         official.check_only = True
         with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
             self.sync(official)
-        # Another repo tool is a warning; an official build is told how to get the pinned one.
+        # Another repo tool is a warning. An official build is told how to get the pinned one.
         git(self.src / '.repo/repo', 'commit', '-q', '--allow-empty', '-m', 'another repo tool')
         (self.src / 'device/example/example.mk').write_text('PRODUCT := example\n')
         deviations = self.sync(ctx)['deviations']
@@ -283,7 +283,7 @@ class SyncFlowTests(unittest.TestCase):
         self.assertTrue(any('the check that it is at the head of android17 does not apply' in line
                             for line in self.lines))
         self.assertEqual(resolved.read_bytes(), self.ctx.pinned_manifest.read_bytes())
-        # The android preflight checks the recorded commit too; the branch-head check would fail here.
+        # The android preflight checks the recorded commit too. The branch-head check would fail here.
         environment = json.loads(self.environment.read_text())
         with self.assertRaisesRegex(build.BuildError, 'not at android17'):
             build.verify_branch_checkout(environment, self.src)

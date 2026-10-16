@@ -94,7 +94,7 @@ class ForkTests(unittest.TestCase):
         records = Path(self.tmp.name) / 'rerere'
         result = forks.update(self.root, self.fork, rerere=records, today=datetime.date(2026, 10, 8))
         self.assertEqual(result['state'], 'conflict')
-        # Resolve it once by hand in a scratch worktree; rerere records the resolution.
+        # Resolve it once by hand in a scratch worktree, and rerere records the resolution.
         scratch = Path(self.tmp.name) / 'scratch'
         run(self.fork_repo, 'worktree', 'add', '-q', '--detach', str(scratch), 'android17')
         subprocess.run(['git', '-C', str(scratch), 'rebase', '-q', 'refs/diamaneos/upstream'], capture_output=True)
@@ -113,7 +113,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(run(self.root / 'hal2', 'show', result['candidate'] + ':a.txt'), 'both')
 
     def test_rewritten_upstream_replays_only_patches_after_the_pin(self):
-        # Upstream release v1 carries its own patch; the fork adds its patch on v1.
+        # Upstream release v1 carries its own patch. The fork adds its patch on v1.
         run(self.upstream, 'checkout', '-q', 'odm/rc')
         commit(self.upstream, 'up.txt', 'upstream patch v1\n', 'upstream own patch')
         run(self.upstream, 'tag', 'v1')
@@ -131,7 +131,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'upstream patch v2')
 
     def test_branch_fork_replays_only_patches_after_its_newest_contained_release_tag(self):
-        # Upstream branch with release tag 2026092500 carrying an upstream patch; the fork adds its patch.
+        # Upstream branch with release tag 2026092500 carrying an upstream patch. The fork adds its patch.
         run(self.upstream, 'checkout', '-q', 'odm/rc')
         commit(self.upstream, 'up.txt', 'v1\n', 'upstream own patch')
         run(self.upstream, 'tag', '2026092500')
@@ -228,7 +228,7 @@ class ForkTests(unittest.TestCase):
 
     def test_kernel_imports_match_their_sources(self):
         registry, sources = forks.load_registry()
-        # Only the common kernel stays a fork; the other kernel projects are folders of kernel_qcom-6.1.
+        # Only the common kernel stays a fork. The other kernel projects are folders of kernel_qcom-6.1.
         self.assertEqual({'kernel-common'}, {f['id'] for f in registry if f.get('workspace') == 'kernel'})
         record = json.loads((ROOT / 'config/kernel-upstream-fp6.json').read_text())
         kernel_sources = json.loads((ROOT / 'config/kernel-sources-fp6.json').read_text())

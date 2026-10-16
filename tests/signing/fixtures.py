@@ -1,4 +1,4 @@
-"""Small disposable input writers; no signature or policy verification is mocked here."""
+"""Small disposable input writers. No signature or policy verification is mocked here."""
 import io
 import json
 from pathlib import Path
@@ -67,7 +67,7 @@ def publication_description():
 
 
 def publication_plan(target, packages, keys, provenance, policy, **layout):
-    """Fixture envelope only; trust identities and layout are explicit test inputs."""
+    """Fixture envelope only. Trust identities and layout are explicit test inputs."""
     plan = {'schema_version': 2, 'mode': 'qualification', 'policy_sha256': canonical_sha256(policy),
             'key_inventory_sha256': canonical_sha256(keys.inventory),
             'public_material_sha256': canonical_sha256(keys.files), 'public_identities': keys.public_ids,

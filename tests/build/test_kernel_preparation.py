@@ -106,7 +106,7 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertRaisesRegex(kernel.KernelError, 'kernel_platform/common', self.verify)
 
     def test_undeclared_nested_gitlink_stays_empty(self):
-        # edk2 carries its upstream's own submodules; they are not initialised.
+        # edk2 carries its upstream's own submodules. They are not initialised.
         source = Path(self.plan['repository'])
         (source / 'kernel_platform/bootable/nested').mkdir(parents=True)
         run_git(source, 'update-index', '--add', '--cacheinfo', '160000,' + self.tool + ',kernel_platform/bootable/nested')

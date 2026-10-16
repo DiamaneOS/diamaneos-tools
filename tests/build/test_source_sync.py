@@ -1,5 +1,5 @@
 """Reproducing a recorded resolved manifest, and the shallow prefetch of the
-large prebuilt projects. Local repositories only; nothing uses the network."""
+large prebuilt projects. Local repositories only, nothing uses the network."""
 import hashlib
 import json
 import os
