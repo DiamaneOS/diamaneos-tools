@@ -14,15 +14,15 @@
     {
       "path": "vendor/qcom/opensource/graphics-kernel",
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/graphics-kernel",
-      "commit": "e4cb2ea52efd472a20b10f77e3a087c58c41d135",
-      "release": "GRAPHICS.LA.14.0.r1-11000-lanai.0",
+      "commit": "f8545509681bbda5302849306f8348a77ad85286",
+      "release": "GRAPHICS.LA.14.0.r1-11200-lanai.0",
       "fairphone_changes": true
     },
     {
       "path": "vendor/qcom/opensource/camera-kernel",
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel",
-      "commit": "db93e61705f7a8a20d9b4896307f80fb904ca767",
-      "release": "CAMERA.LA.4.0.r2-09600-lanai.0",
+      "commit": "5a028235a8d95beac79b54ae6ef03f96a47dd0b0",
+      "release": "CAMERA.LA.4.0.r2-09700-lanai.0",
       "fairphone_changes": true
     },
     {
