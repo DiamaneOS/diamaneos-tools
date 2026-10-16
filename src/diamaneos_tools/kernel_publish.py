@@ -126,7 +126,7 @@ def candidate_files(run):
 def describe(result, run):
     """The README's "This build" lines for this run."""
     for key in ('repository', 'source_commit', 'linux_version', 'tools', 'config_profile'):
-        require(result.get(key), 'the kernel run does not record ' + key + '; build it again with these tools')
+        require(result.get(key), 'the kernel run does not record ' + key + '. Build it again with these tools')
     tools = result['tools']
     require(isinstance(tools, dict) and isinstance(tools.get('commit'), str) and SHA1.fullmatch(tools['commit'])
             and tools.get('clean') is True, 'the kernel run was built from a modified tools checkout')
@@ -185,7 +185,7 @@ def publish(run, checkout, forbid=()):
             'the run and the checkout must be separate directories')
     readme = checkout / 'README.md'
     require(readme.is_file() and not readme.is_symlink(), 'the checkout has no README.md')
-    require(not git_status(checkout), 'the checkout has uncommitted changes; commit or discard them first')
+    require(not git_status(checkout), 'the checkout has uncommitted changes. Commit or discard them first')
     text = update_readme(readme.read_text(), lines)
     with tempfile.TemporaryDirectory(prefix='.diamaneos-publish-', dir=checkout) as temp:
         staged = Path(temp) / 'candidate'

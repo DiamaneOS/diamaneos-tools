@@ -1,8 +1,8 @@
-"""Prepare and build the pinned FP6 development kernel, modules and device trees.
+"""Prepare and build the pinned FP6 kernel, modules and device trees.
 
 The sources are one repository, DiamaneOS/kernel_qcom-6.1, at the commit pinned
 in config/kernel-sources-fp6.json. It holds Qualcomm's kernel workspace layout
-(kernel_platform/, vendor/) with the common kernel as a submodule; the
+(kernel_platform/, vendor/) with the common kernel as a submodule. The
 toolchains it lists in prebuilts.json are fetched at their pinned revisions.
 """
 import argparse
@@ -82,7 +82,7 @@ def call(argv, *, cwd, env=None, timeout=600, log=None):
         output = b''.join(result.get(k) or b'' for k in ('stdout', 'stderr'))
         tail = output.decode('utf-8', 'replace').strip()[-2000:] if isinstance(output, bytes) else ''
         raise KernelError('command failed: ' + ' '.join(map(str, argv[:4])) + ' (' + result['transport'] + ')'
-                          + (': ' + tail if tail else '; inspect the command log'))
+                          + (': ' + tail if tail else '. Inspect the command log'))
     return result['stdout'].decode()
 
 
@@ -146,7 +146,7 @@ def checkout_source(root, plan):
     if not (root / '.git').exists():
         occupied = sorted(p.name for p in root.iterdir() if p.name not in OWN_FILES)
         require(not occupied, 'the kernel workspace holds other files (' + ', '.join(occupied[:5]) +
-                '); prepare an empty directory or move them aside')
+                '). Prepare an empty directory or move them aside')
         git(root, 'init', '-q')
         git(root, 'config', 'diamaneos.kernelsource', plan['repository'])
     require((root / '.git').is_dir() and not (root / '.git').is_symlink(), 'the kernel workspace .git is not a directory')
@@ -328,11 +328,11 @@ def prepared(root, plan):
     preparation = load_json(root / 'preparation.json')
     require(preparation.get('status') == 'PASS' and preparation.get('source_commit') == plan['revision']
             and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN),
-            'the kernel sources were prepared from another pin; run "diamaneos kernel prepare" again')
+            'the kernel sources were prepared from another pin. Run "diamaneos kernel prepare" again')
     require(sha(root / 'resolved-manifest.xml') == preparation.get('resolved_manifest_sha256'),
             'resolved source manifest changed')
     require(isinstance(preparation.get('submodules'), dict) and isinstance(preparation.get('prebuilts'), dict),
-            'the preparation record is incomplete; run "diamaneos kernel prepare" again')
+            'the preparation record is incomplete. Run "diamaneos kernel prepare" again')
     verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
     return preparation
 
@@ -530,7 +530,7 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
     # The vendor build also makes device trees for other boards and chips. Only the listed ones ship.
     for name in recipe['dtbs']: shutil.copyfile(merged / name, candidate / 'dtbs' / name)
     shutil.copyfile(merged / 'dtbo.img', candidate / 'dtbo.img')
-    lines = ['# Generated development kernel; runtime acceptance is separate.',
+    lines = ['# Generated source-built kernel.',
              'FP6_KERNEL_PATH := device/fairphone/FP6-kernel',
              'BOARD_INCLUDE_DTB_IN_BOOTIMG := true',
              'BOARD_PREBUILT_DTBIMAGE_DIR := $(FP6_KERNEL_PATH)/dtbs',
@@ -787,7 +787,7 @@ def build(root, jobs, timeout, profile='production'):
                           inventory_sha256=sha(run / 'artifacts.json'),
                           interfaces_sha256=sha(run / 'module-interfaces.json'),
                           layout_scan_sha256=sha(run / 'layout-scan.json'),
-                          scope='Development build and packaging; installed-image, runtime and production qualification are separate.')
+                          scope='Kernel build and packaging. Installed-image, runtime and production qualification are separate.')
             save()
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:
                 link = Path(temp) / 'current'; link.symlink_to(os.path.relpath(candidate, root))
@@ -805,7 +805,7 @@ def main(argv=None):
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
     parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
-                        help='build: kernel configuration policy to check; development checks only the '
+                        help='build: kernel configuration policy to check. The development profile checks only the '
                              'baseline. It does not change the kernel configuration, which comes from '
                              'the pinned defconfig')
     args = parser.parse_args(argv)
