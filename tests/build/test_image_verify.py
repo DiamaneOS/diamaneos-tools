@@ -348,19 +348,19 @@ class RuleTests(unittest.TestCase):
         # Off cuts data first, then the charger input.
         self.assertFalse(triggers(rc.replace(b'    write ' + node + b' 1\n    write ' + sic + b' 1\n',
                                              b'    write ' + sic + b' 1\n    write ' + node + b' 1\n')))
-        # Only Off suspends the input; every other state, boot, charger mode and shutdown resume it.
+        # Only Off suspends the input. Every other state, boot, charger mode and shutdown resume it.
         self.assertFalse(triggers(rc.replace(b'charging-only\n    write ' + sic + b' 0',
                                              b'charging-only\n    write ' + sic + b' 1')))
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + sic + b' 1\n'))
         self.assertFalse(triggers(rc.replace(b'on shutdown\n    write ' + sic + b' 0\n\n', b'')))
         self.assertFalse(triggers(rc.replace(b'on charger\n    write ' + sic + b' 0\n\n', b'')))
-        # User builds start with the input suspended; nothing at boot undoes it or cuts the controller.
+        # User builds start with the input suspended. Nothing at boot undoes it or cuts the controller.
         self.assertFalse(triggers(rc.replace(b'on boot && property:ro.debuggable=0\n    write ' + sic + b' 1\n\n', b'')))
         self.assertFalse(triggers(rc + b'\non boot\n    write ' + sic + b' 0\n'))
-        # User builds also cut the controller at boot, before the input; debuggable builds never do.
+        # User builds also cut the controller at boot, before the input. Debuggable builds never do.
         self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 1\n', b'debuggable=0\n')))
         self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait', b'debuggable=1\n    write ' + node + b' 1\n    wait')))
-        # Only the port states and the user-build boot cut turn data off; only ports_enabled turns it on.
+        # Only the port states and the user-build boot cut turn data off. Only ports_enabled turns it on.
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 1\n'))
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 0\n'))
         # Debuggable builds keep charging at boot, and the user-build cut waits for the node.
@@ -475,7 +475,7 @@ class RuleTests(unittest.TestCase):
         plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
         system_ext = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
         use = '(chr_file (ioctl read write getattr open))'
-        # The platform still grants tee_device to its reference HAL domains; no node carries that label.
+        # The platform still grants tee_device to its reference HAL domains. No node carries that label.
         plat_cil = ('(type tee_device)\n(type init)\n(type ueventd)\n(type hal_camera_default)\n'
                     '(typeattributeset dev_type (tee_device vendor_smcinvoke_device))\n'
                     '(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
@@ -539,7 +539,7 @@ class RuleTests(unittest.TestCase):
         self.assertEqual((False, 'a: also 0x9802; b: also 0x9802'),
                          run(b'(allowx domain node (ioctl chr_file ((range 0x9801 0x9803))))\n'))
         self.assertFalse(run(b'(allowx b dev_type (ioctl chr_file (0x5451)))\n')[0])
-        # A shorter list would break the service; it fails as well.
+        # A shorter list would break the service. It fails as well.
         self.assertEqual((False, 'a: lacks 0x9802; b: lacks 0x9802'), run(allowed=['0x9801', '0x9802', '0x9803']))
         # Audit and dontaudit lists grant nothing and do not count.
         self.assertTrue(run(b'(auditallowx a node (ioctl chr_file (0x98ff)))\n'
@@ -1502,7 +1502,7 @@ class RuleTests(unittest.TestCase):
                           'lib64/libcrypto.so'], sorted(committed['payload']))
         self.assertEqual('u:object_r:hal_drm_widevine_exec:s0',
                          committed['payload']['bin/hw/android.hardware.drm-service.widevine']['label'])
-        # A fixture payload with the stock layout; the rule then names its hashes.
+        # A fixture payload with the stock layout. The rule then names its hashes.
         stock = {name: (0o100000 | int(want['mode'], 8), want['uid'], want['gid'], want['label'], name.encode())
                  for name, want in committed['payload'].items()}
         rule = copy.deepcopy(committed)
@@ -2066,8 +2066,8 @@ class ParserTests(unittest.TestCase):
         block = 4096
         header = lambda chunks: struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, block,
                                             16384, chunks, 0)
-        # 40 bytes that declare 64 MiB (any size would do; this one stays safe to run if the
-        # bound breaks): a header check reads 4096 bytes of it.
+        # 40 bytes that declare 64 MiB (any size would do, and this one stays safe to run if the
+        # bound breaks). A header check reads 4096 bytes of it.
         for chunk in (struct.pack('<HHII', 0xCAC3, 0, 16384, 12),
                       struct.pack('<HHII', 0xCAC2, 0, 16384, 16) + b'FILL'):
             image = header(1) + chunk
@@ -2165,7 +2165,7 @@ class GenericCheckTests(unittest.TestCase):
         self.assertEqual((False, 'kernel.loglevel = 7 in vendor bootconfig'), (ok, detail))
 
     def test_forbidden_kernel_arguments_are_names(self):
-        # Arguments are matched by name; an entry with a value or a space would never match.
+        # Arguments are matched by name. An entry with a value or a space would never match.
         names = json.loads((ROOT / 'config/fp6-build.json').read_text())['kernel_arguments']['forbidden']
         self.assertEqual(len(names), len(set(names)))
         for name in names:
