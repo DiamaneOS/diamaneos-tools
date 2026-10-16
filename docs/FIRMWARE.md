@@ -91,6 +91,7 @@ that script (reasons in the `firmware` block of `config/fp6-build.json`):
 | `logfs`, `vm-persist` (empty images) | Only with `--wipe`: they hold state, which an A/B update never touches either |
 | Stock `pvmfw` on both slots | DiamaneOS's own pvmfw, slot a, with the OS |
 | OS images on both slots | Slot a only |
+| `super` from the bootloader | `super_empty.img`, then each logical image to slot a, from fastbootd |
 | `userdata`, `metadata`, `frp` | With `--wipe`; FRP image identical to stock |
 | `erase misc` | Zeros, with `--wipe` only: misc holds the OS's boot messages |
 | `erase modemst1`, `modemst2` | Zeros over both whole partitions, right after the firmware, whenever firmware is written |

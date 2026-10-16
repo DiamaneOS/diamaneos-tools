@@ -30,6 +30,8 @@ from .build_workspace import Action, CheckFailed
 ROOT = bw.ROOT
 MODULE_SIGNATURE = b'~Module signature appended~\n'
 SPARSE_MAGIC = 0xED26FF3A
+# liblp's metadata_format.h: the geometry block, then the metadata header.
+LP_GEOMETRY_MAGIC, LP_HEADER_MAGIC, LP_GEOMETRY_SIZE = 0x616C4467, 0x414C5030, 4096
 F2FS_MAGIC = 0xF2F52010
 PARTITION_DIRS = {'system': 'SYSTEM', 'system_ext': 'SYSTEM_EXT', 'product': 'PRODUCT', 'vendor': 'VENDOR',
                   'odm': 'ODM', 'vendor_dlkm': 'VENDOR_DLKM', 'system_dlkm': 'SYSTEM_DLKM'}
@@ -1308,7 +1310,30 @@ def check_super(v):
         for other in parts.glob('*_b.img'):
             if other.stat().st_size:
                 problems.append(other.name + ' is not empty')
+    # The install writes super_empty.img in fastbootd, then each logical image.
+    names, devices = super_metadata((v.images / 'super_empty.img').read_bytes())
+    if sorted(names) != sorted(f'{n}_{s}' for n in v.config['images']['logical'] for s in 'ab'):
+        problems.append('super_empty.img lists ' + (', '.join(names) or 'no partitions'))
+    if size is None or devices != {'super': int(size)}:
+        problems.append(f'super_empty.img describes {devices} (partition {size})')
     return not problems, '; '.join(problems)
+
+
+def super_metadata(data: bytes) -> tuple[list, dict]:
+    """The partition names and block device sizes in a metadata-only super image."""
+    if (len(data) < LP_GEOMETRY_SIZE + 128 or struct.unpack_from('<I', data)[0] != LP_GEOMETRY_MAGIC
+            or struct.unpack_from('<I', data, LP_GEOMETRY_SIZE)[0] != LP_HEADER_MAGIC):
+        return [], {}
+    tables = LP_GEOMETRY_SIZE + struct.unpack_from('<I', data, LP_GEOMETRY_SIZE + 8)[0]
+    # Offset, count and size of the partition, extent, group and block device entries.
+    descriptors = struct.unpack_from('<12I', data, LP_GEOMETRY_SIZE + 80)
+
+    def entries(index):
+        offset, count, size = descriptors[3 * index:3 * index + 3]
+        return [data[tables + offset + i * size:tables + offset + (i + 1) * size] for i in range(count)]
+    names = [entry[:36].rstrip(b'\0').decode() for entry in entries(0)]
+    devices = {entry[24:60].rstrip(b'\0').decode(): struct.unpack_from('<Q', entry, 16)[0] for entry in entries(3)}
+    return names, devices
 
 
 def check_validators(v):
@@ -1741,7 +1766,8 @@ GENERIC = [
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
     ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees.', check_avb),
     ('boot-header', 'Boot-family headers carry zero OS fields; the versions live in AVB properties.', check_boot_headers),
-    ('super', 'super.img holds exactly the exported logical images; slot b is empty.', check_super),
+    ('super', 'super.img holds exactly the exported logical images and an empty slot b. super_empty.img, which '
+     'the install writes, lists the same partitions.', check_super),
     ('validators', 'validate_target_files and check_target_files_vintf pass on the archive.', check_validators),
     ('kernel-binding', 'boot, vendor_boot and dtbo carry the kernel prebuilts the build record names.', check_kernel),
     ('modules', 'Module placement and load lists match the kernel prebuilts, the parallel vendor_dlkm load streams '

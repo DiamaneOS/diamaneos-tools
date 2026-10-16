@@ -80,6 +80,8 @@ bash flash-all.sh
 
 - It checks the phone and the images, then erases the phone and installs the image set. On Windows,
   run `flash-all.bat`.
+- The phone restarts into fastbootd for the system partitions and back into the bootloader on its
+  own.
 - It writes Fairphone's firmware of the release the build's vendor files come from, then the OS. Do
   not run it on a phone that already runs a newer Fairphone release.
 - Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
