@@ -23,7 +23,7 @@ from .build_workspace import Action, BuildStepError
 
 SUMS = 'SHA256SUMS'
 # The parts of config/fp6-build.json packaging depends on.
-PACKAGE_CONFIG = ('product', 'images', 'wipe', 'slot', 'firmware')
+PACKAGE_CONFIG = ('product', 'device', 'images', 'wipe', 'slot', 'firmware')
 RECORD = 'build.json'
 TARGET_FILES_COPY = 'target-files.zip'
 OTATOOLS_COPY = 'otatools.zip'
@@ -87,7 +87,7 @@ def same_build(directory: Path, android_outputs: dict, firmware_plan: dict | Non
                config_sha256: str | None = None) -> bool:
     """An existing image set may be reused only if it is intact and was made
     from exactly this build's target-files and identity, with this firmware
-    and this packaging configuration (images, wipe, slot, firmware policy)."""
+    and this packaging configuration (device, images, wipe, slot, firmware policy)."""
     if not check_sums(directory):
         return False
     try:
@@ -337,7 +337,7 @@ def plan(ctx):
         android_build = out.get('android_build', 'tools')
         value = {
             'schema_version': 1, 'build_id': state['identifier'], 'product': config['product'],
-            'release': False, 'signing': 'public-test-keys', 'never_lock': True,
+            'device': config['device'], 'release': False, 'signing': 'public-test-keys', 'never_lock': True,
             'notice': 'Test build signed with public test keys. Keep the bootloader unlocked.'
                       + (' Official build: its Updater checks for updates but installs none while the build is '
                          'signed with public test keys.' if official else ''),

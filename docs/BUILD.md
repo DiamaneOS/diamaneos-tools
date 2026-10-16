@@ -340,6 +340,8 @@ or deleted files):
   - The flash order, slot and wipe images come from `config/fp6-build.json`, the firmware steps from
     `build.json`: first, in the stock order, both slots of each A/B firmware partition, then the
     modem file system reset, and only when the phone runs older firmware than the set carries.
+  - The device's name, maker and bootloader keys in the printed steps and the install scripts come
+    from the `device` block of `config/fp6-build.json`, which `build.json` carries.
   - The phone's firmware release comes from `--phone-firmware` or the `--since` image set, because
     the FP6 bootloader does not report it.
   - Firmware steps also need the phone's saved bootloader state (`--phone`), and a newer release on
