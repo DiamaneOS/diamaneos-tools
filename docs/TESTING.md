@@ -33,8 +33,8 @@ On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
 
 ## Regions
 
-- Vendor files and firmware come from the one stock package selected in `config/stock-inputs.json`,
-  recorded there as the EU input.
+- On the FP6, vendor files and firmware come from the one stock package selected in
+  `config/stock-inputs.json`, recorded there as the EU input.
 - The US package that file lists as excluded is never an input: the recipes pin the selected archive
   by hash, and the tools reject any other.
 - Results on an EU phone say nothing about a US-region FP6.
