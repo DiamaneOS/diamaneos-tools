@@ -75,7 +75,7 @@ def check(data, policy, profile):
             'policy_sha256': hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
             'failures': failures, 'production_differences': production,
             'kernel_accepted': False,
-            'scope': 'Declared compile-time settings only; not complete hardening, effective boot policy, module compatibility or device acceptance'}
+            'scope': 'Declared compile-time settings only. Not complete hardening, effective boot policy, module compatibility or device acceptance'}
 
 
 def main(argv=None):
