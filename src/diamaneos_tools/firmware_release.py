@@ -10,7 +10,7 @@ of config/fp6-build.json, one line per partition and release:
 
     image <partition> <release> <bytes> <sha256>
 
-<partition> has no slot suffix; <bytes> is the image length, the part of the
+<partition> has no slot suffix. <bytes> is the image length, the part of the
 partition fwrelease hashes. The limits below are fwrelease's: a table outside
 them would read "unknown" on the phone, so the build fails instead.
 """
@@ -18,7 +18,7 @@ import re
 
 from .vendor import VendorError
 
-# In the vendor image, covered by dm-verity; fwrelease reads this path.
+# In the vendor image, covered by dm-verity. fwrelease reads this path.
 TABLE_PATH = 'vendor/etc/diamaneos/firmware-releases.txt'
 VERSION = re.compile(r'[0-9]{1,5}\.[0-9]{1,5}\.[0-9]{1,5}')
 PARTITION = re.compile(r'[a-z0-9_-]{1,32}')
@@ -70,7 +70,7 @@ def table(inventory, config):
     if not set(excluded) <= names:
         raise VendorError('an unchecked firmware image is not in the inventory')
     for name, exclusion in excluded.items():
-        # Left out because it tells no release apart; a change would make it.
+        # Left out because it tells no release apart. A change would make it.
         if exclusion.get('identical') and len({(f[name]['bytes'], f[name]['sha256']) for f in images.values()}) != 1:
             raise VendorError('an unchecked firmware image said to be identical differs between releases')
     checked = sorted(names - set(excluded))
@@ -85,7 +85,7 @@ def table(inventory, config):
         versions.add(number)
         for name in checked:
             entry = firmware[name]
-            # fwrelease compares raw partition bytes; a sparse image is not
+            # fwrelease compares raw partition bytes, and a sparse image is not
             # what the partition holds.
             if entry.get('sparse', False) is not False:
                 raise VendorError('a checked firmware image is sparse')

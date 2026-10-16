@@ -1,4 +1,4 @@
-"""Build-bound signing plans; revisions and fingerprints are recorded per run."""
+"""Build-bound signing plans. Revisions and fingerprints are recorded per run."""
 from __future__ import annotations
 
 from collections import defaultdict

@@ -1,4 +1,4 @@
-"""Review the selected rebuilt stock module set; never claim runtime acceptance."""
+"""Review the selected rebuilt stock module set. Never claim runtime acceptance."""
 from collections import defaultdict
 from graphlib import TopologicalSorter, CycleError
 from pathlib import Path
@@ -11,7 +11,7 @@ def name(value):
 def review(modules, symbols, selected, *, protection=None, signed=(), releases=None):
     """releases: the Image's release, and the base and commit a vendor-tree release has.
     Stamped builds name each tree's own commit (-g<hash>), so a module may carry the
-    Image's release or the vendor tree's; the kernel then compares only the rest of
+    Image's release or the vendor tree's. The kernel then compares only the rest of
     the vermagic, and only for modules with symbol CRCs."""
     issues = []
     by_name = {}
@@ -49,7 +49,7 @@ def review(modules, symbols, selected, *, protection=None, signed=(), releases=N
     providers = defaultdict(set)
     for symbol in symbols:
         owner = name(symbol['owner'])
-        # Only the chosen common GKI supplies built-ins; a vendor compilation's
+        # Only the chosen common GKI supplies built-ins. A vendor compilation's
         # vmlinux is not a substitute provider for the Image being packaged.
         if owner == 'vmlinux':
             if not symbol['table'].endswith('/common/kernel_aarch64/vmlinux.symvers'):
@@ -172,7 +172,7 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require,
     pem = run / 'builtin-cert.pem'; pem.write_bytes(binary(['openssl','x509','-inform','DER','-in',der]))
     # GKI module protection (MODULE_SIG_PROTECT) lets unsigned vendor modules
     # load with restricted symbol access. Kernels that force signatures
-    # instead (GrapheneOS) have no protection arrays; then every module
+    # instead (GrapheneOS) have no protection arrays, so every module
     # must carry a signature from the built-in certificate.
     rows = {label: symbol(label, optional=True)
             for label in ('gki_unprotected_symbols','gki_protected_exports_symbols')}

@@ -15,7 +15,7 @@ from .vendor import VendorError, encoded, load_json, ROOT
 
 
 # Logical partitions of the stock super image a selection may read. Each is an
-# ext4 image read with the pinned debugfs; system and odm stay out of scope.
+# ext4 image read with the pinned debugfs. System and odm stay out of scope.
 EXTRACT_PARTITIONS = ('vendor', 'system_ext', 'product')
 
 
@@ -154,8 +154,8 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_
                     regular(target, row['bytes'], row['sha256'])
                 for row in links:
                     rel = relative(row['input']); target = row['target']
-                    # Stock app library links are absolute (/system_ext/lib64/...);
-                    # they must stay inside their own partition.
+                    # Stock app library links are absolute (/system_ext/lib64/...).
+                    # They must stay inside their own partition.
                     relative(target.removeprefix('/'))
                     if target.startswith('/') and target.split('/')[1] != rel.parts[0]:
                         raise VendorError('selected alias crosses partition boundary')

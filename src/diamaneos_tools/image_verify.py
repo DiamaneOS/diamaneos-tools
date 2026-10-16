@@ -91,7 +91,7 @@ class Tools:
     def __init__(self, host_bin: Path, src: Path, work: Path | None = None):
         self.host_bin, self.src = host_bin, src
         # Temporary files (unpacked super, expanded images) can take several
-        # GB; they go to the workspace, never to /tmp.
+        # GB. They go to the workspace, never to /tmp.
         self.work = work or Path(tempfile.gettempdir())
 
     def scratch(self):
@@ -247,7 +247,7 @@ def sparse_to_raw(data: bytes, limit: int | None = None) -> bytes:
     """Expand an Android sparse image (enough of it for header checks).
 
     With ``limit`` no more than ``limit`` bytes are ever made, whatever sizes
-    the image declares; chunk sizes must agree with the header."""
+    the image declares. Chunk sizes must agree with the header."""
     magic, _, _, header_size, chunk_header, block, blocks, chunks, _ = struct.unpack_from('<IHHHHIIII', data, 0)
     if magic != SPARSE_MAGIC:
         return data if limit is None else data[:limit]
@@ -528,7 +528,7 @@ def rule_sepolicy_sources(rule, v):
     """Every domain the combined policy lets use a permission on a type is listed.
 
     Reads the platform, mapping and vendor CIL files the rule names (globs
-    allowed; versioned compatibility files *.compat.cil are skipped) and expands
+    allowed, versioned compatibility files *.compat.cil skipped) and expands
     attributes on both sides, so platform rules on attributes such as sysfs_type
     count too.
     """
@@ -693,8 +693,8 @@ def panel_nits(reference: list, level: float) -> float:
 def rule_display_config(rule, v):
     """The display configuration's brightness table against the measured panel.
 
-    The framework reads nits, backlight and brightness per evenDimmer point;
-    the display HAL writes panel level 1 + backlight * (panel_levels - 1). A
+    The framework reads nits, backlight and brightness per evenDimmer point.
+    The display HAL writes panel level 1 + backlight * (panel_levels - 1). A
     column that does not rise strictly stops system_server at boot."""
     path = rule['path']
     if v.tf.is_symlink(path):
@@ -872,7 +872,7 @@ def rule_codec2_abi_guard(rule, v):
             problems.append('no construction call to ' + name)
     # The stock 256-byte allocations are intact: an operator new call (bl _Znwm)
     # preceded (within a few instructions) by mov w0, #<alloc_bytes>. The four
-    # GraphicBuffer construction sites each have one; require them all.
+    # GraphicBuffer construction sites each have one. Require them all.
     alloc = re.compile(r'\bw0, #(0x[0-9a-f]+|\d+)\b')
     sized = 0
     for i, line in enumerate(lines):
@@ -968,7 +968,7 @@ def rule_component_override(rule, v):
 
 
 def rule_zip_contains(rule, v):
-    """A text in a file or in one of its dex files; texts in 'absent' must be in neither."""
+    """A text in a file or in one of its dex files. Texts in 'absent' must be in neither."""
     data = v.tf.read(rule['file'])
     dex = []
 
@@ -994,7 +994,7 @@ def ext4_file(v, source: Path, inside: str, directory: Path) -> tuple[str, bytes
     """stat and content of one file of a raw ext4 image, through debugfs."""
     info = v.tools.run('debugfs_static', ['-R', f'stat {inside}', source])
     dump = directory / 'dump'
-    # debugfs writes nothing for a file it cannot read; never read an older dump.
+    # debugfs writes nothing for a file it cannot read. Never read an older dump.
     dump.unlink(missing_ok=True)
     v.tools.run('debugfs_static', ['-R', f'dump {inside} {dump}', source])
     return info, dump.read_bytes()
@@ -1049,7 +1049,7 @@ def rule_apex_payload(rule, v):
     """The ext4 payload of an APEX holds exactly the listed files, each with
     its bytes, owner, mode and label.
 
-    The container's own hash already binds the payload; this names what the
+    The container's own hash already binds the payload. This names what the
     package brings (its service, init file, VINTF fragment, libraries and
     their labels), so a new package version is reviewed file by file."""
     problems = []
@@ -1656,7 +1656,7 @@ def check_kernel_arguments(v):
         for index, tree in enumerate(trees):
             for node in tree.values():
                 scan(f'{kind} {index}', text_of(node['props'].get('bootargs', b'')).replace('\0', ' '))
-    # The DiamaneOS bootconfig carries Android keys only; a kernel. key there is a kernel argument too.
+    # The DiamaneOS bootconfig carries Android keys only. A kernel. key there is a kernel argument too.
     for line in lines_of(v.tf.read('VENDOR_BOOT/vendor_bootconfig')):
         if line.lstrip().startswith('kernel'):
             found.setdefault(line.strip(), []).append('vendor bootconfig')

@@ -299,7 +299,7 @@ def update(root, fork, ref=None, today=None, rerere=None):
                          '--onto', upstream, base, check=False)
             resolved = []
             for _ in range(len(patches)):
-                # rerere.autoupdate stages a recorded resolution; continue only when nothing is left unmerged.
+                # rerere.autoupdate stages a recorded resolution. Continue only when nothing is left unmerged.
                 if rebase.returncode == 0 or not records or git(work, 'diff', '--name-only', '--diff-filter=U').stdout.split():
                     break
                 found = re.findall(r"(?:Resolved|Staged) '(.+?)' using previous resolution", rebase.stdout + rebase.stderr)
@@ -373,7 +373,7 @@ def json_pointer(data, pointer):
 
 
 def pinned_value(root, source, field=None):
-    """The pinned value; field reads another column of a list pin's row, such as its release."""
+    """The pinned value. field reads another column of a list pin's row, such as its release."""
     pin = source['pin']
     base = ROOT if pin['repository'] == 'tools' else Path(root) / pin['repository']
     path = base / pin['file']
@@ -496,8 +496,8 @@ def check_source(root, source, refs):
     if 'newer_branches' in follow:
         newer += newer_refs(refs, 'refs/heads/', re.compile(follow['newer_branches']), follow['ref'])
     if 'newer_tags' in follow and result['pin'] is not None:
-        # No history is fetched, so the release the pinned commit contains is read from the pin's row;
-        # with none recorded, the pin predates the whole series and every release is newer.
+        # No history is fetched, so the release the pinned commit contains is read from the pin's row.
+        # With none recorded, the pin predates the whole series and every release is newer.
         result['release'] = pinned_value(root, source, source['pin']['release_field'])
         pattern = re.compile(follow['newer_tags'])
         newer += without_retags(refs, newer_refs(refs, 'refs/tags/', pattern,

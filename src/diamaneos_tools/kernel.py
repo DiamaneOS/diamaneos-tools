@@ -42,7 +42,7 @@ SHA1 = re.compile(r'[0-9a-f]{40}')
 # through the clone's own info/exclude, never through a committed file.
 OWN_FILES = ('.preparation.lock', 'preparation.json', 'resolved-manifest.xml', 'runs', 'current')
 EXCLUDES = ['/' + name + ('/' if name == 'runs' else '') for name in OWN_FILES] + ['/.publish-*']
-# Bazel's convenience links next to its workspace; they point into the build output.
+# Bazel's convenience links next to its workspace. They point into the build output.
 BAZEL_LINK = re.compile(r'kernel_platform/bazel-[A-Za-z0-9_.-]+')
 # Headers that the core kernel and the vendor kernel tree each carry must stay
 # byte-identical: structures in them cross the Image/module boundary, and a
@@ -129,7 +129,7 @@ def tracked_changes(repository, submodules=True):
 
 
 def checkout(repository, url, revision, label):
-    """Bring one repository to an exact commit; never discard a caller's edits."""
+    """Bring one repository to an exact commit. Never discard a caller's edits."""
     if not (repository / '.git').exists():
         require(not repository.exists() or not any(repository.iterdir()), 'unowned directory is occupied: ' + label)
         repository.mkdir(parents=True, exist_ok=True)
@@ -181,7 +181,7 @@ def submodule_plan(root):
     """(path, url, gitlink) for every submodule the top-level .gitmodules declares.
 
     Gitlinks it does not declare (edk2 carries its upstream's own) stay
-    unpopulated; verify_source requires their directories to stay empty.
+    unpopulated. verify_source requires their directories to stay empty.
     """
     links = gitlinks(root)
     configured = {}
@@ -352,7 +352,7 @@ def module_key(name):
 
 def denied_modules(recipe):
     """The modules FP6 never ships, each with its reason. The partition and load
-    lists come from Fairphone's lists and may be regenerated; this deny list
+    lists come from Fairphone's lists and may be regenerated. This deny list
     survives that, and a denied module in any list fails the build. Whether a
     remaining module still needs a denied one is checked on the built set
     (module-interfaces.json)."""
@@ -493,7 +493,7 @@ def signature(values):
 
 
 def render_package(candidate, selected, merged, image, recipe, strip, work, signing=None):
-    """Stage the kernel package. The GKI build signs its own modules; vendor
+    """Stage the kernel package. The GKI build signs its own modules. Vendor
     and external modules are stripped and then signed with the same build key,
     because the kernel only loads modules signed with it (MODULE_SIG_FORCE).
     signing is (sign-file, private key, certificate, hash algorithm)."""
@@ -527,7 +527,7 @@ def render_package(candidate, selected, merged, image, recipe, strip, work, sign
         require(len(keys) == 1, 'modules are not all signed with the kernel build key')
     shutil.copyfile(image, candidate / 'Image')
     (candidate / 'dtbs').mkdir()
-    # The vendor build also makes device trees for other boards and chips; only the listed ones ship.
+    # The vendor build also makes device trees for other boards and chips. Only the listed ones ship.
     for name in recipe['dtbs']: shutil.copyfile(merged / name, candidate / 'dtbs' / name)
     shutil.copyfile(merged / 'dtbo.img', candidate / 'dtbo.img')
     lines = ['# Generated development kernel; runtime acceptance is separate.',
@@ -627,7 +627,7 @@ def build(root, jobs, timeout, profile='production'):
         save()
         try:
             bazel('core-build', ['build', *flags, *CORE, *IMPLICIT])
-            # Capture only top-level configured outputs; other transitions can be unbuilt.
+            # Capture only top-level configured outputs. Other transitions can be unbuilt.
             paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, STAMP, '--output=files',
                           'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
             (run / 'core-paths.txt').write_text(paths)
@@ -707,8 +707,8 @@ def build(root, jobs, timeout, profile='production'):
                     'merged DT inventory changed')
             command('pack-dtbo', [work / 'prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg', 'create', merged / 'dtbo.img', '--page_size=4096', *dtbos], merge_env)
             wanted = set().union(*map(set, recipe['partitions'].values()))
-            # A denied module that is no longer built was renamed or dropped;
-            # review the deny list rather than let a renamed copy back in.
+            # A denied module that is no longer built was renamed or dropped.
+            # Review the deny list rather than let a renamed copy back in.
             built = {module_key(p.name) for p in core + vendor_core + external if p.suffix == '.ko'}
             stale = sorted(n for n in denied if module_key(n) not in built)
             require(not stale, 'denied module no longer built (update the deny list): ' + ', '.join(stale))

@@ -49,11 +49,11 @@ VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minim
                   'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json', 'fp6-firmware-inventory.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
-# The parts of config/fp6-build.json each step depends on; editing another
+# The parts of config/fp6-build.json each step depends on. Editing another
 # part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
                   'target_files')
-# Earlier steps each step consumes; a single step refuses stale ones.
+# Earlier steps each step consumes. A single step refuses stale ones.
 DEPENDS = {'sync': (), 'kernel': (), 'vendor': ('sync',), 'android': ('sync', 'vendor'),
            'package': ('sync', 'vendor', 'android'),
            'verify': ('sync', 'vendor', 'android', 'package')}
@@ -64,7 +64,7 @@ MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 # An official build (DIAMANEOS_OFFICIAL_BUILD=true, read by vendor/diamaneos
 # product.mk) includes the Updater, which checks DiamaneOS's update server. The
 # workspace remembers --official in this state file, so the builder's workspace
-# stays official; --no-official removes it.
+# stays official. --no-official removes it.
 OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
 OFFICIAL_MARKER = 'official'
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
@@ -231,7 +231,7 @@ def default_opener(url: str):
 def download(url: str, destination: Path, size: int | None, sha256: str, echo=print, opener=None):
     """HTTPS download that resumes and publishes only the pinned bytes.
 
-    ``size`` may be None for small files pinned only by their hash; such a
+    ``size`` may be None for small files pinned only by their hash. Such a
     download may not exceed MAX_UNKNOWN_DOWNLOAD. Reads stop at the expected
     size, and redirects must stay on the same host over HTTPS.
     """
@@ -301,7 +301,7 @@ def project_revision(resolved: bytes, path: str) -> str | None:
 def retire_overlay(src: Path, strict: bool = True) -> list:
     """Move the manifest overlay the tools used to install out of the way.
 
-    The full DiamaneOS manifest replaces it; left in place, repo would apply
+    The full DiamaneOS manifest replaces it. Left in place, repo would apply
     it on top. Other local manifests are the user's: they stop the sync of an
     official build (``strict``) and are left to repo otherwise.
     """
@@ -679,7 +679,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
             release_date=archive.get('release_date'))
 
     def install():
-        # So a plain "m" after "build vendor" finds the vendor files; the
+        # So a plain "m" after "build vendor" finds the vendor files. The
         # android step installs (or re-verifies) the same tree again.
         product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True)
 
@@ -712,9 +712,9 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 and Path(state['outputs'].get('factory_zip') or ws.vendor / 'missing').is_file())
 
     def accepts(recorded):
-        # The vendor files come from the factory package by pinned hash; of the
+        # The vendor files come from the factory package by pinned hash. Of the
         # source they need only the image tools. An official build binds them
-        # to the exact source all the same; other builds keep them across a
+        # to the exact source all the same. Other builds keep them across a
         # sync, and build.json says when they come from another source.
         without = lambda value: {k: v for k, v in value.items() if k != 'sync'}
         return not ctx.official and without(recorded) == without(inputs)
@@ -758,7 +758,7 @@ def find_target_files(ctx: Context) -> Path:
 
 
 def otatools_record(ctx: Context) -> dict | None:
-    """Record the build's tool archive; official builds require exactly one."""
+    """Record the build's tool archive. Official builds require exactly one."""
     patterns = ('soong/.intermediates/build/make/tools/otatools_package/otatools-package/*/gen/otatools.zip',
                 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip')
     matches = [path for pattern in patterns for path in ctx.out.glob(pattern) if path.is_file() and not path.is_symlink()]
@@ -850,8 +850,8 @@ def plan_android(ctx: Context) -> StepPlan:
             ctx.cache[key] = result
         return check
 
-    # GrapheneOS's OFFICIAL_BUILD never reaches the build; DIAMANEOS_OFFICIAL_BUILD
-    # only as --official sets it, never from the caller's environment.
+    # GrapheneOS's OFFICIAL_BUILD never reaches the build. DIAMANEOS_OFFICIAL_BUILD
+    # does only as --official sets it, never from the caller's environment.
     compile_action = Action(
         f'Build Android ({lunch}{", official" if ctx.official else ""})', argv=['bash', '-c', ANDROID_SCRIPT],
         cwd=ws.src, compile=True,
@@ -1123,7 +1123,7 @@ def synced_tools(ctx: Context) -> str | None:
 def tools_skew(ctx: Context, synced_now: bool, root: Path = ROOT) -> tuple[str, str] | None:
     """How the running tools relate to the commit the sync checked out at
     tools/diamaneos: None when they are that commit (or the source has no
-    tools project); otherwise a kind and a message. 'moved': the sync of this
+    tools project), otherwise a kind and a message. 'moved': the sync of this
     command moved the checkout these tools run from. 'newer': they contain the
     commit. 'unknown': their commit is unknown. 'stale': they do not contain it,
     so their recipes and checks may not match the device tree."""
@@ -1150,7 +1150,7 @@ def built_official(ctx: Context) -> bool:
 
 def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False, step: str | None = None) -> None:
     """Stop an official build before a step that uses the tools' recipes when
-    the tools are not the source's, and warn otherwise; start again with the
+    the tools are not the source's, and warn otherwise. Start again with the
     new tools when the sync moved them. Packaging and checking an official
     build are official too."""
     skew = tools_skew(ctx, synced_now)
@@ -1328,7 +1328,7 @@ def make_context(args, echo=print) -> Context:
         raise UsageError('--jobs must be between 1 and 1024')
     workspace = bw.Workspace(args.workspace or bw.default_workspace())
     workspace.check_root()
-    # A workspace synced shallow stays shallow; a plain "build all" must not
+    # A workspace synced shallow stays shallow. A plain "build all" must not
     # turn it into a full download.
     shallow = args.shallow or (workspace.state_dir / 'shallow').is_file()
     # Likewise a workspace that built with --official keeps building official images.
@@ -1444,7 +1444,7 @@ def main(argv=None, echo=print) -> int:
             # steps rerun only if the synced tree changed.
             force = ('sync',)
         if restarted is not None and restarted == ctx.tools_commit:
-            # The sync that moved these tools has just passed; keep it.
+            # The sync that moved these tools has just passed, so keep it.
             force = tuple(step for step in force if step != 'sync')
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '

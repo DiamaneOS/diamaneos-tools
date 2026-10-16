@@ -102,7 +102,7 @@ def _attribute(node, tag, name):
 def _policies(raw, certificates):
     require(len(raw) <= MAX_XML, 'MAC XML exceeds its byte bound')
     text = raw.decode('utf-8', 'strict')
-    # Comments have no selectors. ET still validates their syntax; its doctype
+    # Comments have no selectors. ET still validates their syntax, and its doctype
     # handler rejects DTDs even if comment-like text appears inside a declaration.
     content = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
     require('\x00' not in text and '&' not in content, 'MAC XML entities or non-UTF-8 encoding are prohibited')
@@ -215,7 +215,7 @@ def _replacements(handle, metadata, roles, public, tools, certificates, snapshot
     prefix = PurePosixPath(misc.get('default_system_dev_certificate', 'build/make/target/product/security/testkey')).parent
     require(public.policy['apk_selectors'].get('testkey') == 'releasekey', 'Unsupported MAC default signing selector')
     # Exactly the native -d BuildKeyMap defaults. --extra_apks affects package
-    # signatures, not ReplaceCerts; it must not invent extra MAC key mappings.
+    # signatures, not ReplaceCerts. It must not invent extra MAC key mappings.
     selectors = {role: role for role in CERT_ROLES - {'releasekey'}}
     selectors.update(testkey='releasekey', devkey='releasekey')
     for selector, role in sorted(selectors.items()):

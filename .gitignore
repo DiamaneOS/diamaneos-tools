@@ -1,11 +1,11 @@
-# Private and generated state — never commit
+# Private and generated state, never committed
 /private/
 *.log
 *.orig
 *.rej
 .DS_Store
 
-# Signing secrets and credentials — never in git
+# Signing secrets and credentials, never in git
 *.key
 *.pem
 *.p12

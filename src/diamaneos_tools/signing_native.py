@@ -77,13 +77,13 @@ def raw_image(tools, path, destination):
 
 
 # Authenticated update_engine platform contract: delta_diff_generator.h::kBlockSize.
-# generate_delta_main.cc::RoundUpPartitions rounds targets to this size; the
+# generate_delta_main.cc::RoundUpPartitions rounds targets to this size. The
 # recorded brillo_update_payload wrapper explicitly specifies zero-filled extension.
 OTA_PAYLOAD_BLOCK_SIZE = 4096
 
 
 def ota_partition_comparison(expected, applied, *, canonical_payload=False):
-    """Full byte hashes and bounded range metadata; never return image bytes/paths."""
+    """Full byte hashes and bounded range metadata. Never return image bytes/paths."""
     def opened(path):
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
