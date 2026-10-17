@@ -18,6 +18,14 @@ from diamaneos_tools import signing_inputs as si, signing_verify as api
 from .fixtures import TemporaryInputs, write_zip
 
 
+VBMETA_INFO = ('Descriptors:\n    Chain Partition descriptor:\n      Partition Name: boot\n'
+               '      Rollback Index Location: 30\n'
+               "    Prop: com.android.build.vendor.security_patch -> '2026-09-05'\n")
+BOOT_INFO = ('Descriptors:\n    Hash descriptor:\n      Partition Name: boot\n'
+             "    Prop: com.android.build.init_boot.os_version -> '17'\n"
+             "    Prop: com.android.build.init_boot.security_patch -> '2026-10-05'\n")
+
+
 class FactoryInputs(TemporaryInputs):
     def setUp(self):
         super().setUp()
@@ -74,7 +82,11 @@ class FactoryInputs(TemporaryInputs):
                                      avb_binary_authority=Mock(side_effect=self.native_authority))
 
     def native_run(self, command, arguments):
-        if command == 'avbtool':
+        if command == 'avbtool' and arguments[0] == 'info_image':
+            return VBMETA_INFO if Path(arguments[2]).name == 'vbmeta.img' else BOOT_INFO
+        if command == 'avbtool' and arguments[0] == 'calculate_vbmeta_digest':
+            Path(arguments[-1]).write_text('ab' * 32 + '\n')
+        elif command == 'avbtool':
             self.assertEqual(['extract_public_key', '--key', self.keys.avb(), '--output'], arguments[:-1])
             Path(arguments[-1]).write_bytes(self.key)
         elif command == 'build_super_image':
@@ -346,6 +358,11 @@ class ProductionPublicationTests(FactoryInputs, unittest.TestCase):
         result = self.publication_verify()
         self.assertTrue(result['artifact_signatures_verified'])
         self.assertEqual(si.sha256_file(self.publication / 'factory.zip'), result['artifacts']['factory.zip'])
+        self.assertEqual({'device': 'FP6', 'verifiedBootKey': hashlib.sha256(self.key).hexdigest().upper(),
+                          'release': {'build': 'fixture.1', 'verifiedBootHash': 'AB' * 32, 'osVersion': 170000,
+                                      'osPatchLevel': 202610, 'vendorPatchLevel': 20260905, 'bootPatchLevel': 20261005,
+                                      'attestationVersion': 300, 'keyMintVersion': 300}},
+                         result['attestation_release'])
         self.assertEqual(2, self.tools.ssh_signature.call_count)
         self.tools.ota.assert_called_once(); self.tools.apply_payload.assert_called_once()
 

@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 
 from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout, signing_mac
-from . import signing_factory as factory_zip
+from . import attestation_releases, signing_factory as factory_zip
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
@@ -304,9 +304,12 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
             'Package verification coverage is incomplete')
     mac = signing_mac.verify_mac_permissions(signed, plan['mac_permissions'])
     partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
+    attestation = {}
     if version == 2:
         factory_zip.verify_factory(files[publication['factory_archive']], files[publication['images_archive']],
                                    signed, plan, tools, keys)
+        attestation['attestation_release'] = attestation_releases.publication_release(
+            files[publication['images_archive']], plan, tools, keys)
     else:
         verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
     full = False
@@ -342,7 +345,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
             'mode': plan['mode'], 'plan_sha256': plan['plan_sha256'], 'provenance': plan['provenance'],
             'changed_projects': plan['changed_projects'], 'public_identities': plan['public_identities'],
             'artifacts': artifacts, 'packages': packages, 'mac_permissions': mac,
-            'partitions': partitions, 'ota_count': len(publication['ota'])}
+            'partitions': partitions, 'ota_count': len(publication['ota']), **attestation}
 
 
 def parser():

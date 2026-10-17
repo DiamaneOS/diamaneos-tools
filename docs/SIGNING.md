@@ -19,6 +19,7 @@ to each run. Unknown roles and presigned exceptions are rejected.
 | Release record | External SSH authority, `diamaneos-release-record` namespace |
 | Build verification report | External SSH authority, `diamaneos-build-verification` namespace |
 | Previous signing result | External SSH authority, `diamaneos-signing-result` namespace |
+| Attestation release list | External ECDSA P-256 signer, SHA-256 |
 
 The public inventory uses schema version 2. `certificate_roles` maps every role to
 an external certificate, `avb_public_key` names its RSA public PEM, and `factory` contains
@@ -232,8 +233,68 @@ bin/diamaneos signing verify --plan "$PLAN" \
 - Closing checks bind source, public material and publication bytes throughout verification. A changed input cannot produce a successful result.
 
 Success records `artifact_signatures_verified: true`, public identities, artifact hashes
-and run provenance. Production rejects AOSP public test keys even when supplied as
-expected identities. Qualification requires the explicit `--qualification` flag.
+and run provenance. Schema version 2 results also record the attestation release values.
+Production rejects AOSP public test keys even when supplied as expected identities.
+Qualification requires the explicit `--qualification` flag.
+
+## Attestation release list
+
+A verifier without a manufacturer-rooted attestation chain for a first pairing accepts a phone
+only if its attested values exactly match a published release. The release list carries these
+values per device.
+
+- `signing verify` reads the values from the verified vbmeta images of a schema version 2
+  publication and records them in its result as `attestation_release`.
+- `verifiedBootHash` is the SHA-256 vbmeta digest over vbmeta and its chained partitions
+  (`avbtool calculate_vbmeta_digest`). `verifiedBootKey` is the SHA-256 of `avb_pkmd.bin`.
+- The device file (`config/fp6-attestation.json` for the FP6) names the AVB property behind the
+  OS version and each patch level.
+  - Each named property must appear exactly once among the vbmeta images the boot hash covers.
+  - The file also holds the KeyMint and attestation versions that the secure area firmware
+    reports.
+
+**Format.**
+
+- The list is a JSON envelope with `format`, `version`, a base64 `payload` and `signatures`.
+- Each signature is a DER ECDSA P-256 signature with SHA-256 over the exact payload bytes. Its
+  `keyId` is the SHA-256 of the signer's SubjectPublicKeyInfo DER.
+- The payload holds `sequence`, the UTC `issued` time and, per device, its `id`,
+  `verifiedBootKey` and `releases`. Hashes are upper-case hex.
+
+**Prepare and sign.**
+
+- `prepare` verifies the previous list against the signer key, keeps its releases, appends the new
+  one and raises the sequence by one. `--withdraw` removes a listed build.
+- A listed build or boot hash, or another boot key for a listed device, is refused.
+- Production lists take only a production signing result with its external signature in the
+  `diamaneos-signing-result` namespace.
+- `--signer detached` writes the payload and its SHA-256 for the offline signer. `attach` adds
+  the returned DER signature and writes the list only after checking the signature, key ID,
+  format and sequence.
+- `--signer test` signs with a local P-256 test key. It needs `--test`, which takes only
+  qualification results and `entry` output.
+- `entry` reads the values from an image directory, after `avbtool verify_image` checks the chain
+  against the given AVB public key. It serves test lists.
+
+```sh
+bin/diamaneos attestation-releases prepare --previous "$LISTS/releases.json" \
+  --signing-result "$RESULT" --signing-result-signature "$RESULT.sig" --keys "$TRUST/inventory.json" \
+  --signer detached --public-key "$TRUST/release-list.pub.pem" --output "$LISTS/payload.json"
+bin/diamaneos attestation-releases attach --previous "$LISTS/releases.json" \
+  --payload "$LISTS/payload.json" --signature "$LISTS/payload.json.sig" \
+  --public-key "$TRUST/release-list.pub.pem" --output "$LISTS/releases-next.json"
+bin/diamaneos attestation-releases verify --list "$LISTS/releases-next.json" \
+  --public-key "$TRUST/release-list.pub.pem" --previous "$LISTS/releases.json"
+```
+
+A test list from images signed with a test AVB key:
+
+```sh
+bin/diamaneos attestation-releases entry --images "$IMAGES" --build "$BUILD_NUMBER" \
+  --avb-public-key "$TEST_KEYS/avb.pub.pem" --avbtool "$OTATOOLS/bin/avbtool" --output "$SCRATCH/entry.json"
+bin/diamaneos attestation-releases prepare --first --entry "$SCRATCH/entry.json" --signer test --test \
+  --test-key "$TEST_KEYS/release-list.pem" --output "$SCRATCH/releases.json"
+```
 
 ## Fixtures
 
