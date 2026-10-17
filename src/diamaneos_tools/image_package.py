@@ -383,8 +383,9 @@ def plan(ctx):
 
     def publish():
         if not state['reuse']:
+            # Read-only, and flash-all.sh stays executable so "./flash-all.sh" runs from the set.
             for p in state['partial'].iterdir():
-                p.chmod(0o440)
+                p.chmod(0o550 if p.name == flash_all.SH else 0o440)
             state['partial'].rename(state['final'])
         latest = ws.images / 'latest'
         temporary = ws.images / '.latest'

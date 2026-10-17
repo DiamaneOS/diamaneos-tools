@@ -90,6 +90,10 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(b'boot image', (directory / 'boot.img').read_bytes())
         self.assertEqual(set(image_package.image_names(self.ctx.config)) | {'super'}, set(record['images']))
         self.assertEqual((self.ctx.workspace.images / 'latest').resolve(), directory.resolve())
+        # Published read-only, with the install script executable.
+        modes = {p.name: p.stat().st_mode & 0o777 for p in directory.iterdir()}
+        self.assertEqual(0o550, modes.pop('flash-all.sh'))
+        self.assertEqual({0o440}, set(modes.values()))
         self.assertIn('-g android -r -T 1790000000 -U edfbd922-2398-582a-bc24-062261d4ee5e -l metadata -S 67108864',
                       (directory / 'metadata.img').read_text())
         # The record names the manifest commit, the resolved manifest and the kernel prebuilts.
