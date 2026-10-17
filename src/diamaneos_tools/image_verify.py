@@ -685,8 +685,10 @@ def overlay_target(manifest: str) -> str | None:
 
 def rule_overlay_resources_denied(rule, v):
     """No preinstalled overlay for the target package defines a resource whose
-    name matches one of the patterns."""
+    name matches one of the patterns, except the exact device values the rule
+    lists for one overlay."""
     patterns = [re.compile(p) for p in rule['patterns']]
+    device_values = rule.get('device_values', {})
     names = sorted({n for pattern in rule['files'] for n in v.tf.glob(pattern) if n.endswith('.apk')})
     problems, checked = [], 0
     with v.tools.scratch() as temporary:
@@ -698,7 +700,8 @@ def rule_overlay_resources_denied(rule, v):
             checked += 1
             dump = v.tools.run('aapt2', ['dump', 'resources', apk])
             found = re.findall(r'resource 0x[0-9a-f]+ ([a-z]+)/([A-Za-z0-9_.]+)', dump)
-            bad = sorted({f'{kind}/{res}' for kind, res in found if any(p.search(res) for p in patterns)})
+            bad = sorted({f'{kind}/{res}' for kind, res in found if any(p.search(res) for p in patterns)}
+                         - set(device_values.get(name, ())))
             if bad:
                 problems.append(name + ': ' + ', '.join(bad[:8]))
     return not problems, '; '.join(problems) or f'{checked} overlays for {rule["target"]} checked'

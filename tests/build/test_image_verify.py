@@ -1339,6 +1339,23 @@ class RuleTests(unittest.TestCase):
         self.assertIn('color/tally_lamp_camera', detail)
         self.assertIn('dimen/privacy_dot_size', detail)
         self.assertNotIn('other.apk', detail)
+        # The device overlay may set the lens, and nothing else of Tally's.
+        lens = ''.join(f'    resource 0x7f01000{i} {r}\n' for i, r in enumerate(
+            rule['device_values']['VENDOR/overlay/FP6SystemUIOverlay.apk']))
+        manifests['FP6SystemUIOverlay.apk'] = target('com.android.systemui')
+        resources['FP6SystemUIOverlay.apk'] = lens
+        del members['SYSTEM_EXT/overlay/bad.apk']
+        members['VENDOR/overlay/FP6SystemUIOverlay.apk'] = b'apk'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertTrue(ok, detail)
+        resources['FP6SystemUIOverlay.apk'] = lens + '    resource 0x7f010009 dimen/tally_privacy_dot_size\n'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertEqual((ok, detail), (False, 'VENDOR/overlay/FP6SystemUIOverlay.apk: dimen/tally_privacy_dot_size'))
+        members['PRODUCT/overlay/FP6SystemUIOverlay.apk'] = members.pop('VENDOR/overlay/FP6SystemUIOverlay.apk')
+        resources['FP6SystemUIOverlay.apk'] = lens
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertFalse(ok)
+        self.assertIn('PRODUCT/overlay/FP6SystemUIOverlay.apk: dimen/tally_lens_center_x', detail)
 
     def display_config(self, rule, nits=lambda n: n, brightness=lambda b: b, manual=None, time_max=86400,
                        battery_saver='true', plain_top=1.0, doze=True, dimmer='true', overlay_dimmer='true',
