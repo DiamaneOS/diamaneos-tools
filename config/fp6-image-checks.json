@@ -111,12 +111,12 @@
       }
     },
     {
-      "id": "camera-ubwc-preview",
-      "why": "The camera preview is allocated UBWC so the display can compose it (16:9 within the 1088-line inline-rotation limit). Without this every preview frame is composed on the GPU.",
+      "id": "camera-linear-output",
+      "why": "The camera keeps CamX's linear default output, as stock does. Forcing UBWC with persist.vendor.camera.outputFormat gives the distortion node of the ultra-wide plus main logical camera a UBWC output, and its preview is noise.",
       "type": "properties",
       "file": "VENDOR/build.prop",
-      "equals": [
-        "persist.vendor.camera.outputFormat=1"
+      "absent": [
+        "persist.vendor.camera.outputFormat"
       ]
     },
     {
