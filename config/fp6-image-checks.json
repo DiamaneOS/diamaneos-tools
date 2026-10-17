@@ -1520,7 +1520,7 @@
         "VENDOR/etc/selinux/vendor_property_contexts"
       ],
       "regex": [
-        "^vendor\\.diamaneos\\.imei\\.status\\s+u:object_r:vendor_diamaneos_imei_status_prop:s0\\s+exact\\s+enum\\s+running\\s+written\\s+unchanged\\s+failed\\s*$"
+        "^vendor\\.diamaneos\\.imei\\.status\\s+u:object_r:vendor_diamaneos_imei_status_prop:s0\\s+exact\\s+enum\\s+running\\s+written\\s+unchanged\\s+failed\\s+reversed\\s+corrected\\s*$"
       ]
     },
     {
