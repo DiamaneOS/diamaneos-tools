@@ -1,4 +1,7 @@
-"""Print the fastboot commands for a verified DiamaneOS test build.
+"""Print the fastboot commands for a verified DiamaneOS image set.
+
+A test build is signed with the public test keys and stays unlocked. A set
+re-signed with its own keys whose record says relock ends with the relock.
 
 Never runs fastboot. Prints every image, or with --since only the images that
 differ from an earlier build. --wipe adds the data wipe, done by flashing
@@ -26,6 +29,7 @@ from . import build_workspace as bw
 from . import firmware as fw
 from . import flash_all
 from .image_package import RECORD, SUMS, check_sums
+from .image_profiles import PUBLIC_TEST_KEYS, SIGNED
 from .image_verify import failed_checks, report_problem
 
 # The bootloader values flash-steps reads from "fastboot getvar all".
@@ -181,15 +185,34 @@ def firmware_text(record: dict, decision: dict) -> list[str]:
     return textwrap.wrap(text, 96)
 
 
+def relock(key: str, slot: str) -> list[str]:
+    """The AVB key and the two locks, in the order of the stock relock."""
+    return [f'  fastboot flash avb_custom_key {key}', f'  fastboot --set-active={slot}',
+            '  fastboot flashing lock_critical', '',
+            *textwrap.wrap('Confirm on the phone. It wipes the phone and restarts. Hold Volume down while it restarts, '
+                           'so that it comes back to the bootloader: Android must not start before the second lock. '
+                           'Then:', 96),
+            '', '  fastboot flashing get_unlock_ability', '', 'Continue only if it reports 1. Otherwise stop.', '',
+            '  fastboot flashing lock', '', 'Confirm on the phone.']
+
+
 def steps(directory: Path, record: dict, previous: dict | None = None, wipe: bool = False,
           report: dict | None = None, phone: dict | None = None, phone_firmware: str | None = None,
           firmware: str = 'auto') -> list[str]:
-    if record.get('release') is not False or record.get('signing') != 'public-test-keys':
-        raise FlashError('flash-steps only prints commands for test builds')
+    signing = record.get('signing')
+    if signing not in SIGNED and (signing != PUBLIC_TEST_KEYS or record.get('release') is not False):
+        raise FlashError('flash-steps only prints commands for test builds and sets re-signed with their own keys')
     if 'device' not in record:
         raise FlashError('this image set was packaged by older tools, without the device profile: package it '
                          'again with these tools')
     device = flash_all.fields(record)
+    # The AVB key file a set that relocks installs, or None.
+    key = flash_all.custom_key(record)
+    if key and signing == PUBLIC_TEST_KEYS:
+        raise FlashError('a set signed with the public test keys must never be locked')
+    if report is None and signing in SIGNED:
+        raise FlashError('this image set has not been checked. Run "diamaneos images check" with --report '
+                         + str(directory.parent / (record['build_id'] + '.verify.json')))
     if report is None:
         raise FlashError('this image set has not been verified. Run "diamaneos build verify" first')
     # Failed checks stop an official image set. For others they are a warning below.
@@ -198,6 +221,12 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
     if problem:
         raise FlashError(problem + '. Do not flash this build (run "diamaneos build verify" again)')
     failed = failed_checks(report)
+    if report.get('profile', PUBLIC_TEST_KEYS) != ('signed' if signing in SIGNED else PUBLIC_TEST_KEYS):
+        raise FlashError('the verify report used other checks than this set\'s signing selects. Run "diamaneos '
+                         'images check" again')
+    if key and {'record', 'avb-chain'} & set(failed):
+        raise FlashError(f'the verify report does not show that {key} is the key that signs vbmeta. Do not lock the '
+                         'phone with this set')
     if firmware not in MODES:
         raise FlashError('unknown firmware mode ' + firmware)
     carried = record.get('firmware')
@@ -208,11 +237,15 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
     slot = record['flash']['slot']
     bootloader = changed(record, previous, record['flash']['bootloader'])
     logical = changed(record, previous, record['flash']['logical'])
-    out = [f'DiamaneOS test build {record["build_id"]} ({record["product"]}, {record["variant"]}, '
-           f'build number {record["build_number"]})', '', 'Safety rules:',
-           '- This build is signed with public test keys. Keep the bootloader unlocked: never run',
-           '  "fastboot flashing lock" or "fastboot flashing lock_critical" while it is installed.',
-           '- Never run "fastboot -w" or "fastboot erase". A wipe flashes empty images instead.']
+    out = [f'DiamaneOS {"test build " if signing == PUBLIC_TEST_KEYS else ""}{record["build_id"]} '
+           f'({record["product"]}, {record["variant"]}, build number {record["build_number"]})', '', 'Safety rules:']
+    if key:
+        out += ['- This set is signed with its own keys. The last steps install its AVB key and lock the',
+                '  bootloader, which wipes all data on the phone.']
+    else:
+        out += ['- This build is signed with public test keys. Keep the bootloader unlocked: never run',
+                '  "fastboot flashing lock" or "fastboot flashing lock_critical" while it is installed.']
+    out += ['- Never run "fastboot -w" or "fastboot erase". A wipe flashes empty images instead.']
     if carried:
         out += [f'- The OS goes to slot {slot} only. Do not flash it to the other slot.',
                 f'- Firmware: {device["maker"]}\'s exact {carried["release"]} images, the release this build\'s',
@@ -280,7 +313,7 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                 if tuple(arguments) in flash_all.MODES:
                     out += ['', f'Wait until the phone is in {flash_all.MODES[tuple(arguments)][1]}, then:', '']
         out += wipe_lines
-        out += [f'  fastboot --set-active={slot}', '  fastboot reboot']
+        out += relock(key, slot) if key else [f'  fastboot --set-active={slot}', '  fastboot reboot']
     else:
         out += ['', 'Nothing to flash: every image equals the earlier build.']
     return out

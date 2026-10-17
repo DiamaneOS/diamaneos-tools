@@ -337,8 +337,10 @@ or deleted files):
     names the profile.
 
 - **Flash steps.**
-  - `diamaneos flash-steps` prints commands only for a test build whose set matches its `SHA256SUMS`
-    and whose verify report belongs to that set.
+  - `diamaneos flash-steps` prints commands only for a test build or a set re-signed with its own
+    keys, whose set matches its `SHA256SUMS` and whose verify report belongs to that set.
+  - A re-signed set needs the report of `images check`, written next to the set as
+    `<build_id>.verify.json` ([SIGNING.md](SIGNING.md#check-a-signed-image-set)).
   - An official set must have passed every check. For other sets failed checks become a warning that
     names them, except the set's hashes, its firmware and its vendor files, which stop every build.
   - `build verify` then ends with status 0 for a set that is not official: read the report.
@@ -438,10 +440,13 @@ then `build package`.
 
 ## Flashing
 
-These commands make builds signed with the public test keys. The rules for flashing them:
+These commands make builds signed with the public test keys. The rules for flashing them, and for
+sets re-signed with their own keys:
 
 - Never lock the bootloader with a test build installed: never run `fastboot flashing lock` or
   `fastboot flashing lock_critical`.
+- A set re-signed with its own keys whose `build.json` says relock (`never_lock` false) is the
+  exception. Its steps end with the relock (below).
 - Anyone can sign images with the public test keys.
 - Never run `fastboot -w` or `fastboot erase`.
 - When a wipe is needed, the printed steps flash empty images instead, as the stock factory package
@@ -497,6 +502,20 @@ come from, named in the set's `build.json`.
   firmware than the earlier one (then add `--phone`).
 - An earlier image set without firmware does not say what the phone runs. Add `--phone-firmware`.
 - Without `--since` it prints every image.
+
+**Relock.** For a set that relocks, `flash-steps` and the closing text of `flash-all` give the stock
+relock order, tested on the FP6:
+
+1. `fastboot flash avb_custom_key avb_pkmd.bin` (`flash-all` does this itself).
+2. `fastboot flashing lock_critical`, and confirm on the phone. It wipes the phone and restarts. Hold
+   Volume down while it restarts, so that it comes back to the bootloader: Android must not start
+   before the second lock.
+3. `fastboot flashing get_unlock_ability` must report 1. Otherwise stop.
+4. `fastboot flashing lock`, and confirm on the phone.
+
+- `flash-steps` prints the relock only when the verify report shows that `avb_pkmd.bin` signs the
+  set's vbmeta (checks `record` and `avb-chain`).
+- A set that must never be locked (public test keys, qualification keys) keeps the unlocked rules.
 
 **Back to stock:** follow [returning to the stock
 OS](https://diamaneos.de/install/#returning-to-the-stock-os) in the install guide. Relock only with

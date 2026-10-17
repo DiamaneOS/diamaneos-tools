@@ -85,6 +85,52 @@ class FlashStepTests(unittest.TestCase):
         self.assertNotIn('userdata', commands)
         self.assertIn('never run', text)
 
+    def resign(self, signing='throwaway-test-keys', **record):
+        """The fixture set as re-signed with its own keys, with a passing signed report."""
+        (self.directory / 'avb_pkmd.bin').write_bytes(b'own AVB public key fixture')
+        (self.directory / 'SHA256SUMS').chmod(0o640)
+        image_package.write_sums(self.directory)
+        self.record.update({'signing': signing, 'never_lock': False, 'avb_custom_key': {'file': 'avb_pkmd.bin'},
+                            **record})
+        self.report = dict(self.passing_report(), profile='signed')
+
+    def test_a_set_with_its_own_keys_ends_with_the_relock(self):
+        for signing, record in (('throwaway-test-keys', {}), ('release-keys', {'release': True, 'official': True})):
+            with self.subTest(signing):
+                self.resign(signing, **record)
+                text = self.text(wipe=True, firmware='skip')
+                commands = self.commands(wipe=True, firmware='skip')
+                self.assertEqual(['fastboot flash avb_custom_key avb_pkmd.bin', 'fastboot --set-active=a',
+                                  'fastboot flashing lock_critical', 'fastboot flashing get_unlock_ability',
+                                  'fastboot flashing lock'], commands[-5:])
+                self.assertLess(commands.index('fastboot flash userdata userdata.img'), len(commands) - 5)
+                self.assertIn('Hold Volume down while it restarts', text)
+                self.assertIn('Continue only if it reports 1. Otherwise stop.', text)
+                self.assertIn('install its AVB key and lock the', text)
+                self.assertNotIn('public test keys', text)
+        # A set that must never be locked keeps the test build's rules.
+        self.resign('qualification-keys', never_lock=True, official=True)
+        text = self.text(firmware='skip')
+        self.assertIn('Keep the bootloader unlocked', text)
+        commands = self.commands(firmware='skip')
+        self.assertEqual(['fastboot --set-active=a', 'fastboot reboot'], commands[-2:])
+        self.assertNotIn('fastboot flash avb_custom_key avb_pkmd.bin', commands)
+
+    def test_relock_needs_a_report_that_its_key_signs_vbmeta(self):
+        self.resign()
+        for check in ('record', 'avb-chain'):
+            report = dict(self.report, status='FAIL', failed=1, checks=[
+                dict(c, status='FAIL') if c['id'] == check else c for c in self.report['checks']])
+            with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, 'avb_pkmd.bin is the key that'):
+                flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
+        cases = ((dict(self.report, profile='public-test-keys'), {}, 'used other checks'),
+                 (None, {}, 'Run "diamaneos images check" with --report'),
+                 (self.report, {'signing': 'public-test-keys', 'release': False}, 'must never be locked'),
+                 (self.report, {'signing': 'own-keys'}, 'only prints commands for test builds and sets'))
+        for report, record, message in cases:
+            with self.subTest(message), self.assertRaisesRegex(flash_steps.FlashError, message):
+                flash_steps.steps(self.directory, dict(self.record, **record), report=report, firmware='skip')
+
     def test_wipe_flashes_empty_images_and_says_it_is_unvalidated(self):
         text = self.text(wipe=True, firmware='skip')
         for line in ('fastboot flash userdata userdata.img', 'fastboot flash metadata metadata.img',

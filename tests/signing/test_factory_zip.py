@@ -165,8 +165,8 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
         scripts = flash_all.scripts(record)
         self.assertIn('sha256sum --quiet -c SHA256SUMS', scripts['flash-all.sh'])
         self.assertIn('Get-FileHash -Algorithm SHA256', scripts['flash-all.bat'])
-        self.assertIn('get_unlock_ability (it must report 1)', scripts['flash-all.sh'])
-        self.assertIn('Never lock the critical partitions', scripts['flash-all.bat'])
+        self.assertIn('run fastboot flashing lock_critical and confirm', scripts['flash-all.sh'])
+        self.assertIn('get_unlock_ability must report 1', scripts['flash-all.bat'])
         broken = copy.deepcopy(record); broken.pop('avb_custom_key')
         with self.assertRaises(ValueError): flash_all.scripts(broken)
 

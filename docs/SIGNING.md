@@ -165,9 +165,15 @@ Before entering fastbootd, scripts select the admitted slot and require a succes
 `current-slot` check. Selection or verification failure stops the install. The manual sequence
 requires the same check before continuing.
 
-Before starting Android, check unlock ability and lock as the generated instructions describe.
-The scripts never lock critical partitions. Archive verification does not establish device
-installation or relock acceptance.
+Before starting Android, lock as the scripts' closing text describes. The scripts run no lock
+themselves. The order is the stock relock's:
+
+- `fastboot flashing lock_critical`. It wipes and restarts: hold Volume down to come back to the
+  bootloader.
+- `fastboot flashing get_unlock_ability` must report 1.
+- `fastboot flashing lock`.
+
+Archive verification does not establish device installation or relock acceptance.
 
 The batch script requires PowerShell to verify every listed SHA-256 before writing images.
 
@@ -207,6 +213,8 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
     `otatools.zip`, with the set's public key for the signing keys the archive names.
 - `avb_pkmd.bin` must be an RSA AVB key that `avbtool` reproduces exactly, and none of the AOSP AVB
   test keys (`external/avb/test/data/testkey_rsa*.pem`).
+- `flash-steps` reads the report as `<build_id>.verify.json` next to the set. It prints the relock
+  only after `record` and `avb-chain` passed ([BUILD.md](BUILD.md#flashing)).
 
 ## Verify publication
 

@@ -21,9 +21,12 @@ CHECKS = (('product', '{product}',
            'This image set is for the {name} ({product}). Connect that phone in fastboot mode.'),
           ('is-userspace', 'no', 'The phone is in fastbootd. Run "fastboot reboot bootloader" and start again.'),
           ('unlocked', 'yes', 'The bootloader is locked. Unlock it as {maker} describes, then start again.'))
-# Printed again when the script ends, because the lock is the user's next step.
-LOCK = ('To lock, run fastboot flashing get_unlock_ability (it must report 1), then fastboot flashing lock, '
-        'and confirm on the phone. Do not start Android before the lock. Never lock the critical partitions.')
+# Printed again when the script ends, because the lock is the user's next step. It
+# follows the stock relock order, which leaves no boot between the two locks.
+LOCK = ('To lock, run fastboot flashing lock_critical and confirm on the phone. It wipes the phone and restarts. '
+        'Hold Volume down while it restarts, so that it comes back to the bootloader: Android must not start '
+        'before the second lock. Then fastboot flashing get_unlock_ability must report 1, or stop there. Then run '
+        'fastboot flashing lock and confirm on the phone.')
 # The restarts between the bootloader and fastbootd: what "getvar is-userspace"
 # reports once the phone is there, and what the scripts call it.
 MODES = {('reboot', 'fastboot'): ('yes', 'fastbootd'), ('reboot-bootloader',): ('no', 'the bootloader')}
