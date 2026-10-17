@@ -274,6 +274,9 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
             # All of them, also when one changed: wipe-super leaves no logical partition.
             for arguments in flash_all.logical(record):
                 out.append('  fastboot ' + ' '.join(arguments))
+                if arguments == [f'--set-active={slot}']:
+                    out += ['  fastboot getvar current-slot', '',
+                            f'Continue only if both commands succeed and current-slot reports {slot}. Otherwise stop.', '']
                 if tuple(arguments) in flash_all.MODES:
                     out += ['', f'Wait until the phone is in {flash_all.MODES[tuple(arguments)][1]}, then:', '']
         out += wipe_lines

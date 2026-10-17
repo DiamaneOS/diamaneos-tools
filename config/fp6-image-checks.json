@@ -2361,6 +2361,44 @@
       ]
     },
     {
+      "id": "auditor",
+      "why": "The preinstalled Auditor is DiamaneOS's build (de.diamaneos.auditor), not GrapheneOS's app.attestation.auditor, and is not platform-signed.",
+      "type": "apk",
+      "path": "PRODUCT/app/Auditor/Auditor.apk",
+      "manifest_regex": [
+        "^\\s*A: package=\"de\\.diamaneos\\.auditor\""
+      ],
+      "not_signed_like": "SYSTEM/framework/framework-res.apk"
+    },
+    {
+      "id": "auditor-allowlists",
+      "why": "Auditor keeps its power-save and Data Saver exemptions under its own package name.",
+      "type": "text",
+      "files": [
+        "PRODUCT/etc/sysconfig/*.xml"
+      ],
+      "match": "any",
+      "regex": [
+        "<allow-in-power-save package=\"de\\.diamaneos\\.auditor\"\\s*/>",
+        "<allow-in-data-usage-save package=\"de\\.diamaneos\\.auditor\"\\s*/>"
+      ]
+    },
+    {
+      "id": "no-grapheneos-auditor",
+      "why": "No XML file under a partition's etc, such as a sysconfig or permission allowlist, names GrapheneOS's Auditor (app.attestation.auditor).",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/*.xml",
+        "SYSTEM_EXT/etc/*.xml",
+        "PRODUCT/etc/*.xml",
+        "VENDOR/etc/*.xml",
+        "ODM/etc/*.xml"
+      ],
+      "absent": [
+        "app.attestation.auditor"
+      ]
+    },
+    {
       "id": "gallery",
       "why": "LineageOS's Glimpse is the gallery, with its own overlay that names it the system gallery, its sysconfig files and the notices of its bundled libraries. Gallery2 stays installed for its crop screen.",
       "type": "files_present",

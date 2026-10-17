@@ -77,7 +77,7 @@ def main(argv=None):
         print("  build kernel -> build the kernel from source (for maintainers, the build uses the kernel prebuilts)")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|build preflight|build kernel-config|signing|attestation-releases|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
         print("routes: build all -> sync, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
@@ -85,6 +85,7 @@ def main(argv=None):
         print("        overlays check -> resource overlays against their targets at a release")
         print("        strings check -> string resources: escaping, placeholders, markup and plurals")
         print("        signing -> verified-build signing plans and native publication signature verification")
+        print("        attestation-releases -> signed list of each release's attestation values")
         print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
         print("        vendor product -> generate the pinned native Android integration\n        kernel prepare|build -> source, compile and package the kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")
         return 0
@@ -100,6 +101,9 @@ def main(argv=None):
     if argv[:1] == ["signing"]:
         from diamaneos_tools import signing_verify
         return signing_verify.main(argv[1:])
+    if argv[:1] == ["attestation-releases"]:
+        from diamaneos_tools import attestation_releases
+        return attestation_releases.main(argv[1:])
     print("unknown command: " + " ".join(argv), file=sys.stderr)
     return 2
 

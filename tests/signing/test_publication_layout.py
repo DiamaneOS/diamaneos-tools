@@ -18,7 +18,8 @@ def fixture_images():
     passthrough = {name: ('fixture passthrough ' + name).encode() for name in (
         'abl.elf', 'NON-HLOS.bin', 'modemst1.img', 'modemst2.img', 'misc.img',
         'frp.img', 'metadata.img', 'super_empty.img')}
-    plan = {'partitions': list(partitions), 'logical_partitions': ['system', 'vendor'],
+    plan = {'mode': 'qualification', 'partitions': list(partitions), 'logical_partitions': ['system', 'vendor'],
+            'super_layout': {'kind': 'slot-suffixed', 'active_slot': 'a'},
             'passthrough_images': {name: hashlib.sha256(data).hexdigest() for name, data in passthrough.items()},
             'packages': {}, 'chains': {}}
     images = {name + '.img': data for name, data in partitions.items()}
@@ -78,6 +79,31 @@ class ImageArchiveInputs(TemporaryInputs):
         self.target = self.root / 'target-files.zip'
         self.published = self.root / 'images.zip'
         write_zip(self.target, [('IMAGES/' + name + '.img', data) for name, data in self.partitions.items()])
+
+
+class SuperSourceContractTests(unittest.TestCase):
+    def test_factory_source_contract_binds_either_admitted_slot(self):
+        for slot in ('a', 'b'):
+            with self.subTest(slot=slot):
+                self.assertEqual({'kind': 'slot-suffixed', 'active_slot': slot},
+                                 layout.super_layout({'flash': {'slot': slot}}, {'ab_update': 'true'}, 'production'))
+
+    def test_legacy_qualification_binds_platform_defaults_without_guessing_outputs(self):
+        self.assertEqual({'kind': 'slot-suffixed', 'active_slot': 'a'},
+                         layout.super_layout({}, {'ab_update': 'true'}, 'qualification'))
+        for misc in ({}, {'ab_update': 'false'}):
+            with self.subTest(misc=misc):
+                self.assertEqual({'kind': 'unsuffixed', 'active_slot': None},
+                                 layout.super_layout({}, misc, 'qualification'))
+
+    def test_unknown_or_contradictory_factory_source_contract_refuses(self):
+        for record, misc, mode in [({'flash': {'slot': 'b'}}, {}, 'production'),
+                                   ({'flash': {'slot': 'b'}}, {}, 'qualification'),
+                                   ({}, {'ab_update': 'unknown'}, 'qualification'),
+                                   ({'flash': {'slot': 'c'}}, {'ab_update': 'true'}, 'qualification'),
+                                   ({'flash': {'slot': 'a'}}, {'ab_update': 'false'}, 'production')]:
+            with self.subTest(record=record, misc=misc, mode=mode), self.assertRaises(inputs.SigningError):
+                layout.super_layout(record, misc, mode)
 
 
 class ImageArchiveBoundaryTests(ImageArchiveInputs, unittest.TestCase):
@@ -185,7 +211,63 @@ class SuperRepresentationTests(ImageArchiveInputs, unittest.TestCase):
     def test_incomplete_super_contents_refuse(self):
         self.unpacked.pop('vendor_a.img')
         images = {name: data for name, data in self.images.items() if name not in ('system.img', 'vendor.img')}
-        self.compare(images, 'missing|symlinked')
+        self.compare(images, 'missing expected active logical')
+
+    def test_empty_extraction_and_each_missing_active_refuse_even_with_all_direct_images(self):
+        original = dict(self.unpacked)
+        for missing in (None, 'system_a.img', 'vendor_a.img'):
+            with self.subTest(missing=missing):
+                self.unpacked = {} if missing is None else {n: b for n, b in original.items() if n != missing}
+                self.compare(self.images, 'missing expected active logical')
+        self.unpacked = original
+
+    def test_unknown_empty_inactive_and_nonimage_files_refuse(self):
+        for name in ('unknown_b.img', 'boot_b.img', 'unknown_a.img', 'notes', 'nested/extra.img'):
+            with self.subTest(member=name):
+                original = dict(self.unpacked)
+                # Nested output must also be rejected as an unlisted directory.
+                if '/' in name:
+                    def nested(command, arguments):
+                        self.unpack(command, arguments)
+                        extra = Path(arguments[1]) / name
+                        extra.parent.mkdir(); extra.write_bytes(b'')
+                    self.tools.run.side_effect = nested
+                else:
+                    self.unpacked[name] = b''
+                self.compare(self.images, 'undeclared partition or file')
+                self.unpacked = original; self.tools.run.side_effect = self.unpack
+
+    def test_slot_b_uses_complete_b_and_only_empty_a_counterparts(self):
+        self.plan.update(mode='production', factory_input={'flash': {'slot': 'b'}},
+                         super_layout={'kind': 'slot-suffixed', 'active_slot': 'b'})
+        self.unpacked = {name + '_b.img': self.partitions[name] for name in ('system', 'vendor')}
+        self.unpacked.update({'system_a.img': b'', 'vendor_a.img': b''})
+        self.compare(self.images)
+        self.unpacked['system_a.img'] = b'populated inactive A'
+        self.compare(self.images, 'populated inactive slot')
+
+    def test_super_layout_cannot_disagree_with_admitted_slot(self):
+        self.plan['factory_input'] = {'flash': {'slot': 'b'}}
+        self.compare(self.images, 'differs from the admitted install slot')
+
+    def test_legacy_unsuffixed_shape_is_explicit_and_cannot_mix_suffixes(self):
+        self.plan['super_layout'] = {'kind': 'unsuffixed', 'active_slot': None}
+        self.unpacked = {name + '.img': self.partitions[name] for name in ('system', 'vendor')}
+        self.compare(self.images)
+        self.unpacked['system_b.img'] = b''
+        self.compare(self.images, 'undeclared partition or file')
+
+    def test_missing_layout_is_not_inferred_from_extracted_names(self):
+        self.plan.pop('super_layout')
+        self.compare(self.images, 'requires a bound layout')
+
+    def test_super_links_and_special_files_refuse_before_signature_checks(self):
+        def linked(command, arguments):
+            self.unpack(command, arguments)
+            output = Path(arguments[1]) / 'system_a.img'
+            output.unlink(); output.symlink_to(self.target)
+        self.tools.run.side_effect = linked
+        self.compare(self.images, 'not a regular unlinked file')
 
     def test_partial_direct_logical_set_refuses_before_unpacking(self):
         images = {name: data for name, data in self.images.items() if name != 'vendor.img'}
@@ -197,7 +279,7 @@ class SuperRepresentationTests(ImageArchiveInputs, unittest.TestCase):
             with self.subTest(extra=extra):
                 original = dict(self.unpacked)
                 self.unpacked.update(extra)
-                self.compare(self.images, 'Published super has a populated second slot|Super contains an undeclared partition')
+                self.compare(self.images, 'populated inactive slot|Super contains an undeclared partition')
                 self.unpacked = original
 
 

@@ -23,7 +23,7 @@ CHECKS = (('product', '{product}',
           ('unlocked', 'yes', 'The bootloader is locked. Unlock it as {maker} describes, then start again.'))
 # Printed again when the script ends, because the lock is the user's next step.
 LOCK = ('To lock, run fastboot flashing get_unlock_ability (it must report 1), then fastboot flashing lock, '
-        'and confirm on the phone. Do not start Android before the lock.')
+        'and confirm on the phone. Do not start Android before the lock. Never lock the critical partitions.')
 # The restarts between the bootloader and fastbootd: what "getvar is-userspace"
 # reports once the phone is there, and what the scripts call it.
 MODES = {('reboot', 'fastboot'): ('yes', 'fastbootd'), ('reboot-bootloader',): ('no', 'the bootloader')}
@@ -71,7 +71,7 @@ def logical(record: dict) -> list[list[str]]:
     names, slot = record['flash']['logical'], record['flash']['slot']
     if not names:
         return []
-    return ([['reboot', 'fastboot'], ['wipe-super', SUPER_EMPTY]]
+    return ([[f'--set-active={slot}'], ['reboot', 'fastboot'], ['wipe-super', SUPER_EMPTY]]
             + [['flash', f'{name}_{slot}', f'{name}.img'] for name in names] + [['reboot-bootloader']])
 
 
@@ -85,9 +85,12 @@ def script_steps(record: dict) -> list[tuple]:
 
 def custom_key(record: dict) -> str | None:
     """The AVB public key file a set signed with private keys installs, or None."""
-    if record.get('never_lock'):
+    if record.get('never_lock') is not False:
         return None
-    return (record.get('avb_custom_key') or {}).get('file')
+    key = (record.get('avb_custom_key') or {}).get('file')
+    if not isinstance(key, str) or not key or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-' for c in key) or key.startswith('.'):
+        raise ValueError('A lockable set requires a safe AVB public key file')
+    return key
 
 
 def notes(record: dict) -> list[str]:
@@ -116,6 +119,10 @@ def shell(record: dict) -> str:
            # fastboot mid-reply, and the bootloader then answers no further command.
            'value() { reply=$(fastboot getvar "$1" 2>&1) || true; '
            'printf "%s\\n" "$reply" | sed -n -e "s/^(bootloader) *//" -e "s/^$1: *//p" | head -n 1; }',
+           'checkslot() { reply=$(fastboot getvar current-slot 2>&1) || fail "Cannot verify the selected slot."; '
+           'observed=$(printf "%s\\n" "$reply" | sed -n -e "s/^(bootloader) *//" '
+           '-e "s/^current-slot: *//p" | tr -d "\\r"); '
+           '[ "$observed" = "$1" ] || fail "The active slot does not match this image set."; }',
            # fastboot itself waits while no phone is connected, so this counts only the
            # answers from the mode the phone is leaving.
            'waitfor() { echo "Waiting for $2."; n=0; until [ "$(value is-userspace)" = "$1" ]; do n=$((n + 1)); '
@@ -134,6 +141,8 @@ def shell(record: dict) -> str:
         if arguments == CANCEL:
             out += ['status=$(value snapshot-update-status)', 'if [ -n "$status" ] && [ "$status" != none ]; then']
         out.append('fastboot ' + ' '.join(arguments))
+        if arguments == [f'--set-active={record["flash"]["slot"]}']:
+            out.append('checkslot ' + record['flash']['slot'])
         if arguments == CANCEL:
             out.append('fi')
         if mode:
@@ -153,6 +162,14 @@ def batch(record: dict) -> str:
     if record.get('firmware'):
         out.append(f'fastboot oem device-info 2>&1 | findstr /c:"{CRITICAL[0]}" >nul || '
                    f'(echo {_escaped(CRITICAL[1].format(**values))} & exit /b 1)')
+    out += ['where powershell >nul 2>&1 || (echo PowerShell is required to check SHA256SUMS. & exit /b 1)',
+            'powershell -NoProfile -NonInteractive -Command "$ErrorActionPreference=\'Stop\'; $seen=@{}; '
+            'Get-Content -LiteralPath \'SHA256SUMS\' | ForEach-Object { '
+            'if ($_ -notmatch \'^([a-f0-9]{64})  ([A-Za-z0-9][A-Za-z0-9._-]*)$\') { throw \'Malformed checksums\' }; '
+            '$digest=$Matches[1]; $name=$Matches[2]; '
+            'if ($seen.ContainsKey($name)) { throw \'Duplicate checksum\' }; $seen[$name]=$true; '
+            'if ((Get-FileHash -Algorithm SHA256 -LiteralPath $name).Hash.ToLowerInvariant() -ne $digest) '
+            '{ throw \'Checksum mismatch\' } }; if ($seen.Count -eq 0) { throw \'No checksums\' }" || exit /b 1']
     out.append('')
     out += [f'echo {_escaped(line)}' for line in notes(record)]
     for arguments, mode in script_steps(record):
@@ -160,13 +177,22 @@ def batch(record: dict) -> str:
             out.append('fastboot getvar snapshot-update-status 2>&1 | findstr /r /c:"snapshot-update-status: *[a-z]" '
                        '| findstr /v /r /c:"snapshot-update-status: *none" >nul || goto no_snapshot')
         out.append('fastboot ' + ' '.join(arguments) + ' || exit /b 1')
+        if arguments == [f'--set-active={record["flash"]["slot"]}']:
+            out.append('call :checkslot ' + record['flash']['slot'] + ' || exit /b 1')
         if arguments == CANCEL:
             out.append(':no_snapshot')
         if mode:
             out.append('call :waitfor {} "{}" || exit /b 1'.format(*mode))
     if custom_key(record):
         out.append(f'echo {_escaped(LOCK)}')
-    out += ['exit /b 0', '', ':waitfor', 'echo Waiting for %~2.', 'set n=0', ':waitfor_poll',
+    out += ['exit /b 0', '', ':checkslot',
+            'powershell -NoProfile -NonInteractive -Command "$reply=@(& fastboot getvar current-slot 2>&1); '
+            'if ($LASTEXITCODE -ne 0) { exit 1 }; '
+            '$slots=@($reply | ForEach-Object { $_.ToString().Trim() } | '
+            'Where-Object { $_ -match \'^(\\(bootloader\\)\\s*)?current-slot:\' }); '
+            'if ($slots.Count -ne 1 -or $slots[0] -notmatch '
+            '\'^(\\(bootloader\\)\\s*)?current-slot:\\s*%1$\') { exit 1 }" || exit /b 1', 'exit /b 0',
+            '', ':waitfor', 'echo Waiting for %~2.', 'set n=0', ':waitfor_poll',
             'fastboot getvar is-userspace 2>&1 | findstr /r /c:"is-userspace: *%1" >nul && exit /b 0',
             'set /a n+=1', f'if %n% geq 90 (echo {_escaped(STUCK.format(**values).replace("$2", "%~2"))} & exit /b 1)',
             'ping -n 3 127.0.0.1 >nul', 'goto waitfor_poll']

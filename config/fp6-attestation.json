@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "scope": "Attestation release values of the FP6 for the signed release list (docs/SIGNING.md). The secure area firmware reports the KeyMint and attestation versions, which the OS images do not carry. The other values come from the named AVB properties of the release's vbmeta images.",
+  "device": "FP6",
+  "attestation_version": 300,
+  "keymint_version": 300,
+  "properties": {
+    "osVersion": "com.android.build.init_boot.os_version",
+    "osPatchLevel": "com.android.build.init_boot.security_patch",
+    "vendorPatchLevel": "com.android.build.vendor.security_patch",
+    "bootPatchLevel": "com.android.build.init_boot.security_patch"
+  }
+}

@@ -6,11 +6,13 @@ from contextlib import contextmanager
 from pathlib import Path
 import shlex
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
 
 from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout, signing_mac
+from . import attestation_releases, signing_factory as factory_zip
 from .signing_inputs import (DEFAULT_CONFIG, SigningError, canonical_sha256, fields,
                              load_json, require, safe_file, sha256_file, source_files,
                              validate_config, verified_build, write_json, input_hashes, recheck_hashes, sha256_stream)
@@ -30,12 +32,18 @@ def validate_plan(plan, policy):
     digest = body.pop('plan_sha256', None)
     require(canonical_sha256(body) == digest and plan.get('policy_sha256') == canonical_sha256(policy),
             'Signing plan or role policy changed')
+    if plan['mode'] == 'production':
+        require('factory_input' in plan, 'Production requires a plan with factory install metadata')
+    if 'factory_input' in plan:
+        factory_zip.validate_input(plan['factory_input'], plan)
+    if plan.get('logical_partitions'):
+        layout.super_members(plan)
 
 
 @contextmanager
 def metadata_inputs(args):
     """Authenticate and consume the same private metadata, retaining input basenames."""
-    if args.command not in ('prepare', 'verify'):
+    if args.command not in ('prepare', 'verify', 'factory'):
         yield args
         return
     args.scratch.mkdir(parents=True, exist_ok=True)
@@ -63,29 +71,33 @@ def metadata_inputs(args):
         expected_root = args.keys.resolve().parent
         material = [*inventory['certificate_roles'].values(), inventory['avb_public_key'], inventory['factory']['allowed_signers']]
         material += list(inventory.get('presigned_apex_payload_keys', {}).values())
-        if args.command == 'verify':
-            require(not args.keys.resolve().is_relative_to(args.artifact_root.resolve()),
+        publication_root = (args.artifact_root.resolve() if args.command == 'verify' else
+                            args.output.resolve().parent if args.command == 'factory' else None)
+        if publication_root is not None:
+            require(not args.keys.resolve().is_relative_to(publication_root),
                     'Expected public keys must be outside the artifacts')
         for relative in material:
             original = safe_file(expected_root, relative)
-            if args.command == 'verify':
-                require(not original.resolve().is_relative_to(args.artifact_root.resolve()),
+            if publication_root is not None:
+                require(not original.resolve().is_relative_to(publication_root),
                         'Expected public material is inside the publication')
             capture(original, 1024 * 1024, frozen.keys.parent / relative)
-        if args.command == 'prepare':
+        if args.command in ('prepare', 'factory'):
             for name in ('build_record', 'verification_report', 'resolved_manifest'):
                 setattr(frozen, name, capture(getattr(args, name)))
             capture(safe_file(args.build_record.parent, 'SHA256SUMS'), za.MAX_TEXT,
                     frozen.build_record.parent / 'SHA256SUMS')
             frozen.verification_signature = capture(args.verification_signature, 1024 * 1024)
             for name in ('previous_result', 'previous_signature'):
-                if getattr(args, name):
+                if getattr(args, name, None):
                     setattr(frozen, name, capture(getattr(args, name), 1024 * 1024 if name.endswith('signature') else MAX_JSON))
+            if args.command == 'factory':
+                frozen.plan = capture(args.plan)
+                frozen.passthrough_root = args.build_record.resolve().parent
         else:
             frozen.plan, frozen.publication = capture(args.plan), capture(args.publication)
             publication = load_json(frozen.publication)
-            fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
-                                 'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+            layout.publication_schema(publication, load_json(frozen.plan)['mode'])
             frozen.release_inputs = (
                 capture(safe_file(args.artifact_root, publication['release_record'])),
                 capture(safe_file(args.artifact_root, publication['release_signature']), 1024 * 1024))
@@ -168,13 +180,17 @@ def publication_images(path, target_files, plan, tools, keys):
             super_image = raw_image(tools, final / 'super.img', root / 'super.raw.img')
             logical = root / 'logical'; logical.mkdir()
             tools.run('lpunpack', [super_image, logical])
-            for image in logical.glob('*.img'):
-                name = image.stem
-                if name.endswith('_b'):
-                    require(image.stat().st_size == 0, 'Published super has a populated second slot')
+            active, inactive = layout.super_members(plan)
+            unpacked = {p.name: p for p in logical.iterdir()}
+            require(set(unpacked) <= set(active) | inactive, 'Super contains an undeclared partition or file')
+            require(set(active) <= set(unpacked), 'Published super is missing expected active logical partitions')
+            for member, image in unpacked.items():
+                info = image.lstat()
+                require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'Super output is not a regular unlinked file')
+                if member in inactive:
+                    require(info.st_size == 0, 'Published super has a populated inactive slot')
                     continue
-                name = name.removesuffix('_a')
-                require(name in plan['partitions'], 'Super contains an undeclared partition')
+                name = active[member]
                 destination = final / (name + '.img')
                 if destination.exists():
                     require(sha256_file(raw_image(tools, destination, root / ('direct-' + name + '.img'))) ==
@@ -240,9 +256,8 @@ def verify_factory_contents(factory, image_archive):
 
 def verify_publication(plan, publication, artifact_root, policy, tools, keys, *, release_inputs=None):
     validate_plan(plan, policy)
-    fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
-                         'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
-    require(publication['schema_version'] == 1 and isinstance(publication['ota'], list) and publication['ota'],
+    version = layout.publication_schema(publication, plan['mode'])
+    require(isinstance(publication['ota'], list) and publication['ota'],
             'Publication has no OTA package')
     require(canonical_sha256(keys.inventory) == plan['key_inventory_sha256']
             and canonical_sha256(keys.files) == plan['public_material_sha256'], 'Independent public key inventory changed')
@@ -263,8 +278,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
             and publication['release_record'] != publication['release_signature'], 'Release proof reuses an artifact path')
     final_names = set(names + previous + [publication['release_record'], publication['release_signature']])
     root = Path(artifact_root).resolve()
-    require(final_names == {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file()}
-            and not any(p.is_symlink() for p in root.rglob('*')), 'Publication contains unlisted files or links')
+    layout.check_publication_files(root, final_names)
     files = {name: safe_file(artifact_root, name) for name in names}
     record_path = release_inputs[0] if release_inputs else safe_file(artifact_root, publication['release_record'])
     record = load_json(record_path)
@@ -290,7 +304,14 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
             'Package verification coverage is incomplete')
     mac = signing_mac.verify_mac_permissions(signed, plan['mac_permissions'])
     partitions = publication_images(files[publication['images_archive']], signed, plan, tools, keys)
-    verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
+    attestation = {}
+    if version == 2:
+        factory_zip.verify_factory(files[publication['factory_archive']], files[publication['images_archive']],
+                                   signed, plan, tools, keys)
+        attestation['attestation_release'] = attestation_releases.publication_release(
+            files[publication['images_archive']], plan, tools, keys)
+    else:
+        verify_factory_contents(files[publication['factory_archive']], files[publication['images_archive']])
     full = False
     source_artifacts = {}
     for ota in publication['ota']:
@@ -319,11 +340,12 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
     require(artifacts == {name: sha256_file(path) for name, path in files.items()}, 'Artifacts changed during verification')
     require(source_artifacts == {name: sha256_file(safe_file(artifact_root, name))
                                  for name in source_artifacts}, 'Delta source changed during verification')
+    layout.check_publication_files(root, final_names)
     return {'schema_version': 2, 'status': 'PASS', 'artifact_signatures_verified': True,
             'mode': plan['mode'], 'plan_sha256': plan['plan_sha256'], 'provenance': plan['provenance'],
             'changed_projects': plan['changed_projects'], 'public_identities': plan['public_identities'],
             'artifacts': artifacts, 'packages': packages, 'mac_permissions': mac,
-            'partitions': partitions, 'ota_count': len(publication['ota'])}
+            'partitions': partitions, 'ota_count': len(publication['ota']), **attestation}
 
 
 def parser():
@@ -347,10 +369,71 @@ def parser():
     for name in ('plan', 'publication', 'artifact-root'):
         verify.add_argument('--' + name, type=Path, required=True)
     verify.add_argument('--qualification', action='store_true')
-    for sub in (prepare, verify):
+    factory = commands.add_parser('factory', help='assemble the full factory ZIP from signed target-files')
+    for name in ('plan', 'build-record', 'verification-report', 'verification-signature', 'target-files',
+                 'resolved-manifest', 'signed-target-files', 'images-archive'):
+        factory.add_argument('--' + name, type=Path, required=True)
+    factory.add_argument('--qualification', action='store_true')
+    for sub in (prepare, verify, factory):
         for name in ('source-root', 'otatools', 'keys', 'scratch', 'output'):
             sub.add_argument('--' + name, type=Path, required=True)
     return root
+
+
+def execute_factory(args, policy):
+    plan = load_json(args.plan)
+    validate_plan(plan, policy)
+    production = not args.qualification
+    require(plan['mode'] == ('production' if production else 'qualification'), 'Factory mode differs from the plan')
+    parent = args.output.resolve().parent
+    require(parent == args.images_archive.resolve().parent and args.output.name != args.images_archive.name,
+            'Factory outputs need distinct names in one directory')
+    require(not args.keys.resolve().is_relative_to(parent) and not args.scratch.resolve().is_relative_to(parent),
+            'Factory trust and scratch must be outside the publication')
+    require(not args.output.exists() and not args.output.is_symlink()
+            and not args.images_archive.exists() and not args.images_archive.is_symlink(), 'Factory output already exists')
+    paths = [args.config, args.plan, args.keys, args.otatools, args.build_record, args.verification_report,
+             args.verification_signature, args.target_files, args.resolved_manifest, args.signed_target_files]
+    before = input_hashes(paths)
+    authority, identity = factory_authority(args.keys, policy)
+    before.update(input_hashes((authority,)))
+    host_ssh_signature(args.verification_report, args.verification_signature,
+                       authority, identity, policy['verification_namespace'], args.scratch)
+    recheck_hashes(before)
+    recheck_stamps(args.metadata_stamps)
+    provenance = verified_build(args.build_record, args.verification_report, args.target_files,
+                                args.resolved_manifest, production=production, source_root=args.source_root,
+                                otatools=args.otatools)
+    require(all(plan['provenance'].get(k) == v for k, v in provenance.items()),
+            'Factory inputs differ from the admitted signing plan')
+    require(factory_zip.input_record(load_json(args.build_record), plan) == plan.get('factory_input'),
+            'Factory install metadata differs from the admitted build')
+    before.update(input_hashes(safe_file(args.passthrough_root, name) for name in plan['passthrough_images']))
+    require(source_files(args.source_root, provenance['projects']) == plan['provenance']['source_files'],
+            'Factory source differs from the signing plan')
+    parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=parent, prefix='.factory-output-') as directory:
+        root = Path(directory)
+        images, factory = root / args.images_archive.name, root / args.output.name
+        with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, production,
+                           provenance['projects'], policy, parent,
+                           expected_otatools=provenance['otatools_sha256']) as (tools, keys):
+            require(canonical_sha256(keys.inventory) == plan['key_inventory_sha256']
+                    and canonical_sha256(keys.files) == plan['public_material_sha256'],
+                    'Factory public authority differs from the signing plan')
+            require(sha256_file(tools.java_home / 'bin/java') == plan['provenance']['java_sha256'],
+                    'Factory JDK differs from the signing plan')
+            verify_packages(args.signed_target_files, plan, tools, keys)
+            signing_mac.verify_mac_permissions(args.signed_target_files, plan['mac_permissions'])
+            factory_zip.assemble(images, factory, args.signed_target_files, args.resolved_manifest,
+                                 args.passthrough_root, plan, tools, keys, publication_images)
+        recheck_hashes(before)
+        recheck_stamps(args.metadata_stamps)
+        require(source_files(args.source_root, provenance['projects']) == plan['provenance']['source_files'],
+                'Factory source changed during assembly')
+        factory_zip.publish_outputs(((images, args.images_archive), (factory, args.output)))
+    print('Factory ZIP assembled; authenticate and verify the completed publication')
+    return 0
 
 
 def execute(args):
@@ -359,6 +442,9 @@ def execute(args):
     if args.command == 'roles':
         print('Signing role policy: PASS')
         return 0
+    if args.command == 'factory':
+        args.scratch.mkdir(parents=True, exist_ok=True)
+        return execute_factory(args, policy)
     if args.command == 'command':
         plan = load_json(args.plan)
         validate_plan(plan, policy)
@@ -408,8 +494,7 @@ def execute(args):
                 and not args.scratch.resolve().is_relative_to(args.artifact_root.resolve()),
                 'Verification output and scratch must be outside the publication')
         publication = load_json(args.publication)
-        fields(publication, {'schema_version', 'signed_target_files', 'images_archive', 'ota',
-                             'factory_archive', 'factory_signature', 'release_record', 'release_signature'})
+        layout.publication_schema(publication, plan['mode'])
         record_path, signature = args.release_inputs
         authority, identity = factory_authority(args.keys, policy)
         require(not authority.resolve().is_relative_to(args.artifact_root.resolve()),

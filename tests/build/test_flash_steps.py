@@ -3,6 +3,7 @@ import re
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -73,6 +74,8 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual('fastboot wipe-super super_empty.img', order[fastbootd + 1])
         self.assertLess(order.index('fastboot flash recovery_a recovery.img'), fastbootd)
         self.assertLess(order.index('fastboot flash vbmeta_a vbmeta.img'), fastbootd)
+        self.assertEqual(['fastboot --set-active=a', 'fastboot getvar current-slot'], order[fastbootd - 2:fastbootd])
+        self.assertIn('both commands succeed and current-slot reports a', text)
         self.assertNotIn('fastboot flash super super.img', order)
         self.assertIn('Wait until the phone is in fastbootd, then:', text)
         self.assertIn('fastboot --set-active=a', order)
@@ -101,7 +104,7 @@ class FlashStepTests(unittest.TestCase):
         # wipe-super leaves no logical partition, so every one is written, not only vendor.
         logical = [f'fastboot flash {n}_a {n}.img' for n in self.record['flash']['logical']]
         self.assertEqual(['fastboot snapshot-update cancel', 'fastboot flash vendor_boot_a vendor_boot.img',
-                          'fastboot reboot fastboot',
+                          'fastboot --set-active=a', 'fastboot getvar current-slot', 'fastboot reboot fastboot',
                           'fastboot wipe-super super_empty.img', *logical, 'fastboot reboot-bootloader',
                           'fastboot --set-active=a', 'fastboot reboot'], self.commands(previous=previous))
 
@@ -127,7 +130,7 @@ class FlashStepTests(unittest.TestCase):
         # The same commands as flash-steps prints for a wipe that writes the firmware again.
         printed = self.commands(wipe=True, phone=self.phone(), phone_firmware=SHIPPED, firmware='rewrite')
         wanted = ['fastboot ' + ' '.join(arguments) for arguments in flash_all.commands(self.record)]
-        self.assertEqual(printed[:len(wanted)], wanted)
+        self.assertEqual([c for c in printed if c != 'fastboot getvar current-slot'][:len(wanted)], wanted)
         self.assertEqual(['fastboot --set-active=a', 'fastboot reboot'], wanted[-2:])
         scripts = flash_all.scripts(self.record)
         for name, text in scripts.items():
@@ -179,12 +182,13 @@ class FlashStepTests(unittest.TestCase):
         for text in scripts.values():
             self.assertIn('Hold Power and Volume up until it restarts into the bootloader', text)
 
-    def run_install_script(self, answers):
+    def run_install_script(self, answers, initial_slot='a', selection_status=0, slot_reply=None, slot_status=0):
         """Run flash-all.sh against a fastboot stand-in. Returns (status, fastboot calls, stderr)."""
         work = self.root / 'run'
         shutil.rmtree(work, ignore_errors=True)
         (work / 'bin').mkdir(parents=True)
-        log, mode = work / 'calls', work / 'mode'
+        log, mode, slot, recovery = work / 'calls', work / 'mode', work / 'slot', work / 'recovery-slot'
+        slot.write_text(initial_slot)
         replies = '\n'.join(f'  "getvar {name}") echo "{line}" >&2 ;;' for name, line in answers.items()
                             if name != 'is-userspace')
         # Answers is-userspace as given until the script restarts the phone into another mode.
@@ -192,13 +196,58 @@ class FlashStepTests(unittest.TestCase):
             f'#!/bin/sh\necho "$*" >> "{log}"\ncase "$*" in\n' + replies + '\n'
             f'  "getvar is-userspace") if [ -f "{mode}" ]; then echo "is-userspace: $(cat "{mode}")" >&2; '
             f'else echo "{answers["is-userspace"]}" >&2; fi ;;\n'
-            f'  "reboot fastboot") echo yes > "{mode}" ;;\n  "reboot-bootloader") echo no > "{mode}" ;;\n'
+            f'  --set-active=*) [ {selection_status} -eq 0 ] || exit {selection_status}; '
+            f'echo "${{1#--set-active=}}" > "{slot}" ;;\n'
+            '  "getvar current-slot") ' +
+            (f'echo "current-slot: $(cat "{slot}")" >&2; ' if slot_reply is None else
+             'printf "%s\\n" ' + shlex.quote(slot_reply) + ' >&2; ') + f'exit {slot_status} ;;\n'
+            f'  "reboot fastboot") cat "{slot}" > "{recovery}"; echo yes > "{mode}" ;;\n'
+            f'  "reboot-bootloader") echo no > "{mode}" ;;\n'
             '  "oem device-info") echo "(bootloader) Device critical unlocked: true" >&2 ;;\nesac\n')
         (work / 'bin/fastboot').chmod(0o755)
         result = subprocess.run(['sh', str(self.directory / flash_all.SH)], capture_output=True, text=True, timeout=120,
                                 env=dict(os.environ, PATH=str(work / 'bin') + os.pathsep + os.environ['PATH']))
         calls = log.read_text().splitlines() if log.exists() else []
+        self.recovery_slot = recovery.read_text().strip() if recovery.exists() else None
         return result.returncode, [c for c in calls if not c.startswith(('getvar', 'oem'))], result.stderr
+
+    def test_installer_selects_and_verifies_admitted_slot_before_loading_recovery(self):
+        good = {'product': 'product: FP6', 'is-userspace': 'is-userspace: no', 'unlocked': 'unlocked: yes',
+                'snapshot-update-status': 'snapshot-update-status: none'}
+        for target in ('a', 'b'):
+            self.record['flash']['slot'] = target
+            self.record.update(never_lock=False, avb_custom_key={'file': 'avb_pkmd.bin'})
+            (self.directory / 'avb_pkmd.bin').write_bytes(b'disposable public fixture')
+            for name, text in flash_all.scripts(self.record).items():
+                (self.directory / name).chmod(0o640); (self.directory / name).write_bytes(text.encode())
+            (self.directory / 'SHA256SUMS').chmod(0o640); image_package.write_sums(self.directory)
+            for initial in ('a', 'b'):
+                with self.subTest(target=target, initial=initial):
+                    status, calls, _ = self.run_install_script(good, initial_slot=initial)
+                    self.assertEqual(0, status)
+                    self.assertEqual(target, self.recovery_slot)
+                    self.assertLess(calls.index(f'--set-active={target}'), calls.index('reboot fastboot'))
+                    self.assertEqual(['flash avb_custom_key avb_pkmd.bin', f'--set-active={target}',
+                                      'reboot-bootloader'], calls[-3:])
+                    self.assertNotIn('reboot', calls)
+            batch = flash_all.scripts(self.record)['flash-all.bat'].splitlines()
+            index = batch.index(f'fastboot --set-active={target} || exit /b 1')
+            self.assertEqual(f'call :checkslot {target} || exit /b 1', batch[index + 1])
+            self.assertLess(index + 1, batch.index('fastboot reboot fastboot || exit /b 1'))
+            self.assertIn('if ($LASTEXITCODE -ne 0)', '\n'.join(batch))
+
+    def test_selection_or_slot_verification_failure_stops_before_fastbootd(self):
+        good = {'product': 'product: FP6', 'is-userspace': 'is-userspace: no', 'unlocked': 'unlocked: yes'}
+        failures = [dict(selection_status=1), dict(slot_reply='current-slot: b'), dict(slot_reply=''),
+                    dict(slot_reply='current-slot: a\ncurrent-slot: a'),
+                    dict(slot_reply='current-slot: a', slot_status=1)]
+        for failure in failures:
+            with self.subTest(failure=failure):
+                status, calls, _ = self.run_install_script(good, initial_slot='b', **failure)
+                self.assertNotEqual(0, status)
+                self.assertIsNone(self.recovery_slot)
+                self.assertNotIn('reboot fastboot', calls)
+                self.assertNotIn('wipe-super super_empty.img', calls)
 
     def test_the_install_script_checks_the_phone_and_the_images_before_it_writes(self):
         good = {'product': 'product: FP6', 'is-userspace': '(bootloader) is-userspace:no', 'unlocked': 'unlocked: yes',
