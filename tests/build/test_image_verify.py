@@ -1500,6 +1500,17 @@ class RuleTests(unittest.TestCase):
                                    ('no-grapheneos-auditor', subject.rule_text)):
                 self.assertEqual(expected, check(rules[rule_id], v)[0], rule_id)
 
+    def test_unused_debug_modules_are_neither_shipped_nor_listed(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        clean = {'VENDOR_DLKM/lib/modules/modules.load': b'icc-debug.ko\nminidump.ko\n',
+                 'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'qcom_wdt_core.ko\n'}
+        for extra, expected in (({}, True), ({'VENDOR_BOOT/RAMDISK/lib/modules/memory_dump_v2.ko': b'ko'}, False),
+                                ({'SYSTEM_DLKM/lib/modules/modules.dep': b'icc-test.ko:\n'}, False)):
+            v = self.harness(dict(clean, **extra))
+            ok = (subject.rule_files_absent(rules['no-unused-debug-modules'], v)[0]
+                  and subject.rule_text(rules['no-unused-debug-modules-listed'], v)[0])
+            self.assertEqual(expected, ok, extra)
+
     def test_codec2_graphicbuffer_abi_guard(self):
         rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
                 'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],

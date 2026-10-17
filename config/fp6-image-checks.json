@@ -3747,6 +3747,50 @@
         ]
       },
     {
+      "id": "no-unused-debug-modules",
+      "why": "The interconnect test, the CPU dump table, the Gunyah log dumper, the DSP statistics and the GPU dump skip flag are not shipped. They loaded with nothing depending on them.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR_BOOT/RAMDISK/lib/modules/icc-test.ko",
+        "VENDOR_BOOT/RAMDISK/lib/modules/memory_dump_v2.ko",
+        "VENDOR_BOOT/RAMDISK/lib/modules/dmesg_dumper.ko",
+        "VENDOR_BOOT/RAMDISK/lib/modules/sysmon_subsystem_stats.ko",
+        "VENDOR_BOOT/RAMDISK/lib/modules/gpu_dump_skip_cdev.ko",
+        "VENDOR_DLKM/lib/modules/icc-test.ko",
+        "VENDOR_DLKM/lib/modules/memory_dump_v2.ko",
+        "VENDOR_DLKM/lib/modules/dmesg_dumper.ko",
+        "VENDOR_DLKM/lib/modules/sysmon_subsystem_stats.ko",
+        "VENDOR_DLKM/lib/modules/gpu_dump_skip_cdev.ko",
+        "SYSTEM_DLKM/lib/modules/icc-test.ko",
+        "SYSTEM_DLKM/lib/modules/memory_dump_v2.ko",
+        "SYSTEM_DLKM/lib/modules/dmesg_dumper.ko",
+        "SYSTEM_DLKM/lib/modules/sysmon_subsystem_stats.ko",
+        "SYSTEM_DLKM/lib/modules/gpu_dump_skip_cdev.ko"
+      ]
+    },
+    {
+      "id": "no-unused-debug-modules-listed",
+      "why": "No module list or dependency file names the five unused debug modules.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/RAMDISK/lib/modules/modules.*",
+        "VENDOR_DLKM/lib/modules/modules.*",
+        "SYSTEM_DLKM/lib/modules/modules.*"
+      ],
+      "absent": [
+        "dmesg-dumper",
+        "dmesg_dumper",
+        "gpu-dump-skip-cdev",
+        "gpu_dump_skip_cdev",
+        "icc-test",
+        "icc_test",
+        "memory-dump-v2",
+        "memory_dump_v2",
+        "sysmon-subsystem-stats",
+        "sysmon_subsystem_stats"
+      ]
+    },
+    {
       "id": "no-hdcp-module",
       "why": "The HDCP client module is not shipped. It would let the kernel load four trusted apps by name for DisplayPort content protection, and the FP6 has no DisplayPort output.",
       "type": "files_absent",
