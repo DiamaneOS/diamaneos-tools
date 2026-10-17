@@ -817,10 +817,11 @@ def rule_apk(rule, v):
     with v.tools.scratch() as temporary:
         directory = Path(temporary)
         apk = v.tf.extract(rule['path'], directory)
-        dump = v.tools.run('aapt2', ['dump', 'permissions', apk])
-        requested = sorted(re.findall(r"^uses-permission: name='([^']+)'", dump, re.M))
-        if requested != sorted(rule['permissions']):
-            problems.append('requests ' + ', '.join(requested))
+        if 'permissions' in rule:
+            dump = v.tools.run('aapt2', ['dump', 'permissions', apk])
+            requested = sorted(re.findall(r"^uses-permission: name='([^']+)'", dump, re.M))
+            if requested != sorted(rule['permissions']):
+                problems.append('requests ' + ', '.join(requested))
         if rule.get('manifest_regex'):
             tree = v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk])
             problems += ['manifest does not match ' + pattern for pattern in rule['manifest_regex']

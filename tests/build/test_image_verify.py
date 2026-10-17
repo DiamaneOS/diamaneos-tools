@@ -1485,6 +1485,21 @@ class RuleTests(unittest.TestCase):
             ok, detail = subject.rule_apk(rule, v)
             self.assertEqual(expected, ok, detail)
 
+    def test_auditor_is_ours_and_nothing_names_grapheneos_auditor(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for package, expected in (('de.diamaneos.auditor', True), ('app.attestation.auditor', False)):
+            # The rule lists no permissions, so only the manifest and the signer are read.
+            tools = FakeTools({('aapt2', 'xmltree'): f'  E: manifest (line=2)\n    A: package="{package}" (Raw: "{package}")\n',
+                               ('apksigner',): lambda args: 'certificate SHA-256 digest: '
+                               + ('a' if str(args[-1]).endswith('Auditor.apk') else 'b') * 64})
+            config = (f'<config>\n    <allow-in-data-usage-save package="{package}" />\n'
+                      f'    <allow-in-power-save package="{package}" />\n</config>\n').encode()
+            v = self.harness({'PRODUCT/app/Auditor/Auditor.apk': b'apk', 'SYSTEM/framework/framework-res.apk': b'apk',
+                              f'PRODUCT/etc/sysconfig/{package}.xml': config}, tools=tools)
+            for rule_id, check in (('auditor', subject.rule_apk), ('auditor-allowlists', subject.rule_text),
+                                   ('no-grapheneos-auditor', subject.rule_text)):
+                self.assertEqual(expected, check(rules[rule_id], v)[0], rule_id)
+
     def test_codec2_graphicbuffer_abi_guard(self):
         rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
                 'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],
