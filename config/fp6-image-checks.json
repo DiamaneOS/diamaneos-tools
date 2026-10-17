@@ -1413,7 +1413,7 @@
     },
     {
       "id": "imei-status-property",
-      "why": "imeiprovd reports whether this boot wrote the IMEIs in its own property type, readable by the setup wizard and set only within vendor.",
+      "why": "imeiprovd reports whether this boot wrote the IMEIs in its own property type, readable by the phone process and set only within vendor.",
       "type": "text",
       "files": [
         "VENDOR/etc/selinux/vendor_property_contexts"
@@ -1447,7 +1447,7 @@
     },
     {
       "id": "imei-status-readers",
-      "why": "Only the setup wizard (platform_app), imeiprovd, init, vendor_init and dumpstate (which reads every property) can read the IMEI status. Shell cannot.",
+      "why": "Only the phone process (radio), imeiprovd, init, vendor_init and dumpstate (which reads every property) can read the IMEI status. Shell cannot.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -1467,7 +1467,7 @@
         "diamaneos_imeiprov",
         "dumpstate",
         "init",
-        "platform_app",
+        "radio",
         "vendor_init"
       ]
     },
