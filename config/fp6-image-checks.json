@@ -2483,10 +2483,17 @@
     },
     {
       "id": "systemui-overlays-indicators",
-      "why": "No preinstalled overlay may change SystemUI's privacy indicator or Tally resources (finding -216). The source check only sees DiamaneOS's own overlay folders, this one sees every overlay in the image.",
+      "why": "No preinstalled overlay may change SystemUI's privacy indicator or Tally resources (finding -216). The source check only sees DiamaneOS's own overlay folders, this one sees every overlay in the image. Only the device overlay may set the front camera's lens, a device value, as the source check allows device overlays.",
       "official": true,
       "type": "overlay_resources_denied",
       "target": "com.android.systemui",
+      "device_values": {
+        "VENDOR/overlay/FP6SystemUIOverlay.apk": [
+          "dimen/tally_lens_center_x",
+          "dimen/tally_lens_center_y",
+          "dimen/tally_lens_radius"
+        ]
+      },
       "files": [
         "SYSTEM/overlay/*.apk",
         "SYSTEM/overlay/*/*.apk",
