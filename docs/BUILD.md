@@ -331,6 +331,10 @@ or deleted files):
     reason it exists and, where it matters, the variants it applies to and whether it checks
     official builds or the others.
   - The report carries the image set's `SHA256SUMS` digest.
+  - `build.json`'s `signing` value selects these checks: `public-test-keys` gets them as listed. A
+    re-signed set gets signed counterparts of four of them
+    ([SIGNING.md](SIGNING.md#check-a-signed-image-set)). Any other value stops the check. The report
+    names the profile.
 
 - **Flash steps.**
   - `diamaneos flash-steps` prints commands only for a test build whose set matches its `SHA256SUMS`

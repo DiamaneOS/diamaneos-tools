@@ -1207,11 +1207,18 @@ class Verification:
 
 
 def check_record(v):
-    from .image_package import read_sums
-    sums = read_sums(v.images)
     problems = []
     if v.record.get('release') is not False or v.record.get('signing') != 'public-test-keys' or not v.record.get('never_lock'):
         problems.append('build.json does not mark a test build that must never be locked')
+    problems += record_problems(v)
+    return not problems, '; '.join(problems)
+
+
+def record_problems(v) -> list:
+    """Where the image set differs from its build record."""
+    from .image_package import read_sums
+    sums = read_sums(v.images)
+    problems = []
     if not isinstance(v.record.get('official', False), bool):
         problems.append('build.json official is not true or false')
     if sums.get(v.record['target_files']['file']) != v.record['target_files']['sha256']:
@@ -1219,7 +1226,7 @@ def check_record(v):
     for name, digest in v.record['images'].items():
         if sums.get(name + '.img') != digest:
             problems.append(name + '.img differs from the build record')
-    return not problems, '; '.join(problems)
+    return problems
 
 
 def check_test_keys(v):
@@ -1261,6 +1268,12 @@ def check_avb(v):
     key = v.src / v.config['avb']['test_key']
     v.tools.run('avbtool', ['verify_image', '--image', v.images / 'vbmeta.img', '--key', key,
                             '--follow_chain_partitions'], cwd=v.images)
+    problems, _ = avb_layout(v)
+    return not problems, '; '.join(problems)
+
+
+def avb_layout(v) -> tuple[list, str]:
+    """Where the AVB chain differs from the published FP6 layout, and vbmeta's avbtool description."""
     info = v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta.img'])
     chains = avb_chains(info)
     want = {name: (location, 0) for name, location in v.config['avb']['chains'].items()}
@@ -1280,7 +1293,7 @@ def check_avb(v):
     weak = sorted(name for name, used in trees.items() if used != algorithm)
     if weak:
         problems.append(f'hashtrees not {algorithm}: ' + ', '.join(f'{n} ({trees[n]})' for n in weak))
-    return not problems, '; '.join(problems)
+    return problems, info
 
 
 def check_boot_headers(v):
@@ -1872,7 +1885,10 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
            vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '',
            firmware_inventory: dict | None = None) -> dict:
     from .image_package import check_sums
+    from .image_profiles import generic_checks
     record = json.loads((images / 'build.json').read_bytes())
+    # build.json's signing value selects the generic checks: an unknown value stops here.
+    profile, generic = generic_checks(record)
     results_head = [{'id': 'sums', 'status': 'PASS' if check_sums(images) else 'FAIL',
                      'why': 'Every file matches SHA256SUMS.', 'detail': ''}]
     target_files = TargetFiles(images / record['target_files']['file'])
@@ -1880,7 +1896,7 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
         v = Verification(images, record, target_files, tools, config, kernel_dir, vendor_dir, packaging, src,
                          firmware_inventory)
         v.kernel_problem = kernel_problem
-        for check_id, why, func in GENERIC:
+        for check_id, why, func in generic:
             v.add(check_id, why, lambda func=func: func(v))
         official = v.record.get('official') is True
         for rule in validate_rules(checks):
@@ -1895,9 +1911,20 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
     # SHA256SUMS digest before it trusts the result.
     return {'schema_version': 1, 'build_id': record['build_id'], 'variant': record['variant'],
             'sums_sha256': bw.sha_file(images / 'SHA256SUMS'), 'build_identity': record.get('build_identity'),
-            'rule_set_sha256': bw.digest(checks),
+            'rule_set_sha256': bw.digest(checks), 'profile': profile,
             'status': 'FAIL' if failed else 'PASS', 'checked': len(results), 'failed': len(failed),
             'checks': results}
+
+
+def verify_set(images: Path, ws, config: dict, checks: dict, tools: Tools, inventory: dict) -> dict:
+    """verify() with the kernel prebuilts and vendor generation the set's record
+    names in the workspace (not whatever the workspace holds now)."""
+    record = json.loads((images / 'build.json').read_bytes())
+    vendor = (record.get('generated_inputs') or {}).get('vendor') or {}
+    packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_bytes())
+    kernel_dir, kernel_problem = kernel_prebuilts(ws.src, record)
+    vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
+    return verify(images, config, checks, tools, kernel_dir, vendor_dir, packaging, ws.src, kernel_problem, inventory)
 
 
 def plan(ctx):
@@ -1909,21 +1936,16 @@ def plan(ctx):
     inputs = None if package is None else {
         'package': package['outputs'], 'checks_sha256': hashlib.sha256(checks_raw).hexdigest(),
         'code': bw.sha_file(Path(__file__)),
+        'profiles_code': bw.sha_file(Path(__file__).with_name('image_profiles.py')),
         'firmware': {'inventory': bw.digest(inventory), 'policy': bw.digest(ctx.config['firmware']),
                      'code': bw.sha_file(Path(firmware.__file__))}}
     state = {}
 
     def run():
         images = ws.root / package['outputs']['directory']
-        # The kernel prebuilts and vendor generation this set was made from, as
-        # its record names them (not whatever the workspace holds now).
         record = json.loads((images / 'build.json').read_bytes())
-        vendor = (record.get('generated_inputs') or {}).get('vendor') or {}
-        packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_bytes())
-        kernel_dir, kernel_problem = kernel_prebuilts(ws.src, record)
-        vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
-        report = verify(images, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'), kernel_dir,
-                        vendor_dir, packaging, ws.src, kernel_problem, inventory)
+        report = verify_set(images, ws, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'),
+                            inventory)
         path = ws.images / (package['outputs']['build_id'] + '.verify.json')
         bw.write_atomic(path, bw.encoded(report))
         state.update(report=report, path=path)

@@ -172,6 +172,34 @@ The ZIP contains no final result or its own archive hash. The external release r
 independent result bind the completed ZIP. Full and incremental OTA generation, factory signing
 and release-record signing require the offline signing environment.
 
+## Check a signed image set
+
+`images check` runs the checks of `build verify` on an image set outside the build, also one
+re-signed with its own keys (`signing` `release-keys`, `qualification-keys` or
+`throwaway-test-keys` in `build.json`). It writes only the report and temporary files.
+
+```sh
+bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
+  --report "$SCRATCH/signed.verify.json" --scratch "$SCRATCH"
+```
+
+- The workspace gives the source, the host tools and the vendor generation. Its kernel prebuilts
+  checkout must be at the commit `build.json` names.
+- Every check of `build verify` runs. Four that assume the public test keys have signed
+  counterparts with the same ids:
+  - `record`: `never_lock` false, `release` true only with release keys, and `avb_custom_key`
+    naming `avb_pkmd.bin`, which `SHA256SUMS` lists and vbmeta embeds byte for byte.
+  - `test-keys`: `release-keys` in every build tag and fingerprint, `test-keys` in no property file
+    and not in `META/misc_info.txt`.
+  - `test-keys` also refuses an `otacerts.zip` or `mac_permissions.xml` certificate with the key of
+    a public test certificate (`build/make/target/product/security`, `system/apex`).
+  - `avb-chain`: `avbtool verify_image` of vbmeta and every chain with `avb_pkmd.bin`, chain
+    descriptors with the same key, the FP6 layout and flags 0. The detail lists the rollback indexes.
+  - `validators`: `validate_target_files` and `check_target_files_vintf` from the set's
+    `otatools.zip`, with the set's public key for the signing keys the archive names.
+- `avb_pkmd.bin` must be an RSA AVB key that `avbtool` reproduces exactly, and none of the AOSP AVB
+  test keys (`external/avb/test/data/testkey_rsa*.pem`).
+
 ## Verify publication
 
 Keep the inventory, plan, result and scratch outside the dedicated publication directory.

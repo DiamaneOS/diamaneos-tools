@@ -41,6 +41,9 @@ def main(argv=None):
     if argv[:1] == ['flash-steps']:
         from diamaneos_tools import flash_steps
         return flash_steps.main(argv[1:])
+    if argv[:2] == ['images', 'check']:
+        from diamaneos_tools import image_profiles
+        return image_profiles.main(argv[2:])
     if argv[:2] == ['build', 'inputs']:
         from diamaneos_tools import product_inputs
         return product_inputs.main(argv[2:])
@@ -82,6 +85,7 @@ def main(argv=None):
         print("        build preflight -> fail-closed pinned build-input verification")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        fonts check -> product font customization as Android reads it")
+        print("        images check -> the image checks of build verify on any image set, also a re-signed one")
         print("        overlays check -> resource overlays against their targets at a release")
         print("        strings check -> string resources: escaping, placeholders, markup and plurals")
         print("        signing -> verified-build signing plans and native publication signature verification")
