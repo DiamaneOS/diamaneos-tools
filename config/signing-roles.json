@@ -45,9 +45,9 @@
   ],
   "presigned_packages": [
     {"metadata_name": "AppCompatConfig.apk", "artifact_basename": "AppCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["e5044303e85b4cceaae00ecf8823c9c6f937a8e3a2fb632ec9fa45b2c33b4bd1"]},
-    {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b"]},
+    {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47"]},
     {"metadata_name": "Auditor.apk", "artifact_basename": "Auditor.apk", "parent_apex": null, "certificate_sha256": ["427bfd360586b829475f37abffd2548d93db3618e45c994de416469ef04bc2ec"]},
-    {"metadata_name": "Camera.apk", "artifact_basename": "Camera.apk", "parent_apex": null, "certificate_sha256": ["6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59"]},
+    {"metadata_name": "Camera.apk", "artifact_basename": "Camera.apk", "parent_apex": null, "certificate_sha256": ["285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61"]},
     {"metadata_name": "GmsCompatConfig.apk", "artifact_basename": "GmsCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["6ebb65c5daa95641f7a774ea35d26ff251575cb32e34a8a5d655b2742b57321f"]},
     {"metadata_name": "Messaging.apk", "artifact_basename": "Messaging.apk", "parent_apex": null, "certificate_sha256": ["f79e5f0ec0a0855efd2027e05eb9ec9c196d5d047940be603576e530867c3845"]},
     {"metadata_name": "PdfViewerGOS.apk", "artifact_basename": "PdfViewerGOS.apk", "parent_apex": null, "certificate_sha256": ["eea4b37d46e361ce2583e1f59859db9e784d456425ff40fe6cf75d90f6a968e0"]},
