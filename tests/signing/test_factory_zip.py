@@ -80,7 +80,8 @@ class FactoryInputs(TemporaryInputs):
         self.factory_zip = self.root / 'factory.zip'
         self.tools = SimpleNamespace(scratch=self.root, source=self.source,
                                      run=Mock(side_effect=self.native_run),
-                                     avb_binary_authority=Mock(side_effect=self.native_authority))
+                                     avb_binary_authority=Mock(side_effect=self.native_authority),
+                                     avb_rollback_index=Mock(side_effect=self.native_rollback))
 
     def native_run(self, command, arguments):
         if command == 'avbtool' and arguments[0] == 'info_image':
@@ -99,6 +100,10 @@ class FactoryInputs(TemporaryInputs):
                 (Path(arguments[1]) / (name + '_b.img')).write_bytes(b'')
         else:
             self.fail('Unexpected native fixture operation')
+
+    def native_rollback(self, image):
+        self.assertEqual(self.partitions['vbmeta'], Path(image).read_bytes())
+        return 1791158400
 
     def native_authority(self, image, expected):
         if Path(image).read_bytes() != self.partitions['vbmeta'] or Path(expected).read_bytes() != self.key:
@@ -137,6 +142,7 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
         self.assertEqual(before, record['signing_input']['build_record_sha256'])
         self.assertEqual(si.sha256_file(self.signed), record['target_files']['sha256'])
         self.assertEqual(False, record['never_lock'])
+        self.assertEqual({'vbmeta': 1791158400}, record['avb_rollback_indexes'])
         self.assertNotIn('result', record)
         self.assertNotIn(si.sha256_file(self.factory_zip), json.dumps(record))
         top = factory.directory_name(self.plan)
@@ -170,6 +176,16 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
         record = self.make(); self.verify()
         self.assertTrue(record['never_lock']); self.assertFalse(record['release'])
         self.assertNotIn(['flash', 'avb_custom_key', 'avb_pkmd.bin'], flash_all.commands(record))
+
+    def test_record_carries_the_rollback_indexes_of_the_signed_images(self):
+        self.make()
+        self.tools.avb_rollback_index.side_effect = lambda image: 1
+        with self.assertRaisesRegex(si.SigningError, 'Factory metadata differs'):
+            self.verify()
+        for rollback in ({}, {'vbmeta': -1}, {'vbmeta': 0, 'boot': 1}, {'vbmeta': '0'}):
+            with self.subTest(rollback=rollback), self.assertRaisesRegex(si.SigningError, 'rollback indexes'):
+                factory.derived_record(self.plan, 'f' * 64, {n: 'f' * 64 for n in layout.full_image_members(self.plan)},
+                                       'f' * 64, rollback)
 
     def test_json_object_order_cannot_change_the_installer_sequence(self):
         self.make(); original = self.factory_zip.read_bytes(); self.factory_zip.unlink()

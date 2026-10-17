@@ -154,6 +154,9 @@ The original build record and report remain unchanged. The derived record binds 
 the signing plan, signed target-files and actual image hashes. Its public AVB key must exactly
 match the external authority and the embedded vbmeta key.
 
+`avb_rollback_indexes` in the derived record holds the rollback index that vbmeta and each chained
+image carry.
+
 Checksums cover every contained file except the checksum list itself. Scripts are regenerated
 from the plan-bound source generator and derived record. Installs use fastbootd for logical
 partitions, cancel a pending snapshot first, and stop in the bootloader after installing a production AVB key.
@@ -187,14 +190,19 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
   checkout must be at the commit `build.json` names.
 - Every check of `build verify` runs. Four that assume the public test keys have signed
   counterparts with the same ids:
-  - `record`: `never_lock` false, `release` true only with release keys, and `avb_custom_key`
-    naming `avb_pkmd.bin`, which `SHA256SUMS` lists and vbmeta embeds byte for byte.
+  - `record`: `avb_custom_key` naming `avb_pkmd.bin`, which `SHA256SUMS` lists and vbmeta embeds
+    byte for byte, and `release` true only with release keys.
+  - `record` also reads `never_lock`. An official set signed with qualification keys must never be
+    locked (`true`), other official sets carry the relock record (`false`). Other sets may record
+    either.
   - `test-keys`: `release-keys` in every build tag and fingerprint, `test-keys` in no property file
     and not in `META/misc_info.txt`.
   - `test-keys` also refuses an `otacerts.zip` or `mac_permissions.xml` certificate with the key of
     a public test certificate (`build/make/target/product/security`, `system/apex`).
   - `avb-chain`: `avbtool verify_image` of vbmeta and every chain with `avb_pkmd.bin`, chain
-    descriptors with the same key, the FP6 layout and flags 0. The detail lists the rollback indexes.
+    descriptors with the same key, the FP6 layout and flags 0.
+  - `avb-chain` also requires the rollback index of vbmeta and of each chained image to equal
+    `avb_rollback_indexes` in `build.json`.
   - `validators`: `validate_target_files` and `check_target_files_vintf` from the set's
     `otatools.zip`, with the set's public key for the signing keys the archive names.
 - `avb_pkmd.bin` must be an RSA AVB key that `avbtool` reproduces exactly, and none of the AOSP AVB

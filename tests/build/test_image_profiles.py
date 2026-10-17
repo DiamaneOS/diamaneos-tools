@@ -39,6 +39,7 @@ def avb_blob(modulus: int, bits: int = 2048) -> bytes:
 
 
 SET_KEY = avb_blob((1 << 2047) | 12345)
+ROLLBACK = {'vbmeta': 0, 'boot': 1791158400, 'init_boot': 1791158400, 'recovery': 1, 'vbmeta_system': 1791158400}
 TEST_KEY = avb_blob((1 << 2047) | 67891)
 
 
@@ -113,7 +114,7 @@ class SignedSet:
                        'avb_custom_key': {'file': 'avb_pkmd.bin', 'sha256': sums['avb_pkmd.bin']},
                        'otatools': {'file': 'otatools.zip', 'sha256': sums['otatools.zip']},
                        'target_files': {'file': 'target-files.zip', 'sha256': sums['target-files.zip']},
-                       'images': {'vbmeta': sums['vbmeta.img']}, **(record or {})}
+                       'images': {'vbmeta': sums['vbmeta.img']}, 'avb_rollback_indexes': ROLLBACK, **(record or {})}
         self.src = root / 'src'
         (self.src / 'external/avb/test/data').mkdir(parents=True)
         (self.src / CONFIG['avb']['test_key']).write_text('AOSP test key')
@@ -173,25 +174,33 @@ class SignedCheckTests(unittest.TestCase):
         self.addCleanup(v.tf.close)
         return v
 
-    def test_relock_record(self):
+    def test_signed_record(self):
+        def check(**record):
+            return subject.check_signed_record(self.signed(record=record))
         with mock.patch.object(subject, 'vbmeta_key_problem', return_value=''):
-            self.assertEqual((True, ''), subject.check_relock_record(self.signed()))
-            for record, problem in (({'never_lock': True}, 'relock record'),
+            for record in ({}, {'signing': 'release-keys', 'release': True},
+                           {'signing': 'qualification-keys', 'never_lock': True},
+                           {'official': False, 'never_lock': True}, {'official': False, 'signing': 'qualification-keys'}):
+                with self.subTest(record=record):
+                    self.assertEqual((True, ''), check(**record))
+            for record, problem in (({'never_lock': True}, 'carries the relock record (never_lock false)'),
+                                    ({'signing': 'qualification-keys'}, 'must never be locked (never_lock true)'),
+                                    ({'never_lock': None}, 'never_lock is not true or false'),
                                     ({'release': True}, 'without release keys'),
                                     ({'avb_custom_key': None}, 'no common avb_custom_key'),
                                     ({'avb_custom_key': {'file': 'avb_pkmd.bin', 'sha256': '0' * 64}},
                                      'no common avb_custom_key')):
                 with self.subTest(record=record):
-                    ok, detail = subject.check_relock_record(self.signed(record=record))
+                    ok, detail = check(**record)
                     self.assertFalse(ok)
                     self.assertIn(problem, detail)
-            ok, detail = subject.check_relock_record(self.signed(blob=TEST_KEY, tools=FakeTools(TEST_KEY)))
+            ok, detail = subject.check_signed_record(self.signed(blob=TEST_KEY, tools=FakeTools(TEST_KEY)))
             self.assertFalse(ok)
             self.assertIn('is the AOSP AVB test key testkey_rsa4096.pem', detail)
-            ok, detail = subject.check_relock_record(self.signed(tools=FakeTools(TEST_KEY)))
+            ok, detail = subject.check_signed_record(self.signed(tools=FakeTools(TEST_KEY)))
             self.assertIn('not an AVB RSA public key with exponent 65537', detail)
         with mock.patch.object(subject, 'vbmeta_key_problem', return_value='vbmeta.img is not signed with x'):
-            self.assertEqual((False, 'vbmeta.img is not signed with x'), subject.check_relock_record(self.signed()))
+            self.assertEqual((False, 'vbmeta.img is not signed with x'), subject.check_signed_record(self.signed()))
 
     def test_release_keys_everywhere_and_no_test_certificate(self):
         keys = self.root / 'keys'
@@ -229,8 +238,8 @@ class SignedCheckTests(unittest.TestCase):
     def test_signed_avb_chain(self):
         v = self.signed()
         ok, detail = subject.check_signed_avb(v)
-        self.assertTrue(ok, detail)
-        self.assertIn('boot 1791158400', detail)
+        self.assertEqual((True, 'rollback indexes: vbmeta 0, boot 1791158400, init_boot 1791158400, recovery 1, '
+                          'vbmeta_system 1791158400'), (ok, detail))
         verify = next(args for name, args in v.tools.calls if args[0] == 'verify_image')
         self.assertEqual(subject.avb_key_pem(SET_KEY), v.tools.pem)
         chains = {f'{name}:{location}:{v.images / "avb_pkmd.bin"}' for name, location in CONFIG['avb']['chains'].items()}
@@ -239,7 +248,10 @@ class SignedCheckTests(unittest.TestCase):
         for kw, problem in (({'blob': TEST_KEY, 'tools': FakeTools(TEST_KEY)}, 'AOSP AVB test key'),
                             ({'tools': FakeTools(verify_fails=True)}, 'does not match given key'),
                             ({'tools': FakeTools(texts=layout({'boot': 1}))}, 'boot does not keep AVB flags 0'),
-                            ({'tools': FakeTools(texts=layout({'vbmeta': 2}))}, 'vbmeta does not keep AVB flags 0')):
+                            ({'tools': FakeTools(texts=layout({'vbmeta': 2}))}, 'vbmeta does not keep AVB flags 0'),
+                            ({'record': {'avb_rollback_indexes': None}}, "'recovery': 1, 'vbmeta_system': 1791158400} "
+                                                                         '(build.json avb_rollback_indexes: None)'),
+                            ({'record': {'avb_rollback_indexes': dict(ROLLBACK, recovery=2)}}, 'rollback indexes are')):
             with self.subTest(problem=problem):
                 v = self.signed(**kw)
                 try:

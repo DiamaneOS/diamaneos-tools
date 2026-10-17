@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-from diamaneos_tools import image_profiles as profiles, image_verify, signing_archive as za
+from diamaneos_tools import image_profiles as profiles, image_verify, signing_archive as za, signing_native
 from .test_native_signatures import OTATOOLS, SOURCE, require_native_inputs
 
 TEST_KEY = 'external/avb/test/data/testkey_rsa4096.pem'
@@ -20,8 +20,8 @@ class SignedImageCheckTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(prefix='signed-image-checks-')
         cls.addClassCleanup(temp.cleanup)
         cls.root, cls.source = Path(temp.name), Path(SOURCE)
-        otatools = za.unpack_tools(Path(OTATOOLS), cls.root / 'otatools')
-        cls.tools = image_verify.Tools(otatools / 'bin', cls.source, cls.root / 'work')
+        cls.otatools = za.unpack_tools(Path(OTATOOLS), cls.root / 'otatools')
+        cls.tools = image_verify.Tools(cls.otatools / 'bin', cls.source, cls.root / 'work')
         for name in ('own', 'other'):
             subprocess.run(['/usr/bin/openssl', 'genpkey', '-algorithm', 'RSA', '-pkeyopt', 'rsa_keygen_bits:4096',
                             '-out', cls.root / (name + '.pem')], check=True, capture_output=True)
@@ -46,8 +46,9 @@ class SignedImageCheckTests(unittest.TestCase):
         (images / 'avb_pkmd.bin').write_bytes(key)
         (images / 'SHA256SUMS').write_text(f'{hashlib.sha256(key).hexdigest()}  avb_pkmd.bin\n')
         config = {'avb': {'test_key': TEST_KEY, 'chains': {'boot': 30}}}
-        record = {'never_lock': False, 'release': False, 'signing': 'qualification-keys',
-                  'avb_custom_key': {'file': 'avb_pkmd.bin', 'sha256': hashlib.sha256(key).hexdigest()}}
+        record = {'never_lock': True, 'release': False, 'signing': 'qualification-keys', 'official': True,
+                  'avb_custom_key': {'file': 'avb_pkmd.bin', 'sha256': hashlib.sha256(key).hexdigest()},
+                  'avb_rollback_indexes': {'vbmeta': 0, 'boot': 7}}
         return SimpleNamespace(images=images, record=record, tools=self.tools, config=config, src=self.source)
 
     def checks(self, v):
@@ -56,7 +57,7 @@ class SignedImageCheckTests(unittest.TestCase):
         with mock.patch.object(image_verify, 'avb_layout', return_value=([], info)), \
                 mock.patch.object(image_verify, 'record_problems', return_value=[]):
             results = []
-            for check in (profiles.check_relock_record, profiles.check_signed_avb):
+            for check in (profiles.check_signed_record, profiles.check_signed_avb):
                 try:
                     results.append(check(v))
                 except image_verify.CheckFailed as error:
@@ -64,9 +65,14 @@ class SignedImageCheckTests(unittest.TestCase):
             return results
 
     def test_own_key_passes(self):
-        (record, avb) = self.checks(self.image_set('own', 'own', 'own'))
+        v = self.image_set('own', 'own', 'own')
+        (record, avb) = self.checks(v)
         self.assertEqual((True, ''), record)
         self.assertEqual((True, 'rollback indexes: vbmeta 0, boot 7'), avb)
+        native = signing_native.NativeTools(self.otatools, self.source, self.root)
+        self.assertEqual(7, native.avb_rollback_index(v.images / 'boot.img'))
+        v.record['avb_rollback_indexes']['boot'] = 8
+        self.assertFalse(self.checks(v)[1][0])
 
     def test_aosp_test_key_fails(self):
         for record_or_avb in self.checks(self.image_set('test', 'test', 'test')):

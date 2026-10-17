@@ -100,10 +100,16 @@ def vbmeta_key_problem(v) -> str:
     return ''
 
 
-def check_relock_record(v):
+def check_signed_record(v):
     problems = []
-    if v.record.get('never_lock') is not False:
-        problems.append('build.json does not carry the relock record (never_lock false)')
+    never_lock = v.record.get('never_lock')
+    if not isinstance(never_lock, bool):
+        problems.append('build.json never_lock is not true or false')
+    elif v.record.get('official') is True and never_lock != (v.record['signing'] == 'qualification-keys'):
+        # Sets that are not official may record either: their owners lock as they like.
+        problems.append('an official set signed with release or throwaway keys carries the relock record '
+                        '(never_lock false)' if never_lock else
+                        'an official set signed with qualification keys must never be locked (never_lock true)')
     if not isinstance(v.record.get('release'), bool) or (v.record['release'] and v.record['signing'] != 'release-keys'):
         problems.append('build.json release is not true or false, or true without release keys')
     problems += iv.record_problems(v)
@@ -180,7 +186,7 @@ def check_signed_avb(v):
             args += ['--expected_chain_partition', f'{name}:{location}:{v.images / KEY_FILE}']
         v.tools.run('avbtool', args, cwd=v.images)
     problems, info = iv.avb_layout(v)
-    indexes = []
+    indexes = {}
     for name in ['vbmeta', *sorted(chains)]:
         if name != 'vbmeta':
             info = v.tools.run('avbtool', ['info_image', '--image', v.images / f'{name}.img'])
@@ -188,8 +194,12 @@ def check_signed_avb(v):
         # avbtool prints the release string as it is, so a field counts only once.
         if re.findall(r'(?m)^Flags:\s+(\d+)\s*$', header) != ['0']:
             problems.append(f'{name} does not keep AVB flags 0')
-        indexes.append(f'{name} ' + ','.join(re.findall(r'(?m)^Rollback Index:\s+(\d+)\s*$', header)))
-    return not problems, '; '.join(problems) or 'rollback indexes: ' + ', '.join(indexes)
+        found = re.findall(r'(?m)^Rollback Index:\s+(\d+)\s*$', header)
+        indexes[name] = int(found[0]) if len(found) == 1 else found
+    if v.record.get('avb_rollback_indexes') != indexes:
+        problems.append(f'rollback indexes are {indexes} (build.json avb_rollback_indexes: '
+                        f'{v.record.get("avb_rollback_indexes")})')
+    return not problems, '; '.join(problems) or 'rollback indexes: ' + ', '.join(f'{n} {i}' for n, i in indexes.items())
 
 
 def otatools(v, root: Path) -> iv.Tools:
@@ -219,12 +229,12 @@ def check_otatools_validators(v):
 
 
 COUNTERPARTS = {
-    'record': ('The image set matches its build record, which lets the phone be locked with the set\'s own AVB key.',
-               check_relock_record),
+    'record': ('The image set matches its build record. An official set says whether its own AVB key may lock the '
+               'phone: never with qualification keys, always with others.', check_signed_record),
     'test-keys': ('A re-signed set says release-keys wherever a build names its keys, and no OTA or SELinux '
                   'certificate holds a public test key.', check_release_keys),
     'avb-chain': ('The AVB chain verifies with the set\'s own key, never an AOSP test key, and has the published FP6 '
-                  'layout, flags 0 and SHA-256 hashtrees.', check_signed_avb),
+                  'layout, flags 0, SHA-256 hashtrees and the rollback indexes build.json records.', check_signed_avb),
     'validators': ('validate_target_files and check_target_files_vintf from the set\'s own otatools pass on the '
                    'archive.', check_otatools_validators),
 }

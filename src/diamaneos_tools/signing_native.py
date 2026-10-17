@@ -267,6 +267,14 @@ class NativeTools:
             frozen.chmod(0o600)
             command([sys.executable, '-I', '-c', AVB_BINARY_AUTHORITY, frozen, path, expected], env=self.env)
 
+    def avb_rollback_index(self, path):
+        """The rollback index in an image's own vbmeta header."""
+        header = self.run('avbtool', ['info_image', '--image', path]).split('Descriptors:')[0]
+        # avbtool prints the release string as it is, so the field counts only once.
+        found = re.findall(r'(?m)^Rollback Index:\s+([0-9]{1,20})\s*$', header)
+        require(len(found) == 1, 'AVB description lacks a single rollback index')
+        return int(found[0])
+
     def ssh_signature(self, path, signature, allowed_signers, identity, namespace):
         host_ssh_signature(path, signature, allowed_signers, identity, namespace, self.scratch)
 

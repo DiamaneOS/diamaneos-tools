@@ -130,11 +130,14 @@ def directory_name(plan):
     return file_name(value['product'] + '-factory-' + value['build_number'])
 
 
-def derived_record(plan, signed_hash, image_hashes, key_hash):
+def derived_record(plan, signed_hash, image_hashes, key_hash, rollback):
     original = plan.get('factory_input')
     require(original is not None, 'Signing plan lacks factory install metadata; prepare a new plan')
     validate_input(original, plan)
     require(set(image_hashes) == layout.full_image_members(plan), 'Factory image membership is incomplete')
+    require(set(rollback) == {'vbmeta', *plan['chains']}
+            and all(type(index) is int and index >= 0 for index in rollback.values()),
+            'Factory rollback indexes do not cover vbmeta and every chain')
     production = plan['mode'] == 'production'
     value = copy.deepcopy(original)
     value.update(release=production, signing='release-keys' if production else 'qualification-keys',
@@ -142,7 +145,7 @@ def derived_record(plan, signed_hash, image_hashes, key_hash):
                  target_files={'file': 'target-files.zip', 'sha256': signed_hash},
                  images={name: image_hashes[name + '.img'] for name in
                          [*plan['partitions'], *(['super', 'super_empty'] if plan.get('logical_partitions') else [])]},
-                 avb_custom_key={'file': 'avb_pkmd.bin', 'sha256': key_hash},
+                 avb_custom_key={'file': 'avb_pkmd.bin', 'sha256': key_hash}, avb_rollback_indexes=rollback,
                  packaging_tools={'commit': plan['provenance']['projects']['tools/diamaneos'], 'clean': True},
                  signing_input={'plan_sha256': plan['plan_sha256'],
                                 'build_record_sha256': plan['provenance']['record_sha256'],
@@ -172,9 +175,19 @@ def public_key(tools, keys, destination):
     return destination.read_bytes()
 
 
-def expected_metadata(plan, signed, hashes, key, manifest_hash, tools):
+def rollback_indexes(handle, plan, tools, directory):
+    """The AVB rollback index of vbmeta and each chained image, as the signed images carry them."""
+    result = {}
+    for name in ['vbmeta', *sorted(plan['chains'])]:
+        image = za.extract(handle, name + '.img', Path(directory) / ('rollback-' + name + '.img'))
+        result[name] = tools.avb_rollback_index(image)
+        image.unlink()
+    return result
+
+
+def expected_metadata(plan, signed, hashes, key, manifest_hash, tools, rollback):
     require(manifest_hash == plan['provenance']['manifest_sha256'], 'Factory resolved manifest changed')
-    record = derived_record(plan, sha256_file(signed), hashes, hashlib.sha256(key).hexdigest())
+    record = derived_record(plan, sha256_file(signed), hashes, hashlib.sha256(key).hexdigest(), rollback)
     files = {'build.json': encoded(record), 'avb_pkmd.bin': key, **trusted_scripts(record, plan, tools)}
     return record, files
 
@@ -204,8 +217,8 @@ def write_factory(destination, images, signed, manifest, plan, tools, keys):
         tools.avb_binary_authority(vbmeta, key_path)
         manifest_data = Path(manifest).read_bytes()
         require(len(manifest_data) <= MAX_JSON, 'Factory manifest exceeds its bound')
-        record, metadata = expected_metadata(plan, signed, hashes, key,
-                                             hashlib.sha256(manifest_data).hexdigest(), tools)
+        record, metadata = expected_metadata(plan, signed, hashes, key, hashlib.sha256(manifest_data).hexdigest(),
+                                             tools, rollback_indexes(handle, plan, tools, td))
         metadata['resolved-manifest.xml'] = manifest_data
         digests = {**hashes, **{name: hashlib.sha256(data).hexdigest() for name, data in metadata.items()}}
         metadata['SHA256SUMS'] = sums(digests)
@@ -239,7 +252,8 @@ def verify_factory(factory, images, signed, plan, tools, keys):
         vbmeta = za.extract(handle, top + '/vbmeta.img', Path(td) / 'vbmeta.img')
         tools.avb_binary_authority(vbmeta, key_path)
         manifest = za.read_text(handle, top + '/resolved-manifest.xml').encode('utf-8')
-        _record, metadata = expected_metadata(plan, signed, hashes, key, hashlib.sha256(manifest).hexdigest(), tools)
+        _record, metadata = expected_metadata(plan, signed, hashes, key, hashlib.sha256(manifest).hexdigest(), tools,
+                                              rollback_indexes(source, plan, tools, td))
         metadata['resolved-manifest.xml'] = manifest
         for name, data in metadata.items():
             require(handle.getinfo(top + '/' + name).file_size <= MAX_JSON
