@@ -174,7 +174,8 @@ class KernelDenyListTests(unittest.TestCase):
     def test_committed_recipe_keeps_denied_modules_out(self):
         denied = kernel.denied_modules(self.recipe)
         for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'f_fs_ipc_log.ko', 'eud.ko',
-                     'coresight.ko', 'stm_core.ko', 'usb_f_qdss.ko'):
+                     'coresight.ko', 'stm_core.ko', 'usb_f_qdss.ko', 'icc-test.ko', 'memory_dump_v2.ko',
+                     'dmesg_dumper.ko', 'sysmon_subsystem_stats.ko', 'gpu_dump_skip_cdev.ko'):
             self.assertIn(name, denied)
         # Kept on purpose: glink_probe imports qcom_glink_spss, the audio machine
         # driver wcd937x, and stmvl53l1 is the laser autofocus sensor, not STM.
