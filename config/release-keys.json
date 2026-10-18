@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "certificates": {
+    "bluetooth": "76c65b039f3dd35ed24e167f4559e6f333f502800cc8315a8cbe570f60268df7",
+    "gmscompat_lib": "94d740e71cc59fa0cdf4d1314e3b712deaeebb9dfd51ca2f5936fb2ad75876b9",
+    "media": "67ee02f122cb55514733309924c0079d0749cace0647ce8844a55729dfa680f9",
+    "networkstack": "8c38d747181d19e3f890acf94eb513dd1420da6fd25733885986a1637504493e",
+    "nfc": "07a173125513a0d79c2a77e94d1e455076dd01445690b0f32f53c177e30cd654",
+    "platform": "87d21c2cf81f6ed08de9e70adf4308e484a53a2f5255ff9a06bbdfbce1fe1962",
+    "releasekey": "90082ccb9b14e282813086c8ae52b1e3553e072833f414a3b1fee0a18ee6867c",
+    "sdk_sandbox": "902a45b7c1e6026fe79b119aea9d7f30df8d12a0d081af41a2f3664a2cc1d1cd",
+    "shared": "bc91625fe2cf5c9f6da6cdb3f489d31092fbcba82d2c67b4596527aea9cb9996"
+  },
+  "avb_pkmd_sha256": "5c4c94ba54e9f4fe81dcfd77e9b919204f0a493593a2677b50498cbcb6cd8f8d",
+  "avb_public_key_sha256": "f6e3b91d16fbaccd13e10cf9785bee6154f7dbaec4fb3f8d8800cb70e2eea428",
+  "release_list_signer_sha256": "0b0a4d2cd3680ff4f3993ca8a61cda93417680f5151090154edcd52655c7e4ab",
+  "factory_signer": "diamaneos ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB+N9xKoysBkgXsI9di16Bamn6d2wIULS5SfJazATsZ0",
+  "apps": {
+    "AppStore.apk": "559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47",
+    "Auditor.apk": "427bfd360586b829475f37abffd2548d93db3618e45c994de416469ef04bc2ec",
+    "Camera.apk": "285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61"
+  },
+  "catalog": {
+    "apk": "AppStore.apk",
+    "key": "RWRM77BKHPPXnI2+ijuXz5phnaGpVGZuK8R6GM7uX5Wonc/5YiLsiJF3"
+  }
+}

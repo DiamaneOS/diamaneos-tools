@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.example.overlay.locked">
+    <application android:hasCode="false" />
+    <overlay android:targetPackage="com.example.locked" android:targetName="Theme"
+        android:isStatic="true" android:priority="1" />
+</manifest>

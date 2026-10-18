@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "scope": "How the public build commands build, package and flash an FP6 test image. Identity pins live in build-environment-fp6.json. This file holds no host paths.",
+  "product": "FP6",
+  "device": {
+    "name": "Fairphone 6",
+    "maker": "Fairphone",
+    "bootloader_keys": "Power and Volume down"
+  },
+  "release_config": "cur",
+  "default_variant": "user",
+  "variants": {
+    "user": {
+      "debuggable": false,
+      "permissive_domains": []
+    },
+    "userdebug": {
+      "debuggable": true,
+      "permissive_domains": [
+        "su"
+      ]
+    }
+  },
+  "out_dir": "out",
+  "host_tools": [
+    "aapt2",
+    "simg2img",
+    "lpunpack",
+    "debugfs_static"
+  ],
+  "make_targets": [
+    "droid",
+    "superimage",
+    "target-files-package",
+    "otatools-package",
+    "check_target_files_vintf",
+    "validate_target_files",
+    "make_f2fs",
+    "apksigner",
+    "fp6_fingerprint_session_test",
+    "fp6_fingerprint_module_factory_service_test"
+  ],
+  "notice_kind": "legacy_proprietary",
+  "notice_kind_reason": "Android's licence classification for the extracted stock files. Users extract them from Fairphone's own package.",
+  "factory_host": "android-builds.fairphone.com",
+  "target_files": "obj/PACKAGING/target_files_intermediates/FP6-target_files*.zip",
+  "build_identity": {
+    "number_prefix": "test",
+    "username": "diamaneos",
+    "hostname": "diamaneos"
+  },
+  "images": {
+    "bootloader": [
+      "boot",
+      "init_boot",
+      "vendor_boot",
+      "recovery",
+      "dtbo",
+      "pvmfw",
+      "vbmeta_system",
+      "vbmeta"
+    ],
+    "logical": [
+      "system",
+      "system_ext",
+      "product",
+      "vendor",
+      "odm",
+      "vendor_dlkm",
+      "system_dlkm"
+    ],
+    "extra": [
+      "super_empty"
+    ]
+  },
+  "slot": "a",
+  "avb": {
+    "test_key": "external/avb/test/data/testkey_rsa4096.pem",
+    "chains": {
+      "recovery": 28,
+      "vbmeta_system": 29,
+      "boot": 30,
+      "init_boot": 31
+    },
+    "zero_header_os_fields": [
+      "boot",
+      "init_boot",
+      "recovery"
+    ],
+    "zero_header_reason": "Generic kernel image v4 headers carry zero OS version and patch level. The versions live in the AVB properties, as on stock. The device configuration asks mkbootimg for zeros. The Android release tools that rebuild the images from target-files must keep them.",
+    "hashtree_algorithm": "sha256",
+    "hashtree_reason": "Every logical partition's dm-verity hash tree uses SHA-256, as on stock. avbtool still defaults to SHA-1, so the device configuration asks for SHA-256."
+  },
+  "bootconfig": {
+    "required": [
+      "androidboot.hardware=qcom"
+    ],
+    "forbidden_keys": [
+      "androidboot.selinux",
+      "eud.enable"
+    ]
+  },
+  "kernel_arguments": {
+    "forbidden_reason": "Each of these turns a kernel protection off, copies kernel traces or a debugger onto a console, or changes how the phone restarts (a cold restart clears memory). None is set, so the kernel configuration decides.",
+    "forbidden": [
+      "kpti",
+      "nokaslr",
+      "kaslr.disabled",
+      "norandmaps",
+      "mitigations",
+      "nospectre_v2",
+      "nospectre_bhb",
+      "ssbd",
+      "arm64.nopauth",
+      "arm64.nobti",
+      "rodata",
+      "init_on_alloc",
+      "init_on_free",
+      "hardened_usercopy",
+      "randomize_kstack_offset",
+      "slab_merge",
+      "iommu.passthrough",
+      "selinux",
+      "enforcing",
+      "androidboot.selinux",
+      "kgdboc",
+      "kgdbwait",
+      "sysrq_always_enabled",
+      "ftrace_dump_on_oops",
+      "tp_printk",
+      "reboot"
+    ]
+  },
+  "wipe": {
+    "validated": false,
+    "fstab": "VENDOR/etc/fstab.qcom",
+    "images": {
+      "userdata": {
+        "image": "userdata.img",
+        "kind": "zeros",
+        "bytes": 4194304,
+        "reason": "As Fairphone's factory package: 4 MiB of zeros destroy the old filesystem, and first boot formats /data (formattable) with the phone's own size, encryption, casefolding and quota settings. A pre-formatted image would fix the size and features at build time."
+      },
+      "metadata": {
+        "image": "metadata.img",
+        "kind": "f2fs",
+        "bytes": 67108864,
+        "label": "metadata",
+        "uuid": "edfbd922-2398-582a-bc24-062261d4ee5e",
+        "reason": "An empty f2fs filesystem of the metadata partition's size (stock metadata.img is the same size and type), made with the synced source's make_f2fs with a fixed UUID, time and seed so every build writes the same bytes."
+      },
+      "frp": {
+        "image": "frp.img",
+        "kind": "frp",
+        "bytes": 524288,
+        "sha256": "40f5b680536bd76753b2d919793e6366955fb4380efebfa541ded2d229a4f50f",
+        "reason": "As Fairphone's frp_for_factory.img: zeros with the last byte set, which clears factory reset protection and keeps OEM unlocking allowed. Byte-identical to the stock image."
+      },
+      "misc": {
+        "image": "misc.img",
+        "kind": "zeros",
+        "bytes": 1048576,
+        "partition_label": "misc",
+        "reason": "Zeros over the whole of misc (the bootloader message, such as a pending recovery command), where Fairphone's factory flash uses fastboot erase. The size, 256 sectors of 4096 bytes, is the stock partition table's in FP6.QREL.16.111.0. Build package checks it against the factory package's."
+      }
+    }
+  },
+  "firmware": {
+    "validated": true,
+    "slots": "Each A/B firmware partition gets the same stock image on both slots, as Fairphone's own flash writes it. The OS still goes to slot a only. Older firmware left on slot b would run after any later switch to b (fastboot --set-active=b, the bootloader's fallback after failed boots, or an update that lands on b): firmware older than the phone has already run, next to state the newer firmware wrote in partitions both slots share (storsec, the modem file system, secure storage). Slot b holds no OS after a DiamaneOS flash (super gets slot a only), so its old firmware is no fallback either way.",
+    "excluded": {
+      "pvmfw.img": "DiamaneOS builds pvmfw from source and flashes it with the OS, chained from vbmeta_system."
+    },
+    "wipe_only": {
+      "logfs_ufs_8mb.bin": "An empty log filesystem for logfs, the single partition the firmware keeps logs in. Stock writes it on every flash. DiamaneOS writes it only with a wipe, as an A/B update never writes it.",
+      "vm-persist.img": "An empty filesystem for vm-persist, the single partition the trusted VMs keep their data in. Stock writes it on every flash. DiamaneOS writes it only with a wipe, as an A/B update never writes it."
+    },
+    "update_skips": {
+      "study.img": "Fairphone's study partitions hold state written at run time. An A/B update leaves them alone, as it leaves every other state partition."
+    },
+    "reset": {
+      "modemst1": {
+        "image": "modemst1.img",
+        "kind": "zeros",
+        "bytes": 10485760,
+        "partition_label": "modemst1"
+      },
+      "modemst2": {
+        "image": "modemst2.img",
+        "kind": "zeros",
+        "bytes": 10485760,
+        "partition_label": "modemst2"
+      }
+    },
+    "reset_reason": "As Fairphone's factory flash erases modemst1 and modemst2, the two working copies of the modem file system, but by flashing zeros over each whole partition instead of fastboot erase. With both copies empty the modem rebuilds its file system from the factory backup (fsg) when it next starts, so new modem firmware and its carrier profiles start from that backup instead of state older firmware wrote. Written right after the firmware, only when the firmware steps run. The sizes are the stock partition table's: 2560 sectors of 4096 bytes each in FP6.QREL.16.111.0. Build package checks them against the factory package.",
+    "dropped": {
+      "erase misc": "misc holds the OS's boot messages (a pending recovery command, the state of an unfinished update), not firmware state, so DiamaneOS zeros it only with a wipe.",
+      "oem reset-rollback": "Resets the AVB rollback indexes the bootloader stores. DiamaneOS has no reason to weaken rollback protection, and test builds stay unlocked, where the indexes are not enforced.",
+      "the OS on slot b": "The OS goes to slot a only."
+    }
+  },
+  "firmware_release": {
+    "scope": "The table fwrelease (device firmware/) checks the booted slot's firmware partitions against, to report the installed Fairphone release in Settings. The vendor step writes it from config/fp6-firmware-inventory.json into vendor/etc/diamaneos/firmware-releases.txt. Every inventory firmware image not listed here is checked and must be an A/B, non-sparse image.",
+    "release_prefix": "FP6.QREL.",
+    "not_checked": {
+      "pvmfw.img": {
+        "reason": "DiamaneOS builds and flashes its own pvmfw. The stock image is never on the phone."
+      },
+      "vm-bootsys.img": {
+        "reason": "A sparse image, so the partition does not hold its bytes. Identical in every release, so it tells none apart. The build fails if that changes.",
+        "identical": true
+      },
+      "vm-persist.img": {
+        "reason": "The trusted VM's data, written at run time."
+      },
+      "logfs_ufs_8mb.bin": {
+        "reason": "The boot log filesystem, written at run time."
+      },
+      "study.img": {
+        "reason": "Fairphone's study partitions, written at run time."
+      },
+      "storsec.mbn": {
+        "reason": "A single copy that an A/B update never writes, so it would read mixed after every firmware update. Its generic block_device label is also kept from other domains by an AOSP neverallow."
+      },
+      "tools.fv": {
+        "reason": "A single copy that an A/B update never writes, so it would read mixed after every firmware update. Its generic block_device label is also kept from other domains by an AOSP neverallow."
+      }
+    }
+  },
+  "shallow_prefetch": {
+    "projects": [
+      "prebuilts/clang/host/linux-x86",
+      "prebuilts/misc",
+      "prebuilts/rust-toolchain/linux-musl-x86",
+      "prebuilts/rust-toolchain/linux-x86",
+      "tools/deviceinfra/prebuilts"
+    ],
+    "jobs": 3,
+    "attempts": 8,
+    "retry_delay_seconds": 60,
+    "low_speed_limit_bytes": 1000,
+    "low_speed_time_seconds": 300,
+    "reason": "The prebuilt projects with the largest depth-1 downloads, 2 to 8 GB each. When such a fetch from android.googlesource.com breaks off, repo fetches the project again without depth, which for these does not finish, and the interrupted sync leaves git directories repo later fetches with their whole history. build sync --shallow fetches these first, one revision each at depth 1, within these limits."
+  },
+  "disk_estimate_gib": {
+    "sync": 220,
+    "kernel": 60,
+    "vendor": 25,
+    "android": 130,
+    "package": 15,
+    "verify": 12
+  }
+}

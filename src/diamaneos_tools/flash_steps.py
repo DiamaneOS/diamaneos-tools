@@ -1,0 +1,364 @@
+"""Print the fastboot commands for a verified DiamaneOS image set.
+
+A test build is signed with the public test keys and stays unlocked. A set
+re-signed with its own keys whose record says relock ends with the relock.
+
+Never runs fastboot. Prints every image, or with --since only the images that
+differ from an earlier build. --wipe adds the data wipe, done by flashing
+empty images as the stock factory package does (never fastboot -w or erase).
+
+The image set carries the device maker's firmware for the release its vendor
+files come from. The firmware steps come first, in the stock order and on both
+slots, and only when the phone runs older firmware: never older firmware than
+the phone has. Say which firmware the phone runs with --phone-firmware (the
+bootloader does not report it), or let --since take it from the earlier build,
+and save the phone's bootloader state for --phone:
+
+  { fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import shlex
+import sys
+import textwrap
+
+from . import build_workspace as bw
+from . import firmware as fw
+from . import flash_all
+from .image_package import RECORD, SUMS, check_sums
+from .image_profiles import PUBLIC_TEST_KEYS, SIGNED
+from .image_verify import failed_checks, report_problem
+
+# The bootloader values flash-steps reads from "fastboot getvar all".
+PHONE_KEYS = ('product', 'unlocked', 'is-userspace', 'version-bootloader', 'version-baseband')
+# ... and from "fastboot oem device-info".
+DEVICE_INFO = {'Device unlocked': 'device-unlocked', 'Device critical unlocked': 'critical-unlocked'}
+VERSIONS = ('version-bootloader', 'version-baseband')
+MODES = ('auto', 'skip', 'rewrite')
+
+
+class FlashError(Exception):
+    pass
+
+
+def load(directory: Path) -> dict:
+    record_path = directory / RECORD
+    if not record_path.is_file():
+        raise FlashError(f'{directory} is not a DiamaneOS image directory (no {RECORD})')
+    if not check_sums(directory):
+        raise FlashError(f'{directory} does not match its SHA256SUMS. Do not flash it')
+    return json.loads(record_path.read_bytes())
+
+
+def verification(directory: Path, record: dict) -> dict | None:
+    """The verify report for exactly this image set, or None."""
+    report = directory.parent / (record['build_id'] + '.verify.json')
+    if not report.is_file():
+        return None
+    value = json.loads(report.read_bytes())
+    if value.get('sums_sha256') != bw.sha_file(directory / 'SHA256SUMS') or value.get('build_id') != record['build_id']:
+        raise FlashError('the verification report belongs to another image set. Run "diamaneos build verify" again')
+    return value
+
+
+def changed(record: dict, previous: dict | None, names) -> list[str]:
+    if previous is None:
+        return list(names)
+    return [n for n in names if record['images'].get(n) != previous['images'].get(n)]
+
+
+def parse_phone(text: str) -> dict:
+    """The values flash-steps needs from saved "fastboot getvar all" (or single
+    getvar) and "fastboot oem device-info" output."""
+    values = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith('(bootloader)'):
+            line = line[len('(bootloader)'):].strip()
+        key, separator, value = line.partition(':')
+        key, value = key.strip(), value.strip()
+        if not separator or (key not in PHONE_KEYS and key not in DEVICE_INFO):
+            continue
+        key = DEVICE_INFO.get(key, key)
+        if key in values and values[key] != value:
+            raise FlashError(f'the saved phone state gives {key} twice, with different values. Save one phone\'s state')
+        values[key] = value
+    return values
+
+
+def check_phone(phone: dict, record: dict, writes_firmware: bool) -> None:
+    device = flash_all.fields(record)
+    if phone.get('product') != record['product']:
+        raise FlashError(f'the saved phone state is not a {device["name"]} (product: {phone.get("product")!r})')
+    if phone.get('unlocked') != 'yes':
+        raise FlashError(f'the bootloader is locked. Unlock it as {device["maker"]} describes')
+    if phone.get('is-userspace') != 'no':
+        raise FlashError('the phone was not in the bootloader (fastbootd, or not reported). Run "fastboot reboot '
+                         'bootloader" and save its state again')
+    if writes_firmware:
+        if 'device-unlocked' not in phone or 'critical-unlocked' not in phone:
+            raise FlashError('the saved phone state lacks the output of "fastboot oem device-info"')
+        if phone['device-unlocked'] != 'true' or phone['critical-unlocked'] != 'true':
+            raise FlashError('the critical partitions are locked, and the firmware steps write them: run "fastboot '
+                             f'flashing unlock_critical" as {device["maker"]} describes (it wipes the phone)')
+
+
+def release_of(value: str, what: str) -> tuple:
+    try:
+        return fw.release_key(value)
+    except fw.FirmwareError as error:
+        raise FlashError(f'{what}: {error}') from error
+
+
+def firmware_decision(record: dict, previous: dict | None, phone: dict | None, stated: str | None,
+                      mode: str) -> dict:
+    """Whether the firmware steps run, and why. Never towards older firmware."""
+    carried = record['firmware']
+    shipped = carried['release']
+    if mode == 'skip':
+        return {'write': False, 'why': 'skip', 'release': None}
+    sources = {}
+    if stated is not None:
+        release_of(stated, '--phone-firmware')
+        sources['as you stated'] = stated
+    earlier = (previous or {}).get('firmware')
+    if earlier:
+        sources['as the earlier build installed'] = earlier['release']
+    if len(set(sources.values())) > 1:
+        raise FlashError(f'--phone-firmware says {stated}, but the earlier build installed firmware '
+                         f'{earlier["release"]}')
+    release, source = next(((v, k) for k, v in sources.items()), (None, None))
+    if phone is not None:
+        missing = [k for k in VERSIONS if k not in phone]
+        if missing:
+            raise FlashError('the saved phone state lacks ' + ', '.join(missing) + '. Save the whole output of '
+                             '"fastboot getvar all"')
+        reported = {k: phone[k] for k in VERSIONS}
+        if any(reported.values()):
+            recorded = carried['fastboot_versions'].get(release) if release else None
+            if recorded != reported:
+                raise FlashError(f'the phone reports version-bootloader {reported["version-bootloader"]!r} and '
+                                 f'version-baseband {reported["version-baseband"]!r}, which the firmware inventory '
+                                 f'does not record for {release or "any stated release"}: check which firmware the '
+                                 'phone runs, and record these values from a phone running it before flashing firmware')
+    if release is None:
+        raise FlashError('Which firmware does the phone run? Its bootloader does not report it. Give its stock '
+                         'release with --phone-firmware (stock Android shows it in Settings > About phone > Build '
+                         'number, and after a DiamaneOS flash it is the firmware those flash steps installed), use '
+                         '--since with the image set last flashed, or --no-firmware to leave the firmware as it is.')
+    have, want = release_of(release, 'the phone firmware'), release_of(shipped, 'the carried firmware')
+    if have > want:
+        raise FlashError(f'the phone runs firmware {release}, newer than this build\'s {shipped}, and DiamaneOS never '
+                         'installs older firmware than the phone has. Use a build with firmware of that release or '
+                         'newer, or --no-firmware to flash only the OS (its vendor files come from ' + shipped + ').')
+    same_bytes = earlier is None or earlier.get('images') == carried['images']
+    if have == want and mode != 'rewrite' and same_bytes:
+        return {'write': False, 'why': 'same', 'release': release, 'source': source}
+    if phone is None:
+        raise FlashError('the firmware steps need the phone\'s bootloader state: in the bootloader, run '
+                         '"{ fastboot getvar all; fastboot oem device-info; } > phone.txt 2>&1" and pass --phone '
+                         'phone.txt')
+    why = 'older' if have < want else ('rewrite' if mode == 'rewrite' else 'changed')
+    return {'write': True, 'why': why, 'release': release, 'source': source}
+
+
+def firmware_text(record: dict, decision: dict) -> list[str]:
+    shipped = record['firmware']['release']
+    why, release, source = decision['why'], decision.get('release'), decision.get('source')
+    if why == 'skip':
+        text = (f'Firmware: left as it is (--no-firmware). This build\'s vendor files come from {shipped}, so the '
+                'phone should run that firmware.')
+    elif why == 'same':
+        text = f'Firmware: the phone already runs {shipped} ({source}), so there are no firmware steps.'
+    else:
+        text = {'older': f'Firmware: the phone runs {release} ({source}), older than this build\'s {shipped}.',
+                'rewrite': f'Firmware: the phone runs {release} ({source}). --rewrite-firmware writes it again.',
+                'changed': f'Firmware: this build\'s {shipped} images differ from the earlier build\'s.'}[why]
+        name = flash_all.fields(record)['name']
+        text += (' The firmware steps write it first, then zero the modem file system so that the modem rebuilds it '
+                 f'from its factory backup. The saved phone state shows an unlocked {name} with unlocked critical '
+                 'partitions in the bootloader. Flash that phone. If a firmware step fails, keep the phone in the '
+                 'bootloader and run the steps again from the first one.')
+    return textwrap.wrap(text, 96)
+
+
+def relock(key: str, slot: str) -> list[str]:
+    """The AVB key and the two locks, in the order of the stock relock."""
+    return [f'  fastboot flash avb_custom_key {key}', f'  fastboot --set-active={slot}',
+            '  fastboot flashing lock_critical', '',
+            *textwrap.wrap('Confirm on the phone. It wipes the phone and restarts. Hold Volume down while it restarts, '
+                           'so that it comes back to the bootloader: Android must not start before the second lock. '
+                           'Then:', 96),
+            '', '  fastboot flashing get_unlock_ability', '', 'Continue only if it reports 1. Otherwise stop.', '',
+            '  fastboot flashing lock', '', 'Confirm on the phone.']
+
+
+def steps(directory: Path, record: dict, previous: dict | None = None, wipe: bool = False,
+          report: dict | None = None, phone: dict | None = None, phone_firmware: str | None = None,
+          firmware: str = 'auto') -> list[str]:
+    signing = record.get('signing')
+    if signing not in SIGNED and (signing != PUBLIC_TEST_KEYS or record.get('release') is not False):
+        raise FlashError('flash-steps only prints commands for test builds and sets re-signed with their own keys')
+    if 'device' not in record:
+        raise FlashError('this image set was packaged by older tools, without the device profile: package it '
+                         'again with these tools')
+    device = flash_all.fields(record)
+    # The AVB key file a set that relocks installs, or None.
+    key = flash_all.custom_key(record)
+    if key and signing == PUBLIC_TEST_KEYS:
+        raise FlashError('a set signed with the public test keys must never be locked')
+    if report is None and signing in SIGNED:
+        raise FlashError('this image set has not been checked. Run "diamaneos images check" with --report '
+                         + str(directory.parent / (record['build_id'] + '.verify.json')))
+    if report is None:
+        raise FlashError('this image set has not been verified. Run "diamaneos build verify" first')
+    # Failed checks stop an official image set. For others they are a warning below.
+    problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS),
+                             allow_failed=record.get('official') is not True)
+    if problem:
+        raise FlashError(problem + '. Do not flash this build (run "diamaneos build verify" again)')
+    failed = failed_checks(report)
+    if report.get('profile', PUBLIC_TEST_KEYS) != ('signed' if signing in SIGNED else PUBLIC_TEST_KEYS):
+        raise FlashError('the verify report used other checks than this set\'s signing selects. Run "diamaneos '
+                         'images check" again')
+    if key and {'record', 'avb-chain'} & set(failed):
+        raise FlashError(f'the verify report does not show that {key} is the key that signs vbmeta. Do not lock the '
+                         'phone with this set')
+    if firmware not in MODES:
+        raise FlashError('unknown firmware mode ' + firmware)
+    carried = record.get('firmware')
+    decision = firmware_decision(record, previous, phone, phone_firmware, firmware) if carried else None
+    writes_firmware = bool(decision and decision['write'])
+    if phone is not None:
+        check_phone(phone, record, writes_firmware)
+    slot = record['flash']['slot']
+    bootloader = changed(record, previous, record['flash']['bootloader'])
+    logical = changed(record, previous, record['flash']['logical'])
+    out = [f'DiamaneOS {"test build " if signing == PUBLIC_TEST_KEYS else ""}{record["build_id"]} '
+           f'({record["product"]}, {record["variant"]}, build number {record["build_number"]})', '', 'Safety rules:']
+    if key:
+        out += ['- This set is signed with its own keys. The last steps install its AVB key and lock the',
+                '  bootloader, which wipes all data on the phone.']
+    else:
+        out += ['- This build is signed with public test keys. Keep the bootloader unlocked: never run',
+                '  "fastboot flashing lock" or "fastboot flashing lock_critical" while it is installed.']
+    out += ['- Never run "fastboot -w" or "fastboot erase". A wipe flashes empty images instead.']
+    if carried:
+        out += [f'- The OS goes to slot {slot} only. Do not flash it to the other slot.',
+                f'- Firmware: {device["maker"]}\'s exact {carried["release"]} images, the release this build\'s',
+                '  vendor files come from. As in the stock flash, each A/B firmware partition gets both slots.']
+    else:
+        out += [f'- Everything goes to slot {slot}. Do not flash the other slot.',
+                f'- The phone\'s firmware must come from stock {record["stock_build"]}, the release this',
+                '  build\'s vendor files come from.']
+    if not record.get('reproducible', False):
+        out += textwrap.wrap('- Not reproducible: built by hand, from a source with local changes or other deviations, '
+                             'with vendor files from an earlier source, or with other tools than the source\'s.',
+                             96, subsequent_indent='  ')
+    out.append('- Never install firmware older than the phone already runs.')
+    if failed:
+        shown = ', '.join(failed[:10]) + (f' and {len(failed) - 10} more' if len(failed) > 10 else '')
+        out += textwrap.wrap(f'- {len(failed)} image checks failed ({shown}): this build lacks what they check. The '
+                             'verify report next to the image directory says why.', 96, subsequent_indent='  ')
+    if wipe:
+        out += ['- This wipes all data on the phone.']
+        if not record['wipe']['validated']:
+            out += ['- The wipe by flashing empty images has not been tested on a phone.']
+    if writes_firmware and not carried.get('validated', False):
+        out += ['- The firmware steps have not been tested on a phone.']
+    if wipe and carried:
+        out += [''] + textwrap.wrap(f'First install (from stock or another OS): unlock the bootloader as '
+                                    f'{device["maker"]} describes, including "fastboot flashing unlock_critical", '
+                                    'which writing firmware needs.', 96)
+    elif wipe:
+        out += [''] + textwrap.wrap(f'First install (from stock or another OS): unlock the bootloader as '
+                                    f'{device["maker"]} describes, including "fastboot flashing unlock_critical", '
+                                    f'because the firmware is written next. Then install {device["maker"]}\'s '
+                                    f'{record["stock_build"]} factory package with {device["maker"]}\'s '
+                                    'instructions (it writes the firmware), and continue here.', 96)
+    if decision:
+        out += [''] + firmware_text(record, decision)
+    wipe_lines = []
+    if wipe:
+        if carried and decision['why'] == 'same':
+            # The firmware's state partitions are reset with a wipe. With
+            # firmware steps they come at their stock place among them.
+            wipe_lines += [f'  fastboot flash {s["partition"]} {s["image"]}' for s in carried['steps']
+                           if s.get('wipe_only')]
+        wipe_lines += [f'  fastboot flash {name} {image["file"]}' for name, image in record['wipe']['images'].items()]
+    if previous is None or bootloader or logical or wipe or writes_firmware:
+        out += [''] + textwrap.wrap('Copy the whole image directory if you flash from another computer. Check the '
+                                    f'files, then put the phone in fastboot mode (hold {device["bootloader_keys"]} '
+                                    'until the bootloader appears, or run "adb reboot bootloader"):', 96)
+        out += ['', f'  cd {shlex.quote(str(directory))}', '  sha256sum -c SHA256SUMS']
+        if writes_firmware:
+            out += [f'  fastboot flash {s["partition"]} {s["image"]}' for s in carried['steps']
+                    if wipe or not s.get('wipe_only')]
+            out += [f'  fastboot flash {name} {image["file"]}' for name, image in carried['reset'].items()]
+        if logical:
+            out += ['', 'If "fastboot getvar snapshot-update-status" reports anything but none, cancel the pending',
+                    'update first:', '', '  fastboot ' + ' '.join(flash_all.CANCEL), '']
+        for name in bootloader:
+            out.append(f'  fastboot flash {name}_{slot} {name}.img')
+        if logical:
+            # All of them, also when one changed: wipe-super leaves no logical partition.
+            for arguments in flash_all.logical(record, wipe):
+                out.append('  fastboot ' + ' '.join(arguments))
+                if arguments == [f'--set-active={slot}']:
+                    out += ['  fastboot getvar current-slot', '',
+                            f'Continue only if both commands succeed and current-slot reports {slot}. Otherwise stop.', '']
+                if tuple(arguments) in flash_all.MODES:
+                    out += ['', f'Wait until the phone is in {flash_all.MODES[tuple(arguments)][1]}, then:', '']
+        out += wipe_lines
+        out += relock(key, slot) if key else [f'  fastboot --set-active={slot}', '  fastboot reboot']
+    else:
+        out += ['', 'Nothing to flash: every image equals the earlier build.']
+    return out
+
+
+def resolve(value: str | None, workspace: Path) -> Path:
+    if value:
+        return Path(value).expanduser().absolute()
+    latest = workspace / 'images' / 'latest'
+    if not latest.is_symlink():
+        raise FlashError(f'no packaged build in {workspace}. Run "diamaneos build all" first')
+    return latest.resolve()
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(prog='diamaneos flash-steps', description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('images', nargs='?', help='image directory (default: the latest build in the workspace)')
+    parser.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, the workspace of '
+                                            'the checkout these tools run from, or ~/diamaneos-build)')
+    parser.add_argument('--since', help='only images that differ from this earlier image directory, the one '
+                                        'last flashed to the phone')
+    parser.add_argument('--wipe', action='store_true', help='also wipe all data (needed for a first install)')
+    parser.add_argument('--phone', help='the phone\'s saved "fastboot getvar all" and "fastboot oem device-info" '
+                                        'output, needed for firmware steps')
+    parser.add_argument('--phone-firmware', metavar='BUILD',
+                        help='the stock release of the firmware the phone runs (on the FP6, such as '
+                             'FP6.QREL.16.100.0)')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--no-firmware', dest='firmware', action='store_const', const='skip', default='auto',
+                       help='leave the phone\'s firmware as it is')
+    group.add_argument('--rewrite-firmware', dest='firmware', action='store_const', const='rewrite',
+                       help='write the firmware even if the phone runs the same release (never an older one)')
+    args = parser.parse_args(argv)
+    try:
+        workspace = Path(args.workspace).expanduser().absolute() if args.workspace else bw.default_workspace()
+        directory = resolve(args.images, workspace)
+        record = load(directory)
+        previous = load(Path(args.since).expanduser().absolute()) if args.since else None
+        if previous is not None and previous['product'] != record['product']:
+            raise FlashError('the earlier build is for another product')
+        phone = parse_phone(Path(args.phone).expanduser().read_text(errors='replace')) if args.phone else None
+        print('\n'.join(steps(directory, record, previous, args.wipe, verification(directory, record),
+                              phone=phone, phone_firmware=args.phone_firmware, firmware=args.firmware)))
+        return 0
+    except (FlashError, OSError, ValueError, KeyError) as error:
+        print('ERROR: ' + str(error), file=sys.stderr)
+        return 2

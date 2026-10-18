@@ -1,0 +1,637 @@
+{
+  "schema_version": 1,
+  "api_level": 37,
+  "device": {
+    "density_dpi": 480,
+    "smallest_width_dp": 372
+  },
+  "inapplicable_qualifier_tokens": [
+    "r(XA|XB|XC)",
+    "television|watch|car|desk|appliance|vrheadset",
+    "sw([6-9][0-9]{2}|[0-9]{4,})dp"
+  ],
+  "overlay_roots": [
+    {
+      "path": "vendor_diamaneos/overlay",
+      "role": "product"
+    },
+    {
+      "path": "device_fairphone_FP6/rro",
+      "role": "device"
+    }
+  ],
+  "make_roots": [
+    "vendor_diamaneos",
+    "device_fairphone_FP6"
+  ],
+  "product_rules": {
+    "allowed_types": [
+      "style",
+      "color",
+      "drawable",
+      "dimen",
+      "font",
+      "mipmap",
+      "anim"
+    ],
+    "restricted_prefixes": [
+      "config_"
+    ],
+    "allowed_names": {
+      "android": {
+        "config_buttonTextAllCaps": "Tally buttons are not in capitals",
+        "config_useRoundIcon": "the keycap icon shape replaces round icons",
+        "config_icon_mask": "the 22 % keycap icon shape",
+        "config_buttonCornerRadius": "Tally radius 8",
+        "config_dialogCornerRadius": "Tally radius 20",
+        "config_bottomDialogCornerRadius": "Tally radius 20",
+        "theming_defaults": "Sodium as the starting colour",
+        "config_headlineFontFamily": "Sofia Sans, after the metric gate",
+        "config_headlineFontFamilyMedium": "Sofia Sans, after the metric gate",
+        "config_bodyFontFamily": "Sofia Sans, after the metric gate",
+        "config_bodyFontFamilyMedium": "Sofia Sans, after the metric gate",
+        "default_wallpaper": "DiamaneOS default wallpaper",
+        "default_wallpaper_component": "Tally's Paper wallpaper in SystemUI as the default wallpaper: grained stone paper, light or dark with the theme",
+        "default_lock_wallpaper": "DiamaneOS default lock wallpaper",
+        "config_hapticFeedbackCustomizationFile": "product haptic feedback customization, checked against the FP6 vibrator HAL",
+        "config_httpsTimeUrls": "network time over HTTPS from the DiamaneOS time server (time.diamaneos.de) instead of GrapheneOS's. The same request, response and TLS checks"
+      },
+      "com.android.systemui": {
+        "config_preferredScreenshotEditor": "Edit on a screenshot opens LineageOS's Canvas (org.lineageos.canvas/org.lineageos.canvas.MainActivity), installed with the overlay. SystemUI uses it only while that activity exists and otherwise falls back to its default chooser"
+      },
+      "com.android.documentsui": {
+        "force_material3": "Material 3 Files. The trash flow and the new archive code it would also enable stay off through vendor_diamaneos release/"
+      },
+      "com.android.customization.themes": {
+        "color_bundles": "the five DiamaneOS colour presets (Sodium, Phosphor, Signal violet, Rose, Lichen) instead of the 17 AOSP ones. An overlay cannot add names, so they reuse the stub keys rainbow1 to rainbow5",
+        "color_style_rainbow1": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
+        "color_style_rainbow2": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
+        "color_style_rainbow3": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
+        "color_style_rainbow4": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
+        "color_style_rainbow5": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines"
+      }
+    },
+    "allowed_strings": {
+      "com.android.settings": {
+        "security_settings_fingerprint_v2_enroll_introduction_footer_message_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
+        "security_settings_fingerprint_v2_enroll_introduction_footer_message_consent_3": "rebrand: AOSP's generic Fingerprint Unlock instead of Pixel Imprint",
+        "duress_pwd_description": "rebrand: \"DiamaneOS will remain installed\" instead of GrapheneOS. Otherwise unchanged",
+        "aep_compat_mode_summary": "rebrand: \"DiamaneOS exploit protections\" instead of GrapheneOS. Otherwise unchanged",
+        "app_play_integrity_top_intro": "rebrand: DiamaneOS wording that drops GrapheneOS's untested claims about integrity levels, bans and attestation (reviewed wording)",
+        "supl_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose SUPL proxy it uses (frameworks/base fork). Otherwise unchanged",
+        "psds_enabled_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose PSDS server it uses (frameworks/base fork). Otherwise unchanged",
+        "network_location_enabled_grapheneos_apple_proxy": "rebrand: the proxy choice names DiamaneOS, whose relay to Apple's location service it uses (NetworkLocation fork). Otherwise unchanged",
+        "remote_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose attestation key provisioning proxy it uses (frameworks/base fork). Otherwise unchanged",
+        "widevine_provisioning_enabled_grapheneos_proxy": "rebrand: the default server choice names DiamaneOS, whose Widevine provisioning proxy it uses (frameworks/base fork). Otherwise unchanged",
+        "network_location_footer": "privacy notice: GrapheneOS's text plus one paragraph saying the identifiers go to Apple in the USA and what the proxy hides",
+        "widevine_provisioning_footer": "privacy notice: GrapheneOS's sentence plus what Google in the USA receives and when, and what the proxy hides",
+        "cert_transparency_dl_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose Certificate Transparency mirror it uses (Connectivity fork). Otherwise unchanged",
+        "conn_checks_grapheneos_server": "rebrand: the default server choice names DiamaneOS, whose connectivity check servers it uses (NetworkStack, DnsResolver and Connectivity forks). Otherwise unchanged"
+      },
+      "android": {
+        "deprecated_abi_message_grapheneos": "rebrand: the 32-bit app dialog shows AOSP's own text, deprecated_abi_message, by reference, instead of text naming GrapheneOS and its plans"
+      },
+      "app.grapheneos.setupwizard": {
+        "welcome_to_grapheneos": "rebrand: \"Welcome to DiamaneOS\"",
+        "grapheneos_desc": "rebrand: the DiamaneOS tagline instead of GrapheneOS's (reviewed wording), with the privacy policy link",
+        "grapheneos_icon": "rebrand: the logo's content description, \"DiamaneOS\"",
+        "data_restore_desc": "rebrand: a backup from \"your previous device\" instead of a previous GrapheneOS device. Otherwise unchanged",
+        "network_location_enabled_desc": "rebrand: signal identifiers go to Apple in the USA through a DiamaneOS proxy instead of a GrapheneOS proxy, with the privacy policy link",
+        "geocoder_enabled_desc": "rebrand: the geocoder is OpenStreetMap's public service instead of one hosted by GrapheneOS, and the text says what OpenStreetMap sees"
+      },
+      "app.grapheneos.speechservices": {
+        "app_name": "rebrand: \"Speech Services\" instead of \"GrapheneOS Speech Services\""
+      },
+      "com.android.customization.themes": {
+        "bundle_name_rainbow1": "name of the Sodium colour preset",
+        "bundle_name_rainbow2": "name of the Phosphor colour preset",
+        "bundle_name_rainbow3": "name of the Signal violet colour preset",
+        "bundle_name_rainbow4": "name of the Rose colour preset",
+        "bundle_name_rainbow5": "name of the Lichen colour preset"
+      }
+    },
+    "denied_names": {
+      "com.android.permissioncontroller": {
+        "camera_toggle_enable_config": "privacy toggle",
+        "mic_toggle_enable_config": "privacy toggle",
+        "clipboard_show_access_notifications_config": "access notifications",
+        "show_access_notifications_default_config": "access notifications",
+        "config_display_show_password_toggle": "password toggle",
+        "config_useFocusIndicatorInPermissionDialogBeforeUserSetupComplete": "grant dialog behaviour",
+        "config_useMaterial3PermissionGrantDialog": "grant dialog implementation. A grant-UI change with its own tests",
+        "config_enableExpressiveDesignInRequestPermissionDialog": "grant dialog implementation. A grant-UI change with its own tests",
+        "config_enableExpressiveDesignInEnhancedConfirmationDialog": "confirmation dialog implementation",
+        "config_enableExpressiveDesignInSafetyCenter": "not overlayable and no effect"
+      }
+    },
+    "denied_types": {
+      "com.android.permissioncontroller": {
+        "bool": "role, visibility and behaviour switches stay upstream",
+        "string": "help URLs and permission wording stay upstream"
+      }
+    },
+    "denied_patterns": {
+      "com.android.systemui": {
+        "^ongoing_appops_": "privacy indicators stay as the SystemUI fork sets them",
+        "^ongoing_privacy_": "privacy indicators stay as the SystemUI fork sets them",
+        "^privacy_": "privacy indicators stay as the SystemUI fork sets them",
+        "^tally_": "the Tally shell's tokens and indicator resources (sensor and capture colours, the privacy dot's size and margin, lamps, springs) come from the SystemUI fork and its token library. The lens config is a device value"
+      }
+    },
+    "qualifier_waivers": []
+  },
+  "targets": [
+    {
+      "package": "android",
+      "sources": [
+        {
+          "project": "frameworks/base",
+          "res": [
+            "core/res/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.settings",
+      "sources": [
+        {
+          "project": "packages/apps/Settings",
+          "res": [
+            "res",
+            "res-export",
+            "res-product"
+          ]
+        },
+        {
+          "project": "frameworks/base",
+          "res": [
+            "packages/SettingsLib/res",
+            "packages/SettingsLib/ActionButtonsPreference/res",
+            "packages/SettingsLib/AdaptiveIcon/res",
+            "packages/SettingsLib/AppPreference/res",
+            "packages/SettingsLib/BannerMessagePreference/res",
+            "packages/SettingsLib/BarChartPreference/res",
+            "packages/SettingsLib/BulletPreference/res",
+            "packages/SettingsLib/ButtonPreference/res",
+            "packages/SettingsLib/CardPreference/res",
+            "packages/SettingsLib/Category/res",
+            "packages/SettingsLib/CollapsingToolbarBaseActivity/res",
+            "packages/SettingsLib/Color/res",
+            "packages/SettingsLib/EntityHeaderWidgets/res",
+            "packages/SettingsLib/ExpandablePreference/res",
+            "packages/SettingsLib/FooterPreference/res",
+            "packages/SettingsLib/HelpUtils/res",
+            "packages/SettingsLib/IllustrationPreference/res",
+            "packages/SettingsLib/IntroPreference/res",
+            "packages/SettingsLib/LayoutPreference/res",
+            "packages/SettingsLib/ListDialogSwitcherPreference/res",
+            "packages/SettingsLib/MainSwitchPreference/res",
+            "packages/SettingsLib/MenuPreference/res",
+            "packages/SettingsLib/Metadata/res",
+            "packages/SettingsLib/ProfileSelector/res",
+            "packages/SettingsLib/ProgressBar/res",
+            "packages/SettingsLib/RestrictedLockUtils/res",
+            "packages/SettingsLib/SearchWidget/res",
+            "packages/SettingsLib/SegmentedButtonPreference/res",
+            "packages/SettingsLib/SelectorWithWidgetPreference/res",
+            "packages/SettingsLib/SettingsSpinner/res",
+            "packages/SettingsLib/SettingsTheme/res",
+            "packages/SettingsLib/SliderPreference/res",
+            "packages/SettingsLib/StatusBannerPreference/res",
+            "packages/SettingsLib/TopIntroPreference/res",
+            "packages/SettingsLib/TwoTargetPreference/res",
+            "packages/SettingsLib/UsageProgressBarPreference/res",
+            "packages/SettingsLib/Utils/res",
+            "packages/SettingsLib/ValuePreference/res",
+            "packages/SettingsLib/ZeroStatePreference/res",
+            "packages/SettingsLib/Spa/spa/res",
+            "packages/SettingsLib/SpaPrivileged/res",
+            "packages/SystemUI/shared/biometrics/res"
+          ]
+        },
+        {
+          "project": "frameworks/libs/systemui",
+          "res": [
+            "iconloaderlib/res",
+            "dynamiccolors/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.systemui",
+      "sources": [
+        {
+          "project": "frameworks/base",
+          "res": [
+            "packages/SystemUI/res",
+            "packages/SystemUI/res-keyguard",
+            "packages/SystemUI/res-product",
+            "packages/SystemUI/shared/res",
+            "packages/SystemUI/shared/biometrics/res",
+            "packages/SystemUI/animation/res",
+            "packages/SystemUI/customization/res",
+            "packages/SystemUI/customization/clocks/common/res",
+            "packages/SystemUI/compose/scene/res",
+            "packages/SystemUI/accessibility/accessibilitymenu/res",
+            "libs/WindowManager/Shell/res",
+            "libs/WindowManager/Shell/shared/res",
+            "libs/dream/lowlight/res",
+            "libs/serial/accessdialog/res",
+            "packages/SettingsLib/res",
+            "packages/SettingsLib/ActionButtonsPreference/res",
+            "packages/SettingsLib/AdaptiveIcon/res",
+            "packages/SettingsLib/AppPreference/res",
+            "packages/SettingsLib/BannerMessagePreference/res",
+            "packages/SettingsLib/BarChartPreference/res",
+            "packages/SettingsLib/BulletPreference/res",
+            "packages/SettingsLib/ButtonPreference/res",
+            "packages/SettingsLib/CardPreference/res",
+            "packages/SettingsLib/Category/res",
+            "packages/SettingsLib/CollapsingToolbarBaseActivity/res",
+            "packages/SettingsLib/Color/res",
+            "packages/SettingsLib/EntityHeaderWidgets/res",
+            "packages/SettingsLib/ExpandablePreference/res",
+            "packages/SettingsLib/FooterPreference/res",
+            "packages/SettingsLib/HelpUtils/res",
+            "packages/SettingsLib/IllustrationPreference/res",
+            "packages/SettingsLib/IntroPreference/res",
+            "packages/SettingsLib/LayoutPreference/res",
+            "packages/SettingsLib/ListDialogSwitcherPreference/res",
+            "packages/SettingsLib/MainSwitchPreference/res",
+            "packages/SettingsLib/MenuPreference/res",
+            "packages/SettingsLib/Metadata/res",
+            "packages/SettingsLib/ProfileSelector/res",
+            "packages/SettingsLib/ProgressBar/res",
+            "packages/SettingsLib/RestrictedLockUtils/res",
+            "packages/SettingsLib/SearchWidget/res",
+            "packages/SettingsLib/SegmentedButtonPreference/res",
+            "packages/SettingsLib/SelectorWithWidgetPreference/res",
+            "packages/SettingsLib/SettingsSpinner/res",
+            "packages/SettingsLib/SettingsTheme/res",
+            "packages/SettingsLib/SliderPreference/res",
+            "packages/SettingsLib/StatusBannerPreference/res",
+            "packages/SettingsLib/TopIntroPreference/res",
+            "packages/SettingsLib/TwoTargetPreference/res",
+            "packages/SettingsLib/UsageProgressBarPreference/res",
+            "packages/SettingsLib/Utils/res",
+            "packages/SettingsLib/ValuePreference/res",
+            "packages/SettingsLib/ZeroStatePreference/res"
+          ]
+        },
+        {
+          "project": "frameworks/libs/systemui",
+          "res": [
+            "iconloaderlib/res",
+            "animationlib/res",
+            "dynamiccolors/res",
+            "ace/src/com/android/personalcontext/ace/visualizer/res",
+            "ace/src/com/android/personalcontext/ace/client/clientsdk/compat/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.phone",
+      "sources": [
+        {
+          "project": "packages/services/Telephony",
+          "res": [
+            "res"
+          ]
+        },
+        {
+          "project": "packages/apps/PhoneCommon",
+          "res": [
+            "res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.carrierconfig",
+      "sources": [
+        {
+          "project": "packages/apps/CarrierConfig",
+          "res": [
+            "res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.networkstack.tethering",
+      "sources": [
+        {
+          "project": "packages/modules/Connectivity",
+          "res": [
+            "Tethering/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.documentsui",
+      "sources": [
+        {
+          "project": "packages/apps/DocumentsUI",
+          "res": [
+            "res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.customization.themes",
+      "sources": [
+        {
+          "project": "packages/apps/ThemePicker",
+          "res": [
+            "themes/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "app.grapheneos.setupwizard",
+      "sources": [
+        {
+          "project": "packages/apps/SetupWizard2",
+          "res": [
+            "res"
+          ]
+        },
+        {
+          "project": "external/setupdesign",
+          "res": [
+            "main/res",
+            "strings/res"
+          ]
+        },
+        {
+          "project": "external/setupcompat",
+          "res": [
+            "main/res",
+            "partnerconfig/res"
+          ]
+        },
+        {
+          "project": "external/lottie",
+          "res": [
+            "lottie/src/main/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "app.grapheneos.speechservices",
+      "prebuilt": {
+        "project": "external/SpeechServices",
+        "revision": "c63d8d3ddc37a582ddda3e0325e63c2d4b573b24",
+        "evidence": "aapt2 dump resources prebuilt/arm64/app-release.apk (versionCode 3): string/app_name has the default configuration only. No <overlayable>",
+        "resources": {
+          "string": [
+            "app_name"
+          ]
+        }
+      }
+    },
+    {
+      "package": "com.android.dialer",
+      "sources": [
+        {
+          "project": "packages/apps/Dialer",
+          "res": [
+            "assets/product/res",
+            "assets/quantum/res",
+            "java/com/android/contacts/common/res",
+            "java/com/android/dialer/about/res",
+            "java/com/android/dialer/app/res",
+            "java/com/android/dialer/app/voicemail/error/res",
+            "java/com/android/dialer/assisteddialing/res",
+            "java/com/android/dialer/assisteddialing/ui/res",
+            "java/com/android/dialer/blocking/res",
+            "java/com/android/dialer/blockreportspam/res",
+            "java/com/android/dialer/callcomposer/camera/camerafocus/res",
+            "java/com/android/dialer/callcomposer/cameraui/res",
+            "java/com/android/dialer/callcomposer/res",
+            "java/com/android/dialer/calldetails/res",
+            "java/com/android/dialer/calllog/ui/menu/res",
+            "java/com/android/dialer/calllog/ui/res",
+            "java/com/android/dialer/calllogutils/res",
+            "java/com/android/dialer/clipboard/res",
+            "java/com/android/dialer/common/preference/res",
+            "java/com/android/dialer/common/res",
+            "java/com/android/dialer/contactphoto/res",
+            "java/com/android/dialer/contacts/displaypreference/res",
+            "java/com/android/dialer/contacts/resources/res",
+            "java/com/android/dialer/contactsfragment/res",
+            "java/com/android/dialer/dialpadview/res",
+            "java/com/android/dialer/dialpadview/theme/res",
+            "java/com/android/dialer/enrichedcall/simulator/res",
+            "java/com/android/dialer/glidephotomanager/impl/res",
+            "java/com/android/dialer/historyitemactions/res",
+            "java/com/android/dialer/interactions/res",
+            "java/com/android/dialer/lettertile/res",
+            "java/com/android/dialer/main/impl/bottomnav/res",
+            "java/com/android/dialer/main/impl/res",
+            "java/com/android/dialer/main/impl/toolbar/res",
+            "java/com/android/dialer/notification/res",
+            "java/com/android/dialer/oem/res",
+            "java/com/android/dialer/phonenumberutil/res",
+            "java/com/android/dialer/postcall/res",
+            "java/com/android/dialer/precall/impl/res",
+            "java/com/android/dialer/preferredsim/impl/res",
+            "java/com/android/dialer/preferredsim/suggestion/res",
+            "java/com/android/dialer/promotion/impl/res",
+            "java/com/android/dialer/rtt/res",
+            "java/com/android/dialer/searchfragment/common/res",
+            "java/com/android/dialer/searchfragment/cp2/res",
+            "java/com/android/dialer/searchfragment/directories/res",
+            "java/com/android/dialer/searchfragment/list/res",
+            "java/com/android/dialer/searchfragment/nearbyplaces/res",
+            "java/com/android/dialer/searchfragment/remote/res",
+            "java/com/android/dialer/shortcuts/res",
+            "java/com/android/dialer/spam/promo/res",
+            "java/com/android/dialer/spannable/res",
+            "java/com/android/dialer/speeddial/res",
+            "java/com/android/dialer/theme/base/res",
+            "java/com/android/dialer/theme/common/res",
+            "java/com/android/dialer/theme/hidden/res",
+            "java/com/android/dialer/theme/res",
+            "java/com/android/dialer/util/res",
+            "java/com/android/dialer/voicemail/listui/error/res",
+            "java/com/android/dialer/voicemail/listui/res",
+            "java/com/android/dialer/voicemail/settings/res",
+            "java/com/android/dialer/widget/res",
+            "java/com/android/incallui/answer/impl/affordance/res",
+            "java/com/android/incallui/answer/impl/answermethod/res",
+            "java/com/android/incallui/answer/impl/hint/res",
+            "java/com/android/incallui/answer/impl/res",
+            "java/com/android/incallui/audioroute/res",
+            "java/com/android/incallui/autoresizetext/res",
+            "java/com/android/incallui/calllocation/impl/res",
+            "java/com/android/incallui/callpending/res",
+            "java/com/android/incallui/commontheme/res",
+            "java/com/android/incallui/contactgrid/res",
+            "java/com/android/incallui/disconnectdialog/res",
+            "java/com/android/incallui/hold/res",
+            "java/com/android/incallui/incall/impl/res",
+            "java/com/android/incallui/res",
+            "java/com/android/incallui/rtt/impl/res",
+            "java/com/android/incallui/sessiondata/res",
+            "java/com/android/incallui/spam/res",
+            "java/com/android/incallui/speakerbuttonlogic/res",
+            "java/com/android/incallui/telecomeventui/res",
+            "java/com/android/incallui/theme/res",
+            "java/com/android/incallui/video/impl/res",
+            "java/com/android/incallui/video/protocol/res",
+            "java/com/android/voicemail/impl/configui/res",
+            "java/com/android/voicemail/impl/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.contacts",
+      "sources": [
+        {
+          "project": "packages/apps/Contacts",
+          "res": [
+            "res"
+          ]
+        },
+        {
+          "project": "packages/apps/PhoneCommon",
+          "res": [
+            "res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.inputmethod.latin",
+      "sources": [
+        {
+          "project": "packages/inputmethods/LatinIME",
+          "res": [
+            "java/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.bluetooth",
+      "sources": [
+        {
+          "project": "packages/modules/Bluetooth",
+          "res": [
+            "android/app/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.systemui.accessibility.accessibilitymenu",
+      "sources": [
+        {
+          "project": "frameworks/base",
+          "res": [
+            "packages/SystemUI/accessibility/accessibilitymenu/res",
+            "packages/SettingsLib/CollapsingToolbarBaseActivity/res",
+            "packages/SettingsLib/SettingsTheme/res",
+            "packages/SettingsLib/Metadata/res",
+            "packages/SettingsLib/Utils/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.emergency",
+      "sources": [
+        {
+          "project": "packages/apps/EmergencyInfo",
+          "res": [
+            "res",
+            "EmergencyGestureAction/res"
+          ]
+        },
+        {
+          "project": "frameworks/base",
+          "res": [
+            "packages/SettingsLib/res",
+            "packages/SettingsLib/ActionButtonsPreference/res",
+            "packages/SettingsLib/SettingsTheme/res",
+            "packages/SettingsLib/AdaptiveIcon/res",
+            "packages/SettingsLib/AppPreference/res",
+            "packages/SettingsLib/BannerMessagePreference/res",
+            "packages/SettingsLib/ButtonPreference/res",
+            "packages/SettingsLib/BarChartPreference/res",
+            "packages/SettingsLib/BulletPreference/res",
+            "packages/SettingsLib/CardPreference/res",
+            "packages/SettingsLib/Category/res",
+            "packages/SettingsLib/Metadata/res",
+            "packages/SettingsLib/Utils/res",
+            "packages/SettingsLib/CollapsingToolbarBaseActivity/res",
+            "packages/SettingsLib/EntityHeaderWidgets/res",
+            "packages/SettingsLib/ExpandablePreference/res",
+            "packages/SettingsLib/FooterPreference/res",
+            "packages/SettingsLib/HelpUtils/res",
+            "packages/SettingsLib/IllustrationPreference/res",
+            "packages/SettingsLib/Color/res",
+            "packages/SettingsLib/IntroPreference/res",
+            "packages/SettingsLib/LayoutPreference/res",
+            "packages/SettingsLib/ListDialogSwitcherPreference/res",
+            "packages/SettingsLib/MainSwitchPreference/res",
+            "packages/SettingsLib/MenuPreference/res",
+            "packages/SettingsLib/ProfileSelector/res",
+            "packages/SettingsLib/ProgressBar/res",
+            "packages/SettingsLib/RestrictedLockUtils/res",
+            "packages/SettingsLib/SearchWidget/res",
+            "packages/SettingsLib/SegmentedButtonPreference/res",
+            "packages/SettingsLib/SelectorWithWidgetPreference/res",
+            "packages/SettingsLib/SettingsSpinner/res",
+            "packages/SettingsLib/SliderPreference/res",
+            "packages/SettingsLib/StatusBannerPreference/res",
+            "packages/SettingsLib/TopIntroPreference/res",
+            "packages/SettingsLib/TwoTargetPreference/res",
+            "packages/SettingsLib/UsageProgressBarPreference/res",
+            "packages/SettingsLib/ValuePreference/res",
+            "packages/SettingsLib/ZeroStatePreference/res"
+          ]
+        },
+        {
+          "project": "frameworks/libs/systemui",
+          "res": [
+            "iconloaderlib/res",
+            "dynamiccolors/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "com.android.cellbroadcastreceiver.module",
+      "sources": [
+        {
+          "project": "packages/apps/CellBroadcastReceiver",
+          "res": [
+            "res"
+          ]
+        },
+        {
+          "project": "frameworks/base",
+          "res": [
+            "packages/SettingsLib/SettingsTheme/res",
+            "packages/SettingsLib/CollapsingToolbarBaseActivity/res",
+            "packages/SettingsLib/MainSwitchPreference/res",
+            "packages/SettingsLib/Metadata/res",
+            "packages/SettingsLib/Utils/res",
+            "packages/SettingsLib/TopIntroPreference/res",
+            "packages/SettingsLib/ZeroStatePreference/res"
+          ]
+        }
+      ]
+    }
+  ]
+}

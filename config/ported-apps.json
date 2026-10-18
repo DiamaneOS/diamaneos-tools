@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "about": "LineageOS lineage-24.0 code carried in GrapheneOS app forks. Each commit is the LineageOS commit the port matches. The lineage-deskclock and lineage-calculator sources in config/forks.json read it as their pin.",
+  "deskclock": {"commit": "5c7ee589f99a4703a56a779728550990daf8cc87"},
+  "calculator": {"commit": "af4a9397439223d0f572823d66c7985619da3e45"}
+}

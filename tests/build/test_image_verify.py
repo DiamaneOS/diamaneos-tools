@@ -1,0 +1,3005 @@
+import copy
+import hashlib
+import io
+import json
+import math
+from pathlib import Path
+import stat
+import struct
+import sys
+import tempfile
+import unittest
+from unittest import mock
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'src'))
+from diamaneos_tools import image_verify as subject
+
+
+def dtb(nodes):
+    """Build a flattened device tree from {path: {prop: bytes}} (parents first)."""
+    strings, offsets = bytearray(), {}
+
+    def string(name):
+        if name not in offsets:
+            offsets[name] = len(strings)
+            strings.extend(name.encode() + b'\0')
+        return offsets[name]
+
+    structure = bytearray()
+
+    def pad():
+        while len(structure) % 4:
+            structure.append(0)
+
+    def emit(path, children):
+        name = '' if path == '/' else path.rsplit('/', 1)[1]
+        structure.extend(struct.pack('>I', 1) + name.encode() + b'\0'); pad()
+        for prop, value in nodes[path].items():
+            structure.extend(struct.pack('>III', 3, len(value), string(prop)) + value); pad()
+        for child in children.get(path, []):
+            emit(child, children)
+        structure.extend(struct.pack('>I', 2))
+
+    children = {}
+    for path in nodes:
+        if path != '/':
+            parent = path.rsplit('/', 1)[0] or '/'
+            children.setdefault(parent, []).append(path)
+    emit('/', children)
+    structure.extend(struct.pack('>I', 9))
+    header_size = 40
+    off_struct = header_size
+    off_strings = off_struct + len(structure)
+    total = off_strings + len(strings)
+    header = struct.pack('>IIIIIIIIII', 0xD00DFEED, total, off_struct, off_strings, 0, 17, 16, 0, len(strings), len(structure))
+    return header + bytes(structure) + bytes(strings)
+
+
+def cells(*values):
+    return struct.pack('>' + 'I' * len(values), *values)
+
+
+class FakeTools:
+    def __init__(self, outputs=None):
+        self.outputs = outputs or {}
+        self.calls = []
+
+    def scratch(self):
+        return tempfile.TemporaryDirectory()
+
+    def run(self, name, args, cwd=None, check=True):
+        self.calls.append((name, [str(a) for a in args]))
+        for key, value in self.outputs.items():
+            if key[0] == name and (len(key) == 1 or key[1] in [str(a) for a in args]):
+                return value(args) if callable(value) else value
+        raise subject.ToolMissing(name)
+
+
+class Harness:
+    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user'):
+        path = root / 'tf.zip'
+        with zipfile.ZipFile(path, 'w') as archive:
+            for name, data in members.items():
+                archive.writestr(name, data)
+            for name, target in (symlinks or {}).items():
+                info = zipfile.ZipInfo(name)
+                info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                archive.writestr(info, target)
+        self.tf = subject.TargetFiles(path)
+        self.tools = tools or FakeTools()
+        self.images = root
+        self.variant = variant
+        self.config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        self.sources = subject.Sources(self.tf, kernel, root)
+
+
+class RuleTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+
+    def harness(self, members, **kw):
+        h = Harness(self.root, members, **kw)
+        self.addCleanup(h.tf.close)
+        return h
+
+    def test_files_not_stock(self):
+        stock = hashlib.sha256(b'stock').hexdigest()
+        v = self.harness({'VENDOR/lib64/libsource.so': b'source', 'VENDOR/lib64/libstock.so': b'stock'})
+        self.assertTrue(subject.rule_files_not_stock({'files': {'VENDOR/lib64/libsource.so': stock}}, v)[0])
+        ok, detail = subject.rule_files_not_stock({'files': {'VENDOR/lib64/libstock.so': stock}}, v)
+        self.assertFalse(ok)
+        self.assertIn('is the stock file', detail)
+        ok, detail = subject.rule_files_not_stock({'files': {'VENDOR/lib64/libmissing.so': stock}}, v)
+        self.assertFalse(ok)
+        self.assertIn('missing', detail)
+
+    def test_file_presence_absence_and_symlinks(self):
+        v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
+                         symlinks={'VENDOR/etc/link.xml': 'target.xml'})
+        self.assertTrue(subject.rule_files_present({'paths': ['VENDOR/bin/a']}, v)[0])
+        self.assertFalse(subject.rule_files_present({'paths': ['VENDOR/bin/b']}, v)[0])
+        self.assertFalse(subject.rule_files_absent({'paths': ['SYSTEM_EXT/priv-app/Old']}, v)[0])
+        self.assertTrue(subject.rule_files_absent({'paths': ['VENDOR/bin/b']}, v)[0])
+        self.assertFalse(subject.rule_files_absent({'paths': ['VENDOR/etc/link.xml']}, v)[0])
+        self.assertTrue(subject.rule_symlink({'path': 'VENDOR/etc/link.xml', 'target': 'target.xml'}, v)[0])
+        self.assertFalse(subject.rule_symlink({'path': 'VENDOR/etc/link.xml', 'target': 'other.xml'}, v)[0])
+
+    def test_text_rules(self):
+        v = self.harness({'VENDOR/etc/a.rc': b'on boot\n    write /x 1\n', 'VENDOR/etc/init/b.rc': b'service x\n',
+                          'VENDOR/etc/vintf/manifest/one.xml': b'<hal>android.hardware.sensors</hal>',
+                          'VENDOR/etc/vintf/manifest/two.xml': b'<hal>other</hal>'})
+        ok = lambda rule: subject.rule_text(rule, v)[0]
+        self.assertTrue(ok({'files': ['VENDOR/etc/a.rc'], 'lines': ['    write /x 1'], 'contains': ['on boot']}))
+        self.assertFalse(ok({'files': ['VENDOR/etc/a.rc'], 'lines': ['write /x 1']}))
+        self.assertTrue(ok({'files': ['VENDOR/etc/a.rc'], 'regex': [r'^ +write /x \d$']}))
+        self.assertFalse(ok({'files': ['VENDOR/etc/a.rc'], 'absent_regex': [r'^on boot$']}))
+        self.assertTrue(ok({'files': ['VENDOR/etc/init/**'], 'absent': ['zygote-start']}))
+        self.assertTrue(ok({'files': ['VENDOR/etc/vintf/manifest/*.xml'], 'match': 'any', 'contains': ['android.hardware.sensors']}))
+        self.assertFalse(ok({'files': ['VENDOR/etc/vintf/manifest/*.xml'], 'contains': ['android.hardware.sensors']}))
+        self.assertFalse(ok({'files': ['VENDOR/etc/missing.rc'], 'contains': ['x']}))
+        self.assertTrue(ok({'files': ['VENDOR/etc/missing.rc'], 'contains': ['x'], 'optional': True}))
+
+    def test_property_rules(self):
+        v = self.harness({'VENDOR/build.prop': b'a=1\nb=true\nb=true\nc=2\nc=3\n# d=1\n'})
+        ok = lambda rule: subject.rule_properties(dict(file='VENDOR/build.prop', **rule), v)[0]
+        self.assertTrue(ok({'equals': ['a=1']}))
+        self.assertFalse(ok({'equals': ['b=true']}))
+        self.assertTrue(ok({'equals': ['b=true'], 'mode': 'all'}))
+        self.assertFalse(ok({'equals': ['c=2'], 'mode': 'all'}))
+        self.assertTrue(ok({'absent': ['d']}))
+        self.assertFalse(ok({'absent': ['a']}))
+
+    def test_fingerprint_prefix(self):
+        v = self.harness({'PRODUCT/etc/build.prop': b'ro.product.build.fingerprint=Fairphone/FP6/FP6:17/X/test.1:user/test-keys\n',
+                          'VENDOR/build.prop': b'ro.vendor.build.fingerprint=generic/x\n'})
+        rule = {'files': ['PRODUCT/etc/build.prop'], 'key': 'build.fingerprint', 'prefix': 'Fairphone/FP6/FP6:'}
+        self.assertTrue(subject.rule_property_prefix(rule, v)[0])
+        rule['files'].append('VENDOR/build.prop')
+        self.assertFalse(subject.rule_property_prefix(rule, v)[0])
+
+    def test_sepolicy_exclusive_and_attribute_expansion(self):
+        cil = (b'(typeattributeset dev_type (pmsg_device other_device))\n'
+               b'(typeattributeset base_typeattr_9 (and (dev_type ) (not (other_device ))))\n'
+               b'(allow vendor_init base_typeattr_9 (chr_file (getattr setattr)))\n'
+               b'(allow hal_audio_default vendor_hal_audio_internal_hwservice (hwservice_manager (add find)))\n')
+        v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil})
+        allows = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil'], 'source': 'vendor_init', 'target': 'pmsg_device',
+                  'cls': 'chr_file', 'perm': 'setattr'}
+        self.assertTrue(subject.rule_sepolicy_allows(allows, v)[0])
+        self.assertFalse(subject.rule_sepolicy_allows(dict(allows, target='other_device'), v)[0])
+        self.assertFalse(subject.rule_sepolicy_allows(dict(allows, perm='write'), v)[0])
+        exclusive = {'file': 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'target': 'vendor_hal_audio_internal_hwservice',
+                     'cls': 'hwservice_manager', 'allowed': ['hal_audio_default']}
+        self.assertTrue(subject.rule_sepolicy_exclusive(exclusive, v)[0])
+        v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil + b'(allow untrusted_app vendor_hal_audio_internal_hwservice (hwservice_manager (find)))\n'})
+        self.assertFalse(subject.rule_sepolicy_exclusive(exclusive, v)[0])
+
+    def test_sepolicy_sources_expands_attributes_across_files(self):
+        plat = (b'(type apexd)\n(type vold)\n(type sysfs)\n(type sysfs_batteryinfo)\n'
+                b'(typeattributeset sysfs_type (sysfs sysfs_batteryinfo))\n'
+                b'(typeattributeset base_typeattr_1 (and (sysfs_type ) (not (sysfs_batteryinfo ))))\n'
+                b'(allow apexd sysfs_type (file (read open)))\n'
+                b'(allow vold base_typeattr_1 (file (read open)))\n')
+        mapping = b'(typeattributeset sysfs_type_202604 (sysfs_type))\n'
+        vendor = (b'(type vendor_serial)\n(type vendor_other)\n(type hal_x_default)\n(type hal_y_default)\n'
+                  b'(typeattributeset sysfs_type (vendor_serial vendor_other))\n'
+                  b'(typeattributeset base_typeattr_2 (and (sysfs_type ) (not (vendor_serial ))))\n'
+                  b'(allow hal_x_default base_typeattr_2 (file (read open)))\n'
+                  b'(allow hal_y_default vendor_other (file (read open)))\n')
+        members = {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat,
+                   'SYSTEM/etc/selinux/mapping/202604.cil': mapping,
+                   'SYSTEM/etc/selinux/mapping/202604.compat.cil': b'(allow hal_y_default sysfs_type (file (read)))\n',
+                   'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor}
+        rule = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil', 'SYSTEM/etc/selinux/mapping/*.cil',
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil'],
+                'target': 'vendor_serial', 'cls': 'file', 'perm': 'read', 'allowed': ['apexd', 'vold']}
+        self.assertTrue(subject.rule_sepolicy_sources(rule, self.harness(members))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(dict(rule, allowed=['apexd']), self.harness(members))[0])
+        leaky = dict(members)
+        leaky['VENDOR/etc/selinux/vendor_sepolicy.cil'] = vendor + b'(allow hal_y_default sysfs_type (file (read)))\n'
+        ok, detail = subject.rule_sepolicy_sources(rule, self.harness(leaky))
+        self.assertFalse(ok)
+        self.assertIn('hal_y_default', detail)
+        self.assertFalse(subject.rule_sepolicy_sources(dict(rule, target='absent_type'), self.harness(members))[0])
+
+    def test_soc_serial_and_thermal_hal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ueventd = (b'/sys/devices/soc0         serial_number    0400   root   root\n'
+                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_temp   0664   root   system\n'
+                   b'/sys/devices/virtual/thermal/thermal_zone*   trip_point_1_hyst   0664   root   system\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc   string_descriptors/serial_number   0400   root   root\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:*   vpd_pg80   0400   root   root\n'
+                   b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:*   vpd_pg83   0400   root   root\n')
+        rc = (b'service vendor.thermal-hal /vendor/bin/hw/android.hardware.thermal-service.qti\n'
+              b'    interface aidl android.hardware.thermal.IThermal/default\n'
+              b'    class hal\n    user system\n    group system\n    override\n')
+        cil = b'(genfscon sysfs "/devices/soc0/serial_number" (u object_r vendor_sysfs_soc_serial ((s0) (s0))))\n'
+        v = self.harness({'VENDOR/etc/ueventd.rc': ueventd, 'VENDOR/etc/init/init.fp6.thermal.rc': rc,
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil': cil})
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-trip-nodes', 'thermal-hal-as-system', 'soc-serial-label',
+                        'ufs-serial-root-only'):
+            self.assertTrue(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        v = self.harness({'VENDOR/etc/ueventd.rc': ueventd.replace(b'0400', b'0444'),
+                          'VENDOR/etc/init/init.fp6.thermal.rc': rc.replace(b'user system', b'user root'),
+                          'VENDOR/etc/selinux/vendor_sepolicy.cil':
+                              cil + b'(allow hal_graphics_composer_default vendor_sysfs_soc_serial (file (read)))\n'})
+        for rule_id in ('soc-serial-root-only', 'thermal-hal-as-system', 'soc-serial-label', 'ufs-serial-root-only'):
+            self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
+
+    def test_boot_hal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc = (b'# Runs as its own user with CAP_SYS_RAWIO only.\n'
+              b'service vendor.boot-qti /vendor/bin/hw/android.hardware.boot-service.qti\n'
+              b'    class early_hal\n    user vendor_bootctl\n    group vendor_bootctl\n    capabilities SYS_RAWIO\n')
+        ueventd = (b'/dev/block/sdb            0660   root       vendor_bootctl\n'
+                   b'/dev/block/sdc            0660   root       vendor_bootctl\n'
+                   b'/dev/block/sde            0660   root       vendor_bootctl\n'
+                   b'/dev/block/platform/soc/1d84000.ufshc/by-name/misc   0660   root   vendor_bootctl\n'
+                   b'/dev/ufs-bsg*             0660   root       vendor_bootctl\n')
+        good = {'VENDOR/etc/init/android.hardware.boot-service.qti.rc': rc, 'VENDOR/etc/ueventd.rc': ueventd,
+                'VENDOR/etc/passwd': b'vendor_bootctl::2996:2996::/:\n', 'VENDOR/etc/group': b'vendor_bootctl::2996:\n'}
+        for rule_id in ('boot-hal-own-user', 'boot-hal-users', 'boot-hal-nodes'):
+            self.assertTrue(subject.rule_text(rules[rule_id], self.harness(good))[0], rule_id)
+        for rule_id, name, data in (
+                ('boot-hal-own-user', 'VENDOR/etc/init/android.hardware.boot-service.qti.rc',
+                 rc.replace(b'user vendor_bootctl', b'user root')),
+                ('boot-hal-own-user', 'VENDOR/etc/init/android.hardware.boot-service.qti.rc',
+                 rc.replace(b'    capabilities SYS_RAWIO\n', b'')),
+                ('boot-hal-nodes', 'VENDOR/etc/ueventd.rc', ueventd + b'/dev/block/sda            0660   root   vendor_bootctl\n'),
+                ('boot-hal-nodes', 'VENDOR/etc/ueventd.rc', ueventd.replace(b'/dev/block/sde ', b'/dev/block/sdf ')),
+                ('boot-hal-users', 'VENDOR/etc/group', b'vendor_other::2996:\n')):
+            self.assertFalse(subject.rule_text(rules[rule_id], self.harness(dict(good, **{name: data})))[0], rule_id)
+
+    def test_eud_bluetooth_contexts_and_gralloc_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        cil = b'(genfscon sysfs "/module/eud/parameters/enable" (u object_r vendor_sysfs_eud_enable ((s0) (s0))))\n'
+        v = self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil': cil,
+                          'VENDOR/etc/init/init.qcom.rc': b'on boot\n    write /sys/module/x/parameters/y 1\n',
+                          'VENDOR/etc/selinux/vendor_hwservice_contexts':
+                              b'vendor.qti.hardware.fm::IFmHci u:object_r:vendor_hal_fm_hwservice:s0\n',
+                          'VENDOR/lib64/libgrallocutils.so': b'\x7fELF qdgralloc',
+                          'VENDOR/lib64/libgralloccore.so': b'\x7fELF qdgralloc'})
+        for rule_id in ('eud-enable-label', 'eud-stays-off', 'no-bluetooth-value-add-contexts', 'gralloc-no-libubwcp'):
+            self.assertTrue(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        v = self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil':
+                              cil + b'(allow vendor_hal_usb_qti vendor_sysfs_eud_enable (file (open write)))\n',
+                          'VENDOR/etc/init/init.qcom.rc': b'on boot\n    write /sys/module/eud/parameters/enable 1\n',
+                          'VENDOR/etc/selinux/vendor_hwservice_contexts':
+                              b'com.dsi.ant::IAnt u:object_r:hal_bluetooth_hwservice:s0\n',
+                          'VENDOR/lib64/libgrallocutils.so': b'\x7fELF libubwcp.so\x00',
+                          'VENDOR/lib64/libgralloccore.so': b'\x7fELF'})
+        for rule_id in ('eud-enable-label', 'eud-stays-off', 'no-bluetooth-value-add-contexts', 'gralloc-no-libubwcp'):
+            self.assertFalse(subject.rule_text(rules[rule_id], v)[0], rule_id)
+        self.assertFalse(subject.rule_text(rules['eud-stays-off'], self.harness(
+            {'VENDOR_DLKM/lib/modules/modules.options': b'options eud enable=1\n'}))[0])
+        cold = rules['restarts-stay-cold']
+        self.assertTrue(subject.rule_text(cold, self.harness({'VENDOR/etc/init/hw/init.qcom.rc': b'on boot\n'}))[0])
+        self.assertFalse(subject.rule_text(cold, self.harness(
+            {'SYSTEM/etc/init/hw/init.rc': b'on init\n    write /sys/kernel/reboot/mode warm\n'}))[0])
+        plat = (b'(type ueventd)\n(type vendor_init)\n(type vold)\n(type sysfs)\n'
+                b'(typeattributeset sysfs_type (sysfs))\n'
+                b'(allow ueventd sysfs_type (file (open write)))\n(allow vendor_init sysfs_type (file (write)))\n'
+                b'(allow vold sysfs (file (open write)))\n')
+        vendor = b'(type vendor_sysfs_eud_enable)\n(typeattributeset sysfs_type (vendor_sysfs_eud_enable))\n'
+        writers = rules['eud-enable-writers']
+        policy = {name: b'' for name in writers['files'] if '*' not in name}
+        policy.update({'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor})
+        self.assertTrue(subject.rule_sepolicy_sources(writers, self.harness(policy))[0])
+        policy['VENDOR/etc/selinux/vendor_sepolicy.cil'] = vendor + b'(allow vold vendor_sysfs_eud_enable (file (write)))\n'
+        self.assertFalse(subject.rule_sepolicy_sources(writers, self.harness(policy))[0])
+
+    def test_adb_network_and_display_colour_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
+                 'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}
+        self.assertTrue(subject.rule_text(rules['no-adb-over-network'], self.harness(clean))[0])
+        self.assertFalse(subject.rule_text(rules['no-adb-over-network'], self.harness(
+            dict(clean, **{'VENDOR/etc/init/a.rc': b'on boot\n    setprop persist.adb.tcp.port 5555\n'})))[0])
+        policy = {'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(typeattribute vendor_hal_display_color)\n',
+                  'VENDOR/etc/selinux/vendor_file_contexts': b'/vendor/bin/x u:object_r:x_exec:s0\n',
+                  'VENDOR/etc/selinux/vendor_service_contexts': b'x u:object_r:x_service:s0\n'}
+        self.assertTrue(subject.rule_text(rules['no-display-colour-policy'], self.harness(policy))[0])
+        self.assertFalse(subject.rule_text(rules['no-display-colour-policy'], self.harness(
+            dict(policy, **{'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(type vendor_hal_display_color_default)\n'})))[0])
+
+    def test_wifi_wake_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ini = 'VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini'
+        overlay = 'VENDOR/etc/wifi/wpa_supplicant_overlay.conf'
+        good = {ini: b'gDot11Mode=0\ngEnableWoW=2\nEND\n\n# Note\n',
+                overlay: b'disable_scan_offload=1\np2p_disabled=1\n'}
+        for rule_id in ('wifi-no-magic-packet-wake', 'wifi-no-wowlan-triggers'):
+            self.assertTrue(subject.rule_text(rules[rule_id], self.harness(good))[0], rule_id)
+        for members in ({ini: b'gDot11Mode=0\nEND\n'}, {ini: b'gEnableWoW=3\ngEnableWoW=2\nEND\n'},
+                        {ini: b'END\ngEnableWoW=2\n'}):
+            self.assertFalse(subject.rule_text(rules['wifi-no-magic-packet-wake'], self.harness(members))[0])
+        self.assertFalse(subject.rule_text(rules['wifi-no-wowlan-triggers'], self.harness(
+            {overlay: good[overlay] + b'wowlan_triggers=magic_pkt\n'}))[0])
+
+    def test_usb_port_control_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        node = b'/sys/devices/platform/soc/a600000.ssusb/data_path_enable'
+        old = b'/sys/devices/platform/soc/a600000.ssusb/dynamic_disable'
+        sic = b'/sys/class/qcom-battery/suspend_input_current'
+        rc = (b'on early-boot && property:ro.debuggable=0\n    write ' + node + b' 0\n'
+              b'    wait ' + sic + b' 5\n    write ' + sic + b' 1\n\n'
+              b'on boot && property:ro.debuggable=0\n    write ' + sic + b' 1\n\n'
+              b'on early-boot && property:ro.debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 0\n\n'
+              b'on charger\n    write ' + sic + b' 0\n    wait ' + node + b' 5\n    write ' + node + b' 1\n\n'
+              b'on shutdown\n    write ' + sic + b' 0\n\n'
+              b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' 0\n'
+              b'    write ' + sic + b' 1\n\n'
+              b'on property:sys.port_security_mode=charging-only_immediate\n    write ' + sic + b' 0\n'
+              b'    write ' + node + b' 0\n\n'
+              b'on property:sys.port_security_mode=charging-only\n    write ' + sic + b' 0\n'
+              b'    write ' + node + b' -1\n\n'
+              b'on property:sys.port_security_mode=ports_enabled\n    write ' + sic + b' 0\n'
+              b'    write ' + node + b' 1\n')
+        cil = (b'(genfscon sysfs "/devices/platform/soc/a600000.ssusb/data_path_enable" '
+               b'(u object_r vendor_sysfs_usb_data_path ((s0) (s0))))\n'
+               b'(genfscon sysfs "/devices/platform/soc/a600000.ssusb/dynamic_disable" '
+               b'(u object_r vendor_sysfs_usb_data_disable ((s0) (s0))))\n')
+        triggers = lambda text: subject.rule_text(rules['usb-port-control-triggers'], self.harness(
+            {'VENDOR/etc/init/init.qcom.usb.rc': text}))[0]
+        self.assertTrue(triggers(rc))
+        # charging-only keeps the current connection only (-1), it does not cut data.
+        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' -1\n', b'    write ' + node + b' 0\n')))
+        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' -1\n', b'')))
+        self.assertFalse(triggers(rc.replace(b'=ports_enabled', b'=ports_on')))
+        # Off cuts data first, then the charger input.
+        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' 0\n    write ' + sic + b' 1\n',
+                                             b'    write ' + sic + b' 1\n    write ' + node + b' 0\n')))
+        # The older dynamic_disable switch is not written.
+        self.assertFalse(triggers(rc + b'\non property:sys.port_security_mode=ports_disabled\n    write ' + old + b' 1\n'))
+        # Only Off suspends the input. Every other state, boot, charger mode and shutdown resume it.
+        self.assertFalse(triggers(rc.replace(b'charging-only\n    write ' + sic + b' 0',
+                                             b'charging-only\n    write ' + sic + b' 1')))
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + sic + b' 1\n'))
+        self.assertFalse(triggers(rc.replace(b'on shutdown\n    write ' + sic + b' 0\n\n', b'')))
+        self.assertFalse(triggers(rc.replace(b'on charger\n    write ' + sic + b' 0\n', b'on charger\n')))
+        # Charger mode turns data on, as on Pixels.
+        self.assertFalse(triggers(rc.replace(b'    wait ' + node + b' 5\n    write ' + node + b' 1\n\n', b'\n')))
+        # User builds start with the input suspended. Nothing at boot undoes it or turns data on.
+        self.assertFalse(triggers(rc.replace(b'on boot && property:ro.debuggable=0\n    write ' + sic + b' 1\n\n', b'')))
+        self.assertFalse(triggers(rc + b'\non boot\n    write ' + sic + b' 0\n'))
+        self.assertFalse(triggers(rc + b'\non boot\n    write ' + node + b' 1\n'))
+        # User builds also cut data at boot, before the input. Debuggable builds never do.
+        self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 0\n', b'debuggable=0\n')))
+        self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait', b'debuggable=1\n    write ' + node + b' 0\n    wait')))
+        # Only the port states and the user-build boot cut write 0, only charging-only writes -1,
+        # only ports_enabled and charger mode write 1.
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 0\n'))
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' -1\n'))
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 1\n'))
+        # Debuggable builds keep charging at boot, and the user-build cut waits for the node.
+        self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 0',
+                                             b'debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 1')))
+        self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 0\n    wait ' + sic + b' 5\n',
+                                             b'debuggable=0\n    write ' + node + b' 0\n')))
+        isl = lambda text: subject.rule_text(rules['usb-port-control-input-suspend-label'], self.harness(
+            {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        sic_cil = (b'(genfscon sysfs "/class/qcom-battery/suspend_input_current" '
+                   b'(u object_r vendor_sysfs_usb_input_suspend ((s0) (s0))))\n')
+        self.assertTrue(isl(sic_cil))
+        self.assertFalse(isl(sic_cil.replace(b'vendor_sysfs_usb_input_suspend', b'sysfs')))
+        label = lambda text: subject.rule_text(rules['usb-port-control-label'], self.harness(
+            {'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        self.assertTrue(label(cil))
+        self.assertFalse(label(cil.replace(b'vendor_sysfs_usb_data_disable', b'vendor_sysfs_usb_device')))
+        self.assertFalse(label(cil.replace(b'vendor_sysfs_usb_data_path', b'sysfs')))
+
+        plat = (b'(type ueventd)\n(type vendor_init)\n(type sysfs)\n(type sysfs_usermodehelper)\n'
+                b'(typeattributeset sysfs_type (sysfs sysfs_usermodehelper))\n'
+                b'(typeattributeset base_typeattr_9 (and (sysfs_type ) (not (sysfs_usermodehelper ))))\n'
+                b'(allow ueventd sysfs_type (file (open append write lock map)))\n'
+                b'(allow vendor_init base_typeattr_9 (file (getattr open read write)))\n')
+        vendor = (b'(type vendor_sysfs_usb_data_disable)\n(type vendor_hal_usb_qti)\n'
+                  b'(typeattributeset sysfs_type (vendor_sysfs_usb_data_disable))\n'
+                  b'(allow vendor_init vendor_sysfs_usb_data_disable (file (open write)))\n')
+        rule = dict(rules['usb-port-control-writers'],
+                    files=['SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'])
+        writers = lambda text: subject.rule_sepolicy_sources(rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))
+        self.assertTrue(writers(vendor)[0])
+        ok, detail = writers(vendor + b'(allow vendor_hal_usb_qti vendor_sysfs_usb_data_disable (file (open write)))\n')
+        self.assertFalse(ok)
+        self.assertIn('vendor_hal_usb_qti', detail)
+        dp_vendor = (b'(type vendor_sysfs_usb_data_path)\n(type vendor_hal_usb_qti)\n'
+                     b'(typeattributeset sysfs_type (vendor_sysfs_usb_data_path))\n'
+                     b'(allow vendor_init vendor_sysfs_usb_data_path (file (getattr open write)))\n')
+        dp_rule = dict(rules['usb-port-control-data-path-writers'],
+                       files=['SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'])
+        dp = lambda text: subject.rule_sepolicy_sources(dp_rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))
+        self.assertTrue(dp(dp_vendor)[0])
+        ok, detail = dp(dp_vendor + b'(allow vendor_hal_usb_qti vendor_sysfs_usb_data_path (file (open write)))\n')
+        self.assertFalse(ok)
+        self.assertIn('vendor_hal_usb_qti', detail)
+        isw_rule = dict(rules['usb-port-control-input-suspend-writers'],
+                        files=['SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'])
+        isw = lambda text: subject.rule_sepolicy_sources(isw_rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))
+        sic_vendor = (b'(type vendor_sysfs_usb_input_suspend)\n(type hal_health_default)\n'
+                      b'(typeattributeset sysfs_type (vendor_sysfs_usb_input_suspend))\n'
+                      b'(allow vendor_init vendor_sysfs_usb_input_suspend (file (open write)))\n')
+        self.assertTrue(isw(sic_vendor)[0])
+        ok, detail = isw(sic_vendor + b'(allow hal_health_default vendor_sysfs_usb_input_suspend (file (open write)))\n')
+        self.assertFalse(ok)
+        self.assertIn('hal_health_default', detail)
+
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as inner:
+            inner.writestr('classes3.dex', b'dex\x00debug.diamaneos.usb_port_security.test\x00'
+                                          b'USB-C port Off at boot\x00'
+                                          b'port status reports DATA_STATUS_DISABLED_FORCE for %s\x00')
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-debug-guards'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-off-at-boot'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        self.assertTrue(subject.rule_zip_contains(rules['usb-port-control-data-reenable'], self.harness(
+            {'SYSTEM/framework/services.jar': jar.getvalue()}))[0])
+        clean = {'SYSTEM/build.prop': b'ro.adb.secure=1\n', 'VENDOR/build.prop': b'ro.vendor.x=1\n',
+                 'VENDOR/etc/init/a.rc': b'service a /vendor/bin/a\n'}
+        protection = lambda members: subject.rule_text(rules['usb-data-protection-unset'], self.harness(members))[0]
+        self.assertTrue(protection(clean))
+        self.assertFalse(protection(dict(clean, **{
+            'VENDOR/build.prop': b'ro.usb.data_protection.disable_when_locked.supported=true\n'})))
+
+    def test_usb_data_gate_kernel_and_boot_default(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        dwc3, ucsi = 'VENDOR_DLKM/lib/modules/dwc3-msm.ko', 'VENDOR_DLKM/lib/modules/ucsi_glink.ko'
+        ko = b'\x7fELF data_path_enable\x00disable_usb_data_by_default\x00altmode_set_ignore_alt_modes\x00'
+        kernel = lambda data: subject.rule_binary_count(rules['usb-port-control-kernel'], self.harness({dwc3: data}))[0]
+        self.assertTrue(kernel(ko))
+        self.assertFalse(kernel(ko.replace(b'disable_usb_data_by_default', b'x')))
+        self.assertFalse(kernel(ko.replace(b'altmode_set_ignore_alt_modes', b'x')))
+        self.assertTrue(subject.rule_binary_count(rules['usb-port-control-kernel-ucsi'], self.harness(
+            {ucsi: b'\x7fELF altmode_alt_modes_ignored\x00'}))[0])
+        self.assertFalse(subject.rule_binary_count(rules['usb-port-control-kernel-ucsi'], self.harness(
+            {ucsi: b'\x7fELF'}))[0])
+        options = 'VENDOR_DLKM/lib/modules/modules.options'
+        line = b'options dwc3_msm disable_usb_data_by_default=1\n'
+        user = rules['usb-port-control-boot-default']
+        self.assertEqual(['user'], user['variants'])
+        self.assertTrue(subject.rule_text(user, self.harness({options: b'# note\n' + line}))[0])
+        self.assertFalse(subject.rule_text(user, self.harness({options: b'options eud enable=0\n'}))[0])
+        self.assertFalse(subject.rule_text(user, self.harness({'VENDOR/build.prop': b''}))[0])
+        debug = rules['usb-port-control-boot-default-debuggable']
+        self.assertNotIn('user', debug['variants'])
+        self.assertTrue(subject.rule_text(debug, self.harness({'VENDOR/build.prop': b''}))[0])
+        self.assertFalse(subject.rule_text(debug, self.harness({options: line}))[0])
+        recovery = rules['usb-port-control-recovery-default']
+        self.assertTrue(subject.rule_text(recovery, self.harness({'VENDOR/build.prop': b''}))[0])
+        self.assertFalse(subject.rule_text(recovery, self.harness(
+            {'VENDOR_BOOT/RAMDISK/lib/modules/modules.options': line}))[0])
+
+    def test_sepolicy_dormant_finds_files_that_can_start_a_domain(self):
+        cil = (b'(type hal_x_default)\n(type hal_x_default_exec)\n(type hal_y_default)\n(type hal_y_default_exec)\n'
+               b'(type other_exec)\n(typeattributeset x_entry (hal_x_default_exec other_exec))\n'
+               b'(typeattributeset hal_x_server (hal_x_default))\n'
+               b'(allow hal_x_server x_entry (file (read execute entrypoint)))\n'
+               b'(allow hal_y_default hal_y_default_exec (file (read execute entrypoint)))\n'
+               b'(allow hal_x_default hal_y_default_exec (file (read execute)))\n')
+        contexts = (b'# reference services\n'
+                    b'/(vendor|system/vendor)/bin/hw/android\\.hardware\\.x@1\\.[0-2]-service(-lazy)?   '
+                    b'u:object_r:hal_x_default_exec:s0\n'
+                    b'/(odm|vendor/odm)/bin/other   --   u:object_r:other_exec:s0\n'
+                    b'/vendor/bin/hw/y-service   u:object_r:hal_y_default_exec:s0\n')
+        rule = {'files': ['VENDOR/etc/selinux/*.cil'], 'contexts': ['VENDOR/etc/selinux/vendor_file_contexts'],
+                'domains': ['hal_x_default']}
+        base = {'VENDOR/etc/selinux/vendor_sepolicy.cil': cil, 'VENDOR/etc/selinux/vendor_file_contexts': contexts,
+                'VENDOR/bin/hw/y-service': b'', 'VENDOR/bin/hw/android.hardware.x@1.3-service': b'',
+                'VENDOR/bin/hw/android.hardware.xx1.0-service': b'', 'SYSTEM/bin/other': b''}
+        run = lambda members, **change: subject.rule_sepolicy_dormant(dict(rule, **change), self.harness(members))
+        self.assertEqual((True, 'no file starts any of 1 domains'), run(base))
+        for path, device in (('VENDOR/bin/hw/android.hardware.x@1.2-service', '/vendor/bin/hw/android.hardware.x@1.2-service'),
+                             ('VENDOR/bin/hw/android.hardware.x@1.0-service-lazy',
+                              '/vendor/bin/hw/android.hardware.x@1.0-service-lazy'),
+                             ('ODM/bin/other', '/odm/bin/other')):
+            with self.subTest(path=path):
+                self.assertEqual((False, device + ' can start hal_x_default'), run({**base, path: b''}))
+        # A second domain is checked through its own entry type.
+        self.assertFalse(run(base, domains=['hal_x_default', 'hal_y_default'])[0])
+        # Unknown domains, unreadable entries and missing inputs fail the check.
+        self.assertFalse(run(base, domains=['hal_z_default'])[0])
+        broken = {**base, 'VENDOR/etc/selinux/vendor_file_contexts': b'/vendor/bin/(x   u:object_r:hal_x_default_exec:s0\n'}
+        self.assertFalse(run(broken)[0])
+        self.assertFalse(run(base, files=['ODM/etc/selinux/*.cil'])[0])
+        self.assertFalse(run(base, contexts=['ODM/etc/selinux/*_contexts'])[0])
+        # The versioned compatibility files do not count.
+        compat = {**base, 'VENDOR/etc/selinux/202604.compat.cil': b'(allow hal_x_default hal_y_default_exec (file (entrypoint)))\n'}
+        self.assertTrue(run(compat)[0])
+
+    def test_tee_node_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        reference = ['hal_drm_clearkey_aidl', 'hal_drm_default', 'hal_drm_widevine_sw', 'hal_gatekeeper_default',
+                     'hal_keymint_default']
+        for rule_id in reach:
+            self.assertEqual(live, rules[rule_id]['allowed'], rule_id)
+            self.assertEqual(('vendor_smcinvoke_device', 'chr_file', rule_id.rsplit('-', 1)[1]),
+                             (rules[rule_id]['target'], rules[rule_id]['cls'], rules[rule_id]['perm']))
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        system_ext = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        use = '(chr_file (ioctl read write getattr open))'
+        # The platform still grants tee_device to its reference HAL domains. No node carries that label.
+        plat_cil = ('(type tee_device)\n(type init)\n(type ueventd)\n(type hal_camera_default)\n'
+                    '(typeattributeset dev_type (tee_device vendor_smcinvoke_device))\n'
+                    '(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
+                    '(allow ueventd dev_type (chr_file (create setattr unlink)))\n'
+                    f'(allow hal_drm_server tee_device {use})\n(allow hal_gatekeeper_server tee_device {use})\n'
+                    f'(allow hal_keymint_default tee_device {use})\n')
+        vendor_cil = (''.join(f'(type {d})\n' for d in live + reference)
+                      + '(typeattributeset hal_drm_server (hal_drm_default hal_drm_clearkey_aidl hal_drm_widevine_sw))\n'
+                      + '(typeattributeset hal_gatekeeper_server (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
+                      + ''.join(f'(allow {d} vendor_smcinvoke_device {use})\n' for d in live if d != 'hal_fingerprint_default')
+                      + '(allow hal_fingerprint_default vendor_smcinvoke_device (chr_file (open read write ioctl)))\n')
+        good = {plat: plat_cil.encode(), vendor: vendor_cil.encode(), system_ext: b'(type vendor_smcinvoke_device)\n',
+                'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in reach:
+            self.assertTrue(check(rule_id, good), rule_id)
+        grant = lambda rule: {vendor: (vendor_cil + rule + '\n').encode()}
+        for failing, change in [
+                (('tee-node-ioctl',), grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (ioctl)))')),
+                (('tee-node-read', 'tee-node-write'),
+                 grant('(allow hal_camera_default vendor_smcinvoke_device (chr_file (read write)))')),
+                (('tee-node-open',), grant('(allow hal_camera_default dev_type (chr_file (open)))')),
+                # No DRM HAL may reach it, Widevine included.
+                (reach, grant(f'(allow hal_drm_server vendor_smcinvoke_device {use})')),
+                (reach, grant(f'(allow hal_drm_widevine_sw vendor_smcinvoke_device {use})')),
+                (reach, grant(f'(allow hal_keymint_default vendor_smcinvoke_device {use})')),
+                # More grants on the platform's label change nothing: it is on no node.
+                ((), grant(f'(allow hal_camera_default tee_device {use})')),
+                # Without the type the rules cannot be judged.
+                (reach, {system_ext: b''})]:
+            members = {**good, **change}
+            for rule_id in reach:
+                with self.subTest(rule=rule_id, change=sorted(change), failing=failing):
+                    self.assertEqual(rule_id not in failing, check(rule_id, members))
+
+    def test_sepolicy_xperms_adds_up_rules_on_types_and_attributes(self):
+        self.assertEqual({0x9801, 0x9803}, subject.cil_xperm_numbers('(0x9801 0x9803)'))
+        self.assertEqual({0x5450, 0x5451, 0x1268}, subject.cil_xperm_numbers('((range 0x5450 0x5451) 0x1268)'))
+        self.assertRaises(ValueError, subject.cil_xperm_numbers, '(not (0x9801))')
+        plat = (b'(type node)\n(type other_node)\n(type a)\n(type b)\n(type c)\n'
+                b'(typeattributeset dev_type (node other_node))\n(typeattributeset domain (a b c))\n'
+                b'(typeattributeset node_202604 (node))\n(typeattributeset a_202604 (a))\n'
+                b'(allow domain dev_type (chr_file (ioctl read write open)))\n'
+                b'(allowx domain dev_type (ioctl blk_file ((range 0x5450 0x5451))))\n'
+                b'(allowx domain other_node (ioctl chr_file ((range 0x0 0xffff))))\n'
+                b'(allowx domain node (nlmsg chr_file (0x12)))\n')
+        vendor = (b'(allowx a_202604 node_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                  b'(allowx b node_202604 (ioctl chr_file (0x9801)))\n'
+                  b'(allowx b node (ioctl chr_file (0x9803)))\n')
+        rule = {'files': ['SYSTEM/etc/selinux/*.cil', 'VENDOR/etc/selinux/*.cil'], 'target': 'node', 'cls': 'chr_file',
+                'sources': ['a', 'b'], 'allowed': ['0x9801', '0x9803']}
+        run = lambda extra=b'', **change: subject.rule_sepolicy_xperms(dict(rule, **change), self.harness(
+            {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat, 'VENDOR/etc/selinux/vendor_sepolicy.cil': vendor + extra,
+             'VENDOR/etc/selinux/202604.compat.cil': b'(allowx domain dev_type (ioctl chr_file (0x1)))\n'}))
+        self.assertEqual((True, 'only 0x9801, 0x9803'), run())
+        # A domain without a list may send every number.
+        self.assertEqual((False, 'c has no ioctl allow-list'), run(sources=['a', 'c']))
+        # Wider lists fail, on the type or through an attribute on either side.
+        self.assertEqual((False, 'a: also 0x98ff'), run(b'(allowx a node (ioctl chr_file (0x98ff)))\n'))
+        self.assertEqual((False, 'a: also 0x9802; b: also 0x9802'),
+                         run(b'(allowx domain node (ioctl chr_file ((range 0x9801 0x9803))))\n'))
+        self.assertFalse(run(b'(allowx b dev_type (ioctl chr_file (0x5451)))\n')[0])
+        # A shorter list would break the service. It fails as well.
+        self.assertEqual((False, 'a: lacks 0x9802; b: lacks 0x9802'), run(allowed=['0x9801', '0x9802', '0x9803']))
+        # Audit and dontaudit lists grant nothing and do not count.
+        self.assertTrue(run(b'(auditallowx a node (ioctl chr_file (0x98ff)))\n'
+                            b'(dontauditx a node (ioctl chr_file (0x98fe)))\n')[0])
+        # Unknown types, unreadable lists and missing files fail.
+        self.assertFalse(run(sources=['a', 'z'])[0])
+        self.assertFalse(run(target='absent_node')[0])
+        self.assertRaises(ValueError, run, b'(allowx a node (ioctl chr_file (not (0x1))))\n')
+        self.assertFalse(run(files=['ODM/etc/selinux/*.cil'])[0])
+
+    def test_tee_node_ioctl_limit_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'tee-node-ioctl-limit']
+        live = ['hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']
+        self.assertEqual((live, ['0x9801', '0x9803'], 'vendor_smcinvoke_device', 'chr_file'),
+                         (rule['sources'], rule['allowed'], rule['target'], rule['cls']))
+        plat, vendor, mapping = ('SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil',
+                                 'SYSTEM/etc/selinux/mapping/202604.cil')
+        plat_cil = ('(type tee)\n(type tee_device)\n(type vendor_smcinvoke_device)\n(type hal_gatekeeper_default)\n'
+                    '(typeattributeset dev_type (tee_device vendor_smcinvoke_device))\n'
+                    '(typeattributeset hal_gatekeeper (hal_gatekeeper_default vendor_hal_gatekeeper_qti))\n'
+                    '(allow hal_gatekeeper tee_device (chr_file (ioctl read write open)))\n'
+                    '(allowx domain dev_type (ioctl blk_file ((range 0x5450 0x5451))))\n')
+        mapping_cil = ('(typeattributeset tee_202604 (tee))\n'
+                       '(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n')
+        vendor_cil = ('(type hal_fingerprint_default)\n(type vendor_hal_gatekeeper_qti)\n(type vendor_hal_keymint_qti)\n'
+                      '(typeattributeset domain (tee hal_gatekeeper_default hal_fingerprint_default '
+                      'vendor_hal_gatekeeper_qti vendor_hal_keymint_qti))\n'
+                      '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx tee_202604 vendor_rpmb_device (ioctl chr_file (0xb301)))\n'
+                      '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n'
+                      '(auditallowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n')
+        empty = {'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+                 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda text: subject.rule_sepolicy_xperms(rule, self.harness(
+            {plat: plat_cil.encode(), mapping: mapping_cil.encode(), vendor: text.encode(), **empty}))
+        self.assertEqual((True, 'only 0x9801, 0x9803'), check(vendor_cil))
+        for change, detail in [
+                (vendor_cil.replace('(allowx vendor_hal_gatekeeper_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))\n', ''),
+                 'vendor_hal_gatekeeper_qti has no ioctl allow-list'),
+                (vendor_cil.replace('(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx tee_202604 vendor_smcinvoke_device_202604 (ioctl chr_file ((range 0x9801 0x9804))))'),
+                 'tee: also 0x9802, 0x9804'),
+                (vendor_cil + '(allowx hal_fingerprint_default vendor_smcinvoke_device_202604 (ioctl chr_file (0x98ff)))\n',
+                 'hal_fingerprint_default: also 0x98ff'),
+                (vendor_cil + '(allowx hal_gatekeeper dev_type (ioctl chr_file (0x5451)))\n',
+                 'vendor_hal_gatekeeper_qti: also 0x5451'),
+                (vendor_cil.replace('(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801 0x9803)))',
+                                    '(allowx vendor_hal_keymint_qti vendor_smcinvoke_device_202604 (ioctl chr_file (0x9801)))'),
+                 'vendor_hal_keymint_qti: lacks 0x9803')]:
+            with self.subTest(detail=detail):
+                self.assertEqual((False, detail), check(change))
+
+    def test_tee_node_label_and_owner_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        plat, vendor = 'SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'
+        ueventd = 'VENDOR/etc/ueventd.rc'
+        labels = (b'#\n/dev/smcinvoke                                  u:object_r:vendor_smcinvoke_device:s0\n'
+                  b'/dev/qce                                        u:object_r:vendor_qce_device:s0\n'
+                  b'/vendor/bin/qseecomd            u:object_r:tee_exec:s0\n')
+        nodes = b'/dev/kgsl                 0666   system     system\n/dev/smcinvoke            0660   system     drmrpc\n'
+        good = {plat: b'/dev/binder   u:object_r:binder_device:s0\n', vendor: labels, ueventd: nodes,
+                'SYSTEM_EXT/etc/selinux/system_ext_file_contexts': b'', 'PRODUCT/etc/selinux/product_file_contexts': b'',
+                'ODM/etc/selinux/odm_file_contexts': b''}
+        check = lambda rule_id, members: subject.rule_text(rules[rule_id], self.harness(members))[0]
+        for rule_id in ('tee-node-label', 'tee-node-owner'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('tee-node-label', {vendor: labels + b'/dev/qseecom       u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {vendor: labels + b'/dev/tee[0-9]*   -c   u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {plat: good[plat] + b'/dev/trusty-ipc-dev0   u:object_r:tee_device:s0\n'}),
+                ('tee-node-label', {vendor: labels.replace(b'/dev/smcinvoke ', b'/dev/smcinvoke2')}),
+                ('tee-node-label', {vendor: labels.replace(b'vendor_smcinvoke_device', b'tee_device')}),
+                ('tee-node-label', {vendor: labels.replace(b'vendor_smcinvoke_device', b'device')}),
+                ('tee-node-label', {vendor: labels + b'/dev/qseecom       u:object_r:vendor_smcinvoke_device:s0\n'}),
+                ('tee-node-label', {'ODM/etc/selinux/odm_file_contexts': b'/dev/tee0   u:object_r:tee_device:s0\n'}),
+                ('tee-node-owner', {ueventd: nodes + b'/dev/qseecom              0660   system     drmrpc\n'}),
+                ('tee-node-owner', {ueventd: nodes.replace(b'/dev/smcinvoke            0660', b'/dev/smcinvoke            0666')}),
+                ('tee-node-owner', {ueventd: nodes.replace(b'system     drmrpc\n', b'system     system\n')}),
+                ('tee-node-owner', {ueventd: b'/dev/qce                  0660   system     drmrpc\n'}),
+                ('tee-node-owner', {ueventd: nodes + b'/dev/qce                  0660   system     drmrpc\n'})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                self.assertFalse(check(rule_id, {**good, **change}))
+
+    def test_camera_table_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        prop, readers = rules['camera-table-property'], rules['camera-table-readers']
+        check = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))[0]
+        build_prop = 'SYSTEM_EXT/etc/build.prop'
+        self.assertTrue(check(prop, {build_prop: b'ro.a=1\nro.vendor.qti.va_aosp.support=1\n'}))
+        for text in (b'ro.a=1\n', b'ro.vendor.qti.va_aosp.support=0\n', b'#ro.vendor.qti.va_aosp.support=1\n'):
+            self.assertFalse(check(prop, {build_prop: text}))
+        self.assertEqual((['dumpstate', 'hal_camera_default', 'init'], 'vendor_exported_system_prop', 'file', 'read'),
+                         (readers['allowed'], readers['target'], readers['cls'], readers['perm']))
+        plat, system_ext = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        vendor = 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        plat_cil = ('(type init)\n(type dumpstate)\n'
+                    '(typeattributeset property_type (vendor_exported_system_prop))\n'
+                    '(allow init property_type (file (read getattr map open)))\n'
+                    '(allow dumpstate property_type (file (read getattr map open)))\n')
+        ext_cil = ('(type vendor_exported_system_prop)\n'
+                   '(allow hal_camera_server vendor_exported_system_prop (file (read getattr map open)))\n')
+        vendor_cil = ('(type hal_camera_default)\n(type hal_bluetooth_default)\n(type vendor_hal_gnss_qti)\n'
+                      '(typeattributeset hal_camera_server (hal_camera_default))\n')
+        good = {plat: plat_cil.encode(), system_ext: ext_cil.encode(), vendor: vendor_cil.encode(),
+                'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        self.assertTrue(check(readers, good))
+        for extra in ('(allow hal_bluetooth_default vendor_exported_system_prop (file (read)))',
+                      '(allow vendor_hal_gnss_qti property_type (file (read open)))',
+                      '(typeattributeset hal_camera_server (hal_bluetooth_default))'):
+            with self.subTest(extra=extra):
+                self.assertFalse(check(readers, {**good, vendor: (vendor_cil + extra + '\n').encode()}))
+
+    def test_camera_distortion_node_rules(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        present, guard = rules['camera-distortion-node'], rules['camera-distortion-graphicbuffer-abi']
+        library, absent = rules['camera-undistort-library-stock'], rules['camera-no-other-fairphone-nodes']
+        node, uiv34 = 'VENDOR/lib64/camera/components/com.fp.node.distortion.so', 'VENDOR/lib64/uiv34.so'
+        # The check names exactly what the vendor product renames in the node.
+        rewrite = vendor_product.NEEDED_REWRITES[node.replace('VENDOR', 'vendor', 1)]
+        pairs = vendor_product.SYMBOL_RENAMES[rewrite['symbols']]
+        self.assertEqual((node, [rewrite['replacement']], [rewrite['needed']],
+                          [new for _, new in pairs], [old for old, _ in pairs]),
+                         (guard['path'], guard['needed_present'], guard['needed_absent'],
+                          guard['symbols_present'], guard['symbols_absent']))
+        self.assertEqual((256, 2, [pairs[0][1]]),
+                         (guard['alloc_bytes'], guard['min_sized_allocations'], guard['ctor_symbols']))
+        ctor, lock, unlock = guard['symbols_present']
+        dyn = ('Dynamic section at offset 0x1 contains entries:\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libundistort.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libutils.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [uiv34.so]\n'
+               'Symbol table (.dynsym):\n'
+               + ''.join(f'   {index}: 0000000000000000 0 FUNC GLOBAL DEFAULT UND {name}\n'
+                         for index, name in enumerate([ctor, lock, unlock, '_ZN7android14sp_report_raceEv'], 10))
+               + '   20: 0000000000009000 8 FUNC GLOBAL DEFAULT 12 ChiNodeEntry\n')
+        text = ('000000000000b000 <fn>:\n'
+                '    bbec:\tmov\tw0, #0x100              // =256\n'
+                '    bbf0:\tbl\t0x13a10 <_Znwm@plt>\n'
+                f'    bc30:\tbl\t0x13aa0 <{ctor}@plt>\n'
+                '    bcdc:\tmov\tw0, #0x100              // =256\n'
+                '    bce0:\tbl\t0x13a10 <_Znwm@plt>\n'
+                f'    bd0c:\tbl\t0x13aa0 <{ctor}@plt>\n'
+                f'    de74:\tbl\t0x13b78 <{lock}@plt>\n'
+                f'    e3c8:\tbl\t0x13bc0 <{unlock}@plt>\n'
+                '    9654:\tmov\tw0, #0xb0               // =176\n'
+                '    9658:\tbl\t0x13a10 <_Znwm@plt>\n')
+
+        def guarded(dyn, text):
+            v = self.harness({node: b'elf'}, tools=FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): text}))
+            return subject.RULES[guard['type']](guard, v)
+        self.assertEqual((True, ''), guarded(dyn, text))
+        # The stock node: libui and the Android 17 GraphicBuffer symbols.
+        ok, detail = guarded(dyn.replace('uiv34.so', 'libui.so').replace('GraphicBufV34', 'GraphicBuffer'),
+                             text.replace('GraphicBufV34', 'GraphicBuffer'))
+        self.assertFalse(ok)
+        for problem in ('does not depend on uiv34.so', 'still depends on libui.so',
+                        'still imports _ZN7android13GraphicBuffer6unlockEv', 'does not import ' + ctor,
+                        'no construction call to ' + ctor):
+            self.assertIn(problem, detail)
+        # One import left unrenamed, libui still needed next to uiv34, or an
+        # allocation of another size: each fails.
+        stock_unlock = unlock.replace('GraphicBufV34', 'GraphicBuffer')
+        self.assertIn('still imports ' + stock_unlock, guarded(dyn.replace(unlock, stock_unlock), text)[1])
+        both = dyn.replace('[libutils.so]', '[libui.so]')
+        self.assertEqual((False, 'still depends on libui.so'), guarded(both, text))
+        self.assertFalse(guarded(dyn, text.replace('mov\tw0, #0x100', 'mov\tw0, #0xd30', 1))[0])
+
+        check = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))[0]
+        installed = {path: b'elf' for path in present['paths']}
+        self.assertEqual({node, 'VENDOR/lib64/libundistort.so', uiv34}, set(installed))
+        self.assertTrue(check(present, installed))
+        self.assertTrue(check(absent, installed))
+        for path in installed:
+            self.assertFalse(check(present, {p: b'elf' for p in installed if p != path}), path)
+        self.assertEqual(6, len(absent['paths']))
+        for path in absent['paths']:
+            self.assertFalse(check(absent, {**installed, path: b'elf'}), path)
+        for stem in ('fprtb', 'nightvideo', 'singlertbokeh'):
+            self.assertIn(f'VENDOR/lib64/camera/components/com.fp.node.{stem}.so', absent['paths'])
+
+        # The library check is bound to the selected stock row: same bytes, owner, mode and label.
+        recipe = json.loads((ROOT / 'config/fp6-minimal/vendor-files.json').read_text())
+        row = next(r for r in recipe['files'] if r['path'] == library['path'])
+        self.assertNotIn(library['path'], vendor_product.NEEDED_REWRITES)
+        self.assertEqual((row['sha256'], row['metadata']['uid'], row['metadata']['gid'],
+                          '%04o' % row['metadata']['mode'], row['metadata']['selinux'], 'vendor'),
+                         (library['sha256'], library['uid'], library['gid'], library['mode'], library['label'],
+                          library['image']))
+        stock = b'\x7fELF stock libundistort'
+        rule = dict(library, sha256=hashlib.sha256(stock).hexdigest())
+        config = b'vendor/lib64/libundistort.so 0 0 644 capabilities=0x0\n'
+        stat_output = ('Inode: 2673   Type: regular    Mode:  0644   Flags: 0x80000\n'
+                       'User:     0   Group:     0   Project:     0   Size: 23\n'
+                       'Extended attributes:\n  security.selinux (26) = "u:object_r:vendor_file:s0\\000"\n')
+
+        def metadata(installed, in_image, info=stat_output, config=config):
+            def debugfs(args):
+                request = str(args[1])
+                if request.startswith('stat '):
+                    return info
+                Path(request.split()[-1]).write_bytes(in_image)
+                return ''
+            (self.root / 'vendor.img').write_bytes(b'\0' * 2048)
+            v = self.harness({'VENDOR/lib64/libundistort.so': installed, 'META/vendor_filesystem_config.txt': config},
+                             tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.RULES[rule['type']](rule, v)
+        self.assertEqual((True, ''), metadata(stock, stock))
+        renamed = stock.replace(b'stock', b'other')
+        self.assertIn('bytes differ in target-files', metadata(renamed, stock)[1])
+        self.assertIn('bytes differ in vendor.img', metadata(stock, renamed)[1])
+        self.assertFalse(metadata(stock, stock, config=config.replace(b' 644 ', b' 755 '))[0])
+        self.assertFalse(metadata(stock, stock, info=stat_output.replace('vendor_file', 'same_process_hal_file'))[0])
+
+    def test_camera_power_client_rule(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        rule = next(r for r in rules if r['id'] == 'camera-power-client')
+        cil = (b'(typeattributeset hal_power (hal_power_default))\n'
+               b'(typeattributeset hal_power_server (hal_power_default))\n'
+               b'(typeattributeset hal_power_client (hal_camera_default))\n'
+               b'(allow hal_camera_default hal_power (memfd_file (read write getattr map)))\n'
+               b'(allow hal_power hal_camera_default (memfd_file (read write getattr map)))\n')
+        ok = lambda text: subject.rule_text(rule, self.harness({'VENDOR/etc/selinux/vendor_sepolicy.cil': text}))[0]
+        self.assertTrue(ok(cil))
+        self.assertFalse(ok(cil.replace(b'hal_power_client (hal_camera_default)', b'hal_power_client (hal_camera_default hal_audio_default)')))
+        self.assertFalse(ok(cil.replace(b'hal_power_server (hal_power_default)', b'hal_power_server (hal_power_default hal_camera_default)')))
+        self.assertFalse(ok(cil + b'(allow hal_camera_default hal_power_default (binder (call transfer)))\n'))
+        self.assertFalse(ok(cil + b'(allow hal_camera_default hal_power_stats_service_202604 (service_manager (find)))\n'))
+        self.assertFalse(ok(cil + b'(allow hal_power_default hal_camera_default (process (setsched)))\n'))
+        self.assertFalse(ok(cil.replace(b'(typeattributeset hal_power_client (hal_camera_default))\n', b'')))
+
+    def test_audio_effects_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        cfg, fx = 'VENDOR/etc/audio/sku_volcano/audio_effects.xml', 'VENDOR/lib64/soundfx/'
+        config = b''.join(b'<library name="l" path="%s.so"/>\n' % stem for stem in (
+            b'libbundlewrapper', b'libreverbwrapper', b'libvisualizer', b'libdownmix', b'libldnhncr', b'libdynproc',
+            b'libqcomvoiceprocessing', b'libvolumelistener'))
+        config += (b'<effect name="aec" library="voice_processing" uuid="0f8d0d2a-59e5-45fe-b6e4-248c8a799109"/>\n'
+                   b'<effect name="ns" library="voice_processing" uuid="1d97bb0b-9e2f-4403-9ae3-58c2554306f8"/>\n'
+                   b'<preprocess><stream type="voice_communication"><apply effect="aec"/></stream></preprocess>\n')
+        voice = b'\x7fELF liblog.so\0AELI\0Qualcomm Fluence\0'
+        listener = (b'\x7fELF liblog.so\0/vendor/lib64/hw/audio.primary.%s.so\0volcano\0'
+                    b'audio_hw_send_gain_dep_calibration\0')
+        good = {cfg: config, fx + 'libqcomvoiceprocessing.so': voice, fx + 'libvolumelistener.so': listener}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('audio-effects-closed-absent', 'audio-effects-closed-unreferenced', 'audio-effects-config',
+                        'audio-effects-source-built', 'audio-voice-processing-not-stock',
+                        'audio-volume-listener-source'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        # Each stock piece fails its rule.
+        for rule_id, change in [
+                ('audio-effects-closed-absent', {fx + 'libqcompostprocbundle.so': b'x'}),
+                ('audio-effects-closed-absent', {fx + 'libqcomvisualizer.so': b'x'}),
+                ('audio-effects-closed-unreferenced', {'ODM/etc/audio_effects.xml': b'path="libqcomvisualizer.so"'}),
+                ('audio-effects-config', {cfg: config + b'<effectProxy name="eq"><libhw library="offload_bundle"/>'}),
+                ('audio-effects-config', {cfg: config.replace(b'libqcomvoiceprocessing', b'libaudiopreprocessing')}),
+                ('audio-effects-source-built', {fx + 'libvolumelistener.so': None}),
+                ('audio-voice-processing-not-stock',
+                 {fx + 'libqcomvoiceprocessing.so': voice + bytes.fromhex('0544f65efee165554f0b09f8f8eaf294')}),
+                ('audio-volume-listener-source',
+                 {fx + 'libvolumelistener.so': listener + bytes.fromhex('7eb370162f230575e91bed1399cdc6ea')}),
+                ('audio-volume-listener-source', {fx + 'libvolumelistener.so': listener + b'libar-pal.so\0'}),
+                ('audio-volume-listener-source', {fx + 'libvolumelistener.so': listener.replace(b'volcano', b'lahaina')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
+    def test_bluetooth_seccomp_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        path, service = 'VENDOR/etc/seccomp_policy/bluetooth-hci.policy', 'VENDOR/bin/hw/android.hardware.bluetooth@1.1-service.fp6'
+        policy = (b'futex: 1\nclone: arg0 & 0x10000\nsocket: arg0 == 1; return 97\nkill: arg1 == 9\n'
+                  b'mmap: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\nmprotect: arg2 in ~PROT_EXEC || arg2 in ~PROT_WRITE\n')
+        good = {path: policy, service: b'\x7fELF\0/vendor/etc/seccomp_policy/bluetooth-hci.policy\0trap\0'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('bluetooth-seccomp-policy', 'bluetooth-service-applies-seccomp', 'bluetooth-seccomp-enforced',
+                        'bluetooth-seccomp-rules'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('bluetooth-seccomp-policy', {path: None}),
+                ('bluetooth-service-applies-seccomp', {service: b'\x7fELF\0/vendor/etc/seccomp_policy/other.policy\0'}),
+                ('bluetooth-seccomp-enforced', {service: good[service].replace(b'trap\0', b'log-only\0')}),
+                ('bluetooth-seccomp-enforced', {service: good[service] + b'log-only\0'}),
+                ('bluetooth-seccomp-rules', {path: policy + b'execve: 1\n'}),
+                ('bluetooth-seccomp-rules', {path: policy + b'  clone3: 1\n'}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'socket: arg0 == 1; return 97', b'socket: 1')}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'kill: arg1 == 9', b'kill: 1')}),
+                ('bluetooth-seccomp-rules', {path: policy.replace(b'clone: arg0 & 0x10000', b'clone: 1')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
+    def test_bluetooth_factory_address_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        imeiprovd, bt_rc = 'VENDOR/etc/init/imeiprovd.rc', 'VENDOR/etc/init/init.fp6.bluetooth.rc'
+        contexts, plat, vendor = ('VENDOR/etc/selinux/vendor_property_contexts', 'SYSTEM/etc/selinux/plat_sepolicy.cil',
+                                  'VENDOR/etc/selinux/vendor_sepolicy.cil')
+        vendor_cil = (b'(type vendor_diamaneos_bt_address_prop)\n(type vendor_bluetooth_address_prop)\n'
+                      b'(typeattributeset property_type (vendor_diamaneos_bt_address_prop vendor_bluetooth_address_prop))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_bt_address_prop (property_service (set)))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_bt_address_prop (file (read getattr map open)))\n'
+                      b'(allow vendor_init vendor_diamaneos_bt_address_prop (file (read getattr map open)))\n'
+                      b'(allow vendor_init vendor_bluetooth_address_prop (property_service (set)))\n'
+                      b'(allow vendor_init vendor_bluetooth_address_prop (file (read getattr map open)))\n'
+                      b'(allow hal_bluetooth_default vendor_bluetooth_address_prop (file (read getattr map open)))\n')
+        good = {
+            imeiprovd: b'service vendor.imeiprovd-bt /vendor/bin/imeiprovd --bt-address\n    oneshot\n\n'
+                       b'on post-fs\n    start vendor.imeiprovd-bt\n',
+            bt_rc: b'on property:ro.vendor.diamaneos.bt.factory_address=*\n'
+                   b'    setprop ro.vendor.bt.boot.macaddr ${ro.vendor.diamaneos.bt.factory_address}\n',
+            contexts: b'ro.vendor.diamaneos.bt.factory_address u:object_r:vendor_diamaneos_bt_address_prop:s0 exact string\n'
+                      b'ro.vendor.bt.boot.macaddr   u:object_r:vendor_bluetooth_address_prop:s0 exact string\n',
+            plat: (b'(type init)\n(type dumpstate)\n(type vendor_init)\n(type rild)\n(type hal_bluetooth_default)\n'
+                   b'(type diamaneos_imeiprov)\n(allow init property_type (property_service (set)))\n'
+                   b'(allow init property_type (file (read open)))\n(allow dumpstate property_type (file (read open)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('bluetooth-factory-address-service', 'bluetooth-factory-address-copy', 'bluetooth-factory-address-contexts',
+               'bluetooth-factory-address-setter', 'bluetooth-factory-address-readers', 'bluetooth-hal-address-setter',
+               'bluetooth-hal-address-readers')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('bluetooth-factory-address-service', {imeiprovd: good[imeiprovd].replace(b'start', b'stop')}),
+                ('bluetooth-factory-address-copy', {bt_rc: None}),
+                ('bluetooth-factory-address-copy', {bt_rc: b'on property:ro.vendor.trace.btmac=*\n'
+                                                           b'    setprop ro.vendor.bt.boot.macaddr ${ro.vendor.trace.btmac}\n'}),
+                ('bluetooth-factory-address-contexts', {contexts: good[contexts].replace(
+                    b'vendor_bluetooth_address_prop', b'vendor_default_prop')}),
+                ('bluetooth-factory-address-setter', {vendor: vendor_cil + b'(allow hal_bluetooth_default '
+                                                      b'vendor_diamaneos_bt_address_prop (property_service (set)))\n'}),
+                ('bluetooth-factory-address-readers', {vendor: vendor_cil + b'(allow rild property_type (file (read)))\n'}),
+                ('bluetooth-hal-address-setter', {vendor: vendor_cil + b'(allow hal_bluetooth_default '
+                                                  b'vendor_bluetooth_address_prop (property_service (set)))\n'}),
+                ('bluetooth-hal-address-readers', {vendor: vendor_cil + b'(allow rild vendor_bluetooth_address_prop '
+                                                   b'(file (read open)))\n'}),
+                ('bluetooth-hal-address-readers', {vendor: vendor_cil.replace(b'(type vendor_bluetooth_address_prop)\n', b'')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
+    def test_firmware_release_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc, ueventd = 'VENDOR/etc/init/fwrelease.rc', 'VENDOR/etc/ueventd.rc'
+        contexts, properties = 'VENDOR/etc/selinux/vendor_file_contexts', 'VENDOR/etc/selinux/vendor_property_contexts'
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        checked = ['abl', 'aop', 'aop_config', 'bluetooth', 'cpucp', 'cpucp_dtb', 'devcfg', 'dsp', 'featenabler', 'hyp',
+                   'imagefv', 'keymaster', 'modem', 'multiimgoem', 'qupfw', 'shrm', 'tz', 'uefi', 'uefisecapp', 'xbl',
+                   'xbl_config', 'xbl_ramdump']
+        relabelled = [n for n in checked if n not in ('bluetooth', 'modem', 'uefi', 'uefisecapp', 'xbl')]
+        ufs = '/dev/block/platform/soc/1d84000.ufshc/by-name/'
+        nodes = ''.join(f'{ufs}{n}_{s}   0640   root   vendor_fwrelease\n' for n in checked for s in 'ab')
+        labels = ''.join(f'{ufs}{n}_[ab]      u:object_r:vendor_firmware_image_block_device:s0\n' for n in relabelled)
+        labels += ''.join(f'{ufs}{n}_[ab]      u:object_r:vendor_custom_ab_block_device:s0\n'
+                          for n in ('vbmeta', 'dtbo', 'pvmfw', 'multiimgqti', 'qweslicstore'))
+        labels += '/(vendor|system/vendor)/bin/fwrelease    u:object_r:vendor_fwrelease_exec:s0\n'
+        blocks = ('vendor_firmware_image_block_device', 'vendor_modem_block_device', 'vendor_uefi_block_device',
+                  'vendor_xbl_block_device')
+        vendor_cil = (''.join(f'(type {t})\n' for t in blocks + ('vendor_diamaneos_firmware_release_prop',))
+                      + '(typeattributeset property_type (vendor_diamaneos_firmware_release_prop))\n'
+                      + '(typeattributeset dev_type (' + ' '.join(blocks) + '))\n'
+                      + '(allow vendor_fwrelease vendor_diamaneos_firmware_release_prop (property_service (set)))\n'
+                      + '(allow vendor_fwrelease vendor_diamaneos_firmware_release_prop (file (read getattr map open)))\n'
+                      + '(allow system_app vendor_diamaneos_firmware_release_prop (file (read getattr map open)))\n'
+                      + '(allow update_engine_common dev_type (blk_file (ioctl read write getattr open)))\n'
+                      + ''.join(f'(allow vendor_fwrelease {t} (blk_file (open read)))\n' for t in blocks)
+                      + '(allow hal_bootctl_default vendor_xbl_block_device (blk_file (read write open)))\n'
+                      + '(allow tee vendor_xbl_block_device (blk_file (read)))\n').encode()
+        good = {
+            'VENDOR/bin/fwrelease': b'\x7fELF', 'VENDOR/etc/diamaneos/firmware-releases.txt': b'image ...\n',
+            rc: b'on property:sys.boot_completed=1\n    start vendor.fwrelease\n\n'
+                b'# The group lets it read the firmware partitions.\n'
+                b'service vendor.fwrelease /vendor/bin/fwrelease ${ro.boot.slot_suffix}\n'
+                b'    user vendor_fwrelease\n    group vendor_fwrelease\n    capabilities\n    ioprio idle 7\n'
+                b'    priority 19\n    timeout_period 60\n    oneshot\n    disabled\n',
+            ueventd: (f'# fwrelease (vendor_fwrelease) reads these.\n{ufs}traceability   0440   root   vendor_imeiprov\n'
+                      + nodes).encode(),
+            contexts: labels.encode(),
+            properties: b'ro.vendor.diamaneos.firmware_release u:object_r:vendor_diamaneos_firmware_release_prop:s0 '
+                        b'exact string\n',
+            plat: (b'(type init)\n(type dumpstate)\n(type vendor_init)\n(type system_app)\n(type shell)\n(type rild)\n'
+                   b'(type update_engine)\n(type tee)\n(type hal_bootctl_default)\n(type vendor_fwrelease)\n'
+                   b'(typeattributeset update_engine_common (update_engine))\n'
+                   b'(allow init property_type (property_service (set)))\n(allow init property_type (file (read open)))\n'
+                   b'(allow dumpstate property_type (file (read open)))\n(allow init dev_type (blk_file (read open)))\n'
+                   b'(allow shell dev_type (blk_file (getattr)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('firmware-release-present', 'firmware-release-service', 'firmware-release-nodes',
+               'firmware-release-labels', 'firmware-release-property', 'firmware-release-setter',
+               'firmware-release-readers', 'firmware-image-readers', 'firmware-image-writers',
+               'firmware-modem-image-readers', 'firmware-uefi-image-readers', 'firmware-xbl-image-readers')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        grant = lambda rule: {vendor: vendor_cil + rule.encode() + b'\n'}
+        for rule_id, change in [
+                ('firmware-release-present', {'VENDOR/etc/diamaneos/firmware-releases.txt': None}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    ioprio idle 7\n', b'')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    timeout_period 60\n', b'')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'${ro.boot.slot_suffix}', b'_a')}),
+                ('firmware-release-service', {rc: good[rc].replace(b'    capabilities\n', b'    capabilities SYS_RAWIO\n')}),
+                ('firmware-release-service', {rc: good[rc] + b'    class main\n'}),
+                ('firmware-release-service', {rc: good[rc] + b'    group vendor_fwrelease system\n'}),
+                ('firmware-release-service', {rc: good[rc].replace(b'sys.boot_completed=1', b'vendor.fwrelease=1')}),
+                ('firmware-release-nodes', {ueventd: good[ueventd].replace(f'{ufs}tz_b   0640'.encode(),
+                                                                          f'{ufs}tz_b   0660'.encode())}),
+                ('firmware-release-nodes', {ueventd: good[ueventd].replace(f'{ufs}xbl_a   0640   root   vendor_fwrelease\n'
+                                                                          .encode(), b'')}),
+                ('firmware-release-nodes', {ueventd: good[ueventd] + f'{ufs}vbmeta_a   0640   root   vendor_fwrelease\n'
+                                            .encode()}),
+                ('firmware-release-nodes', {ueventd: good[ueventd] + b'/dev/block/sdb   0640   root   vendor_fwrelease\n'}),
+                ('firmware-release-labels', {contexts: good[contexts].replace(
+                    f'{ufs}tz_[ab]      u:object_r:vendor_firmware_image_block_device'.encode(),
+                    f'{ufs}tz_[ab]      u:object_r:vendor_custom_ab_block_device'.encode())}),
+                ('firmware-release-labels', {contexts: good[contexts].replace(
+                    f'{ufs}vbmeta_[ab]      u:object_r:vendor_custom_ab_block_device'.encode(),
+                    f'{ufs}vbmeta_[ab]      u:object_r:vendor_firmware_image_block_device'.encode())}),
+                ('firmware-release-property', {properties: good[properties].replace(b'exact string', b'exact enum mixed')}),
+                ('firmware-release-setter', grant('(allow rild vendor_diamaneos_firmware_release_prop '
+                                                  '(property_service (set)))')),
+                ('firmware-release-readers', grant('(allow shell vendor_diamaneos_firmware_release_prop (file (read)))')),
+                ('firmware-release-readers', grant('(allow rild property_type (file (read)))')),
+                ('firmware-image-readers', grant('(allow rild vendor_firmware_image_block_device (blk_file (read)))')),
+                ('firmware-image-readers', grant('(allow shell dev_type (blk_file (read)))')),
+                ('firmware-image-writers', grant('(allow vendor_fwrelease vendor_firmware_image_block_device '
+                                                 '(blk_file (write)))')),
+                ('firmware-image-writers', {vendor: vendor_cil.replace(b'(type vendor_firmware_image_block_device)\n', b'')}),
+                ('firmware-modem-image-readers', grant('(allow rild vendor_modem_block_device (blk_file (read)))')),
+                ('firmware-uefi-image-readers', grant('(allow rild vendor_uefi_block_device (blk_file (read)))')),
+                ('firmware-xbl-image-readers', grant('(allow rild vendor_xbl_block_device (blk_file (read)))'))]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
+    def test_audio_source_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        lib, hal = 'VENDOR/lib64/', 'VENDOR/lib64/hw/audio.primary.volcano.so'
+        manifest = 'VENDOR/etc/vintf/manifest.xml'
+        rm = 'VENDOR/etc/audio/sku_volcano/resourcemanager_volcano_mtp_fps.xml'
+        good = {hal: b'\x7fELF libar-pal.so\0vendor.qti.hardware.AGMIPC@1.0.so\0HMI\0',
+                lib + 'libar-pal.so': b'\x7fELF libagmclient.so\0libvui_intf.so\0',
+                lib + 'libagm.so': b'\x7fELF libar-gsl.so\0libats.so\0',
+                manifest: b'<name>vendor.qti.hardware.AGMIPC</name><name>android.hardware.bluetooth</name>',
+                rm: b'<speaker_protection_enabled>1</speaker_protection_enabled>'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('audio-source-dropped', 'audio-hal-not-stock', 'audio-pal-not-stock', 'audio-agm-not-stock',
+                        'audio-pal-links', 'audio-agm-links', 'audio-hal-links', 'audio-declared',
+                        'audio-speaker-protection-on'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        # Each stock piece fails its rule.
+        for rule_id, change in [
+                ('audio-source-dropped', {lib + 'vendor.qti.hardware.pal@1.0-impl.so': b'x'}),
+                ('audio-source-dropped', {lib + 'libarmemlog.so': b'x'}),
+                ('audio-source-dropped', {'VENDOR/etc/vintf/manifest/manifest_non_qmaa.xml': b'x'}),
+                ('audio-hal-not-stock', {hal: good[hal] + bytes.fromhex('5148e9e387efbad9a545760ff257b8a3')}),
+                ('audio-pal-not-stock', {lib + 'libar-pal.so': bytes.fromhex('d374661ca1aec5ed9f33f5aefde042f3')}),
+                ('audio-agm-not-stock', {lib + 'libagm.so': bytes.fromhex('b214b1a78516520aa6d493c7c44c27e9')}),
+                ('audio-pal-links', {lib + 'libar-pal.so': good[lib + 'libar-pal.so'] + b'libarmemlog.so\0'}),
+                ('audio-agm-links', {lib + 'libagm.so': good[lib + 'libagm.so'] + b'libaudio_log_utils.so\0'}),
+                ('audio-hal-links', {hal: good[hal] + b'vendor.qti.hardware.pal@1.0-impl.so\0'}),
+                ('audio-declared', {manifest: good[manifest] + b'<name>vendor.qti.hardware.pal</name>'}),
+                ('audio-speaker-protection-on', {rm: good[rm].replace(b'>1<', b'>0<')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                self.assertFalse(check(rule_id, {**good, **change}))
+    def test_wlan_factory_mac_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rc, ueventd, fc = 'VENDOR/etc/init/imeiprovd.rc', 'VENDOR/etc/ueventd.rc', 'VENDOR/etc/selinux/vendor_file_contexts'
+        ini, plat, vendor = ('VENDOR/etc/wifi/qca6750/WCNSS_qcom_cfg.ini', 'SYSTEM/etc/selinux/plat_sepolicy.cil',
+                             'VENDOR/etc/selinux/vendor_sepolicy.cil')
+        vendor_cil = (b'(type vendor_diamaneos_wlan_mac_file)\n(typeattributeset file_type (vendor_diamaneos_wlan_mac_file))\n'
+                      b'(allow diamaneos_imeiprov vendor_diamaneos_wlan_mac_file (file (write create open)))\n'
+                      b'(allow ueventd vendor_diamaneos_wlan_mac_file (file (read getattr open)))\n')
+        good = {
+            rc: (b'service vendor.imeiprovd-wlan /vendor/bin/imeiprovd --wlan-mac\n    oneshot\n    disabled\n\n'
+                 b'on post-fs\n    start vendor.imeiprovd-bt\n    # The firmware tree.\n'
+                 b'    mkdir /mnt/vendor/wlan_mac 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld 0710 root vendor_imeiprov\n'
+                 b'    mkdir /mnt/vendor/wlan_mac/wlan/qca_cld/qca6750 0700 vendor_imeiprov vendor_imeiprov\n'
+                 b'    exec_start vendor.imeiprovd-wlan\n'),
+            ueventd: b'firmware_directories /vendor/firmware_mnt/image/\nfirmware_directories /mnt/vendor/wlan_mac/\n',
+            fc: b'/mnt/vendor/wlan_mac(/.*)?   u:object_r:vendor_diamaneos_wlan_mac_file:s0\n',
+            ini: b'gEnableWoW=2\nread_mac_addr_from_mac_file=1\n',
+            plat: (b'(type init)\n(type vendor_init)\n(type ueventd)\n(type rild)\n(type diamaneos_imeiprov)\n'
+                   b'(allow init file_type (file (read write create open)))\n'
+                   b'(allow vendor_init file_type (file (read write create open)))\n'),
+            vendor: vendor_cil,
+            'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+            'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        ids = ('wlan-factory-mac-service', 'wlan-factory-mac-firmware-dir', 'wlan-factory-mac-label',
+               'wlan-factory-mac-driver-config', 'wlan-factory-mac-readers', 'wlan-factory-mac-writers',
+               'wlan-factory-mac-creators')
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'exec_start vendor.imeiprovd-wlan',
+                                                                   b'start vendor.imeiprovd-wlan')}),
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'on post-fs\n', b'on boot\n')}),
+                ('wlan-factory-mac-service', {rc: good[rc].replace(b'qca6750 0700', b'qca6750 0777')}),
+                ('wlan-factory-mac-firmware-dir', {ueventd: b'firmware_directories /vendor/firmware_mnt/image/\n'}),
+                ('wlan-factory-mac-label', {fc: b'/mnt/vendor(/.*)?   u:object_r:mnt_vendor_file:s0\n'}),
+                ('wlan-factory-mac-driver-config', {ini: b'read_mac_addr_from_mac_file=0\n'}),
+                ('wlan-factory-mac-readers', {vendor: vendor_cil + b'(allow rild file_type (file (read)))\n'}),
+                ('wlan-factory-mac-readers', {vendor: vendor_cil + b'(allow diamaneos_imeiprov '
+                                              b'vendor_diamaneos_wlan_mac_file (file (read)))\n'}),
+                ('wlan-factory-mac-writers', {vendor: vendor_cil + b'(allow ueventd vendor_diamaneos_wlan_mac_file '
+                                              b'(file (write)))\n'}),
+                ('wlan-factory-mac-creators', {vendor: vendor_cil + b'(allow rild vendor_diamaneos_wlan_mac_file '
+                                               b'(file (create)))\n'}),
+                ('wlan-factory-mac-creators', {vendor: vendor_cil.replace(b'(type vendor_diamaneos_wlan_mac_file)\n', b'')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                members = {k: v for k, v in {**good, **change}.items() if v is not None}
+                self.assertFalse(check(rule_id, members))
+
+    def test_wlan_mac_log_levels_on_user_builds(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        product, vendor = 'PRODUCT/etc/build.prop', 'VENDOR/build.prop'
+        good = {product: b'ro.product.name=FP6\nlog.tag.netd=W\n', vendor: b'log.tag.wpa_supplicant=I\n'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('netd-calls-not-logged-user', 'supplicant-debug-not-logged-user'):
+            self.assertEqual(rules[rule_id]['variants'], ['user'])
+            self.assertTrue(check(rule_id, good), rule_id)
+        self.assertFalse(check('netd-calls-not-logged-user', {**good, product: b'log.tag.netd=I\n'}))
+        self.assertFalse(check('netd-calls-not-logged-user', {**good, product: b'log.tag.netd=W\nlog.tag.netd=D\n'}))
+        self.assertFalse(check('supplicant-debug-not-logged-user', {**good, vendor: b'ro.vendor.x=1\n'}))
+        self.assertFalse(subject.rule_applies(rules['netd-calls-not-logged-user'], 'userdebug', False))
+
+    def test_wlan_driver_own_mac_not_logged(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule, ko = rules['wlan-driver-own-mac-not-logged'], 'VENDOR_DLKM/lib/modules/qca_cld3_qca6750.ko'
+        check = lambda data: subject.RULES[rule['type']](rule, self.harness({ko: data}))[0]
+        self.assertTrue(check(b'\x7fELF..%s: %d: txrx_peer NULL!! peer_id %u\x00..'))
+        self.assertFalse(check(b'\x7fELF..%s: %d: txrx_peer NULL!! peer mac_addr(%02x:%02x:%02x:**:**:%02x)\x00'))
+        self.assertFalse(check(b'\x7fELF..no such line\x00'))
+
+    def test_component_override_must_be_the_only_one(self):
+        override = (b'<config><component-override package="com.qualcomm.qti.lpa">'
+                    b'<component class="a.Esim" enabled="false"/><component class="a.Lpa" enabled="false"/>'
+                    b'</component-override></config>')
+        members = {'PRODUCT/etc/sysconfig/lpa.xml': override,
+                   'PRODUCT/etc/permissions/privapp.xml': b'<permissions package="com.qualcomm.qti.lpa"/>'}
+        rule = {'file': 'PRODUCT/etc/sysconfig/lpa.xml', 'package': 'com.qualcomm.qti.lpa',
+                'components': {'a.Esim': 'false', 'a.Lpa': 'false'}, 'scan': ['PRODUCT', 'VENDOR'],
+                'allowed_files': ['PRODUCT/etc/sysconfig/lpa.xml', 'PRODUCT/etc/permissions/privapp.xml']}
+        self.assertTrue(subject.rule_component_override(rule, self.harness(members))[0])
+        members['VENDOR/etc/sysconfig/extra.xml'] = override.replace(b'false', b'true')
+        self.assertFalse(subject.rule_component_override(rule, self.harness(members))[0])
+
+    def test_zip_and_binary_rules(self):
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as inner:
+            inner.writestr('classes2.dex', b'dex\x00network_state_poll_window_ms\x00')
+        v = self.harness({'SYSTEM/framework/telephony-common.jar': jar.getvalue()},
+                         kernel=self.root)
+        (self.root / 'Image').write_bytes(b'\x017    %.*s\nprint_kernel_cmdline_names Unknown kernel command line parameters')
+        self.assertTrue(subject.rule_zip_contains({'file': 'SYSTEM/framework/telephony-common.jar',
+                                                   'text': 'network_state_poll_window_ms'}, v)[0])
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        mac = next(r for r in rules if r['id'] == 'wifi-mac-print')
+        self.assertTrue(subject.rule_binary_count(mac, v)[0])
+        (self.root / 'Image').write_bytes(b'\x017    %s\nprint_kernel_cmdline_names Unknown kernel command line parameters')
+        self.assertFalse(subject.rule_binary_count(mac, v)[0])
+        # Texts that must be absent from every entry of the archive.
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as inner:
+            inner.writestr('classes.dex', b'dex\x00supl.diamaneos.de\x00')
+            inner.writestr('classes2.dex', b'dex\x00.psds.grapheneos.org\x00')
+        v = self.harness({'SYSTEM/framework/services.jar': jar.getvalue()})
+        rule = {'file': 'SYSTEM/framework/services.jar', 'text': 'supl.diamaneos.de'}
+        self.assertTrue(subject.rule_zip_contains(dict(rule, absent=['supl.grapheneos.org']), v)[0])
+        for change, detail in (({'absent': ['.psds.grapheneos.org']}, 'contains .psds.grapheneos.org'),
+                               ({'text': 'missing.example'}, 'does not contain missing.example')):
+            with self.subTest(change=change):
+                self.assertEqual((False, detail), subject.rule_zip_contains(dict(rule, **change), v))
+
+    def test_service_rules_name_the_listed_hosts(self):
+        # The image uses the DiamaneOS hosts that config/service-hosts.json lists, and not GrapheneOS's.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        services = {s['id']: s for s in json.loads((ROOT / 'config/service-hosts.json').read_text())['services']}
+        for rule_id, service_id in (('supl-proxy', 'supl'), ('psds-server', 'psds-cache'),
+                                    ('rkp-proxy', 'rkp-proxy'), ('widevine-proxy', 'widevine-proxy'),
+                                    ('network-location-relay', 'network-location')):
+            with self.subTest(rule=rule_id):
+                rule, service = rules[rule_id], services[service_id]
+                self.assertEqual('zip_contains', rule['type'])
+                self.assertIn(service['diamaneos_host'], rule['text'])
+                inherited = service['upstream_host']
+                self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
+        time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
+        self.assertEqual([f'https://{services["time"]["diamaneos_host"]}/generate_204'], time)
+        # The Updater asks the host that config/service-hosts.json lists.
+        self.assertEqual(f'"https://{services["os-updates"]["diamaneos_host"]}/"',
+                         rules['updater-server']['values']['string/url'])
+        check, online, dns = (services[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
+        servers = rules['connectivity-check-servers']
+        self.assertEqual({f'"{scheme}://{check["diamaneos_host"]}/generate_204"' for scheme in ('http', 'https')},
+                         set(servers['values'].values()))
+        self.assertEqual([f'http://{online["diamaneos_host"]}/{path}' for path in ('gen_204', 'generate_204')],
+                         servers['arrays']['array/default_captive_portal_fallback_urls_grapheneos'])
+        hosts = rules['connectivity-check-hosts']
+        self.assertTrue(hosts['text'].endswith('.' + dns['diamaneos_host']))
+        self.assertEqual({check['upstream_host'], online['upstream_host'], dns['upstream_host']}, set(hosts['absent']))
+        for rule_id in ('dns-check-resolver-dot', 'dns-check-resolver-doh'):
+            with self.subTest(rule=rule_id):
+                self.assertIn(dns['diamaneos_host'], rules[rule_id]['text'])
+                self.assertEqual([dns['upstream_host']], rules[rule_id]['absent'])
+
+    def test_device_tree_rules(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        ramoops = next(r for r in rules if r['id'] == 'ramoops')
+        firmware = next(r for r in rules if r['id'] == 'touch-firmware-path')
+        tree = {'/': {}, '/chosen': {'bootargs': b'console=null firmware_class.path=/vendor/firmware_mnt,/vendor/firmware\0'},
+                '/reserved-memory': {},
+                '/reserved-memory/ramoops_region': {'compatible': b'ramoops\0', 'size': cells(0, 0x400000),
+                    'alignment': cells(0, 0x400000), 'console-size': cells(0x200000), 'pmsg-size': cells(0x200000),
+                    'record-size': cells(0), 'ftrace-size': cells(0), 'mem-type': cells(0), 'no-map': b''},
+                '/soc': {}}
+        (self.root / 'dtbs').mkdir()
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(tree))
+        v = self.harness({}, kernel=self.root)
+        self.assertEqual((True, ''), subject.rule_devicetree(ramoops, v))
+        self.assertEqual((True, ''), subject.rule_devicetree(firmware, v))
+        tree['/soc/ramoops_region'] = {}
+        tree['/reserved-memory/ramoops_region']['size'] = cells(0, 0x200000)
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(tree))
+        ok, detail = subject.rule_devicetree(ramoops, v)
+        self.assertFalse(ok)
+        self.assertIn('size', detail)
+        self.assertIn('/soc still has ramoops_region', detail)
+
+    def test_usb_controller_takes_no_eud_extcon(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        usb = [r for r in rules if r['id'].startswith('usb-events-from-ucsi')]
+        self.assertEqual(['kernel:dtbs/fp6.dtb'], [r['file'] for r in usb])
+        tree = {'/': {}, '/soc': {}, '/soc/ssusb@a600000': {'usb-role-switch': b''},
+                '/soc/qcom,pmic_glink': {}, '/soc/qcom,pmic_glink/qcom,ucsi': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector/port': {},
+                '/soc/qcom,pmic_glink/qcom,ucsi/connector/port/endpoint': {'remote-endpoint': cells(0x54)},
+                '/soc/qcom,msm-eud@88e0000': {'status': b'disabled\0'}}
+        (self.root / 'dtbs').mkdir()
+        v = self.harness({}, kernel=self.root)
+        for rule in usb:
+            name = rule['file'].removeprefix('kernel:')
+            (self.root / name).write_bytes(dtb(tree))
+            self.assertEqual((True, ''), subject.rule_devicetree(rule, v))
+        stock = copy.deepcopy(tree)
+        stock['/soc/ssusb@a600000']['extcon'] = cells(0x2f0)
+        stock['/soc/qcom,msm-eud@88e0000']['status'] = b'ok\0'
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(stock))
+        ok, detail = subject.rule_devicetree(usb[0], v)
+        self.assertFalse(ok)
+        self.assertIn('/soc/ssusb@a600000 still has extcon', detail)
+        self.assertIn('status', detail)
+        del tree['/soc/ssusb@a600000']['usb-role-switch']
+        (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(tree))
+        self.assertIn('lacks usb-role-switch', subject.rule_devicetree(usb[0], v)[1])
+
+    def test_download_mode_module_ignores_edl_reboots(self):
+        rules = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+        rule = next(r for r in rules if r['id'] == 'download-reboot-refused')
+        (self.root / 'modules').mkdir()
+        v = self.harness({}, kernel=self.root)
+        module = self.root / 'modules/qcom-dload-mode.ko'
+        module.write_bytes(b'\x7fELF\0qcom,dload-mode\0full\0mini\0')
+        self.assertEqual((True, ''), subject.rule_binary_count(rule, v))
+        module.write_bytes(b'\x7fELF\0qcom,dload-mode\0edl\0qcom_dload\0Regulator enable failed(rc:%d)\n\0')
+        ok, detail = subject.rule_binary_count(rule, v)
+        self.assertFalse(ok)
+        self.assertIn('edl', detail)
+        self.assertIn('Regulator enable failed', detail)
+
+    def test_tool_based_rules_use_the_build_tools(self):
+        dump = ('Package name=x\n    resource 0x7f010000 bool/config_nightDisplayAvailable\n      () true\n'
+                '    resource 0x7f020000 integer/config_tether_usb_functions\n      () 1\n')
+        tools = FakeTools({('aapt2', 'resources'): dump,
+                           ('aapt2', 'xmltree'): 'A: android:targetPackage="com.android.networkstack.tethering"',
+                           ('aapt2', 'permissions'): "uses-permission: name='android.permission.MODIFY_AUDIO_SETTINGS'\n",
+                           ('apksigner',): lambda args: 'Signer #1 certificate SHA-256 digest: '
+                               + ('a' if 'bridge.apk' in str(args[-1]) else 'b') * 64 + '\n',
+                           ('llvm-readelf',): '   12: 0000000000001234   120 FUNC    GLOBAL DEFAULT   14 AServiceManager_addService\n'
+                                              '   13: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND AIBinder_new\n'})
+        v = self.harness({'VENDOR/overlay/o.apk': b'apk', 'SYSTEM_EXT/priv-app/B/bridge.apk': b'apk',
+                          'SYSTEM/framework/framework-res.apk': b'apk', 'VENDOR/bin/hal': b'elf'}, tools=tools)
+        self.assertTrue(subject.rule_overlay({'apk': 'VENDOR/overlay/o.apk', 'values': {
+            'bool/config_nightDisplayAvailable': 'true', 'integer/config_tether_usb_functions': '1'},
+            'target': 'com.android.networkstack.tethering'}, v)[0])
+        self.assertFalse(subject.rule_overlay({'apk': 'VENDOR/overlay/o.apk',
+                                               'values': {'bool/config_nightDisplayAvailable': 'false'}}, v)[0])
+        self.assertTrue(subject.rule_apk({'path': 'SYSTEM_EXT/priv-app/B/bridge.apk',
+                                          'permissions': ['android.permission.MODIFY_AUDIO_SETTINGS'],
+                                          'not_signed_like': 'SYSTEM/framework/framework-res.apk'}, v)[0])
+        self.assertTrue(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AServiceManager_addService']}, v)[0])
+        self.assertFalse(subject.rule_elf_exports({'path': 'VENDOR/bin/hal', 'symbols': ['AIBinder_new']}, v)[0])
+
+    def test_audio_cfi_rules(self):
+        rules = [r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                 if r['id'].startswith('audio-') and r['id'].endswith('-cfi')]
+        self.assertEqual(11, len(rules))
+        cfi = '   7: 0000000000004000    64 FUNC    GLOBAL DEFAULT   12 __cfi_check\n'
+        plain = '   7: 0000000000004000    64 FUNC    GLOBAL DEFAULT   12 HMI\n'
+        for rule in rules:
+            for dump, expected in [(cfi, True), (plain, False)]:
+                v = self.harness({rule['path']: b'elf'}, tools=FakeTools({('llvm-readelf',): dump}))
+                self.assertEqual(expected, subject.rule_elf_exports(rule, v)[0], rule['id'])
+
+    def test_overlay_array_membership(self):
+        dump = ('Package name=x\n'
+                '    resource 0x7f030000 array/config_highRefreshRateBlacklist\n'
+                '      () (no config)\n'
+                '        (string8) "app.grapheneos.camera"\n'
+                '        (string8) "com.example.other"\n'
+                '    resource 0x7f040000 string/decoy\n'
+                '      () "app.grapheneos.absent"\n')
+        # Integer arrays and arrays that aapt2 prints on several lines.
+        packed = ('Package name=x\n'
+                  '    resource 0x7f010000 array/non_removable_euicc_slots\n'
+                  '      () (array) size=1\n'
+                  '        [1]\n'
+                  '    resource 0x7f010001 array/config_autoBrightnessLevels\n'
+                  '      () (array) size=6\n'
+                  '        [2, 4, 10, 20, \n'
+                  '         40, -1]\n'
+                  '    resource 0x7f010002 array/config_telephonyEuiccDeviceCapabilities\n'
+                  '      () (array) size=3\n'
+                  '        ["gsm,9", "utran,10", \n'
+                  '         "eutran,16"]\n')
+        for text, name, items in (
+                (dump, 'array/config_highRefreshRateBlacklist', ['app.grapheneos.camera', 'com.example.other']),
+                (packed, 'array/non_removable_euicc_slots', ['1']),
+                (packed, 'array/config_autoBrightnessLevels', ['2', '4', '10', '20', '40', '-1']),
+                (packed, 'array/config_telephonyEuiccDeviceCapabilities', ['gsm,9', 'utran,10', 'eutran,16'])):
+            with self.subTest(array=name):
+                self.assertEqual(items, subject.aapt2_array(text, name))
+        v = self.harness({'VENDOR/overlay/o.apk': b'apk'},
+                         tools=FakeTools({('aapt2', 'resources'): dump}))
+        rule = lambda items: subject.rule_overlay(
+            {'apk': 'VENDOR/overlay/o.apk',
+             'arrays': {'array/config_highRefreshRateBlacklist': items}}, v)[0]
+        self.assertTrue(rule(['app.grapheneos.camera']))
+        # A value that only appears under a different resource is not a match.
+        self.assertFalse(rule(['app.grapheneos.absent']))
+
+    def test_systemui_overlay_resources_denied(self):
+        rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                    if r['id'] == 'systemui-overlays-indicators')
+        overlays = json.loads((ROOT / 'config/overlays.json').read_text())
+        self.assertEqual(sorted(overlays['product_rules']['denied_patterns']['com.android.systemui']),
+                         sorted(rule['patterns']))
+        target = lambda pkg: ('E: manifest\n  E: overlay (line=3)\n'
+                              f'    A: http://schemas.android.com/apk/res/android:targetPackage(0x01010021)="{pkg}"\n')
+        manifests = {'good.apk': target('com.android.systemui'), 'bad.apk': target('com.android.systemui'),
+                     'other.apk': target('com.android.settings'), 'app.apk': 'E: manifest\n  E: application\n'}
+        resources = {'good.apk': '    resource 0x7f010000 dimen/status_bar_height\n',
+                     'bad.apk': '    resource 0x7f010000 color/tally_lamp_camera\n'
+                                '    resource 0x7f010001 dimen/privacy_dot_size\n',
+                     'other.apk': '    resource 0x7f010000 string/privacy_title\n', 'app.apk': ''}
+        pick = lambda table: lambda args: next(v for k, v in table.items() if str(args[-1]).endswith(k))
+        tools = FakeTools({('aapt2', 'xmltree'): pick(manifests), ('aapt2', 'resources'): pick(resources)})
+        members = {'PRODUCT/overlay/good.apk': b'apk', 'VENDOR/overlay/x/other.apk': b'apk',
+                   'SYSTEM/app/A/app.apk': b'apk'}
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertTrue(ok, detail)
+        self.assertIn('1 overlays for com.android.systemui', detail)
+        members['SYSTEM_EXT/overlay/bad.apk'] = b'apk'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertFalse(ok)
+        self.assertIn('color/tally_lamp_camera', detail)
+        self.assertIn('dimen/privacy_dot_size', detail)
+        self.assertNotIn('other.apk', detail)
+        # The device overlay may set the lens, and nothing else of Tally's.
+        lens = ''.join(f'    resource 0x7f01000{i} {r}\n' for i, r in enumerate(
+            rule['device_values']['VENDOR/overlay/FP6SystemUIOverlay.apk']))
+        manifests['FP6SystemUIOverlay.apk'] = target('com.android.systemui')
+        resources['FP6SystemUIOverlay.apk'] = lens
+        del members['SYSTEM_EXT/overlay/bad.apk']
+        members['VENDOR/overlay/FP6SystemUIOverlay.apk'] = b'apk'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertTrue(ok, detail)
+        resources['FP6SystemUIOverlay.apk'] = lens + '    resource 0x7f010009 dimen/tally_privacy_dot_size\n'
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertEqual((ok, detail), (False, 'VENDOR/overlay/FP6SystemUIOverlay.apk: dimen/tally_privacy_dot_size'))
+        members['PRODUCT/overlay/FP6SystemUIOverlay.apk'] = members.pop('VENDOR/overlay/FP6SystemUIOverlay.apk')
+        resources['FP6SystemUIOverlay.apk'] = lens
+        ok, detail = subject.rule_overlay_resources_denied(rule, self.harness(members, tools=tools))
+        self.assertFalse(ok)
+        self.assertIn('PRODUCT/overlay/FP6SystemUIOverlay.apk: dimen/tally_lens_center_x', detail)
+
+    def display_config(self, rule, nits=lambda n: n, brightness=lambda b: b, manual=None, time_max=86400,
+                       battery_saver='true', plain_top=1.0, doze=True, dimmer='true', overlay_dimmer='true',
+                       overlay_min=None):
+        """A display configuration and overlay dump that follow the rule's
+        measured points, with one thing changed per argument."""
+        levels = rule['levels']
+        backlight = lambda level: math.ceil((level - 1) / (rule['panel_levels'] - 1) * 1e7) / 1e7
+        table = [(backlight(level), value) for level, value in rule['reference']
+                 if levels['floor'] <= level <= levels['top']]
+        low, high = table[0][1], table[-1][1]
+        points = ''.join(f'<brightnessPoint><nits>{nits(n)}</nits><backlight>{bl}</backlight>'
+                         f'<brightness>{brightness((n - low) / (high - low))}</brightness></brightnessPoint>'
+                         for bl, n in table)
+        plain = ''.join(f'<point><value>{bl}</value><nits>{nits(n)}</nits></point>'
+                        for bl, n in [(0.0, rule['reference'][0][1])] + table if bl <= plain_top)
+        xml = f"""<displayConfiguration>
+  <screenBrightnessMap interpolation="linear">{plain}</screenBrightnessMap>
+  <highBrightnessMode enabled="true">
+    <transitionPoint>{backlight(manual or levels['manual'])}</transitionPoint>
+    <minimumLux>{rule['minimum_lux']}</minimumLux>
+    <timing><timeWindowSecs>1800</timeWindowSecs><timeMaxSecs>{time_max}</timeMaxSecs>
+      <timeMinSecs>60</timeMinSecs></timing>
+    <allowInLowPowerMode>{battery_saver}</allowInLowPowerMode>
+  </highBrightnessMode>
+  <evenDimmer enabled="{dimmer}">
+    <transitionPoint>0</transitionPoint>
+    <brightnessMapping>{points}</brightnessMapping>
+    <luxToMinimumNitsMap><point><value>0</value><nits>{low}</nits></point>
+      <point><value>1</value><nits>{low}</nits></point></luxToMinimumNitsMap>
+  </evenDimmer>
+  {f"<defaultDozeBrightness>{backlight(levels['doze'])}</defaultDozeBrightness>" if doze else ''}
+</displayConfiguration>"""
+        dump = ('Package name=x\n    resource 0x7f020000 bool/config_evenDimmerEnabled\n'
+                f'      () {overlay_dimmer}\n'
+                '    resource 0x7f030000 dimen/config_screenBrightnessSettingMaximumFloat\n'
+                f'      () {table[-1][0]:g}\n'
+                '    resource 0x7f030001 dimen/config_screenBrightnessSettingMinimumFloat\n'
+                f'      () {overlay_min or table[0][0]:g}\n')
+        return xml, dump
+
+    def test_display_brightness_table_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['display-brightness-map']
+        levels = [level for level, _ in rule['reference']]
+        self.assertEqual(levels, sorted(set(levels)))
+        self.assertTrue(set(rule['levels'].values()) <= set(levels))
+
+        def check(symlink=False, **changes):
+            xml, dump = self.display_config(rule, **changes)
+            members = {rule['overlay']: b'apk'}
+            v = self.harness(members if symlink else dict(members, **{rule['path']: xml}),
+                             symlinks={rule['path']: 'stock.xml'} if symlink else None,
+                             tools=FakeTools({('aapt2', 'resources'): dump}))
+            return subject.rule_display_config(rule, v)
+
+        self.assertEqual((True, ''), check())
+        for detail, changes in (
+                ('is a symlink', {'symlink': True}),
+                ('no enabled evenDimmer', {'dimmer': 'false'}),
+                # 2047 and 2048 are neighbours: the same nits twice would stop the system at boot.
+                ('nits does not rise strictly', {'nits': lambda n: 757.2 if n == 750.7 else n}),
+                ('brightness is not linear in nits', {'brightness': lambda b: b * b}),
+                ('nits off the measured panel curve', {'nits': lambda n: round(n * 1.05, 4)}),
+                ('the manual range ends at level 3000', {'manual': 3000}),
+                ('sunlight brightness has a time limit', {'time_max': 300}),
+                ('battery saver blocks sunlight brightness', {'battery_saver': 'false'}),
+                ('screenBrightnessMap does not cover', {'plain_top': 0.8}),
+                ('doze brightness is not level 146', {'doze': False}),
+                ('the overlay does not enable evenDimmer', {'overlay_dimmer': 'false'}),
+                ('overlay minimum backlight is 0.0354331', {'overlay_min': 0.035433073})):
+            ok, found = check(**changes)
+            self.assertFalse(ok, detail)
+            self.assertIn(detail, found)
+        self.assertIn('VENDOR/etc/displayconfig/display_id_4630947039571902850.xml',
+                      rules['display-stock-config-absent']['paths'])
+
+    def test_apk_manifest_patterns(self):
+        def tree(app, service):
+            return ('N: android=http://schemas.android.com/apk/res/android (line=2)\n'
+                    '  E: manifest (line=2)\n'
+                    '      E: application (line=22)\n'
+                    '        A: http://schemas.android.com/apk/res/android:label(0x01010001)=@0x7f0b0000\n'
+                    f'        A: http://schemas.android.com/apk/res/android:enabled(0x0101000e)={app}\n'
+                    '          E: service (line=30)\n'
+                    f'            A: http://schemas.android.com/apk/res/android:enabled(0x0101000e)={service}\n')
+        disabled = (r'^\s*E: application \(line=\d+\)\n(?:\s*A: .*\n)*?'
+                    r'\s*A: http://schemas\.android\.com/apk/res/android:enabled\(0x0101000e\)=false$')
+        rule = {'path': 'SYSTEM_EXT/priv-app/A/A.apk', 'permissions': ['android.permission.X'],
+                'manifest_regex': [disabled]}
+        for manifest, expected in ((tree('false', 'true'), True),
+                                   # A disabled component does not count for the application.
+                                   (tree('true', 'false'), False)):
+            tools = FakeTools({('aapt2', 'permissions'): "uses-permission: name='android.permission.X'\n",
+                               ('aapt2', 'xmltree'): manifest})
+            v = self.harness({'SYSTEM_EXT/priv-app/A/A.apk': b'apk'}, tools=tools)
+            ok, detail = subject.rule_apk(rule, v)
+            self.assertEqual(expected, ok, detail)
+
+    def test_auditor_is_ours_and_nothing_names_grapheneos_auditor(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for package, expected in (('de.diamaneos.auditor', True), ('app.attestation.auditor', False)):
+            # The rule lists no permissions, so only the manifest and the signer are read.
+            tools = FakeTools({('aapt2', 'xmltree'): f'  E: manifest (line=2)\n    A: package="{package}" (Raw: "{package}")\n',
+                               ('apksigner',): lambda args: 'certificate SHA-256 digest: '
+                               + ('a' if str(args[-1]).endswith('Auditor.apk') else 'b') * 64})
+            config = (f'<config>\n    <allow-in-data-usage-save package="{package}" />\n'
+                      f'    <allow-in-power-save package="{package}" />\n</config>\n').encode()
+            v = self.harness({'PRODUCT/app/Auditor/Auditor.apk': b'apk', 'SYSTEM/framework/framework-res.apk': b'apk',
+                              f'PRODUCT/etc/sysconfig/{package}.xml': config}, tools=tools)
+            for rule_id, check in (('auditor', subject.rule_apk), ('auditor-allowlists', subject.rule_text),
+                                   ('no-grapheneos-auditor', subject.rule_text)):
+                self.assertEqual(expected, check(rules[rule_id], v)[0], rule_id)
+
+    def test_unused_debug_modules_are_neither_shipped_nor_listed(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        clean = {'VENDOR_DLKM/lib/modules/modules.load': b'icc-debug.ko\nminidump.ko\n',
+                 'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'qcom_wdt_core.ko\n'}
+        for extra, expected in (({}, True), ({'VENDOR_BOOT/RAMDISK/lib/modules/memory_dump_v2.ko': b'ko'}, False),
+                                ({'SYSTEM_DLKM/lib/modules/modules.dep': b'icc-test.ko:\n'}, False)):
+            v = self.harness(dict(clean, **extra))
+            ok = (subject.rule_files_absent(rules['no-unused-debug-modules'], v)[0]
+                  and subject.rule_text(rules['no-unused-debug-modules-listed'], v)[0])
+            self.assertEqual(expected, ok, extra)
+
+    def test_codec2_graphicbuffer_abi_guard(self):
+        rule = {'path': 'VENDOR/lib64/libcodec2_vndk.so', 'alloc_bytes': 256, 'min_sized_allocations': 2,
+                'needed_present': ['uiv34.so'], 'needed_absent': ['libui.so'],
+                'symbols_present': ['_ZN7android13GraphicBufV34C1Ev'],
+                'symbols_absent': ['_ZN7android13GraphicBufferC1Ev'],
+                'ctor_symbols': ['_ZN7android13GraphicBufV34C1Ev']}
+        dyn = ('Dynamic section at offset 0x1 contains entries:\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [uiv34.so]\n'
+               '  0x0000000000000001 (NEEDED)  Shared library: [libutils.so]\n'
+               'Symbol table (.dynsym):\n'
+               '   10: 0000000000000000 0 FUNC GLOBAL DEFAULT UND _ZN7android13GraphicBufV34C1Ev\n'
+               '   11: 0000000000001000 8 FUNC GLOBAL DEFAULT 15 _ZN7android2spINS_13GraphicBufferEEaSERKS2_\n')
+        good = ('0000000000008000 <fn>:\n'
+                '   8000:\tmov\tw0, #0x100\n'
+                '   8004:\tbl\t0xc4070 <_Znwm@plt>\n'
+                '   8008:\tbl\t0xc56d8 <_ZN7android13GraphicBufV34C1Ev@plt>\n'
+                '   800c:\tmov\tw0, #0x100\n'
+                '   8010:\tstr\txzr, [sp]\n'
+                '   8014:\tbl\t0xc4070 <_Znwm@plt>\n'
+                '   8018:\tbl\t0xc56d8 <_ZN7android13GraphicBufV34C1Ev@plt>\n')
+        tools = FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): good})
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'}, tools=tools)
+        self.assertTrue(subject.rule_codec2_abi_guard(rule, v)[0])
+        # Not rewritten: still libui, still the Android 17 GraphicBuffer symbols.
+        stock_dyn = dyn.replace('uiv34.so', 'libui.so').replace('GraphicBufV34', 'GraphicBuffer')
+        stock = good.replace('GraphicBufV34', 'GraphicBuffer')
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'},
+                         tools=FakeTools({('llvm-readelf',): stock_dyn, ('llvm-objdump',): stock}))
+        ok, detail = subject.rule_codec2_abi_guard(rule, v)
+        self.assertFalse(ok)
+        self.assertIn('still depends on libui.so', detail)
+        # A construction whose allocation is not 256 bytes is caught.
+        wrong = good.replace('mov\tw0, #0x100', 'mov\tw0, #0xd30', 1)
+        v = self.harness({'VENDOR/lib64/libcodec2_vndk.so': b'elf'},
+                         tools=FakeTools({('llvm-readelf',): dyn, ('llvm-objdump',): wrong}))
+        self.assertFalse(subject.rule_codec2_abi_guard(rule, v)[0])
+
+    def test_missing_tool_is_a_failed_check_not_a_crash(self):
+        v = subject.Verification.__new__(subject.Verification)
+        v.results = []
+        v.add('x', 'why', lambda: (_ for _ in ()).throw(subject.ToolMissing('aapt2')))
+        self.assertEqual('FAIL', v.results[0]['status'])
+        self.assertIn('tool missing: aapt2', v.results[0]['detail'])
+
+    WIDEVINE_APEX = 'vendor/apex/com.google.android.widevine.nonupdatable.apex'
+
+    @staticmethod
+    def debugfs_stat(mode, uid, gid, label, size):
+        """debugfs stat output for a regular file (or a symlink, by its mode)."""
+        kind = 'regular' if stat.S_ISREG(mode) else 'symlink'
+        return (f'debugfs 1.47.0 (5-Feb-2023)\nInode: 14   Type: {kind}    Mode:  {stat.S_IMODE(mode):04o}   '
+                f'Flags: 0x80000\nGeneration: 0    Version: 0x00000000:00000000\n'
+                f'User: {uid:5d}   Group: {gid:5d}   Project:     0   Size: {size}\nFile ACL: 0\n'
+                f'Extended attributes:\n  security.selinux ({len(label) + 1}) = "{label}\\000"\nEXTENTS:\n(0):13\n')
+
+    def test_widevine_apex_file_rule(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['widevine-apex']
+        # The rule states the stock identity the renderer's table reviews.
+        apex = vendor_product.STOCK_APEXES[self.WIDEVINE_APEX]
+        metadata = apex['metadata']
+        self.assertEqual((self.WIDEVINE_APEX, 'vendor', apex['sha256'], metadata['selinux'], metadata['uid'],
+                          metadata['gid'], metadata['mode']),
+                         (committed['path'], committed['image'], committed['sha256'], committed['label'],
+                          committed['uid'], committed['gid'], int(committed['mode'], 8)))
+        self.assertEqual('0644', committed['mode'])
+        data = b'stock apex'
+        rule = dict(committed, sha256=hashlib.sha256(data).hexdigest())
+        member, config = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/'), 'META/vendor_filesystem_config.txt'
+        line = self.WIDEVINE_APEX.encode() + b' 0 0 644 capabilities=0x0\n'
+        good = {member: data, config: b'vendor/apex 0 2000 755 capabilities=0x0\n' + line}
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+
+        def check(members=good, rule=rule, content=data, mode=0o100644, uid=0, gid=0,
+                  label='u:object_r:vendor_apex_file:s0'):
+            def debugfs(args):
+                command = str(args[1]).split()
+                self.assertEqual('/apex/com.google.android.widevine.nonupdatable.apex', command[1])
+                if command[0] == 'dump':
+                    Path(command[2]).write_bytes(content)
+                return self.debugfs_stat(mode, uid, gid, label, len(content))
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.rule_file_metadata(rule, v)
+        self.assertEqual((True, ''), check())
+        for detail, change in [
+                ('bytes differ in target-files', {'members': dict(good, **{member: b'another apex'})}),
+                ('bytes differ in target-files', {'rule': committed}),
+                ('owner or mode differ in the filesystem config',
+                 {'members': dict(good, **{config: line.replace(b' 0 0 644 ', b' 0 2000 644 ')})}),
+                ('owner or mode differ in the filesystem config',
+                 {'members': dict(good, **{config: line.replace(b' 644 ', b' 755 ')})}),
+                ('bytes differ in vendor.img', {'content': b'another apex'}),
+                ('owner or mode differ in vendor.img', {'mode': 0o100755}),
+                ('owner or mode differ in vendor.img', {'gid': 2000}),
+                ('owner or mode differ in vendor.img', {'uid': 1000}),
+                ('label differs in vendor.img', {'label': 'u:object_r:vendor_file:s0'})]:
+            with self.subTest(detail=detail, change=sorted(change)):
+                ok, found = check(**change)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        with self.assertRaises(FileNotFoundError):
+            check(members={config: line})
+
+    def test_widevine_apex_payload_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['widevine-apex-payload']
+        self.assertEqual('VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/'), committed['file'])
+        self.assertEqual(['apex_manifest.pb', 'bin/hw/android.hardware.drm-service.widevine',
+                          'etc/com.google.android.widevine.rc', 'etc/vintf/com.google.android.widevine.xml',
+                          'lib64/libcrypto.so'], sorted(committed['payload']))
+        self.assertEqual('u:object_r:hal_drm_widevine_exec:s0',
+                         committed['payload']['bin/hw/android.hardware.drm-service.widevine']['label'])
+        # A fixture payload with the stock layout. The rule then names its hashes.
+        stock = {name: (0o100000 | int(want['mode'], 8), want['uid'], want['gid'], want['label'], name.encode())
+                 for name, want in committed['payload'].items()}
+        rule = copy.deepcopy(committed)
+        for name, want in rule['payload'].items():
+            want['sha256'] = hashlib.sha256(name.encode()).hexdigest()
+
+        def apex(payload=True, magic=bytes.fromhex('53ef')):
+            image = bytearray(4096)
+            image[1080:1082] = magic
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as archive:
+                archive.writestr('apex_manifest.pb', b'manifest')
+                if payload:
+                    archive.writestr('apex_payload.img', bytes(image))
+            return buffer.getvalue()
+
+        def check(tree=stock, rule=rule, container=None):
+            def debugfs(args):
+                command = str(args[1]).split(' ', 2)
+                self.assertEqual('apex_payload.img', Path(args[2]).name)
+                if command[0] == 'ls':
+                    prefix = command[2].strip('/') + '/' if command[2] != '/' else ''
+                    lines = ['debugfs 1.47.0 (5-Feb-2023)', '/2/040755/0/2000/.//', '/2/040755/0/2000/..//']
+                    for child in sorted({path[len(prefix):].split('/')[0] for path in tree if path.startswith(prefix)}):
+                        entry = tree.get(prefix + child)
+                        lines.append(f'/12/040755/0/2000/{child}//' if entry is None else
+                                     f'/14/{entry[0]:06o}/{entry[1]}/{entry[2]}/{child}/{len(entry[4])}/')
+                    return '\n'.join(lines + ['/0/000000/0/0//0/', '', ''])
+                entry = tree.get(command[1].lstrip('/'))
+                if entry is None:
+                    return command[1] + ': File not found by ext2_lookup \n'
+                if command[0] == 'dump':
+                    Path(command[2]).write_bytes(entry[4])
+                return self.debugfs_stat(*entry[:4], len(entry[4]))
+            v = self.harness({committed['file']: apex() if container is None else container},
+                             tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.rule_apex_payload(rule, v)
+
+        def changed(name, **fields):
+            entry = dict(zip(('mode', 'uid', 'gid', 'label', 'content'), stock[name]), **fields)
+            return dict(stock, **{name: tuple(entry[k] for k in ('mode', 'uid', 'gid', 'label', 'content'))})
+        service, rc = 'bin/hw/android.hardware.drm-service.widevine', 'etc/com.google.android.widevine.rc'
+        fragment = 'etc/vintf/com.google.android.widevine.xml'
+        self.assertEqual((True, '5 files'), check())
+        for detail, change in [
+                ('bytes differ in ' + service, {'tree': changed(service, content=b'another service')}),
+                ('bytes differ in ' + rc, {'tree': changed(rc, content=b'service x /apex/x\n    group drmrpc\n')}),
+                ('owner or mode differ in ' + rc, {'tree': changed(rc, uid=0)}),
+                ('owner or mode differ in ' + service, {'tree': changed(service, mode=0o104755)}),
+                ('label differs in ' + service, {'tree': changed(service, label='u:object_r:vendor_file:s0')}),
+                (service + ' is not a regular file', {'tree': changed(service, mode=0o120777)}),
+                ('missing ' + fragment, {'tree': {k: v for k, v in stock.items() if k != fragment}}),
+                ('unlisted lib64/liboemcrypto.so',
+                 {'tree': dict(stock, **{'lib64/liboemcrypto.so': stock['lib64/libcrypto.so']})}),
+                ('unlisted etc/init/extra.rc', {'tree': dict(stock, **{'etc/init/extra.rc': stock[rc]})}),
+                ('bytes differ in lib64/libcrypto.so', {'rule': committed}),
+                ('has no apex_payload.img', {'container': apex(payload=False)}),
+                ('is not an ext4 image', {'container': apex(magic=bytes.fromhex('e2e1'))})]:
+            with self.subTest(detail=detail):
+                ok, found = check(**change)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        # A listing it cannot read is an error (a failed check), never a shorter list.
+        for name in ('lib64/two words.so', 'lib64/a\nb'):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'ext4'):
+                check(tree=dict(stock, **{name: stock['lib64/libcrypto.so']}))
+        with self.assertRaises(zipfile.BadZipFile):
+            check(container=b'not an apex')
+        self.assertIs(subject.rule_apex_payload, subject.RULES['apex_payload'])
+
+    def test_widevine_software_only_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
+        absent = rules['widevine-software-only']
+        self.assertEqual({'VENDOR/lib64/liboemcrypto.so', 'VENDOR/lib64/libcpion.so',
+                          'VENDOR/lib64/libtrustedapploader.so', 'VENDOR/bin/StoreKeybox', 'VENDOR/bin/KmInstallKeybox',
+                          'VENDOR/bin/hdcp1prov', 'VENDOR/bin/hdcp2p2prov', 'VENDOR/bin/wfdhdcphalservice'},
+                         set(absent['paths']))
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({apex: b'apex'}))[0])
+        for path in absent['paths']:
+            with self.subTest(path=path):
+                self.assertEqual((False, 'present: ' + path),
+                                 subject.rule_files_absent(absent, self.harness({apex: b'apex', path: b'stock'})))
+                self.assertFalse(subject.rule_files_absent(
+                    absent, self.harness({apex: b'apex'}, symlinks={path: '/odm/' + path.split('/', 1)[1]}))[0])
+        # The build always writes the vendor linker configuration, which offers no library.
+        linker, config = rules['widevine-linker-config-no-oemcrypto'], 'VENDOR/etc/linker.config.pb'
+        self.assertEqual(('binary_count', config), (linker['type'], linker['file']))
+        entry = b'\x1a\x0fliboemcrypto.so'
+        check = lambda data: subject.rule_binary_count(linker, self.harness({config: data}))[0]
+        self.assertTrue(check(b''))
+        for data in (entry, entry + entry, b'\x1a\x0blibother.so', b'\x22\x0fliboemcrypto.so'):
+            with self.subTest(data=data):
+                self.assertFalse(check(data))
+        with self.assertRaises(FileNotFoundError):
+            subject.rule_binary_count(linker, self.harness({'VENDOR/build.prop': b''}))
+        properties = rules['widevine-no-hardware-properties']
+        files = ['SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'VENDOR/build.prop',
+                 'ODM/etc/build.prop']
+        self.assertEqual(files, properties['files'])
+        good = {name: b'ro.vendor.build.security_patch=2026-09-05\nro.drm.service.enabled=true\n' for name in files}
+        self.assertTrue(subject.rule_text(properties, self.harness(good))[0])
+        for name, line in [('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_hlos_data_path=true\n'),
+                           ('VENDOR/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=true\n'),
+                           ('ODM/etc/build.prop', b'vendor.wv.oemcrypto.debug.enable_prov40=false\n'),
+                           ('SYSTEM/build.prop', b'  vendor.wv.oemcrypto.enable_prov40 = true\n'),
+                           ('VENDOR/build.prop', b'drm.service.enabled=true\n')]:
+            with self.subTest(name=name, line=line):
+                ok, detail = subject.rule_text(properties, self.harness(dict(good, **{name: good[name] + line})))
+                self.assertFalse(ok)
+                self.assertIn(name, detail)
+        self.assertFalse(subject.rule_text(properties, self.harness({'VENDOR/build.prop': b''}))[0])
+
+    def test_widevine_service_groups_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'widevine-service-groups']
+        name = 'VENDOR/etc/init/init.fp6.drm.rc'
+        self.assertEqual([name], rule['files'])
+        binary = '/apex/com.google.android.widevine/bin/hw/android.hardware.drm-service.widevine'
+        clearkey = ('# ClearKey, built from the platform source.\n'
+                    'service vendor.drm-clearkey-service /vendor/bin/hw/android.hardware.drm-service.clearkey\n'
+                    '    class hal\n    user media\n    group mediadrm\n    ioprio rt 4\n'
+                    '    task_profiles ProcessCapacityHigh\n'
+                    '    interface aidl android.hardware.drm.IDrmFactory/clearkey\n    override\n')
+        group, env = '    group media mediadrm\n', '    setenv FORCE_LEVEL3_OEMCRYPTO yes\n'
+        interface = '    interface aidl android.hardware.drm.IDrmFactory/widevine\n'
+        widevine = ('# Widevine with its built-in software protection.\n'
+                    'service vendor.drm-widevine-hal ' + binary + '\n' + interface
+                    + '    class hal\n    user media\n' + group + env
+                    + '    ioprio rt 4\n    task_profiles ProcessCapacityHigh\n')
+        good = '\n'.join([clearkey, widevine])
+        changed = lambda old, new: '\n'.join([clearkey, widevine.replace(old, new)])
+        check = lambda text: subject.rule_text(rule, self.harness({name: text.encode()}))[0]
+        self.assertTrue(check(good))
+        self.assertTrue(check('\n'.join([widevine, clearkey])))
+        # The order of the lines inside a definition is free.
+        self.assertTrue(check(changed(group + env, env + group)))
+        for case, text in [
+                ('the stock groups', changed(group, '    group media mediadrm drmrpc system\n')),
+                ('the TEE node group', changed(group, '    group media mediadrm drmrpc\n')),
+                ('a group that reads the trusted app', changed(group, '    group media mediadrm system\n')),
+                ('a second group line', changed(group, group + '    group drmrpc\n')),
+                ('no group line', changed(group, '')),
+                ('no environment line', changed(env, '')),
+                ('another value', changed(env, '    setenv FORCE_LEVEL3_OEMCRYPTO no\n')),
+                ('another environment line', changed(env, env + '    setenv LD_PRELOAD /data/x.so\n')),
+                ('started only by an action', changed('    class hal\n', '    class hal\n    disabled\n')),
+                ('no class', changed('    class hal\n', '')),
+                ('no interface', changed(interface, '')),
+                ('a domain line', changed(group, group + '    seclabel u:r:hal_drm_widevine:s0\n')),
+                ('another binary under the service name', changed(
+                    'service vendor.drm-widevine-hal ' + binary, 'service vendor.drm-widevine-hal /vendor/bin/hw/drm')),
+                ('no Widevine service', clearkey),
+                ('a second definition', good + '\nservice vendor.drm-widevine-hal-sw ' + binary + '\n    class hal\n'),
+                ('a start by the state',
+                 good + '\non boot && property:ro.vendor.diamaneos.hw_video_decode=1\n    start vendor.drm-widevine-hal\n'),
+                ('a stop', good + '\non boot\n    stop vendor.drm-widevine-hal\n'),
+                # ClearKey.
+                ('ClearKey with the TEE node group', good.replace('    group mediadrm\n', '    group mediadrm drmrpc\n')),
+                ('ClearKey with the stock Widevine groups',
+                 good.replace('    group mediadrm\n', '    group media mediadrm drmrpc system\n')),
+                ('ClearKey without a group line', good.replace('    group mediadrm\n', '')),
+                ('ClearKey without the override', good.replace('    override\n', '')),
+                ('no ClearKey service', widevine),
+                # The group line of one service does not count for the other.
+                ('the groups only on another service',
+                 changed(group, '') + '\nservice other /vendor/bin/other\n' + group)]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+        self.assertFalse(subject.rule_text(rule, self.harness({'VENDOR/etc/init/other.rc': good.encode()}))[0])
+
+    def test_widevine_software_domain_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule, sw, vendor = rules['widevine-software-domain'], 'hal_drm_widevine_sw', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        self.assertEqual([vendor], rule['files'])
+        node = '(chr_file (ioctl read getattr lock map open watch watch_reads))'
+        rw_node = '(chr_file (ioctl read write open))'
+        entry = '(file (read getattr map execute open entrypoint))'
+        data, tee_node = 'vendor_mediadrm_vendor_data_file', 'vendor_smcinvoke_device_202604'
+        members = lambda *names: ''.join(f'(typeattributeset {attribute} ({" ".join(names)}))\n' for attribute in (
+            'domain', 'halserverdomain', 'hal_drm', 'hal_drm_server'))
+        # The compiled form: platform types carry the vendor API level, vendor types do not.
+        start = f'(allow init_202604 {sw} (process (transition)))\n'
+        entrypoint = f'(allow {sw} hal_drm_widevine_exec {entry})\n'
+        transition = f'(typetransition init_202604 hal_drm_widevine_exec process {sw})\n'
+        data_dir = f'(allow {sw} {data} (dir (read write open add_name remove_name search)))\n'
+        data_file = f'(allow {sw} {data} (file (read write create unlink open)))\n'
+        software = (f'(type {sw})\n(type hal_drm_widevine_exec)\n' + start + entrypoint + transition
+                    + f'(dontaudit init_202604 {sw} (process (noatsecure)))\n'
+                    + f'(allow init_202604 {sw} (process (siginh rlimitinh)))\n' + data_dir + data_file)
+        attributes = members('hal_drm_clearkey_aidl', sw)
+        good = attributes + software
+        check = lambda text: subject.rule_text(rule, self.harness({vendor: text.encode()}))[0]
+        self.assertTrue(check(good))
+        self.assertTrue(check(good.replace('init_202604 ', 'init ')))
+        for names in ((sw, 'hal_drm_clearkey_aidl'), ('hal_drm_clearkey_aidl', sw, 'hal_drm_default'), (sw,)):
+            self.assertTrue(check(members(*names) + software), names)
+        # The rules that name the domain: each grant of the hardware-backed path fails.
+        named = {'the TEE node': f'(allow {sw} {tee_node} {rw_node})\n',
+                 'the QSEECom heap': f'(allow {sw} vendor_dmabuf_qseecom_heap_device {node})\n',
+                 'the crypto engine node': f'(allow {sw} vendor_qce_device {rw_node})\n',
+                 "qseecomd's socket": f'(allow {sw} vendor_notify-topology_socket (sock_file (write)))\n',
+                 'the memory-buffer driver': f'(allow {sw} vendor_membuf_dev {node})\n',
+                 'the bitstream node': f'(allow {sw} vendor_vm_cp_bitstream_device {node})\n'}
+        for case, text in [
+                ('no such domain', good.replace(f'(type {sw})\n', '')),
+                ('not a DRM HAL', members('hal_drm_clearkey_aidl', sw).replace(
+                    f'(typeattributeset hal_drm_server (hal_drm_clearkey_aidl {sw}))',
+                    '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl))') + software),
+                ('init may not start it', good.replace(start, '')),
+                ('only another domain may start it', good.replace(start, start.replace('init_202604', 'vendor_init_202604'))),
+                ('no entry point', good.replace(entrypoint, '')),
+                ('the executable is not an entry point', good.replace(entrypoint, entrypoint.replace(' entrypoint', ''))),
+                ('no data directory', good.replace(data_dir, '')),
+                ('no data files', good.replace(data_file, '')),
+                # init enters it through the executable's type, which leads nowhere else.
+                ('no automatic transition', good.replace(transition, '')),
+                ('an automatic transition from another file', good + f'(typetransition init_202604 vendor_file process {sw})\n'),
+                ('an automatic transition from another domain',
+                 good + f'(typetransition vendor_init_202604 hal_drm_widevine_exec process {sw})\n'),
+                ('the executable leads to another domain',
+                 good + '(typetransition su_202604 hal_drm_widevine_exec process su)\n'),
+                ('the hardware-backed domain', good + '(type hal_drm_widevine)\n'),
+                *((case, good + line) for case, line in named.items()),
+                ("qseecomd's listener", good + f'(allow {sw} tee_202604 (unix_stream_socket (connectto)))\n'),
+                ("the codec service's descriptors", good + f'(allow {sw} mediacodec (fd (use)))\n'),
+                ('ioctl commands', good + f'(allowx {sw} {tee_node} (ioctl chr_file (0x9801 0x9803)))\n'),
+                ('a socket in its data', good + f'(allow {sw} {data} (sock_file (write)))\n'),
+                ('another class on its executable', good + f'(allow {sw} hal_drm_widevine_exec (chr_file (read open)))\n'),
+                # Its attributes are those of a DRM HAL: a rule on another attribute would reach it unseen.
+                ('one more attribute', good + f'(typeattributeset hal_gatekeeper_server (vendor_hal_gatekeeper_qti {sw}))\n'),
+                ('an attribute of its own', good + f'(typeattributeset tee_client ({sw}))\n')]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+        self.assertFalse(subject.rule_text(rule, self.harness({'ODM/etc/selinux/odm_sepolicy.cil': good.encode()}))[0])
+
+        # Rules on attributes do not name the domain: the lists of each node judge those, and none names it.
+        lists = {
+            'qseecom-heap-users': ('vendor_dmabuf_qseecom_heap_device', 'chr_file', 'open', [
+                'hal_fingerprint_default', 'tee', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti']),
+            'crypto-engine-node-users': ('vendor_qce_device', 'chr_file', 'open', []),
+            'membuf-node-users': ('vendor_membuf_dev', 'chr_file', 'open', [
+                'hal_graphics_allocator_default', 'hal_graphics_composer_default']),
+            'qseecomd-socket-users': ('vendor_notify-topology_socket', 'sock_file', 'write', [])}
+        for rule_id, expected in lists.items():
+            users = rules[rule_id]
+            self.assertEqual(expected, (users['target'], users['cls'], users['perm'], users['allowed']), rule_id)
+        reach = ('tee-node-open', 'tee-node-read', 'tee-node-write', 'tee-node-ioctl')
+        every = (*lists, 'media-secure-buffer-node-users', *reach)
+        for rule_id in every:
+            self.assertEqual('sepolicy_sources', rules[rule_id]['type'], rule_id)
+            self.assertNotIn(sw, rules[rule_id]['allowed'], rule_id)
+        self.assertNotIn(sw, rules['tee-node-ioctl-limit']['sources'])
+        nodes = ['vendor_dmabuf_qseecom_heap_device', 'vendor_qce_device', 'vendor_membuf_dev', 'vendor_vm_cp_bitstream_device']
+        peers = ['hal_fingerprint_default', 'vendor_hal_gatekeeper_qti', 'vendor_hal_keymint_qti', 'hal_graphics_allocator_default',
+                 'hal_graphics_composer_default', 'mediacodec', 'hal_drm_clearkey_aidl']
+        tee_users = ('tee_202604', 'vendor_hal_keymint_qti', 'vendor_hal_gatekeeper_qti', 'hal_fingerprint_default')
+        policy = (good + ''.join(f'(type {name})\n' for name in nodes + peers + ['vendor_notify-topology_socket', data])
+                  + f'(typeattributeset dev_type ({" ".join(nodes)} vendor_smcinvoke_device))\n'
+                  + ''.join(f'(allow {domain} vendor_dmabuf_qseecom_heap_device {node})\n' for domain in tee_users)
+                  + ''.join(f'(allow {domain} {tee_node} {rw_node})\n' for domain in tee_users)
+                  + ''.join(f'(allow {domain} vendor_membuf_dev {node})\n' for domain in (
+                      'hal_graphics_allocator_default', 'hal_graphics_composer_default')))
+        others = {'SYSTEM/etc/selinux/plat_sepolicy.cil': (
+                      b'(type init)\n(type ueventd)\n(type tee)\n(type vendor_smcinvoke_device)\n'
+                      b'(allow init dev_type (chr_file (getattr setattr relabelto)))\n'
+                      b'(allow ueventd dev_type (chr_file (create setattr unlink)))\n'),
+                  'SYSTEM/etc/selinux/mapping/202604.cil': (
+                      b'(typeattributeset init_202604 (init))\n(typeattributeset tee_202604 (tee))\n'
+                      b'(typeattributeset vendor_smcinvoke_device_202604 (vendor_smcinvoke_device))\n'),
+                  'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'', 'PRODUCT/etc/selinux/product_sepolicy.cil': b'',
+                  'VENDOR/etc/selinux/plat_pub_versioned.cil': b'', 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        judge = lambda rule_id, text: subject.rule_sepolicy_sources(
+            rules[rule_id], self.harness({**others, vendor: text.encode()}))[0]
+        self.assertTrue(check(policy))
+        for rule_id in every:
+            self.assertTrue(judge(rule_id, policy), rule_id)
+        heap, engine, membuf, socket, bitstream = (
+            'qseecom-heap-users', 'crypto-engine-node-users', 'membuf-node-users', 'qseecomd-socket-users',
+            'media-secure-buffer-node-users')
+        for failing, line in [
+                (reach, named['the TEE node']), ((heap,), named['the QSEECom heap']),
+                ((engine,), named['the crypto engine node']), ((socket,), named["qseecomd's socket"]),
+                ((membuf,), named['the memory-buffer driver']), ((bitstream,), named['the bitstream node']),
+                (reach, f'(allow hal_drm_server {tee_node} {rw_node})\n'),
+                ((heap,), f'(allow hal_drm_server vendor_dmabuf_qseecom_heap_device {node})\n'),
+                ((engine,), f'(allow hal_drm vendor_qce_device {rw_node})\n'),
+                ((socket,), '(allow hal_drm_server vendor_notify-topology_socket (sock_file (write)))\n'),
+                ((membuf,), f'(allow halserverdomain vendor_membuf_dev {node})\n'),
+                ((bitstream,), f'(allow domain vendor_vm_cp_bitstream_device {node})\n'),
+                ((heap, engine, membuf, bitstream, 'tee-node-open', 'tee-node-read'),
+                 '(allow hal_drm_server dev_type (chr_file (read open)))\n'),
+                # The codec service has no secure decoder.
+                ((membuf, bitstream), f'(allow mediacodec vendor_membuf_dev {node})\n'
+                                      f'(allow mediacodec vendor_vm_cp_bitstream_device {node})\n'),
+                # Its own data and the rules of other classes change nothing.
+                ((), f'(allow hal_drm_server {data} (file (read open)))\n'),
+                ((), '(allow domain dev_type (lnk_file (read open)))\n')]:
+            for rule_id in every:
+                with self.subTest(rule=rule_id, line=line):
+                    self.assertEqual(rule_id not in failing, judge(rule_id, policy + line))
+            with self.subTest(line=line):
+                self.assertEqual(line not in named.values(), check(policy + line))
+        # Without the type a list cannot be judged.
+        self.assertFalse(judge(engine, policy.replace('(type vendor_qce_device)\n', '')))
+
+    MEDIA_RC = 'VENDOR/etc/init/init.fp6.media.rc'
+
+    def test_media_hardware_decoding_states_rule(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['media-hw-decode-states']
+        self.assertEqual([self.MEDIA_RC], rule['files'])
+        choice = ('on zygote-start && property:persist.diamaneos.hw_video_decode=1\n'
+                  '    setprop ro.vendor.diamaneos.hw_video_decode 1\n')
+        default = 'on zygote-start\n    setprop ro.vendor.diamaneos.hw_video_decode 0\n'
+        node = '    wait /dev/video32\n    chown root mediacodec /dev/video32\n    chmod 0660 /dev/video32\n'
+        state = lambda value, variant, open_node: (
+            'on early-boot && property:ro.vendor.diamaneos.hw_video_decode=%s\n'
+            '    setprop ro.media.xml_variant.codecs %s\n' % (value, variant)
+            + ('    setprop vendor.media.target_variant %s\n' % variant + node if open_node else ''))
+        never, all_video = state('0', '_volcano_v1', False), state('1', '_volcano_v1_hwdec', True)
+        service = ('# The codec service; its decoders open only /dev/video32.\n'
+                   'service vendor-qti-media-c2-hal-1-0 /vendor/bin/hw/vendor.qti.media.c2@1.0-service\n'
+                   '    class hal\n    user mediacodec\n    group mediacodec\n')
+        parts = [service, choice, default, never, all_video]
+        good = '\n'.join(parts)
+        check = lambda text: subject.rule_text(rule, self.harness({self.MEDIA_RC: text.encode()}))[0]
+        self.assertTrue(check(good))
+        # The order of the two states is free.
+        self.assertTrue(check('\n'.join([service, choice, default, all_video, never])))
+        swap = lambda old, new: '\n'.join(new if part == old else part for part in parts)
+        for case, text in [
+                # A read-only property keeps its first value: the default must come last.
+                ('the default first', '\n'.join([service, default, choice, never, all_video])),
+                ('no stored 1', '\n'.join([service, default, never, all_video])),
+                ('no default', '\n'.join([service, choice, never, all_video])),
+                ('default all video', swap(default, default.replace(' 0\n', ' 1\n'))),
+                ('default protected video only', swap(default, default.replace(' 0\n', ' 2\n'))),
+                ('a stored 1 sets never', swap(choice, choice.replace('decode 1\n', 'decode 0\n'))),
+                ('a stored 2 sets protected video only', '\n'.join([service, choice, choice.replace('1', '2'), default,
+                                                                    never, all_video])),
+                # The first step sets only the state: the default action always runs.
+                ('the default action also opens the node', swap(default, default + node)),
+                ('a stored 1 also selects a codec list',
+                 swap(choice, choice + '    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n')),
+                # Each state selects its own files, and state 0 never opens the decoder node.
+                ('never opens the node', swap(never, never + node)),
+                ('never selects the decoders', swap(never, state('0', '_volcano_v1_hwdec', False))),
+                ('never switches the target specification',
+                 swap(never, never + '    setprop vendor.media.target_variant _volcano_v1_hwdec\n')),
+                ('all video selects the secure list', swap(all_video, state('1', '_volcano_v1_secdec', True))),
+                ('all video selects no decoder', swap(all_video, state('1', '_volcano_v1', False))),
+                ('all video keeps the node closed', swap(all_video, all_video.replace(node, ''))),
+                ('all video opens the node to all', swap(all_video, all_video.replace('chmod 0660', 'chmod 0666'))),
+                ('no action for state 0', '\n'.join([service, choice, default, all_video])),
+                ('no action for state 1', '\n'.join([service, choice, default, never])),
+                # Nothing else acts on the choice or the state.
+                ('a state for protected video only', good + '\n' + state('2', '_volcano_v1_secdec', True)),
+                ('a property-only trigger', good + '\non property:persist.diamaneos.hw_video_decode=1\n' + node),
+                ('a later trigger on the state',
+                 good + '\non boot && property:ro.vendor.diamaneos.hw_video_decode=0\n' + node),
+                ('another action opens the node', good + '\non boot\n    chmod 0666 /dev/video32\n'),
+                ('another action selects a codec list',
+                 good + '\non boot\n    setprop ro.media.xml_variant.codecs _volcano_v1_hwdec\n'),
+                ('another action switches the target specification',
+                 good + '\non boot\n    setprop vendor.media.target_variant _volcano_v1_hwdec\n'),
+                ('another action sets the state', good + '\non early-init\n    setprop ro.vendor.diamaneos.hw_video_decode 1\n')]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, text)
+                self.assertFalse(check(text))
+
+    def test_media_hardware_decoding_property_types_rule(self):
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'media-hw-decode-property-types']
+        system_ext, vendor = rule['files']
+        choice = b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
+        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
+        check = lambda a, b: subject.rule_text(rule, self.harness({system_ext: b'# choice\n' + a, vendor: b'# state\n' + b}))[0]
+        self.assertTrue(check(choice, state))
+        for case, a, b in [('a third choice', choice.replace(b'0 1', b'0 1 2'), state),
+                           ('a third state', choice, state.replace(b'0 1', b'0 1 2')),
+                           ('the choice as any string', choice.replace(b'exact enum 0 1', b'exact string'), state),
+                           ('the state under another type', choice, state.replace(b'vendor_diamaneos_hw_video_decode_prop',
+                                                                                    b'vendor_default_prop')),
+                           ('no entry for the choice', b'', state), ('no entry for the state', choice, b'')]:
+            with self.subTest(case=case):
+                self.assertFalse(check(a, b))
+
+    @staticmethod
+    def stock_shaped_codec_list():
+        from diamaneos_tools import vendor_product
+        def codec(name, extra=''):
+            return ('        <MediaCodec name="%s" type="video/avc" >\n%s'
+                    '            <Limit name="size" min="96x96" max="4096x4096" />\n'
+                    '        </MediaCodec>\n' % (name, extra))
+        secure = ('            <Alias name="OMX.qcom.video.decoder.%s.secure"/>\n'
+                  '            <Feature name="secure-playback" required="true" />\n')
+        decoders = ''.join(codec(n) + codec(n + '.low_latency', '            <Feature name="low-latency" />\n')
+                           + codec(n + '.secure', secure % n.split('.')[2]) for n in vendor_product.MEDIA_HW_DECODERS)
+        encoders = ''.join(codec(n) for n in vendor_product.MEDIA_ENCODERS)
+        return ('<?xml version="1.0" encoding="utf-8" ?>\n<MediaCodecs>\n'
+                '    <Decoders>\n        <!-- C2 decoders -->\n' + decoders + '    </Decoders>\n'
+                '    <Encoders>\n' + encoders + '    </Encoders>\n</MediaCodecs>\n').encode()
+
+    def test_media_hwdec_codec_list_rule(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        stock = self.stock_shaped_codec_list()
+        good = vendor_product.media_decoder_codec_list(stock)
+        rule, name = rules['media-hwdec-codec-list'], 'VENDOR/etc/media_codecs_volcano_v1_hwdec.xml'
+        self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+        self.assertIn(name, rules['media-codec2-service']['paths'])
+        check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+        self.assertTrue(check(good))
+        for other in (stock, vendor_product.media_encoders_only_codec_list(stock)):
+            self.assertFalse(check(other))
+        for case, data in [
+                ('a secure decoder', good.replace(
+                    b'    </Decoders>', b'        <MediaCodec name="c2.qti.avc.decoder.secure" />\n    </Decoders>')),
+                ('a decoder that requires secure playback', good.replace(
+                    b'            <Limit name="size"',
+                    b'            <Feature name="secure-playback" required="true" />\n            <Limit name="size"', 1)),
+                ('a low-latency decoder', good.replace(b'"c2.qti.avc.decoder"', b'"c2.qti.avc.decoder.low_latency"')),
+                ('a decoder missing', good.replace(b'"c2.qti.vp9.decoder"', b'"c2.qti.vp9.dec"')),
+                ('a decoder more', good.replace(
+                    b'    </Decoders>', b'        <MediaCodec name="c2.qti.av1.decoder" />\n    </Decoders>')),
+                ('a second decoder section', good + b'    <Decoders>\n    </Decoders>\n'),
+                ('no encoder', good.replace(b'"c2.qti.avc.encoder"', b'"c2.qti.avc.enc"'))]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, data)
+                self.assertFalse(check(data))
+        with self.assertRaises(FileNotFoundError):
+            subject.rule_binary_count(rule, self.harness({'VENDOR/build.prop': b''}))
+        # The protected-video-only pair is not installed.
+        absent = rules['media-no-secdec-configuration']
+        self.assertTrue(subject.rule_files_absent(absent, self.harness({name: good}))[0])
+        for path in absent['paths']:
+            with self.subTest(path=path):
+                self.assertFalse(subject.rule_files_absent(absent, self.harness({name: good, path: good}))[0])
+                self.assertNotIn(path, rules['media-codec2-service']['paths'])
+
+    def test_media_hwdec_target_spec_rule(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        stock = (b'// Qualcomm\n{\n    "Video": {\n'
+                 b'        //\n        // Put below optional codecs under "OptionalCodecs" to enable it\n'
+                 b'        // "c2.qti.dv.decoder",\n        // "c2.qti.dv.decoder.secure",\n'
+                 b'        //\n        "OptionalCodecs": [\n        ]\n    }\n}\n')
+        good = vendor_product.media_encoders_only_target_spec(stock, vendor_product.MEDIA_HW_DECODERS)
+        rule, name = rules['media-hwdec-target-spec'], 'VENDOR/etc/media_volcano_v1_hwdec/video_system_specs.json'
+        self.assertEqual(('binary_count', name), (rule['type'], rule['file']))
+        self.assertIn(name, rules['media-codec2-service']['paths'])
+        check = lambda data: subject.rule_binary_count(rule, self.harness({name: data}))[0]
+        self.assertTrue(check(good))
+        for other in (stock, vendor_product.media_encoders_only_target_spec(stock)):
+            self.assertFalse(check(other))
+        for case, data in [
+                ('an optional codec', good.replace(b'"OptionalCodecs": [\n        ]',
+                                                   b'"OptionalCodecs": [\n            "c2.qti.dv.decoder"\n        ]')),
+                ('a secure decoder more', good.replace(b'"c2.qti.vp9.decoder"\n',
+                                                       b'"c2.qti.vp9.decoder",\n                "c2.qti.vp9.decoder.secure"\n')),
+                ('a decoder less', good.replace(b'                "c2.qti.avc.decoder",\n', b'')),
+                ('a second codec list', good.replace(b'"codecs-available"', b'"codecs-available": {}, "codecs-available"')),
+                ('no encoders', good.replace(b'"c2.qti.heic.encoder"', b'"c2.qti.heic.enc"'))]:
+            with self.subTest(case=case):
+                self.assertNotEqual(good, data)
+                self.assertFalse(check(data))
+
+    def test_media_no_secure_buffer_node_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        node, name = rules['media-no-secure-buffer-node'], 'VENDOR/etc/ueventd.rc'
+        self.assertEqual([name], node['files'])
+        good = ('firmware_directories /vendor/firmware_mnt/image/\n\n'
+                '/dev/membuf               0664   system     system\n'
+                '/dev/dma_heap/qcom,*      0444   system     system\n'
+                '/dev/smcinvoke            0660   system     drmrpc\n')
+        check = lambda text: subject.rule_text(node, self.harness({name: text.encode()}))[0]
+        self.assertTrue(check(good))
+        for case, text in [
+                ('the bitstream node readable', good + '/dev/mem_buf_vm/qcom,cp_bitstream 0444 system system\n'),
+                ('every VM node, as stock', good + '/dev/mem_buf_vm/*         0444   system     system\n'),
+                ('the node directly in /dev', good + '/dev/qcom,cp_bitstream 0444 system system\n')]:
+            with self.subTest(case=case):
+                self.assertFalse(check(text))
+        users = rules['media-secure-buffer-node-users']
+        self.assertEqual(([], 'vendor_vm_cp_bitstream_device', 'chr_file', 'open'),
+                         (users['allowed'], users['target'], users['cls'], users['perm']))
+        vendor = 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        use = '(chr_file (ioctl read getattr lock map open watch watch_reads))'
+        cil = ('(type vendor_vm_cp_bitstream_device)\n(type vendor_vm_cp_pixel_device)\n(type mediacodec)\n'
+               '(type hal_drm_widevine_sw)\n(type hal_drm_clearkey_aidl)\n(type hal_graphics_composer_default)\n'
+               '(typeattributeset hal_drm_server (hal_drm_clearkey_aidl hal_drm_widevine_sw))\n'
+               '(typeattributeset dev_type (vendor_vm_cp_bitstream_device vendor_vm_cp_pixel_device))\n'
+               f'(allow hal_graphics_composer_default vendor_vm_cp_pixel_device {use})\n'
+               '(allow init dev_type (chr_file (getattr setattr relabelto)))\n')
+        empty = {'SYSTEM/etc/selinux/plat_sepolicy.cil': b'(type init)\n', 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil': b'',
+                 'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+                 'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        allowed = lambda text: subject.rule_sepolicy_sources(users, self.harness({**empty, vendor: text.encode()}))[0]
+        self.assertTrue(allowed(cil))
+        for case, extra in [
+                ('the codec service', f'(allow mediacodec vendor_vm_cp_bitstream_device {use})\n'),
+                ('Widevine', '(allow hal_drm_widevine_sw vendor_vm_cp_bitstream_device (chr_file (open)))\n'),
+                ('every DRM HAL', f'(allow hal_drm_server vendor_vm_cp_bitstream_device {use})\n'),
+                ('every device node', '(allow hal_graphics_composer_default dev_type (chr_file (read open)))\n')]:
+            with self.subTest(case=case):
+                self.assertFalse(allowed(cil + extra))
+        self.assertFalse(allowed(cil.replace('(type vendor_vm_cp_bitstream_device)\n', '')))
+
+
+class ParserTests(unittest.TestCase):
+    def test_boot_header_os_field_and_kernel(self):
+        header = bytearray(4096)
+        header[:8] = b'ANDROID!'
+        struct.pack_into('<IIII', header, 8, 5, 0, 0x220001a9, 4096)
+        struct.pack_into('<I', header, 40, 4)
+        image = bytes(header) + b'KERNEL' + bytes(10)
+        parsed = subject.boot_header(image)
+        self.assertEqual((4, 0x220001a9), (parsed['header_version'], parsed['os_version_field']))
+        self.assertEqual(b'KERNE', subject.boot_kernel(image))
+
+    def test_avb_footer_and_chain_parsing(self):
+        payload = b'dtbo payload'
+        footer = b'AVBf' + bytes(8) + struct.pack('>Q', len(payload)) + bytes(44)
+        self.assertEqual(payload, subject.avb_payload(payload + bytes(20) + footer))
+        info = ('    Chain Partition descriptor:\n      Partition Name:          boot\n'
+                '      Rollback Index Location: 30\n      Public key (sha1):       x\n      Flags:                   0\n'
+                '    Chain Partition descriptor:\n      Partition Name:          recovery\n'
+                '      Rollback Index Location: 28\n      Flags:                   0\n')
+        self.assertEqual({'boot': (30, 0), 'recovery': (28, 0)}, subject.avb_chains(info))
+
+    def test_avb_hashtree_algorithms(self):
+        def tree(name, algorithm):
+            return ('    Hashtree descriptor:\n      Version of dm-verity:  1\n      Image Size:            4096 bytes\n'
+                    f'      Hash Algorithm:        {algorithm}\n      Partition Name:        {name}\n'
+                    '      Salt:                  00\n      Root Digest:           00\n      Flags:                 0\n')
+        info = ('Descriptors:\n    Chain Partition descriptor:\n      Partition Name:          boot\n'
+                '      Rollback Index Location: 3\n      Flags:                   0\n'
+                "    Prop: com.android.build.vendor.os_version -> '17'\n"
+                '    Hash descriptor:\n      Hash Algorithm:        sha256\n      Partition Name:        dtbo\n'
+                + tree('vendor', 'sha1') + tree('odm', 'sha256'))
+        self.assertEqual({'vendor': 'sha1', 'odm': 'sha256'}, subject.avb_hashtrees(info))
+
+    def test_sparse_expansion(self):
+        block = 4096
+        body = b'A' * block
+        chunks = [struct.pack('<HHII', 0xCAC1, 0, 1, 12 + block) + body,
+                  struct.pack('<HHII', 0xCAC3, 0, 2, 12),
+                  struct.pack('<HHII', 0xCAC2, 0, 1, 16) + b'BBBB']
+        image = struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, block, 4, 3, 0) + b''.join(chunks)
+        raw = subject.sparse_to_raw(image)
+        self.assertEqual(4 * block, len(raw))
+        self.assertEqual(body + bytes(2 * block) + b'B' * block, raw)
+        self.assertEqual(raw[:block + 10], subject.sparse_to_raw(image, limit=block + 10))
+        self.assertEqual(raw[:3 * block + 6], subject.sparse_to_raw(image, limit=3 * block + 6))
+
+    def test_sparse_expansion_stops_at_the_limit_and_checks_chunk_sizes(self):
+        import tracemalloc
+        block = 4096
+        header = lambda chunks: struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, block,
+                                            16384, chunks, 0)
+        # 40 bytes that declare 64 MiB (any size would do, and this one stays safe to run if the
+        # bound breaks). A header check reads 4096 bytes of it.
+        for chunk in (struct.pack('<HHII', 0xCAC3, 0, 16384, 12),
+                      struct.pack('<HHII', 0xCAC2, 0, 16384, 16) + b'FILL'):
+            image = header(1) + chunk
+            tracemalloc.start()
+            try:
+                raw = subject.sparse_to_raw(image, limit=4096)
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+            self.assertEqual(4096, len(raw))
+            self.assertLess(peak, 1024 * 1024)
+        bad = {'zero block size': struct.pack('<IHHHHIIII', subject.SPARSE_MAGIC, 1, 0, 28, 12, 0, 1, 1, 0)
+                                  + struct.pack('<HHII', 0xCAC3, 0, 1, 12),
+               'truncated chunk': header(1) + struct.pack('<HHII', 0xCAC1, 0, 1, 12 + block) + b'A' * 10,
+               'raw size': header(1) + struct.pack('<HHII', 0xCAC1, 0, 2, 12 + block) + b'A' * block,
+               'fill size': header(1) + struct.pack('<HHII', 0xCAC2, 0, 1, 20) + b'FILLFILL',
+               'unknown chunk': header(1) + struct.pack('<HHII', 0xCAC9, 0, 1, 12),
+               'missing chunk': header(2) + struct.pack('<HHII', 0xCAC3, 0, 1, 12)}
+        for name, image in bad.items():
+            with self.subTest(name), self.assertRaises((ValueError, struct.error)):
+                subject.sparse_to_raw(image, limit=2 * block)
+
+    def test_tool_scratch_and_tmpdir_stay_in_the_workspace(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp) / 'ws/work/tmp'
+            tools = subject.Tools(Path(temp) / 'bin', Path(temp) / 'src', work)
+            with tools.scratch() as scratch:
+                self.assertTrue(Path(scratch).is_relative_to(work))
+            self.assertEqual(str(work), tools.environment()['TMPDIR'])
+
+    def test_board_lists(self):
+        text = 'BOARD_VENDOR_KERNEL_MODULES := a/x.ko b/y.ko\nBOARD_SYSTEM_KERNEL_MODULES := z.ko\n'
+        self.assertEqual({'BOARD_VENDOR_KERNEL_MODULES': ['x.ko', 'y.ko'], 'BOARD_SYSTEM_KERNEL_MODULES': ['z.ko']},
+                         subject.board_lists(text))
+
+
+class GenericCheckTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+
+    def harness(self, members, **kw):
+        h = Harness(self.root, members, **kw)
+        self.addCleanup(h.tf.close)
+        return h
+
+    def test_permissive_domains_follow_the_variant(self):
+        members = {'VENDOR/etc/selinux/vendor_sepolicy.cil': b'(typepermissive su)\n'}
+        self.assertTrue(subject.check_permissive(self.harness(members, variant='userdebug'))[0])
+        self.assertFalse(subject.check_permissive(self.harness(members, variant='user'))[0])
+
+    def test_only_the_aosp_adb_keys_link_is_allowed(self):
+        link = {'ROOT/adb_keys': '/product/etc/security/adb_keys'}
+        self.assertTrue(subject.check_adb_keys(self.harness({'SYSTEM/build.prop': b''}, symlinks=link))[0])
+        self.assertFalse(subject.check_adb_keys(self.harness({'PRODUCT/etc/security/adb_keys': b'key'}))[0])
+
+    def kernel_argument_set(self, bootconfig=b'androidboot.hardware=qcom\n', **changed):
+        """An image set whose kernel arguments are clean, but for the named parts."""
+        for name in ('boot', 'init_boot', 'recovery'):
+            header = bytearray(4096)
+            header[:8] = b'ANDROID!'
+            struct.pack_into('<I', header, 40, 4)
+            header[44:44 + len(changed.get(name, b''))] = changed.get(name, b'')
+            (self.root / f'{name}.img').write_bytes(bytes(header))
+        tuning = b'loglevel=6 kasan=off swiotlb=noforce cgroup.memory=nokmem,nosocket\0'
+        trees = [dtb({'/': {}, '/chosen': {'bootargs': tuning}}),
+                 dtb({'/': {}, '/chosen': {'bootargs': changed.get('tree', tuning)}})]
+        ramdisk = b'r' * 5000
+        header = bytearray(4096)
+        header[:8] = b'VNDRBOOT'
+        struct.pack_into('<III', header, 8, 4, 4096, 0)
+        struct.pack_into('<I', header, 24, len(ramdisk))
+        cmdline = changed.get('vendor_boot', b'bootconfig')
+        header[28:28 + len(cmdline)] = cmdline
+        struct.pack_into('<II', header, 2096, 2128, sum(map(len, trees)))
+        (self.root / 'vendor_boot.img').write_bytes(bytes(header) + ramdisk.ljust(8192, b'\0') + b''.join(trees))
+        overlay = dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': changed.get('overlay', {})})
+        table = struct.pack('>8I', 0xD7B7AB1E, 64 + len(overlay), 32, 32, 1, 32, 4096, 0)
+        table += struct.pack('>8I', len(overlay), 64, 0, 0, 0, 0, 0, 0) + overlay
+        footer = b'AVBf' + bytes(8) + struct.pack('>Q', len(table)) + bytes(44)
+        (self.root / 'dtbo.img').write_bytes(table + bytes(12) + footer)
+        return self.harness({'VENDOR_BOOT/vendor_bootconfig': bootconfig})
+
+    def test_kernel_arguments_are_refused_wherever_they_are_set(self):
+        self.assertEqual((True, ''), subject.check_kernel_arguments(self.kernel_argument_set()))
+        cases = {'tree': (b'loglevel=6 kpti=0 ftrace_dump_on_oops\0', 'kpti=0 in device tree 1'),
+                 'overlay': ({'bootargs': b'nokaslr\0'}, 'nokaslr in overlay 0'),
+                 'vendor_boot': (b'bootconfig mitigations=off', 'mitigations=off in vendor_boot.img'),
+                 'recovery': (b'enforcing=0', 'enforcing=0 in recovery.img')}
+        for part, (value, expected) in cases.items():
+            ok, detail = subject.check_kernel_arguments(self.kernel_argument_set(**{part: value}))
+            self.assertFalse(ok, part)
+            self.assertIn(expected, detail)
+        ok, detail = subject.check_kernel_arguments(self.kernel_argument_set(bootconfig=b'kernel.loglevel = 7\n'))
+        self.assertEqual((False, 'kernel.loglevel = 7 in vendor bootconfig'), (ok, detail))
+
+    def test_forbidden_kernel_arguments_are_names(self):
+        # Arguments are matched by name. An entry with a value or a space would never match.
+        names = json.loads((ROOT / 'config/fp6-build.json').read_text())['kernel_arguments']['forbidden']
+        self.assertEqual(len(names), len(set(names)))
+        for name in names:
+            self.assertRegex(name, r'^[a-z0-9_.]+$')
+
+    def test_test_keys_marking(self):
+        prop = b'ro.build.tags=test-keys\nro.build.fingerprint=Fairphone/FP6/FP6:17/X/test.1:user/test-keys\n'
+        members = {name: prop for name in ('SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop',
+                                          'PRODUCT/etc/build.prop', 'VENDOR/build.prop')}
+        self.assertTrue(subject.check_test_keys(self.harness(members))[0])
+        members['VENDOR/build.prop'] = prop.replace(b'test-keys', b'release-keys')
+        self.assertFalse(subject.check_test_keys(self.harness(members))[0])
+
+    def test_boot_header_check_names_the_upstream_finding(self):
+        v = self.harness({}, tools=FakeTools({('avbtool',): lambda args: 'Prop: com.android.build.boot.os_version -> 17\n'
+                                                                        'Prop: com.android.build.init_boot.os_version -> 17'}))
+        for name in ('boot', 'init_boot', 'recovery'):
+            header = bytearray(4096)
+            header[:8] = b'ANDROID!'
+            struct.pack_into('<I', header, 40, 4)
+            (self.root / f'{name}.img').write_bytes(bytes(header))
+        self.assertTrue(subject.check_boot_headers(v)[0])
+        header = bytearray((self.root / 'boot.img').read_bytes())
+        struct.pack_into('<I', header, 16, 0x220001a9)
+        (self.root / 'boot.img').write_bytes(bytes(header))
+        ok, detail = subject.check_boot_headers(v)
+        self.assertFalse(ok)
+        self.assertIn('release tools', detail)
+
+
+    def test_avb_check_requires_sha256_hashtrees(self):
+        def tree(name, algorithm):
+            return (f'    Hashtree descriptor:\n      Hash Algorithm:        {algorithm}\n'
+                    f'      Partition Name:        {name}\n')
+        chains = ''.join(f'    Chain Partition descriptor:\n      Partition Name:          {name}\n'
+                         f'      Rollback Index Location: {location}\n      Flags:                   0\n'
+                         for name, location in (('recovery', 28), ('vbmeta_system', 29), ('boot', 30), ('init_boot', 31)))
+        system = ['system', 'system_ext', 'product']
+
+        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm'), index=0):
+            def avbtool(args):
+                if args[0] == 'verify_image':
+                    return ''
+                if str(args[-1]).endswith('vbmeta_system.img'):
+                    return ('    Hash descriptor:\n      Partition Name:        pvmfw\n'
+                            + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in system))
+                header = f'Rollback Index:           {index}\nRollback Index Location:  0\nDescriptors:\n'
+                return header + chains + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in vendor)
+            return FakeTools({('avbtool',): avbtool})
+
+        def check(tools):
+            v = self.harness({}, tools=tools)
+            v.src = self.root
+            return subject.check_avb(v)
+        self.assertEqual((True, ''), check(outputs({})))
+        ok, detail = check(outputs({'vendor': 'sha1'}))
+        self.assertFalse(ok)
+        self.assertIn('vendor (sha1)', detail)
+        ok, detail = check(outputs({}, vendor=('vendor', 'odm', 'vendor_dlkm')))
+        self.assertFalse(ok)
+        self.assertIn('hashtrees for', detail)
+        ok, detail = check(outputs({}, index=1785888000))
+        self.assertFalse(ok)
+        self.assertIn('rollback index 0 at location 0', detail)
+
+    def test_kernel_binding(self):
+        kernel = self.root / 'kernel'
+        (kernel / 'dtbs').mkdir(parents=True)
+        (kernel / 'Image').write_bytes(b'IMAGE')
+        (kernel / 'dtbs/fp6.dtb').write_bytes(b'FP6DTB')
+        (kernel / 'dtbo.img').write_bytes(b'DTBO')
+        header = bytearray(4096)
+        header[:8] = b'ANDROID!'
+        struct.pack_into('<I', header, 8, 5)
+        struct.pack_into('<I', header, 40, 4)
+        (self.root / 'boot.img').write_bytes(bytes(header) + b'IMAGE')
+        vendor_boot = bytearray(4096)
+        vendor_boot[:8] = b'VNDRBOOT'
+        struct.pack_into('<II', vendor_boot, 8, 4, 4096)
+        struct.pack_into('<II', vendor_boot, 2096, 2128, 6)
+        (self.root / 'vendor_boot.img').write_bytes(bytes(vendor_boot) + b'FP6DTBtail')
+        footer = b'AVBf' + bytes(8) + struct.pack('>Q', 4) + bytes(44)
+        (self.root / 'dtbo.img').write_bytes(b'DTBO' + bytes(12) + footer)
+        v = self.harness({})
+        v.kernel_dir = kernel
+        self.assertEqual((True, ''), subject.check_kernel(v))
+        # A second device tree in the image, or in the prebuilts only, is refused.
+        struct.pack_into('<I', vendor_boot, 2100, 10)
+        (self.root / 'vendor_boot.img').write_bytes(bytes(vendor_boot) + b'FP6DTBtail')
+        self.assertIn('exactly the prebuilts device trees', subject.check_kernel(v)[1])
+        (kernel / 'dtbs/volcano.dtb').write_bytes(b'tail')
+        self.assertEqual((True, ''), subject.check_kernel(v))
+
+    def test_kernel_prebuilts_must_be_the_recorded_clean_commit(self):
+        import subprocess
+        src = self.root / 'src'
+        prebuilts = src / 'device/fairphone/FP6-kernel'
+        prebuilts.mkdir(parents=True)
+        run = lambda *a: subprocess.run(['git', '-C', str(prebuilts), '-c', 'user.name=F', '-c',
+                                         'user.email=f@example.invalid', '-c', 'commit.gpgsign=false', *a],
+                                        check=True, capture_output=True, text=True).stdout.strip()
+        run('init', '-q')
+        (prebuilts / 'Image').write_bytes(b'IMAGE')
+        run('add', 'Image')
+        run('commit', '-qm', 'kernel')
+        commit = run('rev-parse', 'HEAD')
+        record = {'kernel_prebuilts': {'path': 'device/fairphone/FP6-kernel', 'commit': commit}}
+        self.assertEqual((prebuilts, ''), subject.kernel_prebuilts(src, record))
+        directory, problem = subject.kernel_prebuilts(src, {'kernel_prebuilts': {
+            'path': 'device/fairphone/FP6-kernel', 'commit': '0' * 40}})
+        self.assertIsNone(directory)
+        self.assertIn('the build used 000000000000', problem)
+        (prebuilts / 'Image').write_bytes(b'OTHER')
+        self.assertEqual((None, 'device/fairphone/FP6-kernel has local changes'), subject.kernel_prebuilts(src, record))
+        self.assertIsNone(subject.kernel_prebuilts(src, {'generated_inputs': {}})[0])
+        v = self.harness({})
+        v.kernel_dir, v.kernel_problem = None, 'device/fairphone/FP6-kernel has local changes'
+        self.assertEqual((False, 'device/fairphone/FP6-kernel has local changes'), subject.check_kernel(v))
+
+    def test_module_placement_follows_the_kernel_prebuilts(self):
+        kernel = self.root / 'kernel'
+        kernel.mkdir()
+        (kernel / 'BoardConfigKernel.mk').write_text(
+            'BOARD_VENDOR_KERNEL_MODULES := m/a.ko\nBOARD_SYSTEM_KERNEL_MODULES := m/s.ko\n'
+            'BOARD_VENDOR_RAMDISK_KERNEL_MODULES := m/r.ko\nBOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := m/r.ko\n'
+            'BOARD_VENDOR_RAMDISK_RECOVERY_KERNEL_MODULES_LOAD := m/r.ko\nBOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko\n')
+        signed = b'module' + subject.MODULE_SIGNATURE
+        members = {'VENDOR_DLKM/lib/modules/a.ko': signed, 'SYSTEM_DLKM/lib/modules/s.ko': signed,
+                   'VENDOR_BOOT/RAMDISK/lib/modules/r.ko': signed,
+                   'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'r.ko\n',
+                   'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'r.ko\n',
+                   'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b'blocklist x\n',
+                   'VENDOR_DLKM/lib/modules/modules.blocklist': b'blocklist x\n',
+                   'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\n'}
+        packaging = {'denied_modules': [{'modules': ['can.ko'], 'reason': 'no CAN'}],
+                     'partitions': {'vendor_dlkm': ['a.ko']}, 'load_lists': {}}
+        (kernel / 'modules').mkdir()
+        for name in ('a.ko', 's.ko', 'r.ko', 'can.ko'):
+            (kernel / 'modules' / name).write_bytes(signed)
+        v = self.harness(members)
+        v.kernel_dir, v.packaging = kernel, packaging
+        self.assertEqual((True, ''), subject.check_modules(v))
+        # Other bytes with an intact signature trailer, or no prebuilt to compare with, fail.
+        (kernel / 'modules/r.ko').write_bytes(b'other' + subject.MODULE_SIGNATURE)
+        ok, detail = subject.check_modules(v)
+        self.assertEqual((False, '1 modules in VENDOR_BOOT/RAMDISK/lib/modules/ differ from the kernel prebuilts: r.ko'),
+                         (ok, detail))
+        (kernel / 'modules/r.ko').unlink()
+        self.assertIn('differ from the kernel prebuilts: r.ko', subject.check_modules(v)[1])
+        (kernel / 'modules/r.ko').write_bytes(signed)
+        members['VENDOR_DLKM/lib/modules/can.ko'] = signed
+        members['SYSTEM_DLKM/lib/modules/s.ko'] = b'unsigned'
+        v = self.harness(members)
+        v.kernel_dir, v.packaging = kernel, packaging
+        ok, detail = subject.check_modules(v)
+        self.assertFalse(ok)
+        self.assertIn('denied module', detail)
+        self.assertIn('unsigned module', detail)
+
+    def test_legacy_qseecom_module_in_an_image_fails_the_module_check(self):
+        packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_text())
+        signed = b'module' + subject.MODULE_SIGNATURE
+        for name, denied in (('qseecom_dlkm.ko', True), ('qseecom-dlkm.ko', True), ('hdcp_qseecom_dlkm.ko', True),
+                             ('qseecom_proxy.ko', False), ('smcinvoke_dlkm.ko', False)):
+            with self.subTest(name=name):
+                kernel = self.root / ('kernel-' + name)
+                (kernel / 'modules').mkdir(parents=True)
+                (kernel / 'BoardConfigKernel.mk').write_text(
+                    f'BOARD_VENDOR_KERNEL_MODULES := m/{name}\nBOARD_VENDOR_KERNEL_MODULES_LOAD := {name}\n')
+                (kernel / 'modules' / name).write_bytes(signed)
+                v = self.harness({'VENDOR_DLKM/lib/modules/' + name: signed,
+                                  'VENDOR_DLKM/lib/modules/modules.load': name.encode() + b'\n',
+                                  'VENDOR_DLKM/lib/modules/modules.blocklist': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'',
+                                  'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b''})
+                v.kernel_dir, v.packaging = kernel, packaging
+                ok, detail = subject.check_modules(v)
+                self.assertEqual(not denied, ok, detail)
+                self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/' in detail)
+                self.assertEqual(denied, 'denied module in VENDOR_DLKM/lib/modules/modules.load' in detail)
+
+    def test_hdcp_removal_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        ids = ('no-hdcp-module', 'no-hdcp-module-listed', 'display-driver-without-hdcp',
+               'display-driver-without-hdcp-ramdisk', 'no-hdcp-level-node-rule')
+        dlkm, ramdisk = 'VENDOR_DLKM/lib/modules/', 'VENDOR_BOOT/RAMDISK/lib/modules/'
+        driver = (b'\x7fELF\0dp_display_hdcp_start\0sde_hdcp_state_name\0qcom_scm_mem_protect_sd_ctrl\0'
+                  b'depends=msm_ext_display,sync_fence,msm_hw_fence\0')
+        good = {dlkm + 'msm_drm.ko': driver, ramdisk + 'msm_drm.ko': driver,
+                dlkm + 'modules.load': b'qseecom_proxy.ko\nsmcinvoke_dlkm.ko\nmsm_drm.ko\n',
+                dlkm + 'modules.load.crypto': b'qrng_dlkm.ko\nsmmu_proxy_dlkm.ko\nsmcinvoke_dlkm.ko\n',
+                dlkm + 'modules.dep': b'/vendor_dlkm/lib/modules/msm_drm.ko: /vendor_dlkm/lib/modules/msm_ext_display.ko\n',
+                ramdisk + 'modules.dep': b'/lib/modules/msm_drm.ko: /lib/modules/msm_ext_display.ko\n',
+                ramdisk + 'modules.load.recovery': b'smcinvoke_dlkm.ko\nmsm_drm.ko\n',
+                'VENDOR/etc/ueventd.rc': b'/sys/devices/platform/soc/ae00000.qcom,mdss_mdp power/control 0664 system graphics\n'}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ids:
+            self.assertTrue(check(rule_id, good), rule_id)
+        imports = driver + b'hdcp2_app_comm\0hdcp1_start\0'
+        for failing, change in [
+                ('no-hdcp-module', {dlkm + 'hdcp_qseecom_dlkm.ko': b'module'}),
+                ('no-hdcp-module', {ramdisk + 'hdcp_qseecom_dlkm.ko': b'module'}),
+                ('no-hdcp-module-listed', {dlkm + 'modules.load': good[dlkm + 'modules.load'] + b'hdcp_qseecom_dlkm.ko\n'}),
+                ('no-hdcp-module-listed', {dlkm + 'modules.load.crypto': b'hdcp_qseecom_dlkm.ko\n'}),
+                ('no-hdcp-module-listed', {ramdisk + 'modules.dep': b'/lib/modules/msm_drm.ko: /lib/modules/hdcp_qseecom_dlkm.ko\n'}),
+                ('display-driver-without-hdcp', {dlkm + 'msm_drm.ko': driver.replace(b'depends=', b'depends=hdcp_qseecom_dlkm,')}),
+                ('display-driver-without-hdcp', {dlkm + 'msm_drm.ko': imports}),
+                ('display-driver-without-hdcp-ramdisk', {ramdisk + 'msm_drm.ko': imports}),
+                ('no-hdcp-level-node-rule', {'VENDOR/etc/ueventd.rc': good['VENDOR/etc/ueventd.rc']
+                                             + b'/sys/devices/virtual/hdcp/msm_hdcp  min_level_change 0664    system  graphics\n'})]:
+            members = {**good, **change}
+            for rule_id in ids:
+                with self.subTest(rule=rule_id, change=sorted(change)):
+                    self.assertEqual(rule_id != failing, check(rule_id, members))
+
+    def test_vendor_load_list_and_streams_follow_the_kernel_prebuilts(self):
+        kernel = self.root / 'kernel'
+        kernel.mkdir()
+        (kernel / 'BoardConfigKernel.mk').write_text(
+            'BOARD_VENDOR_KERNEL_MODULES := m/a.ko m/b-x.ko m/c.ko m/d.ko\n'
+            'BOARD_VENDOR_KERNEL_MODULES_LOAD := a.ko b-x.ko c.ko d.ko\n')
+        signed = b'module' + subject.MODULE_SIGNATURE
+        base = {f'VENDOR_DLKM/lib/modules/{n}': signed for n in ('a.ko', 'b-x.ko', 'c.ko', 'd.ko')}
+        (kernel / 'modules').mkdir()
+        for name in ('a.ko', 'b-x.ko', 'c.ko', 'd.ko'):
+            (kernel / 'modules' / name).write_bytes(signed)
+        base.update({'VENDOR_BOOT/RAMDISK/lib/modules/modules.load': b'',
+                     'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery': b'',
+                     'VENDOR_BOOT/RAMDISK/lib/modules/modules.blocklist': b'',
+                     'VENDOR_DLKM/lib/modules/modules.blocklist': b'',
+                     'VENDOR_DLKM/lib/modules/modules.load': b'a.ko\nb-x.ko\nc.ko\nd.ko\n'})
+        packaging = {'partitions': {'vendor_dlkm': []}, 'load_lists': {}}
+
+        rc = ''.join(f'service vendor.modprobe_{s} /vendor/bin/modprobe -q -b '
+                     f'--all=/vendor/lib/modules/modules.load.{s}\n    oneshot\n\n' for s in ('first', 'second'))
+        base['VENDOR/etc/init/hw/init.qcom.rc'] = rc.encode()
+
+        def check(**changes):
+            members = dict(base)
+            for name, data in changes.items():
+                path = 'VENDOR_DLKM/lib/modules/modules.load' + ('' if name == 'full' else '.' + name)
+                if data is None:
+                    members.pop(path)
+                else:
+                    members[path] = data
+            v = self.harness(members)
+            v.kernel_dir, v.packaging = kernel, packaging
+            return subject.check_modules(v)
+
+        self.assertEqual((True, ''), check())
+        self.assertEqual((True, ''), check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\nd.ko\n'))
+        self.assertIn('no vendor init service loads stream third',
+                      check(first=b'a.ko\nc.ko\n', second=b'b_x.ko\n', third=b'd.ko\n')[1])
+        self.assertIn('order differs from the kernel prebuilts', check(full=b'b-x.ko\na.ko\nc.ko\nd.ko\n')[1])
+        self.assertIn('lists 3 modules, the kernel prebuilts 4', check(full=b'a.ko\nb-x.ko\nc.ko\n')[1])
+        self.assertIn('modules.load is missing', check(full=None)[1])
+        self.assertIn('1 modules.load modules are in no stream: d.ko',
+                      check(first=b'a.ko\nc.ko\n', second=b'b-x.ko\n')[1])
+        self.assertIn('stream first is not in modules.load order', check(first=b'c.ko\na.ko\n', second=b'b-x.ko\nd.ko\n')[1])
+        self.assertIn('c is in streams first and second', check(first=b'a.ko\nc.ko\n', second=b'b-x.ko\nc.ko\nd.ko\n')[1])
+        self.assertIn('stream second lists modules outside modules.load: e.ko',
+                      check(first=b'a.ko\nb-x.ko\nc.ko\n', second=b'd.ko\ne.ko\n')[1])
+
+    def pin_vendor_files(self, recipe):
+        pinned = self.root / 'pinned-vendor-files.json'
+        pinned.write_text(json.dumps(recipe))
+        patcher = mock.patch.object(subject, 'VENDOR_FILES', pinned)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_vendor_binding_refuses_a_recipe_edited_with_its_blob(self):
+        # A blob changed together with the workspace recipe still differs from the tools' pin.
+        vendor = self.root / 'vendor'
+        rel = 'vendor/firmware/touch.bin'
+        (vendor / 'files' / rel).parent.mkdir(parents=True)
+        (vendor / 'files' / rel).write_bytes(b'edited')
+        (vendor / 'recipe.json').write_text(json.dumps({'files': [{'path': rel, 'sha256': hashlib.sha256(b'edited').hexdigest()}]}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        self.pin_vendor_files({'files': [{'path': rel, 'sha256': hashlib.sha256(b'fw').hexdigest()}]})
+        v = self.harness({'VENDOR/firmware/touch.bin': b'edited'})
+        v.vendor_dir = vendor
+        self.assertEqual((False, "the vendor generation's recipe differs from the pinned vendor-files.json: " + rel),
+                         subject.check_vendor(v))
+        # A file the pin selects but the recipe left out is named too.
+        self.pin_vendor_files({'files': [{'path': rel, 'sha256': hashlib.sha256(b'edited').hexdigest()},
+                                         {'path': 'vendor/lib64/libextra.so', 'sha256': '0' * 64}]})
+        self.assertIn('vendor/lib64/libextra.so', subject.check_vendor(v)[1])
+
+    def test_vendor_binding_compares_generated_bytes(self):
+        from diamaneos_tools import carrier_data
+        vendor = self.root / 'vendor'
+        files = {'vendor/firmware/touch.bin': b'fw', 'vendor/lib64/libkeymaster_messages.so': b'km',
+                 'vendor/lib64/libreplaced.so': b'stock', carrier_data.APK_PATH: b'apk'}
+        for rel, data in files.items():
+            (vendor / 'files' / rel).parent.mkdir(parents=True, exist_ok=True)
+            (vendor / 'files' / rel).write_bytes(data)
+        recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(data).hexdigest()} for rel, data in files.items()]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
+        (vendor / 'provenance.json').write_text(json.dumps({'source_interface_replacements': ['vendor/lib64/libreplaced.so'],
+                                                            'uninstalled_optional_libraries': [], 'derived_files': []}))
+        members = {'VENDOR/firmware/touch.bin': b'fw', 'ODM/lib64/libkeymaster_messages.so': b'km',
+                   'VENDOR/lib64/libreplaced.so': b'source build'}
+
+        def check(members=members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '2 files'), check())
+        ok, detail = check(dict(members, **{'VENDOR/firmware/touch.bin': b'changed'}))
+        self.assertFalse(ok)
+        self.assertIn('differs VENDOR/firmware/touch.bin', detail)
+        # A file the recipe selects must be in the generation with its bytes.
+        (vendor / 'files/vendor/firmware/touch.bin').write_bytes(b'other')
+        self.assertIn('vendor generation lacks the selected vendor/firmware/touch.bin', check()[1])
+        (vendor / 'files/vendor/firmware/touch.bin').unlink()
+        self.assertIn('vendor generation lacks the selected vendor/firmware/touch.bin', check()[1])
+        import shutil
+        shutil.rmtree(vendor / 'files')
+        ok, detail = check()
+        self.assertFalse(ok)
+        self.assertIn('lacks the selected vendor/lib64/libkeymaster_messages.so', detail)
+        (vendor / 'recipe.json').write_text(json.dumps({'files': []}))
+        self.assertEqual((False, 'the vendor generation selects no files'), check())
+
+    def test_vendor_binding_checks_files_derived_under_a_new_path(self):
+        # A file the generator derives from a selected file under a new path
+        # (hardware video decoding's codec list) is checked like the others.
+        vendor = self.root / 'vendor'
+        files = {'vendor/etc/codecs.xml': b'stock', 'vendor/etc/codecs_hwdec.xml': b'derived'}
+        for rel, data in files.items():
+            (vendor / 'files' / rel).parent.mkdir(parents=True, exist_ok=True)
+            (vendor / 'files' / rel).write_bytes(data)
+        sha = {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
+        recipe = {'files': [{'path': 'vendor/etc/codecs.xml', 'sha256': sha['vendor/etc/codecs.xml']}]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [
+            {'path': 'vendor/etc/codecs_hwdec.xml', 'from': 'vendor/etc/codecs.xml',
+             'sha256': sha['vendor/etc/codecs_hwdec.xml']},
+            {'path': 'vendor/etc/unrelated.xml', 'sha256': sha['vendor/etc/codecs_hwdec.xml']}]}))
+
+        def check(members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '2 files'), check({'VENDOR/etc/codecs.xml': b'stock',
+                                                   'VENDOR/etc/codecs_hwdec.xml': b'derived'}))
+        ok, detail = check({'VENDOR/etc/codecs.xml': b'stock'})
+        self.assertFalse(ok)
+        self.assertIn('missing VENDOR/etc/codecs_hwdec.xml', detail)
+        ok, detail = check({'VENDOR/etc/codecs.xml': b'stock', 'VENDOR/etc/codecs_hwdec.xml': b'other'})
+        self.assertIn('differs VENDOR/etc/codecs_hwdec.xml', detail)
+
+    def test_vendor_binding_covers_the_stock_apex(self):
+        # A selected stock APEX arrives whole, under its stock file name.
+        from diamaneos_tools import vendor_product
+        rel, = vendor_product.STOCK_APEXES
+        vendor = self.root / 'vendor'
+        (vendor / 'files' / rel).parent.mkdir(parents=True)
+        (vendor / 'files' / rel).write_bytes(b'stock apex')
+        recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(b'stock apex').hexdigest()}]}
+        (vendor / 'recipe.json').write_text(json.dumps(recipe))
+        self.pin_vendor_files(recipe)
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        member = 'VENDOR/apex/com.google.android.widevine.nonupdatable.apex'
+
+        def check(members):
+            v = self.harness(members)
+            v.vendor_dir = vendor
+            return subject.check_vendor(v)
+        self.assertEqual((True, '1 files'), check({member: b'stock apex'}))
+        ok, detail = check({member: b'resigned apex'})
+        self.assertFalse(ok)
+        self.assertIn('differs ' + member, detail)
+        # Installed under the module's name instead of the stock file name.
+        ok, detail = check({'VENDOR/apex/com.google.android.widevine.apex': b'stock apex'})
+        self.assertFalse(ok)
+        self.assertIn('missing ' + member, detail)
+
+    def test_vendor_patch_level_matches_the_stock_value(self):
+        vendor = self.root / 'vendor'
+        vendor.mkdir()
+        (vendor / 'provenance.json').write_text(json.dumps({'vendor_security_patch': '2026-09-05'}))
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+        prop = b'ro.vendor.build.date.utc=1\nro.vendor.build.security_patch=2026-09-05\n'
+        image = {'prop': prop}
+
+        def debugfs(args):
+            command = str(args[1])
+            if command.startswith('dump '):
+                self.assertEqual('/build.prop', command.split()[1])
+                Path(command.split()[2]).write_bytes(image['prop'])
+            return 'Type: regular\n'
+
+        def check(members):
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            v.vendor_dir = vendor
+            return subject.check_vendor_patch_level(v)
+        self.assertEqual((True, 'ro.vendor.build.security_patch=2026-09-05'), check({'VENDOR/build.prop': prop}))
+        ok, detail = check({'VENDOR/build.prop': prop.replace(b'09-05', b'08-05')})
+        self.assertFalse(ok)
+        self.assertIn('VENDOR/build.prop sets', detail)
+        ok, _ = check({'VENDOR/build.prop': prop + b'ro.vendor.build.security_patch=2026-09-05\n'})
+        self.assertFalse(ok)
+        image['prop'] = b'ro.vendor.build.date.utc=1\n'
+        ok, detail = check({'VENDOR/build.prop': prop})
+        self.assertFalse(ok)
+        self.assertIn('vendor.img sets []', detail)
+        image['prop'] = prop
+        (vendor / 'provenance.json').write_text(json.dumps({}))
+        self.assertFalse(check({'VENDOR/build.prop': prop})[0])
+        v = self.harness({'VENDOR/build.prop': prop})
+        v.vendor_dir = None
+        self.assertFalse(subject.check_vendor_patch_level(v)[0])
+
+    def test_firmware_release_table_matches_the_inventory(self):
+        from diamaneos_tools import firmware_release
+        inventory = json.loads((ROOT / 'config/fp6-firmware-inventory.json').read_text())
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        table = firmware_release.table(inventory, config['firmware_release'])
+        stale = table.replace(b' 16.111.0 ', b' 16.110.0 ')
+        (self.root / 'vendor.img').write_bytes(b'not sparse')
+        image = {'table': table}
+
+        def debugfs(args):
+            command = str(args[1])
+            if command.startswith('dump '):
+                self.assertEqual('/etc/diamaneos/firmware-releases.txt', command.split()[1])
+                Path(command.split()[2]).write_bytes(image['table'])
+            return 'Type: regular\n'
+
+        def check(members):
+            v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
+            return subject.check_firmware_release_table(v)
+        member = 'VENDOR/etc/diamaneos/firmware-releases.txt'
+        self.assertEqual((True, 'releases 16.100.0, 16.111.0'), check({member: table}))
+        ok, detail = check({member: stale})
+        self.assertFalse(ok)
+        self.assertIn(member + ' differs', detail)
+        image['table'] = stale
+        ok, detail = check({member: table})
+        self.assertFalse(ok)
+        self.assertEqual('vendor.img differs from the inventory', detail)
+        image['table'] = table
+        with self.assertRaises(FileNotFoundError):
+            check({})
+
+    def test_super_holds_exactly_the_logical_images(self):
+        logical = json.loads((ROOT / 'config/fp6-build.json').read_text())['images']['logical']
+        for name in logical:
+            (self.root / f'{name}.img').write_bytes(name.encode() * 10)
+        (self.root / 'super.img').write_bytes(b'raw super' + bytes(91))
+
+        def super_empty(names, size=100):
+            # liblp's layout: geometry, header, partition entries, one block device.
+            partitions = b''.join(n.encode().ljust(36, b'\0') + bytes(16) for n in names)
+            device = struct.pack('<QIIQ', 0, 0, 0, size) + b'super'.ljust(40, b'\0')
+            end = len(partitions)
+            header = struct.pack('<IHHI', 0x414C5030, 10, 2, 256) + bytes(68) + struct.pack(
+                '<12I', 0, len(names), 52, end, 0, 24, end, 0, 48, end, 1, 64)
+            (self.root / 'super_empty.img').write_bytes(struct.pack('<I', 0x616C4467).ljust(4096, b'\0')
+                                                        + header.ljust(256, b'\0') + partitions + device)
+        super_empty([f'{n}_{s}' for n in logical for s in 'ab'])
+
+        def lpunpack(args):
+            out = Path(args[-1])
+            for name in logical:
+                (out / f'{name}_a.img').write_bytes(name.encode() * 10)
+                (out / f'{name}_b.img').write_bytes(b'')
+            return ''
+        tools = FakeTools({('lpunpack',): lpunpack})
+        v = self.harness({'META/dynamic_partitions_info.txt': b'super_partition_size=100\n'}, tools=tools)
+        self.assertEqual((True, ''), subject.check_super(v))
+        self.assertNotIn('simg2img', [c[0] for c in tools.calls])
+        super_empty([f'{n}_{s}' for n in logical if n != 'vendor' for s in 'ab'])
+        self.assertIn('super_empty.img lists system_a', subject.check_super(v)[1])
+        super_empty([f'{n}_{s}' for n in logical for s in 'ab'], size=99)
+        self.assertIn("super_empty.img describes {'super': 99} (partition 100)", subject.check_super(v)[1])
+        (self.root / 'vendor.img').write_bytes(b'changed')
+        ok, detail = subject.check_super(v)
+        self.assertFalse(ok)
+        self.assertIn('vendor in super.img differs', detail)
+
+    def test_wipe_images(self):
+        v = self.harness({})
+        wipe = v.config['wipe']['images']
+        (self.root / 'userdata.img').write_bytes(bytes(wipe['userdata']['bytes']))
+        (self.root / 'frp.img').write_bytes(bytes(wipe['frp']['bytes'] - 1) + b'\1')
+        (self.root / 'misc.img').write_bytes(bytes(wipe['misc']['bytes']))
+        raw = bytearray(8192)
+        struct.pack_into('<I', raw, 1024, subject.F2FS_MAGIC)
+        raw[1024 + 0x7c:1024 + 0x7c + 16] = 'metadata'.encode('utf-16le')
+        (self.root / 'metadata.img').write_bytes(bytes(raw))
+        self.assertEqual((True, ''), subject.check_wipe(v))
+        (self.root / 'misc.img').write_bytes(b'\1' + bytes(wipe['misc']['bytes'] - 1))
+        ok, detail = subject.check_wipe(v)
+        self.assertFalse(ok)
+        self.assertIn('misc image is not the declared zeros', detail)
+
+
+class FirmwareCheckTests(unittest.TestCase):
+    def setUp(self):
+        from diamaneos_tools import firmware
+        from tests.build.test_firmware import RELEASE, synthetic_firmware
+        self.firmware = firmware
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        (self.root / 'stock').mkdir()
+        self.inventory, self.policy, archive, self.data = synthetic_firmware(self.root / 'stock')
+        self.plan = firmware.plan(self.inventory, self.policy)
+        firmware.stage(archive, self.inventory, self.plan, self.root)
+        reset = {}
+        for name, image in self.policy['reset'].items():
+            (self.root / image['image']).write_bytes(bytes(image['bytes']))
+            reset[name] = {'file': image['image'], 'sha256': hashlib.sha256(bytes(image['bytes'])).hexdigest()}
+        self.record = {'stock_build': RELEASE, 'firmware': dict(firmware.record(self.plan, self.inventory, reset),
+                                                                validated=False)}
+
+    def harness(self, members):
+        v = Harness(self.root, members)
+        self.addCleanup(v.tf.close)
+        v.record, v.firmware_inventory = self.record, self.inventory
+        v.config['firmware'] = self.policy
+        return v
+
+    def test_the_set_carries_the_complete_exact_firmware(self):
+        v = self.harness({})
+        self.assertEqual((True, ''), subject.check_firmware(v))
+        (self.root / 'NON-HLOS.bin').write_bytes(b'modem from elsewhere')
+        ok, detail = subject.check_firmware(v)
+        self.assertFalse(ok)
+        self.assertIn('NON-HLOS.bin differs from the inventory', detail)
+        v.record = {'stock_build': self.record['stock_build']}
+        self.assertEqual((False, 'the image set carries no firmware'), subject.check_firmware(v))
+
+    def test_an_update_carries_the_ab_firmware(self):
+        os_only = b'boot\nsystem\nvendor\npvmfw\n'
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only}))
+        self.assertFalse(ok)
+        self.assertIn('lacks firmware: abl, modem, xbl', detail)
+        radio = {'RADIO/abl.img': self.data['abl.elf'], 'RADIO/modem.img': self.data['NON-HLOS.bin'],
+                 'IMAGES/xbl.img': self.data['xbl_s.melf']}
+        listed = os_only + b'abl\nmodem\nxbl\n'
+        self.assertEqual((True, ''), subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **radio})))
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': os_only + b'modem\n', **radio}))
+        self.assertFalse(ok)
+        self.assertIn('lacks firmware: abl, xbl', detail)
+        # State and single-copy firmware partitions are never in an update.
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed + b'studybk\nstorsec\n', **radio}))
+        self.assertFalse(ok)
+        self.assertIn('names firmware no update may write: storsec, studybk', detail)
+        changed = dict(radio, **{'RADIO/modem.img': b'other modem'})
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
+        self.assertFalse(ok)
+        self.assertIn('RADIO/modem.img is not the stock NON-HLOS.bin', detail)
+        del changed['RADIO/modem.img']
+        ok, detail = subject.check_firmware_ota(self.harness({'META/ab_partitions.txt': listed, **changed}))
+        self.assertIn('lacks the modem image', detail)
+
+
+class ConfigTests(unittest.TestCase):
+    def test_committed_checks_are_valid_and_explained(self):
+        document = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())
+        rules = subject.validate_rules(document)
+        self.assertGreater(len(rules), 80)
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        for rule in rules:
+            for variant in rule.get('variants', []):
+                self.assertIn(variant, config['variants'])
+            for key in ('paths', 'files'):
+                for path in rule.get(key, []):
+                    self.assertRegex(path, r'^(SYSTEM|SYSTEM_EXT|PRODUCT|VENDOR|ODM|VENDOR_DLKM|SYSTEM_DLKM|'
+                                           r'VENDOR_BOOT|INIT_BOOT|RECOVERY|META)/', rule['id'])
+
+    def test_rule_documents_are_rejected_when_incomplete(self):
+        document = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())
+        for change in ({'type': 'shell'}, {'why': ' '}, {'id': 'Bad Id'}):
+            broken = copy.deepcopy(document)
+            broken['rules'][0].update(change)
+            with self.subTest(change=change):
+                self.assertRaises(ValueError, subject.validate_rules, broken)
+        broken = copy.deepcopy(document)
+        broken['rules'].append(copy.deepcopy(broken['rules'][0]))
+        self.assertRaises(ValueError, subject.validate_rules, broken)
+
+    def test_rules_can_check_official_builds_only_or_the_others_only(self):
+        self.assertTrue(subject.rule_applies({}, 'user', True))
+        self.assertTrue(subject.rule_applies({'official': True}, 'user', True))
+        self.assertFalse(subject.rule_applies({'official': True}, 'user', False))
+        self.assertTrue(subject.rule_applies({'official': False}, 'userdebug', False))
+        self.assertFalse(subject.rule_applies({'official': False}, 'userdebug', True))
+        self.assertFalse(subject.rule_applies({'official': True, 'variants': ['userdebug']}, 'user', True))
+        document = json.loads((ROOT / 'config/fp6-image-checks.json').read_text())
+        broken = copy.deepcopy(document)
+        broken['rules'][0]['official'] = 'yes'
+        self.assertRaises(ValueError, subject.validate_rules, broken)
+
+    def test_official_builds_need_the_camera_filter_in_trap_mode(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        camera, bluetooth = rules['camera-provider-seccomp-enforced'], rules['bluetooth-seccomp-enforced']
+        self.assertEqual(bluetooth['patterns'], camera['patterns'])
+        self.assertFalse(subject.rule_applies(camera, 'user', False))
+        self.assertTrue(subject.rule_applies(camera, 'user', True))
+        # Official userdebug test builds may still log while the profile is collected.
+        self.assertFalse(subject.rule_applies(camera, 'userdebug', True))
+        with tempfile.TemporaryDirectory() as temp:
+            for mode, ok in ((b'log-only', False), (b'trap', True)):
+                v = Harness(Path(temp), {camera['file']: b'\x7fELF filter installed (%s)\x00' + mode + b'\x00'})
+                self.addCleanup(v.tf.close)
+                self.assertEqual(ok, subject.rule_binary_count(camera, v)[0], mode)
+
+    def test_record_official_must_be_true_or_false(self):
+        root = Path(tempfile.mkdtemp()); self.addCleanup(lambda: __import__('shutil').rmtree(root))
+        (root / 'target-files.zip').write_bytes(b'tf')
+        digest = hashlib.sha256(b'tf').hexdigest()
+        (root / 'SHA256SUMS').write_text(f'{digest}  target-files.zip\n')
+        record = {'release': False, 'signing': 'public-test-keys', 'never_lock': True, 'images': {},
+                  'target_files': {'file': 'target-files.zip', 'sha256': digest}}
+        class V:
+            images = root
+        for official, ok in ((None, True), (True, True), (False, True), ('true', False)):
+            with self.subTest(official=official):
+                V.record = dict(record, **({} if official is None else {'official': official}))
+                self.assertEqual(ok, subject.check_record(V)[0])
+
+    def test_build_config_is_consistent(self):
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        self.assertIn(config['default_variant'], config['variants'])
+        self.assertEqual('user', config['default_variant'])
+        self.assertEqual([], config['variants']['user']['permissive_domains'])
+        self.assertEqual({'boot', 'init_boot', 'recovery', 'vendor_boot', 'dtbo', 'pvmfw', 'vbmeta', 'vbmeta_system'},
+                         set(config['images']['bootloader']))
+        self.assertEqual(config['images']['bootloader'][-1], 'vbmeta')
+        self.assertIn('make_f2fs', config['make_targets'])
+        self.assertFalse(config['wipe']['validated'])
+        data = bytearray(config['wipe']['images']['frp']['bytes'])
+        data[-1] = 1
+        self.assertEqual(config['wipe']['images']['frp']['sha256'], hashlib.sha256(bytes(data)).hexdigest())
+        inventory = json.loads((ROOT / 'config/fp6-firmware-inventory.json').read_text())
+        wipe = inventory['releases']['FP6.QREL.16.111.0']['images']['wipe']
+        self.assertEqual(wipe['frp_for_factory.img']['sha256'], config['wipe']['images']['frp']['sha256'])
+        self.assertEqual(wipe['userdata.img']['bytes'], config['wipe']['images']['userdata']['bytes'])
+
+
+class VintfAndJdkTests(unittest.TestCase):
+    STOCK = (b'<!-- Copyright -->\n<manifest version="1.0" type="device">\n'
+             b'  <hal format="aidl">\n    <name>android.hardware.nfc</name>\n    <version>1</version>\n'
+             b'    <interface>\n      <name>INfc</name>\n      <instance>default</instance>\n    </interface>\n'
+             b'  </hal>\n</manifest>\n')
+    ASSEMBLED = (b'<!--\n    Input:\n        files/nfc.xml\n-->\n<manifest version="9.0" type="device">\n'
+                 b'    <hal format="aidl">\n        <name>android.hardware.nfc</name>\n'
+                 b'        <fqname>INfc/default</fqname>\n    </hal>\n</manifest>\n')
+
+    def test_assembled_fragment_declares_the_same(self):
+        stock = subject.vintf_declarations(self.STOCK)
+        for name, fragment, same in (
+                ('assembled', self.ASSEMBLED, True),
+                ('other instance', self.ASSEMBLED.replace(b'INfc/default', b'INfc/other'), False),
+                ('other version', self.STOCK.replace(b'<version>1</version>', b'<version>2</version>'), False)):
+            with self.subTest(fragment=name):
+                self.assertEqual(same, stock == subject.vintf_declarations(fragment))
+
+    def test_a_verify_step_is_current_only_while_its_report_shows_a_pass(self):
+        from tests.build.test_image_package import fixture_workspace, run_plan
+        from diamaneos_tools import image_package
+        with tempfile.TemporaryDirectory() as temp:
+            ctx = fixture_workspace(Path(temp))
+            package = run_plan(ctx, image_package.plan(ctx))
+            ctx.workspace.write_state('package', {'status': 'PASS', 'inputs_sha256': 'p', 'outputs': package})
+            checks = [{'id': check, 'status': 'PASS'} for check in subject.REQUIRED_CHECKS]
+            report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
+                      'status': 'PASS', 'checked': len(checks), 'failed': 0, 'checks': checks}
+            path = ctx.workspace.images / (package['build_id'] + '.verify.json')
+            previous = {'outputs': {'report': str(path.relative_to(ctx.workspace.root))}}
+            plan = subject.plan(ctx)
+            path.write_text(json.dumps(report))
+            self.assertTrue(plan.valid(previous))
+            path.write_text(json.dumps(dict(report, status='FAIL', checks=[], checked=0)))
+            self.assertFalse(plan.valid(previous))
+            path.write_text('not json')
+            self.assertFalse(plan.valid(previous))
+
+    def test_failed_checks_stop_only_an_official_image_set(self):
+        from dataclasses import replace
+        from tests.build.test_image_package import fixture_workspace, run_plan
+        from diamaneos_tools import image_package
+        with tempfile.TemporaryDirectory() as temp:
+            lines = []
+            ctx = replace(fixture_workspace(Path(temp)), echo=lines.append)
+            package = run_plan(ctx, image_package.plan(ctx))
+            ctx.workspace.write_state('package', {'status': 'PASS', 'inputs_sha256': 'p', 'outputs': package})
+            report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
+                      'status': 'FAIL', 'checked': 2, 'failed': 1,
+                      'checks': [{'id': 'sums', 'status': 'PASS'}, {'id': 'avb-chain', 'status': 'FAIL', 'detail': 'no'}]}
+            with mock.patch.object(subject, 'verify', return_value=report), \
+                    mock.patch.object(subject, 'kernel_prebuilts', return_value=(None, None)):
+                outputs = run_plan(ctx, subject.plan(ctx))
+                self.assertEqual('FAIL', outputs['status'])
+                self.assertTrue(any('warning: 1 of 2 checks failed' in line for line in lines))
+                with self.assertRaisesRegex(subject.CheckFailed, '1 of 2 checks failed'):
+                    run_plan(replace(ctx, official=True), subject.plan(replace(ctx, official=True)))
+
+    def test_newest_jdk_is_chosen_numerically(self):
+        with tempfile.TemporaryDirectory() as temp:
+            src = Path(temp)
+            for name in ('jdk8', 'jdk21', 'jdk11'):
+                (src / 'prebuilts/jdk' / name / 'linux-x86/bin').mkdir(parents=True)
+            env = subject.Tools(src / 'out/host', src, src / 'work').environment()
+            self.assertTrue(env['JAVA_HOME'].endswith('jdk21/linux-x86'))
+
+
+if __name__ == '__main__':
+    unittest.main()

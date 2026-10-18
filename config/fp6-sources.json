@@ -1,0 +1,164 @@
+{
+  "schema_version": 2,
+  "scope": "Fairphone 6 (FP6) inputs: the commit of Fairphone's source manifest that the kernel imports and the device configuration follow, and the families that group the stock files selected in config/fp6-minimal/vendor-files.json (its inventory_ref values). The stock release is named in config/stock-inputs.json.",
+  "inputs": {
+    "fairphone_manifest": {
+      "revision_observed": "0c3980b8d385fa047d1fe4fc893bce9449a5a9c9",
+      "source": "The fairphone-manifest source in config/forks.json holds the URL and the followed branch, and reads this revision as its pin."
+    }
+  },
+  "userspace_hal_families": [
+    {
+      "id": "audio",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "abi_uapi": "HIDL audio/effect interfaces, ALSA controls and AudioReach DSP protocol",
+      "load_path": "source-built service/libraries plus generated vendor blobs",
+      "rebuilt_from_source": "partial: the primary HAL, PAL, AGM and audioadsprpcd are built from source (DiamaneOS forks); the graph services, ACDB and configuration stay stock",
+      "note": "Fairphone's graphservices project holds only headers (gsl, acdb, ar_osal, spf); the graph service libraries are not published."
+    },
+    {
+      "id": "bluetooth",
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "abi_uapi": "Android/Qualcomm Bluetooth HALs, bt-kernel transport and controller firmware",
+      "load_path": "generated vendor tree plus bluetooth partition",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "camera",
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "abi_uapi": "Camera provider/framework interfaces, Qualcomm camera UAPI and sensor/DSP firmware",
+      "load_path": "generated vendor tree",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "radio-ims",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "abi_uapi": "Android telephony interfaces, Qualcomm QCRIL/QMI/IMS interfaces and modem protocol",
+      "load_path": "generated vendor tree and modem partition",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "fingerprint",
+      "origin": "mixed-published-configuration-and-proprietary-prebuilt",
+      "abi_uapi": "fingerprint AIDL/HIDL contract, SPI/input kernel interfaces and trusted-app protocol",
+      "load_path": "generated vendor tree",
+      "rebuilt_from_source": "partial only",
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "gatekeeper-keymint-secureprocessor",
+      "origin": "proprietary-prebuilt-runtime-with-published-generic-integration-source",
+      "abi_uapi": "stable Gatekeeper/KeyMint interfaces, QSEE/SPU kernel APIs and trusted-app protocol",
+      "load_path": "generated vendor tree plus keymaster/tz/spu firmware partitions",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "gnss",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "abi_uapi": "GNSS AIDL, location libraries, QMI/modem and assistance-data protocols",
+      "load_path": "GNSS HAL service, IGnss implementation and location libraries built from CodeLinaro source (hardware/qcom/gps and vendor/qcom/opensource/location, DiamaneOS forks; libqti_vndfwk_detect_vendor from vendor/qcom/opensource/core-utils) with the QMI client of Qualcomm's public QMI framework (DiamaneOS fork) linked into libloc_api_v02, installed by device gnss/gnss.mk; Fairphone's stock gps.conf, izat.conf (pinned edits) and sap.conf from the generated vendor tree; the GNSS engine in the modem partition",
+      "rebuilt_from_source": "userspace only",
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "graphics-display-media",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "abi_uapi": "graphics allocator/composer/mapper, media codec APIs and kernel DRM/KGSL/video UAPI",
+      "load_path": "source-built services plus generated vendor libraries/firmware",
+      "rebuilt_from_source": "partial only"
+    },
+    {
+      "id": "nfc-secure-element",
+      "origin": "proprietary-prebuilt-userspace-with-published-kernel-source",
+      "abi_uapi": "NFC AIDL/HIDL and the Samsung controller transport (sec_nfc); the UICC secure-element HAL stays with the radio selection",
+      "load_path": "generated vendor tree (stock android.hardware.nfc-service.sec, nfc_nci_sec.so and configuration); the frozen AOSP NFC interface libraries they link are built from source (renderer SOURCE_INTERFACES)",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "sensors",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "abi_uapi": "sensors multihal, sensor DSP interfaces and firmware",
+      "load_path": "generated vendor tree plus DSP firmware",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "wifi",
+      "origin": "published-host-source-plus-proprietary-firmware",
+      "abi_uapi": "Android Wi-Fi HAL/supplicant, nl80211/cfg80211 and QCA6750 firmware API",
+      "load_path": "system/vendor Wi-Fi services plus /vendor_dlkm modules and vendor firmware",
+      "rebuilt_from_source": "host stack and kernel portions only"
+    },
+    {
+      "id": "widevine-drm",
+      "origin": "proprietary-prebuilt",
+      "abi_uapi": "Android DRM HAL (android.hardware.drm AIDL, IDrmFactory/widevine)",
+      "load_path": "generated vendor tree: Fairphone's stock Widevine APEX, unchanged and with its own signatures, installed as a prebuilt APEX with its service, init file and VINTF fragment inside",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source",
+      "note": "Selected so apps and browsers that play Widevine-protected media find the DRM HAL, at its built-in software level. The hardware-backed path is not selected: the TEE-backed liboemcrypto.so, the two libraries it needs, the keybox and HDCP provisioning tools and the Wi-Fi display HDCP service stay out."
+    },
+    {
+      "id": "power-thermal-backends",
+      "origin": "proprietary-prebuilt-userspace-and-firmware",
+      "abi_uapi": "The closed thermal engine complements the source thermal HAL with device thermal control. Qualcomm's perf2 performance backend and its client libraries are not selected; the source power HAL needs none.",
+      "load_path": "Explicit selected stock thermal-engine-v2 and its authenticated configuration/dependencies; no blanket auxiliary-package inclusion.",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "remote-processor-services",
+      "origin": "mixed-published-source-and-proprietary-prebuilt",
+      "abi_uapi": "QRTR/QMI service registration, protection-domain mapping, peripheral (subsystem) management, remote storage and file-server protocols with the modem and DSPs",
+      "load_path": "linux-msm tqftpserv (DiamaneOS fork, libqrtr linked in), pd-mapper and libqrtr (DiamaneOS fork, installed as libqrtr_linux_msm.so) built from source (device modem/modem.mk, init.modem.rc and init.qcom.rc); Qualcomm's libqrtr.so, the peripheral manager, rmt_storage and ssr_setup from the generated vendor tree, started by the device init files and the stock rmt_storage init file",
+      "rebuilt_from_source": "partial only",
+      "provenance_profile": "exact-stock-non-source"
+    }
+  ],
+  "firmware_families": [
+    {
+      "id": "radio-connectivity-dsp-firmware",
+      "partitions": [
+        "modem_a/b",
+        "bluetooth_a/b",
+        "dsp_a/b",
+        "cpucp_a/b",
+        "cpucp_dtb_a/b",
+        "shrm_a/b"
+      ],
+      "origin": "proprietary-prebuilt",
+      "hash": "per-image SHA-256 and size in config/fp6-firmware-inventory.json",
+      "abi_uapi": "modem/QMI/IMS, Bluetooth controller, DSP RPC and CPU-control protocols",
+      "load_path": "dedicated raw A/B partitions and firmware mount points",
+      "function": "cellular, Bluetooth, audio/compute DSP and supporting controllers",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    },
+    {
+      "id": "vendor-peripheral-firmware",
+      "partitions": [
+        "vendor",
+        "vendor_dlkm"
+      ],
+      "origin": "proprietary-prebuilt",
+      "hash": "per-file SHA-256 and size in config/fp6-minimal/vendor-files.json",
+      "abi_uapi": "controller-specific audio amplifier, haptics, touch, WLAN and other peripheral protocols",
+      "load_path": "/vendor/firmware and /vendor/firmware_mnt/image",
+      "function": "runtime firmware/configuration for peripheral controllers",
+      "rebuilt_from_source": false,
+      "provenance_profile": "exact-stock-non-source"
+    }
+  ],
+  "provenance_profiles": {
+    "exact-stock-non-source": {
+      "status": "exact-origin-and-hash-binding-required",
+      "evidence": "Generated inputs bind the declared stock build, region, source path, destination path and per-file hash.",
+      "validation": "The generator rejects unexpected versions, hashes, missing files and unrelated substitutions."
+    }
+  }
+}

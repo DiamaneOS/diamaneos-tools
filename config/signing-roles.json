@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "certificate_subject": "/CN=DiamaneOS/",
+  "certificate_algorithm": "RSA-4096 with SHA-256",
+  "certificate_roles": [
+    "bluetooth",
+    "gmscompat_lib",
+    "media",
+    "networkstack",
+    "nfc",
+    "platform",
+    "releasekey",
+    "sdk_sandbox",
+    "shared"
+  ],
+  "apk_selectors": {
+    "bluetooth": "bluetooth",
+    "gmscompat_lib": "gmscompat_lib",
+    "media": "media",
+    "networkstack": "networkstack",
+    "nfc": "nfc",
+    "platform": "platform",
+    "releasekey": "releasekey",
+    "sdk_sandbox": "sdk_sandbox",
+    "shared": "shared",
+    "testkey": "releasekey",
+    "com.android.bluetooth": "bluetooth"
+  },
+  "apex_container_role": "releasekey",
+  "apex_payload_role": "avb",
+  "avb_algorithm": "SHA256_RSA4096",
+  "factory_algorithm": "Ed25519",
+  "factory_namespace": "factory images",
+  "record_namespace": "diamaneos-release-record",
+  "verification_namespace": "diamaneos-build-verification",
+  "result_namespace": "diamaneos-signing-result",
+  "presigned_apexes": [
+    {
+      "metadata_name": "com.google.android.widevine.nonupdatable.apex",
+      "artifact_path": "VENDOR/apex/com.google.android.widevine.nonupdatable.apex",
+      "artifact_sha256": "008e4037a9176952a41fe69e78d485d317cd874632bd2c0ad12869f3cd2c879a",
+      "certificate_sha256": ["da57b4a35460c33bfbb9946567bd101eaf618d5d7dfbc8b43f47b5e85050f728"],
+      "payload_key_sha256": "eccb1a18e3d92c0d3212e337582d13973a88361d523dd251d88571a320f28ead"
+    }
+  ],
+  "presigned_packages": [
+    {"metadata_name": "AppCompatConfig.apk", "artifact_basename": "AppCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["e5044303e85b4cceaae00ecf8823c9c6f937a8e3a2fb632ec9fa45b2c33b4bd1"]},
+    {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47"]},
+    {"metadata_name": "Auditor.apk", "artifact_basename": "Auditor.apk", "parent_apex": null, "certificate_sha256": ["427bfd360586b829475f37abffd2548d93db3618e45c994de416469ef04bc2ec"]},
+    {"metadata_name": "Camera.apk", "artifact_basename": "Camera.apk", "parent_apex": null, "certificate_sha256": ["285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61"]},
+    {"metadata_name": "GmsCompatConfig.apk", "artifact_basename": "GmsCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["6ebb65c5daa95641f7a774ea35d26ff251575cb32e34a8a5d655b2742b57321f"]},
+    {"metadata_name": "Messaging.apk", "artifact_basename": "Messaging.apk", "parent_apex": null, "certificate_sha256": ["f79e5f0ec0a0855efd2027e05eb9ec9c196d5d047940be603576e530867c3845"]},
+    {"metadata_name": "PdfViewerGOS.apk", "artifact_basename": "PdfViewerGOS.apk", "parent_apex": null, "certificate_sha256": ["eea4b37d46e361ce2583e1f59859db9e784d456425ff40fe6cf75d90f6a968e0"]},
+    {"metadata_name": "SpeechServices.apk", "artifact_basename": "SpeechServices.apk", "parent_apex": null, "certificate_sha256": ["e4ed212b02b55bc33464938df68d04f60dff04dd3ac982b8b8240441e05f1b2f"]},
+    {"metadata_name": "TrichromeChrome.apk", "artifact_basename": "TrichromeChrome.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "TrichromeLibrary.apk", "artifact_basename": "TrichromeLibrary.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "TrichromeWebView.apk", "artifact_basename": "TrichromeWebView.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "VanadiumConfig.apk", "artifact_basename": "VanadiumConfig.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
+    {"metadata_name": "CACertService.apk", "artifact_basename": "CACertService.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]},
+    {"metadata_name": "IWlanService.apk", "artifact_basename": "IWlanService.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]},
+    {"metadata_name": "ims.apk", "artifact_basename": "ims.apk", "parent_apex": null, "certificate_sha256": ["b05fd6bf487e191e664c79e4371cc50311e60b4a43565a90424601ed3dd7ba50"]}
+  ]
+}

@@ -1,0 +1,573 @@
+"""Platform signature verifiers with public trust material outside the artifacts."""
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import stat
+import tempfile
+import zipfile
+
+from . import signing_archive as za, signing_release
+from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
+                             fields, load_json, require, safe_file, sha256_file)
+from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule, presigned_apex_rule, public_inventory_fields
+from .signing_inputs import git_read
+
+
+# Header/footer decoding and key offsets belong to the recorded platform parser.
+# Crypto and descriptor verification still run through authenticated native avbtool.
+AVB_BINARY_AUTHORITY = '''import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("platform_avbtool",sys.argv[1])
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+image=module.ImageHandler(sys.argv[2],read_only=True)
+avb=module.Avb()
+_,header,_,_=avb._parse_image(image)
+blob=avb._load_vbmeta_blob(image)
+start=header.SIZE+header.authentication_data_block_size+header.public_key_offset
+key=blob[start:start+header.public_key_size]
+expected=pathlib.Path(sys.argv[3]).read_bytes()
+if not (0<len(expected)<=1048576 and len(key)==header.public_key_size and key==expected):
+ raise SystemExit(2)
+'''
+
+
+APK_SIGNER = (r'(?:Signer #1:?|V[12] Signer:|V3\.[012] Signer:'
+              r'(?: \(minSdkVersion=[0-9]{1,10}(?: \(dev release=true\))?, '
+              r'maxSdkVersion=[0-9]{1,10}\))?)')
+
+
+def apk_signer_digests(output, kind):
+    """Read every printed signer, including SDK-restricted scheme signers."""
+    marker = kind + ' SHA-256 digest:'
+    pattern = re.compile(r'^(' + APK_SIGNER + r') ' + re.escape(marker) + r' ([0-9a-fA-F]{64})$')
+    matches = [pattern.fullmatch(line) for line in output.splitlines() if marker in line]
+    require(matches and all(matches), 'APK verifier ' + kind + ' output is unsupported')
+    records = {match[1]: match[2].lower() for match in matches}
+    require(len(records) == len(matches), 'APK verifier repeats a signer digest')
+    return records
+
+
+def apk_certificate_digests(output, expected, *, denied_public_keys=()):
+    require(isinstance(expected, str) and SHA256.fullmatch(expected), 'Invalid APK certificate pin')
+    lines = output.splitlines()
+    require([line for line in lines if line.startswith('Number of signers:')] == ['Number of signers: 1'],
+            'APK verifier did not establish exactly one signer')
+    certificates = apk_signer_digests(output, 'certificate')
+    observed = set(certificates.values())
+    require(observed == {expected}, 'APK/APEX certificate does not match its declared role')
+    if denied_public_keys:
+        public = apk_signer_digests(output, 'public key')
+        require(set(public) == set(certificates), 'APK verifier lacks public key coverage for every signer')
+        require(not set(public.values()) & denied_public_keys, 'Production refuses AOSP public APK test keys')
+    return sorted(observed)
+
+
+def raw_image(tools, path, destination):
+    with path.open('rb') as stream:
+        sparse = stream.read(4) == b'\x3a\xff\x26\xed'
+    if sparse:
+        tools.run('simg2img', [path, destination])
+        return destination
+    return path
+
+
+# Authenticated update_engine platform contract: delta_diff_generator.h::kBlockSize.
+# generate_delta_main.cc::RoundUpPartitions rounds targets to this size. The
+# recorded brillo_update_payload wrapper explicitly specifies zero-filled extension.
+OTA_PAYLOAD_BLOCK_SIZE = 4096
+
+
+def ota_partition_comparison(expected, applied, *, canonical_payload=False):
+    """Full byte hashes and bounded range metadata. Never return image bytes/paths."""
+    def opened(path):
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'OTA comparison requires regular owned scratch files')
+            return os.fdopen(fd, 'rb'), info
+        except BaseException:
+            os.close(fd)
+            raise
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    left, left_before = opened(expected)
+    try:
+        right, right_before = opened(applied)
+    except BaseException:
+        left.close()
+        raise
+    with left, right:
+        padding = (-left_before.st_size) % OTA_PAYLOAD_BLOCK_SIZE if canonical_payload else 0
+        canonical_size = left_before.st_size + padding
+        left_hash, right_hash, canonical_hash = hashlib.sha256(), hashlib.sha256(), hashlib.sha256()
+        remaining, tail_seen, tail_zero = padding, 0, True
+        offset, first = 0, None
+        while True:
+            a, b = left.read(1024 * 1024), right.read(1024 * 1024)
+            left_hash.update(a)
+            if remaining and len(a) < 1024 * 1024:
+                count = min(remaining, 1024 * 1024 - len(a))
+                a += bytes(count)
+                remaining -= count
+            if not a and not b:
+                break
+            canonical_hash.update(a); right_hash.update(b)
+            start, stop = max(0, left_before.st_size - offset), min(len(b), canonical_size - offset)
+            if stop > start:
+                tail_seen += stop - start
+                tail_zero = tail_zero and not any(b[start:stop])
+            if first is None and a != b:
+                common = min(len(a), len(b))
+                first = offset + next((i for i in range(common) if a[i] != b[i]), common)
+            offset += max(len(a), len(b))
+        common_size = min(left_before.st_size, right_before.st_size)
+        samples = []
+        if first is not None:
+            for start in sorted({0, max(0, common_size // 2 - 2048), max(0, common_size - 4096)}):
+                length = min(4096, common_size - start)
+                if not length:
+                    continue
+                left.seek(start); right.seek(start)
+                a, b = left.read(length), right.read(length)
+                samples.append({'offset': start, 'size': length, 'matched': a == b,
+                                'expected_sha256': hashlib.sha256(a).hexdigest(),
+                                'applied_sha256': hashlib.sha256(b).hexdigest()})
+        require(identity(left_before) == identity(os.fstat(left.fileno()))
+                == identity(os.stat(expected, follow_symlinks=False))
+                and identity(right_before) == identity(os.fstat(right.fileno()))
+                == identity(os.stat(applied, follow_symlinks=False)), 'OTA comparison inputs changed')
+        zero_padding = tail_seen == padding and tail_zero
+        matched = (first is None and canonical_size == right_before.st_size
+                   and zero_padding and canonical_hash.digest() == right_hash.digest())
+        return {'expected_size': left_before.st_size, 'applied_size': right_before.st_size,
+                'expected_sha256': left_hash.hexdigest(), 'applied_sha256': right_hash.hexdigest(),
+                'canonical_expected_size': canonical_size, 'canonical_expected_sha256': canonical_hash.hexdigest(),
+                'padding_size': padding, 'padding_zero': zero_padding if padding else None,
+                'matched': matched, 'first_mismatch_offset': first,
+                'matched_prefix_size': common_size if first is None else first, 'samples': samples}
+
+
+def factory_authority(path, policy, *, release=False):
+    inventory = load_json(path)
+    public_inventory_fields(inventory)
+    factory = inventory['factory']
+    fields(factory, {'allowed_signers', 'identity'})
+    authority = safe_file(Path(path).resolve().parent, factory['allowed_signers'])
+    require(authority.stat().st_size <= 1024 * 1024, 'Public key input exceeds its bounds')
+    allowed = authority.read_text().splitlines()
+    require(policy['factory_algorithm'] == 'Ed25519' and allowed
+            and all(len(line.split()) == 3 and line.split()[0] == factory['identity']
+                    and line.split()[1] in {'ssh-ed25519', 'sk-ssh-ed25519@openssh.com'} for line in allowed),
+            'Factory authority must be an explicit Ed25519 signer')
+    if release:
+        signing_release.refuse(signing_release.inventory_problems(Path(path).resolve().parent, inventory, allowed))
+    return authority, factory['identity']
+
+
+def host_ssh_signature(path, signature, allowed_signers, identity, namespace, scratch):
+    # Authenticate incoming tooling before using any archive-controlled executable,
+    # library path, JDK or environment. Only the installed host OpenSSH is trusted here.
+    env = {'PATH': '/usr/bin:/bin', 'HOME': str(scratch), 'TMPDIR': str(scratch), 'LANG': 'C', 'LC_ALL': 'C'}
+    command(['/bin/sh', '-c', 'input=$1; shift; exec "$@" < "$input"', 'verify', path,
+             '/usr/bin/ssh-keygen', '-Y', 'verify', '-f', allowed_signers,
+             '-I', identity, '-n', namespace, '-s', signature], env=env)
+
+
+class NativeTools:
+    def __init__(self, root, source, scratch, *, projects=None, policy=None):
+        self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
+        validate_config(self.policy)
+        self.denied_apk_public_keys = set()
+        self.root, self.source, self.scratch = map(Path, (root, source, scratch))
+        self.projects = projects
+        self.bin = self.root / 'bin'
+        jdks = [self.source / path / 'linux-x86' for path in projects if path.startswith('prebuilts/jdk/')] if projects else list(self.source.glob('prebuilts/jdk/jdk*/linux-x86'))
+        jdks = sorted(jdks,
+                      key=lambda path: int(re.sub(r'\D', '', path.parent.name) or 0))
+        require(jdks, 'Source has no usable JDK')
+        self.java_home = jdks[-1]
+        require((self.java_home / 'bin/java').is_file(), 'Recorded JDK has no Java executable')
+        self.env = {'PATH': str(self.bin) + ':' + str(self.java_home / 'bin') + ':/usr/bin:/bin',
+                    'JAVA_HOME': str(self.java_home), 'HOME': str(self.scratch),
+                    'LD_LIBRARY_PATH': str(self.root / 'lib64'),
+                    'TMPDIR': str(self.scratch), 'LANG': 'C', 'LC_ALL': 'C',
+                    'ANDROID_HOST_OUT': str(self.root)}
+
+    def path(self, name):
+        return safe_file(self.root, 'bin/' + name)
+
+    def run(self, name, args, *, cwd=None):
+        return command([self.path(name), *args], env=self.env, cwd=cwd).decode('utf-8', 'strict')
+
+    def openssl(self, args, data=None):
+        return command(['/usr/bin/openssl', *args], env=self.env, data=data)
+
+    def certificate(self, path):
+        raw = self.openssl(['x509', '-in', path, '-outform', 'DER'])
+        public = self.openssl(['x509', '-in', path, '-pubkey', '-noout'])
+        public = self.openssl(['pkey', '-pubin', '-outform', 'DER'], public)
+        return hashlib.sha256(raw).hexdigest(), hashlib.sha256(public).hexdigest()
+
+    def apk(self, path, expected):
+        output = self.run('apksigner', ['verify', '--verbose', '--print-certs', path])
+        return apk_certificate_digests(output, expected, denied_public_keys=self.denied_apk_public_keys)
+
+    def package_id(self, path):
+        output = self.run('aapt2', ['dump', 'badging', path])
+        names = re.findall(r"(?m)^package: name='([A-Za-z0-9_.]+)' ", output)
+        require(len(names) == 1, 'Native APK package identity is missing or ambiguous')
+        return names[0]
+
+    def avb(self, path, expected, *, chains=(), payload=False, binary=False):
+        require(not binary or payload and not chains, 'Binary AVB authority is only supported for APEX payloads')
+        info = self.run('avbtool', ['info_image', '--image', path])
+        # avbtool prints the image's release string into this text as it is, so
+        # a header field counts only while no second line claims it.
+        require(all(len(re.findall(rf'(?m)^{field}:', info)) == 1 for field in ('Algorithm', 'Flags')),
+                'AVB description repeats a header field')
+        require(re.search(r'(?m)^Algorithm:\s+' + re.escape(self.policy['avb_algorithm']) + r'\s*$', info),
+                'AVB algorithm is not the role algorithm')
+        require(re.search(r'(?m)^Flags:\s+0\s*$', info), 'AVB disables a verification property')
+        args = ['verify_image', '--image', path]
+        if not binary:
+            args += ['--key', expected]
+        for name, location, key in chains:
+            args += ['--expected_chain_partition', f'{name}:{location}:{key}']
+        alias = None
+        if payload:
+            descriptors = avb_descriptors(info, allow_empty_payload=True)
+            require(len(descriptors) == 1 and descriptors[0][1] is None, 'APEX payload has an unsupported descriptor')
+            # avbtool opens hashtree data by the descriptor's partition name.
+            candidate = Path(path).parent / (descriptors[0][0] + '.img')
+            if candidate != Path(path):
+                require(not candidate.exists(), 'APEX payload alias already exists')
+                os.link(path, candidate); alias = candidate
+        try:
+            self.run('avbtool', args, cwd=Path(path).parent)
+            if binary:
+                self.avb_binary_authority(path, expected)
+        finally:
+            if alias is not None: alias.unlink()
+        return info
+
+    def avb_binary_authority(self, path, expected):
+        """Compare embedded public bytes through the Git-bound platform parser."""
+        parser = safe_file(self.source, 'external/avb/avbtool.py')
+        require(parser.stat().st_size <= 1024 * 1024, 'Platform AVB parser exceeds its bound')
+        revision = self.projects['external/avb'] if self.projects else 'HEAD'
+        selected = git_read(self.source / 'external/avb', ['show', revision + ':avbtool.py'])
+        require(len(selected) <= 1024 * 1024 and parser.read_bytes() == selected,
+                'Platform AVB parser differs from selected source')
+        with tempfile.TemporaryDirectory(dir=self.scratch, prefix='avb-api-') as directory:
+            frozen = Path(directory) / 'avbtool.py'
+            with frozen.open('xb') as stream: stream.write(selected)
+            frozen.chmod(0o600)
+            command([sys.executable, '-I', '-c', AVB_BINARY_AUTHORITY, frozen, path, expected], env=self.env)
+
+    def avb_rollback_index(self, path):
+        """The rollback index in an image's own vbmeta header."""
+        header = self.run('avbtool', ['info_image', '--image', path]).split('Descriptors:')[0]
+        # avbtool prints the release string as it is, so the field counts only once.
+        found = re.findall(r'(?m)^Rollback Index:\s+([0-9]{1,20})\s*$', header)
+        require(len(found) == 1, 'AVB description lacks a single rollback index')
+        return int(found[0])
+
+    def ssh_signature(self, path, signature, allowed_signers, identity, namespace):
+        host_ssh_signature(path, signature, allowed_signers, identity, namespace, self.scratch)
+
+    def ota(self, path, expected, provenance):
+        with za.archive(path) as handle:
+            require({'payload.bin', 'payload_properties.txt', 'META-INF/com/android/metadata'} <= set(handle.namelist()),
+                    'OTA lacks payload or metadata')
+            metadata = za.properties(za.read_text(handle, 'META-INF/com/android/metadata'))
+            require(metadata.get('ota-type') == 'AB' and metadata.get('post-build-incremental') == provenance['build_number']
+                    and metadata.get('post-timestamp') == str(provenance['build_datetime'])
+                    and provenance['product'] in metadata.get('pre-device', '').split('|'),
+                    'OTA metadata does not match the verified build')
+            properties = za.properties(za.read_text(handle, 'payload_properties.txt'))
+            require({'FILE_HASH', 'FILE_SIZE', 'METADATA_HASH', 'METADATA_SIZE'} <= set(properties),
+                    'OTA lacks payload integrity properties')
+            require(properties['FILE_SIZE'].isdecimal() and properties['METADATA_SIZE'].isdecimal(),
+                    'OTA payload sizes are invalid')
+            metadata_size = int(properties['METADATA_SIZE'])
+            require(int(properties['FILE_SIZE']) == handle.getinfo('payload.bin').file_size
+                    and 0 < metadata_size <= za.MAX_TEXT and metadata_size <= int(properties['FILE_SIZE']),
+                    'OTA payload sizes disagree with the archive')
+            with handle.open('payload.bin') as stream:
+                metadata_hash = hashlib.sha256(stream.read(metadata_size)).digest()
+            require(base64.b64encode(metadata_hash).decode() == properties['METADATA_HASH']
+                    and base64.b64encode(bytes.fromhex(za.digest_member(handle, 'payload.bin'))).decode() == properties['FILE_HASH'],
+                    'OTA payload properties do not match the final bytes')
+        # The platform checker validates whole-file signatures and invokes delta_generator
+        # with the independent certificate's public key for payload and metadata signatures.
+        self.run('check_ota_package_signature', [expected, path])
+
+    def target_identity(self, target_files):
+        """Ask Git-bound platform BuildInfo for the authenticated base identity."""
+        project = self.source / 'build/make'
+        revision = self.projects['build/make'] if self.projects else 'HEAD'
+        names = git_read(project, ['ls-tree', '-r', '--name-only', revision, '--',
+                                  'tools/releasetools']).decode().splitlines()
+        names = [name for name in names if name.endswith('.py')]
+        require(0 < len(names) <= 256, 'Platform metadata module inventory exceeds its bound')
+        with tempfile.TemporaryDirectory(dir=self.scratch, prefix='platform-identity-') as directory:
+            root = Path(directory)
+            for name in names:
+                relative = Path(name).relative_to('tools/releasetools')
+                require('..' not in relative.parts, 'Unsafe platform metadata module')
+                source = safe_file(project, name)
+                selected = git_read(project, ['show', revision + ':' + name])
+                require(len(selected) <= 1024 * 1024 and source.read_bytes() == selected,
+                        'Platform metadata source differs from selected Git revision')
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with destination.open('xb') as stream: stream.write(selected)
+                destination.chmod(0o400)
+            code = ('import sys,json,zipfile; sys.path.insert(0,sys.argv[1]); import common; '
+                    'info=common.BuildInfo(common.LoadInfoDict(sys.argv[2])); '
+                    'print(json.dumps({"fingerprint":info.fingerprint,'
+                    '"incremental":info.GetBuildProp("ro.build.version.incremental")}))')
+            result = json.loads(command([sys.executable, '-I', '-B', '-c', code, root, target_files],
+                                        env=self.env))
+        require(isinstance(result, dict) and set(result) == {'fingerprint', 'incremental'}
+                and all(isinstance(value, str) and 0 < len(value) <= 4096
+                        and not any(char.isspace() for char in value) for value in result.values()),
+                'Platform source identity is missing or malformed')
+        return result
+
+    def apply_payload(self, payload, target_files, source_files=None):
+        """Apply with delta_generator and compare every resulting partition byte."""
+        with tempfile.TemporaryDirectory(dir=self.scratch) as directory:
+            root = Path(directory)
+            formats = {}
+            def images(archive_path, prefix):
+                result = {}
+                with za.archive(archive_path) as handle:
+                    names = za.read_text(handle, 'META/ab_partitions.txt').split()
+                    require(names and len(names) <= 64 and len(set(names)) == len(names)
+                            and all(len(name) <= 128 and NAME.fullmatch(name) for name in names),
+                            'Invalid OTA partition inventory')
+                    for name in names:
+                        member = next((p for p in ('IMAGES/' + name + '.img', 'RADIO/' + name + '.img')
+                                       if p in handle.namelist()), None)
+                        require(member, 'Target-files lacks an OTA partition')
+                        path = za.extract(handle, member, root / (prefix + name + '.img'))
+                        result[name] = raw_image(self, path, root / (prefix + name + '.raw.img'))
+                        formats[prefix + name] = 'raw' if result[name] == path else 'android-sparse'
+                        if result[name] != path:
+                            require(result[name].stat().st_size % OTA_PAYLOAD_BLOCK_SIZE == 0,
+                                    'Sparse OTA normalization lacks platform block alignment')
+                return result
+            target = images(target_files, 'target-')
+            old = images(source_files, 'source-') if source_files is not None else {}
+            require(not old or set(old) == set(target), 'Delta partition inventory changed')
+            names = sorted(target)
+            outputs = []
+            for name in names:
+                path = root / (name + '.img')
+                size = target[name].stat().st_size
+                with path.open('xb') as stream: stream.truncate(size + (-size) % OTA_PAYLOAD_BLOCK_SIZE)
+                outputs.append(path)
+            args = ['--in_file=' + str(payload), '--partition_names=' + ':'.join(names),
+                    '--new_partitions=' + ':'.join(map(str, outputs))]
+            if old:
+                args += ['--old_partitions=' + ':'.join(str(old[name]) for name in names)]
+            self.run('delta_generator', args)
+            comparisons = [{'partition': name, 'expected_input_format': formats['target-' + name],
+                            **ota_partition_comparison(target[name], path,
+                                canonical_payload=formats['target-' + name] == 'raw')}
+                           for name, path in zip(names, outputs)]
+            if not all(row['matched'] for row in comparisons):
+                error = SigningError('Applied OTA partitions differ from signed target-files')
+                error.diagnostic = json.dumps({'schema_version': 1, 'profile': 'ota-partition-reconstruction',
+                    'partition_count': len(comparisons), 'mismatch_count': sum(not row['matched'] for row in comparisons),
+                    'partitions': comparisons}, sort_keys=True, separators=(',', ':'))
+                raise error
+
+    def extract_filesystem(self, image, destination):
+        with tempfile.TemporaryDirectory(dir=self.scratch) as directory:
+            container = Path(directory) / 'partition.apex'
+            with zipfile.ZipFile(container, 'w') as handle:
+                handle.write(image, 'apex_payload.img')
+            self.run('deapexer', ['--debugfs_path', self.path('debugfs_static'),
+                                 '--fsckerofs_path', self.path('fsck.erofs'), 'extract', container, destination])
+
+
+class PublicKeys:
+    def __init__(self, path, tools, *, production, release=False, policy=None, artifact_root=None):
+        self.policy = load_json(DEFAULT_CONFIG) if policy is None else policy
+        validate_config(self.policy)
+        self.root = Path(path).resolve().parent
+        self.artifact_root = Path(artifact_root).resolve() if artifact_root is not None else None
+        self.inventory = load_json(path)
+        public_inventory_fields(self.inventory)
+        require(self.inventory['schema_version'] == 2 and isinstance(self.inventory['certificate_roles'], dict)
+                and set(self.inventory['certificate_roles']) == CERT_ROLES,
+                'Public key inventory has unknown or missing roles')
+        # A release names every key that is not a release key before any is used.
+        authority, _identity = factory_authority(path, self.policy, release=release)
+        self.tools = tools
+        self.files = {}
+        self.fingerprints, self.public_ids = {}, {}
+        for role, relative in self.inventory['certificate_roles'].items():
+            cert = self.file(relative)
+            self.fingerprints[role], self.public_ids[role] = tools.certificate(cert)
+            info = tools.openssl(['x509', '-in', cert, '-text', '-noout']).decode()
+            subject = tools.openssl(['x509', '-in', cert, '-subject', '-noout', '-nameopt', 'RFC2253']).decode().strip()
+            # LibreSSL prints a space after "subject=". Own keys may carry any subject, as in GrapheneOS's build guide.
+            subject = re.sub(r'^subject= ?', '', subject)
+            require(self.policy['certificate_algorithm'] == 'RSA-4096 with SHA-256'
+                    and 'Public-Key: (4096 bit)' in info and 'Signature Algorithm: sha256WithRSAEncryption' in info
+                    and (not release or subject == self.policy['certificate_subject'].strip('/')),
+                    'Certificate does not match the role policy')
+        avb = self.file(self.inventory['avb_public_key'])
+        self.avb_id = hashlib.sha256(tools.openssl(['pkey', '-pubin', '-in', avb, '-outform', 'DER'])).hexdigest()
+        require(len(set(self.public_ids.values()) | {self.avb_id}) == len(CERT_ROLES) + 1,
+                'Public identities are reused across signing roles')
+        self.file(authority.relative_to(self.root).as_posix())
+        apexes = {r['metadata_name']: r for r in self.policy.get('presigned_apexes', [])}
+        for name, relative in self.inventory.get('presigned_apex_payload_keys', {}).items():
+            require(name in apexes, 'Unknown presigned APEX public authority')
+            require(sha256_file(self.file(relative)) == apexes[name]['payload_key_sha256'],
+                    'Presigned APEX public authority differs from reviewed policy')
+        if production or release:
+            self.reject_public_test_keys()
+        if release:
+            avb_key = hashlib.sha256(self.avb_pkmd).hexdigest()
+            signing_release.refuse(signing_release.key_problems(self.fingerprints, avb_key)
+                                   + signing_release.policy_problems(self.policy))
+
+    def file(self, relative):
+        path = safe_file(self.root, relative)
+        require(self.artifact_root is None or not path.resolve().is_relative_to(self.artifact_root),
+                'Expected public material is inside the publication')
+        require(path.stat().st_size <= 1024 * 1024, 'Public key input exceeds its bounds')
+        require(b'PRIVATE KEY' not in path.read_bytes(), 'Verifier received private key material')
+        digest = sha256_file(path)
+        require(relative not in self.files or self.files[relative] == digest, 'Public key input changed during verification')
+        self.files[relative] = digest
+        return path
+
+    def fingerprint(self, role, logical):
+        if role == 'PRESIGNED':
+            rule = presigned_apex_rule(self.policy, logical) or presigned_rule(self.policy, logical)
+            require(rule is not None and len(rule['certificate_sha256']) == 1,
+                    'Presigned package has no exact reviewed signer')
+            return rule['certificate_sha256'][0]
+        return self.tools.certificate(self.cert(role, logical))[0]
+
+    def cert(self, role, logical):
+        require(role in CERT_ROLES, 'Unknown certificate role')
+        return self.file(self.inventory['certificate_roles'][role])
+
+    def avb(self, logical=None):
+        if logical is not None:
+            rule = presigned_apex_rule(self.policy, logical)
+            require(rule is not None, 'Presigned APEX payload has no reviewed authority')
+            relative = self.inventory.get('presigned_apex_payload_keys', {}).get(rule['metadata_name'])
+            require(relative is not None, 'Presigned APEX lacks independent external public authority')
+            key = self.file(relative)
+            require(sha256_file(key) == rule['payload_key_sha256'], 'Presigned APEX public authority changed')
+            return key
+        return self.file(self.inventory['avb_public_key'])
+
+    def reject_public_test_keys(self):
+        source = self.tools.source
+        certificates = list((source / 'build/make/target/product/security').glob('*.x509.pem'))
+        certificates += list((source / 'system/apex').rglob('*.x509.pem'))
+        require(certificates, 'Public test certificate deny list is unavailable')
+        pairs = [self.tools.certificate(cert) for cert in certificates]
+        denied = {public for _certificate, public in pairs}
+        approved = {digest for rule in self.policy['presigned_packages'] + self.policy.get('presigned_apexes', [])
+                    for digest in rule['certificate_sha256']}
+        require(not set(self.public_ids.values()) & denied
+                and not approved & {digest for digest, _public in pairs},
+                'Production refuses AOSP public test certificates')
+        self.tools.denied_apk_public_keys = denied
+        test_keys = list((source / 'external/avb/test/data').glob('testkey_rsa*.pem'))
+        require(test_keys, 'Public AVB test key deny list is unavailable')
+        output = self.tools.scratch / 'expected-avb.bin'
+        self.tools.run('avbtool', ['extract_public_key', '--key', self.avb(), '--output', output])
+        expected = self.avb_pkmd = output.read_bytes()
+        preserved = {self.file(relative).read_bytes() for relative in
+                     self.inventory.get('presigned_apex_payload_keys', {}).values()}
+        for test in test_keys:
+            output = self.tools.scratch / 'test-avb.bin'
+            self.tools.run('avbtool', ['extract_public_key', '--key', test, '--output', output])
+            require(output.read_bytes() != expected and output.read_bytes() not in preserved,
+                    'Production refuses AOSP public AVB test keys')
+
+
+def package_members(target_files, tools):
+    """Yield regular APKs, APEX containers/payloads and APKs inside APEX images."""
+    with za.archive(target_files) as handle:
+        for name in sorted(handle.namelist()):
+            if not name.endswith(('.apk', '.apex', '.capex')):
+                continue
+            with tempfile.TemporaryDirectory(dir=tools.scratch) as directory:
+                root = Path(directory)
+                path = za.extract(handle, name, root / Path(name).name)
+                if name.endswith('.apk'):
+                    yield 'apk', name, path
+                    continue
+                yield 'apex', name, path
+                if name.endswith('.capex'):
+                    uncompressed = root / 'original.apex'
+                    tools.run('deapexer', ['decompress', '--input', path, '--output', uncompressed])
+                    path = uncompressed
+                    yield 'apex', name, path
+                with za.archive(path) as apex:
+                    payload = za.extract(apex, 'apex_payload.img', root / 'apex_payload.img')
+                yield 'payload', name, payload
+                content = root / 'content'
+                tools.run('deapexer', ['--debugfs_path', tools.path('debugfs_static'),
+                                      '--fsckerofs_path', tools.path('fsck.erofs'), 'extract', path, content])
+                for apk in sorted(content.rglob('*.apk')):
+                    require(not apk.is_symlink() and apk.resolve().is_relative_to(content.resolve()),
+                            'APEX contains an unsafe APK path')
+                    yield 'apk', name + '!/' + str(apk.relative_to(content)), apk
+
+
+def avb_descriptors(info, *, allow_empty_payload=False):
+    result = []
+    for block in re.split(r'(?m)^\s*(?:Hash|Hashtree|Chain Partition) descriptor:\s*$', info)[1:]:
+        name = re.search(r'(?m)^[ \t]*Partition Name:[ \t]*([A-Za-z0-9_.-]*)[ \t]*$', block)
+        require(name and (name[1] or allow_empty_payload), 'AVB descriptor has an unsupported partition name')
+        location = re.search(r'(?m)^\s*Rollback Index Location:\s+(\d+)\s*$', block)
+        require(name[1] or location is None, 'AVB chain descriptor needs a named partition')
+        result.append((name[1], int(location[1]) if location else None))
+    require(len({name for name, _ in result}) == len(result), 'Duplicate AVB partition descriptor')
+    return result
+
+
+def verify_images(tools, keys, images, expected_partitions, expected_chains):
+    pending, visited, covered = ['vbmeta'], set(), set()
+    public_blob = tools.scratch / 'chain-key.bin'
+    tools.run('avbtool', ['extract_public_key', '--key', keys.avb(), '--output', public_blob])
+    observed_chains = {}
+    while pending:
+        name = pending.pop()
+        require(name not in visited and name in expected_partitions, 'Unexpected or cyclic AVB chain')
+        visited.add(name)
+        path = safe_file(images, name + '.img')
+        descriptors = avb_descriptors(tools.run('avbtool', ['info_image', '--image', path]))
+        chains = []
+        for partition, location in descriptors:
+            require(partition in expected_partitions, 'AVB references an undeclared partition')
+            safe_file(images, partition + '.img')
+            covered.add(partition)
+            if location is not None:
+                require(expected_chains.get(partition) == location and partition not in observed_chains,
+                        'AVB rollback chain differs from the verified input')
+                observed_chains[partition] = location
+                pending.append(partition)
+                chains.append((partition, location, public_blob))
+        tools.avb(path, keys.avb(), chains=chains)
+    require(covered | visited == set(expected_partitions) and observed_chains == expected_chains,
+            'AVB does not cover every declared partition and chain')
+    return sorted(covered | visited)

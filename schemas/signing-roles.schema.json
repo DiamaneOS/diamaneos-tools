@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "certificate_subject",
+    "certificate_algorithm",
+    "certificate_roles",
+    "apk_selectors",
+    "apex_container_role",
+    "apex_payload_role",
+    "avb_algorithm",
+    "factory_algorithm",
+    "factory_namespace",
+    "record_namespace",
+    "verification_namespace",
+    "result_namespace",
+    "presigned_packages"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "certificate_subject": {"const": "/CN=DiamaneOS/"},
+    "certificate_algorithm": {"const": "RSA-4096 with SHA-256"},
+    "apex_container_role": {"const": "releasekey"},
+    "apex_payload_role": {"const": "avb"},
+    "avb_algorithm": {"const": "SHA256_RSA4096"},
+    "factory_algorithm": {"const": "Ed25519"},
+    "factory_namespace": {"const": "factory images"},
+    "record_namespace": {"const": "diamaneos-release-record"},
+    "verification_namespace": {"const": "diamaneos-build-verification"},
+    "result_namespace": {"const": "diamaneos-signing-result"},
+    "presigned_apexes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metadata_name", "artifact_path", "artifact_sha256", "certificate_sha256", "payload_key_sha256"],
+        "properties": {
+          "metadata_name": {"type": "string", "pattern": "^[A-Za-z0-9._+-]+\\.apex$"},
+          "artifact_path": {"type": "string", "pattern": "^(SYSTEM|SYSTEM_EXT|PRODUCT|VENDOR|ODM)/apex/[A-Za-z0-9._+-]+\\.apex$"},
+          "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "payload_key_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "certificate_sha256": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true,
+                                 "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+        }
+      }
+    },
+    "presigned_packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metadata_name",
+          "artifact_basename",
+          "parent_apex",
+          "certificate_sha256"
+        ],
+        "properties": {
+          "metadata_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._+-]+\\.apk$"
+          },
+          "artifact_basename": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._+-]+\\.apk$"
+          },
+          "parent_apex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9._+-]+\\.apex$"
+          },
+          "certificate_sha256": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "certificate_roles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/certificate_role"
+      },
+      "minItems": 9,
+      "maxItems": 9
+    },
+    "apk_selectors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/definitions/certificate_role"
+      }
+    }
+  },
+  "definitions": {
+    "certificate_role": {
+      "enum": [
+        "bluetooth",
+        "gmscompat_lib",
+        "media",
+        "networkstack",
+        "nfc",
+        "platform",
+        "releasekey",
+        "sdk_sandbox",
+        "shared"
+      ]
+    }
+  }
+}
