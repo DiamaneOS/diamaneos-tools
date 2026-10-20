@@ -175,26 +175,31 @@ def stage(recipe, archive, output):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    from . import devices
+    parser = argparse.ArgumentParser(prog='diamaneos vendor', description=__doc__)
     parser.add_argument('operation', choices=['stage', 'generate'])
-    parser.add_argument('--recipe', type=Path, default=ROOT / 'config/fp6-stock-image-recipe.json')
+    devices.argument(parser)
+    parser.add_argument('--recipe', type=Path,
+                        help='stage: the stock image recipe, generate: the selected-file recipe (default: the device\'s)')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--inputs', type=Path, help='extracted partition roots for selected-file generation')
-    parser.add_argument('--stock', type=Path, default=ROOT / 'config/fp6-stock-image-recipe.json',
-                        help='generate: the stock image recipe the selected files must come from')
+    parser.add_argument('--stock', type=Path,
+                        help='generate: the stock image recipe the selected files must come from (default: the device\'s)')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(argv)
+    device = devices.from_args(parser, args.device)
+    stock = args.stock or device.path('stock_image_recipe')
+    recipe = args.recipe or device.path('stock_image_recipe' if args.operation == 'stage' else 'vendor_files')
     try:
         if args.operation == 'stage':
             if args.archive is None or args.inputs is not None:
                 raise VendorError('stage requires an archive and no generation options')
-            result = stage(load_json(args.recipe), args.archive, args.output)
+            result = stage(load_json(recipe), args.archive, args.output)
         else:
             from . import vendor_files
             if args.inputs is None or args.archive is not None:
                 raise VendorError('generate requires extracted inputs and a selected-file recipe')
-            result = vendor_files.generate(
-                load_json(args.recipe), args.inputs, args.output, stock=load_json(args.stock))
+            result = vendor_files.generate(load_json(recipe), args.inputs, args.output, stock=load_json(stock))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (VendorError, JsonError) as error:

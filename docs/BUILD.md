@@ -8,9 +8,9 @@ generated inputs and packaging), flashing and troubleshooting. To run the tool t
 The host tools are Python 3 programs and do not require an Android source checkout or compilation.
 Schema conformance tests use the pinned development dependencies in `requirements-dev.txt`.
 
-The build commands use the FP6 profile: the `config/fp6-*.json` files,
-`config/build-environment-fp6.json` and the device tree at `device/fairphone/FP6`. Examples on this
-page name those files.
+The build commands use the FP6 profile: its entry `config/devices/FP6.json`, the
+`config/fp6-*.json` files, `config/build-environment-fp6.json` and the device tree at
+`device/fairphone/FP6`. Examples on this page name those files.
 
 ## Host setup
 
@@ -71,6 +71,12 @@ page name those files.
 - `diamaneos build all` runs five steps in one [workspace](#source-checkout) directory.
 - Each step can also run on its own.
 - It then runs again (`build vendor` only when the vendor files are out of date).
+- `build vendor` needs the device codename (`build vendor FP6`). The other steps take it too, and
+  need it only when more than one device is supported. The vendor commands (`vendor stage`,
+  `extract`, `generate` and `product`, `build inputs`) need it as well.
+- Each device has an entry in `config/devices/<codename>.json`. It names the device's recipes and
+  settings in `config/`, its vendor tree in the source and its lunch product. Another device is
+  another entry with its own recipes.
 - It refuses to start while an earlier step it consumes has not run or is out of date (`build
   vendor` and `build package` check or record those steps themselves: [building by
   hand](#building-by-hand)).
@@ -88,7 +94,7 @@ page name those files.
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
 | `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way. Runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned, or at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean, no local manifests, no undeclared files (a build that is not official warns about these instead, see below). Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the device maker's factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at `vendor/fairphone/FP6` (`build inputs`), so a plain `m` can follow. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync. After a sync that reproduced a resolved manifest it keeps that record. After a plain `repo sync` it then makes the vendor files only when they are out of date, and installs them in the source either way. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source, and their hashes are recorded in the extraction identity. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the device maker's factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at the device entry's `vendor_tree` (`vendor/fairphone/FP6`, `build inputs`), so a plain `m` can follow. It then prints the `lunch` and `m` commands. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync. After a sync that reproduced a resolved manifest it keeps that record. After a plain `repo sync` it then makes the vendor files only when they are out of date, and installs them in the source either way. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source, and their hashes are recorded in the extraction identity. |
 | `android` | Installs (or re-checks) the generated vendor tree, then `lunch <codename>-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor. The tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. | The target-files hash, the factory package and each firmware image against the firmware inventory, and the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
@@ -412,8 +418,8 @@ commit. `DIAMANEOS_BUILD_NUMBER` overrides the build number.
 
 ### Building by hand
 
-The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor`, `lunch` and `m`,
-then `build package`.
+The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor <codename>`,
+`lunch` and `m`, then `build package`.
 
 - `build vendor` on its own checks the checkout as `sync` does after its `repo sync`, runs no `repo`
   command and records it as the sync.
@@ -538,8 +544,9 @@ the stock OS installed, as that section describes.
 | `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
 | `repo implementation commit does not match the pin` | An official build needs the pinned `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. Other builds only warn. |
 | `is a source checkout` or `is inside the source checkout` | `--workspace` names the checkout or a directory in it. Leave out the option to use the directory the error names, or name a directory outside the checkout. |
+| `name the device` or `unknown device` | Add the device codename the error lists: `build vendor FP6`. |
 | `out/ holds no complete <codename> build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
-| `the source changed since "diamaneos build vendor" checked it` | Run `build vendor` and `m` again, then `build package`. |
+| `the source changed since "diamaneos build vendor <codename>" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can. Otherwise add `--allow-network`, and `build.json` records that the build had network access. |
 | `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source: a warning, and a stop for an official build. Run the copy it names (`tools/diamaneos/bin/diamaneos` in the checkout), or update your tools checkout. |
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
@@ -790,12 +797,12 @@ stock carrier configuration resources, and its hash is recorded in the generated
 [carrier integration](CARRIER-INTEGRATION.md).
 
 ```sh
-"$TOOLS_ROOT/bin/diamaneos" vendor stage --archive "$FACTORY_ZIP" \
+"$TOOLS_ROOT/bin/diamaneos" vendor stage FP6 --archive "$FACTORY_ZIP" \
   --output "$WORK_ROOT/stock-images"
-"$TOOLS_ROOT/bin/diamaneos" vendor extract \
+"$TOOLS_ROOT/bin/diamaneos" vendor extract FP6 \
   --super "$WORK_ROOT/stock-images/current/super.img" \
   --image-tools "$IMAGE_TOOLS" --output "$WORK_ROOT/stock-files" [--record-tools]
-"$TOOLS_ROOT/bin/diamaneos" vendor product \
+"$TOOLS_ROOT/bin/diamaneos" vendor product FP6 \
   --inputs "$(realpath "$WORK_ROOT/stock-files/current")" \
   --output "$WORK_ROOT/vendor-product" --notice-kind "$NOTICE_KIND" --aapt2 "$AAPT2" \
   --factory-zip "$FACTORY_ZIP"
@@ -932,7 +939,7 @@ from `notice_kind` in `config/fp6-build.json`.
 `schemas/vendor-files.schema.json` from extracted partitions, without generating the product:
 
 ```sh
-bin/diamaneos vendor generate --recipe /absolute/path/to/selected-files.json \
+bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json \
   --inputs /absolute/path/to/extracted-partitions \
   --output /absolute/path/to/generated-vendor
 ```
@@ -994,7 +1001,7 @@ bin/diamaneos vendor generate --recipe /absolute/path/to/selected-files.json \
 Make sure no build or source sync is running in the Android workspace. Then:
 
 ```sh
-"$TOOLS_ROOT/bin/diamaneos" build inputs --source "$SOURCE_ROOT" \
+"$TOOLS_ROOT/bin/diamaneos" build inputs FP6 --source "$SOURCE_ROOT" \
   --vendor "$WORK_ROOT/vendor-product"
 ```
 

@@ -10,13 +10,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "src"))
 
 
-BUILD_HELP = """usage: diamaneos build {all|sync|vendor|android|package|verify|kernel|preflight|kernel-config|inputs} [...]
+BUILD_HELP = """usage: diamaneos build {all|sync|vendor|android|package|verify|kernel|preflight|kernel-config|inputs} [CODENAME] [...]
   build all -> sync, vendor, android, package and verify in one workspace
+  build vendor CODENAME -> the vendor files of that device, ready for lunch and m
   build sync|vendor|android|package|verify -> the steps of build all, one at a time
   build kernel -> build the kernel from source (for maintainers, the build uses the kernel prebuilts)
   build preflight -> fail-closed pinned build-input verification
   build kernel-config -> read-only generated kernel configuration policy check
-  build inputs -> install verified generated Android inputs
+  build inputs CODENAME -> install verified generated Android inputs
 Options of a step: diamaneos build <step> --help"""
 
 
@@ -90,8 +91,8 @@ def main(argv=None):
         print("        strings check -> string resources: escaping, placeholders, markup and plurals")
         print("        signing -> verified-build signing plans and native publication signature verification")
         print("        attestation-releases -> signed list of each release's attestation values")
-        print("        vendor stage|extract|generate -> authenticate images or extract selected stock files")
-        print("        vendor product -> generate the pinned native Android integration\n        kernel prepare|build -> source, compile and package the kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs -> install verified generated Android inputs")
+        print("        vendor stage|extract|generate CODENAME -> authenticate images or extract selected stock files")
+        print("        vendor product CODENAME -> generate the pinned native Android integration\n        kernel prepare|build -> source, compile and package the kernel set\n        kernel publish -> copy a kernel build into a kernel prebuilts checkout (no commit)\n        build inputs CODENAME -> install verified generated Android inputs")
         return 0
     if argv[:2] == ["build", "kernel-config"]:
         from diamaneos_tools import kernel_config

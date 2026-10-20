@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'src'))
-from diamaneos_tools import product_inputs as subject
+from diamaneos_tools import devices, product_inputs as subject
 from diamaneos_tools.vendor_extract import sha
 from diamaneos_tools.vendor import VendorError
 
@@ -19,14 +19,14 @@ class ProductInputTests(unittest.TestCase):
         (vtree/'input').write_bytes(b'fixture');(vtree/'input').chmod(0o640)
         # The generations record the recipes they were made from, as the real
         # generators do. The fixture uses this checkout's recipes.
-        self.recipes=subject.current_recipes()
+        self.device=devices.get('FP6');self.recipes=subject.current_recipes(self.device)
         provenance=vtree/'provenance.json'
         provenance.write_text(json.dumps({'recipe_sha256':self.recipes['vendor_files'],
                                           'elf_selection_sha256':self.recipes['vendor_elf']}));provenance.chmod(0o640)
         records={name:{'bytes':(vtree/name).stat().st_size,'sha256':sha(vtree/name)} for name in ('input','provenance.json')}
         (self.vendor/'inventories').mkdir();(self.vendor/'inventories'/('a'*64+'.json')).write_text(json.dumps(records))
         (self.vendor/'current').symlink_to('generations/'+'a'*64)
-    def install(self):return subject.install(self.source,self.vendor)
+    def install(self):return subject.install(self.source,self.vendor,device=self.device)
     def test_install_and_verify_existing(self):
         result=self.install();self.assertEqual('installed',result['vendor']);self.assertNotIn('kernel',result)
         result=self.install();self.assertEqual('verified-existing',result['vendor'])
@@ -74,8 +74,8 @@ class ProductInputTests(unittest.TestCase):
         self.install()
         descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
         self.assertEqual(3,descriptor['schema_version'])
-        self.assertEqual(sha(subject.DEFAULT_ENVIRONMENT),descriptor['environment_sha256'])
-        self.assertEqual(subject.current_recipes(),descriptor['recipes'])
+        self.assertEqual(sha(self.device.path('build_environment')),descriptor['environment_sha256'])
+        self.assertEqual(self.recipes,descriptor['recipes'])
         self.assertEqual({'vendor_files','vendor_elf'},set(descriptor['recipes']))
         self.assertEqual({'vendor'},set(descriptor['inputs']))
         accepted=subject.verify_descriptor(self.source,descriptor['environment_sha256'])
@@ -129,7 +129,7 @@ class ProductInputTests(unittest.TestCase):
 
     def test_replace_moves_the_differing_tree_aside(self):
         self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'old tree')
-        result=subject.install(self.source,self.vendor,replace=True)
+        result=subject.install(self.source,self.vendor,replace=True,device=self.device)
         self.assertEqual('replaced',result['vendor'])
         self.assertEqual(b'fixture',p.read_bytes())
         self.assertEqual(b'old tree',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())

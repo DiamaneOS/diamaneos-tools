@@ -181,19 +181,21 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    from . import devices
+    parser = argparse.ArgumentParser(prog='diamaneos vendor extract', description=__doc__)
+    devices.argument(parser)
     parser.add_argument('--super', dest='super_image', type=Path, required=True)
     parser.add_argument('--image-tools', type=Path, required=True, help='pinned image-tool bin directory')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--record-tools', action='store_true',
                         help='accept tools built from the pinned source and record their hashes')
     args = parser.parse_args(argv)
+    device = devices.from_args(parser, args.device)
     try:
         with process.interrupt_on_termination():
             result = extract(args.super_image.resolve(), args.image_tools.resolve(), args.output.absolute(),
-                         load_json(ROOT / 'config/fp6-stock-image-recipe.json'),
-                         load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
-                         load_json(ROOT / 'config/fp6-image-tools.json'),
+                         load_json(device.path('stock_image_recipe')), load_json(device.path('vendor_files')),
+                         load_json(device.path('image_tools')),
                          'recorded' if args.record_tools else 'pinned')
         print(json.dumps(result, indent=2))
         return 0

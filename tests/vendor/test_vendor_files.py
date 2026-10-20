@@ -161,7 +161,7 @@ class SelectedFilesTests(unittest.TestCase):
         import subprocess
         recipe = self.root / 'selection.json'
         recipe.write_text(json.dumps(self.recipe))
-        command = [sys.executable, str(TOOLS / 'bin/diamaneos'), 'vendor', 'generate',
+        command = [sys.executable, str(TOOLS / 'bin/diamaneos'), 'vendor', 'generate', 'FP6',
                    '--recipe', str(recipe), '--inputs', str(self.inputs), '--output', str(self.output)]
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stderr)

@@ -42,7 +42,7 @@ fastboot --version
 - Full Android builds run on Linux from a `repo` checkout of the [DiamaneOS
   manifest](https://github.com/DiamaneOS/platform_manifest), which includes these tools at
   `tools/diamaneos`. Run that copy.
-- The steps are in [BUILDING.md](docs/BUILDING.md): `repo sync`, `build vendor`, `lunch` and `m`,
+- The steps are in [BUILDING.md](docs/BUILDING.md): `repo sync`, `build vendor <codename>`, `lunch` and `m`,
   then `build package`, or `tools/diamaneos/bin/diamaneos build all` in one command.
 
 ## Documentation

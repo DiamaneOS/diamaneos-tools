@@ -1620,28 +1620,31 @@ def release_date_of(stock, inventory):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--recipe', type=Path, default=ROOT / 'config/fp6-minimal/vendor-files.json')
-    parser.add_argument('--selection', type=Path, default=ROOT / 'config/fp6-minimal/vendor-elf.json')
+    from . import devices
+    parser = argparse.ArgumentParser(prog='diamaneos vendor product', description=__doc__)
+    devices.argument(parser)
+    parser.add_argument('--recipe', type=Path, help='the selected-file recipe (default: the device\'s)')
+    parser.add_argument('--selection', type=Path, help='the ELF selection (default: the device\'s)')
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--notice-kind', required=True, help='reviewed Android notice classification')
     parser.add_argument('--aapt2', type=Path, help='aapt2 for selected stock carrier data extraction')
     parser.add_argument('--factory-zip', type=Path, required=True,
-                        help='the Fairphone factory package, for the firmware every update carries')
+                        help='the device maker\'s factory package, for the firmware every update carries')
     args = parser.parse_args(argv)
+    device = devices.from_args(parser, args.device)
     try:
-        stock = safe_json.load_json(ROOT / 'config/fp6-stock-image-recipe.json')
-        firmware_inventory = safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json')
-        firmware_table = firmware_release.table(
-            firmware_inventory, safe_json.load_json(ROOT / 'config/fp6-build.json')['firmware_release'])
-        result = generate(safe_json.load_json(args.recipe), safe_json.load_json(args.selection),
+        stock = safe_json.load_json(device.path('stock_image_recipe'))
+        firmware_inventory = safe_json.load_json(device.path('firmware_inventory'))
+        settings = safe_json.load_json(device.path('build'))
+        firmware_table = firmware_release.table(firmware_inventory, settings['firmware_release'])
+        result = generate(safe_json.load_json(args.recipe or device.path('vendor_files')),
+            safe_json.load_json(args.selection or device.path('vendor_elf')),
             args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2, stock=stock,
             firmware_releases=firmware_table,
             firmware_inventory=firmware_inventory,
-            firmware_policy=safe_json.load_json(ROOT / 'config/fp6-build.json')['firmware'],
-            factory_zip=args.factory_zip,
-            release_date=release_date_of(stock, safe_json.load_json(ROOT / 'config/stock-inputs.json')))
+            firmware_policy=settings['firmware'], factory_zip=args.factory_zip,
+            release_date=release_date_of(stock, safe_json.load_json(device.path('stock_inputs'))))
         print(json.dumps(result, indent=2))
         return 0
     except (ValueError, KeyError, TypeError, OSError, EOFError, safe_json.JsonError):

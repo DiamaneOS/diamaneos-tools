@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from . import build, policy_provenance, product_inputs, source_sync
+from . import build, devices, policy_provenance, product_inputs, source_sync
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -45,12 +45,10 @@ ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNC
 KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-packaging.json', 'kernel-policy-fp6.json',
                   'kernel-vendor-policy-fp6.json')
 KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py')
-VENDOR_RECIPES = ('fp6-stock-image-recipe.json', 'stock-inputs.json', 'fp6-minimal/vendor-files.json',
-                  'fp6-minimal/vendor-elf.json', 'fp6-image-tools.json', 'fp6-firmware-inventory.json')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
-# The parts of config/fp6-build.json each step depends on. Editing another
-# part (flash texts, say) does not rebuild anything.
+# The parts of the device's build settings (config/fp6-build.json) each step
+# depends on. Editing another part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
                   'target_files')
 # Earlier steps each step consumes. A single step refuses stale ones.
@@ -115,6 +113,7 @@ class Context:
     config: dict
     config_raw: bytes
     variant: str
+    device: devices.Device | None = None
     jobs: int | None = None
     allow_network: bool = False
     factory_zip: Path | None = None
@@ -608,15 +607,16 @@ def selected_factory_archive(recipe: dict, stock: dict, config: dict) -> dict:
 def plan_vendor(ctx: Context) -> StepPlan:
     ws, config = ctx.workspace, ctx.config
     sync = ws.passed('sync')
-    recipe, _ = bw.load_config('fp6-stock-image-recipe.json')
-    stock, _ = bw.load_config('stock-inputs.json')
+    device = ctx.device
+    recipe, _ = device.load('stock_image_recipe')
+    stock, _ = device.load('stock_inputs')
     archive = selected_factory_archive(recipe, stock, config)
     zip_path = ctx.factory_zip or ws.cache / archive['filename']
     targets = config['host_tools']
     if not all(NAME.fullmatch(t) for t in targets):
         raise UsageError('invalid host tool target')
     inputs = None if sync is None else {
-        'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(VENDOR_RECIPES),
+        'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(device.vendor_recipes),
         'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
         'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER,
         'host_tools_variant': ctx.variant,
@@ -660,18 +660,18 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     def extract():
         from . import vendor_extract
-        selection, _ = bw.load_config('fp6-minimal/vendor-files.json')
-        pins, _ = bw.load_config('fp6-image-tools.json')
+        selection, _ = device.load('vendor_files')
+        pins, _ = device.load('image_tools')
         ctx.cache['extract'] = vendor_extract.extract(
             (ws.stock_images / 'current' / 'super.img').resolve(), ctx.host_bin.resolve(), ws.stock_files,
             recipe, selection, pins, 'recorded')
 
     def product():
         from . import firmware_release, safe_json, vendor_product
-        inventory = safe_json.load_json(ROOT / 'config/fp6-firmware-inventory.json')
+        inventory = safe_json.load_json(device.path('firmware_inventory'))
         ctx.cache['product'] = vendor_product.generate(
-            safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-files.json'),
-            safe_json.load_json(ROOT / 'config/fp6-minimal/vendor-elf.json'),
+            safe_json.load_json(device.path('vendor_files')),
+            safe_json.load_json(device.path('vendor_elf')),
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
             aapt2=ctx.host_bin / 'aapt2', stock=recipe,
             firmware_releases=firmware_release.table(inventory, config['firmware_release']),
@@ -681,7 +681,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
     def install():
         # So a plain "m" after "build vendor" finds the vendor files. The
         # android step installs (or re-verifies) the same tree again.
-        product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True)
+        product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True, device=device)
 
     actions = [host_tools,
                Action('Download the factory package', func=fetch, network=True,
@@ -690,7 +690,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                Action('Extract the stock files', func=extract, detail='the stock files the recipe selects'),
                Action('Generate the vendor tree', func=product, detail='the vendor product from the stock files'),
                Action('Install the vendor tree', func=install,
-                      detail=f'at {product_inputs.DESTINATIONS["vendor"]} in the source tree')]
+                      detail=f'at {device.vendor_tree} in the source tree')]
 
     def outputs():
         product = ctx.cache['product']
@@ -819,7 +819,8 @@ def plan_android(ctx: Context) -> StepPlan:
             datetime = None
 
     def install():
-        ctx.cache['inputs'] = product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True)
+        ctx.cache['inputs'] = product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True,
+                                                     device=ctx.device)
 
     def preflight(key):
         def check():
@@ -957,7 +958,8 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         if (result['resolved_manifest_sha256'], result['modified_sha256'], result.get('deviations_sha256')) != (
                 sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256'),
                 sync['outputs'].get('deviations_sha256')):
-            raise BuildStepError('the source changed since "diamaneos build vendor" checked it. Run it again, then m')
+            raise BuildStepError(f'the source changed since "diamaneos build vendor {ctx.device.codename}" checked '
+                                 'it. Run it again, then m')
         state['source'] = result
 
     def check_vendor_files():
@@ -970,8 +972,8 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         except (OSError, ValueError, KeyError, TypeError):
             installed = None
         if installed != generation:
-            raise BuildStepError('the source has not the vendor tree "diamaneos build vendor" made. Run it again, '
-                                 'then m')
+            raise BuildStepError(f'the source has not the vendor tree "diamaneos build vendor {ctx.device.codename}" '
+                                 'made. Run it again, then m')
         archive = image_verify.TargetFiles(target_files)
         try:
             passed, detail = image_verify.check_vendor(SimpleNamespace(
@@ -1103,9 +1105,10 @@ def check_prerequisites(ctx: Context, name: str, steps) -> None:
             reason = 'is out of date (its inputs changed)'
         option = '' if recorded.variant == ctx.config['default_variant'] else ' --variant ' + recorded.variant
         if ctx.manual:
-            raise UsageError(f'{dependency} {reason}. Run "diamaneos build vendor", then m, then '
-                             '"diamaneos build package" again')
-        raise UsageError(f'{dependency} {reason}. Run "diamaneos build {dependency}{option}" '
+            raise UsageError(f'{dependency} {reason}. Run "diamaneos build vendor {ctx.device.codename}", then m, '
+                             'then "diamaneos build package" again')
+        named = f' {ctx.device.codename}' if dependency == 'vendor' else ''
+        raise UsageError(f'{dependency} {reason}. Run "diamaneos build {dependency}{named}{option}" '
                          f'or "diamaneos build all{option}"')
 
 
@@ -1298,7 +1301,9 @@ def steps_to_run(ctx: Context, steps, force) -> list:
 
 
 def make_context(args, echo=print) -> Context:
-    environment_path = Path(args.environment) if args.environment else ROOT / 'config/build-environment-fp6.json'
+    name = getattr(args, 'device', None)
+    device = devices.get(name) if name else devices.sole()
+    environment_path = Path(args.environment) if args.environment else device.path('build_environment')
     environment_raw = environment_path.read_bytes()
     environment = json.loads(environment_raw)
     build.validate_config(environment)
@@ -1310,17 +1315,20 @@ def make_context(args, echo=print) -> Context:
         project_inputs = build.declared_identity(environment, environment_raw, ROOT)['project_inputs']
     except build.BuildError as error:
         raise UsageError(f'{environment_path.name}: {error}') from None
-    recipe, _ = bw.load_config('fp6-stock-image-recipe.json')
-    device = environment['device_inputs']
-    if (device['selected_stock_build'], device['selected_stock_factory_sha256']) != \
+    recipe, _ = device.load('stock_image_recipe')
+    selected = environment['device_inputs']
+    if (selected['selected_stock_build'], selected['selected_stock_factory_sha256']) != \
             (recipe['stock_build'], recipe['archive_sha256']):
-        raise UsageError(f'{environment_path.name} selects stock {device["selected_stock_build"]}, but the vendor '
-                         f'step uses {recipe["stock_build"]} (config/fp6-stock-image-recipe.json)')
-    config, config_raw = bw.load_config('fp6-build.json')
+        raise UsageError(f'{environment_path.name} selects stock {selected["selected_stock_build"]}, but the vendor '
+                         f'step uses {recipe["stock_build"]} (config/{device.files["stock_image_recipe"]})')
+    config, config_raw = device.load('build')
+    if config['product'] != device.lunch:
+        raise UsageError(f'config/{device.files["build"]} builds {config["product"]}, but the device entry '
+                         f'names {device.lunch}')
     declared = environment['workspace']
     source, output = Path(declared['source_subdirectory']), Path(declared['output_subdirectory'])
     if not output.is_relative_to(source) or output.relative_to(source).parts[:1] != (config['out_dir'],):
-        raise UsageError('config/fp6-build.json out_dir does not match the environment\'s output directory')
+        raise UsageError(f'config/{device.files["build"]} out_dir does not match the environment\'s output directory')
     variant = args.variant or config['default_variant']
     if variant not in config['variants']:
         raise UsageError('unknown variant: ' + variant)
@@ -1344,7 +1352,7 @@ def make_context(args, echo=print) -> Context:
     return Context(workspace=workspace, tools_commit=tools_commit, project_inputs=project_inputs,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
-                   official=official, official_given=given is not None, jobs=args.jobs,
+                   device=device, official=official, official_given=given is not None, jobs=args.jobs,
                    allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
                    shallow=shallow, pinned=pinned, echo=echo, dry_run=getattr(args, 'dry_run', False))
@@ -1356,6 +1364,9 @@ def parser() -> argparse.ArgumentParser:
         epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging. '
                '"diamaneos build kernel" builds the kernel from source (for maintainers, not part of build all).')
     result.add_argument('step', choices=('all',) + bw.STEPS + bw.MAINTAINER_STEPS)
+    result.add_argument('device', nargs='?', metavar='CODENAME',
+                        help='the device codename (' + ', '.join(devices.codenames()) + '). vendor needs it, the '
+                             'other steps only when more than one device is supported')
     result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, else <checkout>-build '
                                             'beside the checkout these tools run from, or the directory that holds '
                                             'it as src, else ~/diamaneos-build)')
@@ -1399,6 +1410,8 @@ def main(argv=None, echo=print) -> int:
     # Set only for the command that starts again after its sync moved the tools.
     restarted = os.environ.pop(RESTARTED, None)
     try:
+        if args.step == 'vendor' and not args.device:
+            raise UsageError('name the device: diamaneos build vendor CODENAME. ' + devices.supported())
         for option, steps in STEP_OPTIONS.items():
             value = getattr(args, option)
             # --no-official is given too, as False.
@@ -1476,6 +1489,9 @@ def main(argv=None, echo=print) -> int:
             latest = ctx.workspace.images / 'latest'
             if latest.is_symlink():
                 echo(f'Images: {latest.resolve()}\nNext: diamaneos flash-steps --workspace {ctx.workspace.root}')
+        if args.step == 'vendor':
+            echo(f'Next, in {ctx.workspace.src}: source build/envsetup.sh, lunch {ctx.device.lunch}-'
+                 f'{ctx.config["release_config"]}-{ctx.variant}, {MANUAL_TARGETS}')
         return 0
     except ToolsUpdated as update:
         # Like repo after it updates itself: run the command again with the

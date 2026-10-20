@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 
+from . import devices
 from .kernel import KernelError, locked, require
 from .vendor import ROOT, encoded
 from .vendor_extract import relative, sha
@@ -24,12 +25,8 @@ from .vendor_files import verify_tree
 DESCRIPTOR = '.repo/diamaneos-generated-inputs.json'
 PREVIOUS = '.repo/diamaneos-previous-inputs'
 DESCRIPTOR_SCHEMA = 3
-DEFAULT_ENVIRONMENT = ROOT / 'config/build-environment-fp6.json'
-TARGET_PRODUCT = 'FP6'
 # Where the device configuration expects the kernel prebuilts (a manifest project).
 KERNEL_PREBUILTS = 'device/fairphone/FP6-kernel'
-# Generated trees and where the device configuration expects them.
-DESTINATIONS = {'vendor': 'vendor/fairphone/FP6'}
 # Manifest project paths where a workspace may hold a tree older tools
 # generated. A sync moves such a tree aside (it has no .git) so repo can check
 # out the project.
@@ -47,13 +44,16 @@ def read(path):
     return json.loads(path.read_bytes())
 
 
-def current_recipes(root=ROOT):
-    """Recipe digests of this checkout, computed as the generator records them."""
+def destinations(device):
+    """Generated trees and where the device configuration expects them."""
+    return {'vendor': device.vendor_tree}
+
+
+def current_recipes(device, root=ROOT):
+    """The device's recipe digests in this checkout, computed as the generator records them."""
     from . import safe_json
-    return {
-        'vendor_files': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-files.json'))).hexdigest(),
-        'vendor_elf': hashlib.sha256(encoded(safe_json.load_json(root / 'config/fp6-minimal/vendor-elf.json'))).hexdigest(),
-    }
+    return {key: hashlib.sha256(encoded(safe_json.load_json(root / 'config' / device.files[key]))).hexdigest()
+            for key in RECIPE_KEYS}
 
 
 def generation_recipes(vendor_tree):
@@ -65,10 +65,10 @@ def generation_recipes(vendor_tree):
     return recipes
 
 
-def require_current(recipes, root=ROOT):
-    stale = sorted(k for k, v in current_recipes(root).items() if recipes.get(k) != v)
+def require_current(recipes, device, root=ROOT):
+    stale = sorted(k for k, v in current_recipes(device, root).items() if recipes.get(k) != v)
     require(not stale, 'generated inputs were made with other recipes (' + ', '.join(stale) +
-            '). Rebuild them with "diamaneos build all"')
+            f'). Rebuild them with "diamaneos build vendor {device.codename}"')
 
 
 def tools_identity(root=ROOT):
@@ -152,26 +152,26 @@ def selected_inputs(vendor):
     }
 
 
-def install(source, vendor, environment=DEFAULT_ENVIRONMENT, replace=False):
+def install(source, vendor, environment=None, replace=False, *, device):
     require(source.is_dir() and not source.is_symlink(), 'Android source root is absent or a symlink')
     source = source.resolve()
     require((source / '.repo').is_dir() and not (source / '.repo').is_symlink(), 'expected an Android repo checkout')
     selected = selected_inputs(vendor)
-    require_current(selected['recipes'])
-    environment = Path(environment)
+    require_current(selected['recipes'], device)
+    environment = Path(environment or device.path('build_environment'))
     environment_bytes = environment.read_bytes()
     environment_id = json.loads(environment_bytes)['environment_id']
     result = {'operation':'generated-input-installation', 'device_commands_executed':0,
               'vendor_inventory_sha256':selected['vendor']['inventory_sha256']}
     descriptor = {
         'schema_version': DESCRIPTOR_SCHEMA, 'operation': 'generated-input-installation',
-        'target_product': TARGET_PRODUCT, 'device_commands_executed': 0,
+        'target_product': device.lunch, 'device_commands_executed': 0,
         'environment_id': environment_id,
         'environment_sha256': hashlib.sha256(environment_bytes).hexdigest(),
         'tools': tools_identity(), 'recipes': selected['recipes'], 'inputs': {},
     }
     with locked(source / '.repo'):
-        for label, rel in DESTINATIONS.items():
+        for label, rel in destinations(device).items():
             item = selected[label]
             dest = source / rel
             # Do not install through any existing source-tree symlink.
@@ -204,18 +204,19 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
     descriptor = json.loads(path.read_bytes())
     require(isinstance(descriptor, dict) and descriptor.get('schema_version') == DESCRIPTOR_SCHEMA,
             'generated-input record predates the bound descriptor. Reinstall the generated inputs')
-    require(descriptor.get('status') == 'PASS' and descriptor.get('target_product') == TARGET_PRODUCT,
-            'generated-input descriptor is incomplete')
+    device = devices.by_lunch(descriptor.get('target_product'))
+    require(descriptor.get('status') == 'PASS' and device is not None, 'generated-input descriptor is incomplete')
     if environment_sha256 is not None:
         require(descriptor.get('environment_sha256') == environment_sha256,
                 'generated inputs were installed for another build environment')
     recipes = descriptor.get('recipes')
     require(isinstance(recipes, dict) and set(recipes) == set(RECIPE_KEYS), 'generated-input descriptor is incomplete')
-    require_current(recipes, root)
+    require_current(recipes, device, root)
     inputs = descriptor.get('inputs')
-    require(isinstance(inputs, dict) and set(inputs) == set(DESTINATIONS), 'generated-input descriptor is incomplete')
+    expected = destinations(device)
+    require(isinstance(inputs, dict) and set(inputs) == set(expected), 'generated-input descriptor is incomplete')
     accepted = set()
-    for label, rel in DESTINATIONS.items():
+    for label, rel in expected.items():
         entry = inputs[label]
         require(isinstance(entry, dict) and entry.get('path') == rel, 'generated input path differs')
         records = entry.get('records')
@@ -259,7 +260,7 @@ def retire_stale(source, environment_sha256=None, root=ROOT):
             return moved
         except (ValueError, OSError):
             pass
-    for label, rel in DESTINATIONS.items():
+    for label, rel in sorted({item for device in devices.all_devices() for item in destinations(device).items()}):
         destination = source / rel
         if destination.exists() or destination.is_symlink():
             move_aside(source, label, destination)
@@ -270,16 +271,18 @@ def retire_stale(source, environment_sha256=None, root=ROOT):
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description=__doc__)
+    parser=argparse.ArgumentParser(prog='diamaneos build inputs', description=__doc__)
+    devices.argument(parser)
     parser.add_argument('--source',type=Path,required=True)
     parser.add_argument('--vendor',type=Path,required=True,help='vendor product generation root')
-    parser.add_argument('--environment',type=Path,default=DEFAULT_ENVIRONMENT,
-                        help='build environment the inputs are bound to')
+    parser.add_argument('--environment',type=Path,
+                        help='build environment the inputs are bound to (default: the device\'s)')
     parser.add_argument('--replace',action='store_true',
                         help='move differing installed trees aside instead of refusing')
     args=parser.parse_args(argv)
+    device=devices.from_args(parser,args.device)
     try:
         print(json.dumps(install(args.source.absolute(),args.vendor.absolute(),
-                                 args.environment, args.replace),indent=2));return 0
+                                 args.environment, args.replace, device=device),indent=2));return 0
     except (OSError,ValueError,KeyError,TypeError):
         print('ERROR: generated inputs could not be verified or installed');return 2

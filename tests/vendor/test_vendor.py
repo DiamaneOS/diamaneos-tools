@@ -103,7 +103,7 @@ class StockStagingTests(unittest.TestCase):
         path = self.root / 'recipe.json'; path.write_text(json.dumps(self.recipe))
         error = io.StringIO()
         with contextlib.redirect_stderr(error):
-            status = vendor.main(['stage','--recipe',str(path),'--archive',str(self.archive),'--output',str(self.output)])
+            status = vendor.main(['stage','FP6','--recipe',str(path),'--archive',str(self.archive),'--output',str(self.output)])
         self.assertEqual(2,status)
         self.assertNotIn('private-device-id',error.getvalue())
         self.assertFalse(self.output.exists())

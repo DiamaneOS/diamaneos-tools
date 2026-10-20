@@ -33,15 +33,18 @@ repo sync -j8
 ## 2. Add the vendor files
 
 ```sh
-tools/diamaneos/bin/diamaneos build vendor
+tools/diamaneos/bin/diamaneos build vendor <codename>
 ```
 
 Checks the source, downloads the device maker's factory package, checks its SHA-256 and takes the
 vendor files out of it into the source tree.
 
+- `<codename>` is the device's codename, listed on the [supported
+  devices](https://diamaneos.de/devices/) page.
 - It warns about what only an official build refuses: local changes, local manifests, files between
   the projects, another `repo` version. `build.json` records them.
 - Run again, it makes the vendor files only when their recipe changed.
+- It ends with the `lunch` and `m` commands of step 3.
 
 ## 3. Build
 
@@ -51,8 +54,6 @@ lunch <codename>-cur-user
 m target-files-package otatools-package
 ```
 
-- `<codename>` is the device's codename, listed on the [supported
-  devices](https://diamaneos.de/devices/) page.
 - The usual Android build, plus what step 4 packages and checks. A plain `m` builds the images only.
 - `<codename>-cur-userdebug` builds a `userdebug` image with root debugging over adb, for
   development.
@@ -93,7 +94,7 @@ bash flash-all.sh
 
 ```sh
 repo sync --force-sync -j8
-tools/diamaneos/bin/diamaneos build vendor
+tools/diamaneos/bin/diamaneos build vendor <codename>
 m target-files-package otatools-package
 tools/diamaneos/bin/diamaneos build package
 ```

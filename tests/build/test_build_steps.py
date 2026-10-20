@@ -139,7 +139,7 @@ class PlanTests(unittest.TestCase):
         errors = io.StringIO()
         with contextlib.redirect_stderr(errors):
             for argv in (['android', '--shallow'], ['sync', '--factory-zip', 'x'],
-                         ['sync', '--official'], ['vendor', '--no-official'], ['verify', '--official']):
+                         ['sync', '--official'], ['vendor', 'FP6', '--no-official'], ['verify', '--official']):
                 with self.subTest(argv=argv):
                     self.assertEqual(2, steps.main(argv + ['--dry-run', '--workspace', str(self.root / 'ws')],
                                                    self.lines.append))
@@ -342,7 +342,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual('Install the vendor tree', action.description)
         with patch.object(steps.product_inputs, 'install') as install:
             action.func()
-        install.assert_called_once_with(ctx.workspace.src, ctx.workspace.vendor, ctx.environment_path, replace=True)
+        install.assert_called_once_with(ctx.workspace.src, ctx.workspace.vendor, ctx.environment_path, replace=True,
+                                        device=ctx.device)
 
     def test_build_vendor_alone_checks_the_checkout_instead_of_needing_build_sync(self):
         calls = []
@@ -351,8 +352,8 @@ class PlanTests(unittest.TestCase):
             calls.append((tuple(names), tuple(force), ctx.check_only))
         with patch.object(steps, 'run_steps', side_effect=capture), \
                 patch.object(steps.bw, 'check_host', return_value={'warnings': []}):
-            for step in ('vendor', 'sync', 'android'):
-                self.assertEqual(0, steps.main([step, '--workspace', str(self.root / 'ws')], self.lines.append))
+            for step in (['vendor', 'FP6'], ['sync'], ['android']):
+                self.assertEqual(0, steps.main([*step, '--workspace', str(self.root / 'ws')], self.lines.append))
         self.assertEqual([(('sync', 'vendor'), ('sync',), True), (('sync',), ('sync',), False),
                           (('android',), ('android',), False)], calls)
         # The checking sync runs no repo command.

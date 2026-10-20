@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "codename": "FP6",
+  "name": "Fairphone 6",
+  "lunch": "FP6",
+  "vendor_tree": "vendor/fairphone/FP6",
+  "files": {
+    "build_environment": "build-environment-fp6.json",
+    "build": "fp6-build.json",
+    "stock_image_recipe": "fp6-stock-image-recipe.json",
+    "stock_inputs": "stock-inputs.json",
+    "vendor_files": "fp6-minimal/vendor-files.json",
+    "vendor_elf": "fp6-minimal/vendor-elf.json",
+    "image_tools": "fp6-image-tools.json",
+    "firmware_inventory": "fp6-firmware-inventory.json"
+  }
+}

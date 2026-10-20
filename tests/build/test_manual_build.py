@@ -94,9 +94,9 @@ class ManualBuildTests(unittest.TestCase):
             (lambda: setattr(self, 'vendor_check', (False, 'differs VENDOR/lib64/libfoo.so')),
              'not built with the vendor tree of "diamaneos build vendor" \\(differs VENDOR/lib64/libfoo.so\\)'),
             (lambda: self.descriptor({'inputs': {'vendor': {'generation': 'h' * 64}}}),
-             'the source has not the vendor tree "diamaneos build vendor" made'),
+             'the source has not the vendor tree "diamaneos build vendor FP6" made'),
             (lambda: self.source.update(resolved_manifest_sha256='0' * 64),
-             'the source changed since "diamaneos build vendor" checked it'),
+             'the source changed since "diamaneos build vendor FP6" checked it'),
         )
         for change, message in cases:
             with self.subTest(message=message):
@@ -140,7 +140,7 @@ class PlainFlowCommandTests(unittest.TestCase):
             return steps.main([*argv, '--workspace', str(self.root / 'ws')], self.lines.append)
 
     def test_vendor_checks_the_checkout_and_package_records_out(self):
-        for argv in (('vendor',), ('package',), ('android',), ('sync',)):
+        for argv in (('vendor', 'FP6'), ('package',), ('android',), ('sync',)):
             self.assertEqual(0, self.main(*argv))
         self.assertEqual([(('sync', 'vendor'), ('sync',), True, False),
                           (('sync', 'android', 'package', 'verify'), ('sync', 'android', 'package', 'verify'),
