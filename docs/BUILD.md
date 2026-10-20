@@ -313,8 +313,9 @@ or deleted files):
   - Generic checks: `SHA256SUMS`.
   - The record (a test build that must never be locked, matching hashes).
   - test-keys in every fingerprint.
-  - The AVB chain with the test key and the device layout (vbmeta index 0 at location 0, recovery 28,
-    vbmeta_system 29, boot 30, init_boot 31, flags 0, pvmfw in vbmeta_system).
+  - The AVB chain with the test key and the device layout (vbmeta at location 0, recovery 28,
+    vbmeta_system 29, boot 30, init_boot 31, flags 0, pvmfw in vbmeta_system). On an official
+    build every rollback index is above 0.
   - Zero OS fields in the boot-family headers with the versions in AVB properties.
   - `super.img` holding exactly the logical images, and `super_empty.img` listing the same
     partitions.
@@ -533,8 +534,10 @@ relock order, tested on the FP6:
 OS](https://diamaneos.de/install/cli/#returning-to-the-stock-os) in the install guide. Relock only with
 the stock OS installed, as that section describes.
 
-- On the FP6, DiamaneOS stores its rollback indices apart from stock's, so it does not limit which
-  stock release can relock ([rollback rules](FIRMWARE.md#rollback-rules)).
+- After a locked DiamaneOS boot, run `fastboot oem reset-rollback` while unlocked before relocking
+  stock: the top-level vbmeta index DiamaneOS stores is above stock's
+  ([rollback rules](FIRMWARE.md#rollback-rules)). Fairphone's flash script tries it as its last
+  step.
 
 ## Troubleshooting
 

@@ -99,7 +99,8 @@ class NativeSignatureTests(unittest.TestCase):
                                 '--partition_name', 'boot', '--algorithm', 'SHA256_RSA4096', '--key', cls.private / 'avb.pem'])
         cls.vbmeta = cls.root / 'vbmeta.img'
         cls.tools.run('avbtool', ['make_vbmeta_image', '--output', cls.vbmeta, '--algorithm', 'SHA256_RSA4096',
-                                '--key', cls.private / 'avb.pem', '--include_descriptors_from_image', cls.boot,
+                                '--key', cls.private / 'avb.pem', '--rollback_index', '7',
+                                '--include_descriptors_from_image', cls.boot,
                                 '--include_descriptors_from_image', cls.system])
         cls.target = cls.root / 'signed-target-files.zip'
         write_zip(cls.target, {
@@ -374,7 +375,8 @@ class NativeSignatureTests(unittest.TestCase):
         public = root.parent / 'independent-chain.avbpubkey'
         self.tools.run('avbtool', ['extract_public_key', '--key', self.keys.avb(), '--output', public])
         self.tools.run('avbtool', ['make_vbmeta_image', '--output', root / 'vbmeta.img', '--algorithm', 'SHA256_RSA4096',
-                                 '--key', self.private / 'avb.pem', '--include_descriptors_from_image', root / 'boot.img',
+                                 '--key', self.private / 'avb.pem', '--rollback_index', '7',
+                                 '--include_descriptors_from_image', root / 'boot.img',
                                  '--chain_partition', 'vbmeta_system:' + str(location) + ':' + str(public)])
         expected = ['boot', 'system', 'vbmeta', 'vbmeta_system']
         chains = {'vbmeta_system': location}

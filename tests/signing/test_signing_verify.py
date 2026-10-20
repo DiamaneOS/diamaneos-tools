@@ -576,10 +576,14 @@ class NativeOrchestrationTests(unittest.TestCase):
         tools = Mock()
         info = 'Algorithm: SHA256_RSA4096\nFlags: 0\nDescriptors:\n  Hash descriptor:\n    Partition Name: boot\n'
         tools.run.return_value = info; tools.scratch = Path('/scratch')
+        tools.avb_rollback_index.return_value = 1791158400
         keys = Mock(); keys.avb.return_value = Path('/external/avb.pub.pem')
         with patch.object(native, 'safe_file', side_effect=lambda root, name: Path(root) / name):
             self.assertEqual(['boot', 'vbmeta'], native.verify_images(tools, keys, Path('/images'), ['boot', 'vbmeta'], {}))
             with self.assertRaises(inputs.SigningError): native.verify_images(tools, keys, Path('/images'), ['boot', 'vbmeta', 'system'], {})
+            tools.avb_rollback_index.return_value = 0
+            with self.assertRaisesRegex(inputs.SigningError, 'rollback index of vbmeta is 0'):
+                native.verify_images(tools, keys, Path('/images'), ['boot', 'vbmeta'], {})
         real = native.NativeTools.__new__(native.NativeTools); real.run = Mock(return_value=info.replace('Flags: 0', 'Flags: 2'))
         real.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
         with self.assertRaises(inputs.SigningError): real.avb(Path('/image'), Path('/external/key'))

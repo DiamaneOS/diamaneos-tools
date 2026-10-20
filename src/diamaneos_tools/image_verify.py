@@ -1268,8 +1268,34 @@ def check_avb(v):
     key = v.src / v.config['avb']['test_key']
     v.tools.run('avbtool', ['verify_image', '--image', v.images / 'vbmeta.img', '--key', key,
                             '--follow_chain_partitions'], cwd=v.images)
-    problems, _ = avb_layout(v)
+    problems, info = avb_layout(v)
+    if lockable(v.record):
+        indexes = {'vbmeta': rollback_index(info)}
+        for name in sorted(v.config['avb']['chains']):
+            indexes[name] = rollback_index(v.tools.run('avbtool', ['info_image', '--image', v.images / f'{name}.img']))
+        problems += rollback_problems(v.record, indexes)
     return not problems, '; '.join(problems)
+
+
+def rollback_index(info: str):
+    """The rollback index in the image's own vbmeta header, or the list of what avbtool printed."""
+    # avbtool prints the release string as it is, so a field counts only once.
+    found = re.findall(r'(?m)^Rollback Index:\s+(\d+)\s*$', info.split('Descriptors:')[0])
+    return int(found[0]) if len(found) == 1 else found
+
+
+def lockable(record: dict) -> bool:
+    """Official and release-keys builds may be locked, so their indexes must advance."""
+    return record.get('official') is True or record.get('signing') == 'release-keys'
+
+
+def rollback_problems(record: dict, indexes: dict) -> list:
+    """An official or release-keys build needs a non-zero rollback index on vbmeta and every chain.
+    Index 0 lets an older signed image of the same key boot on a locked phone."""
+    if not lockable(record):
+        return []
+    zero = sorted(name for name, index in indexes.items() if type(index) is not int or index <= 0)
+    return ['no rollback index above 0 on ' + ', '.join(zero)] if zero else []
 
 
 def avb_layout(v) -> tuple[list, str]:
@@ -1279,10 +1305,8 @@ def avb_layout(v) -> tuple[list, str]:
     want = {name: (location, 0) for name, location in v.config['avb']['chains'].items()}
     problems = [] if chains == want else [f'chains are {chains} (want {want})']
     header = info.split('Descriptors:')[0]
-    rollback = (re.search(r'(?m)^Rollback Index:\s+(\d+)\s*$', header),
-                re.search(r'(?m)^Rollback Index Location:\s+(\d+)\s*$', header))
-    if not all(rollback) or any(int(found[1]) for found in rollback):
-        problems.append('vbmeta does not keep rollback index 0 at location 0, as stock does')
+    if re.findall(r'(?m)^Rollback Index Location:\s+(\d+)\s*$', header) != ['0']:
+        problems.append('vbmeta does not use rollback index location 0')
     system = v.tools.run('avbtool', ['info_image', '--image', v.images / 'vbmeta_system.img'])
     if not re.search(r'Partition Name:\s+pvmfw\b', system):
         problems.append('vbmeta_system lacks the pvmfw descriptor')
@@ -1809,7 +1833,8 @@ def check_firmware_ota(v):
 GENERIC = [
     ('record', 'The image set matches its build record and is marked as a test build that must never be locked.', check_record),
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
-    ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees.', check_avb),
+    ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees. '
+     'An official build has a rollback index above 0 on vbmeta and every chain.', check_avb),
     ('boot-header', 'Boot-family headers carry zero OS fields. The versions live in AVB properties.', check_boot_headers),
     ('super', 'super.img holds exactly the exported logical images and an empty slot b. super_empty.img, which '
      'the install writes, lists the same partitions.', check_super),

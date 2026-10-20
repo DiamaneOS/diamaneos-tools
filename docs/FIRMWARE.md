@@ -158,11 +158,12 @@ as after Fairphone's own flash.
     a lower index no longer boot locked.
 - The stock script's `oem reset-rollback` (unlocked only) resets them. Fairphone warns that locking
   on older software than before may brick the phone.
-- DiamaneOS chains the same partitions at 28 to 31, so the indices it stores never limit a stock
-  relock.
-  - The top-level vbmeta keeps location 0 and index 0, as on stock.
-  - A DiamaneOS build relocked with its own key must use indices at or above those stored at 28
-    to 31.
+- DiamaneOS chains the same partitions at 28 to 31.
+  - Every index is the platform security patch date, as on Pixels.
+  - The top-level vbmeta uses location 0, as on stock, where stock stores 0. A return to stock
+    after a locked DiamaneOS boot needs `oem reset-rollback` while unlocked, before relocking.
+  - `build verify` (`avb-chain`) and the signing verifier refuse an official or release-keys set
+    with index 0 on vbmeta or a chain.
 - Qualcomm's own anti-rollback version (signing metadata, enforceable from fuses or protected
   storage) is recorded in the inventory (`qualcomm_anti_rollback_version`).
 - Never downgrade firmware: it is untested even at equal anti-rollback version, and the stock flash

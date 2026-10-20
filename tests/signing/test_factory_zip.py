@@ -201,7 +201,7 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
         self.tools.avb_rollback_index.side_effect = lambda image: 1
         with self.assertRaisesRegex(si.SigningError, 'Factory metadata differs'):
             self.verify()
-        for rollback in ({}, {'vbmeta': -1}, {'vbmeta': 0, 'boot': 1}, {'vbmeta': '0'}):
+        for rollback in ({}, {'vbmeta': -1}, {'vbmeta': 0}, {'vbmeta': 0, 'boot': 1}, {'vbmeta': '0'}):
             with self.subTest(rollback=rollback), self.assertRaisesRegex(si.SigningError, 'rollback indexes'):
                 factory.derived_record(self.plan, 'f' * 64, {n: 'f' * 64 for n in layout.full_image_members(self.plan)},
                                        'f' * 64, rollback)

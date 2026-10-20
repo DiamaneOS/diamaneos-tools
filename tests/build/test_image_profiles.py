@@ -39,7 +39,7 @@ def avb_blob(modulus: int, bits: int = 2048) -> bytes:
 
 
 SET_KEY = avb_blob((1 << 2047) | 12345)
-ROLLBACK = {'vbmeta': 0, 'boot': 1791158400, 'init_boot': 1791158400, 'recovery': 1, 'vbmeta_system': 1791158400}
+ROLLBACK = {name: 1791158400 for name in ('vbmeta', 'boot', 'init_boot', 'recovery', 'vbmeta_system')}
 TEST_KEY = avb_blob((1 << 2047) | 67891)
 
 
@@ -47,21 +47,21 @@ def info(rollback=0, flags=0, descriptors=''):
     return f'Rollback Index:           {rollback}\nFlags:                    {flags}\nDescriptors:\n{descriptors}'
 
 
-def layout(flags=None):
+def layout(flags=None, rollback=None):
     """avbtool info_image texts of the published FP6 chain."""
-    flags = flags or {}
+    flags, rollback = flags or {}, dict(ROLLBACK, **(rollback or {}))
     tree = '    Hashtree descriptor:\n      Hash Algorithm:        sha256\n      Partition Name:        {}\n'
     chains = ''.join(f'    Chain Partition descriptor:\n      Partition Name:          {name}\n'
                      f'      Rollback Index Location: {location}\n      Flags:                   0\n'
                      for name, location in CONFIG['avb']['chains'].items())
-    vbmeta = (f'Rollback Index:           0\nFlags:                    {flags.get("vbmeta", 0)}\n'
+    vbmeta = (f'Rollback Index:           {rollback["vbmeta"]}\nFlags:                    {flags.get("vbmeta", 0)}\n'
               'Rollback Index Location:  0\nDescriptors:\n' + chains
               + ''.join(tree.format(n) for n in ('vendor', 'odm', 'vendor_dlkm', 'system_dlkm')))
     system = '    Hash descriptor:\n      Partition Name:        pvmfw\n' + ''.join(
         tree.format(n) for n in ('system', 'system_ext', 'product'))
-    return {'vbmeta': vbmeta, 'vbmeta_system': info(1791158400, flags.get('vbmeta_system', 0), system),
-            'boot': info(1791158400, flags.get('boot', 0)), 'init_boot': info(1791158400),
-            'recovery': info(1)}
+    return {'vbmeta': vbmeta, 'vbmeta_system': info(rollback['vbmeta_system'], flags.get('vbmeta_system', 0), system),
+            'boot': info(rollback['boot'], flags.get('boot', 0)), 'init_boot': info(rollback['init_boot']),
+            'recovery': info(rollback['recovery'])}
 
 
 class FakeTools:
@@ -266,8 +266,8 @@ class SignedCheckTests(unittest.TestCase):
     def test_signed_avb_chain(self):
         v = self.signed()
         ok, detail = subject.check_signed_avb(v)
-        self.assertEqual((True, 'rollback indexes: vbmeta 0, boot 1791158400, init_boot 1791158400, recovery 1, '
-                          'vbmeta_system 1791158400'), (ok, detail))
+        self.assertEqual((True, 'rollback indexes: vbmeta 1791158400, boot 1791158400, init_boot 1791158400, '
+                          'recovery 1791158400, vbmeta_system 1791158400'), (ok, detail))
         verify = next(args for name, args in v.tools.calls if args[0] == 'verify_image')
         self.assertEqual(subject.avb_key_pem(SET_KEY), v.tools.pem)
         chains = {f'{name}:{location}:{v.images / "avb_pkmd.bin"}' for name, location in CONFIG['avb']['chains'].items()}
@@ -277,9 +277,16 @@ class SignedCheckTests(unittest.TestCase):
                             ({'tools': FakeTools(verify_fails=True)}, 'does not match given key'),
                             ({'tools': FakeTools(texts=layout({'boot': 1}))}, 'boot does not keep AVB flags 0'),
                             ({'tools': FakeTools(texts=layout({'vbmeta': 2}))}, 'vbmeta does not keep AVB flags 0'),
-                            ({'record': {'avb_rollback_indexes': None}}, "'recovery': 1, 'vbmeta_system': 1791158400} "
+                            ({'record': {'avb_rollback_indexes': None}}, "'vbmeta_system': 1791158400} "
                                                                          '(build.json avb_rollback_indexes: None)'),
-                            ({'record': {'avb_rollback_indexes': dict(ROLLBACK, recovery=2)}}, 'rollback indexes are')):
+                            ({'record': {'avb_rollback_indexes': dict(ROLLBACK, recovery=2)}}, 'rollback indexes are'),
+                            ({'tools': FakeTools(texts=layout(rollback={'vbmeta': 0, 'recovery': 1})),
+                              'record': {'avb_rollback_indexes': dict(ROLLBACK, vbmeta=0, recovery=1)}},
+                             'no rollback index above 0 on vbmeta'),
+                            ({'tools': FakeTools(texts=layout(rollback={'init_boot': 0})),
+                              'record': {'official': False, 'signing': 'release-keys',
+                                         'avb_rollback_indexes': dict(ROLLBACK, init_boot=0)}},
+                             'no rollback index above 0 on init_boot')):
             with self.subTest(problem=problem):
                 v = self.signed(**kw)
                 try:
@@ -288,6 +295,12 @@ class SignedCheckTests(unittest.TestCase):
                     ok, detail = False, str(error)
                 self.assertFalse(ok)
                 self.assertIn(problem, detail)
+
+    def test_signed_avb_chain_of_a_set_that_is_not_official_may_keep_index_0(self):
+        zero = {'vbmeta': 0, 'recovery': 1}
+        v = self.signed(tools=FakeTools(texts=layout(rollback=zero)),
+                        record={'official': False, 'avb_rollback_indexes': dict(ROLLBACK, **zero)})
+        self.assertTrue(subject.check_signed_avb(v)[0])
 
     def test_validators_run_from_the_sets_otatools_with_its_public_key(self):
         runs = []

@@ -187,7 +187,7 @@ the signing plan, signed target-files and actual image hashes. Its public AVB ke
 match the external authority and the embedded vbmeta key.
 
 `avb_rollback_indexes` in the derived record holds the rollback index that vbmeta and each chained
-image carry.
+image carry. Each must be above 0.
 
 Checksums cover every contained file except the checksum list itself. Scripts are regenerated
 from the plan-bound source generator and derived record. Installs use fastbootd for logical
@@ -299,7 +299,7 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
   - `avb-chain`: `avbtool verify_image` of vbmeta and every chain with `avb_pkmd.bin`, chain
     descriptors with the same key, the FP6 layout and flags 0.
   - `avb-chain` also requires the rollback index of vbmeta and of each chained image to equal
-    `avb_rollback_indexes` in `build.json`.
+    `avb_rollback_indexes` in `build.json`. On an official or release-keys set each must be above 0.
   - `validators`: `validate_target_files` and `check_target_files_vintf` from the set's
     `otatools.zip`, with the set's public key for the signing keys the archive names.
 - `avb_pkmd.bin` must be an RSA AVB key that `avbtool` reproduces exactly, and none of the AOSP AVB
@@ -362,7 +362,8 @@ bin/diamaneos signing verify --plan "$PLAN" \
 - Published partitions match signed target-files, including unpacked logical images. Direct logical images must match their `super` contents.
 - Super extraction must contain every expected active logical image. Only known empty inactive counterparts are allowed. Slots come from the admitted install record; qualification layouts explicitly bind slot suffixes or unsuffixed platform output.
 - Flat image membership includes every declared firmware, wipe and modem-reset file. Unknown members and partial logical sets are rejected.
-- Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected.
+- Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected. vbmeta and every chained image need a rollback index above 0.
+- The signer keeps the rollback indexes: `sign_target_files_apks` replaces only the AVB key and algorithm in `META/misc_info.txt` and rebuilds the images with the build's `--rollback_index` arguments.
 - The platform OTA checker verifies whole-file, payload and metadata signatures. Build metadata and payload properties bind the accepted build and final bytes.
 - Native payload application reproduces signed target-files partitions, using the verified source for deltas.
 - Incremental pre-build metadata must exactly match the authenticated signed base's platform BuildInfo identity. The base archive hash is rechecked before verification returns.

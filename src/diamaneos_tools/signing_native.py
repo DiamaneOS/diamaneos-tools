@@ -568,6 +568,8 @@ def verify_images(tools, keys, images, expected_partitions, expected_chains):
                 pending.append(partition)
                 chains.append((partition, location, public_blob))
         tools.avb(path, keys.avb(), chains=chains)
+        # Index 0 lets an older image signed with the same key boot on a locked phone.
+        require(tools.avb_rollback_index(path) > 0, 'AVB rollback index of ' + name + ' is 0')
     require(covered | visited == set(expected_partitions) and observed_chains == expected_chains,
             'AVB does not cover every declared partition and chain')
     return sorted(covered | visited)

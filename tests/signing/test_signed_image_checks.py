@@ -40,7 +40,7 @@ class SignedImageCheckTests(unittest.TestCase):
             self.tools.run('avbtool', ['extract_public_key', '--key', self.key(name),
                                        '--output', images.parent / (images.name + name + '.bin')])
         self.tools.run('avbtool', ['make_vbmeta_image', '--output', images / 'vbmeta.img', '--algorithm',
-                                   'SHA256_RSA4096', '--key', self.key(signer), '--chain_partition',
+                                   'SHA256_RSA4096', '--key', self.key(signer), '--rollback_index', '7', '--chain_partition',
                                    f'boot:30:{images.parent / (images.name + chain + ".bin")}'])
         key = (images.parent / (images.name + (published or signer) + '.bin')).read_bytes()
         (images / 'avb_pkmd.bin').write_bytes(key)
@@ -48,7 +48,7 @@ class SignedImageCheckTests(unittest.TestCase):
         config = {'avb': {'test_key': TEST_KEY, 'chains': {'boot': 30}}}
         record = {'never_lock': True, 'release': False, 'signing': 'qualification-keys', 'official': True,
                   'avb_custom_key': {'file': 'avb_pkmd.bin', 'sha256': hashlib.sha256(key).hexdigest()},
-                  'avb_rollback_indexes': {'vbmeta': 0, 'boot': 7}}
+                  'avb_rollback_indexes': {'vbmeta': 7, 'boot': 7}}
         return SimpleNamespace(images=images, record=record, tools=self.tools, config=config, src=self.source)
 
     def checks(self, v):
@@ -68,7 +68,7 @@ class SignedImageCheckTests(unittest.TestCase):
         v = self.image_set('own', 'own', 'own')
         (record, avb) = self.checks(v)
         self.assertEqual((True, ''), record)
-        self.assertEqual((True, 'rollback indexes: vbmeta 0, boot 7'), avb)
+        self.assertEqual((True, 'rollback indexes: vbmeta 7, boot 7'), avb)
         native = signing_native.NativeTools(self.otatools, self.source, self.root)
         self.assertEqual(7, native.avb_rollback_index(v.images / 'boot.img'))
         v.record['avb_rollback_indexes']['boot'] = 8

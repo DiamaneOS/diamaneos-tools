@@ -78,7 +78,7 @@ class FakeTools:
 
 
 class Harness:
-    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user'):
+    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user', record=None):
         path = root / 'tf.zip'
         with zipfile.ZipFile(path, 'w') as archive:
             for name, data in members.items():
@@ -91,6 +91,7 @@ class Harness:
         self.tools = tools or FakeTools()
         self.images = root
         self.variant = variant
+        self.record = record or {}
         self.config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.sources = subject.Sources(self.tf, kernel, root)
 
@@ -2327,19 +2328,22 @@ class GenericCheckTests(unittest.TestCase):
                          for name, location in (('recovery', 28), ('vbmeta_system', 29), ('boot', 30), ('init_boot', 31)))
         system = ['system', 'system_ext', 'product']
 
-        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm'), index=0):
+        def outputs(algorithm, vendor=('vendor', 'odm', 'vendor_dlkm', 'system_dlkm'), index=0, location=0, chain=0):
             def avbtool(args):
                 if args[0] == 'verify_image':
                     return ''
-                if str(args[-1]).endswith('vbmeta_system.img'):
-                    return ('    Hash descriptor:\n      Partition Name:        pvmfw\n'
-                            + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in system))
-                header = f'Rollback Index:           {index}\nRollback Index Location:  0\nDescriptors:\n'
+                image = Path(args[-1]).stem
+                if image != 'vbmeta':
+                    descriptors = ('    Hash descriptor:\n      Partition Name:        pvmfw\n'
+                                   + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in system)
+                                   if image == 'vbmeta_system' else '')
+                    return f'Rollback Index:           {chain}\nDescriptors:\n' + descriptors
+                header = f'Rollback Index:           {index}\nRollback Index Location:  {location}\nDescriptors:\n'
                 return header + chains + ''.join(tree(n, algorithm.get(n, 'sha256')) for n in vendor)
             return FakeTools({('avbtool',): avbtool})
 
-        def check(tools):
-            v = self.harness({}, tools=tools)
+        def check(tools, record=None):
+            v = self.harness({}, tools=tools, record=record)
             v.src = self.root
             return subject.check_avb(v)
         self.assertEqual((True, ''), check(outputs({})))
@@ -2349,9 +2353,39 @@ class GenericCheckTests(unittest.TestCase):
         ok, detail = check(outputs({}, vendor=('vendor', 'odm', 'vendor_dlkm')))
         self.assertFalse(ok)
         self.assertIn('hashtrees for', detail)
-        ok, detail = check(outputs({}, index=1785888000))
+        ok, detail = check(outputs({}, location=1))
         self.assertFalse(ok)
-        self.assertIn('rollback index 0 at location 0', detail)
+        self.assertIn('rollback index location 0', detail)
+
+    def test_avb_check_requires_rollback_indexes_on_lockable_builds(self):
+        chains = ''.join(f'    Chain Partition descriptor:\n      Partition Name:          {name}\n'
+                         f'      Rollback Index Location: {location}\n      Flags:                   0\n'
+                         for name, location in (('recovery', 28), ('vbmeta_system', 29), ('boot', 30), ('init_boot', 31)))
+        trees = ''.join(f'    Hashtree descriptor:\n      Hash Algorithm:        sha256\n      Partition Name:        {n}\n'
+                        for n in ('vendor', 'odm', 'vendor_dlkm', 'system_dlkm'))
+        system = '    Hash descriptor:\n      Partition Name:        pvmfw\n' + ''.join(
+            f'    Hashtree descriptor:\n      Hash Algorithm:        sha256\n      Partition Name:        {n}\n'
+            for n in ('system', 'system_ext', 'product'))
+
+        def check(record, **indexes):
+            def avbtool(args):
+                if args[0] == 'verify_image':
+                    return ''
+                image = Path(args[-1]).stem
+                header = f'Rollback Index:           {indexes.get(image, 1791158400)}\n'
+                if image == 'vbmeta':
+                    return header + 'Rollback Index Location:  0\nDescriptors:\n' + chains + trees
+                return header + 'Descriptors:\n' + (system if image == 'vbmeta_system' else '')
+            v = self.harness({}, tools=FakeTools({('avbtool',): avbtool}), record=record)
+            v.src = self.root
+            return subject.check_avb(v)
+        for record in ({'official': True}, {'signing': 'release-keys'}):
+            self.assertEqual((True, ''), check(record))
+            for name in ('vbmeta', 'recovery', 'boot', 'init_boot', 'vbmeta_system'):
+                with self.subTest(record=record, image=name):
+                    self.assertEqual((False, 'no rollback index above 0 on ' + name), check(record, **{name: 0}))
+        # A development build that is never locked may keep stock's values.
+        self.assertEqual((True, ''), check({'official': False}, vbmeta=0, recovery=1))
 
     def test_kernel_binding(self):
         kernel = self.root / 'kernel'

@@ -140,8 +140,8 @@ def derived_record(plan, signed_hash, image_hashes, key_hash, rollback):
     validate_input(original, plan)
     require(set(image_hashes) == layout.full_image_members(plan), 'Factory image membership is incomplete')
     require(set(rollback) == {'vbmeta', *plan['chains']}
-            and all(type(index) is int and index >= 0 for index in rollback.values()),
-            'Factory rollback indexes do not cover vbmeta and every chain')
+            and all(type(index) is int and index > 0 for index in rollback.values()),
+            'Factory rollback indexes do not cover vbmeta and every chain, each above 0')
     value = copy.deepcopy(original)
     # The source's local changes and other deviations, which only own keys may sign.
     value.update(**SIGNING[plan['mode']], reproducible=False, modified=plan['provenance'].get('modified', []),

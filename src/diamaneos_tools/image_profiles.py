@@ -202,11 +202,11 @@ def check_signed_avb(v):
         # avbtool prints the release string as it is, so a field counts only once.
         if re.findall(r'(?m)^Flags:\s+(\d+)\s*$', header) != ['0']:
             problems.append(f'{name} does not keep AVB flags 0')
-        found = re.findall(r'(?m)^Rollback Index:\s+(\d+)\s*$', header)
-        indexes[name] = int(found[0]) if len(found) == 1 else found
+        indexes[name] = iv.rollback_index(info)
     if v.record.get('avb_rollback_indexes') != indexes:
         problems.append(f'rollback indexes are {indexes} (build.json avb_rollback_indexes: '
                         f'{v.record.get("avb_rollback_indexes")})')
+    problems += iv.rollback_problems(v.record, indexes)
     return not problems, '; '.join(problems) or 'rollback indexes: ' + ', '.join(f'{n} {i}' for n, i in indexes.items())
 
 
@@ -244,7 +244,8 @@ COUNTERPARTS = {
                   'certificate holds a public test key. A release-keys set trusts only the DiamaneOS release OTA '
                   'key, and its App Store only the DiamaneOS catalog key.', check_release_keys),
     'avb-chain': ('The AVB chain verifies with the set\'s own key, never an AOSP test key, and has the published FP6 '
-                  'layout, flags 0, SHA-256 hashtrees and the rollback indexes build.json records.', check_signed_avb),
+                  'layout, flags 0, SHA-256 hashtrees and the rollback indexes build.json records, above 0 on an '
+                  'official or release-keys set.', check_signed_avb),
     'validators': ('validate_target_files and check_target_files_vintf from the set\'s own otatools pass on the '
                    'archive.', check_otatools_validators),
 }
