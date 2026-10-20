@@ -108,25 +108,55 @@ def load_config(name: str) -> tuple[dict, bytes]:
     return json.loads(raw), raw
 
 
-def default_workspace(tools: Path = ROOT) -> Path:
-    """$DIAMANEOS_WORKSPACE, else the workspace whose checkout these tools run
-    from (<workspace>/src/tools/diamaneos), else ~/diamaneos-build."""
-    value = os.environ.get('DIAMANEOS_WORKSPACE')
+def tools_checkout(tools: Path = ROOT) -> Path | None:
+    """The source checkout these tools run from (<checkout>/tools/diamaneos), whatever its name, or None."""
+    checkout = tools.parent.parent
+    if (tools.name, tools.parent.name) == ('diamaneos', 'tools') and (checkout / '.repo').is_dir():
+        return checkout
+    return None
+
+
+def beside(checkout: Path) -> Path:
+    """The default workspace of a checkout: the directory that holds it as src, else <checkout>-build."""
+    if checkout.name == 'src' and checkout.parent not in (Path(checkout.anchor), Path.home()):
+        return checkout.parent
+    return checkout.parent / (checkout.name + '-build')
+
+
+def locate(given: str | os.PathLike | None = None, tools: Path = ROOT) -> 'Workspace':
+    """The workspace and its source.
+
+    The workspace is ``given``, else $DIAMANEOS_WORKSPACE, else the default of
+    the checkout these tools run from, else ~/diamaneos-build. The source is the
+    workspace's src directory when it has one, else that checkout."""
+    checkout = tools_checkout(tools)
+    value = given or os.environ.get('DIAMANEOS_WORKSPACE')
     if value:
-        return Path(value)
-    source = tools.parent.parent
-    if (tools.name, tools.parent.name, source.name) == ('diamaneos', 'tools', 'src') and (source / '.repo').is_dir() \
-            and source.parent not in (Path(source.anchor), Path.home()):
-        return source.parent
-    return Path.home() / 'diamaneos-build'
+        root = Path(value).expanduser().absolute()
+        src = root / 'src'
+        if checkout is not None and not (src.exists() or src.is_symlink()):
+            src = checkout
+    elif checkout is not None:
+        root, src = beside(checkout), checkout
+        if root.parent == checkout.parent and os.stat(root.parent).st_dev != os.stat(checkout).st_dev:
+            raise UsageError(f'{root}, the default workspace beside the checkout, is on another filesystem than '
+                             f'{checkout}. Pass --workspace with a directory on the checkout\'s disk')
+    else:
+        root = Path.home() / 'diamaneos-build'
+        src = root / 'src'
+    return Workspace(root, src)
+
+
+def default_workspace(tools: Path = ROOT) -> Path:
+    return locate(tools=tools).root
 
 
 class Workspace:
     """Paths and state of one build workspace."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, src: Path | None = None):
         self.root = Path(root).expanduser().absolute()
-        self.src = self.root / 'src'
+        self.src = Path(src).absolute() if src is not None else self.root / 'src'
         self.kernel = self.root / 'kernel'
         self.stock = self.root / 'stock'
         self.stock_images = self.stock / 'images'
@@ -138,6 +168,10 @@ class Workspace:
         self.work = self.root / 'work'
         self.images = self.root / 'images'
 
+    def relative(self, path: Path) -> str:
+        """A path as the state records it: relative to the workspace (src/out/... in the usual layout)."""
+        return os.path.relpath(path, self.root)
+
     def exists(self) -> bool:
         return self.root.is_dir()
 
@@ -146,9 +180,16 @@ class Workspace:
         if self.root.is_symlink():
             raise UsageError('the workspace must not be a symlink')
         if (self.root / '.repo').exists() or (self.root / '.repo').is_symlink():
-            hint = f': use --workspace {self.root.parent}' if self.root.name == 'src' else ''
-            raise UsageError(f'{self.root} is a source checkout, not a workspace. The workspace is the directory '
-                             f'that holds the checkout as src/{hint}')
+            raise UsageError(f'{self.root} is a source checkout. The workspace is another directory, for images, logs '
+                             f'and build state. Leave out --workspace to use {beside(self.root)}, or name another '
+                             'directory')
+        if self.root.is_relative_to(self.src):
+            raise UsageError(f'the workspace {self.root} is inside the source checkout {self.src}. Name a directory '
+                             'outside it, such as ' + str(beside(self.src)))
+        own = (self.kernel, self.stock, self.vendor, self.cache, self.logs, self.state_dir, self.work, self.images)
+        if any(self.src.is_relative_to(path) for path in own):
+            raise UsageError(f'the source checkout {self.src} is where the workspace {self.root} keeps its own '
+                             'files. Name another workspace directory')
 
     def state(self, step: str) -> dict | None:
         path = self.state_dir / (step + '.json')
@@ -445,12 +486,17 @@ def check_host(workspace: Workspace, steps, environment: dict, build_config: dic
         warnings.append(f'{memory // GIB} GiB of RAM works but {2 * minimum // GIB} GB is recommended')
     workspace.root.mkdir(parents=True, exist_ok=True)
     needed = needed_space(build_config, steps, present)
-    free = probe.get('free', shutil.disk_usage(workspace.root).free)
-    if free < needed:
-        problems.append(f'needs about {needed // GIB} GiB free in {workspace.root} for these steps '
-                        f'(found {free // GIB} GiB)')
-    if not probe.get('case_sensitive', case_sensitive(workspace.root)):
-        problems.append(f'{workspace.root} must be on a case-sensitive filesystem')
+    # A source checkout on another filesystem needs the same checks.
+    places = [workspace.root]
+    if workspace.src.is_dir() and os.stat(workspace.src).st_dev != os.stat(workspace.root).st_dev:
+        places.append(workspace.src)
+    for place in places:
+        free = probe.get('free', shutil.disk_usage(place).free)
+        if free < needed:
+            problems.append(f'needs about {needed // GIB} GiB free in {place} for these steps '
+                            f'(found {free // GIB} GiB)')
+        if not probe.get('case_sensitive', case_sensitive(place)):
+            problems.append(f'{place} must be on a case-sensitive filesystem')
     if need_isolation:
         reason = probe['isolation'] if 'isolation' in probe else isolation_problem()
         if reason:

@@ -33,10 +33,15 @@ page name those files.
 ## Source checkout
 
 - **Workspace.**
-  - The tools keep everything in one workspace directory, with the source in its `src` directory.
-  - The workspace is `--workspace DIR`, else `DIAMANEOS_WORKSPACE`, else the one whose source the
-    tools run from (`src/tools/diamaneos`, the command prints it), else `~/diamaneos-build`.
-  - A source checkout itself is refused as the workspace.
+  - The tools keep images, logs, downloads and build state in one workspace directory.
+  - The workspace is `--workspace DIR`, else `DIAMANEOS_WORKSPACE`, else the default of the
+    checkout the tools run from (`<checkout>/tools/diamaneos`), else `~/diamaneos-build`. The
+    command prints it.
+  - The default is `<checkout>-build` next to the checkout, on the same filesystem. For a checkout
+    named `src`, it is the directory that holds it.
+  - The source is the workspace's `src` directory if it has one, else the checkout the tools run
+    from. The checkout can have any name.
+  - The checkout itself, or a directory inside it, is refused as the workspace.
 - **Tools.**
   - Run the tools from the source tree (`tools/diamaneos`).
   - For an official build, another tools checkout must contain the commit the sync checked out
@@ -63,8 +68,7 @@ page name those files.
 
 ## The build commands
 
-- `diamaneos build all` runs five steps in one [workspace](#source-checkout) directory, with the
-  source in its `src` directory.
+- `diamaneos build all` runs five steps in one [workspace](#source-checkout) directory.
 - Each step can also run on its own.
 - It then runs again (`build vendor` only when the vendor files are out of date).
 - It refuses to start while an earlier step it consumes has not run or is out of date (`build
@@ -533,11 +537,11 @@ the stock OS installed, as that section describes.
 | `this host cannot run the build` | It lists everything that is missing. Fix those and run the command again. |
 | `missing Python modules ... install python3-jsonschema` | Install the package named, for the Python the error names. |
 | `repo implementation commit does not match the pin` | An official build needs the pinned `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. Other builds only warn. |
-| `is a source checkout, not a workspace` | `--workspace` names the directory that holds the checkout as `src`. Run the tools from the checkout without the option, or pass the directory above it. |
+| `is a source checkout` or `is inside the source checkout` | `--workspace` names the checkout or a directory in it. Leave out the option to use the directory the error names, or name a directory outside the checkout. |
 | `out/ holds no complete <codename> build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
 | `the source changed since "diamaneos build vendor" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can. Otherwise add `--allow-network`, and `build.json` records that the build had network access. |
-| `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source: a warning, and a stop for an official build. Run the copy it names (`src/tools/diamaneos/bin/diamaneos`), or update your tools checkout. |
+| `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source: a warning, and a stop for an official build. Run the copy it names (`tools/diamaneos/bin/diamaneos` in the checkout), or update your tools checkout. |
 | A signature or hash does not match | Do not work around it. Check your network, then report it: the download is not what the tools pin. |
 | `not our ref` during sync | A commit the manifest selects is not on the server. Run the command again once it is pushed. |
 | `holds local manifests the build does not use` | An official build uses the manifest alone: move the files in `.repo/local_manifests` away. Other builds leave them to `repo`. |

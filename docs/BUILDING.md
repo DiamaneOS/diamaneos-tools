@@ -20,14 +20,14 @@ sudo apt install git git-lfs repo python3 python3-jsonschema gnupg openssh-clien
 ## 1. Get the source
 
 ```sh
-mkdir -p ~/diamaneos-build/src && cd ~/diamaneos-build/src
+mkdir -p ~/diamaneos && cd ~/diamaneos
 repo init -u https://github.com/DiamaneOS/platform_manifest.git -b android17
 repo sync -j8
 ```
 
 - Downloads every project of the DiamaneOS manifest, including the build tools in `tools/diamaneos`.
-- Another directory works as well, as long as the checkout is its `src`: the tools use the
-  directory above the checkout they run from as their workspace.
+- Any directory works. The tools keep images, logs and build state next to it, in
+  `~/diamaneos-build`. `--workspace DIR` picks another directory.
 - Stay in this directory.
 
 ## 2. Add the vendor files

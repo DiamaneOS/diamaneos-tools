@@ -79,30 +79,48 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(1, len(failed))
 
     def test_a_source_checkout_is_not_a_workspace(self):
-        source = self.root / 'ws' / 'src'
+        source = self.root / 'diamaneos'
         (source / '.repo').mkdir(parents=True)
         before = sorted(p.name for p in source.iterdir())
-        with self.assertRaisesRegex(bw.UsageError, f'source checkout.*--workspace {self.root / "ws"}$'):
+        with self.assertRaisesRegex(bw.UsageError, f'source checkout.*to use {self.root / "diamaneos-build"}, or'):
             with bw.Workspace(source).lock():
                 pass
         self.assertEqual(before, sorted(p.name for p in source.iterdir()))
+        for inside in (source / 'build', self.root / 'ws'):
+            with self.subTest(workspace=inside):
+                src = source if inside.parent == source else inside / 'state'
+                with self.assertRaisesRegex(bw.UsageError, 'inside the source checkout|keeps its own files'):
+                    bw.Workspace(inside, src).check_root()
 
-    def test_the_default_workspace_is_the_one_the_tools_run_from(self):
-        tools = self.root / 'ws' / 'src' / 'tools' / 'diamaneos'
-        tools.mkdir(parents=True)
+    def test_the_tools_find_their_checkout_whatever_its_name(self):
         with patch.dict(os.environ, {'HOME': str(self.root / 'home')}):
             os.environ.pop('DIAMANEOS_WORKSPACE', None)
-            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(tools))
-            (self.root / 'ws' / 'src' / '.repo').mkdir()
-            self.assertEqual(self.root / 'ws', bw.default_workspace(tools))
+            for checkout, workspace in ((self.root / 'disk' / 'diamaneos', self.root / 'disk' / 'diamaneos-build'),
+                                        (self.root / 'ws' / 'src', self.root / 'ws'),
+                                        (self.root / 'home' / 'src', self.root / 'home' / 'src-build')):
+                with self.subTest(checkout=checkout):
+                    tools = checkout / 'tools' / 'diamaneos'
+                    tools.mkdir(parents=True)
+                    found = bw.locate(tools=tools)
+                    self.assertEqual(self.root / 'home' / 'diamaneos-build', found.root)
+                    (checkout / '.repo').mkdir()
+                    found = bw.locate(tools=tools)
+                    self.assertEqual((workspace, checkout), (found.root, found.src))
+                    found.check_root()
             self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(self.root / 'elsewhere'))
-            other = self.root / 'ws' / 'src' / 'tools' / 'other'
-            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(other))
-            in_home = self.root / 'home' / 'src' / 'tools' / 'diamaneos'
-            (self.root / 'home' / 'src' / '.repo').mkdir(parents=True)
-            self.assertEqual(self.root / 'home' / 'diamaneos-build', bw.default_workspace(in_home))
-            os.environ['DIAMANEOS_WORKSPACE'] = str(self.root / 'named')
-            self.assertEqual(self.root / 'named', bw.default_workspace(tools))
+
+    def test_a_named_workspace_uses_its_own_source_else_the_tools_checkout(self):
+        checkout = self.root / 'disk' / 'diamaneos'
+        tools = checkout / 'tools' / 'diamaneos'
+        (checkout / '.repo').mkdir(parents=True)
+        tools.mkdir(parents=True)
+        found = bw.locate(str(self.root / 'other'), tools)
+        self.assertEqual((self.root / 'other', checkout), (found.root, found.src))
+        (self.root / 'other' / 'src').mkdir(parents=True)
+        self.assertEqual(self.root / 'other' / 'src', bw.locate(str(self.root / 'other'), tools).src)
+        with patch.dict(os.environ, {'DIAMANEOS_WORKSPACE': str(self.root / 'named')}):
+            self.assertEqual(self.root / 'named', bw.locate(tools=tools).root)
+        self.assertEqual('../disk/diamaneos/out/x.zip', found.relative(checkout / 'out' / 'x.zip'))
 
     def test_compile_actions_run_without_network_unless_allowed(self):
         action = bw.Action('Build', argv=['m', 'droid'], compile=True, env={'OUT_DIR': 'out'}, unset=('OFFICIAL_BUILD',))

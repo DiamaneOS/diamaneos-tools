@@ -767,7 +767,7 @@ def otatools_record(ctx: Context) -> dict | None:
     if len(matches) != 1:
         raise BuildStepError('expected exactly one otatools archive from the build')
     try:
-        return {'file': str(matches[0].relative_to(ctx.workspace.root)), 'sha256': bw.sha_file(matches[0])}
+        return {'file': ctx.workspace.relative(matches[0]), 'sha256': bw.sha_file(matches[0])}
     except (OSError, ValueError) as error:
         raise BuildStepError('unable to record the build tool archive') from error
 
@@ -885,7 +885,7 @@ def plan_android(ctx: Context) -> StepPlan:
         build_identity = bw.digest({'source_identity': identity, 'build_number': number,
                                     'network_isolation': isolation, 'tools': tools,
                                     'target_files_sha256': target_sha256, 'otatools': otatools})
-        return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
+        return {'target_files': ws.relative(target_files), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
                 'tools': tools, 'otatools': otatools,
                 'build_datetime': datetime,
@@ -1015,7 +1015,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         tools = {'commit': None, 'clean': None}
         build_identity = bw.digest({'source_identity': identity, 'build_number': number, 'network_isolation': 'off',
                                     'tools': tools, 'target_files_sha256': target_sha256, 'otatools': otatools, 'android_build': 'manual'})
-        return {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': target_sha256,
+        return {'target_files': ws.relative(target_files), 'target_files_sha256': target_sha256,
                 'source_identity': identity, 'build_identity': build_identity, 'build_number': number,
                 'tools': tools, 'otatools': otatools, 'build_datetime': datetime, 'variant': variant, 'lunch': lunch, 'official': False,
                 'modified': result['modified'], 'descriptor_sha256': result['generated_input_descriptor_sha256'],
@@ -1326,7 +1326,7 @@ def make_context(args, echo=print) -> Context:
         raise UsageError('unknown variant: ' + variant)
     if args.jobs is not None and not 1 <= args.jobs <= 1024:
         raise UsageError('--jobs must be between 1 and 1024')
-    workspace = bw.Workspace(args.workspace or bw.default_workspace())
+    workspace = bw.locate(args.workspace)
     workspace.check_root()
     # A workspace synced shallow stays shallow. A plain "build all" must not
     # turn it into a full download.
@@ -1356,8 +1356,9 @@ def parser() -> argparse.ArgumentParser:
         epilog='Run "diamaneos build all --variant userdebug" for a test build with adb and root debugging. '
                '"diamaneos build kernel" builds the kernel from source (for maintainers, not part of build all).')
     result.add_argument('step', choices=('all',) + bw.STEPS + bw.MAINTAINER_STEPS)
-    result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, the workspace of '
-                                            'the checkout these tools run from, or ~/diamaneos-build)')
+    result.add_argument('--workspace', help='build directory (default: $DIAMANEOS_WORKSPACE, else <checkout>-build '
+                                            'beside the checkout these tools run from, or the directory that holds '
+                                            'it as src, else ~/diamaneos-build)')
     result.add_argument('--dry-run', action='store_true', help='print the plan and change nothing')
     result.add_argument('--variant', help='user (default) or userdebug')
     result.add_argument('--official', action=argparse.BooleanOptionalAction, default=None,

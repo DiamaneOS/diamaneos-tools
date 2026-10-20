@@ -21,7 +21,7 @@ class ArchiveFixtures(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.workspace = SimpleNamespace(root=self.root)
+        self.workspace = bw.Workspace(self.root)
         self.out = self.root / 'out'
         self.out.mkdir()
         self.ctx = SimpleNamespace(out=self.out, workspace=self.workspace, official=False)

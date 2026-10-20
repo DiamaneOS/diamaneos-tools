@@ -269,7 +269,7 @@ def main(argv=None) -> int:
         if path.resolve().is_relative_to(images):
             raise UsageError('the report must be outside the image set')
         from .build_steps import HOST_BIN
-        ws = bw.Workspace(args.workspace or bw.default_workspace())
+        ws = bw.locate(args.workspace)
         config, _ = bw.load_config('fp6-build.json')
         checks = json.loads((iv.ROOT / 'config/fp6-image-checks.json').read_bytes())
         tools = iv.Tools(ws.src / config['out_dir'] / HOST_BIN, ws.src, args.scratch or ws.work / 'tmp')
