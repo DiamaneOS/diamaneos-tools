@@ -1227,44 +1227,6 @@
     },
     {
       "modules": [
-        "f_fs_ipc_log.ko"
-      ],
-      "reason": "FunctionFS debug logging through kretprobes. Two of its probes fail. Debug only, imported by nothing."
-    },
-    {
-      "modules": [
-        "eud.ko"
-      ],
-      "reason": "Qualcomm's embedded USB debugger (EUD): debug access over USB. Its device-tree node is disabled, and the USB controller takes its connect and role events from UCSI, not from an EUD extcon."
-    },
-    {
-      "modules": [
-        "coresight.ko",
-        "coresight-tmc.ko",
-        "coresight-funnel.ko",
-        "coresight-replicator.ko",
-        "coresight-stm.ko",
-        "coresight-cti.ko",
-        "coresight-dummy.ko",
-        "coresight-remote-etm.ko",
-        "coresight-tmc-sec.ko",
-        "coresight-trace-noc.ko",
-        "coresight-tgu.ko",
-        "coresight-hwevent.ko",
-        "coresight-tpda.ko",
-        "coresight-tpdm.ko",
-        "coresight-csr.ko",
-        "stm_core.ko",
-        "stm_p_ost.ko",
-        "stm_console.ko",
-        "stm_heartbeat.ko",
-        "stm_ftrace.ko",
-        "usb_f_qdss.ko"
-      ],
-      "reason": "CoreSight, STM and the QDSS USB function: hardware tracing for debugging. The GPU driver is built without its CoreSight source, so no shipped module imports them."
-    },
-    {
-      "modules": [
         "debugcc-cliffs.ko",
         "debugcc-pineapple.ko",
         "debugcc-volcano.ko",

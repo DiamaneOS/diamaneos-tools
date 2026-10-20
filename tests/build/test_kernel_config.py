@@ -97,7 +97,9 @@ class KernelConfigTests(unittest.TestCase):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n'
+                b'# CONFIG_CORESIGHT is not set\n# CONFIG_STM is not set\n# CONFIG_USB_CONFIGFS_F_QDSS is not set\n'
+                b'# CONFIG_USB_F_FS_IPC_LOGGING is not set\n# CONFIG_QCOM_EUD is not set\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
         ownership, tunnel = 'CONFIG_QRTR_IMSDCM_OWNERSHIP', 'CONFIG_QRTR_TUN'
         dumps = 'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'
@@ -113,6 +115,13 @@ class KernelConfigTests(unittest.TestCase):
                 report = kernel_config.check(good.replace(old, new), policy, 'production')
                 self.assertEqual(report['status'], 'FAIL')
                 self.assertEqual([row['symbol'] for row in report['failures']], [symbol])
+        # The debug trace and USB debug modules stay unbuilt.
+        for symbol in ('CONFIG_CORESIGHT', 'CONFIG_STM', 'CONFIG_USB_CONFIGFS_F_QDSS',
+                       'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
+            for new in (b'', f'{symbol}=m'.encode()):
+                with self.subTest(symbol=symbol, new=new):
+                    report = kernel_config.check(good.replace(unset(symbol), new), policy, 'production')
+                    self.assertEqual([row['symbol'] for row in report['failures']], [symbol])
 
     def test_missing_disabled_symbol_is_not_assumed_safe(self):
         data = self.config().replace(b'# CONFIG_MODULE_FORCE_LOAD is not set', b'')

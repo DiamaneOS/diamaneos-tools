@@ -105,7 +105,7 @@ tools/bazel query --output=label \
   - The in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN drivers, the
     WCD938x codec and FM radio.
   - The TrustZone log reader, the legacy QSEECom driver, the HDCP client module, the SPSS loader and
-    bridge, the FocalTech touch driver, the kretprobe-based FunctionFS logger and the EUD debugger.
+    bridge and the FocalTech touch driver.
   - The Hexagon DSP remote debugger (`rdbg`).
   - The PCIe host and MHI drivers with QRTR over MHI (the FP6 has no PCIe device), and the USB
     CCID function.
@@ -115,8 +115,9 @@ tools/bazel query --output=label \
 - A cut needs no remaining importer, enforced by the build's dependency check
   (`module-interfaces.json`), since libmodprobe loads dependencies a list omits.
 - Device-tree references count as importers too.
-- Cut since KGSL is built without its CoreSight source: the 15 CoreSight and 5 STM modules and
-  `usb_f_qdss`. `stmvl53l1` is the laser autofocus sensor and stays.
+- Not built at all: CoreSight, STM, the QDSS USB function, the kretprobe-based FunctionFS logger
+  and the EUD debugger are off in the vendor configuration (pinned by the vendor policy below).
+  `stmvl53l1` is the laser autofocus sensor and stays.
 - Kept: `qcom_glink_spss` because `glink_probe` imports it, and `wcd937x`, `wcd939x` and `wsa883x`
   because the audio machine driver imports them. Cutting those needs a configuration or
   device-tree change.
@@ -206,6 +207,7 @@ the vendor tree builds: the IMS QRTR ownership guard, no QRTR tunnel, and Qualco
 off by default (`CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT`), which alone decides whether a
 panic dumps RAM, since the running system cannot turn dumps on.
 
+- It also keeps CoreSight, STM, the QDSS USB function, FunctionFS IPC logging and EUD off.
 - `--config-profile development` checks only the baseline and records the profile. The configuration
   itself always comes from the pinned source commit.
 - `build kernel-config` runs the same check on any effective `.config`:
@@ -299,7 +301,7 @@ environment listing). Kernel parameters keep their values.
 - The download-mode module parameters and the `/sys/kernel/dload` files are read-only, so a panic
   follows the build default (dumps off).
 - EDL through the hardware keys is unaffected.
-- The EUD debugger's device-tree node is disabled and `eud.ko` is denied.
+- The EUD debugger's device-tree node is disabled and `eud.ko` is not built.
 - The USB controller takes connect and role events from UCSI through its role switch and port graph.
   EUD's extcon reported only EUD's own connects.
 
