@@ -620,9 +620,11 @@ commands](#the-build-commands).
 ## The DiamaneOS manifest
 
 - [`platform_manifest`](https://github.com/DiamaneOS/platform_manifest) is a full `repo` manifest:
-  - GrapheneOS's `default.xml` at the release it is based on, with the DiamaneOS forks in place of
-    the projects they fork, the Fairphone and CodeLinaro projects the FP6 needs, the kernels of
-    other devices left out, and two DiamaneOS projects:
+  - `default.xml` is GrapheneOS's manifest at the release it is based on, unchanged apart from one
+    line at its end that includes `diamaneos.xml`.
+  - `diamaneos.xml` removes the projects the DiamaneOS forks replace and the kernels of other
+    devices. It adds the forks, the Fairphone and CodeLinaro projects the FP6 needs and two
+    DiamaneOS projects:
   - The kernel prebuilts
     ([`device_fairphone_FP6-kernels`](https://github.com/DiamaneOS/device_fairphone_FP6-kernels) at
     `device/fairphone/FP6-kernel`, fetched with `clone-depth="1"`) and these tools
@@ -630,8 +632,8 @@ commands](#the-build-commands).
 
 - GrapheneOS and AOSP projects keep the exact revisions of GrapheneOS's signed manifest.
 - Builders trust the DiamaneOS manifest branch. They do not check GrapheneOS's tag themselves.
-- GrapheneOS's signed release tag is verified when a GrapheneOS release is merged into the
-  manifest, and the merge commit records it.
+- GrapheneOS's signed release tag is verified when the manifest takes a GrapheneOS release, and the
+  commit that takes it names the tag.
 - Every build records the resolved manifest, so the exact commit of each project is known
   afterwards.
 
