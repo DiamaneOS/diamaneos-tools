@@ -177,7 +177,7 @@ def factory_package(ws) -> Path:
 
 
 def plan(ctx):
-    from .build_steps import StepPlan, find_target_files  # noqa: F401  (StepPlan type)
+    from .build_steps import StepPlan, find_target_files, otatools_bin  # noqa: F401  (StepPlan type)
     ws, config = ctx.workspace, ctx.config
     android = ws.passed('android')
     vendor = ws.passed('vendor')
@@ -203,9 +203,9 @@ def plan(ctx):
         if bw.sha_file(target_files) != out['target_files_sha256']:
             raise BuildStepError('the target-files archive changed after the build. Run "diamaneos build android" again')
         tool = out.get('otatools')
-        if out.get('official') is True and not tool:
-            raise BuildStepError('official build record lacks its otatools archive')
-        if tool and bw.sha_file(ws.root / tool['file']) != tool['sha256']:
+        if not tool:
+            raise BuildStepError('the Android build record lacks its otatools archive')
+        if bw.sha_file(ws.root / tool['file']) != tool['sha256']:
             raise BuildStepError('otatools changed after the recorded Android build')
         try:
             firmware_plan = firmware.plan(inventory, config['firmware'])
@@ -266,11 +266,13 @@ def plan(ctx):
     def super_image():
         if state['reuse']:
             return
+        tools = otatools_bin(ctx)
         runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
+        # build_super_image finds lpmake through PATH.
         runner.run(Action('Run build_super_image', detail='super.img from the same target-files',
-                          argv=[ctx.host_bin / 'build_super_image', state['target_files'],
+                          argv=[tools / 'build_super_image', state['target_files'],
                                 state['partial'] / 'super.img'],
-                          env={'PATH': os.pathsep.join([str(ctx.host_bin), os.environ.get('PATH', '')])}),
+                          env={'PATH': os.pathsep.join([str(tools), os.environ.get('PATH', '')])}),
                    ctx.cache['log'])
 
     def wipe_images():
@@ -297,7 +299,7 @@ def plan(ctx):
         metadata = images['metadata']
         runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
         runner.run(Action('Run make_f2fs', detail='the empty metadata filesystem, fixed UUID, time and seed',
-                          argv=[ctx.host_bin / 'make_f2fs', '-g', 'android', '-r',
+                          argv=[otatools_bin(ctx) / 'make_f2fs', '-g', 'android', '-r',
                                 '-T', str(android['outputs']['build_datetime']), '-U', metadata['uuid'],
                                 '-l', metadata['label'], '-S', str(metadata['bytes']),
                                 state['partial'] / metadata['image']]), ctx.cache['log'])
@@ -310,11 +312,10 @@ def plan(ctx):
         if sync is None:
             raise BuildStepError('the sync step has no passed record. Run "diamaneos build sync" again')
         shutil.copy2(state['target_files'], state['partial'] / TARGET_FILES_COPY)
-        tool = out.get('otatools')
-        if tool:
-            shutil.copy2(ws.root / tool['file'], state['partial'] / OTATOOLS_COPY)
-            if bw.sha_file(state['partial'] / OTATOOLS_COPY) != tool['sha256']:
-                raise BuildStepError('otatools changed during packaging')
+        tool = out['otatools']
+        shutil.copy2(ws.root / tool['file'], state['partial'] / OTATOOLS_COPY)
+        if bw.sha_file(state['partial'] / OTATOOLS_COPY) != tool['sha256']:
+            raise BuildStepError('otatools changed during packaging')
         shutil.copyfile(ctx.resolved_manifest, state['partial'] / MANIFEST_COPY)
         if bw.sha_file(state['partial'] / MANIFEST_COPY) != sync['outputs'].get('resolved_manifest_sha256'):
             raise BuildStepError('the recorded resolved manifest changed. Run "diamaneos build all" again')
@@ -363,7 +364,7 @@ def plan(ctx):
                                  'vendor_made_from_this_source': same_source},
             'stock_build': ctx.environment['device_inputs']['selected_stock_build'],
             'target_files': {'file': TARGET_FILES_COPY, 'sha256': out['target_files_sha256']},
-            'otatools': {'file': OTATOOLS_COPY, 'sha256': tool['sha256']} if tool else None,
+            'otatools': {'file': OTATOOLS_COPY, 'sha256': tool['sha256']},
             'network_isolation': out['network_isolation'], 'host': ctx.host,
             'images': {name: bw.sha_file(state['partial'] / f'{name}.img') for name in names + ['super']},
             'wipe': {'validated': wipe['validated'],
@@ -393,7 +394,13 @@ def plan(ctx):
         temporary.symlink_to(state['identifier'])
         os.replace(temporary, latest)
 
+    def unpack_tools():
+        if not state['reuse']:
+            otatools_bin(ctx)
+
     actions = [Action('Check target-files', func=prepare, detail='the target-files archive recorded by the build'),
+               Action('Unpack the host tools', func=unpack_tools,
+                      detail="the build's otatools.zip, checked against its recorded hash"),
                Action('Export the images', func=export, detail='the partition images from target-files'),
                Action('Copy the firmware', func=firmware_images,
                       detail='the stock firmware from the factory package, checked against the inventory, and the '

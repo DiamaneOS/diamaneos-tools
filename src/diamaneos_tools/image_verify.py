@@ -16,6 +16,7 @@ import math
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import stat
 import struct
 import subprocess
@@ -87,8 +88,41 @@ class TargetFiles:
         return target
 
 
+# The host tools packaging and the checks run from the build's otatools.zip.
+OTATOOLS_TOOLS = ('build_super_image', 'make_f2fs', 'avbtool', 'apksigner', 'validate_target_files',
+                  'check_target_files_vintf', 'aapt2', 'simg2img', 'lpunpack', 'debugfs_static')
+
+
+def unpack_otatools(archive: Path, sha256: str, parent: Path) -> Path:
+    """Unpack a copy of otatools.zip with this hash into a new directory under
+    parent, as GrapheneOS's release scripts do, and return its bin/."""
+    from .signing_archive import unpack_tools
+    from .signing_inputs import SigningError
+    parent.mkdir(parents=True, exist_ok=True)
+    root = Path(tempfile.mkdtemp(dir=parent, prefix='otatools-'))
+    try:
+        # Hashed and unpacked from one copy, so a later change to out/ cannot slip in between.
+        snapshot = root / 'otatools.zip'
+        with Path(archive).open('rb') as source, snapshot.open('xb') as target:
+            shutil.copyfileobj(source, target, 16 * 1024 * 1024)
+        if bw.sha_file(snapshot) != sha256:
+            raise bw.BuildStepError(f'{Path(archive).name} differs from its recorded hash')
+        try:
+            bin_dir = unpack_tools(snapshot, root / 'tools') / 'bin'
+        except SigningError as error:
+            raise bw.BuildStepError(f'otatools.zip cannot be unpacked: {error}') from None
+        snapshot.unlink()
+        missing = [name for name in OTATOOLS_TOOLS if not (bin_dir / name).is_file()]
+        if missing:
+            raise bw.BuildStepError('otatools.zip lacks ' + ', '.join(missing))
+        return bin_dir
+    except BaseException:
+        shutil.rmtree(root, ignore_errors=True)
+        raise
+
+
 class Tools:
-    """Host tools from the synced source's build output."""
+    """Host tools from the build's unpacked otatools.zip."""
 
     def __init__(self, host_bin: Path, src: Path, work: Path | None = None):
         self.host_bin, self.src = host_bin, src
@@ -1199,7 +1233,7 @@ class Verification:
         try:
             ok, detail = func()
         except ToolMissing as missing:
-            ok, detail = False, f'tool missing: {missing} (build it with "diamaneos build android")'
+            ok, detail = False, f'tool missing: {missing}'
         except (OSError, ValueError, KeyError, struct.error, ET.ParseError, zipfile.BadZipFile,
                 subprocess.SubprocessError, CheckFailed) as error:
             ok, detail = False, f'{type(error).__name__}: {error}'
@@ -1953,7 +1987,7 @@ def verify_set(images: Path, ws, config: dict, checks: dict, tools: Tools, inven
 
 
 def plan(ctx):
-    from .build_steps import StepPlan
+    from .build_steps import StepPlan, otatools_bin
     ws = ctx.workspace
     package = ws.passed('package')
     checks_raw = (ROOT / 'config/fp6-image-checks.json').read_bytes()
@@ -1969,8 +2003,8 @@ def plan(ctx):
     def run():
         images = ws.root / package['outputs']['directory']
         record = json.loads((images / 'build.json').read_bytes())
-        report = verify_set(images, ws, ctx.config, json.loads(checks_raw), Tools(ctx.host_bin, ws.src, ws.work / 'tmp'),
-                            inventory)
+        tools = Tools(otatools_bin(ctx), ws.src, ws.work / 'tmp')
+        report = verify_set(images, ws, ctx.config, json.loads(checks_raw), tools, inventory)
         path = ws.images / (package['outputs']['build_id'] + '.verify.json')
         bw.write_atomic(path, bw.encoded(report))
         state.update(report=report, path=path)

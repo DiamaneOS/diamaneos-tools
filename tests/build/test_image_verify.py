@@ -3018,10 +3018,12 @@ class VintfAndJdkTests(unittest.TestCase):
             report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
                       'status': 'FAIL', 'checked': 2, 'failed': 1,
                       'checks': [{'id': 'sums', 'status': 'PASS'}, {'id': 'avb-chain', 'status': 'FAIL', 'detail': 'no'}]}
-            with mock.patch.object(subject, 'verify', return_value=report), \
+            with mock.patch.object(subject, 'verify', return_value=report) as verifier, \
                     mock.patch.object(subject, 'kernel_prebuilts', return_value=(None, None)):
                 outputs = run_plan(ctx, subject.plan(ctx))
                 self.assertEqual('FAIL', outputs['status'])
+                # The checks run the tools of the otatools.zip packaging unpacked.
+                self.assertEqual(ctx.cache['otatools'][1], verifier.call_args.args[3].host_bin)
                 self.assertTrue(any('warning: 1 of 2 checks failed' in line for line in lines))
                 with self.assertRaisesRegex(subject.CheckFailed, '1 of 2 checks failed'):
                     run_plan(replace(ctx, official=True), subject.plan(replace(ctx, official=True)))

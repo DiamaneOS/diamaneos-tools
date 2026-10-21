@@ -39,8 +39,7 @@ class ManualBuildTests(unittest.TestCase):
         self.target_files = ctx.out / 'target/product/FP6/obj/PACKAGING/target_files_intermediates/FP6-target_files.zip'
         with zipfile.ZipFile(self.target_files, 'a') as archive:
             archive.writestr('SYSTEM/build.prop', PROPERTIES)
-        for tool in steps.MANUAL_HOST_TOOLS:
-            (ctx.host_bin / tool).touch()
+        self.otatools = ctx.out / 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip'
         vendor = ws.passed('vendor')
         vendor['outputs']['generation'] = 'g' * 64
         ws.write_state('vendor', vendor)
@@ -70,6 +69,7 @@ class ManualBuildTests(unittest.TestCase):
                          {key: outputs[key] for key in ('android_build', 'variant', 'lunch', 'build_number',
                                                         'build_datetime', 'network_isolation', 'official',
                                                         'modified', 'tools', 'target_files_sha256')})
+        self.assertEqual(bw.sha_file(self.otatools), outputs['otatools']['sha256'])
         plan = steps.plan_android(self.ctx)
         self.assertEqual('manual', plan.inputs['android_build'])
         self.assertEqual([], [a for a in plan.actions if a.argv])  # Nothing is built.
@@ -85,11 +85,15 @@ class ManualBuildTests(unittest.TestCase):
         record = json.loads((ws.root / packaged['directory'] / 'build.json').read_text())
         self.assertEqual(('manual', False, 'userdebug'), (record['android_build'], record['reproducible'],
                                                           record['variant']))
+        # Packaged with the tools of the otatools.zip it recorded.
+        self.assertEqual(bw.sha_file(self.otatools), record['otatools']['sha256'])
+        self.assertTrue((ws.root / packaged['directory'] / 'super.img').read_text().startswith('super from '))
 
     def test_out_that_does_not_match_stops_with_one_message(self):
         cases = (
-            (lambda: (self.ctx.host_bin / 'validate_target_files').unlink(),
-             'out/ lacks validate_target_files. After lunch, build them with "' + steps.MANUAL_TARGETS + '"'),
+            (lambda: self.otatools.unlink(),
+             'out/ lacks the host tools \\(otatools.zip\\). After lunch, build them with "m target-files-package '
+             'otatools-package"'),
             (lambda: setattr(self, 'vendor_check', (False, 'differs VENDOR/lib64/libfoo.so')),
              'not built with the vendor tree of "diamaneos build vendor" \\(differs VENDOR/lib64/libfoo.so\\)'),
             (lambda: self.descriptor({'inputs': {'vendor': {'generation': 'h' * 64}}}),
@@ -111,7 +115,8 @@ class ManualBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.UsageError, 'official images come only from "diamaneos build all"'):
             steps.plan_android(replace(self.ctx, official=True))
         self.target_files.unlink()
-        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"' + steps.MANUAL_TARGETS + '"'):
+        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"m target-files-package '
+                                                   'otatools-package"'):
             steps.plan_android(self.ctx)
 
     def test_inputs_newer_than_out_are_a_note(self):

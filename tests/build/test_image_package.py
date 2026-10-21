@@ -11,12 +11,27 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
-from diamaneos_tools import build_steps as steps, build_workspace as bw, firmware, image_package
+from diamaneos_tools import build_steps as steps, build_workspace as bw, firmware, image_package, image_verify
 from tests.build.test_firmware import synthetic_firmware
 
 FSTAB = '''/dev/block/by-name/metadata /metadata f2fs noatime wait,check,formattable,first_stage_mount
 /dev/block/bootdevice/by-name/userdata /data f2fs noatime latemount,wait,check,formattable,quota
 '''
+
+
+TOOL_SCRIPTS = {'build_super_image': '#!/bin/sh\nprintf "super from %s" "$1" > "$2"\n',
+                'make_f2fs': '#!/bin/sh\nfor last; do :; done\nprintf "f2fs %s" "$*" > "$last"\n'}
+
+
+def otatools_archive(path: Path, leave_out=()):
+    """An otatools.zip with every host tool packaging and the checks run."""
+    with zipfile.ZipFile(path, 'w') as archive:
+        for name in image_verify.OTATOOLS_TOOLS:
+            if name not in leave_out:
+                info = zipfile.ZipInfo('bin/' + name)
+                info.external_attr = 0o100755 << 16
+                archive.writestr(info, TOOL_SCRIPTS.get(name, '#!/bin/sh\n'))
+        archive.writestr('lib64/libc++.so', b'library')
 
 
 def fixture_workspace(root: Path, variant='user', **firmware_options):
@@ -39,15 +54,9 @@ def fixture_workspace(root: Path, variant='user', **firmware_options):
         for name in image_package.image_names(config):
             archive.writestr(f'IMAGES/{name}.img', f'{name} image'.encode())
         archive.writestr('VENDOR/etc/fstab.qcom', FSTAB)
-    host = ctx.host_bin
-    host.mkdir(parents=True)
-    (host / 'build_super_image').write_text('#!/bin/sh\nprintf "super from %s" "$1" > "$2"\n')
-    (host / 'make_f2fs').write_text('#!/bin/sh\nfor last; do :; done\nprintf "f2fs %s" "$*" > "$last"\n')
-    for tool in ('build_super_image', 'make_f2fs'):
-        (host / tool).chmod(0o755)
     otatools = ctx.out / 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip'
     otatools.parent.mkdir(parents=True)
-    otatools.write_bytes(b'fixture tool archive')
+    otatools_archive(otatools)
     outputs = {'target_files': str(target_files.relative_to(ws.root)), 'target_files_sha256': bw.sha_file(target_files),
                'build_identity': 'f' * 64, 'build_number': 'test.ffffffffffff', 'build_datetime': 1790000000,
                'variant': variant, 'lunch': f'FP6-cur-{variant}', 'descriptor_sha256': 'd' * 64,
@@ -104,7 +113,9 @@ class PackageTests(unittest.TestCase):
         self.assertEqual({'path': 'device/fairphone/FP6-kernel', 'commit': 'b' * 40}, record['kernel_prebuilts'])
         self.assertNotIn('kernel', record['generated_inputs'])
         self.assertEqual({'file': 'otatools.zip', 'sha256': bw.sha_file(directory / 'otatools.zip')}, record['otatools'])
-        self.assertEqual(b'fixture tool archive', (directory / 'otatools.zip').read_bytes())
+        recorded = self.ctx.workspace.passed('android')['outputs']['otatools']
+        self.assertEqual((self.ctx.workspace.root / recorded['file']).read_bytes(),
+                         (directory / 'otatools.zip').read_bytes())
 
     def test_tool_archive_changes_refuse_packaging_and_change_record_matching(self):
         android = self.ctx.workspace.passed('android')['outputs']
@@ -113,13 +124,44 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.BuildStepError, 'otatools changed'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
-    def test_official_build_requires_a_recorded_tool_archive(self):
-        state = self.ctx.workspace.passed('android')
-        state['outputs']['official'] = True
-        del state['outputs']['otatools']
-        self.ctx.workspace.write_state('android', state)
-        with self.assertRaisesRegex(bw.BuildStepError, 'lacks its otatools'):
-            run_plan(self.ctx, image_package.plan(self.ctx))
+    def test_every_build_requires_a_recorded_tool_archive(self):
+        for official in (False, True):
+            with self.subTest(official=official):
+                state = self.ctx.workspace.passed('android')
+                state['outputs']['official'] = official
+                state['outputs'].pop('otatools', None)
+                self.ctx.workspace.write_state('android', state)
+                with self.assertRaisesRegex(bw.BuildStepError, 'lacks its otatools'):
+                    run_plan(self.ctx, image_package.plan(self.ctx))
+
+    def test_the_host_tools_come_from_the_unpacked_otatools_archive(self):
+        # Loose tools in out/ are never run.
+        self.ctx.host_bin.mkdir(parents=True)
+        for name in ('build_super_image', 'make_f2fs'):
+            (self.ctx.host_bin / name).write_text('#!/bin/sh\nexit 1\n')
+            (self.ctx.host_bin / name).chmod(0o755)
+        outputs = run_plan(self.ctx, image_package.plan(self.ctx))
+        directory = self.ctx.workspace.root / outputs['directory']
+        self.assertTrue((directory / 'super.img').read_text().startswith('super from '))
+        _, bin_dir = self.ctx.cache['otatools']
+        self.assertEqual(self.ctx.workspace.work / 'tmp', bin_dir.parent.parent.parent)
+        self.assertEqual(set(image_verify.OTATOOLS_TOOLS), {p.name for p in bin_dir.iterdir()})
+        self.assertFalse((bin_dir.parent.parent / 'otatools.zip').exists())
+        # The verify step of the same command takes the same copy, and the command removes it.
+        self.assertEqual(bin_dir, steps.otatools_bin(self.ctx))
+        steps.remove_otatools(self.ctx)
+        self.assertFalse(bin_dir.parent.parent.exists())
+
+    def test_an_archive_with_another_hash_or_without_a_tool_is_refused(self):
+        archive = self.root / 'otatools.zip'
+        otatools_archive(archive, leave_out=('check_target_files_vintf',))
+        parent = self.root / 'unpacked'
+        for sha256, message in (('0' * 64, 'otatools.zip differs from its recorded hash'),
+                                (bw.sha_file(archive), 'otatools.zip lacks check_target_files_vintf')):
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(bw.BuildStepError, message):
+                    image_verify.unpack_otatools(archive, sha256, parent)
+                self.assertEqual([], list(parent.iterdir()))
 
     def test_an_official_build_says_so_in_its_record(self):
         android = self.ctx.workspace.passed('android')

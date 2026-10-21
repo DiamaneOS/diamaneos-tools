@@ -15,6 +15,7 @@ import io
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -259,7 +260,7 @@ def main(argv=None) -> int:
     parser.add_argument('images', type=Path, help='the image set directory')
     parser.add_argument('--report', type=Path, required=True, help='the report to write: a new file outside the set')
     parser.add_argument('--workspace', type=Path,
-                        help='the workspace whose source, host tools and vendor generations the checks use '
+                        help='the workspace whose source and vendor generations the checks use '
                              '(default: as for "diamaneos build")')
     parser.add_argument('--scratch', type=Path, help="temporary files (default: the workspace's work/tmp)")
     args = parser.parse_args(argv)
@@ -269,12 +270,22 @@ def main(argv=None) -> int:
             raise UsageError(f'{path} already exists')
         if path.resolve().is_relative_to(images):
             raise UsageError('the report must be outside the image set')
-        from .build_steps import HOST_BIN
+        from .image_package import read_sums
         ws = bw.locate(args.workspace)
         config, _ = bw.load_config('fp6-build.json')
         checks = json.loads((iv.ROOT / 'config/fp6-image-checks.json').read_bytes())
-        tools = iv.Tools(ws.src / config['out_dir'] / HOST_BIN, ws.src, args.scratch or ws.work / 'tmp')
-        report = iv.verify_set(images, ws, config, checks, tools, firmware.load_inventory())
+        # The host tools come from the set's own otatools.zip.
+        digest = read_sums(images).get('otatools.zip')
+        record = json.loads((images / 'build.json').read_bytes())
+        if not digest or (record.get('otatools') or {}).get('sha256') != digest:
+            raise bw.BuildStepError('build.json and SHA256SUMS name no common otatools.zip')
+        scratch = args.scratch or ws.work / 'tmp'
+        bin_dir = iv.unpack_otatools(images / 'otatools.zip', digest, scratch)
+        try:
+            report = iv.verify_set(images, ws, config, checks, iv.Tools(bin_dir, ws.src, scratch),
+                                   firmware.load_inventory())
+        finally:
+            shutil.rmtree(bin_dir.parent.parent, ignore_errors=True)
         with path.open('xb') as stream:
             stream.write(bw.encoded(report))
     except (bw.BuildStepError, ValueError, OSError, KeyError, zipfile.BadZipFile) as error:

@@ -24,7 +24,7 @@ class ArchiveFixtures(unittest.TestCase):
         self.workspace = bw.Workspace(self.root)
         self.out = self.root / 'out'
         self.out.mkdir()
-        self.ctx = SimpleNamespace(out=self.out, workspace=self.workspace, official=False)
+        self.ctx = SimpleNamespace(out=self.out, workspace=self.workspace, official=False, manual=False)
 
     def archive(self, relative):
         path = self.out / relative
@@ -46,12 +46,14 @@ class ArchiveFixtures(unittest.TestCase):
 
 
 class OtatoolsRecordTests(ArchiveFixtures):
-    def test_nonofficial_without_archive_returns_none(self):
-        self.assertIsNone(steps.otatools_record(self.ctx))
-
-    def test_official_without_archive_refuses(self):
-        self.ctx.official = True
-        with self.assertRaisesRegex(bw.BuildStepError, 'exactly one otatools archive'):
+    def test_every_build_without_archive_refuses(self):
+        for official in (False, True):
+            self.ctx.official = official
+            with self.assertRaisesRegex(bw.BuildStepError, 'exactly one otatools archive'):
+                steps.otatools_record(self.ctx)
+        self.ctx.manual = True
+        with self.assertRaisesRegex(bw.BuildStepError, 'out/ lacks the host tools \\(otatools.zip\\). After lunch, build '
+                                                       'them with "m target-files-package otatools-package"'):
             steps.otatools_record(self.ctx)
 
     def test_each_supported_location_records_exact_relative_path_and_hash(self):
@@ -81,8 +83,6 @@ class OtatoolsRecordTests(ArchiveFixtures):
         link.parent.mkdir(parents=True, exist_ok=True)
         link.symlink_to(target)
         with patch.object(steps.bw, 'sha_file') as digest:
-            self.assertIsNone(steps.otatools_record(self.ctx))
-            self.ctx.official = True
             with self.assertRaises(bw.BuildStepError):
                 steps.otatools_record(self.ctx)
             digest.assert_not_called()
@@ -102,8 +102,6 @@ class OtatoolsRecordTests(ArchiveFixtures):
         folder = self.out / MODERN.format(variant='android_common')
         folder.mkdir(parents=True)
         self.archive('otatools.zip')
-        self.assertIsNone(steps.otatools_record(self.ctx))
-        self.ctx.official = True
         with self.assertRaises(bw.BuildStepError):
             steps.otatools_record(self.ctx)
 
@@ -126,13 +124,12 @@ class AndroidOutputsMatchTests(ArchiveFixtures):
             with self.subTest(official=official):
                 self.assertTrue(steps.android_outputs_match(self.workspace, self.cached_outputs(official=official)))
 
-    def test_only_nonofficial_records_may_omit_a_tool_archive(self):
-        outputs = self.cached_outputs(tool=False)
-        self.assertTrue(steps.android_outputs_match(self.workspace, outputs))
-        outputs['otatools'] = None
-        self.assertTrue(steps.android_outputs_match(self.workspace, outputs))
-        outputs['official'] = True
-        self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
+    def test_no_record_may_omit_a_tool_archive(self):
+        for official in (False, True):
+            outputs = self.cached_outputs(tool=False, official=official)
+            self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
+            outputs['otatools'] = None
+            self.assertFalse(steps.android_outputs_match(self.workspace, outputs))
 
     def test_changed_or_missing_archive_bytes_are_stale(self):
         for member in ('target_files', 'otatools'):

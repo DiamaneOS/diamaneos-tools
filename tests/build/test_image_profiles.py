@@ -150,6 +150,19 @@ class ProfileTests(unittest.TestCase):
             self.assertFalse(report.exists())
             self.assertIn('the report must be outside the image set', errors.getvalue())
 
+    def test_images_check_needs_the_sets_own_otatools(self):
+        with tempfile.TemporaryDirectory() as temp:
+            images = Path(temp) / 'set'
+            images.mkdir()
+            (images / 'otatools.zip').write_bytes(b'tools')
+            (images / 'build.json').write_text(json.dumps({'signing': 'release-keys',
+                                                           'otatools': {'file': 'otatools.zip', 'sha256': '0' * 64}}))
+            (images / 'SHA256SUMS').write_text(hashlib.sha256(b'tools').hexdigest() + '  otatools.zip\n')
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(2, subject.main([str(images), '--report', str(Path(temp) / 'report.json'),
+                                                  '--workspace', str(Path(temp) / 'ws')]))
+            self.assertIn('build.json and SHA256SUMS name no common otatools.zip', errors.getvalue())
+
     def test_avb_key_becomes_the_same_public_key_in_pem(self):
         with tempfile.TemporaryDirectory() as temp:
             key, _ = certificate(Path(temp), 'avb')

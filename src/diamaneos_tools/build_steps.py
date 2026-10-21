@@ -79,9 +79,7 @@ TOOLS_CHECKED = ('vendor', 'android', 'package', 'verify')
 # Set for a command that starts again because its sync moved the running tools.
 RESTARTED = 'DIAMANEOS_TOOLS_RESTARTED'
 # A build by hand: what packaging and the image checks need from out/.
-MANUAL_TARGETS = 'm droid superimage target-files-package otatools-package build_super_image avbtool make_f2fs apksigner validate_target_files check_target_files_vintf'
-MANUAL_HOST_TOOLS = ('build_super_image', 'make_f2fs', 'avbtool', 'apksigner', 'validate_target_files',
-                     'check_target_files_vintf')
+MANUAL_TARGETS = 'm target-files-package otatools-package'
 
 
 class ToolsUpdated(Exception):
@@ -757,13 +755,13 @@ def find_target_files(ctx: Context) -> Path:
     return matches[0]
 
 
-def otatools_record(ctx: Context) -> dict | None:
-    """Record the build's tool archive. Official builds require exactly one."""
+def otatools_record(ctx: Context) -> dict:
+    """Record the build's tool archive. Packaging and the checks run their host tools from it."""
     patterns = ('soong/.intermediates/build/make/tools/otatools_package/otatools-package/*/gen/otatools.zip',
                 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip')
     matches = [path for pattern in patterns for path in ctx.out.glob(pattern) if path.is_file() and not path.is_symlink()]
-    if not matches and not ctx.official:
-        return None
+    if not matches and ctx.manual:
+        raise BuildStepError(f'out/ lacks the host tools (otatools.zip). After lunch, build them with "{MANUAL_TARGETS}"')
     if len(matches) != 1:
         raise BuildStepError('expected exactly one otatools archive from the build')
     try:
@@ -772,21 +770,40 @@ def otatools_record(ctx: Context) -> dict | None:
         raise BuildStepError('unable to record the build tool archive') from error
 
 
+def otatools_bin(ctx: Context) -> Path:
+    """bin/ of the Android step's otatools.zip, unpacked once per command."""
+    from . import image_verify
+    android = ctx.workspace.passed('android')
+    tool = ((android or {}).get('outputs') or {}).get('otatools')
+    if not tool:
+        raise BuildStepError('the Android step recorded no otatools archive. Run "diamaneos build android" again')
+    cached = ctx.cache.get('otatools')
+    if cached and cached[0] == tool['sha256']:
+        return cached[1]
+    remove_otatools(ctx)
+    bin_dir = image_verify.unpack_otatools(ctx.workspace.root / tool['file'], tool['sha256'],
+                                           ctx.workspace.work / 'tmp')
+    ctx.cache['otatools'] = (tool['sha256'], bin_dir)
+    return bin_dir
+
+
+def remove_otatools(ctx: Context) -> None:
+    cached = ctx.cache.pop('otatools', None)
+    if cached:
+        shutil.rmtree(cached[1].parent.parent, ignore_errors=True)
+
+
 def android_outputs_match(workspace, outputs):
     """Both recorded archives must still exist with their recorded bytes."""
     try:
         target = workspace.root / outputs['target_files']
         tool = outputs.get('otatools')
-        if tool is not None and (not isinstance(tool, dict) or set(tool) != {'file', 'sha256'}):
+        if not isinstance(tool, dict) or set(tool) != {'file', 'sha256'}:
             return False
         if not target.is_file() or target.is_symlink() or bw.sha_file(target) != outputs['target_files_sha256']:
             return False
-        if outputs.get('official') is True and not tool:
-            return False
-        if tool:
-            path = workspace.root / tool['file']
-            return path.is_file() and not path.is_symlink() and bw.sha_file(path) == tool['sha256']
-        return True
+        path = workspace.root / tool['file']
+        return path.is_file() and not path.is_symlink() and bw.sha_file(path) == tool['sha256']
     except (OSError, KeyError, TypeError, ValueError):
         return False
 
@@ -914,10 +931,11 @@ def build_properties(data: bytes) -> dict:
 def plan_manual_android(ctx: Context) -> StepPlan:
     """Record what "m" left in out/ as the Android step, without building.
 
-    The target-files archive must exist, with the host tools packaging and
-    the checks use, carry the vendor tree "build vendor" made, and come with
-    the source "build sync" or "build vendor" checked. The variant comes from
-    out/. build.json marks the set as built by hand.
+    The target-files archive must exist, with the otatools.zip packaging and
+    the checks take their host tools from, carry the vendor tree "build
+    vendor" made, and come with the source "build sync" or "build vendor"
+    checked. The variant comes from out/. build.json marks the set as built
+    by hand.
     """
     ws, config = ctx.workspace, ctx.config
     sync, vendor = ws.passed('sync'), ws.passed('vendor')
@@ -947,9 +965,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
     state = {}
 
     def check_out():
-        missing = [tool for tool in MANUAL_HOST_TOOLS if not (ctx.host_bin / tool).is_file()]
-        if missing:
-            raise BuildStepError(f'out/ lacks {", ".join(missing)}. After lunch, build them with "{MANUAL_TARGETS}"')
+        state['otatools'] = otatools_record(ctx)
 
     def check_source():
         commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
@@ -1013,7 +1029,7 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         current = {'outputs': dict(sync['outputs'], modified_sha256=result['modified_sha256'])}
         identity = android_identity(replace(ctx, variant=variant), current)
         target_sha256 = bw.sha_file(target_files)
-        otatools = otatools_record(ctx)
+        otatools = state['otatools']
         tools = {'commit': None, 'clean': None}
         build_identity = bw.digest({'source_identity': identity, 'build_number': number, 'network_isolation': 'off',
                                     'tools': tools, 'target_files_sha256': target_sha256, 'otatools': otatools, 'android_build': 'manual'})
@@ -1174,6 +1190,14 @@ def check_tools(ctx: Context, synced_now: bool, dry_run: bool = False, step: str
 
 
 def run_steps(ctx: Context, steps, force=(), dry_run=False) -> None:
+    try:
+        run_each(ctx, steps, force, dry_run)
+    finally:
+        # The unpacked otatools.zip lasts for one command.
+        remove_otatools(ctx)
+
+
+def run_each(ctx: Context, steps, force, dry_run) -> None:
     ws = ctx.workspace
     runner = bw.Runner(ctx.allow_network, ctx.echo, ws.work / 'tmp')
     earlier_runs = None

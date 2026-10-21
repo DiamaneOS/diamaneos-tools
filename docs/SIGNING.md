@@ -283,8 +283,8 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
   --report "$SCRATCH/signed.verify.json" --scratch "$SCRATCH"
 ```
 
-- The workspace gives the source, the host tools and the vendor generation. Its kernel prebuilts
-  checkout must be at the commit `build.json` names.
+- The workspace gives the source and the vendor generation. Its kernel prebuilts checkout must be
+  at the commit `build.json` names. The host tools come from the set's own `otatools.zip`.
 - Every check of `build verify` runs. Four that assume the public test keys have signed
   counterparts with the same ids:
   - `record`: `avb_custom_key` naming `avb_pkmd.bin`, which `SHA256SUMS` lists and vbmeta embeds
