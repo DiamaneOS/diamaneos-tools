@@ -682,6 +682,51 @@ def repo_manifest(source: Path, resolved: bool = True) -> bytes:
     return _run(["repo", "manifest", *(["-r"] if resolved else [])], cwd=source, timeout=300).stdout
 
 
+def _repo_keyring_env() -> dict:
+    """The environment that checks signatures against the keyring of the repo launcher."""
+    return os.environ | {"GNUPGHOME": str(Path.home() / ".repoconfig" / "gnupg")}
+
+
+def fetch_repo_tool_pin(config: dict, source: Path) -> bool:
+    """Fetch the pinned repo tool tag into a checkout whose repo tool lacks it.
+
+    "repo init --repo-rev" resolves the pin only from what .repo/repo already
+    has. The tag comes from the pinned origin and is stored only when it is
+    the pinned tag object and commit with a good signature from the repo
+    keyring. Returns whether it fetched.
+    """
+    repo_tool = source / ".repo" / "repo"
+    if not repo_tool.is_dir():
+        return False  # repo init clones the pinned origin.
+    pin = config["upstream"]["repo_tool"]
+    tag, tag_object, commit = pin["release_tag"], pin["tag_object"], pin["peeled_commit"]
+    git = ["git", "-C", str(repo_tool)]
+
+    def resolve(name):
+        result = process.run(git + ["rev-parse", "--verify", "--quiet", name], 60, MAX_COMMAND_OUTPUT_BYTES)
+        return result["stdout"].decode().strip() if result["transport"] == "ok" else None
+
+    local = resolve(f"refs/tags/{tag}")
+    if local not in (None, tag_object):
+        raise BuildError(f"the repo tool checkout has a tag {tag} that is not the pinned tag object")
+    if local and resolve(f"{commit}^{{commit}}") == commit:
+        return False
+    _run(git + ["-c", "http.version=HTTP/1.1", "fetch", "--quiet", "--no-tags", pin["url"], f"refs/tags/{tag}"],
+         timeout=600)
+    if resolve("FETCH_HEAD") != tag_object:
+        raise BuildError(f"the repo tool tag {tag} at {pin['url']} is not the pinned tag object")
+    if resolve(f"{tag_object}^{{tag}}") != tag_object or resolve(f"{tag_object}^{{commit}}") != commit:
+        raise BuildError(f"the fetched repo tool tag {tag} does not point to the pinned commit")
+    try:
+        _run(git + ["verify-tag", tag_object], env=_repo_keyring_env())
+    except BuildError:
+        raise BuildError(f"the fetched repo tool tag {tag} has no good signature from the repo keyring") from None
+    if not local:
+        # Created only, never moved: an empty old value fails if the tag appeared meanwhile.
+        _run(git + ["update-ref", f"refs/tags/{tag}", tag_object, ""])
+    return True
+
+
 def verify_repo_tool(config: dict, source: Path) -> dict:
     """Authenticate the pinned repo implementation of a checkout."""
     upstream = config["upstream"]
@@ -710,10 +755,7 @@ def verify_repo_tool(config: dict, source: Path) -> dict:
                         "--untracked-files=all"]).stdout
     if repo_status:
         raise BuildError("repo implementation contains dirty or untracked content")
-    repo_verify_env = os.environ.copy()
-    repo_verify_env["GNUPGHOME"] = str(Path.home() / ".repoconfig" / "gnupg")
-    _run(["git", "-C", str(repo_tool), "verify-tag", repo_tag],
-         env=repo_verify_env)
+    _run(["git", "-C", str(repo_tool), "verify-tag", repo_tag], env=_repo_keyring_env())
     return {
         "repo_tool_release_tag": repo_tag,
         "repo_tool_tag_object": repo_pin["tag_object"],

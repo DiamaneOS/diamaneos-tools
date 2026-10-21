@@ -387,6 +387,10 @@ def plan_sync(ctx: Context) -> StepPlan:
         if moved:
             ctx.echo('    moved aside: ' + ', '.join(moved))
 
+    def fetch_repo_tool():
+        if build.fetch_repo_tool_pin(env, ws.src):
+            ctx.echo(f'    fetched the signed repo tool tag {repo["release_tag"]} from {repo["url"]}')
+
     def check_manifest():
         if not (ws.src / '.repo' / 'repo').is_dir():
             raise BuildStepError(f'{ws.src} is not a repo checkout. Run "repo init" and "repo sync" there, or '
@@ -459,6 +463,10 @@ def plan_sync(ctx: Context) -> StepPlan:
                + (', keep the pinned resolved manifest' if pinned else '')),
         Action('Clear old inputs', func=clear,
                detail='move generated inputs and the old manifest overlay out of the way'),
+        Action('Fetch the pinned repo tool', func=fetch_repo_tool, network=True,
+               detail=f'only when an existing checkout\'s repo tool lacks {repo["release_tag"]}: fetch the tag from '
+                      f'{repo["url"]} and keep it when it is the pinned tag object and commit with a good signature '
+                      'from the repo keyring'),
         Action('Initialise the checkout', detail=f'the DiamaneOS manifest on {manifest["branch"]}',
                argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]

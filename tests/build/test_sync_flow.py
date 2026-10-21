@@ -49,6 +49,8 @@ FAKE_REPO = textwrap.dedent('''\
     if command == 'init':
         url, branch = args[args.index('-u') + 1], args[args.index('-b') + 1]
         option = lambda name: next(a.split('=', 1)[1] for a in args if a.startswith(name + '='))
+        # Like repo, it resolves --repo-rev from what an existing .repo/repo has.
+        cloned = os.path.isdir('.repo/repo/.git')
         for path, origin in (('.repo/manifests', url), ('.repo/repo', option('--repo-url'))):
             if not os.path.isdir(path + '/.git'):
                 os.makedirs(path, exist_ok=True)
@@ -57,7 +59,8 @@ FAKE_REPO = textwrap.dedent('''\
             git('remote', 'set-url', 'origin', origin, cwd=path)
         git('fetch', '-q', urls[url], '+refs/heads/%s:refs/remotes/origin/%s' % (branch, branch), cwd='.repo/manifests')
         git('checkout', '-q', '--detach', 'refs/remotes/origin/' + branch, cwd='.repo/manifests')
-        git('fetch', '-q', '--tags', urls[option('--repo-url')], cwd='.repo/repo')
+        if not cloned:
+            git('fetch', '-q', '--tags', urls[option('--repo-url')], cwd='.repo/repo')
         git('checkout', '-q', '--detach', option('--repo-rev'), cwd='.repo/repo')
     elif command == 'sync':
         root = ET.parse(args[args.index('-m') + 1]).getroot() if '-m' in args else manifest()
@@ -127,7 +130,7 @@ class SyncFlowTests(unittest.TestCase):
         self.manifest_commit = remote(self.manifest_repository, {
             'default.xml': upstream.replace('</manifest>', '  <include name="diamaneos.xml" />\n</manifest>'),
             'diamaneos.xml': diamaneos})
-        tool = remotes / 'git-repo'
+        self.tool = tool = remotes / 'git-repo'
         remote(tool, {'repo': 'repo tool\n'}, branch='main')
         git(tool, 'tag', '-a', 'v-test', '-m', 'test release')
         urls = {base + 'platform_manifest.git': str(remotes / 'manifest'), base + 'git-repo': str(tool),
@@ -145,6 +148,8 @@ class SyncFlowTests(unittest.TestCase):
         bin_dir.mkdir()
         (bin_dir / 'repo').write_text(FAKE_REPO)
         (bin_dir / 'repo').chmod(0o755)
+        self.urls = urls
+        self.bad_signature = False
         for patcher in (mock.patch.dict(os.environ, {'FAKE_REPO_URLS': json.dumps(urls),
                                                      'PATH': str(bin_dir) + os.pathsep + os.environ['PATH']}),
                         mock.patch.object(build, '_run', side_effect=self.run_without_signatures)):
@@ -162,8 +167,12 @@ class SyncFlowTests(unittest.TestCase):
     original_run = staticmethod(build._run)
 
     def run_without_signatures(self, command, cwd=None, env=None, timeout=120):
-        # The stand-in repo tool's tag is unsigned. Everything else runs for real.
+        # The stand-in repo tool's tag is unsigned, and its URL stands for a local repository.
+        # Everything else runs for real.
+        command = [self.urls.get(arg, arg) if 'fetch' in command else arg for arg in command]
         if 'verify-tag' in command:
+            if self.bad_signature:
+                raise build.BuildError('command failed closed: git')
             return subprocess.CompletedProcess(command, 0, b'', b'Good signature\n')
         return self.original_run(command, cwd=cwd, env=env, timeout=timeout)
 
@@ -267,6 +276,63 @@ class SyncFlowTests(unittest.TestCase):
                             for line in self.lines))
         with self.assertRaisesRegex(bw.BuildStepError, 'Run "repo init --repo-rev=v-test" and "repo sync" again'):
             self.sync(official)
+
+    def new_repo_tool_release(self, **pin):
+        """The next repo release, pinned in the environment (or with the pin values given)."""
+        (self.tool / 'repo').write_text('repo tool, next release\n')
+        git(self.tool, 'commit', '-qam', 'next release')
+        git(self.tool, 'tag', '-a', 'v-next', '-m', 'next release')
+        values = {'release_tag': 'v-next', 'tag_object': git(self.tool, 'rev-parse', 'v-next^{tag}'),
+                  'peeled_commit': git(self.tool, 'rev-parse', 'v-next^{}')} | pin
+        environment = json.loads(self.environment.read_text())
+        environment['upstream']['repo_tool'].update(values)
+        self.environment.write_text(json.dumps(environment))
+        return values
+
+    def repo_tool_tags(self):
+        return git(self.src / '.repo/repo', 'tag', '--list').split()
+
+    def test_an_existing_checkout_fetches_a_new_repo_tool_pin_before_repo_init(self):
+        self.sync()
+        pin = self.new_repo_tool_release()
+        self.lines.clear()
+        outputs = self.sync(self.context(official=True))
+        self.assertEqual(self.manifest_commit, outputs['manifest_commit'])
+        self.assertEqual(pin['peeled_commit'], git(self.src / '.repo/repo', 'rev-parse', 'HEAD'))
+        self.assertEqual(pin['tag_object'], git(self.src / '.repo/repo', 'rev-parse', 'refs/tags/v-next'))
+        self.assertIn('    fetched the signed repo tool tag v-next from https://example.invalid/git-repo', self.lines)
+        # The next sync has the tag and fetches nothing.
+        self.lines.clear()
+        self.sync()
+        self.assertFalse(any('fetched the signed repo tool tag' in line for line in self.lines))
+
+    def test_a_repo_tool_tag_that_fails_a_check_stops_before_repo_init(self):
+        self.sync()
+        head = git(self.src / '.repo/repo', 'rev-parse', 'HEAD')
+        self.new_repo_tool_release(tag_object='0' * 40)
+        with self.assertRaisesRegex(build.BuildError, 'tag v-next at https://example.invalid/git-repo is not the '
+                                                      'pinned tag object'):
+            self.sync()
+        commit = git(self.tool, 'rev-parse', 'v-next^{}')
+        tag_object = git(self.tool, 'rev-parse', 'v-next^{tag}')
+        cases = [({'tag_object': tag_object, 'peeled_commit': head}, 'does not point to the pinned commit'),
+                 ({'tag_object': tag_object, 'peeled_commit': commit}, 'no good signature from the repo keyring')]
+        self.bad_signature = True
+        for pin, message in cases:
+            environment = json.loads(self.environment.read_text())
+            environment['upstream']['repo_tool'].update(pin)
+            self.environment.write_text(json.dumps(environment))
+            with self.assertRaisesRegex(build.BuildError, message):
+                self.sync()
+        # Nothing was stored and repo init did not run.
+        self.assertEqual(['v-test'], self.repo_tool_tags())
+        self.assertEqual(head, git(self.src / '.repo/repo', 'rev-parse', 'HEAD'))
+        # A local tag of that name elsewhere is never moved.
+        self.bad_signature = False
+        git(self.src / '.repo/repo', 'tag', 'v-next', head)
+        with self.assertRaisesRegex(build.BuildError, 'has a tag v-next that is not the pinned tag object'):
+            self.sync()
+        self.assertEqual(head, git(self.src / '.repo/repo', 'rev-parse', 'v-next'))
 
     def test_a_directory_without_a_checkout_is_named_as_such(self):
         ctx = self.context()

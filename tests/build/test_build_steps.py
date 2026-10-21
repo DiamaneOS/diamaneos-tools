@@ -516,12 +516,11 @@ class PinnedSyncTests(unittest.TestCase):
                                            build_json=None, manifest_commit=self.commit), self.lines.append)
         plan = steps.plan_sync(ctx)
         network = [a for a in plan.actions if a.network]
-        self.assertEqual(4, len(network))
-        self.assertEqual(['Check out the recorded manifest', 'Fetch large prebuilts'],
-                         [a.description for a in network[1:3]])
+        self.assertEqual(['Fetch the pinned repo tool', 'Initialise the checkout', 'Check out the recorded manifest',
+                          'Fetch large prebuilts', 'Download the source'], [a.description for a in network])
         # The terminal shows the short title. The log and the dry run add the detail.
-        self.assertTrue(network[2].detail.startswith('the large prebuilt projects first, one revision each at depth 1'))
-        self.assertIn('below 1000 bytes/s for 300 s stops, up to 8 attempts each', network[2].text(False))
+        self.assertTrue(network[3].detail.startswith('the large prebuilt projects first, one revision each at depth 1'))
+        self.assertIn('below 1000 bytes/s for 300 s stops, up to 8 attempts each', network[3].text(False))
         sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
         self.assertEqual(['-c', '--no-tags', '-m', ctx.pinned_manifest], sync.argv[-4:])
         self.assertEqual(steps.plan_sync(steps.make_context(arguments(self.workspace), print)).inputs, plan.inputs)
