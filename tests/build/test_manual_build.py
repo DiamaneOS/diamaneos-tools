@@ -89,8 +89,7 @@ class ManualBuildTests(unittest.TestCase):
     def test_out_that_does_not_match_stops_with_one_message(self):
         cases = (
             (lambda: (self.ctx.host_bin / 'validate_target_files').unlink(),
-             'out/ lacks validate_target_files. After lunch, build them with "m target-files-package '
-             'otatools-package"'),
+             'out/ lacks validate_target_files. After lunch, build them with "' + steps.MANUAL_TARGETS + '"'),
             (lambda: setattr(self, 'vendor_check', (False, 'differs VENDOR/lib64/libfoo.so')),
              'not built with the vendor tree of "diamaneos build vendor" \\(differs VENDOR/lib64/libfoo.so\\)'),
             (lambda: self.descriptor({'inputs': {'vendor': {'generation': 'h' * 64}}}),
@@ -112,8 +111,7 @@ class ManualBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.UsageError, 'official images come only from "diamaneos build all"'):
             steps.plan_android(replace(self.ctx, official=True))
         self.target_files.unlink()
-        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"m target-files-package '
-                                                   'otatools-package"'):
+        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"' + steps.MANUAL_TARGETS + '"'):
             steps.plan_android(self.ctx)
 
     def test_inputs_newer_than_out_are_a_note(self):

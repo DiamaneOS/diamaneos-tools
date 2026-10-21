@@ -51,7 +51,7 @@ vendor files out of it into the source tree.
 ```sh
 source build/envsetup.sh
 lunch <codename>-cur-user
-m target-files-package otatools-package
+m droid superimage target-files-package otatools-package build_super_image avbtool make_f2fs apksigner validate_target_files check_target_files_vintf
 ```
 
 - The usual Android build, plus what step 4 packages and checks. A plain `m` builds the images only.
@@ -95,7 +95,7 @@ bash flash-all.sh
 ```sh
 repo sync --force-sync -j8
 tools/diamaneos/bin/diamaneos build vendor <codename>
-m target-files-package otatools-package
+m droid superimage target-files-package otatools-package build_super_image avbtool make_f2fs apksigner validate_target_files check_target_files_vintf
 tools/diamaneos/bin/diamaneos build package
 ```
 

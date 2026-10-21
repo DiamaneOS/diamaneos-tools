@@ -79,7 +79,7 @@ TOOLS_CHECKED = ('vendor', 'android', 'package', 'verify')
 # Set for a command that starts again because its sync moved the running tools.
 RESTARTED = 'DIAMANEOS_TOOLS_RESTARTED'
 # A build by hand: what packaging and the image checks need from out/.
-MANUAL_TARGETS = 'm target-files-package otatools-package'
+MANUAL_TARGETS = 'm droid superimage target-files-package otatools-package build_super_image avbtool make_f2fs apksigner validate_target_files check_target_files_vintf'
 MANUAL_HOST_TOOLS = ('build_super_image', 'make_f2fs', 'avbtool', 'apksigner', 'validate_target_files',
                      'check_target_files_vintf')
 
