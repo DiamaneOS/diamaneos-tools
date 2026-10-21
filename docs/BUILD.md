@@ -58,11 +58,14 @@ The build commands use the FP6 profile: its entry `config/devices/FP6.json`, the
   - `diamaneos build` removes the clean old checkout before syncing.
   - A plain `repo sync` needs `--force-sync` for it.
 - **Manifest signatures.**
-  - The manifest commits are signed with SSH keys.
-  - No allowed-signers file is published. With a file that lists the keys:
+  - The manifest commits and DiamaneOS's own commits are signed with an SSH key.
+  - The website publishes the [allowed signers file](https://diamaneos.de/allowed_signers.txt), and
+    the [build guide](https://diamaneos.de/build/#verifying-the-source) gives the line it must hold:
 
   ```sh
-  git -C .repo/manifests -c gpg.ssh.allowedSignersFile=/path/to/diamaneos-allowed-signers \
+  curl --fail --create-dirs -o ~/.ssh/diamaneos_allowed_signers \
+    https://diamaneos.de/allowed_signers.txt
+  git -C .repo/manifests -c gpg.ssh.allowedSignersFile=~/.ssh/diamaneos_allowed_signers \
     verify-commit HEAD
   ```
 
