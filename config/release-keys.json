@@ -18,7 +18,8 @@
   "apps": {
     "AppStore.apk": "559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47",
     "Auditor.apk": "427bfd360586b829475f37abffd2548d93db3618e45c994de416469ef04bc2ec",
-    "Camera.apk": "285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61"
+    "Camera.apk": "285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61",
+    "CameraProcessor.apk": "285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61"
   },
   "catalog": {
     "apk": "AppStore.apk",

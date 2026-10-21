@@ -13,14 +13,17 @@ CERTIFICATES = {
     'AppStore.apk': '559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47',
     'Camera.apk': '285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61',
     'Auditor.apk': '427bfd360586b829475f37abffd2548d93db3618e45c994de416469ef04bc2ec',
+    # Guards its preview service with a signature permission the Camera holds: the Camera certificate.
+    'CameraProcessor.apk': '285a091a913f1485ce16f280f06b2609dc1af6cca786e45b6f5356aa7e86fa61',
 }
 UPSTREAM = {
     'AppStore.apk': '3384c31fce4a7c008a8f7b2652bc48cc4321f1d2c877b18e30a4ed619af12f6b',
     'Camera.apk': '6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59',
     'Auditor.apk': '990e04f0864b19f14f84e0e432f7a393f297ab105a22c1e1b10b442a4a62c42c',
+    'CameraProcessor.apk': '6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59',
 }
 PACKAGES = {'AppStore.apk': 'app.grapheneos.apps', 'Camera.apk': 'app.grapheneos.camera',
-            'Auditor.apk': 'de.diamaneos.auditor'}
+            'Auditor.apk': 'de.diamaneos.auditor', 'CameraProcessor.apk': 'app.grapheneos.camera.processor'}
 
 
 def verifier_output(certificate, public_key='b' * 64):
@@ -119,9 +122,9 @@ class AppTrustPolicyTests(TemporaryInputs, unittest.TestCase):
 
     def test_final_packages_use_the_external_policy_and_preserved_bytes(self):
         target, plan = self.target_files()
-        self.assertEqual({'apk': 3, 'apex': 0, 'payload': 0},
+        self.assertEqual({'apk': 4, 'apex': 0, 'payload': 0},
                          verifier.verify_packages(target, plan, self.tools, self.keys))
-        self.assertEqual(3, sum(call.args[0] == 'apksigner' for call in self.tools.run.call_args_list))
+        self.assertEqual(4, sum(call.args[0] == 'apksigner' for call in self.tools.run.call_args_list))
 
     def test_final_plan_cannot_enroll_the_artifacts_own_signer(self):
         target, plan = self.target_files()
