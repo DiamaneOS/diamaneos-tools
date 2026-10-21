@@ -17,6 +17,7 @@ from pathlib import Path
 import datetime as _dt
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import urllib.parse
@@ -82,7 +83,10 @@ TOOLS_CHECKED = ('vendor', 'android', 'package', 'verify')
 # Set for a command that starts again because its sync moved the running tools.
 RESTARTED = 'DIAMANEOS_TOOLS_RESTARTED'
 # A build by hand: what packaging and the image checks need from out/.
-MANUAL_TARGETS = 'm target-files-package otatools-package'
+MANUAL_TARGETS = 'm droid target-files-package otatools-package'
+# The partition trees m installs in the product's out directory, and where the target-files archive holds them.
+STAGED_TREES = {'system': 'SYSTEM', 'system_ext': 'SYSTEM_EXT', 'product': 'PRODUCT', 'vendor': 'VENDOR',
+                'odm': 'ODM', 'vendor_dlkm': 'VENDOR_DLKM', 'odm_dlkm': 'ODM_DLKM', 'system_dlkm': 'SYSTEM_DLKM'}
 
 
 class ToolsUpdated(Exception):
@@ -781,6 +785,38 @@ def find_target_files(ctx: Context) -> Path:
     return matches[0]
 
 
+def member_sha256(archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> str:
+    with archive.open(info) as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def stale_archive_files(product_out: Path, target_files: Path, limit: int = 10) -> list:
+    """Files m installed in out/ after it made the target-files archive, which the archive lacks or holds
+    with other bytes. m does not remake the archive for every file it installs."""
+    made = target_files.stat().st_mtime
+    stale = []
+    with zipfile.ZipFile(target_files) as archive:
+        members = {info.filename: info for info in archive.infolist()}
+        for tree, prefix in STAGED_TREES.items():
+            root = product_out / tree
+            if root.is_symlink() or not root.is_dir():
+                continue
+            for base, _, names in os.walk(root):
+                for name in sorted(names):
+                    path = Path(base) / name
+                    status = path.lstat()
+                    if not stat.S_ISREG(status.st_mode) or status.st_mtime <= made:
+                        continue
+                    member = f'{prefix}/{path.relative_to(root).as_posix()}'
+                    info = members.get(member)
+                    if (info is None or info.file_size != status.st_size
+                            or bw.sha_file(path) != member_sha256(archive, info)):
+                        stale.append(member)
+                        if len(stale) == limit:
+                            return stale
+    return stale
+
+
 def otatools_record(ctx: Context) -> dict:
     """Record the build's tool archive. Packaging and the checks run their host tools from it."""
     patterns = ('soong/.intermediates/build/make/tools/otatools_package/otatools-package/*/gen/otatools.zip',
@@ -992,6 +1028,11 @@ def plan_manual_android(ctx: Context) -> StepPlan:
 
     def check_out():
         state['otatools'] = otatools_record(ctx)
+        stale = stale_archive_files(ctx.out / 'target' / 'product' / config['product'], target_files)
+        if stale:
+            raise BuildStepError(f'the target-files archive is stale: m installed files in out/ after it, which it '
+                                 f'lacks or holds with other bytes ({", ".join(stale)}). Remove {target_files.parent} '
+                                 f'and run "{MANUAL_TARGETS}" again')
 
     def check_source():
         commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
@@ -1037,7 +1078,8 @@ def plan_manual_android(ctx: Context) -> StepPlan:
             ctx.echo(f'    note: out/ is older than {", ".join(newer[:10])}. If m has not run since, run it and '
                      'package again')
 
-    actions = [Action('Check the manual build', func=check_out, detail=f'{lunch} in out/'),
+    actions = [Action('Check the manual build', func=check_out,
+                      detail=f'{lunch} in out/, a target-files archive that holds every file m installed since'),
                Action('Verify the source tree', func=check_source,
                       detail='the one "build sync" or "build vendor" recorded'),
                Action('Check the vendor files', func=check_vendor_files,

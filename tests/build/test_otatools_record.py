@@ -53,7 +53,7 @@ class OtatoolsRecordTests(ArchiveFixtures):
                 steps.otatools_record(self.ctx)
         self.ctx.manual = True
         with self.assertRaisesRegex(bw.BuildStepError, 'out/ lacks the host tools \\(otatools.zip\\). After lunch, build '
-                                                       'them with "m target-files-package otatools-package"'):
+                                                       'them with "m droid target-files-package otatools-package"'):
             steps.otatools_record(self.ctx)
 
     def test_each_supported_location_records_exact_relative_path_and_hash(self):

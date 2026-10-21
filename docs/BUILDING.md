@@ -51,10 +51,12 @@ vendor files out of it into the source tree.
 ```sh
 source build/envsetup.sh
 lunch <codename>-cur-user
-m target-files-package otatools-package
+m droid target-files-package otatools-package
 ```
 
 - The usual Android build, plus what step 4 packages and checks. A plain `m` builds the images only.
+- Keep `droid`: without it the target-files archive lacks the vendor SELinux policy.
+- For a build to keep, remove `out` first (`rm -r out`), as GrapheneOS's build guide says.
 - `<codename>-cur-userdebug` builds a `userdebug` image with root debugging over adb, for
   development.
 
@@ -95,7 +97,7 @@ bash flash-all.sh
 ```sh
 repo sync --force-sync -j8
 tools/diamaneos/bin/diamaneos build vendor <codename>
-m target-files-package otatools-package
+m droid target-files-package otatools-package
 tools/diamaneos/bin/diamaneos build package
 ```
 

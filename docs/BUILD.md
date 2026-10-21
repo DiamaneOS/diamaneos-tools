@@ -97,7 +97,7 @@ The build commands use the FP6 profile: its entry `config/devices/FP6.json`, the
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
 | `sync` | Moves a generated tree where the manifest has a project, and an old local manifest the tools installed, out of the way. Runs `repo init` on the manifest branch with the pinned `repo` tool, then `repo sync`. When an existing checkout's `repo` tool lacks the pinned tag, it first fetches the tag from the pinned origin and keeps it only as the pinned tag object and commit with a good signature from the repo keyring. | The `repo` tool's tag signature and commit, that `.repo/manifests` is the declared manifest at the head of the branch (and at `manifest.revision` when pinned, or at the recorded manifest commit when reproducing a build), then the full source preflight: every project at its resolved commit and clean, no local manifests, no undeclared files (a build that is not official warns about these instead, see below). Records the resolved manifest (`state/resolved-manifest.xml`), its SHA-256, the project map, the manifest commit, the kernel prebuilts commit and, when reproducing a build, what it reproduced (`pinned_manifest`). |
-| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the device maker's factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at the device entry's `vendor_tree` (`vendor/fairphone/FP6`, `build inputs`), ready for `lunch` and `m target-files-package otatools-package`, which it then prints. A plain `m` builds the images but not the target-files archive and `otatools.zip` `build package` needs. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync. After a sync that reproduced a resolved manifest it keeps that record. After a plain `repo sync` it then makes the vendor files only when they are out of date, and installs them in the source either way. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source, and their hashes are recorded in the extraction identity. |
+| `vendor` | Builds `aapt2`, `simg2img`, `lpunpack` and `debugfs_static` from the synced source (generic lunch target, network off), downloads the device maker's factory package from its official host, then `vendor stage`, `vendor extract` and `vendor product`, and installs the tree at the device entry's `vendor_tree` (`vendor/fairphone/FP6`, `build inputs`), ready for `lunch` and `m droid target-files-package otatools-package`, which it then prints. A plain `m` builds the images but not the target-files archive and `otatools.zip` `build package` needs. Without `droid`, the archive lacks the vendor and odm SELinux policy, which the image rules check. On its own, `build vendor` first checks the existing checkout as `sync` does after its `repo sync`, runs no `repo` command and records it as the sync. After a sync that reproduced a resolved manifest it keeps that record. After a plain `repo sync` it then makes the vendor files only when they are out of date, and installs them in the source either way. | The package's size and SHA-256, each staged image and each extracted file against the recipes. The image tools are accepted because they come from the synced source, and their hashes are recorded in the extraction identity. |
 | `android` | Installs (or re-checks) the generated vendor tree, then `lunch <codename>-cur-<variant>` and `m` with network off. The kernel comes from the kernel prebuilts project (`device/fairphone/FP6-kernel`). | The full preflight before and after the build, including the generated-input descriptor. The tree must be the one `sync` recorded. Records the target-files archive and the build identity. |
 | `package` | Exports the partition images from the target-files archive, copies the stock firmware out of the factory package, builds `super.img` from the same archive, makes the wipe and modem file system reset images, copies the resolved manifest and writes `build.json` and `SHA256SUMS`. It runs its host tools, and those of `verify`, from a copy of the build's `otatools.zip` unpacked under `work/tmp`, as GrapheneOS's release scripts do. | The target-files and `otatools.zip` hashes, the factory package and each firmware image against the firmware inventory, and the wipe images against the device fstab, the stock FRP image and the stock partition table. |
 | `verify` | Checks the exported set. | See below. Writes `<build>.verify.json` next to the image directory. |
@@ -437,15 +437,21 @@ The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor
   init --repo-rev=v2.70`. Other builds warn about another version.
 - `build vendor` makes the vendor files again only when its recipes, code or settings changed, and
   for an official build also when the source changed.
-- `m target-files-package otatools-package` builds the images, the target-files archive and
+- `m droid target-files-package otatools-package` builds the images, the target-files archive and
   `otatools.zip`, which holds the host tools that packaging and the checks use. A plain `m` builds
   the images only.
+- Without `droid`, the archive lacks the vendor and odm SELinux policy (`VENDOR/etc/selinux`), and
+  `verify` fails the checks that read it.
+- The archive does not depend on those files, so a later `m` does not remake it. `build package`
+  stops on such a stale archive: a file `m` installed in `out/` after the archive, which the archive
+  lacks or holds with other bytes.
+- As GrapheneOS's build guide says, remove `out` (`rm -r out`) before a build to keep.
 - `build package` on its own, when the Android step has no current record of its own, checks the
   checkout again and records the build in `out/` as the Android step, with no `m` and no
   `installclean`.
 - Then it packages and checks the set (`package`, then `verify`).
 - It stops, with one message, when:
-  - `out/` lacks the target-files archive or `otatools.zip`.
+  - `out/` lacks the target-files archive or `otatools.zip`, or the archive is stale.
   - `out/` holds another variant than `--variant` asks for (without `--variant`, the variant comes
     from `out/`).
   - The source changed since `build vendor` checked it, or holds another vendor tree.
@@ -558,7 +564,8 @@ the stock OS installed, as that section describes.
 | `repo implementation commit does not match the pin` | An official build needs the pinned `repo` tool: run `repo init --repo-rev=<tag>` with the `repo_tool` release tag of `config/build-environment-fp6.json`, then `repo sync` and the command again. Other builds only warn. |
 | `is a source checkout` or `is inside the source checkout` | `--workspace` names the checkout or a directory in it. Leave out the option to use the directory the error names, or name a directory outside the checkout. |
 | `name the device` or `unknown device` | Add the device codename the error lists: `build vendor FP6`. |
-| `out/ holds no complete <codename> build` or `out/ lacks ...` | After `lunch`, run `m target-files-package otatools-package`, then `build package` again. |
+| `out/ holds no complete <codename> build` or `out/ lacks ...` | After `lunch`, run `m droid target-files-package otatools-package`, then `build package` again. |
+| `the target-files archive is stale` | `m` installed files after it made the archive, for example after a build without `droid`. Remove the directory the error names, run `m droid target-files-package otatools-package`, then `build package` again. |
 | `the source changed since "diamaneos build vendor <codename>" checked it` | Run `build vendor` and `m` again, then `build package`. |
 | `the build cannot compile with network access off` | It says why: user namespaces turned off, or util-linux older than 2.38. Fix that if you can. Otherwise add `--allow-network`, and `build.json` records that the build had network access. |
 | `these tools ... do not contain the source's tools/diamaneos commit` | The tools are older than the source: a warning, and a stop for an official build. Run the copy it names (`tools/diamaneos/bin/diamaneos` in the checkout), or update your tools checkout. |

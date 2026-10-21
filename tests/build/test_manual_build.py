@@ -92,7 +92,7 @@ class ManualBuildTests(unittest.TestCase):
     def test_out_that_does_not_match_stops_with_one_message(self):
         cases = (
             (lambda: self.otatools.unlink(),
-             'out/ lacks the host tools \\(otatools.zip\\). After lunch, build them with "m target-files-package '
+             'out/ lacks the host tools \\(otatools.zip\\). After lunch, build them with "m droid target-files-package '
              'otatools-package"'),
             (lambda: setattr(self, 'vendor_check', (False, 'differs VENDOR/lib64/libfoo.so')),
              'not built with the vendor tree of "diamaneos build vendor" \\(differs VENDOR/lib64/libfoo.so\\)'),
@@ -115,9 +115,27 @@ class ManualBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(bw.UsageError, 'official images come only from "diamaneos build all"'):
             steps.plan_android(replace(self.ctx, official=True))
         self.target_files.unlink()
-        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"m target-files-package '
+        with self.assertRaisesRegex(bw.UsageError, 'out/ holds no complete FP6 build .*"m droid target-files-package '
                                                    'otatools-package"'):
             steps.plan_android(self.ctx)
+
+    def test_a_stale_target_files_archive_stops(self):
+        vendor = self.ctx.out / 'target/product/FP6/vendor/etc/selinux'
+        vendor.mkdir(parents=True)
+        (vendor / 'vendor_sepolicy.cil').write_text('old')
+        os.utime(vendor / 'vendor_sepolicy.cil', (1, 1))
+        self.record()  # Older than the archive: m made the archive after it.
+        with zipfile.ZipFile(self.target_files, 'a') as archive:
+            archive.writestr('VENDOR/etc/selinux/vendor_sepolicy.cil', 'new')
+        (vendor / 'vendor_sepolicy.cil').write_text('new')
+        self.record()  # Newer, with the bytes the archive holds.
+        for name, text in (('vendor_sepolicy.cil', 'neu'), ('vendor_file_contexts', 'new')):
+            (vendor / name).write_text(text)
+            with self.subTest(name), self.assertRaisesRegex(
+                    bw.BuildStepError, f'the target-files archive is stale: .*\\(VENDOR/etc/selinux/{name}\\). '
+                                       'Remove .*target_files_intermediates'):
+                self.record()
+            (vendor / 'vendor_sepolicy.cil').write_text('new')
 
     def test_inputs_newer_than_out_are_a_note(self):
         os.utime(self.ctx.workspace.state_dir / 'vendor.json')
