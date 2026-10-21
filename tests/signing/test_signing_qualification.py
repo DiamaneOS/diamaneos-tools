@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from diamaneos_tools import signing_inputs as inputs, signing_qualification as api
+from diamaneos_tools import signing_inputs as inputs, signing_native as native, signing_qualification as api
 
 
 class SigningPlanTests(unittest.TestCase):
@@ -84,6 +84,40 @@ class SigningPlanTests(unittest.TestCase):
             with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
             kwargs['destination'].unlink(); plan['roles']['Default.apk']['container'] = 'platform'
             with self.assertRaises(inputs.SigningError): api.signing_command(plan, **kwargs)
+
+
+# GrapheneOS ships TalkBack presigned with its app signing key and its release script keeps it.
+TALKBACK = '798c9bf8f7f5498dbe1d7ffcf2f1d0fd548cff0674021ea1a415a9596f55c28c'
+
+
+class TalkBackPolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        inputs.validate_config(self.policy)
+        self.keys = native.PublicKeys.__new__(native.PublicKeys)
+        self.keys.policy = self.policy
+
+    def test_one_exact_rule_outside_apex(self):
+        rules = [r for r in self.policy['presigned_packages'] if 'talkback' in r['metadata_name'].lower()]
+        self.assertEqual([{'metadata_name': 'talkback.apk', 'artifact_basename': 'talkback.apk',
+                           'parent_apex': None, 'certificate_sha256': [TALKBACK]}], rules)
+        self.assertEqual(TALKBACK, self.keys.fingerprint('PRESIGNED', 'PRODUCT/app/talkback/talkback.apk'))
+        for logical in ('SYSTEM/apex/com.android.example.apex!/app/talkback.apk', 'PRODUCT/app/talkback/TalkBack.apk'):
+            with self.subTest(logical=logical), self.assertRaises(inputs.SigningError):
+                self.keys.fingerprint('PRESIGNED', logical)
+
+    def test_kept_presigned_only_under_its_exact_name(self):
+        roles = api.role_map({'apk': {'talkback.apk': {'certificate': 'PRESIGNED'}}, 'apex': {}}, self.policy, {})
+        self.assertEqual('PRESIGNED', roles['talkback.apk']['container'])
+        with self.assertRaisesRegex(inputs.SigningError, 'outside the reviewed policy'):
+            api.role_map({'apk': {'TalkBack.apk': {'certificate': 'PRESIGNED'}}, 'apex': {}}, self.policy, {})
+
+    def test_another_certificate_is_refused(self):
+        pin = self.keys.fingerprint('PRESIGNED', 'PRODUCT/app/talkback/talkback.apk')
+        output = 'Number of signers: 1\nV3.0 Signer: certificate SHA-256 digest: {}\n'
+        self.assertEqual([TALKBACK], native.apk_certificate_digests(output.format(TALKBACK), pin))
+        with self.assertRaises(inputs.SigningError):
+            native.apk_certificate_digests(output.format('d' * 64), pin)
 
 
 if __name__ == '__main__':

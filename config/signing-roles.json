@@ -53,6 +53,7 @@
     {"metadata_name": "Messaging.apk", "artifact_basename": "Messaging.apk", "parent_apex": null, "certificate_sha256": ["f79e5f0ec0a0855efd2027e05eb9ec9c196d5d047940be603576e530867c3845"]},
     {"metadata_name": "PdfViewerGOS.apk", "artifact_basename": "PdfViewerGOS.apk", "parent_apex": null, "certificate_sha256": ["eea4b37d46e361ce2583e1f59859db9e784d456425ff40fe6cf75d90f6a968e0"]},
     {"metadata_name": "SpeechServices.apk", "artifact_basename": "SpeechServices.apk", "parent_apex": null, "certificate_sha256": ["e4ed212b02b55bc33464938df68d04f60dff04dd3ac982b8b8240441e05f1b2f"]},
+    {"metadata_name": "talkback.apk", "artifact_basename": "talkback.apk", "parent_apex": null, "certificate_sha256": ["798c9bf8f7f5498dbe1d7ffcf2f1d0fd548cff0674021ea1a415a9596f55c28c"]},
     {"metadata_name": "TrichromeChrome.apk", "artifact_basename": "TrichromeChrome.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
     {"metadata_name": "TrichromeLibrary.apk", "artifact_basename": "TrichromeLibrary.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
     {"metadata_name": "TrichromeWebView.apk", "artifact_basename": "TrichromeWebView.apk", "parent_apex": null, "certificate_sha256": ["c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"]},
