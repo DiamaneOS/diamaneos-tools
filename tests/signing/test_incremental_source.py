@@ -2,7 +2,7 @@
 import hashlib,json,pathlib,tempfile,unittest
 from unittest.mock import Mock,patch
 from types import SimpleNamespace
-from diamaneos_tools import signing_inputs as si,signing_verify as api,signing_native as native
+from diamaneos_tools import signing_inputs as si,signing_verify as api,signing_native as native,signing_qualification as plans
 from .fixtures import write_zip,publication_description,publication_plan,release_record
 
 class IncrementalGuards(unittest.TestCase):
@@ -67,6 +67,52 @@ class IncrementalGuards(unittest.TestCase):
             if source:self.base.write_bytes(b'changed source after acceptance')
         self.tools.apply_payload.side_effect=apply
         with self.assertRaisesRegex(si.SigningError,'Delta source changed'):self.verify()
+
+    def test_incrementals_from_two_releases_each_check_their_own_source(self):
+        older=self.pub/'older-target-files.zip';older.write_bytes(b'controlled release before the previous one')
+        self.plan['previous_artifacts']['older-target-files.zip']=si.sha256_file(older)
+        self.description['ota'].append({'file':'older.zip','source_target_files':'older-target-files.zip'})
+        write_zip(self.pub/'older.zip',{'payload.bin':b'delta','META-INF/com/android/metadata':'\n'.join(k+'='+v for k,v in self.metadata.items())+'\n'})
+        self.incremental()
+        self.assertEqual('PASS',self.verify()['status'])
+        self.assertEqual([self.base,older],[c.args[0] for c in self.tools.target_identity.call_args_list])
+        self.assertEqual([None,self.base,older],[c.args[2] for c in self.tools.apply_payload.call_args_list])
+        self.description['ota'][-1]['source_target_files']='base-target-files.zip';self.incremental()
+        with self.assertRaisesRegex(si.SigningError,'two incrementals from one source'):self.verify()
+
+class PreviousReleases(unittest.TestCase):
+    CURRENT={'build_datetime':400}
+    def result(self,built,artifacts=None,**fields):
+        return {'status':'PASS','artifact_signatures_verified':True,'mode':'release',
+                'provenance':{'projects':{'build/make':str(built)},'build_datetime':built},
+                'artifacts':{'target-%d.zip'%built:'%064x'%built} if artifacts is None else artifacts,**fields}
+
+    def test_one_result_as_before_and_three_newest_first(self):
+        one=self.result(300)
+        self.assertEqual(([one],one['artifacts']),plans.previous_releases(one,self.CURRENT,'release'))
+        self.assertEqual(([],{}),plans.previous_releases(None,self.CURRENT,'release'))
+        results,artifacts=plans.previous_releases([self.result(100),self.result(300),self.result(200)],self.CURRENT,'release')
+        self.assertEqual([300,200,100],[r['provenance']['build_datetime'] for r in results])
+        self.assertEqual({'target-100.zip','target-200.zip','target-300.zip'},set(artifacts))
+        shared={'shared.zip':'0'*64}
+        _,artifacts=plans.previous_releases([self.result(300,shared),self.result(200,shared)],self.CURRENT,'release')
+        self.assertEqual(shared,artifacts)
+
+    def test_each_result_is_checked(self):
+        cases=[('at most 3',[self.result(t) for t in (100,200,300,350)]),
+               ('did not verify',[self.result(300),self.result(200,status='FAIL')]),
+               ('mode is incompatible',[self.result(300),self.result(200,mode='qualification')]),
+               ('incomplete',[self.result(300),self.result(200,artifacts=[])]),
+               ('not an older build',[self.result(300),self.result(400)]),
+               ('not an older build',[self.result(300),self.result(True)]),
+               ('repeat a build',[self.result(300),self.result(300)]),
+               ('disagree on an artifact',[self.result(300),self.result(200,{'target-300.zip':'0'*64})])]
+        for message,results in cases:
+            with self.subTest(message),self.assertRaisesRegex(si.SigningError,message):
+                plans.previous_releases(results,self.CURRENT,'release')
+        untimed=self.result(300);untimed['provenance'].pop('build_datetime')
+        with self.assertRaisesRegex(si.SigningError,'not an older build'):
+            plans.previous_releases([untimed],self.CURRENT,'release')
 
 class PlatformIdentity(unittest.TestCase):
     def test_git_bound_snapshot_is_passed_to_platform_buildinfo(self):

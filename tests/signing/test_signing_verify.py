@@ -284,7 +284,7 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
                                ('SHA256SUMS', record.parent / 'SHA256SUMS')):
                 self.assertEqual(expected[name], path.read_bytes()); self.assertEqual(Path(name).name, path.name)
                 self.assertNotEqual(self.root / name, path)
-            self.assertEqual(json.loads(expected['previous.json']), before)
+            self.assertEqual([json.loads(expected['previous.json'])], before)
             self.assertEqual(self.policy, policy)
             self.assertEqual(archive_bytes, otatools.read_bytes())
             self.assertNotEqual(self.root / 'otatools.zip', otatools)
@@ -305,6 +305,41 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
 
     def test_plan_preparation_cannot_reopen_replaced_authenticated_metadata(self):
         self.frozen_prepare_swap('plans.prepare')
+
+    def previous_pairs(self, identity, count, namespace=None, name='previous'):
+        arguments = []
+        for index in range(count):
+            result = self.root / f'{name}-{index}.json'
+            result.write_text(json.dumps({'status': 'PASS', 'index': index}))
+            native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                            '-n', namespace or self.policy['result_namespace'], result],
+                           env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+            arguments += ['--previous-result', str(result), '--previous-signature', str(result) + '.sig']
+        return arguments
+
+    def test_up_to_three_previous_results_each_with_its_signature(self):
+        arguments, identity, signature = self.bootstrap_inputs()
+        native.command(['/usr/bin/ssh-keygen', '-Y', 'sign', '-f', identity,
+                        '-n', self.policy['verification_namespace'], self.root / 'verify.json'],
+                       env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
+        signature.write_bytes((self.root / 'verify.json.sig').read_bytes())
+        three = self.previous_pairs(identity, 3)
+        # The middle pair is signed as a release record, not as a signing result.
+        wrong = self.previous_pairs(identity, 1, 'diamaneos-release-record', 'wrong')
+        cases = {'at most 3': self.previous_pairs(identity, 4, name='four'),
+                 'requires its external signature': three[:-2],
+                 'its external signature': three[2:4],
+                 'Native tool failed': three[:4] + wrong + three[8:]}
+        for message, previous in cases.items():
+            with self.subTest(message), patch.object(api, 'verified_build') as verified, \
+                 patch('sys.stderr', new=io.StringIO()) as error:
+                self.assertEqual(2, api.main(arguments + previous))
+                self.assertIn(message, error.getvalue()); verified.assert_not_called()
+        # Three good pairs pass every signature and reach the build checks.
+        with patch.object(api, 'verified_build', side_effect=inputs.SigningError('reached')) as verified, \
+             patch('sys.stderr', new=io.StringIO()) as error:
+            self.assertEqual(2, api.main(arguments + three))
+        verified.assert_called_once(); self.assertIn('reached', error.getvalue())
 
     def test_snapshot_refuses_symlinks_hardlinks_oversize_and_descriptor_swap(self):
         source, destination = self.root / 'source.txt', self.root / 'snapshot.txt'

@@ -408,18 +408,20 @@ def source_files(source, projects):
     return result
 
 
+def previous_result(previous, mode):
+    """An earlier release's signing result, already checked against its external signature."""
+    require(isinstance(previous, dict), 'Previous signing result must be a JSON object')
+    require(previous.get('status') == 'PASS' and previous.get('artifact_signatures_verified') is True,
+            'Previous signing result did not verify artifacts')
+    require(previous.get('mode') in MODES and mode in (previous['mode'], 'qualification'),
+            'Previous signing result mode is incompatible')
+    require(isinstance(previous.get('provenance'), dict)
+            and isinstance(previous['provenance'].get('projects'), dict)
+            and isinstance(previous.get('artifacts'), dict), 'Previous signing result is incomplete')
+    return previous
+
+
 def changed_projects(projects, previous=None, *, mode='qualification'):
-    if previous is None:
-        old = {}
-    else:
-        require(isinstance(previous, dict), 'Previous signing result must be a JSON object')
-        require(previous.get('status') == 'PASS' and previous.get('artifact_signatures_verified') is True,
-                'Previous signing result did not verify artifacts')
-        require(previous.get('mode') in MODES and mode in (previous['mode'], 'qualification'),
-                'Previous signing result mode is incompatible')
-        require(isinstance(previous.get('provenance'), dict)
-                and isinstance(previous['provenance'].get('projects'), dict)
-                and isinstance(previous.get('artifacts'), dict), 'Previous signing result is incomplete')
-        old = previous['provenance']['projects']
+    old = {} if previous is None else previous_result(previous, mode)['provenance']['projects']
     return [{'project': path, 'previous': old.get(path), 'current': projects.get(path)}
             for path in sorted(set(old) | set(projects)) if old.get(path) != projects.get(path)]

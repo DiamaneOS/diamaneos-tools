@@ -134,9 +134,14 @@ Super-bearing plans bind `super_layout` before signing. Factory slots come from 
 install record. Legacy qualification uses the platform A/B bootstrap or non-A/B naming contract;
 older plans without this binding require preparation again. Extraction output never chooses the expected layout.
 
-Use `--previous-result` with `--previous-signature` for subsequent runs. The externally
-verified result must contain successful artifact verification in a compatible mode.
-Each plan reports changed signing projects. The first includes every signing project.
+Use `--previous-result` with `--previous-signature` for subsequent runs, one pair for
+each earlier release an incremental comes from, at most 3, with the signatures in the same
+order. Each externally verified result must show successful artifact verification in a
+compatible mode, from an older build.
+
+Artifact names must differ between releases.
+Each plan reports changed signing projects against the newest previous result.
+The first includes every signing project.
 
 Release-script overrides supply package roles. Archive contents determine absent metadata.
 Presigned bytes remain identical and verify against exact policy identities. Enclosed APKs
@@ -339,7 +344,8 @@ For example, keep this description outside the publication directory:
 ```
 
 Each `ota` entry has `file` and `source_target_files`, and a full OTA uses `null`.
-Delta sources must match previous verified artifact hashes. A full OTA is mandatory.
+Delta sources must match previous verified artifact hashes, one incremental per source.
+A full OTA is mandatory.
 
 The release record contains `schema_version`, `plan_sha256` and the exact `artifacts`
 hash map for target-files, images, OTAs, factory archive and factory signature.

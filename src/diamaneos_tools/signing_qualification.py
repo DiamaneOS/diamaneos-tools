@@ -7,7 +7,7 @@ import re
 
 from . import signing_archive as za
 from . import signing_mac, signing_factory, signing_layout, signing_release
-from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects,
+from .signing_inputs import (CERT_ROLES, NAME, canonical_sha256, changed_projects, previous_result,
                              load_json, require, sha256_file, source_files, verified_build)
 from .signing_inputs import presigned_rule, presigned_apex_rule
 from .signing_native import avb_descriptors, package_members
@@ -58,6 +58,29 @@ def role_map(metadata, policy, overrides, present=None):
     return result
 
 
+# Incrementals come from the last 3 releases.
+MAX_PREVIOUS = 3
+
+
+def previous_releases(previous, provenance, mode):
+    """The signing results of the earlier releases, newest first, and the artifacts that can be delta sources.
+    Each is checked as a single previous result is."""
+    results = [] if previous is None else [previous] if isinstance(previous, dict) else list(previous)
+    require(len(results) <= MAX_PREVIOUS, 'Incrementals come from at most 3 earlier releases')
+    for result in results:
+        built = previous_result(result, mode)['provenance'].get('build_datetime')
+        require(type(built) is int and built < provenance['build_datetime'],
+                'Previous signing result is not an older build')
+    times = [result['provenance']['build_datetime'] for result in results]
+    require(len(set(times)) == len(times), 'Previous signing results repeat a build')
+    results.sort(key=lambda result: result['provenance']['build_datetime'], reverse=True)
+    artifacts = {}
+    for result in results:
+        for name, digest in result['artifacts'].items():
+            require(artifacts.setdefault(name, digest) == digest, 'Previous signing results disagree on an artifact')
+    return results, artifacts
+
+
 def member_role(mapping, kind, logical):
     record = mapping.get(za.package_name(logical))
     require(record and record['kind'] == ('apk' if kind == 'apk' else 'apex'), 'Unlisted packaged signing role')
@@ -72,6 +95,8 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     provenance['java_sha256'] = sha256_file(tools.java_home / 'bin/java')
     provenance['signer_sha256'] = sha256_file(tools.path('sign_target_files_apks'))
     provenance['ota_generator_sha256'] = sha256_file(tools.path('ota_from_target_files'))
+    # The newest earlier release is the previous release, which the source changes are listed against.
+    previous, previous_artifacts = previous_releases(previous, provenance, mode)
     if mode == 'release':
         with za.archive(target_files) as handle:
             signing_release.refuse(signing_release.archive_problems(handle, signed=False))
@@ -132,7 +157,7 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
               'policy_sha256': canonical_sha256(policy), 'key_inventory_sha256': canonical_sha256(keys.inventory),
               'public_material_sha256': canonical_sha256(keys.files),
               'public_identities': {**keys.public_ids, 'avb': keys.avb_id},
-              'provenance': provenance, 'changed_projects': changed_projects(provenance['projects'], previous, mode=mode),
+              'provenance': provenance, 'changed_projects': changed_projects(provenance['projects'], (previous or [None])[0], mode=mode),
               'metadata': za.package_metadata_shape(metadata),
               'absent_metadata_packages': sorted(absent),
               'packages': packages, 'roles': roles, 'partitions': partitions, 'chains': chains}
@@ -159,10 +184,7 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
             for name in entry['packages']:
                 require(name not in identities or entry['certificates'] == [identities[name]],
                         'Named MAC selector does not match the APK signing role')
-    if previous is not None:
-        result['previous_artifacts'] = previous['artifacts']
-    else:
-        result['previous_artifacts'] = {}
+    result['previous_artifacts'] = previous_artifacts
     if mode != 'qualification' or signing_factory.INPUT_FIELDS <= set(record):
         result['factory_input'] = signing_factory.input_record(record, result)
     if logical:

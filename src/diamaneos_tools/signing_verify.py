@@ -87,9 +87,13 @@ def metadata_inputs(args):
             capture(safe_file(args.build_record.parent, 'SHA256SUMS'), za.MAX_TEXT,
                     frozen.build_record.parent / 'SHA256SUMS')
             frozen.verification_signature = capture(args.verification_signature, 1024 * 1024)
+            if args.command == 'prepare':
+                previous = (args.previous_result or [], args.previous_signature or [])
+                require(len(previous[0]) == len(previous[1]), 'Each previous result requires its external signature')
+                require(len(previous[0]) <= plans.MAX_PREVIOUS, 'Incrementals come from at most 3 earlier releases')
             for name in ('previous_result', 'previous_signature'):
-                if getattr(args, name, None):
-                    setattr(frozen, name, capture(getattr(args, name), 1024 * 1024 if name.endswith('signature') else MAX_JSON))
+                limit = 1024 * 1024 if name.endswith('signature') else MAX_JSON
+                setattr(frozen, name, [capture(path, limit) for path in getattr(args, name, None) or []])
             if args.command == 'factory':
                 frozen.plan = capture(args.plan)
                 frozen.passthrough_root = args.build_record.resolve().parent
@@ -277,6 +281,7 @@ def verify_publication(plan, publication, artifact_root, policy, tools, keys, *,
         if record['source_target_files'] is not None:
             previous.append(record['source_target_files'])
     require(len(set(names)) == len(names), 'Publication reuses an artifact path')
+    require(len(set(previous)) == len(previous), 'Publication has two incrementals from one source')
     require(publication['release_record'] not in names and publication['release_signature'] not in names
             and publication['release_record'] != publication['release_signature'], 'Release proof reuses an artifact path')
     final_names = set(names + previous + [publication['release_record'], publication['release_signature']])
@@ -363,8 +368,9 @@ def parser():
     prepare = commands.add_parser('prepare', help='prepare a plan from a verified build')
     for name in ('build-record', 'verification-report', 'target-files', 'resolved-manifest'):
         prepare.add_argument('--' + name, type=Path, required=True)
-    prepare.add_argument('--previous-result', type=Path)
-    prepare.add_argument('--previous-signature', type=Path)
+    # One pair per earlier release an incremental comes from, at most 3.
+    prepare.add_argument('--previous-result', type=Path, action='append')
+    prepare.add_argument('--previous-signature', type=Path, action='append')
     prepare.add_argument('--verification-signature', type=Path, required=True)
     output = commands.add_parser('command', help='print native signing arguments for the accepted input')
     for name in ('plan', 'target-files', 'signed-target-files', 'key-dir', 'source-root'):
@@ -481,12 +487,7 @@ def execute(args):
     if args.command == 'prepare':
         paths += [args.build_record, args.verification_report, args.verification_signature,
                   args.target_files, args.resolved_manifest]
-        if args.previous_result:
-            require(args.previous_signature is not None, 'Previous result requires its external signature')
-            paths.append(args.previous_result)
-            paths.append(args.previous_signature)
-        else:
-            require(args.previous_signature is None, 'Previous signature has no result')
+        paths += args.previous_result + args.previous_signature
     else:
         paths += [args.plan, args.publication]
     before = input_hashes(paths)
@@ -496,9 +497,8 @@ def execute(args):
         before.update(input_hashes((authority,)))
         host_ssh_signature(args.verification_report, args.verification_signature,
                            authority, identity, policy['verification_namespace'], args.scratch)
-        if args.previous_result:
-            host_ssh_signature(args.previous_result, args.previous_signature,
-                               authority, identity, policy['result_namespace'], args.scratch)
+        for result, signature in zip(args.previous_result, args.previous_signature):
+            host_ssh_signature(result, signature, authority, identity, policy['result_namespace'], args.scratch)
         recheck_hashes(before)
         recheck_stamps(args.metadata_stamps)
         provenance = verified_build(args.build_record, args.verification_report, args.target_files,
@@ -535,7 +535,7 @@ def execute(args):
                        provenance['projects'], policy, getattr(args, 'artifact_root', None),
                        expected_otatools=provenance['otatools_sha256']) as (tools, keys):
         if args.command == 'prepare':
-            previous = load_json(args.previous_result) if args.previous_result else None
+            previous = [load_json(path) for path in args.previous_result]
             result = plans.prepare(args.build_record, args.verification_report, args.target_files,
                     args.resolved_manifest, policy, keys, tools, tools.scratch / 'otatools.zip', previous, mode=mode)
             for changed in result['changed_projects']:
