@@ -2177,6 +2177,141 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(allowed(cil.replace('(type vendor_vm_cp_bitstream_device)\n', '')))
 
 
+ANDROID_NS = 'http://schemas.android.com/apk/res/android'
+
+
+def manifest_dump(package, uses=(), defines=None, split=None):
+    """aapt2 dump xmltree output of a manifest: uses-permission entries as names or (name,
+    {attribute: value}), defined permissions as {name: protectionLevel}."""
+    lines = [f'N: android={ANDROID_NS} (line=2)', '  E: manifest (line=2)',
+             f'    A: package="{package}" (Raw: "{package}")']
+    if split:
+        lines.append(f'    A: split="{split}" (Raw: "{split}")')
+    for name, level in (defines or {}).items():
+        lines += ['      E: permission (line=5)', f'        A: {ANDROID_NS}:name(0x01010003)="{name}" (Raw: "{name}")',
+                  f'        A: {ANDROID_NS}:protectionLevel(0x01010009)=0x{level:08x}']
+    for entry in uses:
+        name, attrs = (entry, {}) if isinstance(entry, str) else entry
+        lines += ['      E: uses-permission (line=9)', f'        A: {ANDROID_NS}:name(0x01010003)="{name}" (Raw: "{name}")']
+        lines += [f'        A: {ANDROID_NS}:{key}(0x01010271)={value}' for key, value in attrs.items()]
+    return '\n'.join(lines) + '\n'
+
+
+def privapp_xml(package, *permissions, deny=(), root='permissions'):
+    entries = ''.join(f'<permission name="{p}"/>' for p in permissions)
+    entries += ''.join(f'<deny-permission name="{p}"/>' for p in deny)
+    return f'<?xml version="1.0" encoding="utf-8"?><{root}><privapp-permissions package="{package}">{entries}' \
+           f'</privapp-permissions></{root}>'.encode()
+
+
+class PrivappPermissionTests(unittest.TestCase):
+    PRECISE = 'android.permission.READ_PRECISE_PHONE_STATE'
+    OBSERVER = 'SYSTEM_EXT/priv-app/DiamaneOSWlanObserver/DiamaneOSWlanObserver.apk'
+    RULE = {'platform': 'SYSTEM/framework/framework-res.apk'}
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.manifests = {'framework-res.apk': manifest_dump('android', [self.PRECISE], {
+            'android.permission.ACCESS_NETWORK_STATE': 0x0, self.PRECISE: 0x12,
+            'android.permission.READ_PRIVILEGED_PHONE_STATE': 0x04000012, 'android.permission.SIGNATURE_ONLY': 0x2,
+            'android.permission.OLD_SIGNATURE_OR_SYSTEM': 0x3, 'android.permission.INTERNAL_PRIVILEGED': 0x14,
+            'android.permission.DANGEROUS_PRIVILEGED': 0x11})}
+        # Today's boot loop: the platform-signed observer asks for a signature|privileged permission.
+        self.manifests['DiamaneOSWlanObserver.apk'] = manifest_dump(
+            'de.diamaneos.wlanobserver', ['android.permission.ACCESS_NETWORK_STATE', self.PRECISE])
+
+    def check(self, members, enforce=b'enforce'):
+        files = {'SYSTEM/build.prop': b'ro.build.version.sdk=37\nro.build.version.codename=REL\n'
+                                      b'ro.control_privapp_permissions=' + enforce + b'\n',
+                 'SYSTEM/framework/framework-res.apk': b'apk', self.OBSERVER: b'apk'}
+        files.update(members)
+        tools = FakeTools({('aapt2', 'xmltree'): lambda args: self.manifests[Path(str(args[-1])).name]})
+        v = Harness(self.root, {k: v for k, v in files.items() if v is not None}, tools=tools)
+        self.addCleanup(v.tf.close)
+        return subject.rule_privapp_permissions(self.RULE, v)
+
+    def test_missing_entry_fails_with_package_permission_and_partition(self):
+        ok, detail = self.check({'SYSTEM_EXT/etc/permissions/privapp-permissions-de.diamaneos.wlanobserver.xml':
+                                 privapp_xml('de.diamaneos.wlanobserver', 'android.permission.MODIFY_PHONE_STATE')})
+        self.assertFalse(ok)
+        self.assertEqual(f'de.diamaneos.wlanobserver ({self.OBSERVER}) requests {self.PRECISE} without a system_ext '
+                         'privapp-permissions entry', detail)
+
+    def test_entries_on_the_app_partition_pass(self):
+        allow = privapp_xml('de.diamaneos.wlanobserver', self.PRECISE)
+        for path, data in (('SYSTEM_EXT/etc/permissions/a.xml', allow), ('SYSTEM_EXT/etc/sysconfig/a.xml', allow),
+                           ('SYSTEM_EXT/etc/permissions/a.xml', privapp_xml('de.diamaneos.wlanobserver', deny=[self.PRECISE])),
+                           ('SYSTEM_EXT/etc/permissions/a.xml', privapp_xml('de.diamaneos.wlanobserver', self.PRECISE,
+                                                                            root='config'))):
+            with self.subTest(path=path, data=data):
+                ok, detail = self.check({path: data})
+                self.assertTrue(ok, detail)
+                self.assertEqual('privileged apps: 1, allowlisted requests: 1', detail)
+
+    def test_entries_elsewhere_do_not_count(self):
+        allow = privapp_xml('de.diamaneos.wlanobserver', self.PRECISE)
+        for path, data in (('SYSTEM/etc/permissions/a.xml', allow), ('PRODUCT/etc/permissions/a.xml', allow),
+                           ('VENDOR/etc/permissions/a.xml', allow), ('SYSTEM_EXT/etc/permissions/sku_a/a.xml', allow),
+                           ('SYSTEM_EXT/etc/a.xml', allow), ('SYSTEM_EXT/etc/permissions/a.txt', allow),
+                           ('SYSTEM_EXT/etc/permissions/a.xml', privapp_xml('de.diamaneos.wlanobserver', self.PRECISE, root='other')),
+                           ('SYSTEM_EXT/etc/permissions/a.xml', privapp_xml('de.diamaneos.other', self.PRECISE))):
+            with self.subTest(path=path, data=data):
+                self.assertFalse(self.check({path: data})[0])
+
+    def test_vendor_and_odm_share_one_allowlist(self):
+        self.manifests['IWlanService.apk'] = manifest_dump('com.google.android.iwlan', [self.PRECISE])
+        allow = privapp_xml('de.diamaneos.wlanobserver', self.PRECISE)
+        for app in ('VENDOR/priv-app/IWlanService/IWlanService.apk', 'ODM/priv-app/IWlanService/IWlanService.apk'):
+            for path, ok in (('ODM/etc/permissions/a.xml', True), ('VENDOR/etc/sysconfig/a.xml', True),
+                             ('SYSTEM/etc/permissions/a.xml', False)):
+                with self.subTest(app=app, path=path):
+                    members = {app: b'apk', 'SYSTEM_EXT/etc/permissions/b.xml': allow,
+                               path: privapp_xml('com.google.android.iwlan', self.PRECISE)}
+                    self.assertEqual(ok, self.check(members)[0])
+
+    def test_only_privileged_platform_permissions_need_entries(self):
+        allow = {'SYSTEM_EXT/etc/permissions/a.xml': privapp_xml('de.diamaneos.wlanobserver', self.PRECISE)}
+        for permission, ok in (('android.permission.SIGNATURE_ONLY', True), ('android.permission.DANGEROUS_PRIVILEGED', True),
+                               ('de.diamaneos.permission.OWN', True), ('android.permission.OLD_SIGNATURE_OR_SYSTEM', False),
+                               ('android.permission.INTERNAL_PRIVILEGED', False),
+                               ('android.permission.READ_PRIVILEGED_PHONE_STATE', False),
+                               (('android.permission.INTERNAL_PRIVILEGED', {'maxSdkVersion': 36}), True),
+                               (('android.permission.INTERNAL_PRIVILEGED', {'maxSdkVersion': 37}), False),
+                               (('android.permission.INTERNAL_PRIVILEGED', {'minSdkVersion': 38}), True)):
+            with self.subTest(permission=permission):
+                self.manifests['DiamaneOSWlanObserver.apk'] = manifest_dump('de.diamaneos.wlanobserver',
+                                                                            [self.PRECISE, permission])
+                self.assertEqual(ok, self.check(allow)[0])
+
+    def test_platform_package_and_splits_are_exempt_and_other_folders_are_not_privileged(self):
+        self.manifests['split.apk'] = manifest_dump('de.diamaneos.wlanobserver', [self.PRECISE], split='config.en')
+        self.manifests['Plain.apk'] = manifest_dump('de.diamaneos.plain', [self.PRECISE])
+        members = {self.OBSERVER: None, 'SYSTEM_EXT/priv-app/DiamaneOSWlanObserver/split.apk': b'apk',
+                   'SYSTEM_EXT/app/Plain/Plain.apk': b'apk', 'SYSTEM_EXT/priv-app/Plain/sub/Plain.apk': b'apk'}
+        self.assertEqual((True, 'privileged apps: 0, allowlisted requests: 0'), self.check(members))
+        ok, detail = self.check({'PRODUCT/priv-app/Plain.apk': b'apk', self.OBSERVER: None})
+        self.assertIn('de.diamaneos.plain (PRODUCT/priv-app/Plain.apk) requests', detail)
+
+    def test_enforcement_follows_the_last_build_prop(self):
+        self.assertTrue(self.check({}, enforce=b'log')[0])
+        self.assertTrue(self.check({}, enforce=b'')[0])
+        self.assertFalse(self.check({'PRODUCT/etc/build.prop': b'ro.control_privapp_permissions=enforce\n'},
+                                    enforce=b'log')[0])
+        self.assertTrue(self.check({'PRODUCT/etc/build.prop': b'ro.control_privapp_permissions=disable\n'})[0])
+
+    def test_a_platform_without_privileged_permissions_fails(self):
+        self.manifests['framework-res.apk'] = manifest_dump('android')
+        self.assertEqual((False, 'SYSTEM/framework/framework-res.apk defines no privileged permission'), self.check({}))
+
+    def test_the_committed_rule_checks_framework_res(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['privapp-permissions-allowlisted']
+        self.assertEqual(('privapp_permissions', self.RULE['platform']), (rule['type'], rule['platform']))
+        self.assertNotIn('variants', rule)
+        self.assertNotIn('official', rule)
+
+
 class ParserTests(unittest.TestCase):
     def test_boot_header_os_field_and_kernel(self):
         header = bytearray(4096)

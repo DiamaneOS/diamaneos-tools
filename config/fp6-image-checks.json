@@ -6085,6 +6085,12 @@
       "cls": "sock_file",
       "perm": "write",
       "allowed": []
+    },
+    {
+      "id": "privapp-permissions-allowlisted",
+      "why": "Every privileged permission of the platform that a privileged app asks for has a privapp-permissions entry on the app's partition. With ro.control_privapp_permissions=enforce a missing entry stops system_server at every boot, platform-signed apps included.",
+      "type": "privapp_permissions",
+      "platform": "SYSTEM/framework/framework-res.apk"
     }
   ]
 }

@@ -932,6 +932,126 @@ def rule_apk(rule, v):
     return not problems, '; '.join(problems)
 
 
+# PackageManager scans these folders as privileged (InitAppsHelper.scanSystemDirs), and
+# PermissionManager looks a privileged app up in the allowlist of its partition: vendor and odm
+# share one (AppIdPermissionPolicy.getPrivilegedPermissionAllowlistState).
+PRIVILEGED_FOLDERS = {'SYSTEM/framework': 'system', 'SYSTEM/priv-app': 'system', 'VENDOR/priv-app': 'vendor',
+                      'ODM/priv-app': 'vendor', 'PRODUCT/priv-app': 'product', 'SYSTEM_EXT/priv-app': 'system_ext'}
+# SystemConfig reads privapp-permissions from the top level of etc/sysconfig and etc/permissions
+# of each partition into the allowlist of the partition the file is on.
+ALLOWLIST_PARTITIONS = {'SYSTEM': 'system', 'VENDOR': 'vendor', 'ODM': 'vendor', 'PRODUCT': 'product',
+                        'SYSTEM_EXT': 'system_ext'}
+# The order init loads build.prop files in. A later file overrides an earlier one.
+PROPERTY_FILES = ('SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'VENDOR/default.prop', 'VENDOR/build.prop',
+                  'ODM/etc/build.prop', 'PRODUCT/etc/build.prop')
+PROTECTION_SIGNATURE, PROTECTION_SIGNATURE_OR_SYSTEM, PROTECTION_INTERNAL = 2, 3, 4
+PROTECTION_FLAG_PRIVILEGED = 0x10
+
+
+def image_property(v, key: str) -> str | None:
+    value = None
+    for name in PROPERTY_FILES:
+        if v.tf.exists(name):
+            value = next((val for k, val in reversed(property_lines(v.tf.read(name))) if k == key), value)
+    return value
+
+
+def manifest_of(v, name: str, directory: Path) -> dict:
+    apk = v.tf.extract(name, directory)
+    try:
+        tree = xmltree(v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk]))
+    finally:
+        apk.unlink()
+    manifest = next((c for c in tree['children'] if c['name'] == 'manifest'), None)
+    if manifest is None:
+        raise ValueError(name + ' has no manifest')
+    return manifest
+
+
+def allowlisting_privileged(level: int) -> bool:
+    """Whether the allowlist covers a permission with this protection level: a signature or
+    internal permission with the privileged flag (PermissionInfo.fixProtectionLevel first)."""
+    if level == PROTECTION_SIGNATURE_OR_SYSTEM:
+        level = PROTECTION_SIGNATURE | PROTECTION_FLAG_PRIVILEGED
+    return level & 0xf in (PROTECTION_SIGNATURE, PROTECTION_INTERNAL) and bool(level & PROTECTION_FLAG_PRIVILEGED)
+
+
+def privapp_allowlists(v) -> dict:
+    """{partition: {package: {permission}}} from every privapp-permissions entry. A
+    deny-permission counts too: it decides the permission, so it stops no boot."""
+    lists = {}
+    for prefix, partition in ALLOWLIST_PARTITIONS.items():
+        for folder in ('sysconfig', 'permissions'):
+            for name in v.tf.glob(f'{prefix}/etc/{folder}/*.xml'):
+                if '/' in name.removeprefix(f'{prefix}/etc/{folder}/'):
+                    continue
+                root = ET.fromstring(v.tf.read(name))
+                if root.tag not in ('permissions', 'config'):
+                    continue
+                for entry in root.findall('privapp-permissions'):
+                    if entry.get('package'):
+                        lists.setdefault(partition, {}).setdefault(entry.get('package'), set()).update(
+                            e.get('name') for e in entry.iter() if e.tag in ('permission', 'deny-permission')
+                            and e.get('name'))
+    return lists
+
+
+def rule_privapp_permissions(rule, v):
+    """Every signature|privileged permission of the platform that a privileged app requests is
+    in the privapp-permissions allowlist of the app's partition, as PermissionManager demands
+    at boot when ro.control_privapp_permissions is enforce. A missing entry stops system_server
+    at every start (user builds) or denies the permission (debuggable builds).
+
+    Only the platform package's permissions need an entry, and the platform package itself is
+    exempt. Platform-signed apps are not. Shared-UID siblings do not count: PermissionManager
+    stops at the first package of the UID that passes, in scan order, so a missing entry may stop
+    the boot whatever its siblings have."""
+    mode = (image_property(v, 'ro.control_privapp_permissions') or '').lower()
+    if mode != 'enforce':
+        return True, f'ro.control_privapp_permissions is {mode or "unset"}: the allowlist is not enforced'
+    sdk = int(image_property(v, 'ro.build.version.sdk') or 0)
+    if (image_property(v, 'ro.build.version.codename') or 'REL') != 'REL':
+        sdk += 1  # Build.VERSION.RESOURCES_SDK_INT
+    names = sorted(n for folder in PRIVILEGED_FOLDERS for pattern in ('/*.apk', '/*/*.apk')
+                   for n in v.tf.glob(folder + pattern)
+                   if n.count('/') == folder.count('/') + pattern.count('/'))
+    allowlists = privapp_allowlists(v)
+    problems, apps, entries = [], 0, 0
+    with v.tools.scratch() as temporary:
+        directory = Path(temporary)
+        platform = manifest_of(v, rule['platform'], directory)
+        levels = {}
+        for element in platform['children']:
+            if element['name'] == 'permission' and element['attrs'].get('name'):
+                levels[element['attrs']['name']] = int(element['attrs'].get('protectionLevel', '0'), 0)
+        privileged = {name for name, level in levels.items() if allowlisting_privileged(level)}
+        if not privileged:
+            return False, rule['platform'] + ' defines no privileged permission'
+        for name in names:
+            manifest = manifest_of(v, name, directory)
+            package = manifest['attrs'].get('package', '')
+            if package == 'android' or manifest['attrs'].get('split'):
+                continue
+            apps += 1
+            partition = next(p for f, p in PRIVILEGED_FOLDERS.items() if name.startswith(f + '/'))
+            listed = allowlists.get(partition, {}).get(package, set())
+            for element in manifest['children']:
+                if element['name'] not in ('uses-permission', 'uses-permission-sdk-23', 'uses-permission-sdk-m'):
+                    continue
+                attrs = element['attrs']
+                # PackageParser drops a request outside its SDK range.
+                low, high = int(attrs.get('minSdkVersion', '0'), 0), int(attrs.get('maxSdkVersion', str(sdk)), 0)
+                if attrs.get('name') not in privileged or not low <= sdk <= high:
+                    continue
+                if attrs['name'] in listed:
+                    entries += 1
+                else:
+                    problems.append(f'{package} ({name}) requests {attrs["name"]} without a '
+                                    f'{partition} privapp-permissions entry')
+    detail = f'privileged apps: {apps}, allowlisted requests: {entries}'
+    return not problems, '; '.join(sorted(set(problems))) or detail
+
+
 def rule_elf_exports(rule, v):
     with v.tools.scratch() as temporary:
         path = v.tf.extract(rule['path'], Path(temporary))
@@ -1252,7 +1372,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
-         'codec2_abi_guard': rule_codec2_abi_guard}
+         'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions}
 
 
 def validate_rules(document: dict) -> list:
