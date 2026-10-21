@@ -58,7 +58,7 @@
     {"id": "frameworks-base", "slug": "platform_frameworks_base", "path": "frameworks/base", "branch": "android17", "follow_note": "GrapheneOS framework. The fork for DiamaneOS framework changes and the Tally interface.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_frameworks_base", "ref": "@release", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
-    {"id": "frameworks-libs-systemui", "slug": "platform_frameworks_libs_systemui", "path": "frameworks/libs/systemui", "branch": "android17", "follow_note": "GrapheneOS SystemUI libraries. The fork for monet's DiamaneOS palette style and the Tally token library.",
+    {"id": "frameworks-libs-systemui", "slug": "platform_frameworks_libs_systemui", "path": "frameworks/libs/systemui", "branch": "android17", "follow_note": "GrapheneOS SystemUI libraries. The fork for monet's hooks of the DiamaneOS palette style and the icon loader's Tally icon styles. The palette style and the token library live in vendor_diamaneos.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_frameworks_libs_systemui", "ref": "@release", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
     {"id": "theme-picker", "slug": "platform_packages_apps_ThemePicker", "path": "packages/apps/ThemePicker", "branch": "android17", "follow_note": "GrapheneOS Wallpaper & style. The fork for previews that match the applied palette.",
