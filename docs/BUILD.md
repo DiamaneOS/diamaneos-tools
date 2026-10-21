@@ -430,7 +430,7 @@ The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor
 - `build vendor` on its own checks the checkout as `sync` does after its `repo sync`, runs no `repo`
   command and records it as the sync.
 - An official build needs the pinned `repo` tool, the environment's `repo_tool` release tag: `repo
-  init --repo-rev=v2.65`. Other builds warn about another version.
+  init --repo-rev=v2.70`. Other builds warn about another version.
 - `build vendor` makes the vendor files again only when its recipes, code or settings changed, and
   for an official build also when the source changed.
 - `m target-files-package otatools-package` builds the images, the target-files archive and
