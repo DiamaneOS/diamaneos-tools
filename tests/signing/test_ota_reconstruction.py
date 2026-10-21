@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from diamaneos_tools import signing_native as native, signing_inputs as inputs
 from .fixtures import write_zip
@@ -94,7 +95,7 @@ class ApplyTests(unittest.TestCase):
         self.root=Path(self.tmp.name).resolve()
         self.tools=native.NativeTools.__new__(native.NativeTools);self.tools.scratch=self.root
         self.payload=self.root/'payload.bin';self.payload.write_bytes(b'controlled payload placeholder')
-        self.target=self.root/'target.zip';self.calls=[]
+        self.target=self.root/'target.zip';self.calls=[];self.timeouts=[]
 
     def target_files(self, partitions):
         write_zip(self.target,{'META/ab_partitions.txt':'\n'.join(partitions),
@@ -102,7 +103,7 @@ class ApplyTests(unittest.TestCase):
 
     def apply(self, results, source=None, sparse=None):
         def run(tool,args,**kwargs):
-            self.calls.append((tool,args))
+            self.calls.append((tool,args));self.timeouts.append(kwargs.get('timeout'))
             if tool=='simg2img':
                 # Explicit native-normalization response only. No sparse decoder is mirrored.
                 Path(args[1]).write_bytes(sparse);return ''
@@ -119,6 +120,16 @@ class ApplyTests(unittest.TestCase):
         self.assertIsNone(self.apply({'vendor':b'vendor'+bytes(4090),'boot':b'boot'+bytes(4092)}))
         self.assertEqual('delta_generator',self.calls[0][0])
         self.assertFalse(any(p.is_dir() for p in self.root.iterdir()))
+
+    def test_only_the_delta_apply_gets_the_longer_limit(self):
+        values={'boot':b'boot'};self.target_files(values)
+        source=self.root/'source.zip';write_zip(source,{'META/ab_partitions.txt':'boot','IMAGES/boot.img':b'old'})
+        self.apply({'boot':b'boot'+bytes(4092)});self.apply({'boot':b'boot'+bytes(4092)},source)
+        self.assertEqual([inputs.NATIVE_TIMEOUT,inputs.DELTA_APPLY_TIMEOUT],self.timeouts)
+        self.assertEqual((1200,10800),(inputs.NATIVE_TIMEOUT,inputs.DELTA_APPLY_TIMEOUT))
+        with patch.object(inputs.process,'run',return_value={'transport':'ok','stdout':b''}) as run:
+            inputs.command(['tool']);inputs.command(['tool'],timeout=inputs.DELTA_APPLY_TIMEOUT)
+        self.assertEqual([1200,10800],[call.args[1] for call in run.call_args_list])
 
     def test_failure_reports_all_partition_hashes_and_no_paths_or_image_data(self):
         values={'vendor':b'do-not-print-image-content','boot':b'boot'};self.target_files(values)

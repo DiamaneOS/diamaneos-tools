@@ -16,7 +16,7 @@ from . import signing_archive as za, signing_release
 from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
                              fields, load_json, require, safe_file, sha256_file)
 from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule, presigned_apex_rule, public_inventory_fields
-from .signing_inputs import git_read
+from .signing_inputs import git_read, NATIVE_TIMEOUT, DELTA_APPLY_TIMEOUT
 
 
 # Header/footer decoding and key offsets belong to the recorded platform parser.
@@ -201,8 +201,8 @@ class NativeTools:
     def path(self, name):
         return safe_file(self.root, 'bin/' + name)
 
-    def run(self, name, args, *, cwd=None):
-        return command([self.path(name), *args], env=self.env, cwd=cwd).decode('utf-8', 'strict')
+    def run(self, name, args, *, cwd=None, timeout=NATIVE_TIMEOUT):
+        return command([self.path(name), *args], env=self.env, cwd=cwd, timeout=timeout).decode('utf-8', 'strict')
 
     def openssl(self, args, data=None):
         return command(['/usr/bin/openssl', *args], env=self.env, data=data)
@@ -377,7 +377,7 @@ class NativeTools:
                     '--new_partitions=' + ':'.join(map(str, outputs))]
             if old:
                 args += ['--old_partitions=' + ':'.join(str(old[name]) for name in names)]
-            self.run('delta_generator', args)
+            self.run('delta_generator', args, timeout=DELTA_APPLY_TIMEOUT if old else NATIVE_TIMEOUT)
             comparisons = [{'partition': name, 'expected_input_format': formats['target-' + name],
                             **ota_partition_comparison(target[name], path,
                                 canonical_payload=formats['target-' + name] == 'raw')}

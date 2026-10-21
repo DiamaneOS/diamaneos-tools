@@ -19,6 +19,11 @@ PROJECTS = {'script', 'build/make', 'development', 'external/avb',
 SHA256 = re.compile(r'^[0-9a-f]{64}$')
 NAME = re.compile(r'^[A-Za-z0-9._+-]{1,256}$')
 MAX_JSON = 16 * 1024 * 1024
+# Seconds before a native tool is stopped.
+NATIVE_TIMEOUT = 1200
+# Applying an incremental onto its source partitions takes longer. A whole verify with one incremental took
+# 1794 s on a 48-thread builder, and six times that leaves room for a laptop with 8 threads and 7.6 GB RAM.
+DELTA_APPLY_TIMEOUT = 10800
 # release: a DiamaneOS release, with the pinned release keys. production: a lockable
 # set with any private keys. qualification: a set that is never locked.
 MODES = ('release', 'production', 'qualification')
@@ -141,8 +146,8 @@ def safe_file(root, relative):
     return path
 
 
-def command(argv, *, env=None, cwd=None, data=None):
-    result = process.run(list(map(str, argv)), 1200, 4 * 1024 * 1024,
+def command(argv, *, env=None, cwd=None, data=None, timeout=NATIVE_TIMEOUT):
+    result = process.run(list(map(str, argv)), timeout, 4 * 1024 * 1024,
                          env=env, cwd=cwd, input_data=data)
     if result['transport'] != 'ok':
         error = SigningError('Native tool failed: ' + Path(str(argv[0])).name)
