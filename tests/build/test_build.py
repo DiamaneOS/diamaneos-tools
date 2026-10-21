@@ -290,9 +290,19 @@ class BranchCheckoutTests(unittest.TestCase):
         revision = fixture_repository(self.project, "tracked.txt", "tracked\n")
         self.manifests = self.source / ".repo" / "manifests"
         self.resolved = ("<manifest><remote name='diamaneos' fetch='https://example.invalid/'/>"
-                         "<default remote='diamaneos'/><project name='example' path='device/example' "
-                         f"revision='{revision}' upstream='android17'/></manifest>").encode()
-        fixture_repository(self.manifests, "default.xml", self.resolved.decode())
+                         "<remote name='grapheneos' fetch='https://example.invalid/gos/'/>"
+                         "<default remote='grapheneos'/><project name='example' path='device/example' "
+                         f"remote='diamaneos' revision='{revision}' upstream='android17'/></manifest>").encode()
+        # GrapheneOS's default.xml with one include of the DiamaneOS projects.
+        self.base = ("<manifest>\n  <remote name='grapheneos' fetch='https://example.invalid/gos/'/>\n"
+                     "  <default remote='grapheneos'/>\n"
+                     f"  <project name='device_example' path='device/example' revision='{'1' * 40}'/>\n</manifest>\n")
+        self.config["upstream"]["default_manifest_sha256"] = hashlib.sha256(self.base.encode()).hexdigest()
+        fixture_repository(self.manifests, "diamaneos.xml",
+                           "<manifest><remote name='diamaneos' fetch='https://example.invalid/'/>"
+                           "<remove-project name='device_example'/><project name='example' path='device/example' "
+                           f"remote='diamaneos' revision='{revision}'/></manifest>")
+        self.commit_manifest("default.xml", self.base.replace("</manifest>", '  <include name="diamaneos.xml" />\n</manifest>'))
         git(self.manifests, "remote", "add", "origin", self.config["manifest"]["url"])
         git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
         self.declared = self.resolved
@@ -312,6 +322,35 @@ class BranchCheckoutTests(unittest.TestCase):
 
     def verify(self, **kw):
         return build.verify_branch_checkout(self.config, self.source, **kw)
+
+    def commit_manifest(self, name, text):
+        (self.manifests / name).write_text(text)
+        git(self.manifests, "add", name)
+        git(self.manifests, "commit", "-q", "-m", "manifest")
+        git(self.manifests, "update-ref", "refs/remotes/origin/android17", "HEAD")
+
+    def test_an_official_build_needs_the_pinned_grapheneos_manifest_with_one_include(self):
+        default = (self.manifests / "default.xml").read_text()
+        included = (self.manifests / "diamaneos.xml").read_text()
+        cases = (
+            ("default.xml", default.replace("device/example", "device/other"), "is not GrapheneOS 2026101600's"),
+            ("default.xml", default.replace("</manifest>", '<include name="x.xml" />\n</manifest>'), "one include"),
+            ("diamaneos.xml", included.replace("</manifest>", "<include name='x.xml'/></manifest>"), "may only add"),
+            ("diamaneos.xml", included.replace("'device_example'", "'other'"), "removes other, which GrapheneOS"),
+            ("diamaneos.xml", included.replace("<remove-project name='device_example'/>", ""), "two projects"),
+        )
+        for name, text, message in cases:
+            with self.subTest(message):
+                (self.manifests / name).write_text(text)
+                with self.assertRaisesRegex(build.BuildError, message):
+                    self.verify()
+                git(self.manifests, "checkout", "-q", "--", name)
+        # repo must read the same composition: no other project, remote or revision.
+        self.declared = self.declared.replace(b"remote='diamaneos' revision=", b"remote='grapheneos' revision=")
+        with self.assertRaisesRegex(build.BuildError, "repo reads another manifest .*: device/example"):
+            self.verify()
+        self.assertEqual(["repo reads another manifest than GrapheneOS 2026101600 with diamaneos.xml: device/example"],
+                         self.verify(allow_modified=True)["deviations"])
 
     def test_clean_checkout_records_the_resolved_manifest(self):
         path = self.root / "state" / "resolved-manifest.xml"
@@ -452,6 +491,8 @@ class BranchCheckoutTests(unittest.TestCase):
         # A project that follows a branch may be at any clean commit.
         self.declared = self.declared.replace(f"revision='{pinned}' upstream='android17'".encode(),
                                               b"revision='android17'")
+        self.commit_manifest("diamaneos.xml", (self.manifests / "diamaneos.xml").read_text().replace(
+            f"revision='{pinned}'", "revision='android17'"))
         self.assertTrue(self.verify()["source_clean"])
 
     def test_remote_without_https_fails(self):

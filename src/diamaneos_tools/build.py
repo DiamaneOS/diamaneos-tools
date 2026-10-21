@@ -770,6 +770,82 @@ def verify_pinned_revisions(declared_xml: bytes, rows, strict: bool = True) -> l
     return moved
 
 
+# The one line the DiamaneOS manifest adds to GrapheneOS's default.xml.
+INCLUDE_LINE = re.compile(rb'^[ \t]*<include name="([A-Za-z0-9][A-Za-z0-9._-]{0,127}\.xml)" ?/>[ \t]*\n', re.M)
+
+
+def _manifest_file(manifests: Path, name: str) -> bytes:
+    path = manifests / name
+    if path.is_symlink() or not path.is_file():
+        raise BuildError(f"the manifest checkout has no plain {name}")
+    data = path.read_bytes()
+    if len(data) > MAX_MANIFEST_BYTES:
+        raise BuildError(f"{name} exceeds its byte limit")
+    return data
+
+
+def _projects(root) -> tuple[dict, dict]:
+    """path -> (name, remote, revision) and remote name -> fetch URL of a flat manifest."""
+    remotes = {remote.get("name"): remote for remote in root.findall("remote")}
+    default = root.find("default")
+    default = default.attrib if default is not None else {}
+    projects = {}
+    for project in root.findall("project"):
+        remote = project.get("remote", default.get("remote"))
+        revision = (project.get("revision") or (remotes[remote].get("revision") if remote in remotes else None)
+                    or default.get("revision"))
+        path = project.get("path", project.get("name"))
+        if path in projects:
+            raise BuildError(f"the manifest has two projects at {path}")
+        projects[path] = (project.get("name"), remote, revision)
+    return projects, {name: remote.get("fetch") for name, remote in remotes.items()}
+
+
+def verify_upstream_base(config: dict, source: Path, declared_xml: bytes) -> None:
+    """The manifest is GrapheneOS's pinned release with the DiamaneOS changes in one included file.
+
+    ``default.xml`` must be the release's signed file plus one include line.
+    The included file may only add remotes and projects and remove projects.
+    ``repo manifest`` (``declared_xml``) must read exactly that composition.
+    """
+    upstream = config["upstream"]
+    tag = upstream["release_tag"]
+    manifests = source / ".repo" / "manifests"
+    default_xml = _manifest_file(manifests, "default.xml")
+    lines = list(INCLUDE_LINE.finditer(default_xml))
+    base = default_xml[:lines[0].start()] + default_xml[lines[0].end():] if len(lines) == 1 else b""
+    if len(lines) != 1 or sha256_bytes(base) != upstream["default_manifest_sha256"]:
+        raise BuildError(f"default.xml is not GrapheneOS {tag}'s signed default.xml with one include line")
+    name = lines[0].group(1).decode()
+    try:
+        root, included = ET.fromstring(base), ET.fromstring(_manifest_file(manifests, name))
+    except ET.ParseError:
+        raise BuildError(f"{name} is not valid XML") from None
+    if included.tag != "manifest" or any(e.tag not in ("remote", "remove-project", "project") for e in included):
+        raise BuildError(f"{name} may only add remotes and projects and remove projects")
+    for element in included:
+        if element.tag == "remote":
+            if any(remote.get("name") == element.get("name") for remote in root.findall("remote")):
+                raise BuildError(f"{name} redefines the remote {element.get('name')}")
+            root.append(element)
+        elif element.tag == "project":
+            root.append(element)
+        else:
+            if not set(element.attrib) <= {"name", "path"}:
+                raise BuildError(f"{name}: a remove-project line names more than a project and its path")
+            removed = [p for p in root.findall("project") if p.get("name") == element.get("name")
+                       and element.get("path", p.get("path", p.get("name"))) == p.get("path", p.get("name"))]
+            if not removed:
+                raise BuildError(f"{name} removes {element.get('name')}, which GrapheneOS {tag} does not have")
+            for project in removed:
+                root.remove(project)
+    (expected, remotes), (read, read_remotes) = _projects(root), _projects(ET.fromstring(declared_xml))
+    differ = sorted(path for path in expected.keys() | read.keys() if expected.get(path) != read.get(path))
+    if differ or remotes != read_remotes or _manifest_exports(ET.tostring(root)) != _manifest_exports(declared_xml):
+        raise BuildError(f"repo reads another manifest than GrapheneOS {tag} with {name}"
+                         + (": " + _listed(differ) if differ else ""))
+
+
 def _status_entries(checkout: Path, status: bytes):
     """(entry, path) for each entry of ``git status --porcelain=v1 -z``."""
     entries = iter(status.split(b"\0"))
@@ -931,9 +1007,16 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
         if strict:
             raise BuildError("resolved manifest fetches from a remote without HTTPS")
         notes.append("the manifest fetches from a remote without HTTPS")
-    moved = verify_pinned_revisions(repo_manifest(source, resolved=False), rows, strict)
+    declared = repo_manifest(source, resolved=False)
+    moved = verify_pinned_revisions(declared, rows, strict)
     if moved:
         notes.append("projects are not at the commits the manifest pins: " + _listed(moved))
+    try:
+        verify_upstream_base(config, source, declared)
+    except BuildError as error:
+        if strict:
+            raise
+        notes.append(str(error))
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     local_manifests = source / ".repo/local_manifests"
     if not strict and local_manifests.is_dir() and any(local_manifests.iterdir()):

@@ -158,6 +158,8 @@ or deleted files):
 - Another `repo` tool than the pinned one, or another origin of the manifest checkout.
 - A remote without HTTPS, or local manifests (`.repo/local_manifests`, left to `repo`).
 - A project the manifest pins to a commit at another commit.
+- A manifest that is not the pinned GrapheneOS release with one included file ([the DiamaneOS
+  manifest](#the-diamaneos-manifest)).
 - Files outside the projects, which the warning names.
 
 - The sync state and `build.json` list them (`source.deviations`), and the set is not reproducible.
@@ -631,9 +633,13 @@ commands](#the-build-commands).
     (`tools/diamaneos`, branch `main`).
 
 - GrapheneOS and AOSP projects keep the exact revisions of GrapheneOS's signed manifest.
-- Builders trust the DiamaneOS manifest branch. They do not check GrapheneOS's tag themselves.
 - GrapheneOS's signed release tag is verified when the manifest takes a GrapheneOS release, and the
   commit that takes it names the tag.
+- Builders do not check the tag themselves. They check the manifest against the environment's
+  `upstream` record:
+  - `default.xml` without its include line is the tag's `default.xml` byte for byte.
+  - The included file only adds remotes and projects and removes projects.
+  - `repo manifest` gives exactly that composition.
 - Every build records the resolved manifest, so the exact commit of each project is known
   afterwards.
 

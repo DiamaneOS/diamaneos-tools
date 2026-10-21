@@ -5,6 +5,7 @@ manifest and its generated kernel tree must be moved aside before repo checks
 out the kernel prebuilts project at the same path.
 """
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -33,7 +34,16 @@ FAKE_REPO = textwrap.dedent('''\
     def manifest():
         if os.path.isdir('.repo/local_manifests') and os.listdir('.repo/local_manifests'):
             sys.exit('error: local manifest names a project the manifest does not have')
-        return ET.parse('.repo/manifests/default.xml').getroot()
+        root = ET.parse('.repo/manifests/default.xml').getroot()
+        for include in root.findall('include'):
+            root.remove(include)
+            for element in ET.parse('.repo/manifests/' + include.get('name')).getroot():
+                if element.tag == 'remove-project':
+                    for project in [p for p in root.findall('project') if p.get('name') == element.get('name')]:
+                        root.remove(project)
+                else:
+                    root.append(element)
+        return root
 
     command, args = sys.argv[1], sys.argv[2:]
     if command == 'init':
@@ -103,20 +113,29 @@ class SyncFlowTests(unittest.TestCase):
         self.example = remotes / 'device_example'
         remote(self.example, {'example.mk': 'PRODUCT := example\n'})
         self.kernel_commit = remote(remotes / 'kernels', {'Image': 'kernel\n', 'BoardConfigKernel.mk': '\n'})
-        manifest = (f'<manifest><remote name="diamaneos" fetch="{base}" revision="android17"/>'
-                    '<default remote="diamaneos"/>'
-                    '<project name="device_example" path="device/example"/>'
-                    '<project name="device_fairphone_FP6-kernels" path="device/fairphone/FP6-kernel" '
-                    'clone-depth="1"/></manifest>')
+        self.build_commit = remote(remotes / 'build', {'envsetup.sh': '\n'})
+        # GrapheneOS's manifest, which includes the DiamaneOS projects.
+        upstream = (f'<manifest>\n  <remote name="grapheneos" fetch="{base}"/>\n  <default remote="grapheneos"/>\n'
+                    f'  <project name="build" path="build/make" revision="{self.build_commit}"/>\n'
+                    f'  <project name="branding" revision="{"1" * 40}"/>\n</manifest>\n')
+        diamaneos = (f'<manifest><remote name="diamaneos" fetch="{base}" revision="android17"/>'
+                     '<remove-project name="branding"/>'
+                     '<project name="device_example" path="device/example" remote="diamaneos"/>'
+                     '<project name="device_fairphone_FP6-kernels" path="device/fairphone/FP6-kernel" '
+                     'remote="diamaneos" clone-depth="1"/></manifest>')
         self.manifest_repository = remotes / 'manifest'
-        self.manifest_commit = remote(self.manifest_repository, {'default.xml': manifest})
+        self.manifest_commit = remote(self.manifest_repository, {
+            'default.xml': upstream.replace('</manifest>', '  <include name="diamaneos.xml" />\n</manifest>'),
+            'diamaneos.xml': diamaneos})
         tool = remotes / 'git-repo'
         remote(tool, {'repo': 'repo tool\n'}, branch='main')
         git(tool, 'tag', '-a', 'v-test', '-m', 'test release')
         urls = {base + 'platform_manifest.git': str(remotes / 'manifest'), base + 'git-repo': str(tool),
-                base + 'device_example': str(self.example), base + 'device_fairphone_FP6-kernels': str(remotes / 'kernels')}
+                base + 'device_example': str(self.example), base + 'device_fairphone_FP6-kernels': str(remotes / 'kernels'),
+                base + 'build': str(remotes / 'build')}
         environment = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())
         environment['manifest']['url'] = base + 'platform_manifest.git'
+        environment['upstream']['default_manifest_sha256'] = hashlib.sha256(upstream.encode()).hexdigest()
         environment['upstream']['repo_tool'].update(url=base + 'git-repo', release_tag='v-test',
                                                     tag_object=git(tool, 'rev-parse', 'v-test^{tag}'),
                                                     peeled_commit=git(tool, 'rev-parse', 'v-test^{}'))
@@ -173,13 +192,29 @@ class SyncFlowTests(unittest.TestCase):
         outputs = self.sync()
         self.assertEqual(self.kernel_commit, outputs['kernel_prebuilts_commit'])
         self.assertEqual(self.manifest_commit, outputs['manifest_commit'])
-        self.assertEqual(2, outputs['project_count'])
+        self.assertEqual(3, outputs['project_count'])
+        self.assertFalse((self.src / 'branding').exists())
         self.assertEqual(bw.sha_file(self.ctx.resolved_manifest), outputs['resolved_manifest_sha256'])
         self.assertTrue((self.src / 'device/fairphone/FP6-kernel/.git').exists())
         self.assertEqual('generated kernel\n',
                          (self.src / '.repo/diamaneos-previous-inputs/kernel/Image').read_text())
         self.assertTrue((self.src / '.repo/diamaneos-previous-local-manifests/diamaneos.xml').is_file())
         self.assertFalse((self.src / '.repo/local_manifests').exists())
+
+    def test_an_official_sync_takes_the_pinned_grapheneos_manifest_with_the_included_projects(self):
+        outputs = self.sync(self.context(official=True))
+        rows, _ = build.parse_project_map(self.ctx.resolved_manifest.read_bytes())
+        self.assertEqual([('build/make', self.build_commit), ('device/example', git(self.example, 'rev-parse', 'HEAD')),
+                          ('device/fairphone/FP6-kernel', self.kernel_commit)], [(row[0], row[3]) for row in rows])
+        self.assertNotIn('deviations', outputs)
+        # GrapheneOS's part changed: a warning, and an official build stops.
+        default = self.manifest_repository / 'default.xml'
+        default.write_text(default.read_text().replace('<manifest>', '<manifest>\n  <!-- edited -->'))
+        git(self.manifest_repository, 'commit', '-qam', 'edit')
+        self.assertEqual(["default.xml is not GrapheneOS 2026101600's signed default.xml with one include line"],
+                         self.sync()['deviations'])
+        with self.assertRaisesRegex(build.BuildError, 'is not GrapheneOS 2026101600'):
+            self.sync(self.context(official=True))
 
     def test_a_new_branch_commit_changes_the_sync_outputs(self):
         first = self.sync()
