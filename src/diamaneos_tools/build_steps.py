@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import datetime as _dt
 import re
 import shutil
 import subprocess
@@ -31,6 +32,8 @@ DIAMANEOS = ROOT / 'bin' / 'diamaneos'
 HOST_BIN = Path('host/linux-x86/bin')
 NAME = re.compile(r'[A-Za-z0-9_.+-]{1,128}')
 BUILD_NUMBER = re.compile(r'[A-Za-z0-9._-]{1,64}')
+# Official builds carry a release number as GrapheneOS does: the release date and a two-digit serial.
+RELEASE_NUMBER = re.compile(r'(20[0-9]{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-9]{2}')
 # Build number of the host image tools (aapt2 and friends), fixed so their
 # bytes do not depend on the build day.
 HOST_TOOLS_BUILD_NUMBER = 'diamaneos-host-tools'
@@ -325,8 +328,23 @@ def retire_overlay(src: Path, strict: bool = True) -> list:
     return ['the old manifest overlay']
 
 
-def build_number(identity: str, config: dict) -> str:
+def real_date(value: str) -> bool:
+    try:
+        _dt.datetime.strptime(value, '%Y%m%d')
+        return True
+    except ValueError:
+        return False
+
+
+def build_number(identity: str, config: dict, official: bool = False) -> str:
+    """Official builds: DIAMANEOS_BUILD_NUMBER as a release number, YYYYMMDDNN. Other builds: that override
+    or the configured prefix and the start of the source identity."""
     override = os.environ.get('DIAMANEOS_BUILD_NUMBER')
+    if official:
+        if not override or not RELEASE_NUMBER.fullmatch(override) or not real_date(override[:8]):
+            raise UsageError('an official build needs DIAMANEOS_BUILD_NUMBER as a release number: the release date '
+                             'and a two-digit serial, such as 2026102700')
+        return override
     if override:
         if not BUILD_NUMBER.fullmatch(override):
             raise UsageError('DIAMANEOS_BUILD_NUMBER may use letters, digits, ".", "_" and "-"')
@@ -821,7 +839,7 @@ def plan_android(ctx: Context) -> StepPlan:
     inputs = identity = number = datetime = None
     if waiting is None:
         identity = android_identity(ctx, sync)
-        number = ctx.build_number or build_number(identity, config)
+        number = ctx.build_number or build_number(identity, config, ctx.official)
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
                   'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,

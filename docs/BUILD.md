@@ -419,6 +419,9 @@ or deleted files):
 environment with another manifest branch, or with `manifest.revision` set to build one manifest
 commit. `DIAMANEOS_BUILD_NUMBER` overrides the build number.
 
+**Release numbers.** An official build needs `DIAMANEOS_BUILD_NUMBER` as a release number, as GrapheneOS
+numbers its releases: the release date and a two-digit serial, such as `2026102700`.
+
 ### Building by hand
 
 The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor <codename>`,

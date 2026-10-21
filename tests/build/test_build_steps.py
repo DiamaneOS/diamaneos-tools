@@ -98,6 +98,8 @@ class DownloadTests(unittest.TestCase):
 
 class PlanTests(unittest.TestCase):
     def setUp(self):
+        # Official plans need a release number (build_number).
+        env = patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': '2026102700'}); env.start(); self.addCleanup(env.stop)
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.lines = []
@@ -217,6 +219,7 @@ class PlanTests(unittest.TestCase):
         self.assertFalse(self.context().official)
 
     def test_build_number_override_is_validated(self):
+        os.environ.pop('DIAMANEOS_BUILD_NUMBER', None)  # the class sets one for official plans
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.assertEqual('test.0123456789ab', steps.build_number('0123456789abcdef', config))
         with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'test.20261003.10'}):
@@ -224,6 +227,18 @@ class PlanTests(unittest.TestCase):
         with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': 'a b'}):
             with self.assertRaises(bw.UsageError):
                 steps.build_number('0' * 64, config)
+
+    def test_official_build_needs_a_release_number(self):
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(bw.UsageError):
+                steps.build_number('0' * 64, config, official=True)
+        for bad in ('test.20261003.10', '202610270', '2026132700', '2026023000', '2026023200'):
+            with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': bad}):
+                with self.assertRaises(bw.UsageError):
+                    steps.build_number('0' * 64, config, official=True)
+        with patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': '2026102700'}):
+            self.assertEqual('2026102700', steps.build_number('0' * 64, config, official=True))
 
     def test_shallow_choice_is_remembered_and_not_part_of_the_digest(self):
         shallow = self.context(shallow=True)
@@ -249,6 +264,7 @@ class PlanTests(unittest.TestCase):
         self.assertIn('<newest source commit time>', plan.actions[2].env['BUILD_DATETIME'])
 
     def test_a_prerequisite_keeps_the_options_it_was_built_with(self):
+        os.environ.pop('DIAMANEOS_BUILD_NUMBER', None)  # the class sets one for official plans
         ctx = self.context()
         ctx.workspace.write_state('android', {'status': 'PASS', 'inputs_sha256': 'x', 'inputs': {
             'variant': 'userdebug', 'network_isolation': False, 'build_number': 'test.7'}})
@@ -444,6 +460,8 @@ class PinnedSyncTests(unittest.TestCase):
     """build sync --resolved-manifest: plans and argument checks (the sync itself is in test_sync_flow)."""
 
     def setUp(self):
+        # Official plans need a release number (build_number).
+        env = patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': '2026102700'}); env.start(); self.addCleanup(env.stop)
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.lines = []
