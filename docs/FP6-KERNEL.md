@@ -55,14 +55,19 @@ that directory), run the non-consolidate targets:
 
 ```sh
 tools/bazel build --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom --config=stamp \
+  --defconfig_fragment=//diamaneos:diamaneos_defconfig \
   //common:kernel_aarch64 //msm-kernel:fps_gki \
   //msm-kernel:fps_gki_abi //common:kernel_aarch64_abi
 tools/bazel run --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom \
+  --defconfig_fragment=//diamaneos:diamaneos_defconfig \
   //common:kernel_aarch64_abi_dist -- --dist_dir "$ABI_OUTPUT"
 tools/bazel query --output=label \
   'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
 ```
 
+- `--defconfig_fragment` applies `kernel_platform/diamaneos/diamaneos_defconfig` to every
+  `kernel_build`, the GKI and the vendor one, after its defconfig. Kleaf then checks that each of
+  its values took effect. Without the flag the configuration policy check fails.
 - `--config=stamp` makes the version name the source commit (`-g<hash>`) and the build date the
   commit's (reproducible). Without it Kleaf reports `-maybe-dirty` and 1970. The tools set
   `SOURCE_DATE_EPOCH` to the pinned kernel_qcom commit's time for the whole build.
@@ -74,7 +79,7 @@ tools/bazel query --output=label \
 - The kernel accepts that for modules with symbol CRCs (it compares the vermagic after the release).
 - The tools require the Image's release to name the pinned common commit, every module's release to
   be the Image's or the same base with the pinned kernel_qcom commit, and one identical remainder.
-- The output queries use the same flag.
+- The output queries use the same flags.
 - Keep the queried list, require the audio and qcacld WLAN targets, and build exactly that list with
   the same flag, bounded concurrency and wall time, the workspace lock held and commands, revisions
   and exit status recorded.
@@ -197,9 +202,12 @@ disabling RANDSTRUCT. Any upstream kernel, GrapheneOS or Qualcomm merge can rein
   - kprobes and kretprobes, the firmware loader's user-helper fallback (the device init sets
     `force_sysfs_fallback`, so ueventd loads firmware) and the debugfs API, which kernel code keeps
     while mounts are refused.
-- The settings live in `arch/arm64/configs/gki_defconfig`, identical in the common kernel and the
-  vendor kernel (`kernel_platform/msm-kernel`) and kept in `savedefconfig` form because the GKI
-  build runs `check_defconfig`.
+- The settings live in `arch/arm64/configs/gki_defconfig` of the vendor kernel
+  (`kernel_platform/msm-kernel`) and of the common kernel, kept in `savedefconfig` form because the
+  GKI build runs `check_defconfig`.
+- The common kernel's file leaves out the DiamaneOS options: TIPC as a local-only module, dmesg
+  restricted from boot and refused debugfs mounts. They come from the fragment
+  `kernel_platform/diamaneos/diamaneos_defconfig` (above), so both configurations end up the same.
 
 The vendor configuration also meets
 [`config/kernel-vendor-policy-fp6.json`](../config/kernel-vendor-policy-fp6.json), for options only
