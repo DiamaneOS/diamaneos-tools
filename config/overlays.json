@@ -69,6 +69,9 @@
         "color_style_rainbow3": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
         "color_style_rainbow4": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines",
         "color_style_rainbow5": "palette style of a DiamaneOS preset: TONAL_SPOT, an existing ThemeStyle that the DiamaneOS palette refines"
+      },
+      "app.seamlessupdate.client": {
+        "network_security_config": "the certificate pins for the DiamaneOS update servers (releases.diamaneos.de and releases-na.diamaneos.de) instead of GrapheneOS's. The updater-pins image check holds them to the expected set and expiry"
       }
     },
     "allowed_strings": {
@@ -108,6 +111,12 @@
         "bundle_name_rainbow3": "name of the Signal violet colour preset",
         "bundle_name_rainbow4": "name of the Rose colour preset",
         "bundle_name_rainbow5": "name of the Lichen colour preset"
+      },
+      "com.android.bluetooth": {
+        "config_apmLearnMoreLink": "the airplane mode notice's help link: the DiamaneOS FAQ answer instead of a Google support page for Pixel phones"
+      },
+      "com.android.wifi.resources": {
+        "config_wifiApmEnhancementHelpLink": "the airplane mode notice's help link: the DiamaneOS FAQ answer instead of a Google support page for Pixel phones"
       }
     },
     "denied_names": {
@@ -533,6 +542,17 @@
       ]
     },
     {
+      "package": "com.android.wifi.resources",
+      "sources": [
+        {
+          "project": "packages/modules/Wifi",
+          "res": [
+            "service/ServiceWifiResources/res"
+          ]
+        }
+      ]
+    },
+    {
       "package": "com.android.systemui.accessibility.accessibilitymenu",
       "sources": [
         {
@@ -629,6 +649,17 @@
             "packages/SettingsLib/Utils/res",
             "packages/SettingsLib/TopIntroPreference/res",
             "packages/SettingsLib/ZeroStatePreference/res"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "app.seamlessupdate.client",
+      "sources": [
+        {
+          "project": "packages/apps/Updater",
+          "res": [
+            "res"
           ]
         }
       ]

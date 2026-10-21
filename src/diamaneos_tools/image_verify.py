@@ -9,6 +9,7 @@ Image-level checks read the exported images.
 """
 from __future__ import annotations
 
+import datetime
 import fnmatch
 import hashlib
 import json
@@ -706,11 +707,72 @@ def rule_overlay(rule, v):
             missing = [item for item in wanted if item not in have]
             if missing:
                 problems.append(f'{name} is missing {missing} (has {have})')
+        if rule.get('network_security_config'):
+            want = rule['network_security_config']
+            path = re.match(r'\(file\) (\S+)', aapt2_value(dump, want['resource']) or '')
+            tree = v.tools.run('aapt2', ['dump', 'xmltree', '--file', path.group(1), apk]) if path else ''
+            built = dict(property_lines(v.tf.read('SYSTEM/build.prop'))).get('ro.build.date.utc', '')
+            problems += pin_problems(xmltree(tree), want, int(built) if built.isdigit() else None)
         if rule.get('target'):
             manifest = v.tools.run('aapt2', ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk])
             if f'"{rule["target"]}"' not in manifest:
                 problems.append('overlay target is not ' + rule['target'])
     return not problems, '; '.join(problems)
+
+
+def xmltree(dump: str) -> dict:
+    """aapt2 dump xmltree output as nested elements: name, attrs, texts and children."""
+    root = {'name': None, 'attrs': {}, 'texts': [], 'children': []}
+    stack = [(-1, root)]
+    for line in dump.splitlines():
+        match = re.match(r'( *)([EAT]): (.*)$', line)
+        if not match:
+            continue
+        indent, kind, rest = len(match.group(1)), match.group(2), match.group(3)
+        while len(stack) > 1 and stack[-1][0] >= indent:
+            stack.pop()
+        if kind == 'E':
+            node = {'name': rest.split(' ')[0], 'attrs': {}, 'texts': [], 'children': []}
+            stack[-1][1]['children'].append(node)
+            stack.append((indent, node))
+        elif kind == 'T':
+            stack[-1][1]['texts'].append(rest[1:-1] if rest[:1] == "'" else rest)
+        else:
+            attr = re.match(r'(?:[^\s=]*:)?([A-Za-z_]+)(?:\([^)]*\))?="?([^" ]*)', rest)
+            if attr:
+                stack[-1][1]['attrs'][attr.group(1)] = attr.group(2)
+    return root
+
+
+def pin_problems(tree: dict, want: dict, built_utc: int | None) -> list:
+    """The pinned domain-config of a network security config: the wanted domains in one
+    domain-config, exactly the wanted pins, and an expiration at least min_days_valid days after
+    the build."""
+    def elements(node, name):
+        for child in node['children']:
+            if child['name'] == name:
+                yield child
+            yield from elements(child, name)
+    configs = [c for c in elements(tree, 'domain-config')
+               if set(want['domains']) <= {t for d in c['children'] if d['name'] == 'domain' for t in d['texts']}]
+    if len(configs) != 1:
+        return [f'no single domain-config holds {want["domains"]}']
+    pin_sets = [c for c in configs[0]['children'] if c['name'] == 'pin-set']
+    if len(pin_sets) != 1:
+        return ['the domain-config has no single pin-set']
+    pins = {t for p in pin_sets[0]['children'] if p['name'] == 'pin' for t in p['texts']}
+    problems = [] if pins == set(want['pins']) else [f'pins are {sorted(pins)} (want {sorted(want["pins"])})']
+    expiration = pin_sets[0]['attrs'].get('expiration', '')
+    try:
+        expires = datetime.datetime.strptime(expiration, '%Y-%m-%d').replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return problems + [f'pin-set expiration {expiration!r} is not a date']
+    if built_utc is None:
+        return problems + ['ro.build.date.utc is missing']
+    left = (expires - datetime.datetime.fromtimestamp(built_utc, datetime.timezone.utc)).days
+    if left < want['min_days_valid']:
+        problems.append(f'pins expire {expiration}, {left} days after the build (want {want["min_days_valid"]})')
+    return problems
 
 
 def overlay_target(manifest: str) -> str | None:
@@ -1035,7 +1097,8 @@ def rule_component_override(rule, v):
 
 
 def rule_zip_contains(rule, v):
-    """A text in a file or in one of its dex files. Texts in 'absent' must be in neither."""
+    """A text in a file or in one of its dex files (only the dex files with dex_only). Texts in
+    'absent' must be in neither."""
     data = v.tf.read(rule['file'])
     dex = []
 
@@ -1048,11 +1111,13 @@ def rule_zip_contains(rule, v):
         return dex
 
     problems = []
+    # dex_only: an APK whose resources keep an unused upstream value is judged by its code.
+    raw = b'' if rule.get('dex_only') else data
     needle = rule['text'].encode()
-    if needle not in data and not any(needle in blob for blob in dex_files()):
+    if needle not in raw and not any(needle in blob for blob in dex_files()):
         problems.append('does not contain ' + rule['text'])
     for text in rule.get('absent', []):
-        if text.encode() in data or any(text.encode() in blob for blob in dex_files()):
+        if text.encode() in raw or any(text.encode() in blob for blob in dex_files()):
             problems.append('contains ' + text)
     return not problems, '; '.join(problems)
 

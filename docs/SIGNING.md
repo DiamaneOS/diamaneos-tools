@@ -266,10 +266,10 @@ rm -rf "$KEY_DIR"
 - A build without `--official` has no Updater. Install the full OTA of a newer build with
   `adb sideload` in recovery, as on GrapheneOS.
 - An update server of your own is a source change, as on GrapheneOS:
-  - `packages/apps/Settings/download-policy/client/de/diamaneos/downloads/DownloadPolicy.java` builds
+  - `vendor/diamaneos/download-policy/client/de/diamaneos/downloads/DownloadPolicy.java` builds
     the update URLs in `url()`.
-  - `packages/apps/Updater/res/xml/network_security_config.xml` names the server domains and their
-    TLS pins.
+  - `vendor/diamaneos/overlay/DiamaneOSUpdaterOverlay/res/xml/network_security_config.xml` names the
+    server domains and their TLS pins. The `updater-pins` image check holds the same pins.
   - `vendor/diamaneos/product.mk` adds the Updater only when `DIAMANEOS_OFFICIAL_BUILD` is `true`.
 
 ## Check a signed image set

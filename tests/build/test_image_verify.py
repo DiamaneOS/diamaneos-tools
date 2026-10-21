@@ -1174,6 +1174,15 @@ class RuleTests(unittest.TestCase):
                                ({'text': 'missing.example'}, 'does not contain missing.example')):
             with self.subTest(change=change):
                 self.assertEqual((False, detail), subject.rule_zip_contains(dict(rule, **change), v))
+        # dex_only: an unused upstream value in the APK's resources does not count.
+        apk = io.BytesIO()
+        with zipfile.ZipFile(apk, 'w') as inner:
+            inner.writestr('resources.arsc', b'https://releases.grapheneos.org/')
+            inner.writestr('classes.dex', b'dex\x00.diamaneos.de/\x00')
+        v = self.harness({'SYSTEM/priv-app/U/U.apk': apk.getvalue()})
+        rule = {'file': 'SYSTEM/priv-app/U/U.apk', 'text': '.diamaneos.de/', 'absent': ['grapheneos.org']}
+        self.assertFalse(subject.rule_zip_contains(rule, v)[0])
+        self.assertTrue(subject.rule_zip_contains(dict(rule, dex_only=True), v)[0])
 
     def test_service_rules_name_the_listed_hosts(self):
         # The image uses the DiamaneOS hosts that config/service-hosts.json lists, and not GrapheneOS's.
@@ -1190,9 +1199,11 @@ class RuleTests(unittest.TestCase):
                 self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
         time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
         self.assertEqual([f'https://{services["time"]["diamaneos_host"]}/generate_204'], time)
-        # The Updater asks the host that config/service-hosts.json lists.
-        self.assertEqual(f'"https://{services["os-updates"]["diamaneos_host"]}/"',
-                         rules['updater-server']['values']['string/url'])
+        # The Updater's download code and its pins name the host that config/service-hosts.json lists.
+        updates = services['os-updates']
+        self.assertTrue(updates['diamaneos_host'].endswith(rules['updater-server']['text'].strip('/')))
+        self.assertTrue(any(updates['upstream_host'].endswith(text) for text in rules['updater-server']['absent']))
+        self.assertIn(updates['diamaneos_host'], rules['updater-pins']['network_security_config']['domains'])
         check, online, dns = (services[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
         servers = rules['connectivity-check-servers']
         self.assertEqual({f'"{scheme}://{check["diamaneos_host"]}/generate_204"' for scheme in ('http', 'https')},
@@ -1342,6 +1353,34 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(rule(['app.grapheneos.camera']))
         # A value that only appears under a different resource is not a match.
         self.assertFalse(rule(['app.grapheneos.absent']))
+
+    def test_overlay_pins(self):
+        dump = ('Package name=x\n'
+                '    resource 0x7f010000 xml/network_security_config\n'
+                '      () (file) res/xml/network_security_config.xml type=XML\n')
+        tree = ("E: network-security-config (line=2)\n"
+                "    E: domain-config (line=4)\n"
+                "        E: domain (line=5)\n            T: 'a.example'\n"
+                "        E: domain (line=6)\n            T: 'b.example'\n"
+                "        E: pin-set (line=10)\n"
+                "          A: expiration=\"2027-01-06\" (Raw: \"2027-01-06\")\n"
+                "            E: pin (line=12)\n"
+                "              A: digest=\"SHA-256\" (Raw: \"SHA-256\")\n"
+                "                T: 'P1='\n")
+        built = b'ro.build.date.utc=1792540800\n'  # 2026-10-21
+        files = []
+        tools = FakeTools({('aapt2', 'resources'): dump,
+                           ('aapt2', 'xmltree'): lambda args: files.append(args[-2]) or tree})
+        v = self.harness({'PRODUCT/overlay/o.apk': b'apk', 'SYSTEM/build.prop': built}, tools=tools)
+        rule = lambda **want: subject.rule_overlay({'apk': 'PRODUCT/overlay/o.apk', 'network_security_config': dict(
+            {'resource': 'xml/network_security_config', 'domains': ['a.example', 'b.example'], 'pins': ['P1='],
+             'min_days_valid': 60}, **want)}, v)
+        self.assertEqual((True, ''), rule())
+        self.assertEqual('res/xml/network_security_config.xml', files[0])
+        self.assertFalse(rule(pins=['P1=', 'P2='])[0])
+        self.assertFalse(rule(pins=[])[0])
+        self.assertIn('no single domain-config', rule(domains=['a.example', 'c.example'])[1])
+        self.assertIn('77 days after the build', rule(min_days_valid=90)[1])
 
     def test_systemui_overlay_resources_denied(self):
         rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']

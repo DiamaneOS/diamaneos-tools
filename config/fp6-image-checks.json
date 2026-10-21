@@ -2490,11 +2490,12 @@
     },
     {
       "id": "no-updater",
-      "why": "Only official builds include the Updater. Other builds ask no update server.",
+      "why": "Only official builds include the Updater and its overlay. Other builds ask no update server.",
       "official": false,
       "type": "files_absent",
       "paths": [
-        "SYSTEM/priv-app/Updater"
+        "SYSTEM/priv-app/Updater",
+        "PRODUCT/overlay/DiamaneOSUpdaterOverlay.apk"
       ]
     },
     {
@@ -2511,12 +2512,36 @@
     },
     {
       "id": "updater-server",
-      "why": "The Updater asks DiamaneOS's update server, not GrapheneOS's.",
+      "why": "The Updater's download code (the shared download policy) asks DiamaneOS's update servers, not GrapheneOS's.",
+      "official": true,
+      "type": "zip_contains",
+      "file": "SYSTEM/priv-app/Updater/Updater.apk",
+      "dex_only": true,
+      "text": ".diamaneos.de/",
+      "absent": [
+        "grapheneos.org"
+      ]
+    },
+    {
+      "id": "updater-pins",
+      "why": "The Updater pins both DiamaneOS update servers to the expected roots, and the pins stay enforced well past the build. The overlay sets them.",
       "official": true,
       "type": "overlay",
-      "apk": "SYSTEM/priv-app/Updater/Updater.apk",
-      "values": {
-        "string/url": "\"https://releases.diamaneos.de/\""
+      "apk": "PRODUCT/overlay/DiamaneOSUpdaterOverlay.apk",
+      "target": "app.seamlessupdate.client",
+      "network_security_config": {
+        "resource": "xml/network_security_config",
+        "domains": [
+          "releases.diamaneos.de",
+          "releases-na.diamaneos.de"
+        ],
+        "pins": [
+          "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",
+          "diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=",
+          "sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=",
+          "fk6IOKit1ild5647BH06ujSIq5XbCgqlbYl6ANhhi88="
+        ],
+        "min_days_valid": 60
       }
     },
     {
