@@ -2512,19 +2512,34 @@
     },
     {
       "id": "updater-server",
-      "why": "The Updater's download code (the shared download policy) asks DiamaneOS's update servers, not GrapheneOS's.",
+      "why": "The Updater's download code (the shared download policy) builds its URLs as https://, releases, an optional -na and .diamaneos.de/. They must name exactly DiamaneOS's production update servers, not a staging, test or other host, not http and not GrapheneOS's.",
       "official": true,
-      "type": "zip_contains",
+      "type": "dex_url_hosts",
       "file": "SYSTEM/priv-app/Updater/Updater.apk",
-      "dex_only": true,
-      "text": ".diamaneos.de/",
+      "hosts": [
+        "releases.diamaneos.de",
+        "releases-na.diamaneos.de"
+      ],
+      "scheme": "https://",
+      "names": [
+        "releases"
+      ],
+      "regions": [
+        "",
+        "-na"
+      ],
+      "domain": "diamaneos.de",
+      "allowed_urls": [
+        "http://schemas.android.com/apk/res-auto",
+        "http://schemas.android.com/apk/res/android"
+      ],
       "absent": [
         "grapheneos.org"
       ]
     },
     {
       "id": "updater-pins",
-      "why": "The Updater pins both DiamaneOS update servers to the expected roots, and the pins stay enforced well past the build. The overlay sets them.",
+      "why": "The Updater pins exactly the two DiamaneOS update servers to the expected roots, and the pins stay enforced well past the build. The overlay sets them. No other domain may appear, except the GrapheneOS host of the Updater's own file.",
       "official": true,
       "type": "overlay",
       "apk": "PRODUCT/overlay/DiamaneOSUpdaterOverlay.apk",
@@ -2534,6 +2549,9 @@
         "domains": [
           "releases.diamaneos.de",
           "releases-na.diamaneos.de"
+        ],
+        "upstream_domains": [
+          "releases.grapheneos.org"
         ],
         "pins": [
           "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",

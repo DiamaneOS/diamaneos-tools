@@ -57,6 +57,18 @@ def dtb(nodes):
     return header + bytes(structure) + bytes(strings)
 
 
+def dex(*strings):
+    """A dex file holding only a string pool."""
+    data = b''.join(bytes([len(t)]) + t.encode() + b'\0' for t in strings)
+    header = bytearray(b'dex\n035\0'.ljust(0x70, b'\0'))
+    struct.pack_into('<II', header, 0x38, len(strings), 0x70)
+    at, ids = 0x70 + 4 * len(strings), b''
+    for t in strings:
+        ids += struct.pack('<I', at)
+        at += len(t) + 2
+    return bytes(header) + ids + data
+
+
 def cells(*values):
     return struct.pack('>' + 'I' * len(values), *values)
 
@@ -1184,6 +1196,40 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_zip_contains(rule, v)[0])
         self.assertTrue(subject.rule_zip_contains(dict(rule, dex_only=True), v)[0])
 
+    def test_updater_server_hosts_are_exact(self):
+        rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                    if r['id'] == 'updater-server')
+        # The strings the shared download policy builds its URLs from, and an unrelated namespace.
+        production = ['https://', 'releases', 'apps', '-na', '.diamaneos.de/', 'Lde/diamaneos/downloads/DownloadPolicy;',
+                      'http://schemas.android.com/apk/res/android']
+
+        def check(*strings, drop=()):
+            apk = io.BytesIO()
+            with zipfile.ZipFile(apk, 'w') as inner:
+                inner.writestr('resources.arsc', b'https://releases.grapheneos.org/')
+                inner.writestr('classes.dex', dex(*[s for s in production if s not in drop]))
+                inner.writestr('classes2.dex', dex(*strings))
+            return subject.RULES[rule['type']](rule, self.harness({rule['file']: apk.getvalue()}))
+        self.assertEqual((True, 'builds only releases-na.diamaneos.de, releases.diamaneos.de'), check())
+        for strings, drop, detail in (
+                (['.staging.diamaneos.de/'], (),
+                 'builds other hosts releases-na.staging.diamaneos.de, releases.staging.diamaneos.de'),
+                (['.test.diamaneos.de/'], (), 'builds other hosts releases-na.test.diamaneos.de'),
+                (['https://releases.staging.diamaneos.de/'], (), 'builds other hosts releases.staging.diamaneos.de'),
+                (['https://updates.example.org/'], (), "names the URL 'https://updates.example.org/'"),
+                (['http://'], ('https://',), "names the URL 'http://'"),
+                (['http://releases.diamaneos.de/'], (), "names diamaneos.de in 'http://releases.diamaneos.de/'"),
+                (['releases-staging'], (), "has the other label 'releases-staging'"),
+                (['releases.grapheneos.org'], (), 'contains grapheneos.org'),
+                ([], ('-na',), "does not contain '-na'"),
+                ([], ('.diamaneos.de/',), 'does not build releases-na.diamaneos.de, releases.diamaneos.de')):
+            with self.subTest(strings=strings, drop=drop):
+                ok, found = check(*strings, drop=drop)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        with self.assertRaises(ValueError):
+            subject.dex_strings(dex('https://')[:0x76])
+
     def test_service_rules_name_the_listed_hosts(self):
         # The image uses the DiamaneOS hosts that config/service-hosts.json lists, and not GrapheneOS's.
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
@@ -1199,11 +1245,13 @@ class RuleTests(unittest.TestCase):
                 self.assertTrue(any(text in inherited or inherited.endswith(text) for text in rule['absent']))
         time = rules['https-time-server']['arrays']['array/config_httpsTimeUrls']
         self.assertEqual([f'https://{services["time"]["diamaneos_host"]}/generate_204'], time)
-        # The Updater's download code and its pins name the host that config/service-hosts.json lists.
-        updates = services['os-updates']
-        self.assertTrue(updates['diamaneos_host'].endswith(rules['updater-server']['text'].strip('/')))
-        self.assertTrue(any(updates['upstream_host'].endswith(text) for text in rules['updater-server']['absent']))
-        self.assertIn(updates['diamaneos_host'], rules['updater-pins']['network_security_config']['domains'])
+        # The Updater's download code and its pins name the hosts that config/service-hosts.json lists.
+        updates, server = services['os-updates'], rules['updater-server']
+        self.assertIn(updates['diamaneos_host'], server['hosts'])
+        self.assertTrue(any(updates['upstream_host'].endswith(text) for text in server['absent']))
+        pins = rules['updater-pins']['network_security_config']
+        self.assertEqual(sorted(server['hosts']), sorted(pins['domains']))
+        self.assertEqual([updates['upstream_host']], pins['upstream_domains'])
         check, online, dns = (services[i] for i in ('connectivity-check', 'online-probe', 'dns-check'))
         servers = rules['connectivity-check-servers']
         self.assertEqual({f'"{scheme}://{check["diamaneos_host"]}/generate_204"' for scheme in ('http', 'https')},
@@ -1379,8 +1427,43 @@ class RuleTests(unittest.TestCase):
         self.assertEqual('res/xml/network_security_config.xml', files[0])
         self.assertFalse(rule(pins=['P1=', 'P2='])[0])
         self.assertFalse(rule(pins=[])[0])
-        self.assertIn('no single domain-config', rule(domains=['a.example', 'c.example'])[1])
+        self.assertIn('no single domain-config', rule(domains=['c.example'])[1])
         self.assertIn('77 days after the build', rule(min_days_valid=90)[1])
+        # Exactly the wanted domains: a missing or extra one fails.
+        self.assertEqual((False, 'the pinned domain-config lacks c.example'),
+                         rule(domains=['a.example', 'b.example', 'c.example']))
+        self.assertEqual((False, 'the pinned domain-config also names b.example'), rule(domains=['a.example']))
+
+    def test_updater_pins_are_exact(self):
+        rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
+                    if r['id'] == 'updater-pins')
+        want = rule['network_security_config']
+        pin_set = ("        E: pin-set (line=10)\n"
+                   "          A: expiration=\"2027-01-06\" (Raw: \"2027-01-06\")\n"
+                   + ''.join(f"            E: pin (line=12)\n                T: '{p}'\n" for p in want['pins']))
+
+        def problems(domains, other=None):
+            tree = ("E: network-security-config (line=2)\n    E: domain-config (line=4)\n"
+                    + ''.join(f"        E: domain (line=5)\n            T: '{d}'\n" for d in domains) + pin_set)
+            if other:
+                tree += ("    E: domain-config (line=20)\n"
+                         + ''.join(f"        E: domain (line=21)\n            T: '{d}'\n" for d in other))
+            return subject.pin_problems(subject.xmltree(tree), want, 1792540800)
+        production = ['releases.diamaneos.de', 'releases-na.diamaneos.de']
+        staging = ['releases.staging.diamaneos.de', 'releases-na.staging.diamaneos.de']
+        self.assertEqual([], problems(production))
+        # The GrapheneOS host of the Updater's own file may stay in another domain-config.
+        self.assertEqual([], problems(production, other=['releases.grapheneos.org']))
+        for domains, other, detail in (
+                (production + staging, None, 'the pinned domain-config also names ' + ', '.join(sorted(staging))),
+                (production + ['updates.example.org'], None, 'also names updates.example.org'),
+                (production[:1], None, 'lacks releases-na.diamaneos.de'),
+                (production, staging, 'another domain-config names ' + ', '.join(sorted(staging))),
+                (production + ['releases.grapheneos.org'], None, 'also names releases.grapheneos.org')):
+            with self.subTest(domains=domains, other=other):
+                found = problems(domains, other)
+                self.assertEqual(1, len(found), found)
+                self.assertIn(detail, found[0])
 
     def test_systemui_overlay_resources_denied(self):
         rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']

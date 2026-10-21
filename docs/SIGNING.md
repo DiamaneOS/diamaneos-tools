@@ -269,7 +269,9 @@ rm -rf "$KEY_DIR"
   - `vendor/diamaneos/download-policy/client/de/diamaneos/downloads/DownloadPolicy.java` builds
     the update URLs in `url()`.
   - `vendor/diamaneos/overlay/DiamaneOSUpdaterOverlay/res/xml/network_security_config.xml` names the
-    server domains and their TLS pins. The `updater-pins` image check holds the same pins.
+    server domains and their TLS pins.
+  - The `updater-server` and `updater-pins` image checks in `config/fp6-image-checks.json` hold
+    exactly these hosts, domains and pins.
   - `vendor/diamaneos/product.mk` adds the Updater only when `DIAMANEOS_OFFICIAL_BUILD` is `true`.
 
 ## Check a signed image set

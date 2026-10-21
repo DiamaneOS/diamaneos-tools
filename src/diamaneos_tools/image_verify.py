@@ -745,23 +745,37 @@ def xmltree(dump: str) -> dict:
 
 
 def pin_problems(tree: dict, want: dict, built_utc: int | None) -> list:
-    """The pinned domain-config of a network security config: the wanted domains in one
+    """The pinned domain-config of a network security config: exactly the wanted domains in one
     domain-config, exactly the wanted pins, and an expiration at least min_days_valid days after
-    the build."""
+    the build. Other domain-configs may only name the upstream_domains."""
     def elements(node, name):
         for child in node['children']:
             if child['name'] == name:
                 yield child
             yield from elements(child, name)
-    configs = [c for c in elements(tree, 'domain-config')
-               if set(want['domains']) <= {t for d in c['children'] if d['name'] == 'domain' for t in d['texts']}]
+
+    def domains(config):
+        return {t for d in config['children'] if d['name'] == 'domain' for t in d['texts']}
+    wanted, all_configs = set(want['domains']), list(elements(tree, 'domain-config'))
+    configs = [c for c in all_configs if domains(c) & wanted]
     if len(configs) != 1:
         return [f'no single domain-config holds {want["domains"]}']
+    problems = []
+    extra, missing = sorted(domains(configs[0]) - wanted), sorted(wanted - domains(configs[0]))
+    if extra:
+        problems.append('the pinned domain-config also names ' + ', '.join(extra))
+    if missing:
+        problems.append('the pinned domain-config lacks ' + ', '.join(missing))
+    others = sorted(set().union(*(domains(c) for c in all_configs if c is not configs[0]))
+                    - set(want.get('upstream_domains', [])))
+    if others:
+        problems.append('another domain-config names ' + ', '.join(others))
     pin_sets = [c for c in configs[0]['children'] if c['name'] == 'pin-set']
     if len(pin_sets) != 1:
-        return ['the domain-config has no single pin-set']
+        return problems + ['the domain-config has no single pin-set']
     pins = {t for p in pin_sets[0]['children'] if p['name'] == 'pin' for t in p['texts']}
-    problems = [] if pins == set(want['pins']) else [f'pins are {sorted(pins)} (want {sorted(want["pins"])})']
+    if pins != set(want['pins']):
+        problems.append(f'pins are {sorted(pins)} (want {sorted(want["pins"])})')
     expiration = pin_sets[0]['attrs'].get('expiration', '')
     try:
         expires = datetime.datetime.strptime(expiration, '%Y-%m-%d').replace(tzinfo=datetime.timezone.utc)
@@ -1242,6 +1256,61 @@ def rule_zip_contains(rule, v):
     return not problems, '; '.join(problems)
 
 
+def dex_strings(dex: bytes) -> set:
+    """The string pool of one dex file."""
+    if dex[:4] != b'dex\n' or len(dex) < 0x70:
+        raise ValueError('not a dex file')
+    count, offset = struct.unpack_from('<II', dex, 0x38)
+    found = set()
+    try:
+        for index in range(count):
+            at = struct.unpack_from('<I', dex, offset + 4 * index)[0]
+            while dex[at] & 0x80:  # skip the ULEB128 length
+                at += 1
+            found.add(dex[at + 1:dex.index(b'\0', at + 1)].decode('utf-8', 'replace'))
+    except IndexError:
+        raise ValueError('truncated dex file') from None
+    return found
+
+
+def rule_dex_url_hosts(rule, v):
+    """The hosts an APK's code builds as scheme + name + region + '.' + domain + '/' are exactly
+    the listed ones. Every dex string naming the domain must be such a host suffix or a URL,
+    every http or https string must be the scheme or an allowed one, and no other label may
+    start with a listed name or region."""
+    with zipfile.ZipFile(__import__('io').BytesIO(v.tf.read(rule['file']))) as apk:
+        strings = set().union(*(dex_strings(apk.read(n)) for n in apk.namelist()
+                                if re.fullmatch(r'classes[0-9]*\.dex', n)))
+    problems, hosts = [], set()
+    domain, scheme = rule['domain'], rule['scheme']
+    for text in sorted(s for s in strings if domain in s.lower()):
+        url = re.fullmatch(r'([a-z]+://)([a-z0-9.-]+)/.*', text)
+        if re.fullmatch(r'(\.[a-z0-9-]+)*\.' + re.escape(domain) + '/', text):
+            hosts |= {name + region + text[:-1] for name in rule['names'] for region in rule['regions']}
+        elif url and url.group(1) == scheme:
+            hosts.add(url.group(2))
+        else:
+            problems.append(f'names {domain} in {text!r}')
+    for text in sorted(s for s in strings if re.search(r'https?://', s, re.I)):
+        if text != scheme and text not in rule['allowed_urls'] and domain not in text.lower():
+            problems.append(f'names the URL {text!r}')
+    for part in [scheme] + rule['names'] + [r for r in rule['regions'] if r]:
+        if part not in strings:
+            problems.append(f'does not contain {part!r}')
+    for part in rule['names'] + [r for r in rule['regions'] if r]:
+        problems += [f'has the other label {s!r}' for s in sorted(strings)
+                     if re.fullmatch(re.escape(part) + r'[a-z0-9.-]+', s)]
+    for text in rule.get('absent', []):
+        if any(text in s for s in strings):
+            problems.append('contains ' + text)
+    extra, missing = sorted(hosts - set(rule['hosts'])), sorted(set(rule['hosts']) - hosts)
+    if extra:
+        problems.append('builds other hosts ' + ', '.join(extra))
+    if missing:
+        problems.append('does not build ' + ', '.join(missing))
+    return not problems, '; '.join(problems) or 'builds only ' + ', '.join(sorted(hosts))
+
+
 def ext4_file(v, source: Path, inside: str, directory: Path) -> tuple[str, bytes]:
     """stat and content of one file of a raw ext4 image, through debugfs."""
     info = v.tools.run('debugfs_static', ['-R', f'stat {inside}', source])
@@ -1371,6 +1440,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
+         'dex_url_hosts': rule_dex_url_hosts,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions}
 
