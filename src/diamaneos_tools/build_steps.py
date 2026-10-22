@@ -38,6 +38,7 @@ RELEASE_NUMBER = re.compile(r'(20[0-9]{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01]
 # Build number of the host image tools (aapt2 and friends), fixed so their
 # bytes do not depend on the build day.
 HOST_TOOLS_BUILD_NUMBER = 'diamaneos-host-tools'
+HOST_TOOLS_OUT = 'image-tools'
 # lunch and m run in their own shell so build/envsetup.sh cannot change the
 # environment of later checks (it sets T, for example). Values come in
 # through environment variables, never through the script text.
@@ -161,8 +162,15 @@ class Context:
         return self.workspace.src / self.config['out_dir']
 
     @property
+    def host_tools_out(self) -> Path:
+        """The image tools' own out directory. GrapheneOS's envsetup.sh gives a build by hand the build
+        number and date it finds in out/soong and out/, so the tools keep theirs apart. It stays in the
+        source, so the paths built into the tools are the same in every workspace."""
+        return self.out / HOST_TOOLS_OUT
+
+    @property
     def host_bin(self) -> Path:
-        return self.out / HOST_BIN
+        return self.host_tools_out / HOST_BIN
 
     @property
     def resolved_manifest(self) -> Path:
@@ -646,7 +654,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
     inputs = None if sync is None else {
         'sync': sync['outputs']['project_map_sha256'], 'recipes': config_hashes(device.vendor_recipes),
         'code': code_hashes(VENDOR_CODE), 'notice_kind': config['notice_kind'], 'host_tools': targets,
-        'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER,
+        'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER, 'host_tools_out': HOST_TOOLS_OUT,
         'host_tools_variant': ctx.variant,
         'firmware_release': config_subset(config, ('firmware_release',)),
         'firmware': config_subset(config, ('firmware',))}
@@ -654,11 +662,10 @@ def plan_vendor(ctx: Context) -> StepPlan:
     # stamps the current date into the tools (aapt2's version string), their
     # hashes reach the vendor inventory, and the same sources would give a
     # different build identity on another day.
-    # The image tools take the image's variant: another one in the same out directory makes the
-    # Android step redo everything that depends on the variant.
+    # The image tools take the image's variant. Their hashes are part of the vendor generation.
     tool_lunch = re.sub(r'-(?:user|userdebug|eng)$', f'-{ctx.variant}',
                         ctx.environment['build']['generic_qualification_target'])
-    tool_env = {'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': tool_lunch,
+    tool_env = {'OUT_DIR': f'{config["out_dir"]}/{HOST_TOOLS_OUT}', 'DIAMANEOS_LUNCH': tool_lunch,
                 'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
                 'BUILD_NUMBER': HOST_TOOLS_BUILD_NUMBER}
     if sync is not None:
@@ -673,6 +680,15 @@ def plan_vendor(ctx: Context) -> StepPlan:
         'Build the image tools', detail='aapt2, simg2img, lpunpack and debugfs_static from the synced source',
         argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
         env=tool_env)
+
+    def clear_old_tools():
+        # Earlier tools built the image tools in out/, and GrapheneOS's envsetup.sh gives a build by hand
+        # the build number and date it finds there.
+        number = ctx.out / 'soong' / 'build_number.txt'
+        if number.is_file() and number.read_text().strip() == HOST_TOOLS_BUILD_NUMBER:
+            number.unlink()
+            (ctx.out / 'build_date.txt').unlink(missing_ok=True)
+            ctx.echo(f'    removed the image tools\' build number and date from {ctx.out}')
 
     def fetch():
         if ctx.factory_zip:
@@ -712,6 +728,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
         product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True, device=device)
 
     actions = [host_tools,
+               Action('Clear the old image tools\' build number', func=clear_old_tools,
+                      detail=f'{HOST_TOOLS_BUILD_NUMBER} in out/soong/build_number.txt, and out/build_date.txt'),
                Action('Download the factory package', func=fetch, network=True,
                       detail=f'the device maker\'s {archive["filename"]}, checked against its pinned size and SHA-256'),
                Action('Stage the factory images', func=stage, detail='each image checked against the recipe'),

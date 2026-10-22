@@ -309,6 +309,26 @@ class PlanTests(unittest.TestCase):
         self.assertEqual('1791172325', tools.env['BUILD_DATETIME'])
         self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, plan.inputs['host_tools_build_number'])
 
+    def test_image_tools_leave_out_alone(self):
+        # GrapheneOS's envsetup.sh gives a build by hand the build number and date it finds in out/.
+        ctx = self.context()
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x',
+                                           'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1):
+            plan = steps.plan_vendor(ctx)
+        self.assertEqual('out/image-tools', plan.actions[0].env['OUT_DIR'])
+        self.assertEqual(ctx.workspace.src / 'out/image-tools/host/linux-x86/bin', ctx.host_bin)
+        (ctx.out / 'soong').mkdir(parents=True)
+        for number in ('20261022', steps.HOST_TOOLS_BUILD_NUMBER):
+            (ctx.out / 'soong/build_number.txt').write_text(number + '\n')
+            (ctx.out / 'build_date.txt').write_text('1\n')
+            plan.actions[1].func()
+        self.assertFalse((ctx.out / 'soong/build_number.txt').exists())
+        self.assertFalse((ctx.out / 'build_date.txt').exists())
+        (ctx.out / 'soong/build_number.txt').write_text('20261022\n')
+        plan.actions[1].func()
+        self.assertTrue((ctx.out / 'soong/build_number.txt').exists())
+
     def test_vendor_step_depends_on_the_firmware_inventory_and_table_config(self):
         # The vendor tree carries the firmware release table, so a new release
         # in the inventory or a changed exclusion makes a new generation.
