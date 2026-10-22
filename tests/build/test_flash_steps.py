@@ -121,7 +121,7 @@ class FlashStepTests(unittest.TestCase):
         for check in ('record', 'avb-chain'):
             report = dict(self.report, status='FAIL', failed=1, checks=[
                 dict(c, status='FAIL') if c['id'] == check else c for c in self.report['checks']])
-            with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, 'avb_pkmd.bin is the key that'):
+            with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, f'verification failed \\({check}\\)'):
                 flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
         cases = ((dict(self.report, profile='public-test-keys'), {}, 'used other checks'),
                  (None, {}, 'Run "diamaneos images check" with --report'),
@@ -154,23 +154,14 @@ class FlashStepTests(unittest.TestCase):
                           'fastboot wipe-super super_empty.img', *logical, 'fastboot reboot-bootloader',
                           'fastboot --set-active=a', 'fastboot reboot'], self.commands(previous=previous))
 
-    def test_failed_checks_stop_an_official_set_and_warn_otherwise(self):
-        self.report['checks'][3]['status'] = 'FAIL'
-        self.report.update(status='FAIL', failed=1)
-        text = self.text(firmware='skip')
-        self.assertIn('- 1 image checks failed (avb-chain): this build lacks what they check.', text)
-        self.assertIn('fastboot wipe-super super_empty.img', text)
-        self.record['official'] = True
-        with self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\). Do not flash'):
-            self.text(firmware='skip')
-        # The set's hashes, firmware and vendor files stop every build.
-        self.record['official'] = False
-        for check in image_verify.NEVER_WAIVED:
+    def test_failed_checks_stop_every_set(self):
+        for official in (False, True):
             report = self.passing_report()
-            next(c for c in report['checks'] if c['id'] == check)['status'] = 'FAIL'
+            report['checks'][3]['status'] = 'FAIL'
             report.update(status='FAIL', failed=1)
-            with self.subTest(check), self.assertRaisesRegex(flash_steps.FlashError, f'verification failed \\({check}\\)'):
-                flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
+            with self.subTest(official=official), \
+                    self.assertRaisesRegex(flash_steps.FlashError, 'verification failed \\(avb-chain\\). Do not flash'):
+                flash_steps.steps(self.directory, dict(self.record, official=official), report=report, firmware='skip')
 
     def test_the_image_set_carries_install_scripts_for_a_clean_install(self):
         # The same commands as flash-steps prints for a wipe that writes the firmware again.
@@ -329,7 +320,7 @@ class FlashStepTests(unittest.TestCase):
         failed = self.passing_report()
         failed['checks'][3]['status'] = 'FAIL'
         cases = {'not been verified': None,
-                 'does not count its failed checks': failed,
+                 'verification failed \\(avb-chain\\)': failed,
                  'lists no checks': changed(checks=None),
                  'lacks checks: sums, record': changed(status='FAIL', checks=[], checked=0),
                  'lacks checks: firmware-ota': changed(checks=checks[:-1], checked=len(checks) - 1),

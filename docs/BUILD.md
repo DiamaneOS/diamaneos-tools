@@ -347,6 +347,9 @@ or deleted files):
     reason it exists and, where it matters, the variants it applies to and whether it checks
     official builds or the others.
   - The report carries the image set's `SHA256SUMS` digest.
+  - A failed check stops `build verify`, and with it `build all` and a `build package` by hand, for
+    every build. The set moves to `<build_id>.failed` next to the report, and `latest` no longer
+    names it. The next check removes it.
   - `build.json`'s `signing` value selects these checks: `public-test-keys` gets them as listed. A
     re-signed set gets signed counterparts of four of them
     ([SIGNING.md](SIGNING.md#check-a-signed-image-set)). Any other value stops the check. The report
@@ -357,9 +360,7 @@ or deleted files):
     keys, whose set matches its `SHA256SUMS` and whose verify report belongs to that set.
   - A re-signed set needs the report of `images check`, written next to the set as
     `<build_id>.verify.json` ([SIGNING.md](SIGNING.md#check-a-signed-image-set)).
-  - An official set must have passed every check. For other sets failed checks become a warning that
-    names them, except the set's hashes, its firmware and its vendor files, which stop every build.
-  - `build verify` then ends with status 0 for a set that is not official: read the report.
+  - The report must show that every check passed.
   - The flash order, slot and wipe images come from `config/fp6-build.json`, the firmware steps from
     `build.json`: first, in the stock order, both slots of each A/B firmware partition, then the
     modem file system reset, and only when the phone runs older firmware than the set carries.
@@ -571,7 +572,7 @@ the stock OS installed, as that section describes.
 | `... is out of date. Run "diamaneos build ..."` | A step you ran on its own needs an earlier step to run again first. Run the step it names, or `build all`. |
 | The disk fills up | Free the space the host check asked for and run the command again. |
 | A build step fails | The error names the log in `~/diamaneos-build/logs/`. Run the command again after fixing the cause. Finished steps are skipped. |
-| `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. An official build stops and is never flashed. For other builds it is a warning, and `flash-steps` names the failed checks. |
+| `checks failed` at the end | The report next to the image directory (`<build>.verify.json`) names each failed check and why it exists. The build stops and its set moves to `<build_id>.failed`. Fix the cause and run the command again. |
 | `the verification report belongs to another image set` | Run `tools/diamaneos/bin/diamaneos build verify` again for this set. |
 | `flash-all` waits for fastbootd or the bootloader and the phone does not get there | Hold the device's bootloader keys (Power and Volume down on the FP6) until the phone restarts into the bootloader, then run the script again. |
 

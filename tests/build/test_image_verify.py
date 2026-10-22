@@ -3263,27 +3263,35 @@ class VintfAndJdkTests(unittest.TestCase):
             path.write_text('not json')
             self.assertFalse(plan.valid(previous))
 
-    def test_failed_checks_stop_only_an_official_image_set(self):
+    def test_failed_checks_stop_and_move_the_set_aside(self):
         from dataclasses import replace
         from tests.build.test_image_package import fixture_workspace, run_plan
         from diamaneos_tools import image_package
         with tempfile.TemporaryDirectory() as temp:
-            lines = []
-            ctx = replace(fixture_workspace(Path(temp)), echo=lines.append)
+            ctx = replace(fixture_workspace(Path(temp)), echo=lambda line: None)
             package = run_plan(ctx, image_package.plan(ctx))
             ctx.workspace.write_state('package', {'status': 'PASS', 'inputs_sha256': 'p', 'outputs': package})
+            images = ctx.workspace.root / package['directory']
+            self.assertEqual(images.resolve(), (ctx.workspace.images / 'latest').resolve())
+            # An earlier failed set, read-only as packaging leaves it, goes.
+            older = ctx.workspace.images / 'older.failed'
+            older.mkdir()
+            (older / 'super.img').write_text('old')
+            (older / 'super.img').chmod(0o440)
             report = {'schema_version': 1, 'build_id': package['build_id'], 'sums_sha256': package['sums_sha256'],
                       'status': 'FAIL', 'checked': 2, 'failed': 1,
                       'checks': [{'id': 'sums', 'status': 'PASS'}, {'id': 'avb-chain', 'status': 'FAIL', 'detail': 'no'}]}
             with mock.patch.object(subject, 'verify', return_value=report) as verifier, \
                     mock.patch.object(subject, 'kernel_prebuilts', return_value=(None, None)):
-                outputs = run_plan(ctx, subject.plan(ctx))
-                self.assertEqual('FAIL', outputs['status'])
+                with self.assertRaisesRegex(subject.CheckFailed, '1 of 2 checks failed. The image set moved to'):
+                    run_plan(ctx, subject.plan(ctx))
                 # The checks run the tools of the otatools.zip packaging unpacked.
                 self.assertEqual(ctx.cache['otatools'][1], verifier.call_args.args[3].host_bin)
-                self.assertTrue(any('warning: 1 of 2 checks failed' in line for line in lines))
-                with self.assertRaisesRegex(subject.CheckFailed, '1 of 2 checks failed'):
-                    run_plan(replace(ctx, official=True), subject.plan(replace(ctx, official=True)))
+            self.assertFalse(images.exists())
+            self.assertFalse(older.exists())
+            self.assertTrue((images.parent / (package['build_id'] + '.failed') / 'build.json').is_file())
+            self.assertFalse((ctx.workspace.images / 'latest').is_symlink())
+            self.assertTrue((ctx.workspace.images / (package['build_id'] + '.verify.json')).is_file())
 
     def test_newest_jdk_is_chosen_numerically(self):
         with tempfile.TemporaryDirectory() as temp:

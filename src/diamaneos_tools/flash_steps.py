@@ -30,7 +30,7 @@ from . import firmware as fw
 from . import flash_all
 from .image_package import RECORD, SUMS, check_sums
 from .image_profiles import PUBLIC_TEST_KEYS, SIGNED
-from .image_verify import failed_checks, report_problem
+from .image_verify import report_problem
 
 # The bootloader values flash-steps reads from "fastboot getvar all".
 PHONE_KEYS = ('product', 'unlocked', 'is-userspace', 'version-bootloader', 'version-baseband')
@@ -215,18 +215,12 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                          + str(directory.parent / (record['build_id'] + '.verify.json')))
     if report is None:
         raise FlashError('this image set has not been verified. Run "diamaneos build verify" first')
-    # Failed checks stop an official image set. For others they are a warning below.
-    problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS),
-                             allow_failed=record.get('official') is not True)
+    problem = report_problem(report, record['build_id'], bw.sha_file(directory / SUMS))
     if problem:
         raise FlashError(problem + '. Do not flash this build (run "diamaneos build verify" again)')
-    failed = failed_checks(report)
     if report.get('profile', PUBLIC_TEST_KEYS) != ('signed' if signing in SIGNED else PUBLIC_TEST_KEYS):
         raise FlashError('the verify report used other checks than this set\'s signing selects. Run "diamaneos '
                          'images check" again')
-    if key and {'record', 'avb-chain'} & set(failed):
-        raise FlashError(f'the verify report does not show that {key} is the key that signs vbmeta. Do not lock the '
-                         'phone with this set')
     if firmware not in MODES:
         raise FlashError('unknown firmware mode ' + firmware)
     carried = record.get('firmware')
@@ -259,10 +253,6 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
                              'with vendor files from an earlier source, or with other tools than the source\'s.',
                              96, subsequent_indent='  ')
     out.append('- Never install firmware older than the phone already runs.')
-    if failed:
-        shown = ', '.join(failed[:10]) + (f' and {len(failed) - 10} more' if len(failed) > 10 else '')
-        out += textwrap.wrap(f'- {len(failed)} image checks failed ({shown}): this build lacks what they check. The '
-                             'verify report next to the image directory says why.', 96, subsequent_indent='  ')
     if wipe:
         out += ['- This wipes all data on the phone.']
         if not record['wipe']['validated']:
