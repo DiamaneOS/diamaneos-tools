@@ -98,6 +98,16 @@ class ToolsUpdated(Exception):
         self.commit = commit
 
 
+def launcher() -> str:
+    """bin/diamaneos as the user runs it: relative from a directory that holds it, as
+    tools/diamaneos/bin/diamaneos from the source root, absolute from elsewhere."""
+    path = ROOT / 'bin/diamaneos'
+    try:
+        return str(path.relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(path)
+
+
 def code_hashes(names):
     return {name: bw.sha_file(ROOT / 'src/diamaneos_tools' / name) for name in names}
 
@@ -1598,7 +1608,7 @@ def main(argv=None, echo=print) -> int:
         if 'package' in steps or 'verify' in steps:
             latest = ctx.workspace.images / 'latest'
             if latest.is_symlink():
-                echo(f'Images: {latest.resolve()}\nNext: diamaneos flash-steps --workspace {ctx.workspace.root}')
+                echo(f'Images: {latest.resolve()}\nNext: {launcher()} flash-steps --workspace {ctx.workspace.root}')
         if args.step == 'vendor':
             echo(f'Next, in {ctx.workspace.src}: source build/envsetup.sh, lunch {ctx.device.lunch}-'
                  f'{ctx.config["release_config"]}-{ctx.variant}, {MANUAL_TARGETS}')

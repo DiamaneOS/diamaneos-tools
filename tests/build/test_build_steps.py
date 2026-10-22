@@ -96,6 +96,15 @@ class DownloadTests(unittest.TestCase):
             steps.selected_factory_archive(recipe, stock, config)
 
 
+class LauncherTests(unittest.TestCase):
+    def test_next_commands_name_the_launcher_as_the_user_runs_it(self):
+        source = ROOT.parent.parent
+        for cwd, expected in ((source, str(ROOT.relative_to(source) / 'bin/diamaneos')),
+                              (ROOT, 'bin/diamaneos'), (ROOT / 'tests', str(ROOT / 'bin/diamaneos'))):
+            with self.subTest(cwd=cwd), patch.object(Path, 'cwd', return_value=cwd):
+                self.assertEqual(expected, steps.launcher())
+
+
 class PlanTests(unittest.TestCase):
     def setUp(self):
         # Official plans need a release number (build_number).
