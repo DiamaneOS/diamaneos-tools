@@ -163,7 +163,9 @@ or deleted files):
 - A project the manifest pins to a commit at another commit.
 - A manifest that is not the pinned GrapheneOS release with one included file ([the DiamaneOS
   manifest](#the-diamaneos-manifest)).
-- Files outside the projects, which the warning names.
+- Files outside the projects, which the warning names. A `keys` directory in the source root with
+  only key files is not one: as in GrapheneOS's build guide, it holds the signing keys, which no
+  build reads.
 
 - The sync state and `build.json` list them (`source.deviations`), and the set is not reproducible.
 - They count like local changes: other files between the projects are another source, and the

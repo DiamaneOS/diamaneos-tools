@@ -420,6 +420,29 @@ class BranchCheckoutTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "local manifests"):
             self.verify()
 
+    def test_signing_keys_in_the_source_root_are_no_input(self):
+        keys = self.source / "keys" / "FP6"
+        keys.mkdir(parents=True)
+        for name in ("releasekey.pk8", "releasekey.x509.pem", "avb.pem", "avb_pkmd.bin", "id_ed25519",
+                     "id_ed25519.pub"):
+            (keys / name).write_bytes(b"key")
+        self.assertEqual(([], None), tuple(self.verify(allow_modified=True)[k]
+                                           for k in ("deviations", "deviations_sha256")))
+        # An official build is signed elsewhere and takes no keys directory.
+        with self.assertRaisesRegex(build.BuildError, "undeclared inputs outside its projects: keys"):
+            self.verify()
+        # Anything but key files, a link among them, or keys/ elsewhere is an input like any other.
+        for name in ("Android.bp", "extra.mk"):
+            (keys / name).write_text("")
+            self.assertRegex(self.verify(allow_modified=True)["deviations"][0], "outside the manifest's projects: keys")
+            (keys / name).unlink()
+        (keys / "link.pem").symlink_to(keys / "avb.pem")
+        self.assertRegex(self.verify(allow_modified=True)["deviations"][0], "outside the manifest's projects: keys")
+        (keys / "link.pem").unlink()
+        (self.source / "device" / "keys").mkdir()
+        self.assertRegex(self.verify(allow_modified=True)["deviations"][0],
+                         "outside the manifest's projects: device/keys")
+
     def test_a_build_that_is_not_official_lists_what_an_official_one_refuses(self):
         self.assertEqual(([], None), tuple(self.verify(allow_modified=True)[k]
                                            for k in ("deviations", "deviations_sha256")))

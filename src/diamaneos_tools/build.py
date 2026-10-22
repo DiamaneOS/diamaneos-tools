@@ -498,6 +498,24 @@ def _source_relative_path(value) -> bool:
             and all(part not in ("", ".", "..") for part in value.split("/")))
 
 
+# Where GrapheneOS's build guide keeps the signing keys, in the source root. Signing reads them, the
+# build does not, so a build that is not official takes them as no source input while the directory
+# holds only key files.
+SIGNING_KEYS = "keys"
+KEY_FILE = re.compile(r"[A-Za-z0-9_.-]+\.(?:pk8|pem|bin|pub)|id_ed25519")
+
+
+def _holds_only_keys(directory: Path) -> bool:
+    if directory.is_symlink() or not directory.is_dir():
+        return False
+    for root, directories, files in os.walk(directory):
+        if any((Path(root) / name).is_symlink() for name in directories + files):
+            return False
+        if not all(KEY_FILE.fullmatch(name) for name in files):
+            return False
+    return True
+
+
 def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
                          resolved_xml: bytes, generated=frozenset(), strict: bool = True) -> list:
     """Reject undeclared inputs outside projects without traversing build output.
@@ -570,6 +588,8 @@ def verify_source_layout(config: dict, source: Path, rows, declared_xml: bytes,
                 continue  # Contents and exact targets checked below.
             elif relative in containers and entry.is_dir() and not entry.is_symlink():
                 pending.append(entry)
+            elif relative == SIGNING_KEYS and not strict and _holds_only_keys(entry):
+                continue
             else:
                 undeclared.append(relative)
     undeclared.sort()
