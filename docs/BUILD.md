@@ -248,7 +248,8 @@ or deleted files):
   - `--allow-network` builds anyway and records `network_isolation: off` for the kernel, vendor and
     Android steps.
   - If `DIAMANEOS_THERMAL_CHECK` names a program, it runs before every compile.
-  - Temporary files go to the workspace (`TMPDIR`), never to `/tmp`.
+  - Temporary files go to the workspace (`TMPDIR`). Only `repo` gets a new directory in `/tmp`,
+    because Linux limits the path of its sockets.
 
 - **Build identity.**
   - The source identity is a digest of the environment file, the source project map, the resolved

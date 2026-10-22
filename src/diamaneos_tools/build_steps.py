@@ -475,7 +475,7 @@ def plan_sync(ctx: Context) -> StepPlan:
                argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]
                     + (['--depth=1'] if ctx.shallow else []),
-               cwd=ws.src, network=True, env=GIT_HTTP),
+               cwd=ws.src, network=True, env=GIT_HTTP, short_tmp=True),
         Action('Check the repo tool and manifest', func=check_manifest,
                detail='the pinned repo tool and its tag, the manifest checkout at the head of the branch'),
     ]
@@ -508,7 +508,7 @@ def plan_sync(ctx: Context) -> StepPlan:
         Action('Download the source', detail='at the pinned resolved manifest' if pinned else '',
                argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}', '--retry-fetches=4']
                + (['-c', '--no-tags'] if ctx.shallow else []) + (['-m', ctx.pinned_manifest] if pinned else []),
-               cwd=ws.src, network=True, env=GIT_HTTP),
+               cwd=ws.src, network=True, env=GIT_HTTP, short_tmp=True),
         Action('Clear stale inputs', func=retire, detail='move stale generated inputs aside'),
         Action('Verify the source tree', func=verify,
                detail='every project at its resolved commit, nothing undeclared, then record the resolved manifest'),

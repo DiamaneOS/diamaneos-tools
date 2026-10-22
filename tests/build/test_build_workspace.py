@@ -213,6 +213,15 @@ class WorkspaceTests(unittest.TestCase):
                                  compile=True), log)
         self.assertIn('sock=none tmp=' + str(self.root / 'tmp'), log.read_text())
 
+    def test_repo_gets_a_short_temporary_directory(self):
+        log = self.root / 'tmp.log'
+        runner = bw.Runner(allow_network=True, echo=lambda *a: None, tmpdir=self.root / ('long' * 30))
+        runner.run(bw.Action('Show', argv=['sh', '-c', 'echo "tmp=$TMPDIR"; test -d "$TMPDIR"'], short_tmp=True), log)
+        used = next(line[4:] for line in log.read_text().splitlines() if line.startswith('tmp='))
+        self.assertTrue(used.startswith('/tmp/diamaneos-'))
+        self.assertLess(len(used), 40)
+        self.assertFalse(Path(used).exists())
+
     def test_host_check_notes_other_distributions_and_package_deviations(self):
         record = self.host(os_release={'ID': 'ubuntu', 'VERSION_ID': '24.04'}, packages={'git': '1:2.43'},
                            memory=40 * bw.GIB)

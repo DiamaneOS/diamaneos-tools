@@ -283,6 +283,9 @@ class Action:
     network: bool = False
     # Compile actions run in a network namespace (see Runner.isolated).
     compile: bool = False
+    # TMPDIR is a new directory in /tmp instead of the workspace's, for repo: Linux limits the path of
+    # its multiprocessing sockets to 107 bytes, which a long workspace path exceeds.
+    short_tmp: bool = False
     # What the action does in more words. The log and the dry run show it,
     # the terminal only the short description.
     detail: str = ''
@@ -372,13 +375,20 @@ class Runner:
         if self.tmpdir is not None:
             self.tmpdir.mkdir(parents=True, exist_ok=True)
             env['TMPDIR'] = str(self.tmpdir)
+        short = tempfile.mkdtemp(prefix='diamaneos-', dir='/tmp') if action.short_tmp else None
+        if short:
+            env['TMPDIR'] = short
         env.update({k: str(v) for k, v in action.env.items()})
         partial = log.with_suffix('.part')
         partial.unlink(missing_ok=True)
         # The output joins the step log when the command ends.
         self.echo(f'    live output: {partial}')
-        result = process.run(argv, LONG_TIMEOUT, MAX_LOG_BYTES, cwd=action.cwd, env=env,
-                             log_path=partial, capture_bytes=32768)
+        try:
+            result = process.run(argv, LONG_TIMEOUT, MAX_LOG_BYTES, cwd=action.cwd, env=env,
+                                 log_path=partial, capture_bytes=32768)
+        finally:
+            if short:
+                shutil.rmtree(short, ignore_errors=True)
         with log.open('ab') as stream, partial.open('rb') as source:
             shutil.copyfileobj(source, stream)
         partial.unlink(missing_ok=True)

@@ -129,6 +129,7 @@ class PlanTests(unittest.TestCase):
         self.assertIn('--depth=1', commands[0])
         self.assertIn('-c', commands[1])
         self.assertTrue(all(a.network for a in plan.actions if a.argv))
+        self.assertTrue(all(a.short_tmp for a in plan.actions if a.argv and a.argv[0] == 'repo'))
         sync = next(a for a in plan.actions if a.argv and a.argv[:2] == ['repo', 'sync'])
         self.assertIn('--retry-fetches=4', sync.argv)
         self.assertEqual('HTTP/1.1', sync.env['GIT_CONFIG_VALUE_0'])
