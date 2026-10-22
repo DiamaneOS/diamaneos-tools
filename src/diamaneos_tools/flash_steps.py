@@ -145,10 +145,9 @@ def firmware_decision(record: dict, previous: dict | None, phone: dict | None, s
                                  f'does not record for {release or "any stated release"}: check which firmware the '
                                  'phone runs, and record these values from a phone running it before flashing firmware')
     if release is None:
-        raise FlashError('Which firmware does the phone run? Its bootloader does not report it. Give its stock '
-                         'release with --phone-firmware (stock Android shows it in Settings > About phone > Build '
-                         'number, and after a DiamaneOS flash it is the firmware those flash steps installed), use '
-                         '--since with the image set last flashed, or --no-firmware to leave the firmware as it is.')
+        raise FlashError(f'Which firmware does the phone run? Its bootloader does not report it, and this set carries '
+                         f'{shipped}. Use --phone-firmware <stock build number> for a phone on stock, --since <image '
+                         'set last flashed> after a DiamaneOS flash, or --no-firmware to leave the firmware as it is.')
     have, want = release_of(release, 'the phone firmware'), release_of(shipped, 'the carried firmware')
     if have > want:
         raise FlashError(f'the phone runs firmware {release}, newer than this build\'s {shipped}, and DiamaneOS never '

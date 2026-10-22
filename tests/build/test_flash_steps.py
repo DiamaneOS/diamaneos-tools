@@ -358,7 +358,9 @@ class FlashStepTests(unittest.TestCase):
         self.assertNotIn('abl', text)
 
     def test_firmware_needs_to_know_what_the_phone_runs(self):
-        with self.assertRaisesRegex(flash_steps.FlashError, 'Which firmware does the phone run'):
+        with self.assertRaisesRegex(flash_steps.FlashError, 'Which firmware does the phone run.* this set carries '
+                                    f'{SHIPPED}. Use --phone-firmware <stock build number> .*, --since <image set '
+                                    'last flashed> .*, or --no-firmware'):
             self.text()
         with self.assertRaisesRegex(flash_steps.FlashError, 'Which firmware does the phone run'):
             self.text(phone=self.phone())
