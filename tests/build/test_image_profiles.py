@@ -119,7 +119,26 @@ class SignedSet:
         (self.src / 'external/avb/test/data').mkdir(parents=True)
         (self.src / CONFIG['avb']['test_key']).write_text('AOSP test key')
         self.tf = image_verify.TargetFiles(self.images / 'target-files.zip')
-        self.tools, self.config = tools or FakeTools(), CONFIG
+        self.tools, self.config, self.outside = tools or FakeTools(), CONFIG, {}
+
+    def file(self, name):
+        return image_verify.Verification.file(self, name)
+
+    def as_factory(self):
+        """Move target-files and otatools out, as factory images leave them out. Returns the build record."""
+        build = self.images.parent / 'build'
+        build.mkdir()
+        (self.images / 'otatools.zip').rename(build / 'otatools.zip')
+        (self.images / 'target-files.zip').rename(self.images.parent / 'signed-target-files.zip')
+        (build / 'build.json').write_text(json.dumps({'otatools': self.record['otatools']}))
+        sums = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in build.iterdir()}
+        (build / 'SHA256SUMS').write_text(''.join(f'{d}  {n}\n' for n, d in sorted(sums.items())))
+        lines = (self.images / 'SHA256SUMS').read_text().splitlines(keepends=True)
+        kept = [line for line in lines if 'otatools' not in line and 'target-files' not in line]
+        (self.images / 'SHA256SUMS').write_text(''.join(kept))
+        del self.record['otatools']
+        self.record['signing_input'] = {'build_record_sha256': sums['build.json']}
+        return build / 'build.json'
 
 
 class ProfileTests(unittest.TestCase):
@@ -149,6 +168,24 @@ class ProfileTests(unittest.TestCase):
                 self.assertEqual(2, subject.main([str(images), '--report', str(images / 'report.json')]))
             self.assertFalse(report.exists())
             self.assertIn('the report must be outside the image set', errors.getvalue())
+
+    def test_the_build_record_fills_in_what_factory_records_leave_out(self):
+        with tempfile.TemporaryDirectory() as temp:
+            images = Path(temp)
+            (images / 'build.json').write_text(json.dumps({'signing': 'own-keys', 'stock_build': 'factory'}))
+            ws = mock.Mock(src=images, vendor=images / 'vendor')
+            original = {'signing': 'public-test-keys', 'stock_build': 'build',
+                        'generated_inputs': {'vendor': {'generation': 'g1'}}}
+            with mock.patch.object(image_verify, 'verify', return_value='report') as verify, \
+                    mock.patch.object(image_verify, 'kernel_prebuilts', return_value=(None, '')) as kernel:
+                self.assertEqual('report', image_verify.verify_set(images, ws, CONFIG, {}, None, {}, {}, original))
+            self.assertEqual(dict(original, signing='own-keys', stock_build='factory'), kernel.call_args.args[1])
+            self.assertEqual(images / 'vendor/generations/g1', verify.call_args.args[5])
+            self.assertEqual(original, verify.call_args.args[-1])
+            with self.assertRaisesRegex(ValueError, 'selects no image check profile'):
+                (images / 'build.json').write_text(json.dumps({'signing': 'other-keys', 'target_files': {'file': 'x'}}))
+                image_verify.verify(images, CONFIG, {'schema_version': 1, 'rules': []}, None, None, None, None, images,
+                                    build_record=original)
 
     def test_images_check_needs_the_sets_own_otatools(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -338,6 +375,43 @@ class SignedCheckTests(unittest.TestCase):
                     self.assertEqual((False, 'build.json and SHA256SUMS name no common otatools.zip'), (ok, detail))
             with self.assertRaisesRegex(CheckFailed, 'AOSP AVB test key'):
                 subject.check_otatools_validators(self.signed(blob=TEST_KEY, tools=FakeTools(TEST_KEY)))
+            v = self.signed()
+            build_record = v.as_factory()
+            v.outside, _ = subject.outside_files(v.images, v.record, v.images.parent / 'signed-target-files.zip',
+                                                 build_record)
+            runs.clear()
+            self.assertEqual((True, 'otatools.zip of the build the set was signed from'),
+                             subject.check_otatools_validators(v))
+            self.assertEqual([str(v.images.parent / 'signed-target-files.zip')], runs[1][1])
+
+    def test_factory_images_take_the_signed_target_files_and_the_builds_otatools(self):
+        v = self.signed()
+        self.assertEqual(({}, {}), subject.outside_files(v.images, v.record, None, None))
+        for target_files, build_record, problem in ((v.images / 'target-files.zip', None, 'Leave out --target-files'),
+                                                    (None, v.images / 'build.json', 'Leave out --build-record')):
+            with self.subTest(problem=problem), self.assertRaisesRegex(subject.bw.BuildStepError, problem):
+                subject.outside_files(v.images, v.record, target_files, build_record)
+        build_record = v.as_factory()
+        signed = v.images.parent / 'signed-target-files.zip'
+        outside, original = subject.outside_files(v.images, v.record, signed, build_record)
+        self.assertEqual(json.loads(build_record.read_bytes()), original)
+        tools = build_record.parent / 'otatools.zip'
+        self.assertEqual({'otatools.zip': (tools, hashlib.sha256(tools.read_bytes()).hexdigest()),
+                          'target-files.zip': (signed, v.record['target_files']['sha256'])}, outside)
+        v.outside = outside
+        self.assertEqual([], image_verify.record_problems(v))
+        other = self.root / 'other.zip'
+        other.write_bytes(b'other')
+        for target_files, record, problem in ((signed, None, 'Give the build record it was signed from'),
+                                              (None, build_record, 'Give the signed target-files'),
+                                              (other, build_record, 'is not the target-files.zip build.json names'),
+                                              (signed, other, 'is not the build record the set was signed from')):
+            with self.subTest(problem=problem), self.assertRaisesRegex(subject.bw.BuildStepError, problem):
+                subject.outside_files(v.images, v.record, target_files, record)
+        (build_record.parent / 'otatools.zip').write_bytes(b'changed')
+        (build_record.parent / 'SHA256SUMS').write_text(hashlib.sha256(b'changed').hexdigest() + '  otatools.zip\n')
+        with self.assertRaisesRegex(subject.bw.BuildStepError, 'its SHA256SUMS name no common otatools.zip'):
+            subject.outside_files(v.images, v.record, signed, build_record)
 
 
 if __name__ == '__main__':

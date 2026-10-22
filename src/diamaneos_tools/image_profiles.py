@@ -27,6 +27,7 @@ PUBLIC_TEST_KEYS = 'public-test-keys'
 SIGNED = ('release-keys', 'own-keys', 'qualification-keys', 'throwaway-test-keys')
 RELEASE_KEYS = 'release-keys'
 KEY_FILE = 'avb_pkmd.bin'
+OTATOOLS = 'otatools.zip'
 RSA_OID = bytes.fromhex('2a864886f70d010101')
 PROPERTY_FILES = re.compile(r'(^|/)(build\.prop|prop\.default|default\.prop)$')
 BUILD_PROPS = ('SYSTEM/build.prop', 'SYSTEM_EXT/etc/build.prop', 'PRODUCT/etc/build.prop', 'VENDOR/build.prop')
@@ -218,23 +219,62 @@ def otatools(v, root: Path) -> iv.Tools:
 def check_otatools_validators(v):
     from .image_package import read_sums
     from .signing_archive import unpack_tools
-    entry, digest = v.record.get('otatools'), read_sums(v.images).get('otatools.zip')
-    if not digest or entry != {'file': 'otatools.zip', 'sha256': digest} \
-            or bw.sha_file(v.images / 'otatools.zip') != digest:
-        return False, 'build.json and SHA256SUMS name no common otatools.zip'
-    archive = v.images / v.record['target_files']['file']
+    if OTATOOLS in v.outside:
+        tools_archive, detail = v.outside[OTATOOLS][0], 'otatools.zip of the build the set was signed from'
+    else:
+        entry, digest = v.record.get('otatools'), read_sums(v.images).get(OTATOOLS)
+        if not digest or entry != {'file': OTATOOLS, 'sha256': digest} or bw.sha_file(v.images / OTATOOLS) != digest:
+            return False, 'build.json and SHA256SUMS name no common otatools.zip'
+        tools_archive, detail = v.images / OTATOOLS, 'otatools.zip of the set'
+    archive = v.file(v.record['target_files']['file'])
     misc = iv.property_lines(v.tf.read('META/misc_info.txt'))
     chained = sorted({found[1] for key, _ in misc for found in [re.fullmatch(r'avb_(\w+)_key_path', key)]
                       if found and found[1] != 'vbmeta'})
     with v.tools.scratch() as temporary:
         root = Path(temporary)
         pem = set_key(v, root)
-        tools = otatools(v, unpack_tools(v.images / 'otatools.zip', root / 'otatools'))
+        tools = otatools(v, unpack_tools(tools_archive, root / 'otatools'))
         # The archive names the private keys it was signed with. The set's public key stands in for them.
         keys = ['--verity_key', pem] + [arg for name in chained for arg in (f'--avb_{name}_key_path', pem)]
         tools.run('validate_target_files', [archive, *keys], cwd=root)
         tools.run('check_target_files_vintf', [archive], cwd=root)
-    return True, 'otatools.zip of the set'
+    return True, detail
+
+
+def outside_files(images: Path, record: dict, target_files: Path | None, build_record: Path | None):
+    """What factory images leave out, each as build.json binds it: the record of
+    the build they were signed from, its otatools.zip, and the signed target-files.
+    Returns name -> (path, SHA-256) and that record, both empty for a set that
+    carries everything."""
+    from .image_package import read_sums
+    sums, outside, original = read_sums(images), {}, {}
+    if OTATOOLS in sums:
+        if build_record:
+            raise bw.BuildStepError('the set carries otatools.zip. Leave out --build-record')
+        if (record.get('otatools') or {}).get('sha256') != sums[OTATOOLS]:
+            raise bw.BuildStepError('build.json and SHA256SUMS name no common otatools.zip')
+    elif not build_record:
+        raise bw.BuildStepError('the set does not carry otatools.zip. Give the build record it was signed from '
+                                'with --build-record')
+    elif bw.sha_file(build_record) != (record.get('signing_input') or {}).get('build_record_sha256'):
+        raise bw.BuildStepError(f'{build_record} is not the build record the set was signed from')
+    else:
+        original = json.loads(build_record.read_bytes())
+        entry = original.get('otatools') or {}
+        if entry.get('file') != OTATOOLS or read_sums(build_record.parent).get(OTATOOLS) != entry.get('sha256'):
+            raise bw.BuildStepError(f'{build_record} and its SHA256SUMS name no common otatools.zip')
+        outside[OTATOOLS] = ((build_record.parent / OTATOOLS).absolute(), entry['sha256'])
+    name, digest = record['target_files']['file'], record['target_files']['sha256']
+    if name in sums:
+        if target_files:
+            raise bw.BuildStepError(f'the set carries {name}. Leave out --target-files')
+    elif not target_files:
+        raise bw.BuildStepError(f'the set does not carry {name}. Give the signed target-files with --target-files')
+    elif bw.sha_file(target_files) != digest:
+        raise bw.BuildStepError(f'{target_files} is not the {name} build.json names')
+    else:
+        outside[name] = (target_files.absolute(), digest)
+    return outside, original
 
 
 COUNTERPARTS = {
@@ -263,6 +303,11 @@ def main(argv=None) -> int:
                         help='the workspace whose source and vendor generations the checks use '
                              '(default: as for "diamaneos build")')
     parser.add_argument('--scratch', type=Path, help="temporary files (default: the workspace's work/tmp)")
+    parser.add_argument('--target-files', type=Path,
+                        help='the signed target-files, for factory images, which leave it out')
+    parser.add_argument('--build-record', type=Path,
+                        help='the build.json of the build that factory images were signed from. The otatools.zip '
+                             'next to it runs the checks')
     args = parser.parse_args(argv)
     try:
         images, path = args.images.resolve(), args.report.absolute()
@@ -274,16 +319,15 @@ def main(argv=None) -> int:
         ws = bw.locate(args.workspace)
         config, _ = bw.load_config('fp6-build.json')
         checks = json.loads((iv.ROOT / 'config/fp6-image-checks.json').read_bytes())
-        # The host tools come from the set's own otatools.zip.
-        digest = read_sums(images).get('otatools.zip')
+        # The host tools come from the set's own otatools.zip, or for factory images from the build's.
         record = json.loads((images / 'build.json').read_bytes())
-        if not digest or (record.get('otatools') or {}).get('sha256') != digest:
-            raise bw.BuildStepError('build.json and SHA256SUMS name no common otatools.zip')
+        outside, original = outside_files(images, record, args.target_files, args.build_record)
+        tools_archive, digest = outside.get(OTATOOLS) or (images / OTATOOLS, read_sums(images)[OTATOOLS])
         scratch = args.scratch or ws.work / 'tmp'
-        bin_dir = iv.unpack_otatools(images / 'otatools.zip', digest, scratch)
+        bin_dir = iv.unpack_otatools(tools_archive, digest, scratch)
         try:
             report = iv.verify_set(images, ws, config, checks, iv.Tools(bin_dir, ws.src, scratch),
-                                   firmware.load_inventory())
+                                   firmware.load_inventory(), outside, original)
         finally:
             shutil.rmtree(bin_dir.parent.parent, ignore_errors=True)
         with path.open('xb') as stream:

@@ -3200,7 +3200,7 @@ class ConfigTests(unittest.TestCase):
         record = {'release': False, 'signing': 'public-test-keys', 'never_lock': True, 'images': {},
                   'target_files': {'file': 'target-files.zip', 'sha256': digest}}
         class V:
-            images = root
+            images, outside = root, {}
         for official, ok in ((None, True), (True, True), (False, True), ('true', False)):
             with self.subTest(official=official):
                 V.record = dict(record, **({} if official is None else {'official': official}))

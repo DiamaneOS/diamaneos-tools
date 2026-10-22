@@ -1475,14 +1475,19 @@ def rule_applies(rule: dict, variant: str, official: bool) -> bool:
 class Verification:
     def __init__(self, images: Path, record: dict, target_files: TargetFiles, tools: Tools, config: dict,
                  kernel_dir: Path | None, vendor_dir: Path | None, packaging: dict | None, src: Path,
-                 firmware_inventory: dict | None = None):
+                 firmware_inventory: dict | None = None, outside: dict | None = None):
         self.images, self.record, self.tf, self.tools, self.config = images, record, target_files, tools, config
+        # Files the record names that factory images leave out: name -> (path, checked SHA-256).
+        self.outside = outside or {}
         self.kernel_dir, self.vendor_dir, self.packaging, self.src = kernel_dir, vendor_dir, packaging, src
         self.firmware_inventory = firmware_inventory or firmware.load_inventory()
         self.kernel_problem = ''
         self.sources = Sources(target_files, kernel_dir, images)
         self.variant = record['variant']
         self.results = []
+
+    def file(self, name: str) -> Path:
+        return self.outside[name][0] if name in self.outside else self.images / name
 
     def add(self, check_id: str, why: str, func):
         try:
@@ -1506,7 +1511,7 @@ def check_record(v):
 def record_problems(v) -> list:
     """Where the image set differs from its build record."""
     from .image_package import read_sums
-    sums = read_sums(v.images)
+    sums = {**read_sums(v.images), **{name: digest for name, (_, digest) in v.outside.items()}}
     problems = []
     if not isinstance(v.record.get('official', False), bool):
         problems.append('build.json official is not true or false')
@@ -1695,7 +1700,7 @@ def super_metadata(data: bytes) -> tuple[list, dict]:
 
 
 def check_validators(v):
-    archive = v.images / v.record['target_files']['file']
+    archive = v.file(v.record['target_files']['file'])
     v.tools.run('validate_target_files', [archive], cwd=v.src)
     v.tools.run('check_target_files_vintf', [archive], cwd=v.src)
     return True, ''
@@ -2187,18 +2192,22 @@ def report_problem(report, build_id: str, sums_sha256: str) -> str:
 
 def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: Path | None,
            vendor_dir: Path | None, packaging: dict | None, src: Path, kernel_problem: str = '',
-           firmware_inventory: dict | None = None) -> dict:
+           firmware_inventory: dict | None = None, outside: dict | None = None,
+           build_record: dict | None = None) -> dict:
+    """build_record: for factory images, the record of the build they were signed from. Its build
+    fields (kernel prebuilts, vendor generation, stock build) stand in where factory images leave them out."""
     from .image_package import check_sums
     from .image_profiles import generic_checks
-    record = json.loads((images / 'build.json').read_bytes())
+    record = {**(build_record or {}), **json.loads((images / 'build.json').read_bytes())}
     # build.json's signing value selects the generic checks: an unknown value stops here.
     profile, generic = generic_checks(record)
     results_head = [{'id': 'sums', 'status': 'PASS' if check_sums(images) else 'FAIL',
                      'why': 'Every file matches SHA256SUMS.', 'detail': ''}]
-    target_files = TargetFiles(images / record['target_files']['file'])
+    name = record['target_files']['file']
+    target_files = TargetFiles(outside[name][0] if outside and name in outside else images / name)
     try:
         v = Verification(images, record, target_files, tools, config, kernel_dir, vendor_dir, packaging, src,
-                         firmware_inventory)
+                         firmware_inventory, outside)
         v.kernel_problem = kernel_problem
         for check_id, why, func in generic:
             v.add(check_id, why, lambda func=func: func(v))
@@ -2220,15 +2229,17 @@ def verify(images: Path, config: dict, checks: dict, tools: Tools, kernel_dir: P
             'checks': results}
 
 
-def verify_set(images: Path, ws, config: dict, checks: dict, tools: Tools, inventory: dict) -> dict:
+def verify_set(images: Path, ws, config: dict, checks: dict, tools: Tools, inventory: dict,
+               outside: dict | None = None, build_record: dict | None = None) -> dict:
     """verify() with the kernel prebuilts and vendor generation the set's record
     names in the workspace (not whatever the workspace holds now)."""
-    record = json.loads((images / 'build.json').read_bytes())
+    record = {**(build_record or {}), **json.loads((images / 'build.json').read_bytes())}
     vendor = (record.get('generated_inputs') or {}).get('vendor') or {}
     packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_bytes())
     kernel_dir, kernel_problem = kernel_prebuilts(ws.src, record)
     vendor_dir = ws.vendor / 'generations' / vendor['generation'] if vendor.get('generation') else None
-    return verify(images, config, checks, tools, kernel_dir, vendor_dir, packaging, ws.src, kernel_problem, inventory)
+    return verify(images, config, checks, tools, kernel_dir, vendor_dir, packaging, ws.src, kernel_problem, inventory,
+                  outside, build_record)
 
 
 def plan(ctx):

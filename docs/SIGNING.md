@@ -295,8 +295,27 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
   --report "$SCRATCH/signed.verify.json" --scratch "$SCRATCH"
 ```
 
+Factory images leave out the target-files and `otatools.zip`. Unpack the ZIP and give the signed
+target-files and the build record it was signed from. Write the report next to the set, where
+`flash-steps` reads it:
+
+```sh
+unzip -q "$PUBLICATION/FP6-factory.zip" -d "$SCRATCH/factory"
+SIGNED_IMAGES=$(echo "$SCRATCH"/factory/*)
+bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
+  --target-files "$SIGNED_TARGET_FILES" --build-record "$IMAGES/build.json" \
+  --report "$SCRATCH/factory/BUILD_ID.verify.json" --scratch "$SCRATCH"
+```
+
 - The workspace gives the source and the vendor generation. Its kernel prebuilts checkout must be
   at the commit `build.json` names. The host tools come from the set's own `otatools.zip`.
+- For factory images:
+  - `BUILD_ID` is `build_id` in their `build.json`.
+  - The target-files must have the hash `build.json` names, and the build record the hash in
+    `signing_input`.
+  - The host tools are the `otatools.zip` that record and its `SHA256SUMS` name.
+  - The record also gives the build's fields that factory images leave out: kernel prebuilts,
+    vendor generation and stock build.
 - Every check of `build verify` runs. Four that assume the public test keys have signed
   counterparts with the same ids:
   - `record`: `avb_custom_key` naming `avb_pkmd.bin`, which `SHA256SUMS` lists and vbmeta embeds
@@ -312,7 +331,7 @@ bin/diamaneos images check "$SIGNED_IMAGES" --workspace "$WORKSPACE" \
     descriptors with the same key, the FP6 layout and flags 0.
   - `avb-chain` also requires the rollback index of vbmeta and of each chained image to equal
     `avb_rollback_indexes` in `build.json`. On an official or release-keys set each must be above 0.
-  - `validators`: `validate_target_files` and `check_target_files_vintf` from the set's
+  - `validators`: `validate_target_files` and `check_target_files_vintf` from the same
     `otatools.zip`, with the set's public key for the signing keys the archive names.
 - `avb_pkmd.bin` must be an RSA AVB key that `avbtool` reproduces exactly, and none of the AOSP AVB
   test keys (`external/avb/test/data/testkey_rsa*.pem`).
