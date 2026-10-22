@@ -238,8 +238,13 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
     require(isinstance(modified, list) and isinstance(deviations, list)
             and all(isinstance(item, str) for item in modified + deviations), 'Invalid recorded source changes')
     # Own keys may sign a source with local changes, as GrapheneOS's builders change sources freely.
-    # The plan and the factory record keep them.
-    require(isinstance(record.get('tools'), dict) and record['tools'].get('clean') is True
+    # The plan and the factory record keep them. They also sign a build by hand, as GrapheneOS's
+    # own-key flow signs any build. Its record names no tools for the Android build, so the tools
+    # that recorded and checked it must be clean.
+    manual = record.get('android_build') == 'manual'
+    require(not manual or mode == 'production', 'Only own keys sign a build by hand')
+    builder = record.get('packaging_tools' if manual else 'tools')
+    require(isinstance(builder, dict) and builder.get('clean') is True
             and not record.get('tools_skew') and (mode == 'production' or not modified and not deviations),
             'Signing requires a clean recorded build')
     if mode == 'release':

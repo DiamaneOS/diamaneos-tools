@@ -74,8 +74,8 @@ later command must name the same one.
 | Mode | Flag | Build | Keys | `build.json` of the factory ZIP |
 | --- | --- | --- | --- | --- |
 | Release | `--release` | Official `user` | The DiamaneOS release keys | `release` true, `release-keys`, relock |
-| Own keys | none | Any verified build, also with local changes | Any but the AOSP test keys | `release` false, `own-keys`, relock |
-| Qualification | `--qualification` | Any clean verified build | Any | `release` false, `qualification-keys`, never locked |
+| Own keys | none | Any verified build, also by hand or with local changes | Any but the AOSP test keys | `release` false, `own-keys`, relock |
+| Qualification | `--qualification` | Any clean verified build the tools ran | Any | `release` false, `qualification-keys`, never locked |
 
 [`config/release-keys.json`](../config/release-keys.json) pins the public half of each release key.
 `--release` refuses, and names, every key that differs from its pin:
@@ -224,7 +224,11 @@ and release-record signing require the offline signing environment.
 ## Your own keys
 
 Anyone who builds DiamaneOS can sign the build with their own keys and lock the phone with them.
-The steps follow GrapheneOS's build guide. Run them from the source root.
+The steps follow GrapheneOS's build guide. Run them from the source root, after `build all` or
+`build package`.
+
+Like GrapheneOS's, they sign a build by hand too. Its record names no tools for the Android build,
+so the tools that recorded and checked it must be clean.
 
 Generate the keys once and keep them. Another key set needs a new install, which erases the phone.
 

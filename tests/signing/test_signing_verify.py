@@ -129,6 +129,20 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         (self.root / 'build.json').write_text(json.dumps(value)); self.refresh_report()
         with self.assertRaisesRegex(inputs.SigningError, 'clean recorded build'): self.verify('production')
 
+    def test_only_own_keys_sign_a_build_by_hand_checked_by_clean_tools(self):
+        record = self.fixture()
+        value = dict(record, official=False, android_build='manual', tools={'commit': None, 'clean': None},
+                     packaging_tools={'commit': 'a' * 40, 'clean': True})
+        (self.root / 'build.json').write_text(json.dumps(value)); self.refresh_report()
+        self.assertEqual('fixture', self.verify('production')['build_id'])
+        for mode in ('release', 'qualification'):
+            with self.subTest(mode), self.assertRaisesRegex(inputs.SigningError, 'Only own keys sign a build by hand'):
+                self.verify(mode)
+        for change in ({'packaging_tools': {'commit': None, 'clean': False}}, {'tools_skew': 'stale'}):
+            (self.root / 'build.json').write_text(json.dumps(dict(value, **change))); self.refresh_report()
+            with self.subTest(change), self.assertRaisesRegex(inputs.SigningError, 'clean recorded build'):
+                self.verify('production')
+
     def test_changed_project_report_is_complete_and_ignores_unchanged_revisions(self):
         current = {'script': 'a' * 40, 'external/avb': 'b' * 40}
         previous = {'status': 'PASS', 'artifact_signatures_verified': True,
