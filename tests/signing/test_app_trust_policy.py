@@ -23,7 +23,7 @@ UPSTREAM = {
     'CameraProcessor.apk': '6436b155b917c2f9a9ed1d15c4993a5968ffabc94947c13f2aeee14b7b27ed59',
 }
 PACKAGES = {'AppStore.apk': 'app.grapheneos.apps', 'Camera.apk': 'app.grapheneos.camera',
-            'Auditor.apk': 'de.diamaneos.auditor', 'CameraProcessor.apk': 'app.grapheneos.camera.processor'}
+            'Auditor.apk': 'de.diamaneos.auditor', 'CameraProcessor.apk': 'de.diamaneos.camera.processor'}
 
 
 def verifier_output(certificate, public_key='b' * 64):
