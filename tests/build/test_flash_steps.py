@@ -101,9 +101,9 @@ class FlashStepTests(unittest.TestCase):
                 text = self.text(wipe=True, firmware='skip')
                 commands = self.commands(wipe=True, firmware='skip')
                 self.assertEqual(['fastboot flash avb_custom_key avb_pkmd.bin', 'fastboot --set-active=a',
-                                  'fastboot flashing lock_critical', 'fastboot flashing get_unlock_ability',
-                                  'fastboot flashing lock'], commands[-5:])
-                self.assertLess(commands.index('fastboot flash userdata userdata.img'), len(commands) - 5)
+                                  'fastboot flashing get_unlock_ability', 'fastboot flashing lock_critical',
+                                  'fastboot flashing get_unlock_ability', 'fastboot flashing lock'], commands[-6:])
+                self.assertLess(commands.index('fastboot flash userdata userdata.img'), len(commands) - 6)
                 self.assertIn('Hold Volume down while it restarts', text)
                 self.assertIn('Continue only if it reports 1. Otherwise stop.', text)
                 self.assertIn('install its AVB key and lock the', text)

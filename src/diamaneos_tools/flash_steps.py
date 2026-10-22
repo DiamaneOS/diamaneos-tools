@@ -188,6 +188,7 @@ def firmware_text(record: dict, decision: dict) -> list[str]:
 def relock(key: str, slot: str) -> list[str]:
     """The AVB key and the two locks, in the order of the stock relock."""
     return [f'  fastboot flash avb_custom_key {key}', f'  fastboot --set-active={slot}',
+            '  fastboot flashing get_unlock_ability', '', 'Continue only if it reports 1. Otherwise stop.', '',
             '  fastboot flashing lock_critical', '',
             *textwrap.wrap('Confirm on the phone. It wipes the phone and restarts. Hold Volume down while it restarts, '
                            'so that it comes back to the bootloader: Android must not start before the second lock. '

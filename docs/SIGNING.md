@@ -208,9 +208,10 @@ written before fastbootd and again with the wipe images.
 Before starting Android, lock as the scripts' closing text describes. The scripts run no lock
 themselves. The order is the stock relock's:
 
+- `fastboot flashing get_unlock_ability` must report 1.
 - `fastboot flashing lock_critical`. It wipes and restarts: hold Volume down to come back to the
   bootloader.
-- `fastboot flashing get_unlock_ability` must report 1.
+- `fastboot flashing get_unlock_ability` must report 1 again.
 - `fastboot flashing lock`.
 
 Archive verification does not establish device installation or relock acceptance.

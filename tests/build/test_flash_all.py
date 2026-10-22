@@ -22,7 +22,8 @@ class FlashAllRelockTest(unittest.TestCase):
         for name, text in flash_all.scripts(signed).items():
             with self.subTest(name):
                 self.assertIn('fastboot flash avb_custom_key avb_pkmd.bin', text)
-                self.assertIn('run fastboot flashing lock_critical and confirm on the phone', text)
+                self.assertLess(text.index('get_unlock_ability reports 1'),
+                                text.index('run fastboot flashing lock_critical and confirm on the phone'))
                 self.assertIn('Then run fastboot flashing lock and confirm on the phone', text)
                 # The script never locks or erases: the user locks after it, before Android starts.
                 commands = [line for line in text.splitlines() if line.startswith('fastboot ')]

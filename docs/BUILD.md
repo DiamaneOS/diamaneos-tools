@@ -539,11 +539,12 @@ come from, named in the set's `build.json`.
 relock order, tested on the FP6:
 
 1. `fastboot flash avb_custom_key avb_pkmd.bin` (`flash-all` does this itself).
-2. `fastboot flashing lock_critical`, and confirm on the phone. It wipes the phone and restarts. Hold
+2. `fastboot flashing get_unlock_ability` must report 1. Otherwise stop.
+3. `fastboot flashing lock_critical`, and confirm on the phone. It wipes the phone and restarts. Hold
    Volume down while it restarts, so that it comes back to the bootloader: Android must not start
    before the second lock.
-3. `fastboot flashing get_unlock_ability` must report 1. Otherwise stop.
-4. `fastboot flashing lock`, and confirm on the phone.
+4. `fastboot flashing get_unlock_ability` must report 1 again. Otherwise stop.
+5. `fastboot flashing lock`, and confirm on the phone.
 
 - `flash-steps` prints the relock only when the verify report shows that `avb_pkmd.bin` signs the
   set's vbmeta (checks `record` and `avb-chain`).
