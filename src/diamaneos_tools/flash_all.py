@@ -16,11 +16,13 @@ from the "device" block of the build profile, which build.json carries.
 from __future__ import annotations
 
 SH, BAT = 'flash-all.sh', 'flash-all.bat'
+# Where the user learns to unlock the bootloader and the critical partitions.
+INSTALL_GUIDE = 'https://diamaneos.de/install/cli/'
 # What the bootloader must report before anything is written.
 CHECKS = (('product', '{product}',
            'This image set is for the {name} ({product}). Connect that phone in fastboot mode.'),
           ('is-userspace', 'no', 'The phone is in fastbootd. Run "fastboot reboot bootloader" and start again.'),
-          ('unlocked', 'yes', 'The bootloader is locked. Unlock it as {maker} describes, then start again.'))
+          ('unlocked', 'yes', 'The bootloader is locked. Unlock it as {guide} describes, then start again.'))
 # Printed again when the script ends, because the lock is the user's next step. It
 # follows the stock relock order, which leaves no boot between the two locks, and
 # checks before each lock that the phone can be unlocked again.
@@ -41,12 +43,12 @@ STUCK = ('The phone did not reach $2. Hold {bootloader_keys} until it restarts i
          'this script again.')
 CRITICAL = ('Device critical unlocked: true',
             'The critical partitions are locked, and the firmware is written to them. Run "fastboot flashing '
-            'unlock_critical" as {maker} describes (it erases the phone), then start again.')
+            'unlock_critical" as {guide} describes (it erases the phone), then start again.')
 
 
 def fields(record: dict) -> dict:
-    """The values the messages name: the product and the device profile's name, maker and keys."""
-    return dict(record['device'], product=record['product'])
+    """The values the messages name: the product, the device profile's name, maker and keys, and the guide."""
+    return dict(record['device'], product=record['product'], guide=INSTALL_GUIDE)
 
 
 def commands(record: dict) -> list[list[str]]:

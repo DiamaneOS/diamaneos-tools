@@ -213,7 +213,10 @@ class FlashStepTests(unittest.TestCase):
         for text in [steps, *scripts.values()]:
             self.assertNotIn('Fairphone', text)
             self.assertIn("Example's", text)
-        self.assertIn('unlock the bootloader as Example describes', steps)
+        self.assertIn('unlock the bootloader as https://diamaneos.de/install/cli/ describes', ' '.join(steps.split()))
+        for text in scripts.values():
+            self.assertIn('Unlock it as https://diamaneos.de/install/cli/ describes', text)
+            self.assertIn('unlock_critical" as https://diamaneos.de/install/cli/ describes', text.replace("'", '"'))
         self.assertIn('hold Power and Volume up until the bootloader appears', steps)
         self.assertIn('for the Example 1', scripts[flash_all.SH])
         for text in scripts.values():
@@ -353,7 +356,7 @@ class FlashStepTests(unittest.TestCase):
     def test_image_sets_without_firmware_keep_the_stock_package_first(self):
         record = json.loads(json.dumps(self.record))
         del record['firmware']
-        text = '\n'.join(flash_steps.steps(self.directory, record, report=self.report, wipe=True))
+        text = ' '.join(' '.join(flash_steps.steps(self.directory, record, report=self.report, wipe=True)).split())
         self.assertLess(text.index('unlock_critical'), text.index('factory package with'))
         self.assertNotIn('abl', text)
 

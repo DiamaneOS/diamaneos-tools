@@ -94,7 +94,7 @@ def check_phone(phone: dict, record: dict, writes_firmware: bool) -> None:
     if phone.get('product') != record['product']:
         raise FlashError(f'the saved phone state is not a {device["name"]} (product: {phone.get("product")!r})')
     if phone.get('unlocked') != 'yes':
-        raise FlashError(f'the bootloader is locked. Unlock it as {device["maker"]} describes')
+        raise FlashError(f'the bootloader is locked. Unlock it as {device["guide"]} describes')
     if phone.get('is-userspace') != 'no':
         raise FlashError('the phone was not in the bootloader (fastbootd, or not reported). Run "fastboot reboot '
                          'bootloader" and save its state again')
@@ -103,7 +103,7 @@ def check_phone(phone: dict, record: dict, writes_firmware: bool) -> None:
             raise FlashError('the saved phone state lacks the output of "fastboot oem device-info"')
         if phone['device-unlocked'] != 'true' or phone['critical-unlocked'] != 'true':
             raise FlashError('the critical partitions are locked, and the firmware steps write them: run "fastboot '
-                             f'flashing unlock_critical" as {device["maker"]} describes (it wipes the phone)')
+                             f'flashing unlock_critical" as {device["guide"]} describes (it wipes the phone)')
 
 
 def release_of(value: str, what: str) -> tuple:
@@ -261,11 +261,11 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
         out += ['- The firmware steps have not been tested on a phone.']
     if wipe and carried:
         out += [''] + textwrap.wrap(f'First install (from stock or another OS): unlock the bootloader as '
-                                    f'{device["maker"]} describes, including "fastboot flashing unlock_critical", '
+                                    f'{device["guide"]} describes, including "fastboot flashing unlock_critical", '
                                     'which writing firmware needs.', 96)
     elif wipe:
         out += [''] + textwrap.wrap(f'First install (from stock or another OS): unlock the bootloader as '
-                                    f'{device["maker"]} describes, including "fastboot flashing unlock_critical", '
+                                    f'{device["guide"]} describes, including "fastboot flashing unlock_critical", '
                                     f'because the firmware is written next. Then install {device["maker"]}\'s '
                                     f'{record["stock_build"]} factory package with {device["maker"]}\'s '
                                     'instructions (it writes the firmware), and continue here.', 96)
