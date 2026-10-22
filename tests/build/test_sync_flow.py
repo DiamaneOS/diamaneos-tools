@@ -220,9 +220,9 @@ class SyncFlowTests(unittest.TestCase):
         default = self.manifest_repository / 'default.xml'
         default.write_text(default.read_text().replace('<manifest>', '<manifest>\n  <!-- edited -->'))
         git(self.manifest_repository, 'commit', '-qam', 'edit')
-        self.assertEqual(["default.xml is not GrapheneOS 2026101600's signed default.xml with one include line"],
+        self.assertEqual(["default.xml is not GrapheneOS 2026102100's signed default.xml with one include line"],
                          self.sync()['deviations'])
-        with self.assertRaisesRegex(build.BuildError, 'is not GrapheneOS 2026101600'):
+        with self.assertRaisesRegex(build.BuildError, 'is not GrapheneOS 2026102100'):
             self.sync(self.context(official=True))
 
     def test_a_new_branch_commit_changes_the_sync_outputs(self):

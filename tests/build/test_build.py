@@ -333,7 +333,7 @@ class BranchCheckoutTests(unittest.TestCase):
         default = (self.manifests / "default.xml").read_text()
         included = (self.manifests / "diamaneos.xml").read_text()
         cases = (
-            ("default.xml", default.replace("device/example", "device/other"), "is not GrapheneOS 2026101600's"),
+            ("default.xml", default.replace("device/example", "device/other"), "is not GrapheneOS 2026102100's"),
             ("default.xml", default.replace("</manifest>", '<include name="x.xml" />\n</manifest>'), "one include"),
             ("diamaneos.xml", included.replace("</manifest>", "<include name='x.xml'/></manifest>"), "may only add"),
             ("diamaneos.xml", included.replace("'device_example'", "'other'"), "removes other, which GrapheneOS"),
@@ -349,7 +349,7 @@ class BranchCheckoutTests(unittest.TestCase):
         self.declared = self.declared.replace(b"remote='diamaneos' revision=", b"remote='grapheneos' revision=")
         with self.assertRaisesRegex(build.BuildError, "repo reads another manifest .*: device/example"):
             self.verify()
-        self.assertEqual(["repo reads another manifest than GrapheneOS 2026101600 with diamaneos.xml: device/example"],
+        self.assertEqual(["repo reads another manifest than GrapheneOS 2026102100 with diamaneos.xml: device/example"],
                          self.verify(allow_modified=True)["deviations"])
 
     def test_clean_checkout_records_the_resolved_manifest(self):
