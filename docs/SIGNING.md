@@ -166,8 +166,8 @@ input replacement and existing outputs.
 ## Assemble factory images
 
 `signing factory` uses only public trust material. It authenticates the build report before
-loading otatools, verifies signed packages and partitions, rebuilds super from signed target-files,
-and copies the admitted firmware, reset and wipe images. Existing outputs are never replaced.
+loading otatools, verifies signed packages and partitions, checks that the logical images fit in
+super, and copies the admitted firmware, reset and wipe images. Existing outputs are never replaced.
 
 ```sh
 bin/diamaneos signing factory --plan "$PLAN" \
@@ -184,8 +184,11 @@ bin/diamaneos signing factory --plan "$PLAN" \
 ```
 
 The ZIP has one directory named from the product and build number. It contains every signed
-partition, direct logical images and super, immutable passthrough images, `build.json`,
+partition, each logical image as its own file, immutable passthrough images, `build.json`,
 `SHA256SUMS`, `resolved-manifest.xml`, `flash-all.sh`, `flash-all.bat` and `avb_pkmd.bin`.
+
+It carries no `super.img`: the install writes `super_empty.img` and then each logical image in
+fastbootd.
 
 The original build record and report remain unchanged. The derived record binds their identities,
 the signing plan, signed target-files and actual image hashes. Its public AVB key must exactly
@@ -391,8 +394,8 @@ bin/diamaneos signing verify --plan "$PLAN" \
 
 - Native verification checks every APK, both compressed APEX containers, their payloads and enclosed APKs against assigned external identities.
 - Package IDs, SELinux certificate selectors, package isolation and installed policy bytes must match the accepted plan and target-files.
-- Published partitions match signed target-files, including unpacked logical images. Direct logical images must match their `super` contents.
-- Super extraction must contain every expected active logical image. Only known empty inactive counterparts are allowed. Slots come from the admitted install record; qualification layouts explicitly bind slot suffixes or unsuffixed platform output.
+- Published partitions match signed target-files, including unpacked logical images. Where an image archive carries `super`, direct logical images must match its contents.
+- An unpacked super must contain every expected active logical image. Only known empty inactive counterparts are allowed. Slots come from the admitted install record. Qualification layouts explicitly bind slot suffixes or unsuffixed platform output.
 - Flat image membership includes every declared firmware, wipe and modem-reset file. Unknown members and partial logical sets are rejected.
 - Native AVB verification covers every declared partition and rollback chain. Disabled verification and algorithm changes are rejected. vbmeta and every chained image need a rollback index above 0.
 - The signer keeps the rollback indexes: `sign_target_files_apks` replaces only the AVB key and algorithm in `META/misc_info.txt` and rebuilds the images with the build's `--rollback_index` arguments.

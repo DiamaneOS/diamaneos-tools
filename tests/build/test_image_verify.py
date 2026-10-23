@@ -107,6 +107,9 @@ class Harness:
         self.config = json.loads((ROOT / 'config/fp6-build.json').read_text())
         self.sources = subject.Sources(self.tf, kernel, root)
 
+    def file(self, name):
+        return self.images / name
+
 
 class RuleTests(unittest.TestCase):
     def setUp(self):
@@ -3045,16 +3048,21 @@ class GenericCheckTests(unittest.TestCase):
                                                         + header.ljust(256, b'\0') + partitions + device)
         super_empty([f'{n}_{s}' for n in logical for s in 'ab'])
 
+        expected = [b'raw super' + bytes(91)]
+
         def lpunpack(args):
+            self.assertEqual(expected[0], Path(args[0]).read_bytes())
             out = Path(args[-1])
             for name in logical:
                 (out / f'{name}_a.img').write_bytes(name.encode() * 10)
                 (out / f'{name}_b.img').write_bytes(b'')
             return ''
         tools = FakeTools({('lpunpack',): lpunpack})
-        v = self.harness({'META/dynamic_partitions_info.txt': b'super_partition_size=100\n'}, tools=tools)
+        v = self.harness({'META/dynamic_partitions_info.txt': b'super_partition_size=100\n'}, tools=tools,
+                         record={'images': {'super': 'listed'}, 'target_files': {'file': 'tf.zip'}})
         self.assertEqual((True, ''), subject.check_super(v))
         self.assertNotIn('simg2img', [c[0] for c in tools.calls])
+        self.assertNotIn('build_super_image', [c[0] for c in tools.calls])
         super_empty([f'{n}_{s}' for n in logical if n != 'vendor' for s in 'ab'])
         self.assertIn('super_empty.img lists system_a', subject.check_super(v)[1])
         super_empty([f'{n}_{s}' for n in logical for s in 'ab'], size=99)
@@ -3063,6 +3071,24 @@ class GenericCheckTests(unittest.TestCase):
         ok, detail = subject.check_super(v)
         self.assertFalse(ok)
         self.assertIn('vendor in super.img differs', detail)
+        (self.root / 'vendor.img').write_bytes(b'vendor' * 10)
+        super_empty([f'{n}_{s}' for n in logical for s in 'ab'])
+
+        # Factory images carry no super.img: the check builds it from the target-files.
+        (self.root / 'super.img').unlink()
+        expected[0] = b'built super' + bytes(89)
+
+        def build_super(args):
+            self.assertEqual(self.root / 'tf.zip', Path(args[0]))
+            Path(args[1]).write_bytes(expected[0])
+            return ''
+        tools.outputs[('build_super_image',)] = build_super
+        v.record = {'images': {}, 'target_files': {'file': 'tf.zip'}}
+        self.assertEqual((True, ''), subject.check_super(v))
+        self.assertIn('build_super_image', [c[0] for c in tools.calls])
+        self.assertFalse((self.root / 'super.img').exists())
+        (self.root / 'vendor.img').write_bytes(b'changed')
+        self.assertIn('vendor in super.img differs', subject.check_super(v)[1])
 
     def test_wipe_images(self):
         v = self.harness({})

@@ -112,8 +112,7 @@ def validate_input(value, plan):
         carried['super_empty.img'] = plan['passthrough_images']['super_empty.img']
     require(carried == plan['passthrough_images'], 'Factory passthrough inventory differs from the signing plan')
     all_members = layout.full_image_members(plan)
-    require(len(all_members) == len(plan['partitions']) + len(carried) + bool(flash['logical']),
-            'Factory image roles overlap')
+    require(len(all_members) == len(plan['partitions']) + len(carried), 'Factory image roles overlap')
     for name in all_members:
         file_name(name)
     require(all(isinstance(d, str) and SHA256.fullmatch(d) for d in carried.values()),
@@ -148,7 +147,7 @@ def derived_record(plan, signed_hash, image_hashes, key_hash, rollback):
                  deviations=plan['provenance'].get('deviations', []),
                  target_files={'file': 'target-files.zip', 'sha256': signed_hash},
                  images={name: image_hashes[name + '.img'] for name in
-                         [*plan['partitions'], *(['super', 'super_empty'] if plan.get('logical_partitions') else [])]},
+                         [*plan['partitions'], *(['super_empty'] if plan.get('logical_partitions') else [])]},
                  avb_custom_key={'file': 'avb_pkmd.bin', 'sha256': key_hash}, avb_rollback_indexes=rollback,
                  packaging_tools={'commit': plan['provenance']['projects']['tools/diamaneos'], 'clean': True},
                  signing_input={'plan_sha256': plan['plan_sha256'],
@@ -270,7 +269,7 @@ def verify_factory(factory, images, signed, plan, tools, keys):
 
 
 def write_images(destination, signed, original, plan, tools):
-    """Rebuild super from signed target-files and retain only admitted passthroughs."""
+    """The signed partitions and the admitted passthroughs, without super.img."""
     with tempfile.TemporaryDirectory(dir=tools.scratch) as td, za.archive(signed) as source, \
             zipfile.ZipFile(destination, 'x', compression=zipfile.ZIP_STORED, allowZip64=True) as output:
         for name in sorted(plan['partitions']):
@@ -280,9 +279,11 @@ def write_images(destination, signed, original, plan, tools):
             with source.open(info) as origin, output.open(name + '.img', 'w', force_zip64=True) as target:
                 shutil.copyfileobj(origin, target, 1024 * 1024)
         if plan.get('logical_partitions'):
+            # Only to check that the signed logical images still fit in super: lpmake refuses otherwise.
             super_image = Path(td) / 'super.img'
             tools.run('build_super_image', [signed, super_image])
-            output.write(super_image, 'super.img')
+            require(super_image.is_file(), 'build_super_image wrote no super image')
+            super_image.unlink()
         for name, digest in sorted(plan['passthrough_images'].items()):
             path = safe_file(original, name)
             require(sha256_file(path) == digest, 'Factory source passthrough changed')

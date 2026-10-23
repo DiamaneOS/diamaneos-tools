@@ -33,10 +33,9 @@ PUBLICATION_FIELDS = {'schema_version', 'signed_target_files', 'images_archive',
 
 
 def full_image_members(plan):
-    """Factory installs carry direct logical images as well as their super."""
+    """Factory installs write each logical image in fastbootd, on super_empty.img, so they carry no super.img."""
     members = {name + '.img' for name in plan['partitions']} | set(plan['passthrough_images'])
-    if plan.get('logical_partitions'):
-        members.add('super.img')
+    require('super.img' not in members, 'Factory images never carry super.img')
     require(not members & FACTORY_METADATA, 'Image names overlap factory metadata')
     return members
 

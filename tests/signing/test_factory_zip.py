@@ -41,7 +41,8 @@ class FactoryInputs(TemporaryInputs):
                             ('abl.elf', 'modemst1.img', 'modemst2.img', 'frp.img', 'misc.img', 'super_empty.img')}
         for name, data in self.passthrough.items(): (self.original / name).write_bytes(data)
         self.images = {name + '.img': data for name, data in self.partitions.items()}
-        self.images.update(self.passthrough, **{'super.img': b'fixture signed super'})
+        self.images.update(self.passthrough)
+        self.super_image = b'fixture signed super'
         self.signed = self.root / 'signed.zip'
         write_zip(self.signed, {'IMAGES/' + name + '.img': data for name, data in self.partitions.items()})
         self.manifest = self.original / 'resolved-manifest.xml'; self.manifest.write_bytes(b'<manifest/>\n')
@@ -92,12 +93,7 @@ class FactoryInputs(TemporaryInputs):
             self.assertEqual(['extract_public_key', '--key', self.keys.avb(), '--output'], arguments[:-1])
             Path(arguments[-1]).write_bytes(self.key)
         elif command == 'build_super_image':
-            self.assertEqual(self.signed, arguments[0]); Path(arguments[1]).write_bytes(self.images['super.img'])
-        elif command == 'lpunpack':
-            self.assertEqual(self.images['super.img'], Path(arguments[0]).read_bytes())
-            for name in self.plan['logical_partitions']:
-                (Path(arguments[1]) / (name + '_a.img')).write_bytes(self.partitions[name])
-                (Path(arguments[1]) / (name + '_b.img')).write_bytes(b'')
+            self.assertEqual(self.signed, arguments[0]); Path(arguments[1]).write_bytes(self.super_image)
         else:
             self.fail('Unexpected native fixture operation')
 
@@ -154,6 +150,18 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
             self.assertEqual(self.key, z.read(top + '/avb_pkmd.bin'))
             self.assertEqual(0o100755, z.getinfo(top + '/flash-all.sh').external_attr >> 16)
         self.tools.avb_binary_authority.assert_called()
+
+    def test_factory_carries_no_super_and_installs_through_fastbootd(self):
+        record = self.make(); self.verify()
+        with zipfile.ZipFile(self.factory_zip) as z:
+            self.assertNotIn(factory.directory_name(self.plan) + '/super.img', z.namelist())
+        self.assertEqual(set(self.partitions) | {'super_empty'}, set(record['images']))
+        written = {c[-1] for c in flash_all.commands(record) if c[0] in ('flash', 'wipe-super')}
+        self.assertLessEqual({'super_empty.img', 'system.img', 'vendor.img'}, written)
+        self.assertNotIn('super.img', written)
+        self.change(lambda rows: rows + [(zipfile.ZipInfo(factory.directory_name(self.plan) + '/super.img'),
+                                          self.super_image)], repair_sums=True)
+        with self.assertRaisesRegex(si.SigningError, 'unknown or missing members'): self.verify()
 
     def test_production_scripts_stop_before_first_boot_and_check_all_files(self):
         record = self.make()
@@ -262,6 +270,13 @@ class FactoryZipTests(FactoryInputs, unittest.TestCase):
                 with self.assertRaises(si.SigningError): self.verify()
                 self.factory_zip.unlink()
 
+    def test_image_archive_with_super_cannot_generate_a_factory(self):
+        write_zip(self.images_zip, {**self.images, 'super.img': self.super_image})
+        with self.assertRaisesRegex(si.SigningError, 'complete flat image set'): self.make()
+        self.assertFalse(self.factory_zip.exists())
+        self.plan['passthrough_images']['super.img'] = hashlib.sha256(self.super_image).hexdigest()
+        with self.assertRaisesRegex(si.SigningError, 'never carry super.img'): layout.full_image_members(self.plan)
+
     def test_incomplete_image_archive_cannot_generate_a_factory(self):
         for name in self.images:
             with self.subTest(missing=name):
@@ -307,6 +322,25 @@ class FactoryAssemblyTests(FactoryInputs, unittest.TestCase):
         self.assertEqual(before, {p: si.sha256_file(p) for p in self.original.iterdir()})
         self.assertTrue((self.root / 'publish/factory.zip').is_file())
         self.assertFalse(list((self.root / 'publish').glob('.factory-*')))
+
+    def test_assembly_checks_that_super_fits_and_publishes_no_super(self):
+        with patch.object(api, 'verify_images', return_value=list(self.partitions)), \
+                patch.object(api, 'verify_installed_packages'):
+            self.assemble()
+        built = [c.args for c in self.tools.run.call_args_list if c.args[0] == 'build_super_image']
+        self.assertEqual(1, len(built)); self.assertEqual(self.signed, built[0][1][0])
+        self.assertFalse(Path(built[0][1][1]).exists())
+        with zipfile.ZipFile(self.root / 'publish/images.zip') as z:
+            self.assertEqual(set(self.images), set(z.namelist()))
+
+    def test_logical_images_that_do_not_fit_in_super_refuse(self):
+        def refuse(command, arguments):
+            if command == 'build_super_image':
+                raise si.SigningError('Native tool failed: build_super_image')
+            return self.native_run(command, arguments)
+        self.tools.run.side_effect = refuse
+        with self.assertRaisesRegex(si.SigningError, 'build_super_image'): self.assemble()
+        self.assertEqual([], list((self.root / 'publish').iterdir()))
 
     def test_native_image_refusal_never_exposes_outputs(self):
         with patch.object(api, 'verify_images', side_effect=si.SigningError('controlled signature refusal')):

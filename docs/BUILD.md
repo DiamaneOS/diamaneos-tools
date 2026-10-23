@@ -326,7 +326,7 @@ or deleted files):
     build every rollback index is above 0.
   - Zero OS fields in the boot-family headers with the versions in AVB properties.
   - `super.img` holding exactly the logical images, and `super_empty.img` listing the same
-    partitions.
+    partitions. Factory images carry no `super.img`, so the check builds it from the target-files.
   - `validate_target_files` and `check_target_files_vintf`.
   - The kernel prebuilts in boot, vendor_boot and dtbo (the `device/fairphone/FP6-kernel` checkout,
     which must be at the commit `build.json` names and unchanged).

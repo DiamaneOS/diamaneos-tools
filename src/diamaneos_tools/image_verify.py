@@ -1647,12 +1647,17 @@ def check_super(v):
     with v.tools.scratch() as temporary:
         directory = Path(temporary)
         raw = directory / 'super.raw'
-        with (v.images / 'super.img').open('rb') as stream:
+        source = v.images / 'super.img'
+        if 'super' not in v.record['images']:
+            # Factory images carry no super.img: build it from the set's target-files, as packaging does.
+            source = directory / 'super.img'
+            v.tools.run('build_super_image', [v.file(v.record['target_files']['file']), source])
+        with source.open('rb') as stream:
             super_sparse = struct.unpack('<I', stream.read(4))[0] == SPARSE_MAGIC
         if super_sparse:
-            v.tools.run('simg2img', [v.images / 'super.img', raw])
+            v.tools.run('simg2img', [source, raw])
         else:
-            raw.symlink_to(v.images / 'super.img')
+            raw.symlink_to(source)
         if size is None or raw.stat().st_size != int(size):
             problems.append(f'raw super is {raw.stat().st_size} bytes (partition {size})')
         parts = directory / 'parts'
@@ -2130,8 +2135,9 @@ GENERIC = [
     ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees. '
      'An official build has a rollback index above 0 on vbmeta and every chain.', check_avb),
     ('boot-header', 'Boot-family headers carry zero OS fields. The versions live in AVB properties.', check_boot_headers),
-    ('super', 'super.img holds exactly the exported logical images and an empty slot b. super_empty.img, which '
-     'the install writes, lists the same partitions.', check_super),
+    ('super', 'super.img, or for factory images one built from the target-files, holds exactly the exported '
+     'logical images and an empty slot b. super_empty.img, which the install writes, lists the same partitions.',
+     check_super),
     ('validators', 'validate_target_files and check_target_files_vintf pass on the archive.', check_validators),
     ('kernel-binding', 'boot, vendor_boot and dtbo carry the kernel prebuilts the build record names.', check_kernel),
     ('modules', 'Module placement and load lists match the kernel prebuilts, the parallel vendor_dlkm load streams '
