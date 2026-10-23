@@ -204,6 +204,15 @@ class FlashStepTests(unittest.TestCase):
         self.assertEqual([], [line for line in scripts[flash_all.SH].splitlines()
                               if re.search(r'fastboot [^|;]*\|\s*(grep -q|head)', line)])
 
+    def test_the_batch_file_checks_whole_values_with_windows_powershell_modules(self):
+        lines = flash_all.scripts(self.record)[flash_all.BAT].split('\r\n')
+        self.assertEqual(['setlocal', 'set "PSModulePath=%SystemRoot%\\system32\\WindowsPowerShell\\v1.0\\Modules"'],
+                         lines[lines.index('setlocal'):][:2])
+        self.assertLess(lines.index('setlocal') + 1, min(i for i, line in enumerate(lines) if 'powershell' in line))
+        for name, wanted in (('product', 'FP6'), ('is-userspace', 'no'), ('unlocked', 'yes')):
+            line = next(line for line in lines if line.startswith(f'fastboot getvar {name} '))
+            self.assertIn(f'| findstr /v /r /c:"{name}: *{wanted}[0-9A-Za-z_.]" /c:"{name}: *{wanted}-" >nul ||', line)
+
     def test_the_device_texts_come_from_the_build_profile(self):
         record = json.loads(json.dumps(self.record))
         record['device'] = {'name': 'Example 1', 'maker': 'Example', 'bootloader_keys': 'Power and Volume up'}

@@ -167,12 +167,17 @@ def shell(record: dict) -> str:
 
 
 def batch(record: dict) -> str:
-    out = ['@echo off', *('rem ' + line for line in notes(record)), 'setlocal', 'cd /d "%~dp0"', '',
+    # Windows PowerShell gets only its own modules: the PSModulePath of a PowerShell 7 window, which
+    # cmd passes on, hides Get-FileHash from it.
+    out = ['@echo off', *('rem ' + line for line in notes(record)), 'setlocal',
+           'set "PSModulePath=%SystemRoot%\\system32\\WindowsPowerShell\\v1.0\\Modules"', 'cd /d "%~dp0"', '',
            'where fastboot >nul 2>&1 || (echo fastboot is not installed ^(Android platform-tools^). & exit /b 1)']
     values = fields(record)
     for name, wanted, message in CHECKS:
         wanted, message = wanted.format(**values), _escaped(message.format(**values))
-        out.append(f'fastboot getvar {name} 2>&1 | findstr /r /c:"{name}: *{wanted}" >nul || (echo {message} & exit /b 1)')
+        # The second filter drops a longer value, which findstr matches too ("FP6X" for "FP6").
+        out.append(f'fastboot getvar {name} 2>&1 | findstr /r /c:"{name}: *{wanted}" | findstr /v /r '
+                   f'/c:"{name}: *{wanted}[0-9A-Za-z_.]" /c:"{name}: *{wanted}-" >nul || (echo {message} & exit /b 1)')
     if record.get('firmware'):
         out.append(f'fastboot oem device-info 2>&1 | findstr /c:"{CRITICAL[0]}" >nul || '
                    f'(echo {_escaped(CRITICAL[1].format(**values))} & exit /b 1)')
