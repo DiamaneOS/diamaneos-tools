@@ -92,7 +92,7 @@
         "kind": "branch"
       },
       "scope": "server",
-      "upstream_revision": "fa2e1db781702109e24c86a1e9b12a2235a9d235"
+      "upstream_revision": "9da3dbf297383e91392e1e34b554298c5c060bbe"
     },
     {"id": "network-location", "slug": "platform_packages_apps_NetworkLocation", "path": "packages/apps/NetworkLocation", "branch": "android17", "follow_note": "GrapheneOS network location and geocoder app. Offers no GrapheneOS geocoding server and identifies to OpenStreetMap's Nominatim as DiamaneOS.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation", "ref": "@release", "kind": "tag"},
