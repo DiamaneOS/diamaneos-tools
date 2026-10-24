@@ -1,5 +1,7 @@
+import contextlib
 import copy
 import hashlib
+import io
 import json
 from pathlib import Path
 import shutil
@@ -270,6 +272,22 @@ class ManifestModeTests(unittest.TestCase):
         changed["composition"] = {}
         with self.assertRaisesRegex(build.BuildError, "supported schema"):
             build.validate_config(changed)
+
+
+    def test_a_release_sets_the_manifest_to_its_tag(self):
+        released = build.with_release(self.config, "2026102300")
+        self.assertEqual("refs/tags/2026102300", released["manifest"]["branch"])
+        self.assertEqual("android17", self.config["manifest"]["branch"])
+        build.validate_config(released)
+        for value in ("android17", "2026133100", "202610230", "refs/tags/2026102300", "2026102300 "):
+            with self.subTest(value=value), self.assertRaisesRegex(build.BuildError, "not a release number"):
+                build.with_release(self.config, value)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(0, build.main(["--inputs-only", "--release", "2026102300"]))
+        result = json.loads(output.getvalue())
+        self.assertEqual("refs/tags/2026102300", result["identity"]["source_manifest"]["branch"])
+        self.assertEqual("refs/tags/2026102300", result["required_runtime_inputs"]["source_manifest"]["branch"])
 
 
 class BranchCheckoutTests(unittest.TestCase):

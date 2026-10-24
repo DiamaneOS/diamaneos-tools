@@ -151,12 +151,14 @@ class PlanTests(unittest.TestCase):
         errors = io.StringIO()
         with contextlib.redirect_stderr(errors):
             for argv in (['android', '--shallow'], ['sync', '--factory-zip', 'x'],
-                         ['sync', '--official'], ['vendor', 'FP6', '--no-official'], ['verify', '--official']):
+                         ['sync', '--official'], ['vendor', 'FP6', '--no-official'], ['verify', '--official'],
+                         ['kernel', '--release', '2026102300']):
                 with self.subTest(argv=argv):
                     self.assertEqual(2, steps.main(argv + ['--dry-run', '--workspace', str(self.root / 'ws')],
                                                    self.lines.append))
         self.assertIn('--shallow is an option of: sync, all', errors.getvalue())
         self.assertIn('--official is an option of: android, all', errors.getvalue())
+        self.assertIn('--release is an option of: sync, vendor, android, package, verify, all', errors.getvalue())
         self.assertEqual(0, steps.main(['android', '--official', '--dry-run', '--workspace', str(self.root / 'ws')],
                                        self.lines.append))
 
@@ -561,6 +563,9 @@ class PinnedSyncTests(unittest.TestCase):
                  (('all', '--from', 'vendor', '--resolved-manifest', str(self.resolved), '--manifest-commit',
                    self.commit), 'does not go with --from vendor'),
                  (('sync', '--resolved-manifest', str(self.resolved)), 'needs --build-json'),
+                 (('sync', '--release', '2026102300', '--resolved-manifest', str(self.resolved), '--manifest-commit',
+                   self.commit), 'does not go with --resolved-manifest'),
+                 (('sync', '--release', 'android17'), 'not a release number'),
                  (('sync', '--resolved-manifest', str(self.resolved), '--manifest-commit', 'abc'), 'full 40-character'),
                  (('sync', '--resolved-manifest', str(self.root / 'missing.xml'), '--manifest-commit', self.commit),
                   'cannot read the resolved manifest'))

@@ -147,6 +147,8 @@ class Context:
     build_number: str | None = None
     # A recorded resolved manifest to reproduce (build sync --resolved-manifest).
     pinned: source_sync.PinnedManifest | None = None
+    # A published release built from its signed tag (--release): the manifest at refs/tags/RELEASE.
+    release: str | None = None
     # The stock firmware inventory (default: config/fp6-firmware-inventory.json).
     firmware_inventory: dict | None = None
     # The tools commit this command started with (its code is that commit's).
@@ -388,6 +390,8 @@ def plan_sync(ctx: Context) -> StepPlan:
     # the choice is remembered in the workspace, not digested. A pinned
     # manifest is recorded in the outputs, so later steps see the same inputs.
     inputs = {'environment_sha256': ctx.environment_sha256}
+    if ctx.release:
+        inputs['manifest_branch'] = manifest['branch']
     jobs = ctx.jobs_for(cap=16)
     settings = source_sync.prefetch_settings(ctx.config) if ctx.shallow else None
     memo = {}
@@ -489,13 +493,15 @@ def plan_sync(ctx: Context) -> StepPlan:
                detail=f'only when an existing checkout\'s repo tool lacks {repo["release_tag"]}: fetch the tag from '
                       f'{repo["url"]} and keep it when it is the pinned tag object and commit with a good signature '
                       'from the repo keyring'),
-        Action('Initialise the checkout', detail=f'the DiamaneOS manifest on {manifest["branch"]}',
+        Action('Initialise the checkout', detail=f'the DiamaneOS manifest at the release tag {ctx.release}'
+               if ctx.release else f'the DiamaneOS manifest on {manifest["branch"]}',
                argv=['repo', 'init', '-u', manifest['url'], '-b', manifest['branch'],
                      '--repo-url=' + repo['url'], '--repo-rev=' + repo['peeled_commit']]
                     + (['--depth=1'] if ctx.shallow else []),
                cwd=ws.src, network=True, env=GIT_HTTP, short_tmp=True),
         Action('Check the repo tool and manifest', func=check_manifest,
-               detail='the pinned repo tool and its tag, the manifest checkout at the head of the branch'),
+               detail='the pinned repo tool and its tag, the manifest checkout at '
+                      + ('the release tag' if ctx.release else 'the head of the branch')),
     ]
     check_action = actions[-1]
     if pinned:
@@ -544,6 +550,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                   'project_count': result['resolved_project_count'],
                   'manifest_url': result['manifest_url'], 'manifest_branch': result['manifest_branch'],
                   'manifest_commit': result['manifest_commit'],
+                  **({'manifest_tag_object': result['manifest_tag_object']} if 'manifest_tag_object' in result
+                     else {}),
                   'resolved_manifest_sha256': result['resolved_manifest_sha256'],
                   'kernel_prebuilts_commit': project_revision(resolved, product_inputs.KERNEL_PREBUILTS),
                   'shallow': ctx.shallow,
@@ -1216,9 +1224,11 @@ def check_prerequisites(ctx: Context, name: str, steps) -> None:
         else:
             reason = 'is out of date (its inputs changed)'
         option = '' if recorded.variant == ctx.config['default_variant'] else ' --variant ' + recorded.variant
+        release = f' --release {ctx.release}' if ctx.release else ''
+        option += release
         if ctx.manual:
-            raise UsageError(f'{dependency} {reason}. Run "diamaneos build vendor {ctx.device.codename}", then m, '
-                             'then "diamaneos build package" again')
+            raise UsageError(f'{dependency} {reason}. Run "diamaneos build vendor {ctx.device.codename}{release}", '
+                             f'then m, then "diamaneos build package{release}" again')
         named = f' {ctx.device.codename}' if dependency == 'vendor' else ''
         raise UsageError(f'{dependency} {reason}. Run "diamaneos build {dependency}{named}{option}" '
                          f'or "diamaneos build all{option}"')
@@ -1420,6 +1430,20 @@ def steps_to_run(ctx: Context, steps, force) -> list:
     return []
 
 
+def check_release(ctx: Context, step: str) -> None:
+    """A release tag build is never official, and a checkout of a release tag moves to the branch or
+    another tag only after "repo init -b" from the user, never in a command that names another."""
+    if ctx.release and ctx.official:
+        raise UsageError('--release builds a published release as your own build, not an official one. '
+                         + ('Leave out --official' if ctx.official_given else
+                            'This workspace builds official images. Use another one (--workspace)'))
+    followed = build.followed_release(ctx.workspace.src)
+    # The kernel step does not use the checkout. A reproduction names its manifest commit itself.
+    if followed and followed != ctx.release and not ctx.pinned and step != 'kernel':
+        raise UsageError(f'the checkout follows the release tag {followed}. Use --release {followed}, or run '
+                         f'"repo init -b {ctx.environment["manifest"]["branch"]}" and "repo sync" first')
+
+
 def make_context(args, echo=print) -> Context:
     name = getattr(args, 'device', None)
     device = devices.get(name) if name else devices.sole()
@@ -1429,6 +1453,10 @@ def make_context(args, echo=print) -> Context:
     build.validate_config(environment)
     if 'manifest' not in environment:
         raise UsageError('the build environment names no source manifest')
+    release = getattr(args, 'release', None)
+    if release:
+        # The environment file stays the device's own: its SHA-256 names it, and sync records the tag.
+        environment = build.with_release(environment, release)
     # What the environment declares about its inputs must be what the tools
     # use: the project input files and the stock release the vendor step takes.
     try:
@@ -1475,7 +1503,8 @@ def make_context(args, echo=print) -> Context:
                    device=device, official=official, official_given=given is not None, jobs=args.jobs,
                    allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
-                   shallow=shallow, pinned=pinned, echo=echo, dry_run=getattr(args, 'dry_run', False))
+                   shallow=shallow, pinned=pinned, release=release, echo=echo,
+                   dry_run=getattr(args, 'dry_run', False))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1513,6 +1542,9 @@ def parser() -> argparse.ArgumentParser:
                              'match the SHA-256 it records, and it gives the manifest commit')
     result.add_argument('--manifest-commit', metavar='COMMIT',
                         help='with --resolved-manifest and no --build-json: the manifest commit the build recorded')
+    result.add_argument('--release', metavar='RELEASE',
+                        help='build a published release from its signed tag: the manifest at refs/tags/RELEASE '
+                             'instead of the head of its branch. Give it to every step')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
     result.add_argument('--factory-zip', help='vendor: use this copy of the device maker\'s factory package instead of downloading it')
@@ -1521,7 +1553,7 @@ def parser() -> argparse.ArgumentParser:
 
 STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'), 'official': ('android', 'all'),
                 'from_step': ('all',), 'resolved_manifest': ('sync', 'all'), 'build_json': ('sync', 'all'),
-                'manifest_commit': ('sync', 'all')}
+                'manifest_commit': ('sync', 'all'), 'release': bw.STEPS + ('all',)}
 
 
 def main(argv=None, echo=print) -> int:
@@ -1542,7 +1574,10 @@ def main(argv=None, echo=print) -> int:
             raise UsageError('--build-json and --manifest-commit go with --resolved-manifest')
         if args.resolved_manifest and args.from_step not in (None, 'sync'):
             raise UsageError('--resolved-manifest runs the sync step. It does not go with --from ' + args.from_step)
+        if args.release and args.resolved_manifest:
+            raise UsageError('--release builds the source its tag pins. It does not go with --resolved-manifest')
         ctx = make_context(args, echo)
+        check_release(ctx, args.step)
         ctx.restarted = restarted is not None
         for note in ctx.pinned.notes if ctx.pinned else ():
             echo('note: ' + note)

@@ -23,6 +23,9 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 # A manifest branch, or a tag as refs/tags/NAME.
 MANIFEST_REF_RE = re.compile(r"^(?:refs/tags/)?[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
+# A release number as GrapheneOS's: the release date and a two-digit serial. Each
+# release has a signed tag with that name in the manifest.
+RELEASE_RE = re.compile(r"^20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-9]{2}$")
 MAX_CONFIG_BYTES = 262_144
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024
@@ -982,6 +985,43 @@ def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
     return modified
 
 
+def with_release(config: dict, release: str) -> dict:
+    """The environment with its manifest at the release tag refs/tags/RELEASE instead of its branch."""
+    if not isinstance(release, str) or RELEASE_RE.fullmatch(release) is None:
+        raise BuildError(f"{release} is not a release number, such as 2026102300")
+    if "manifest" not in config:
+        raise BuildError("the build environment does not declare a manifest")
+    config = json.loads(json.dumps(config))
+    config["manifest"]["branch"] = "refs/tags/" + release
+    return config
+
+
+def followed_release(source: Path) -> str | None:
+    """The release a checkout follows after "repo init -b refs/tags/RELEASE", or None."""
+    manifests = source / ".repo" / "manifests"
+    if not manifests.is_dir():
+        return None
+    try:
+        ref = _run(["git", "-C", str(manifests), "config", "--get", "branch.default.merge"]).stdout.decode().strip()
+    except BuildError:
+        return None
+    release = ref.removeprefix("refs/tags/")
+    return release if ref.startswith("refs/tags/") and RELEASE_RE.fullmatch(release) else None
+
+
+def manifest_tag_object(source: Path, ref: str) -> str:
+    """The tag object of the manifest's ``ref`` (refs/tags/NAME). A lightweight tag carries no signature."""
+    manifests = str(source / ".repo" / "manifests")
+    try:
+        kind = _run(["git", "-C", manifests, "cat-file", "-t", ref]).stdout.decode().strip()
+        tag_object = _run(["git", "-C", manifests, "rev-parse", "--verify", "-q", ref]).stdout.decode().strip()
+    except BuildError:
+        raise BuildError(f"the manifest checkout lacks {ref}") from None
+    if kind != "tag" or SHA1_RE.fullmatch(tag_object) is None:
+        raise BuildError(f"{ref} in the manifest checkout is not an annotated tag")
+    return tag_object
+
+
 def verify_manifest_repository(config: dict, source: Path, manifest_commit: str | None = None,
                                notes: list | None = None) -> str:
     """The manifest checkout follows the declared manifest. Returns its commit.
@@ -1014,6 +1054,10 @@ def verify_manifest_repository(config: dict, source: Path, manifest_commit: str 
         expected = None
     if manifest_commit is None:
         if expected != head:
+            release = followed_release(source)
+            if release and branch != "refs/tags/" + release:
+                raise BuildError(f"manifest checkout follows the release tag {release}, not {branch}. "
+                                 f"Use --release {release}, or run repo init with -b {branch}")
             raise BuildError(f"manifest checkout is not at {branch}. Run repo init with -b {branch}")
     else:
         if not isinstance(manifest_commit, str) or SHA1_RE.fullmatch(manifest_commit) is None:
@@ -1097,9 +1141,13 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
         temporary = resolved_path.with_name(resolved_path.name + ".tmp")
         temporary.write_bytes(resolved)
         os.replace(temporary, resolved_path)
+    branch = config["manifest"]["branch"]
+    if branch.startswith("refs/tags/"):
+        # Records which signed tag object the source came from.
+        result["manifest_tag_object"] = manifest_tag_object(source, branch)
     result.update({
         "manifest_url": config["manifest"]["url"],
-        "manifest_branch": config["manifest"]["branch"],
+        "manifest_branch": branch,
         "manifest_commit": manifest_commit,
         "resolved_manifest_sha256": sha256_bytes(resolved),
         "resolved_project_count": len(rows),
@@ -1185,6 +1233,8 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument("--host-only", action="store_true",
                       help="validate the host and workspace before a source sync")
     parser.add_argument("--purpose", choices=("generic-qualification", "fp6"), default="fp6")
+    parser.add_argument("--release", metavar="RELEASE",
+                        help="check a checkout of the release tag refs/tags/RELEASE instead of the manifest branch")
     parser.add_argument("--source-root", type=Path)
     parser.add_argument("--cache-root", type=Path)
     parser.add_argument("--output-root", type=Path)
@@ -1206,6 +1256,8 @@ def main(argv=None) -> int:
     try:
         config, raw = load_config(args.config)
         validate_config(config)
+        if args.release:
+            config = with_release(config, args.release)
         identity = declared_identity(config, raw, args.project_root)
         status = ("INPUTS_IDENTIFIED" if args.inputs_only else
                   "HOST_READY" if args.host_only else "PASS")

@@ -92,7 +92,7 @@ The build commands use the FP6 profile: its entry `config/devices/FP6.json`, the
   GrapheneOS release it is based on, Fairphone and CodeLinaro projects at exact commits, the
   DiamaneOS forks and projects at their `android17` branches, the kernel prebuilts and the tools.
 - Because the branch moves, `build all` starts with `sync` every time. An environment that pins one
-  manifest commit (`manifest.revision`) does not.
+  manifest commit (`manifest.revision`) does not, nor does a build of a release tag (`--release`).
 
 | Step | What it does | What it checks and records |
 | --- | --- | --- |
@@ -421,6 +421,30 @@ or deleted files):
   `--official`.
 - A different tools commit gives the same source identity, but another build identity and image
   directory name, because the build identity includes the tools commit.
+
+**A release from its tag.** `--release RELEASE` builds a published release from its signed tag,
+such as `--release 2026102300` after `repo init -b refs/tags/2026102300` and `repo sync`.
+
+- It sets the environment's manifest branch to `refs/tags/RELEASE`. The environment file stays the
+  device's own, and its SHA-256 is recorded as before.
+- Every step takes it: `sync`, `vendor`, `android`, `package`, `verify` and `all`. Give it to each.
+  `build preflight` takes it too.
+- `sync` runs `repo init -b refs/tags/RELEASE`. `build all` keeps the source at the tag and does not
+  start with `sync` every time.
+- The checks are a branch build's, with the tag in place of the branch head: the manifest checkout
+  must be at the tag's commit.
+- The tag must be an annotated tag. The sync records its tag object (`manifest_tag_object`) next to
+  the manifest commit, and `manifest_branch` is `refs/tags/RELEASE`. `build.json` carries both in
+  `source`.
+- A checkout that `repo init -b refs/tags/RELEASE` set up follows that release.
+  - A command without `--release RELEASE` stops and names the option, so it never moves the checkout
+    to the branch or another tag. `repo init -b` by hand does.
+  - `build kernel` and a sync with `--resolved-manifest` do not stop, because they do not build the
+    checkout's own manifest.
+- The tools do not check the tag's signature. They run from the same checkout, so the check comes
+  first, by hand, as the [build guide](https://diamaneos.de/build/#verifying-the-source) shows.
+- It does not go with `--official` or with `--resolved-manifest`. The build number is that of a
+  build of your own, not the release number.
 
 **Other environments.** `--environment FILE` selects another environment file: a copy of the FP6
 environment with another manifest branch, or with `manifest.revision` set to build one manifest

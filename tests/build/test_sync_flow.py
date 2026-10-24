@@ -5,7 +5,9 @@ manifest and its generated kernel tree must be moved aside before repo checks
 out the kernel prebuilts project at the same path.
 """
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -57,8 +59,13 @@ FAKE_REPO = textwrap.dedent('''\
                 git('init', '-q', cwd=path)
                 git('remote', 'add', 'origin', origin, cwd=path)
             git('remote', 'set-url', 'origin', origin, cwd=path)
-        git('fetch', '-q', urls[url], '+refs/heads/%s:refs/remotes/origin/%s' % (branch, branch), cwd='.repo/manifests')
-        git('checkout', '-q', '--detach', 'refs/remotes/origin/' + branch, cwd='.repo/manifests')
+        # Like repo: a tag is fetched as itself, and branch.default.merge names what init was given.
+        tag = branch.startswith('refs/tags/')
+        local = branch if tag else 'refs/remotes/origin/' + branch
+        git('fetch', '-q', urls[url], '+%s:%s' % (branch if tag else 'refs/heads/' + branch, local),
+            cwd='.repo/manifests')
+        git('checkout', '-q', '--detach', local, cwd='.repo/manifests')
+        git('config', 'branch.default.merge', branch if tag else 'refs/heads/' + branch, cwd='.repo/manifests')
         if not cloned:
             git('fetch', '-q', '--tags', urls[option('--repo-url')], cwd='.repo/repo')
         git('checkout', '-q', '--detach', option('--repo-rev'), cwd='.repo/repo')
@@ -339,6 +346,111 @@ class SyncFlowTests(unittest.TestCase):
         ctx.check_only = True
         with self.assertRaisesRegex(bw.BuildStepError, 'is not a repo checkout'):
             self.sync(ctx)
+
+    def release(self, name='2026102300', annotated=True):
+        """A release tag as the project makes them: a commit on top of the branch that pins the projects,
+        which only the tag points at. Then the branches move on."""
+        example = git(self.example, 'rev-parse', 'HEAD')
+        included = self.manifest_repository / 'diamaneos.xml'
+        included.write_text(included.read_text().replace(
+            'path="device/example" remote="diamaneos"', f'path="device/example" remote="diamaneos" revision="{example}"'))
+        git(self.manifest_repository, 'commit', '-qam', 'release ' + name)
+        git(self.manifest_repository, 'tag', *(['-a', '-m', 'release ' + name] if annotated else []), name)
+        commit = git(self.manifest_repository, 'rev-parse', 'HEAD')
+        git(self.manifest_repository, 'reset', '-q', '--hard', 'HEAD~1')
+        for repository, name_ in ((self.example, 'example.mk'), (self.manifest_repository, 'README')):
+            (repository / name_).write_text(f'after {name}\n')
+            git(repository, 'add', name_)
+            git(repository, 'commit', '-qm', 'after ' + name)
+        return commit, example
+
+    def passed(self, ctx, outputs):
+        plan = steps.plan_sync(ctx)
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs': plan.inputs,
+                                           'inputs_sha256': bw.digest(plan.inputs), 'outputs': outputs})
+
+    def main(self, *argv):
+        errors = io.StringIO()
+        with contextlib.redirect_stderr(errors):
+            code = steps.main([*argv, '--workspace', str(self.root / 'ws'), '--environment', str(self.environment)],
+                              self.lines.append)
+        return code, errors.getvalue()
+
+    def test_a_release_syncs_to_its_signed_tag_and_stays_there(self):
+        commit, example = self.release()
+        ctx = self.context(release='2026102300')
+        self.assertFalse(ctx.follows_branch)
+        init = next(a for a in steps.plan_sync(ctx).actions if a.argv and a.argv[:2] == ['repo', 'init'])
+        self.assertEqual('refs/tags/2026102300', init.argv[init.argv.index('-b') + 1])
+        outputs = self.sync(ctx)
+        self.assertEqual(('refs/tags/2026102300', commit), (outputs['manifest_branch'], outputs['manifest_commit']))
+        self.assertEqual(git(self.manifest_repository, 'rev-parse', 'refs/tags/2026102300'),
+                         outputs['manifest_tag_object'])
+        self.assertEqual(example, git(self.src / 'device/example', 'rev-parse', 'HEAD'))
+        # build all keeps the tag although the branch moved on.
+        self.passed(ctx, outputs)
+        self.lines.clear()
+        self.assertEqual((0, ''), self.main('all', '--release', '2026102300', '--dry-run'))
+        self.assertIn('sync: up to date', self.lines)
+        # A command without --release stops instead of moving the checkout to the branch.
+        for argv in (('all', '--dry-run'), ('sync',), ('vendor', 'FP6', '--dry-run')):
+            with self.subTest(argv=argv):
+                code, errors = self.main(*argv)
+                self.assertEqual(2, code)
+                self.assertIn('the checkout follows the release tag 2026102300. Use --release 2026102300', errors)
+        self.assertEqual(commit, git(self.src / '.repo/manifests', 'rev-parse', 'HEAD'))
+        environment = json.loads(self.environment.read_text())
+        with self.assertRaisesRegex(build.BuildError, 'follows the release tag 2026102300, not android17. '
+                                                      'Use --release 2026102300'):
+            build.verify_branch_checkout(environment, self.src)
+        # The kernel step does not use the checkout.
+        self.assertEqual(0, self.main('kernel', '--dry-run')[0])
+        # build vendor and build package check the checkout as it is.
+        checked = self.context(release='2026102300')
+        checked.check_only = True
+        self.assertEqual(outputs['project_map_sha256'], self.sync(checked)['project_map_sha256'])
+        # Back to the branch only after the user's own "repo init -b android17", which sets this.
+        git(self.src / '.repo/manifests', 'config', 'branch.default.merge', 'refs/heads/android17')
+        self.assertEqual(0, self.main('sync', '--dry-run')[0])
+        self.assertEqual(git(self.manifest_repository, 'rev-parse', 'android17'), self.sync()['manifest_commit'])
+
+    def test_a_sync_at_another_source_runs_again_for_a_release(self):
+        self.release('2026102300')
+        branch = self.context()
+        self.passed(branch, self.sync(branch))
+        self.lines.clear()
+        self.assertEqual((0, ''), self.main('all', '--release', '2026102300', '--dry-run'))
+        self.assertIn('sync: to run', self.lines)
+        first = self.context(release='2026102300')
+        self.passed(first, self.sync(first))
+        second_commit, _ = self.release('2026102400')
+        # Another release needs the user's own repo init of its tag first.
+        code, errors = self.main('all', '--release', '2026102400', '--dry-run')
+        self.assertEqual(2, code)
+        self.assertIn('follows the release tag 2026102300. Use --release 2026102300, or run "repo init -b '
+                      'refs/tags/2026102400"', errors)
+        git(self.src / '.repo/manifests', 'config', 'branch.default.merge', 'refs/tags/2026102400')
+        self.lines.clear()
+        self.assertEqual((0, ''), self.main('all', '--release', '2026102400', '--dry-run'))
+        self.assertIn('sync: to run', self.lines)
+        self.assertEqual(second_commit, self.sync(self.context(release='2026102400'))['manifest_commit'])
+
+    def test_a_release_build_is_never_official(self):
+        self.release()
+        code, errors = self.main('all', '--release', '2026102300', '--official', '--dry-run')
+        self.assertEqual(2, code)
+        self.assertIn('not an official one. Leave out --official', errors)
+        (self.root / 'ws/state').mkdir(parents=True)
+        (self.root / 'ws/state' / steps.OFFICIAL_MARKER).write_text('official\n')
+        code, errors = self.main('all', '--release', '2026102300', '--dry-run')
+        self.assertEqual(2, code)
+        self.assertIn('not an official one. This workspace builds official images', errors)
+
+    def test_a_release_tag_must_be_annotated(self):
+        self.release(annotated=False)
+        with self.assertRaisesRegex(build.BuildError, 'refs/tags/2026102300 in the manifest checkout is not an '
+                                                      'annotated tag'):
+            self.sync(self.context(release='2026102300'))
 
     def move_on(self):
         """The branches move after a build: a project and the manifest get new commits."""
