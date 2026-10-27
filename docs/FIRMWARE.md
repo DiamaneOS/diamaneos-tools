@@ -97,7 +97,7 @@ that script (reasons in the `firmware` block of `config/fp6-build.json`):
 | `erase misc` | Zeros, with `--wipe` only: misc holds the OS's boot messages |
 | `erase modemst1`, `modemst2` | Zeros over both whole partitions, right after the firmware, whenever firmware is written |
 | `--set-active=a` | Same |
-| `oem reset-rollback` | Dropped: it weakens rollback protection, and test builds stay unlocked |
+| `oem reset-rollback` | Dropped: it weakens rollback protection. Before a test build's lock on request, the printed steps ask for it |
 | Unlock checks | From the saved phone state, plus product and bootloader mode |
 
 With both modem file system copies empty, the modem rebuilds its file system from its factory backup

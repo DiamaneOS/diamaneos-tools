@@ -3,6 +3,8 @@
 Build DiamaneOS from source and install it on a supported device. These commands sign every build
 with Android's public test keys: keep the bootloader unlocked while such a build is installed.
 
+Anyone can sign images with these keys, so locking such a build does not protect the phone.
+
 ## Requirements
 
 - Linux on x86-64 (Debian 13 is tested), 16 CPU cores or more (8 work, slowly) and 64 GB of RAM (32
@@ -89,7 +91,9 @@ bash flash-all.sh
   own.
 - It writes the device maker's firmware of the release the build's vendor files come from, then the
   OS. Do not run it on a phone that already runs a newer stock release.
-- Never lock the bootloader or run `fastboot -w` or `fastboot erase`.
+- Never run `fastboot -w` or `fastboot erase`.
+- Keep the bootloader unlocked. `bash flash-all.sh lock` prepares a lock anyway, after a warning and
+  a typed `yes` ([flashing](BUILD.md#flashing)).
 - [Flashing](BUILD.md#flashing) covers updates that keep data, firmware and going back to stock.
 
 ## Updating

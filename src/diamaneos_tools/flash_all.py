@@ -8,7 +8,9 @@ bootloader for the empty data images.
 They always write the firmware, as the stock flash script does, so the phone
 must not already run a newer stock release than the set carries.
 A set signed with private keys also installs its AVB public key and stops in
-the bootloader, so the user can lock it before Android first starts.
+the bootloader, so the user can lock it before Android first starts. A test
+build does so only when run with the argument "lock", after a warning and a
+typed yes.
 "flash-steps" prints the commands for anything else (an update that keeps
 data, only the images that changed). The device's name, maker and keys come
 from the "device" block of the build profile, which build.json carries.
@@ -31,6 +33,21 @@ LOCK = ('To lock, first check that fastboot flashing get_unlock_ability reports 
         'restarts, so that it comes back to the bootloader: Android must not start before the second lock. Then '
         'fastboot flashing get_unlock_ability must report 1 again, or stop there. Then run fastboot flashing lock '
         'and confirm on the phone.')
+# A test build is signed with the public test keys. It carries their AVB key and
+# locks only on request: the argument "lock", this warning and a typed yes.
+TEST_KEYS = 'public-test-keys'
+LOCK_ARGUMENT = 'lock'
+TEST_KEY_LOCK = ('WARNING: this build is signed with the public test keys, which anyone can download. A phone locked '
+                 'with it accepts any image or update signed with them, so the lock does not protect it. Lock it '
+                 'only for a test. Then unlock it again. To keep the phone locked, install a release or a build '
+                 'signed with your own keys.')
+# Before the lock of a test build, which keeps rollback index 0 and must stay unlockable.
+TEST_KEY_BEFORE = ('If the phone ran a locked build before, first run fastboot oem reset-rollback, or the test build '
+                   'will not start once locked. Keep OEM unlocking on in the setup, so that you can unlock the phone '
+                   'again.')
+ASK = 'Type yes to install the public test key, so that you can lock the bootloader after the install: '
+NOT_CONFIRMED = 'Not confirmed. Nothing was written.'
+USAGE = f'Run the script without arguments, or with {LOCK_ARGUMENT} to lock the bootloader after the install.'
 # The restarts between the bootloader and fastbootd: what "getvar is-userspace"
 # reports once the phone is there, and what the scripts call it.
 MODES = {('reboot', 'fastboot'): ('yes', 'fastbootd'), ('reboot-bootloader',): ('no', 'the bootloader')}
@@ -51,8 +68,11 @@ def fields(record: dict) -> dict:
     return dict(record['device'], product=record['product'], guide=INSTALL_GUIDE)
 
 
-def commands(record: dict) -> list[list[str]]:
-    """The fastboot arguments of a clean install, in order."""
+def commands(record: dict, lock: bool = False) -> list[list[str]]:
+    """The fastboot arguments of a clean install, in order. lock: a test build
+    installs its public test key and stops in the bootloader too."""
+    if lock and not test_key(record):
+        raise ValueError('Only a test build that carries the public test key locks on request')
     slot, carried = record['flash']['slot'], record.get('firmware')
     result = []
     if carried:
@@ -63,7 +83,7 @@ def commands(record: dict) -> list[list[str]]:
     result += [['flash', f'{name}_{slot}', f'{name}.img'] for name in record['flash']['bootloader']]
     result += logical(record)
     result += [['flash', name, image['file']] for name, image in record['wipe']['images'].items()]
-    key = custom_key(record)
+    key = custom_key(record) or (test_key(record) if lock else None)
     if key:
         return result + [['flash', 'avb_custom_key', key], [f'--set-active={slot}'], ['reboot-bootloader']]
     return result + [[f'--set-active={slot}'], ['reboot']]
@@ -89,18 +109,29 @@ def logical(record: dict, wipe: bool = True) -> list[list[str]]:
             + [['flash', f'{name}_{slot}', f'{name}.img'] for name in names] + [['reboot-bootloader']])
 
 
-def script_steps(record: dict) -> list[tuple]:
+def script_steps(record: dict, lock: bool = False) -> list[tuple]:
     """Each command, and the mode the scripts then wait for: after a switch
     between the bootloader and fastbootd that more commands follow."""
-    result = commands(record)
+    result = commands(record, lock)
     return [(arguments, MODES.get(tuple(arguments)) if i < len(result) - 1 else None)
             for i, arguments in enumerate(result)]
 
 
 def custom_key(record: dict) -> str | None:
     """The AVB public key file a set signed with private keys installs, or None."""
-    if record.get('never_lock') is not False:
+    if record.get('never_lock') is not False or record.get('signing') == TEST_KEYS:
         return None
+    return safe_key(record)
+
+
+def test_key(record: dict) -> str | None:
+    """The public test key file a test build carries, which it installs only on request, or None."""
+    if record.get('signing') != TEST_KEYS or record.get('never_lock') is not True or 'avb_custom_key' not in record:
+        return None
+    return safe_key(record)
+
+
+def safe_key(record: dict) -> str:
     key = (record.get('avb_custom_key') or {}).get('file')
     if not isinstance(key, str) or not key or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-' for c in key) or key.startswith('.'):
         raise ValueError('A lockable set requires a safe AVB public key file')
@@ -118,6 +149,9 @@ def notes(record: dict) -> list[str]:
         lines.append('The phone restarts into fastbootd for the system partitions, then back into the bootloader.')
     if record.get('never_lock'):
         lines.append('This build is signed with public test keys: keep the bootloader unlocked while it is installed.')
+        if test_key(record):
+            lines.append(f'To lock it anyway, run the script with the argument {LOCK_ARGUMENT}. It warns and asks '
+                         'first.')
     elif custom_key(record):
         lines.append('It installs the signing key and stops in the bootloader. ' + LOCK)
     return lines
@@ -147,20 +181,40 @@ def shell(record: dict) -> str:
     if record.get('firmware'):
         out.append('info=$(fastboot oem device-info 2>&1) || true')
         out.append(f'printf "%s\\n" "$info" | grep -q "{CRITICAL[0]}" || fail \'{CRITICAL[1].format(**values)}\'')
+    if test_key(record):
+        # Asked before the first write, so the install then runs on its own.
+        out += [f'case "$*" in \'\'|{LOCK_ARGUMENT}) ;; *) fail "{USAGE}" ;; esac',
+                'lock=no', f'if [ "${{1:-}}" = {LOCK_ARGUMENT} ]; then', f'echo "{TEST_KEY_LOCK}"',
+                f"printf '%s' '{ASK}'", 'read -r answer || answer=', f'[ "$answer" = yes ] || fail "{NOT_CONFIRMED}"',
+                'lock=yes', 'fi']
     out += ['if command -v sha256sum >/dev/null 2>&1; then sha256sum --quiet -c SHA256SUMS',
             'elif command -v shasum >/dev/null 2>&1; then shasum -a 256 --quiet -c SHA256SUMS',
             'else fail "Neither sha256sum nor shasum is installed, so the images cannot be checked."; fi', '']
     out += [f'echo "{line}"' for line in notes(record)]
-    for arguments, mode in script_steps(record):
-        if arguments == CANCEL:
-            out += ['status=$(value snapshot-update-status)', 'if [ -n "$status" ] && [ "$status" != none ]; then']
-        out.append('fastboot ' + ' '.join(arguments))
-        if arguments == [f'--set-active={record["flash"]["slot"]}']:
-            out.append('checkslot ' + record['flash']['slot'])
-        if arguments == CANCEL:
-            out.append('fi')
-        if mode:
-            out.append('waitfor {} "{}"'.format(*mode))
+
+    def run(steps):
+        lines = []
+        for arguments, mode in steps:
+            if arguments == CANCEL:
+                lines += ['status=$(value snapshot-update-status)',
+                          'if [ -n "$status" ] && [ "$status" != none ]; then']
+            lines.append('fastboot ' + ' '.join(arguments))
+            if arguments == [f'--set-active={record["flash"]["slot"]}']:
+                lines.append('checkslot ' + record['flash']['slot'])
+            if arguments == CANCEL:
+                lines.append('fi')
+            if mode:
+                lines.append('waitfor {} "{}"'.format(*mode))
+        return lines
+    steps = script_steps(record)
+    if test_key(record):
+        # The same install. Only when confirmed, it ends with the key and the lock text.
+        locked = script_steps(record, lock=True)
+        out += run(steps[:-2]) + ['if [ "$lock" = yes ]; then'] + run(locked[-3:])
+        out += [f'echo "{TEST_KEY_LOCK}"', f'echo "{TEST_KEY_BEFORE}"', f'echo "{LOCK}"', 'else']
+        out += run(steps[-2:]) + ['fi']
+    else:
+        out += run(steps)
     if custom_key(record):
         out.append(f'echo "{LOCK}"')
     return '\n'.join(out) + '\n'
@@ -181,6 +235,11 @@ def batch(record: dict) -> str:
     if record.get('firmware'):
         out.append(f'fastboot oem device-info 2>&1 | findstr /c:"{CRITICAL[0]}" >nul || '
                    f'(echo {_escaped(CRITICAL[1].format(**values))} & exit /b 1)')
+    if test_key(record):
+        out += [f'if not "%~1"=="" if not "%~1"=="{LOCK_ARGUMENT}" (echo {_escaped(USAGE)} & exit /b 1)',
+                f'if not "%~2"=="" (echo {_escaped(USAGE)} & exit /b 1)',
+                'set "lock="', f'if "%~1"=="{LOCK_ARGUMENT}" (call :confirm || exit /b 1)',
+                f'if "%~1"=="{LOCK_ARGUMENT}" set "lock=yes"']
     out += ['where powershell >nul 2>&1 || (echo PowerShell is required to check SHA256SUMS. & exit /b 1)',
             'powershell -NoProfile -NonInteractive -Command "$ErrorActionPreference=\'Stop\'; $seen=@{}; '
             'Get-Content -LiteralPath \'SHA256SUMS\' | ForEach-Object { '
@@ -191,17 +250,31 @@ def batch(record: dict) -> str:
             '{ throw \'Checksum mismatch\' } }; if ($seen.Count -eq 0) { throw \'No checksums\' }" || exit /b 1']
     out.append('')
     out += [f'echo {_escaped(line)}' for line in notes(record)]
-    for arguments, mode in script_steps(record):
-        if arguments == CANCEL:
-            out.append('fastboot getvar snapshot-update-status 2>&1 | findstr /r /c:"snapshot-update-status: *[a-z]" '
-                       '| findstr /v /r /c:"snapshot-update-status: *none" >nul || goto no_snapshot')
-        out.append('fastboot ' + ' '.join(arguments) + ' || exit /b 1')
-        if arguments == [f'--set-active={record["flash"]["slot"]}']:
-            out.append('call :checkslot ' + record['flash']['slot'] + ' || exit /b 1')
-        if arguments == CANCEL:
-            out.append(':no_snapshot')
-        if mode:
-            out.append('call :waitfor {} "{}" || exit /b 1'.format(*mode))
+
+    def run(steps):
+        lines = []
+        for arguments, mode in steps:
+            if arguments == CANCEL:
+                lines.append('fastboot getvar snapshot-update-status 2>&1 | findstr /r '
+                             '/c:"snapshot-update-status: *[a-z]" | findstr /v /r /c:"snapshot-update-status: *none" '
+                             '>nul || goto no_snapshot')
+            lines.append('fastboot ' + ' '.join(arguments) + ' || exit /b 1')
+            if arguments == [f'--set-active={record["flash"]["slot"]}']:
+                lines.append('call :checkslot ' + record['flash']['slot'] + ' || exit /b 1')
+            if arguments == CANCEL:
+                lines.append(':no_snapshot')
+            if mode:
+                lines.append('call :waitfor {} "{}" || exit /b 1'.format(*mode))
+        return lines
+    steps = script_steps(record)
+    if test_key(record):
+        locked = script_steps(record, lock=True)
+        out += run(steps[:-2]) + ['if not "%lock%"=="yes" goto unlocked'] + run(locked[-3:])
+        out += [f'echo {_escaped(TEST_KEY_LOCK)}', f'echo {_escaped(TEST_KEY_BEFORE)}', f'echo {_escaped(LOCK)}',
+                'exit /b 0', ':unlocked']
+        out += run(steps[-2:])
+    else:
+        out += run(steps)
     if custom_key(record):
         out.append(f'echo {_escaped(LOCK)}')
     out += ['exit /b 0', '', ':checkslot',
@@ -215,6 +288,11 @@ def batch(record: dict) -> str:
             'fastboot getvar is-userspace 2>&1 | findstr /r /c:"is-userspace: *%1" >nul && exit /b 0',
             'set /a n+=1', f'if %n% geq 90 (echo {_escaped(STUCK.format(**values).replace("$2", "%~2"))} & exit /b 1)',
             'ping -n 3 127.0.0.1 >nul', 'goto waitfor_poll']
+    if test_key(record):
+        # Delayed expansion reads the answer after parsing, so no typed character can run as a command.
+        out += ['', ':confirm', f'echo {_escaped(TEST_KEY_LOCK)}', 'setlocal EnableDelayedExpansion', 'set "answer="',
+                f'set /p "answer={ASK}"', 'if "!answer!"=="yes" (endlocal & exit /b 0)', 'endlocal',
+                f'echo {_escaped(NOT_CONFIRMED)}', 'exit /b 1']
     return '\r\n'.join(out) + '\r\n'
 
 

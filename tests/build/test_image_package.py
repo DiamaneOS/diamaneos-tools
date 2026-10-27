@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import struct
 import sys
 import tempfile
 import unittest
@@ -21,6 +22,19 @@ FSTAB = '''/dev/block/by-name/metadata /metadata f2fs noatime wait,check,formatt
 
 TOOL_SCRIPTS = {'build_super_image': '#!/bin/sh\nprintf "super from %s" "$1" > "$2"\n',
                 'make_f2fs': '#!/bin/sh\nfor last; do :; done\nprintf "f2fs %s" "$*" > "$last"\n'}
+
+
+# The public key the fixture's vbmeta.img embeds.
+VBMETA_KEY = b'fixture AVB public test key'
+
+
+def vbmeta_image(key: bytes = VBMETA_KEY) -> bytes:
+    """A vbmeta header (avb_vbmeta_image.h) whose auxiliary block holds the public key."""
+    authentication, offset = 64, 64
+    aux = bytes(offset) + key + bytes(-(offset + len(key)) % 64)
+    header = struct.pack('>4sIIQQI', b'AVB0', 1, 0, authentication, len(aux), 0)
+    header += struct.pack('>QQQQQQ', 0, 0, 0, 0, offset, len(key))
+    return header + bytes(256 - len(header)) + bytes(authentication) + aux
 
 
 def otatools_archive(path: Path, leave_out=()):
@@ -52,7 +66,7 @@ def fixture_workspace(root: Path, variant='user', **firmware_options):
     target_files = product / 'FP6-target_files.zip'
     with zipfile.ZipFile(target_files, 'w') as archive:
         for name in image_package.image_names(config):
-            archive.writestr(f'IMAGES/{name}.img', f'{name} image'.encode())
+            archive.writestr(f'IMAGES/{name}.img', vbmeta_image() if name == 'vbmeta' else f'{name} image'.encode())
         archive.writestr('VENDOR/etc/fstab.qcom', FSTAB)
     otatools = ctx.out / 'host/linux-x86/obj/PACKAGING/otatools_intermediates/otatools.zip'
     otatools.parent.mkdir(parents=True)
@@ -96,6 +110,10 @@ class PackageTests(unittest.TestCase):
         self.assertIs(False, record['official'])
         self.assertEqual('public-test-keys', record['signing'])
         self.assertTrue(record['never_lock'])
+        # The public test key, which the scripts install only after their warning.
+        self.assertEqual(VBMETA_KEY, (directory / 'avb_pkmd.bin').read_bytes())
+        self.assertEqual({'file': 'avb_pkmd.bin', 'sha256': bw.sha_file(directory / 'avb_pkmd.bin')},
+                         record['avb_custom_key'])
         self.assertEqual(b'boot image', (directory / 'boot.img').read_bytes())
         self.assertEqual(set(image_package.image_names(self.ctx.config)) | {'super'}, set(record['images']))
         self.assertEqual((self.ctx.workspace.images / 'latest').resolve(), directory.resolve())
@@ -205,7 +223,8 @@ class PackageTests(unittest.TestCase):
         path = ws.root / state['outputs']['target_files']
         with zipfile.ZipFile(path, 'w') as archive:
             for name in image_package.image_names(self.ctx.config):
-                archive.writestr(f'IMAGES/{name}.img', f'new {name} image'.encode())
+                archive.writestr(f'IMAGES/{name}.img', vbmeta_image(b'new key') if name == 'vbmeta'
+                                 else f'new {name} image'.encode())
             archive.writestr('VENDOR/etc/fstab.qcom', FSTAB)
         state['outputs']['target_files_sha256'] = bw.sha_file(path)
         ws.write_state('android', state)

@@ -15,11 +15,12 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import shutil
+import struct
 import zipfile
 
 from . import firmware, flash_all, product_inputs
 from . import build_workspace as bw
-from .build_workspace import Action, BuildStepError
+from .build_workspace import Action, BuildStepError, CheckFailed
 
 SUMS = 'SHA256SUMS'
 # The parts of config/fp6-build.json packaging depends on.
@@ -29,6 +30,8 @@ TARGET_FILES_COPY = 'target-files.zip'
 OTATOOLS_COPY = 'otatools.zip'
 # The resolved manifest (repo manifest -r) of the source the set was built from.
 MANIFEST_COPY = 'resolved-manifest.xml'
+# The AVB public key that signs vbmeta.img, which a lock installs as avb_custom_key.
+KEY_FILE = 'avb_pkmd.bin'
 
 
 def image_names(config: dict) -> list[str]:
@@ -41,7 +44,22 @@ def reserved_names(config: dict) -> set[str]:
     names = {f'{n}.img' for n in image_names(config) + ['super']}
     names |= {i['image'] for i in config['wipe']['images'].values()}
     names |= {i['image'] for i in config['firmware']['reset'].values()}
-    return names | {RECORD, SUMS, TARGET_FILES_COPY, OTATOOLS_COPY, MANIFEST_COPY}
+    return names | {RECORD, SUMS, TARGET_FILES_COPY, OTATOOLS_COPY, MANIFEST_COPY, KEY_FILE}
+
+
+def vbmeta_key(path: Path) -> bytes:
+    """The public key vbmeta.img embeds (avb_vbmeta_image.h), in the format of avb_pkmd.bin."""
+    with path.open('rb') as image:
+        header = image.read(256)
+        if len(header) < 256 or header[:4] != b'AVB0':
+            raise CheckFailed(f'{path.name} has no vbmeta header')
+        authentication, = struct.unpack('>Q', header[12:20])
+        offset, size = struct.unpack('>QQ', header[64:80])
+        image.seek(256 + authentication + offset)
+        key = image.read(size)
+    if not size or len(key) != size:
+        raise CheckFailed(f'{path.name} embeds no public key')
+    return key
 
 
 def check_firmware_names(names, config: dict) -> None:
@@ -376,6 +394,11 @@ def plan(ctx):
             'packaging_config_sha256': inputs['build_config'],
             'firmware': dict(state['firmware_record'], validated=config['firmware']['validated']),
         }
+        if 'vbmeta' in config['images']['bootloader']:
+            # The public test key, for a lock after the scripts' warning.
+            key = vbmeta_key(state['partial'] / 'vbmeta.img')
+            bw.write_atomic(state['partial'] / KEY_FILE, key, 0o640)
+            value['avb_custom_key'] = {'file': KEY_FILE, 'sha256': bw.sha_file(state['partial'] / KEY_FILE)}
         bw.write_atomic(state['partial'] / RECORD, bw.encoded(value), 0o640)
         # From the record as it reads back, so the scripts and flash-steps agree on the order.
         for name, text in flash_all.scripts(json.loads(bw.encoded(value))).items():

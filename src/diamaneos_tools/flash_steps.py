@@ -1,6 +1,7 @@
 """Print the fastboot commands for a verified DiamaneOS image set.
 
-A test build is signed with the public test keys and stays unlocked. A set
+A test build is signed with the public test keys and stays unlocked. With
+--lock, after a warning and a typed yes, it ends with the relock too. A set
 re-signed with its own keys whose record says relock ends with the relock.
 
 Never runs fastboot. Prints every image, or with --since only the images that
@@ -198,7 +199,7 @@ def relock(key: str, slot: str) -> list[str]:
 
 def steps(directory: Path, record: dict, previous: dict | None = None, wipe: bool = False,
           report: dict | None = None, phone: dict | None = None, phone_firmware: str | None = None,
-          firmware: str = 'auto') -> list[str]:
+          firmware: str = 'auto', lock: bool = False) -> list[str]:
     signing = record.get('signing')
     if signing not in SIGNED and (signing != PUBLIC_TEST_KEYS or record.get('release') is not False):
         raise FlashError('flash-steps only prints commands for test builds and sets re-signed with their own keys')
@@ -206,10 +207,17 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
         raise FlashError('this image set was packaged by older tools, without the device profile: package it '
                          'again with these tools')
     device = flash_all.fields(record)
+    if signing == PUBLIC_TEST_KEYS and record.get('never_lock') is not True:
+        raise FlashError('build.json does not mark this test build as one to keep unlocked')
+    test_key = flash_all.test_key(record)
+    if lock and not test_key and signing == PUBLIC_TEST_KEYS:
+        raise FlashError('this test build does not carry the public test key (avb_pkmd.bin). Move the image '
+                         'directory aside and run "diamaneos build package" again with these tools')
+    if lock and not test_key:
+        raise FlashError('--lock is only for test builds. This set '
+                         + ('relocks without it' if flash_all.custom_key(record) else 'must never be locked'))
     # The AVB key file a set that relocks installs, or None.
-    key = flash_all.custom_key(record)
-    if key and signing == PUBLIC_TEST_KEYS:
-        raise FlashError('a set signed with the public test keys must never be locked')
+    key = flash_all.custom_key(record) or (test_key if lock else None)
     if report is None and signing in SIGNED:
         raise FlashError('this image set has not been checked. Run "diamaneos images check" with --report '
                          + str(directory.parent / (record['build_id'] + '.verify.json')))
@@ -233,12 +241,19 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
     logical = changed(record, previous, record['flash']['logical'])
     out = [f'DiamaneOS {"test build " if signing == PUBLIC_TEST_KEYS else ""}{record["build_id"]} '
            f'({record["product"]}, {record["variant"]}, build number {record["build_number"]})', '', 'Safety rules:']
-    if key:
+    if key and lock:
+        out += textwrap.wrap('- ' + flash_all.TEST_KEY_LOCK, 96, subsequent_indent='  ')
+        out += ['- The last steps install the public test key and lock the bootloader, which wipes all data',
+                '  on the phone.']
+        out += textwrap.wrap('- ' + flash_all.TEST_KEY_BEFORE, 96, subsequent_indent='  ')
+    elif key:
         out += ['- This set is signed with its own keys. The last steps install its AVB key and lock the',
                 '  bootloader, which wipes all data on the phone.']
     else:
         out += ['- This build is signed with public test keys. Keep the bootloader unlocked: never run',
                 '  "fastboot flashing lock" or "fastboot flashing lock_critical" while it is installed.']
+        if test_key:
+            out += ['- To lock it anyway, add --lock. It warns and asks first.']
     out += ['- Never run "fastboot -w" or "fastboot erase". A wipe flashes empty images instead.']
     if carried:
         out += [f'- The OS goes to slot {slot} only. Do not flash it to the other slot.',
@@ -309,6 +324,14 @@ def steps(directory: Path, record: dict, previous: dict | None = None, wipe: boo
     return out
 
 
+def confirm() -> None:
+    """The typed yes before the lock steps of a test build, on stderr so that the steps can go to a file."""
+    print('\n'.join(textwrap.wrap(flash_all.TEST_KEY_LOCK, 96)), file=sys.stderr)
+    print('Type yes to print the steps that lock the bootloader: ', end='', file=sys.stderr, flush=True)
+    if sys.stdin.readline().strip() != 'yes':
+        raise FlashError('not confirmed. Nothing was printed')
+
+
 def resolve(value: str | None, workspace: Path) -> Path:
     if value:
         return Path(value).expanduser().absolute()
@@ -337,6 +360,8 @@ def main(argv=None) -> int:
                        help='leave the phone\'s firmware as it is')
     group.add_argument('--rewrite-firmware', dest='firmware', action='store_const', const='rewrite',
                        help='write the firmware even if the phone runs the same release (never an older one)')
+    parser.add_argument('--lock', action='store_true',
+                        help='a test build: end with the relock, after a warning and a typed yes')
     args = parser.parse_args(argv)
     try:
         workspace = Path(args.workspace).expanduser().absolute() if args.workspace else bw.default_workspace()
@@ -346,8 +371,11 @@ def main(argv=None) -> int:
         if previous is not None and previous['product'] != record['product']:
             raise FlashError('the earlier build is for another product')
         phone = parse_phone(Path(args.phone).expanduser().read_text(errors='replace')) if args.phone else None
-        print('\n'.join(steps(directory, record, previous, args.wipe, verification(directory, record),
-                              phone=phone, phone_firmware=args.phone_firmware, firmware=args.firmware)))
+        out = steps(directory, record, previous, args.wipe, verification(directory, record), phone=phone,
+                    phone_firmware=args.phone_firmware, firmware=args.firmware, lock=args.lock)
+        if args.lock:
+            confirm()
+        print('\n'.join(out))
         return 0
     except (FlashError, OSError, ValueError, KeyError) as error:
         print('ERROR: ' + str(error), file=sys.stderr)

@@ -292,6 +292,8 @@ or deleted files):
   - `verify` checks the headers.
   - The target-files archive is also the unsigned input for the offline signer
     ([SIGNING.md](SIGNING.md)).
+  - `avb_pkmd.bin` is the public test key that `vbmeta.img` embeds, and `build.json` names it in
+    `avb_custom_key`. The scripts and `flash-steps` write it only for a lock on request (below).
 
 - **Wipe images.**
   - `userdata.img` is 4 MiB of zeros, as in the stock factory package: it destroys the old
@@ -319,11 +321,13 @@ or deleted files):
 
 - **Verify.**
   - Generic checks: `SHA256SUMS`.
-  - The record (a test build that must never be locked, matching hashes).
+  - The record (a test build that stays unlocked unless the user asks, matching hashes, and
+    `avb_pkmd.bin` as `SHA256SUMS` lists it).
   - test-keys in every fingerprint.
   - The AVB chain with the test key and the device layout (vbmeta at location 0, recovery 28,
     vbmeta_system 29, boot 30, init_boot 31, flags 0, pvmfw in vbmeta_system). On an official
     build every rollback index is above 0.
+  - `avb_pkmd.bin` is the key `vbmeta.img` embeds.
   - Zero OS fields in the boot-family headers with the versions in AVB properties.
   - `super.img` holding exactly the logical images, and `super_empty.img` listing the same
     partitions. Factory images carry no `super.img`, so the check builds it from the target-files.
@@ -497,11 +501,14 @@ The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor
 These commands make builds signed with the public test keys. The rules for flashing them, and for
 sets re-signed with their own keys:
 
-- Never lock the bootloader with a test build installed: never run `fastboot flashing lock` or
-  `fastboot flashing lock_critical`.
-- A set re-signed with its own keys whose `build.json` says relock (`never_lock` false) is the
-  exception. Its steps end with the relock (below).
-- Anyone can sign images with the public test keys.
+- Keep the bootloader unlocked with a test build installed. Anyone can sign images with the public
+  test keys, so a phone locked with one accepts images and updates from anyone.
+- To lock a test build anyway, run `flash-all.sh lock` (`flash-all.bat lock`) or `flash-steps
+  --lock`. Each prints that warning and goes on only after a typed `yes`.
+  - Lock it only for a test. Then unlock it again, or install a release or a build signed with your
+    own keys.
+- A set re-signed with its own keys whose `build.json` says relock (`never_lock` false) ends with
+  the relock without asking (below).
 - Never run `fastboot -w` or `fastboot erase`.
 - When a wipe is needed, the printed steps flash empty images instead, as the stock factory package
   does.
@@ -559,8 +566,8 @@ come from, named in the set's `build.json`.
 - An earlier image set without firmware does not say what the phone runs. Add `--phone-firmware`.
 - Without `--since` it prints every image.
 
-**Relock.** For a set that relocks, `flash-steps` and the closing text of `flash-all` give the stock
-relock order, tested on the FP6:
+**Relock.** For a set that relocks, or a test build after the warning, `flash-steps` and the closing
+text of `flash-all` give the stock relock order, tested on the FP6:
 
 1. `fastboot flash avb_custom_key avb_pkmd.bin` (`flash-all` does this itself).
 2. `fastboot flashing get_unlock_ability` must report 1. Otherwise stop.
@@ -572,7 +579,11 @@ relock order, tested on the FP6:
 
 - `flash-steps` prints the relock only when the verify report shows that `avb_pkmd.bin` signs the
   set's vbmeta (checks `record` and `avb-chain`).
-- A set that must never be locked (public test keys, qualification keys) keeps the unlocked rules.
+- `flash-all lock` and `flash-steps --lock` need the public test key in the set's `avb_pkmd.bin`.
+  A test build packaged without it keeps the unlocked rules.
+- Before that lock, they ask for `fastboot oem reset-rollback` when the phone ran a locked build
+  before: a test build keeps rollback index 0. Keep OEM unlocking on in the setup.
+- A set signed with qualification keys is never locked.
 
 **Back to stock:** follow [returning to the stock
 OS](https://diamaneos.de/install/cli/#returning-to-the-stock-os) in the install guide. Relock only with

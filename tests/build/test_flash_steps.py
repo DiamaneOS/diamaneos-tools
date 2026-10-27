@@ -1,3 +1,4 @@
+import io
 import json
 import re
 import os
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
@@ -87,6 +89,7 @@ class FlashStepTests(unittest.TestCase):
 
     def resign(self, signing='throwaway-test-keys', **record):
         """The fixture set as re-signed with its own keys, with a passing signed report."""
+        (self.directory / 'avb_pkmd.bin').chmod(0o640)
         (self.directory / 'avb_pkmd.bin').write_bytes(b'own AVB public key fixture')
         (self.directory / 'SHA256SUMS').chmod(0o640)
         image_package.write_sums(self.directory)
@@ -125,7 +128,7 @@ class FlashStepTests(unittest.TestCase):
                 flash_steps.steps(self.directory, self.record, report=report, firmware='skip')
         cases = ((dict(self.report, profile='public-test-keys'), {}, 'used other checks'),
                  (None, {}, 'Run "diamaneos images check" with --report'),
-                 (self.report, {'signing': 'public-test-keys', 'release': False}, 'must never be locked'),
+                 (self.report, {'signing': 'public-test-keys', 'release': False}, 'as one to keep unlocked'),
                  (self.report, {'signing': 'other-keys'}, 'only prints commands for test builds and sets'))
         for report, record, message in cases:
             with self.subTest(message), self.assertRaisesRegex(flash_steps.FlashError, message):
@@ -169,10 +172,14 @@ class FlashStepTests(unittest.TestCase):
         wanted = ['fastboot ' + ' '.join(arguments) for arguments in flash_all.commands(self.record)]
         self.assertEqual([c for c in printed if c != 'fastboot getvar current-slot'][:len(wanted)], wanted)
         self.assertEqual(['fastboot --set-active=a', 'fastboot reboot'], wanted[-2:])
+        # The scripts also hold the ending of a confirmed lock, before the usual one.
+        locked = ['fastboot ' + ' '.join(arguments) for arguments in flash_all.commands(self.record, lock=True)]
+        self.assertEqual(wanted[:-2], locked[:-3])
         scripts = flash_all.scripts(self.record)
         for name, text in scripts.items():
             self.assertEqual(text, (self.directory / name).read_bytes().decode())
-            self.assertEqual(wanted, [line.split(' ||')[0] for line in text.splitlines() if line.startswith(
+            self.assertEqual(locked + wanted[-2:], [line.split(' ||')[0] for line in text.splitlines()
+                                                    if line.startswith(
                 ('fastboot flash', 'fastboot snapshot-update', 'fastboot wipe-super', 'fastboot --set',
                  'fastboot reboot'))])
             # Nothing else is run: no lock, unlock, erase or format command.
@@ -231,7 +238,8 @@ class FlashStepTests(unittest.TestCase):
         for text in scripts.values():
             self.assertIn('Hold Power and Volume up until it restarts into the bootloader', text)
 
-    def run_install_script(self, answers, initial_slot='a', selection_status=0, slot_reply=None, slot_status=0):
+    def run_install_script(self, answers, initial_slot='a', selection_status=0, slot_reply=None, slot_status=0,
+                           args=(), stdin=''):
         """Run flash-all.sh against a fastboot stand-in. Returns (status, fastboot calls, stderr)."""
         work = self.root / 'run'
         shutil.rmtree(work, ignore_errors=True)
@@ -254,7 +262,8 @@ class FlashStepTests(unittest.TestCase):
             f'  "reboot-bootloader") echo no > "{mode}" ;;\n'
             '  "oem device-info") echo "(bootloader) Device critical unlocked: true" >&2 ;;\nesac\n')
         (work / 'bin/fastboot').chmod(0o755)
-        result = subprocess.run(['sh', str(self.directory / flash_all.SH)], capture_output=True, text=True, timeout=120,
+        result = subprocess.run(['sh', str(self.directory / flash_all.SH), *args], input=stdin, capture_output=True,
+                                text=True, timeout=120,
                                 env=dict(os.environ, PATH=str(work / 'bin') + os.pathsep + os.environ['PATH']))
         calls = log.read_text().splitlines() if log.exists() else []
         self.recovery_slot = recovery.read_text().strip() if recovery.exists() else None
@@ -265,7 +274,8 @@ class FlashStepTests(unittest.TestCase):
                 'snapshot-update-status': 'snapshot-update-status: none'}
         for target in ('a', 'b'):
             self.record['flash']['slot'] = target
-            self.record.update(never_lock=False, avb_custom_key={'file': 'avb_pkmd.bin'})
+            self.record.update(signing='own-keys', never_lock=False, avb_custom_key={'file': 'avb_pkmd.bin'})
+            (self.directory / 'avb_pkmd.bin').chmod(0o640)
             (self.directory / 'avb_pkmd.bin').write_bytes(b'disposable public fixture')
             for name, text in flash_all.scripts(self.record).items():
                 (self.directory / name).chmod(0o640); (self.directory / name).write_bytes(text.encode())
@@ -284,6 +294,52 @@ class FlashStepTests(unittest.TestCase):
             self.assertEqual(f'call :checkslot {target} || exit /b 1', batch[index + 1])
             self.assertLess(index + 1, batch.index('fastboot reboot fastboot || exit /b 1'))
             self.assertIn('if ($LASTEXITCODE -ne 0)', '\n'.join(batch))
+
+    def test_a_test_build_installs_its_key_only_after_the_warning_and_a_typed_yes(self):
+        good = {'product': 'product: FP6', 'is-userspace': 'is-userspace: no', 'unlocked': 'unlocked: yes'}
+        tail = ['flash avb_custom_key avb_pkmd.bin', '--set-active=a', 'reboot-bootloader']
+        status, calls, _ = self.run_install_script(good, args=['lock'], stdin='yes\n')
+        self.assertEqual((0, tail), (status, calls[-3:]))
+        for args, stdin in ((['lock'], 'no\n'), (['lock'], 'YES\n'), (['lock'], '')):
+            with self.subTest(stdin=stdin):
+                status, calls, stderr = self.run_install_script(good, args=args, stdin=stdin)
+                self.assertEqual((1, []), (status, calls))
+                self.assertIn(flash_all.NOT_CONFIRMED, stderr)
+        status, calls, _ = self.run_install_script(good, stdin='yes\n')
+        self.assertEqual((0, ['--set-active=a', 'reboot']), (status, calls[-2:]))
+        self.assertNotIn(tail[0], calls)
+        # Any other argument stops it, rather than installing without the key.
+        for args in (['LOCK'], ['--lock'], ['lock', 'now']):
+            with self.subTest(args=args):
+                status, calls, stderr = self.run_install_script(good, args=args, stdin='yes\n')
+                self.assertEqual((1, []), (status, calls))
+                self.assertIn(flash_all.USAGE, stderr)
+
+    def test_flash_steps_locks_a_test_build_only_with_lock_and_a_typed_yes(self):
+        self.assertIn('To lock it anyway, add --lock', self.text(firmware='skip'))
+        text = self.text(firmware='skip', lock=True)
+        self.assertIn('anyone can download', text)
+        self.assertNotIn('Keep the bootloader unlocked', text)
+        self.assertEqual(['fastboot flash avb_custom_key avb_pkmd.bin', 'fastboot --set-active=a',
+                          'fastboot flashing get_unlock_ability', 'fastboot flashing lock_critical',
+                          'fastboot flashing get_unlock_ability', 'fastboot flashing lock'],
+                         self.commands(firmware='skip', lock=True)[-6:])
+        (self.directory.parent / (self.record['build_id'] + '.verify.json')).write_text(json.dumps(self.report))
+        for answer, status in (('yes\n', 0), ('no\n', 2)):
+            with self.subTest(answer=answer), patch('sys.stdin', io.StringIO(answer)), \
+                    patch('sys.stdout', new_callable=io.StringIO) as out, patch('sys.stderr', new_callable=io.StringIO):
+                self.assertEqual(status, flash_steps.main([str(self.directory), '--no-firmware', '--lock']))
+                self.assertEqual(status == 0, 'fastboot flashing lock' in out.getvalue())
+        self.assertIn('fastboot oem reset-rollback', ' '.join(text.split()))
+        without = {k: v for k, v in self.record.items() if k != 'avb_custom_key'}
+        with self.assertRaisesRegex(flash_steps.FlashError, 'does not carry the public test key'):
+            flash_steps.steps(self.directory, without, report=self.report, firmware='skip', lock=True)
+        # Sets that are not test builds take no --lock.
+        for signing, never_lock, message in (('qualification-keys', True, 'must never be locked'),
+                                             ('own-keys', False, 'relocks without it')):
+            self.resign(signing, never_lock=never_lock)
+            with self.subTest(signing), self.assertRaisesRegex(flash_steps.FlashError, message):
+                self.text(firmware='skip', lock=True)
 
     def test_selection_or_slot_verification_failure_stops_before_fastbootd(self):
         good = {'product': 'product: FP6', 'is-userspace': 'is-userspace: no', 'unlocked': 'unlocked: yes'}

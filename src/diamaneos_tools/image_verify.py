@@ -1503,8 +1503,12 @@ class Verification:
 def check_record(v):
     problems = []
     if v.record.get('release') is not False or v.record.get('signing') != 'public-test-keys' or not v.record.get('never_lock'):
-        problems.append('build.json does not mark a test build that must never be locked')
+        problems.append('build.json does not mark a test build that stays unlocked unless the user asks')
     problems += record_problems(v)
+    from .image_package import KEY_FILE, read_sums
+    key = v.record.get('avb_custom_key')
+    if key is not None and key != {'file': KEY_FILE, 'sha256': read_sums(v.images).get(KEY_FILE)}:
+        problems.append(f'build.json and SHA256SUMS name no common avb_custom_key {KEY_FILE}')
     return not problems, '; '.join(problems)
 
 
@@ -1563,6 +1567,11 @@ def check_avb(v):
     v.tools.run('avbtool', ['verify_image', '--image', v.images / 'vbmeta.img', '--key', key,
                             '--follow_chain_partitions'], cwd=v.images)
     problems, info = avb_layout(v)
+    # The public test key a test build carries for a lock: the one vbmeta.img embeds, which verified with it.
+    if 'avb_custom_key' in v.record:
+        from .image_package import KEY_FILE, vbmeta_key
+        if (v.images / KEY_FILE).read_bytes() != vbmeta_key(v.images / 'vbmeta.img'):
+            problems.append(f'{KEY_FILE} is not the key that signs vbmeta.img')
     if lockable(v.record):
         indexes = {'vbmeta': rollback_index(info)}
         for name in sorted(v.config['avb']['chains']):
@@ -2130,7 +2139,8 @@ def check_firmware_ota(v):
 
 
 GENERIC = [
-    ('record', 'The image set matches its build record and is marked as a test build that must never be locked.', check_record),
+    ('record', 'The image set matches its build record and is marked as a test build that stays unlocked unless the '
+               'user asks. A carried avb_pkmd.bin is the file SHA256SUMS lists.', check_record),
     ('test-keys', 'Public builds are signed with the public test keys and say so in the fingerprint.', check_test_keys),
     ('avb-chain', 'The AVB chain verifies with the test key, has the published FP6 layout and SHA-256 hashtrees. '
      'An official build has a rollback index above 0 on vbmeta and every chain.', check_avb),

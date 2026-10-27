@@ -2646,6 +2646,14 @@ class GenericCheckTests(unittest.TestCase):
                     self.assertEqual((False, 'no rollback index above 0 on ' + name), check(record, **{name: 0}))
         # A development build that is never locked may keep stock's values.
         self.assertEqual((True, ''), check({'official': False}, vbmeta=0, recovery=1))
+        # The public test key a test build carries is the one vbmeta.img embeds.
+        from tests.build.test_image_package import vbmeta_image
+        (self.root / 'vbmeta.img').write_bytes(vbmeta_image(b'test key'))
+        test = {'official': False, 'avb_custom_key': {'file': 'avb_pkmd.bin'}}
+        for key, result in ((b'test key', (True, '')),
+                            (b'other key', (False, 'avb_pkmd.bin is not the key that signs vbmeta.img'))):
+            (self.root / 'avb_pkmd.bin').write_bytes(key)
+            self.assertEqual(result, check(test, vbmeta=0))
 
     def test_kernel_binding(self):
         kernel = self.root / 'kernel'
@@ -3231,6 +3239,13 @@ class ConfigTests(unittest.TestCase):
             with self.subTest(official=official):
                 V.record = dict(record, **({} if official is None else {'official': official}))
                 self.assertEqual(ok, subject.check_record(V)[0])
+        # A carried public test key must be the file SHA256SUMS lists.
+        for entry, ok in (({'file': 'avb_pkmd.bin', 'sha256': digest}, False), ({'file': 'target-files.zip'}, False)):
+            V.record = dict(record, avb_custom_key=entry)
+            self.assertEqual(ok, subject.check_record(V)[0])
+        (root / 'SHA256SUMS').write_text(f'{digest}  target-files.zip\n{digest}  avb_pkmd.bin\n')
+        V.record = dict(record, avb_custom_key={'file': 'avb_pkmd.bin', 'sha256': digest})
+        self.assertEqual((True, ''), subject.check_record(V))
 
     def test_build_config_is_consistent(self):
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())
