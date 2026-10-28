@@ -1192,7 +1192,7 @@
       "modules": [
         "radio-i2c-rtc6226-qca.ko"
       ],
-      "reason": "FM radio: its probe fails on the FP6 (GPIO busy) and no FM stack is shipped."
+      "reason": "FM radio: its probe fails on the FP6 (GPIO busy) and no FM stack is shipped. Its device-tree node is disabled, or its two supplies keep their boot votes."
     },
     {
       "modules": [
@@ -1237,7 +1237,7 @@
         "pmic-glink-debug.ko",
         "qti_battery_debug.ko"
       ],
-      "reason": "Debug interfaces with no product use and no dependent module: clock measurement (debugcc), the data capture engine (DCC), IOMMU, cpufreq, SPMI arbiter and PMIC glink debug, and the battery debug node. On the FP6 build 12 they loaded with nothing using them. Modules other drivers depend on (minidump, ramdump, regmap and regulator debug) stay."
+      "reason": "Debug interfaces with no product use and no dependent module: clock measurement (debugcc), the data capture engine (DCC), IOMMU, cpufreq, SPMI arbiter and PMIC glink debug, and the battery debug node. On the FP6 build 12 they loaded with nothing using them. Modules other drivers depend on (minidump, ramdump, regmap and regulator debug) stay. The debugcc device-tree node is disabled, or the five clock controllers it names never reach sync_state."
     },
     {
       "modules": [

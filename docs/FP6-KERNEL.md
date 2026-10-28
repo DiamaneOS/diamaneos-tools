@@ -120,6 +120,9 @@ tools/bazel query --output=label \
 - A cut needs no remaining importer, enforced by the build's dependency check
   (`module-interfaces.json`), since libmodprobe loads dependencies a list omits.
 - Device-tree references count as importers too.
+- A denied module's own device-tree node is disabled (EUD, clock debug, FM radio). An enabled node
+  without its driver keeps its suppliers from sync_state: the clock controllers keep their boot
+  votes and the SoC never reaches deep sleep.
 - Not built at all: CoreSight, STM, the QDSS USB function, the kretprobe-based FunctionFS logger
   and the EUD debugger are off in the vendor configuration (pinned by the vendor policy below).
   `stmvl53l1` is the laser autofocus sensor and stays.
