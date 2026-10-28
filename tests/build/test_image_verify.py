@@ -2518,21 +2518,27 @@ class GenericCheckTests(unittest.TestCase):
         tuning = b'loglevel=6 kasan=off swiotlb=noforce cgroup.memory=nokmem,nosocket\0'
         trees = [dtb({'/': {}, '/chosen': {'bootargs': tuning}}),
                  dtb({'/': {}, '/chosen': {'bootargs': changed.get('tree', tuning)}})]
+        overlay = {'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': changed.get('overlay', {})}
+        self.write_tree_images(trees, [dtb(overlay)], changed.get('vendor_boot', b'bootconfig'))
+        return self.harness({'VENDOR_BOOT/vendor_bootconfig': bootconfig})
+
+    def write_tree_images(self, trees, overlays, cmdline=b'bootconfig'):
+        """vendor_boot.img with these device trees and dtbo.img with these overlays."""
         ramdisk = b'r' * 5000
         header = bytearray(4096)
         header[:8] = b'VNDRBOOT'
         struct.pack_into('<III', header, 8, 4, 4096, 0)
         struct.pack_into('<I', header, 24, len(ramdisk))
-        cmdline = changed.get('vendor_boot', b'bootconfig')
         header[28:28 + len(cmdline)] = cmdline
         struct.pack_into('<II', header, 2096, 2128, sum(map(len, trees)))
         (self.root / 'vendor_boot.img').write_bytes(bytes(header) + ramdisk.ljust(8192, b'\0') + b''.join(trees))
-        overlay = dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': changed.get('overlay', {})})
-        table = struct.pack('>8I', 0xD7B7AB1E, 64 + len(overlay), 32, 32, 1, 32, 4096, 0)
-        table += struct.pack('>8I', len(overlay), 64, 0, 0, 0, 0, 0, 0) + overlay
+        first = 32 + 32 * len(overlays)
+        offsets = [first + sum(map(len, overlays[:index])) for index in range(len(overlays))]
+        table = struct.pack('>8I', 0xD7B7AB1E, first + sum(map(len, overlays)), 32, 32, len(overlays), 32, 4096, 0)
+        table += b''.join(struct.pack('>8I', len(blob), offset, 0, 0, 0, 0, 0, 0) for blob, offset in zip(overlays, offsets))
+        table += b''.join(overlays)
         footer = b'AVBf' + bytes(8) + struct.pack('>Q', len(table)) + bytes(44)
         (self.root / 'dtbo.img').write_bytes(table + bytes(12) + footer)
-        return self.harness({'VENDOR_BOOT/vendor_bootconfig': bootconfig})
 
     def test_kernel_arguments_are_refused_wherever_they_are_set(self):
         self.assertEqual((True, ''), subject.check_kernel_arguments(self.kernel_argument_set()))
@@ -2553,6 +2559,29 @@ class GenericCheckTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         for name in names:
             self.assertRegex(name, r'^[a-z0-9_.]+$')
+
+    def test_nodes_of_drivers_that_do_not_ship_stay_disabled(self):
+        volcano, cliffs = struct.pack('>2I', 0x27C, 0x10000), struct.pack('>4I', 0x266, 0x10000, 0x278, 0x10000)
+
+        def overlay(msm_id, status):
+            fm = {'compatible': b'vendor,fm\0rtc6226\0', 'status': status}
+            return dtb({'/': {'qcom,msm-id': msm_id} if msm_id else {}, '/fragment@0': {},
+                        '/fragment@0/__overlay__': {}, '/fragment@0/__overlay__/nq@64': fm})
+
+        def images(base_status=b'disabled\0', fm_status=b'disabled\0', fm_msm_id=volcano):
+            debug = {'compatible': b'qcom,volcano-debugcc\0', 'status': base_status}
+            tree = dtb({'/': {'qcom,msm-id': volcano}, '/soc': {}, '/soc/clock-controller@0': debug,
+                        '/soc/gcc': {'compatible': b'qcom,gcc\0'}})
+            # Another SoC's overlay never applies, so its node may stay enabled.
+            self.write_tree_images([tree], [overlay(cliffs, b'okay\0'), overlay(fm_msm_id, fm_status)])
+            return self.harness({'SYSTEM/build.prop': b''})
+        self.assertEqual((True, ''), subject.check_disabled_nodes(images()))
+        self.assertEqual((False, '/soc/clock-controller@0 in device tree 0'),
+                         subject.check_disabled_nodes(images(base_status=b'okay\0')))
+        self.assertEqual((False, '/fragment@0/__overlay__/nq@64 in overlay 1'),
+                         subject.check_disabled_nodes(images(fm_status=b'ok\0')))
+        self.assertEqual((False, '/fragment@0/__overlay__/nq@64 in overlay 1'),
+                         subject.check_disabled_nodes(images(fm_status=b'ok\0', fm_msm_id=None)))
 
     def test_test_keys_marking(self):
         prop = b'ro.build.tags=test-keys\nro.build.fingerprint=Fairphone/FP6/FP6:17/X/test.1:user/test-keys\n'

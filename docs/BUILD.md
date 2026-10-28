@@ -344,6 +344,9 @@ or deleted files):
   - The bootconfig.
   - No kernel argument that turns a protection off, in any device tree, overlay, boot image header or
     bootconfig entry (`kernel_arguments` in `config/fp6-build.json`).
+  - The device-tree nodes of drivers that do not ship disabled in every tree and overlay
+    (`disabled_device_tree_nodes`). An enabled node without its driver keeps its suppliers from
+    sync_state.
   - No pre-trusted adb key.
   - The wipe images.
   - The firmware (every image of the release byte for byte as the inventory pins it, the stock

@@ -131,6 +131,14 @@
       "reboot"
     ]
   },
+  "disabled_device_tree_nodes": {
+    "reason": "Nodes of drivers that do not ship. An enabled node without its driver keeps its suppliers from sync_state: the clock controllers keep their boot votes and the SoC never reaches deep sleep.",
+    "compatibles": [
+      "qcom,msm-eud",
+      "qcom,volcano-debugcc",
+      "rtc6226"
+    ]
+  },
   "wipe": {
     "validated": false,
     "fstab": "VENDOR/etc/fstab.qcom",

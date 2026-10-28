@@ -2067,6 +2067,30 @@ def check_kernel_arguments(v):
     return not found, '; '.join(details)
 
 
+def soc_ids(tree: dict) -> set[int]:
+    """The SoC ids of a tree's qcom,msm-id (id and revision pairs)."""
+    data = tree.get('/', {'props': {}})['props'].get('qcom,msm-id', b'')
+    return set(struct.unpack(f'>{len(data) // 4}I', data[:len(data) // 4 * 4])[0::2])
+
+
+def check_disabled_nodes(v):
+    compatibles = set(v.config['disabled_device_tree_nodes']['compatibles'])
+    _, dtbs = vendor_boot_parts((v.images / 'vendor_boot.img').read_bytes())
+    base = device_trees(dtbs)
+    socs = set().union(*map(soc_ids, base))
+    # The bootloader applies only overlays for the base tree's SoC. The vendor build packs others too.
+    overlays = [(index, tree) for index, tree in enumerate(device_trees(avb_payload((v.images / 'dtbo.img').read_bytes())))
+                if not soc_ids(tree) or soc_ids(tree) & socs]
+    found = []
+    for kind, trees in (('device tree', list(enumerate(base))), ('overlay', overlays)):
+        for index, tree in trees:
+            for path, node in sorted(tree.items()):
+                names = set(text_of(node['props'].get('compatible', b'')).split('\0'))
+                if names & compatibles and node['props'].get('status') not in (b'disabled\0', b'fail\0'):
+                    found.append(f'{path} in {kind} {index}')
+    return not found, '; '.join(found[:3]) + (f' and {len(found) - 3} more' if len(found) > 3 else '')
+
+
 def check_adb_keys(v):
     problems = []
     for name in v.tf.names:
@@ -2161,6 +2185,8 @@ GENERIC = [
     ('bootconfig', 'Required bootconfig present. Nothing overrides SELinux or turns the EUD debugger on.', check_bootconfig),
     ('kernel-arguments', 'No device tree, overlay, boot image header or bootconfig entry sets a kernel argument '
      'that turns a protection off.', check_kernel_arguments),
+    ('disabled-nodes', 'The device-tree nodes of drivers that do not ship are disabled in every tree and '
+     'overlay, so no supplier waits for them.', check_disabled_nodes),
     ('adb-keys', 'No pre-trusted adb key.', check_adb_keys),
     ('wipe-images', 'The wipe images are the declared deterministic images.', check_wipe),
     ('firmware', 'The set carries every firmware image of the stock release its vendor files come from, byte for '
