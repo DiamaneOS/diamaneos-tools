@@ -93,7 +93,7 @@
         "kind": "branch"
       },
       "scope": "server",
-      "upstream_revision": "9da3dbf297383e91392e1e34b554298c5c060bbe"
+      "upstream_revision": "0df5d06e3b25c0dbb31079d1a44f19562f2b785d"
     },
     {"id": "network-location", "slug": "platform_packages_apps_NetworkLocation", "path": "packages/apps/NetworkLocation", "branch": "android17", "follow_note": "GrapheneOS network location and geocoder app. Offers no GrapheneOS geocoding server and identifies to OpenStreetMap's Nominatim as DiamaneOS.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_apps_NetworkLocation", "ref": "@release", "kind": "tag"},
@@ -164,7 +164,7 @@
       "path": "servers/infrastructure",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "db6f4e634b4439f3b5e82be983bf043c4fa6b649",
+      "upstream_revision": "6225f65321ea039665d0d3b362c641b997b27387",
       "reviewed": "34c67906a031bd74b600e227c804bd6c374a51d1",
       "upstream": {
         "url": "https://github.com/GrapheneOS/infrastructure",
@@ -178,7 +178,7 @@
       "path": "servers/network-services",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "0a91d03a16b6e3842fd0d0c5c74ce571429867f9",
+      "upstream_revision": "85d9493b4a4c2a3913a7bbf3afc6db99a0eeb9d6",
       "reviewed": "99a90df4cadfed07f1798d08631b80eb772dac4e",
       "upstream": {
         "url": "https://github.com/GrapheneOS/grapheneos.org",
@@ -192,7 +192,7 @@
       "path": "servers/releases.diamaneos.de",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "ce9f04dadea417e3f433fe29aa028f98cef0e5a9",
+      "upstream_revision": "a70827d3bc8ff9e2ec6873a93a8349d6b2b61a4a",
       "reviewed": "a7c530af623f7a1455cb52f1a3217eca911c8fda",
       "upstream": {
         "url": "https://github.com/GrapheneOS/releases.grapheneos.org",
@@ -206,7 +206,7 @@
       "path": "servers/apps.diamaneos.de",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "19e3cee815cfb476212136a2e03be6f318837289",
+      "upstream_revision": "3329c4bd0a0a1b13754ba2c87878e9e815559471",
       "reviewed": "022d6bddf25561a8fac104652e834333ecbe3422",
       "upstream": {
         "url": "https://github.com/GrapheneOS/apps.grapheneos.org",
