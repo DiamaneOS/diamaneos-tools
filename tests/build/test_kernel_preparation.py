@@ -1,4 +1,7 @@
+import contextlib
 import copy
+import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -6,8 +9,8 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'src'))
-from diamaneos_tools import kernel
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
+from diamaneos_tools import kernel, kernel_util
 
 
 def run_git(path, *args):
@@ -29,142 +32,156 @@ def repository(path, files):
 
 
 class KernelPreparationTests(unittest.TestCase):
-    """The kernel repository, its submodule and toolchains, at their exact pins."""
+    """The vendor and common repositories, the toolchain and the base device tree, at their exact pins."""
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
         header = 'struct drm_mode_config;\n'
-        self.tool = repository(self.root / 'tool', {'bin/tool': 'tool\n'})
-        self.common = repository(self.root / 'common', {
-            'include/drm/mode.h': header, 'Makefile': 'VERSION = 6\nPATCHLEVEL = 1\nSUBLEVEL = 177\n'})
-        source = self.root / 'source'
-        self.revision = repository(source, {
-            '.gitignore': '/kernel_platform/prebuilts/\n/kernel_platform/out/\n',
-            '.gitmodules': '[submodule "kernel_platform/common"]\n\tpath = kernel_platform/common\n'
-                           '\turl = ' + str(self.root / 'common') + '\n',
-            'prebuilts.json': json.dumps({'prebuilts': [{'path': 'kernel_platform/prebuilts/tool',
-                                                         'url': str(self.root / 'tool'),
-                                                         'revision': self.tool}]}),
-            'kernel_platform/msm-kernel/include/drm/mode.h': header,
-            'vendor/qcom/proprietary/display-devicetree/display.dtsi': '/ {};\n'})
-        (source / 'kernel_platform/common').mkdir()
-        run_git(source, 'update-index', '--add', '--cacheinfo', '160000,' + self.common + ',kernel_platform/common')
-        run_git(source, 'commit', '-qm', 'common')
-        self.revision = run_git(source, 'rev-parse', 'HEAD')
-        self.plan = {'repository': str(source), 'revision': self.revision}
+        self.vendor_rev = repository(self.root / 'vendor', {
+            'modules/base/core-headers.json': json.dumps({'include/drm/mode.h': 'include/drm/mode.h'}),
+            'modules/base/include/drm/mode.h': header, 'modules/base/Makefile': 'all:\n'})
+        self.common_rev = repository(self.root / 'common', {
+            'include/drm/mode.h': header, 'Makefile': 'VERSION = 6\nPATCHLEVEL = 18\nSUBLEVEL = 37\n'})
+        self.tool_rev = repository(self.root / 'tool', {'bin/tool': 'tool\n', 'unused/big.bin': 'x\n'})
+        self.dt_rev = repository(self.root / 'dt', {'dtbs/fp6.dtb': 'dtb', 'dtbo.img': 'dtbo'})
+        sha = lambda text: hashlib.sha256(text.encode()).hexdigest()
+        self.plan = {'schema_version': 2,
+                     'vendor': {'path': 'vendor', 'url': str(self.root / 'vendor'), 'revision': self.vendor_rev},
+                     'common': {'path': 'common', 'url': str(self.root / 'common'), 'revision': self.common_rev},
+                     'toolchain': [{'name': 'tool', 'path': 'toolchain/tool', 'url': str(self.root / 'tool'),
+                                    'revision': self.tool_rev}]}
+        self.dt_plan = {'schema_version': 1, 'scope': 'x', 'fixups': [],
+                        'base': {'repository': str(self.root / 'dt'), 'revision': self.dt_rev, 'overlay_count': 1,
+                                 'files': {'dtbs/fp6.dtb': sha('dtb'), 'dtbo.img': sha('dtbo')}}}
         self.workspace = self.root / 'workspace'
 
-    def prepare(self):
-        with patch.object(kernel, 'configuration', return_value=self.plan), \
-                patch.object(kernel, 'check_url', lambda url: None):
-            return kernel.prepare(self.workspace)
+    def prepare(self, overrides=None):
+        with patch.object(kernel, 'configuration', return_value=(self.plan, self.dt_plan)):
+            return kernel.prepare(self.workspace, overrides)
 
-    def verify(self):
-        preparation = json.loads((self.workspace / 'preparation.json').read_text())
-        with patch.object(kernel, 'check_url', lambda url: None):
-            kernel.verify_source(self.workspace, self.plan, preparation['submodules'], preparation['prebuilts'])
+    def prepared(self):
+        return kernel.prepared(self.workspace, self.plan, self.dt_plan)
 
-    def test_prepares_the_pinned_commit_submodule_and_toolchains(self):
+    def test_prepares_every_pinned_checkout(self):
         result = self.prepare()
         self.assertEqual('PASS', result['status'])
-        self.assertEqual(self.revision, result['source_commit'])
-        self.assertEqual({'kernel_platform/common': self.common}, result['submodules'])
-        self.assertEqual({'kernel_platform/prebuilts/tool': self.tool}, result['prebuilts'])
-        self.assertEqual(1, result['shared_headers_checked'])
-        self.assertEqual(self.revision, kernel.git(self.workspace, 'rev-parse', 'HEAD'))
-        self.assertEqual(self.common, kernel.git(self.workspace / 'kernel_platform/common', 'rev-parse', 'HEAD'))
-        self.assertEqual('tool\n', (self.workspace / 'kernel_platform/prebuilts/tool/bin/tool').read_text())
-        manifest = (self.workspace / 'resolved-manifest.xml').read_text()
-        self.assertIn('path="common" revision="' + self.common + '"', manifest)
-        self.assertIn('path="msm-kernel" revision="' + self.revision + '"', manifest)
-        self.assertEqual('6.1.177', kernel.linux_version(self.workspace / 'kernel_platform'))
-        # The tools' own files do not show up as untracked sources.
-        self.assertEqual('', kernel.git(self.workspace, 'status', '--porcelain'))
+        self.assertEqual({'vendor', 'common', 'tool', 'base-dt'}, set(result['projects']))
+        self.assertEqual(self.vendor_rev, kernel_util.git(self.workspace / 'vendor', 'rev-parse', 'HEAD'))
+        self.assertEqual(self.common_rev, result['projects']['common']['revision'])
+        self.assertEqual('tool\n', (self.workspace / 'toolchain/tool/bin/tool').read_text())
+        self.assertEqual(1, result['core_header_copies_checked'])
+        self.assertEqual('6.18.37', kernel.linux_version(self.workspace / 'common'))
         self.assertEqual(result, self.prepare())
+
+    def test_a_local_repository_replaces_the_url_of_a_fetch_and_never_the_pin(self):
+        self.plan['vendor']['url'] = 'https://unreachable.invalid/kernel_qcom-6.18'
+        other = self.root / 'other-vendor'
+        subprocess.check_call(['git', 'clone', '-q', str(self.root / 'vendor'), str(other)])
+        result = self.prepare({'vendor': str(other)})
+        self.assertEqual(['vendor'], result['fetched_from_overrides'])
+        self.assertEqual(self.vendor_rev, result['projects']['vendor']['revision'])
+        self.assertRaisesRegex(kernel.KernelError, 'unknown source to override: nothing', self.prepare, {'nothing': str(other)})
+        self.assertRaisesRegex(kernel.KernelError, 'not a Git repository', self.prepare, {'common': str(self.root)})
+
+    def test_an_override_without_the_pinned_commit_is_refused(self):
+        other = self.root / 'unrelated'
+        repository(other, {'a': 'b'})
+        self.plan['common']['revision'] = '1' * 40
+        self.assertRaises(kernel_util.KernelError, self.prepare, {'common': str(other)})
 
     def test_dirty_source_is_preserved_and_refused(self):
         self.prepare()
-        edited = self.workspace / 'kernel_platform/msm-kernel/include/drm/mode.h'
+        edited = self.workspace / 'common/include/drm/mode.h'
         edited.write_text('local edit\n')
         self.assertRaisesRegex(kernel.KernelError, 'tracked source changes', self.prepare)
         self.assertEqual('local edit\n', edited.read_text())
 
-    def test_untracked_input_is_rejected_but_bazel_links_are_not(self):
+    def test_untracked_inputs_and_changed_toolchain_are_rejected_when_building(self):
         self.prepare()
-        (self.workspace / 'kernel_platform/bazel-out').symlink_to(self.root)
-        self.verify()
-        (self.workspace / 'vendor/unowned.c').write_text('extra')
-        self.assertRaisesRegex(kernel.KernelError, 'untracked inputs: vendor/unowned.c', self.verify)
+        self.prepared()
+        (self.workspace / 'vendor/modules/unowned.c').write_text('extra')
+        self.assertRaisesRegex(kernel.KernelError, 'untracked inputs: vendor', self.prepared)
+        (self.workspace / 'vendor/modules/unowned.c').unlink()
+        (self.workspace / 'toolchain/tool/bin/tool').write_text('changed\n')
+        self.assertRaisesRegex(kernel.KernelError, 'source changes or untracked inputs: toolchain/tool', self.prepared)
 
-    def test_changed_toolchain_or_submodule_is_rejected(self):
-        self.prepare()
-        (self.workspace / 'kernel_platform/prebuilts/tool/bin/tool').write_text('changed\n')
-        self.assertRaisesRegex(kernel.KernelError, 'prebuilt has local changes', self.verify)
-        run_git(self.workspace / 'kernel_platform/prebuilts/tool', 'checkout', '-q', '--', '.')
-        (self.workspace / 'kernel_platform/common/extra.h').write_text('extra')
-        self.assertRaisesRegex(kernel.KernelError, 'kernel_platform/common', self.verify)
-
-    def test_undeclared_nested_gitlink_stays_empty(self):
-        # edk2 carries its upstream's own submodules. They are not initialised.
-        source = Path(self.plan['repository'])
-        (source / 'kernel_platform/bootable/nested').mkdir(parents=True)
-        run_git(source, 'update-index', '--add', '--cacheinfo', '160000,' + self.tool + ',kernel_platform/bootable/nested')
-        run_git(source, 'commit', '-qm', 'nested')
-        self.plan['revision'] = run_git(source, 'rev-parse', 'HEAD')
-        self.assertEqual({'kernel_platform/common': self.common}, self.prepare()['submodules'])
-        nested = self.workspace / 'kernel_platform/bootable/nested'
-        self.assertEqual([], list(nested.iterdir()))
-        (nested / 'hidden.c').write_text('not seen by git status')
-        self.assertRaisesRegex(kernel.KernelError, 'undeclared submodule directory is not empty', self.verify)
-
-    def test_shared_header_drift_is_rejected(self):
-        source = Path(self.plan['repository'])
-        (source / 'kernel_platform/msm-kernel/include/drm/mode.h').write_text('struct other;\n')
-        run_git(source, 'commit', '-qam', 'drift')
-        self.plan['revision'] = run_git(source, 'rev-parse', 'HEAD')
-        self.assertRaisesRegex(kernel.KernelError, 'shared headers differ', self.prepare)
+    def test_core_header_drift_is_rejected(self):
+        (self.root / 'vendor/modules/base/include/drm/mode.h').write_text('struct other;\n')
+        run_git(self.root / 'vendor', 'commit', '-qam', 'drift')
+        self.plan['vendor']['revision'] = run_git(self.root / 'vendor', 'rev-parse', 'HEAD')
+        self.assertRaisesRegex(kernel.KernelError, 'core header copy differs', self.prepare)
         self.assertFalse((self.workspace / 'preparation.json').exists())
 
-    def test_unpinned_or_insecure_prebuilts_are_rejected(self):
-        source = Path(self.plan['repository'])
-        for entry in ({'path': 'kernel_platform/prebuilts/tool', 'url': str(self.root / 'tool'), 'revision': 'main'},
-                      {'path': 'elsewhere/tool', 'url': str(self.root / 'tool'), 'revision': self.tool}):
-            with self.subTest(entry=entry):
-                (source / 'prebuilts.json').write_text(json.dumps({'prebuilts': [entry]}))
-                with self.assertRaises(kernel.KernelError):
-                    kernel.prebuilt_plan(source)
-        with self.assertRaisesRegex(kernel.KernelError, 'HTTPS'):
-            kernel.check_url('http://example.invalid/tool')
+    def test_base_device_tree_must_match_its_digest(self):
+        self.dt_plan['base']['files']['dtbo.img'] = '0' * 64
+        self.assertRaisesRegex(kernel.KernelError.__mro__[1], 'differs from its pin', self.prepare)
 
-    def test_old_per_project_workspace_and_other_repositories_are_refused(self):
-        (self.workspace / 'kernel_platform/common').mkdir(parents=True)
+    def test_other_files_symlinks_and_stale_preparations_are_refused(self):
+        self.workspace.mkdir()
+        (self.workspace / 'stray').write_text('x')
         self.assertRaisesRegex(kernel.KernelError, 'holds other files', self.prepare)
-        other = self.root / 'other'
-        repository(other, {'README': 'not a kernel\n'})
-        self.workspace = other
-        self.assertRaisesRegex(kernel.KernelError, 'another Git repository', self.prepare)
-        self.assertEqual('not a kernel\n', (other / 'README').read_text())
-
-    def test_build_refuses_a_preparation_from_another_pin(self):
+        (self.workspace / 'stray').unlink()
         self.prepare()
-        self.plan['revision'] = '0' * 40
-        with self.assertRaisesRegex(kernel.KernelError, 'another pin'):
-            kernel.prepared(self.workspace, self.plan)
+        other = self.root / 'other-plan.json'
+        other.write_text('{}')
+        with patch.object(kernel, 'SOURCE_PLAN', other):
+            self.assertRaisesRegex(kernel.KernelError, 'other pins', self.prepared)
+        self.plan['vendor']['revision'] = '0' * 40
+        self.assertRaisesRegex(kernel.KernelError, 'not at the pin: vendor', self.prepared)
+
+    def test_changing_the_fixups_does_not_ask_for_a_new_preparation_but_a_new_base_does(self):
+        self.prepare()
+        self.dt_plan['fixups'] = [{'id': 'x'}]
+        self.prepared()
+        self.dt_plan['base']['overlay_count'] = 2
+        self.assertRaisesRegex(kernel.KernelError, 'other pins', self.prepared)
 
     def test_workspace_symlink_rejected(self):
         self.workspace.symlink_to(self.root, target_is_directory=True)
         self.assertRaisesRegex(kernel.KernelError, 'symlink', self.prepare)
-
-    def test_committed_source_plan_names_one_https_commit(self):
-        plan = kernel.configuration()
-        self.assertRegex(plan['revision'], '^[0-9a-f]{40}$')
 
     def test_missing_verification_tools_reject_before_workspace_changes(self):
         with patch.dict('os.environ', {'PATH': ''}):
             with self.assertRaisesRegex(kernel.KernelError, 'missing from PATH: modinfo, modprobe'):
                 kernel.build(self.workspace, 1, 60)
         self.assertFalse(self.workspace.exists())
+
+
+class SourcePlanTests(unittest.TestCase):
+    def setUp(self):
+        self.plan = json.loads((kernel.ROOT / 'config/kernel-sources-fp6.json').read_text())
+
+    def test_the_committed_plan_pins_two_repositories_and_the_toolchain(self):
+        plan, dt_plan = kernel.configuration()
+        names = [row['name'] for row in kernel.projects(plan, dt_plan)]
+        self.assertEqual(['vendor', 'common', 'clang', 'rust', 'clang-tools', 'kernel-build-tools', 'build-tools',
+                          'host-libraries', 'host-zlib', 'base-dt'], names)
+        for row in kernel.projects(plan, dt_plan):
+            self.assertRegex(row['revision'], '^[0-9a-f]{40}$')
+
+    def test_plans_need_https_urls_exact_commits_and_distinct_names(self):
+        for change in (lambda p: p['vendor'].update(url='http://example.invalid/x'),
+                       lambda p: p['common'].update(revision='main'),
+                       lambda p: p['toolchain'][0].update(name='vendor'),
+                       lambda p: p['toolchain'][1].update(path=p['toolchain'][0]['path']),
+                       lambda p: p['toolchain'][0].update(sparse=['../x']),
+                       lambda p: p.update(toolchain=[]),
+                       lambda p: p.update(extra=1)):
+            with self.subTest(change=change):
+                plan = copy.deepcopy(self.plan)
+                change(plan)
+                self.assertRaises(kernel.KernelError, kernel.validate_plan, plan)
+
+    def test_overrides_are_command_line_pairs(self):
+        with patch.object(kernel, 'prepare', return_value={}) as prepare:
+            kernel.main(['prepare', '--workspace', '/tmp/ws', '--source', 'vendor=/tmp/v'])
+        prepare.assert_called_once()
+        self.assertEqual({'vendor': '/tmp/v'}, prepare.call_args[0][1])
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(2, kernel.main(['prepare', '--workspace', '/tmp/ws', '--source', 'vendor']))
+            self.assertEqual(2, kernel.main(['build', '--workspace', '/tmp/ws', '--source', 'vendor=/tmp/v']))
 
 
 class KernelDenyListTests(unittest.TestCase):
@@ -174,7 +191,7 @@ class KernelDenyListTests(unittest.TestCase):
     def test_committed_recipe_keeps_denied_modules_out(self):
         denied = kernel.denied_modules(self.recipe)
         for name in ('can.ko', 'nfc.ko', 'bluetooth.ko', 'focaltech_fts.ko', 'icc-test.ko', 'memory_dump_v2.ko',
-                     'dmesg_dumper.ko', 'sysmon_subsystem_stats.ko', 'gpu_dump_skip_cdev.ko'):
+                     'dmesg_dumper.ko', 'sysmon_subsystem_stats.ko', 'gpu_dump_skip_cdev.ko', 'coresight.ko'):
             self.assertIn(name, denied)
         # Kept on purpose: glink_probe imports qcom_glink_spss, the audio machine
         # driver wcd937x, and stmvl53l1 is the laser autofocus sensor, not STM.
@@ -191,6 +208,7 @@ class KernelDenyListTests(unittest.TestCase):
                  for key, target in vendor + (('load_lists', 'vendor_boot/modules.load.recovery'),)
                  for spelling in ('qseecom_dlkm.ko', 'qseecom-dlkm.ko')]
         rows += [(key, target, 'hdcp_qseecom_dlkm.ko') for key, target in vendor]
+        rows += [(key, target, 'debugcc-volcano.ko') for key, target in vendor]
         for key, target, name in rows:
             with self.subTest(key=key, target=target, name=name):
                 recipe = copy.deepcopy(self.recipe)
@@ -215,41 +233,42 @@ class KernelDenyListTests(unittest.TestCase):
                 self.assertRaises(kernel.KernelError, kernel.denied_modules, recipe)
 
 
-class KernelPackagingBlocklistTests(unittest.TestCase):
-    def test_first_stage_ramdisk_uses_the_vendor_blocklist(self):
-        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
-        blocklists = recipe['blocklists']
-        self.assertEqual(blocklists['vendor_boot/modules.blocklist'],
-                         blocklists['vendor_dlkm/modules.blocklist'])
-        self.assertIn('blocklist llcc_perfmon\n', blocklists['vendor_boot/modules.blocklist'])
-        recovery = recipe['load_lists']['vendor_boot/modules.load.recovery']
-        self.assertIn('llcc_perfmon.ko', recovery)
+class KernelPackagingRecipeTests(unittest.TestCase):
+    def setUp(self):
+        self.recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
 
-    def test_rendered_board_config_installs_ramdisk_blocklist(self):
-        with tempfile.TemporaryDirectory() as temp:
-            temp = Path(temp)
-            merged = temp / 'merged'; merged.mkdir()
-            (merged / 'dtbo.img').write_bytes(b'dtbo')
-            for name in ('fp6.dtb', 'volcano.dtb'): (merged / name).write_bytes(name.encode())
-            image = temp / 'Image'; image.write_bytes(b'kernel')
-            recipe = {'partitions': {'vendor_boot': [], 'vendor_dlkm': [], 'system_dlkm': []},
-                      'load_lists': {}, 'dtbs': ['fp6.dtb'],
-                      'blocklists': {'vendor_boot/modules.blocklist': 'blocklist a\n',
-                                     'vendor_dlkm/modules.blocklist': 'blocklist a\n'}}
-            candidate = temp / 'candidate'
-            kernel.render_package(candidate, {}, merged, image, recipe, temp / 'strip', temp)
-            board = (candidate / 'BoardConfigKernel.mk').read_text()
-            self.assertIn('BOARD_VENDOR_RAMDISK_KERNEL_MODULES_BLOCKLIST_FILE := '
-                          '$(FP6_KERNEL_PATH)/vendor_boot-modules.blocklist\n', board)
-            self.assertIn('BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := '
-                          '$(FP6_KERNEL_PATH)/vendor_dlkm-modules.blocklist\n', board)
-            self.assertEqual((candidate / 'vendor_boot-modules.blocklist').read_text(), 'blocklist a\n')
-            # Only the listed device tree ships, not every tree the vendor build makes.
-            self.assertEqual(['fp6.dtb'], [p.name for p in (candidate / 'dtbs').iterdir()])
+    def test_first_stage_ramdisk_uses_the_vendor_blocklist(self):
+        blocklists = self.recipe['blocklists']
+        self.assertEqual(blocklists['vendor_boot/modules.blocklist'], blocklists['vendor_dlkm/modules.blocklist'])
+        self.assertIn('blocklist llcc_perfmon\n', blocklists['vendor_boot/modules.blocklist'])
+        self.assertIn('llcc_perfmon.ko', self.recipe['load_lists']['vendor_boot/modules.load.recovery'])
+
+    def test_lists_are_sorted_unique_and_complete_in_load_order(self):
+        for partition, names in self.recipe['partitions'].items():
+            self.assertEqual(sorted(names), names, partition)
+            self.assertEqual(len(names), len(set(names)))
+        for key, names in self.recipe['load_lists'].items():
+            self.assertEqual(len(names), len(set(names)), key)
+            self.assertLessEqual(set(names), set(self.recipe['partitions'][key.split('/')[0]]), key)
+        first, second = self.recipe['load_lists']['vendor_boot/modules.load'], self.recipe['load_lists']['vendor_dlkm/modules.load']
+        recovery = self.recipe['load_lists']['vendor_boot/modules.load.recovery']
+        self.assertEqual(first + second, recovery)
+        # Every vendor module is in vendor_dlkm, the first stage ones as well.
+        self.assertLessEqual(set(first) | set(second), set(self.recipe['partitions']['vendor_dlkm']))
+
+    def test_the_production_command_line_is_the_stable_disk_order_only(self):
+        from diamaneos_tools import kernel_package
+        forbidden = set(kernel.load_json(kernel.ROOT / 'config/fp6-build.json')['kernel_arguments']['forbidden'])
+        self.assertEqual(['scsi_mod.scan=sync'], kernel_package.cmdline_arguments(self.recipe, forbidden))
+
+    def test_the_cmdline_of_the_board_config_has_no_bring_up_words(self):
+        from diamaneos_tools import kernel_compare, kernel_package
+        words = kernel_package.cmdline_arguments(self.recipe, set())
+        self.assertEqual([], kernel_compare.bring_up_words(words))
 
     def test_only_the_fp6_device_tree_ships(self):
-        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
-        self.assertEqual(['fp6.dtb'], kernel.shipped_dtbs(recipe))
+        self.assertEqual(['fp6.dtb'], kernel.shipped_dtbs(self.recipe))
+        self.assertEqual(kernel.load_json(kernel.DT_PLAN)['base']['overlay_count'], self.recipe['dtbo_count'])
         for bad in (None, [], ['fp6.dtb', 'fp6.dtb'], ['../fp6.dtb'], ['fp6.dtbo']):
             self.assertRaises(kernel.KernelError, kernel.shipped_dtbs, {'dtbs': bad})
 
@@ -258,10 +277,12 @@ class KernelSymbolRuleTests(unittest.TestCase):
     def setUp(self):
         self.recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
 
-    def test_committed_rules_parse(self):
+    def test_committed_rules_parse_and_the_hardened_changes_are_required(self):
         self.assertEqual({'register_kretprobe': ['dwc3-msm.ko']}, kernel.import_allowlist(self.recipe))
         self.assertEqual([], kernel.forbidden_symbols(self.recipe))
-        self.assertEqual(['names_command_line', 'selinux_enforcing_lock'], kernel.required_symbols(self.recipe))
+        required, pending = kernel.required_symbols(self.recipe)
+        self.assertEqual(['names_command_line', 'selinux_enforcing_lock'], sorted(required))
+        self.assertEqual({}, pending)
 
     def test_import_allowlist_requires_exact_importers(self):
         undefined = {'dwc3-msm.ko': {'register_kretprobe', 'printk'}, 'other.ko': {'printk'}}
@@ -290,6 +311,12 @@ class KernelSymbolRuleTests(unittest.TestCase):
                 with self.assertRaisesRegex(kernel.KernelError, 'required kernel symbol missing: names_command_line'):
                     kernel.check_required_symbols(system_map, ['names_command_line'])
 
+    def test_a_pending_symbol_is_reported_while_missing_and_refused_once_it_is_there(self):
+        pending = {'names_command_line': 'not ported yet'}
+        self.assertEqual(['names_command_line'], kernel.check_required_symbols('ffffffc080000000 T _text\n', [], pending))
+        with self.assertRaisesRegex(kernel.KernelError, 'remove its pending reason: names_command_line'):
+            kernel.check_required_symbols('ffffffc082000000 d names_command_line\n', [], pending)
+
     def test_rules_need_reasons_and_safe_names(self):
         for rules in ({'register_kretprobe': {'modules': ['x.ko'], 'reason': ' '}},
                       {'bad symbol': {'modules': ['x.ko'], 'reason': 'r'}},
@@ -299,59 +326,79 @@ class KernelSymbolRuleTests(unittest.TestCase):
         self.assertRaises(kernel.KernelError, kernel.forbidden_symbols,
                           {'forbidden_symbols': [{'symbol': 'x', 'reason': ''}]})
         for rules in ([{'symbol': 'x', 'reason': ''}], [{'symbol': 'bad symbol', 'reason': 'r'}],
-                      [{'symbol': 'x', 'reason': 'r', 'extra': 1}], {'symbol': 'x'}):
+                      [{'symbol': 'x', 'reason': 'r', 'extra': 1}], {'symbol': 'x'}, [{'symbol': 'x', 'reason': 'r', 'pending': ' '}]):
             with self.subTest(required=rules):
                 self.assertRaises(kernel.KernelError, kernel.required_symbols, {'required_symbols': rules})
 
-    def test_clang_comes_from_the_pinned_build_constants(self):
+
+class KmiTests(unittest.TestCase):
+    def test_the_common_kernels_symbol_list_keeps_what_the_core_exports_for_vendor_modules(self):
+        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+        self.assertEqual(set(), kernel.kmi_exceptions(recipe))
+
+    def test_imports_outside_the_symbol_lists_need_a_reviewed_exception(self):
+        imports = {'a.ko': {'printk', 'mine', 'local_function'}, 'b.ko': {'kmalloc'}}
+        exports = {'printk', 'mine', 'kmalloc'}
+        outside, used = kernel.check_kmi(imports, exports, {'printk', 'kmalloc'}, {'mine'})
+        self.assertEqual((['mine'], 3), (outside, used))
+        self.assertRaisesRegex(kernel.KernelError, 'no KMI symbol list keeps: mine', kernel.check_kmi, imports, exports,
+                               {'printk', 'kmalloc'}, set())
+        self.assertRaisesRegex(kernel.KernelError, 'no longer needed: printk', kernel.check_kmi, imports, exports,
+                               {'printk', 'kmalloc'}, {'mine', 'printk'})
+
+    def test_the_symbol_lists_are_the_ones_the_build_file_names(self):
         with tempfile.TemporaryDirectory() as temp:
-            work = Path(temp)
-            (work / 'common').mkdir()
-            (work / 'common/build.config.constants').write_text('BRANCH=android14-6.1\nCLANG_VERSION=r487747c\n')
-            with self.assertRaisesRegex(kernel.KernelError, 'clang-r487747c'):
-                kernel.clang_bin(work)
-            (work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin').mkdir(parents=True)
-            (work / 'prebuilts/clang/host/linux-x86/clang-r999/bin').mkdir(parents=True)
-            self.assertEqual(work / 'prebuilts/clang/host/linux-x86/clang-r487747c/bin', kernel.clang_bin(work))
-
-
-class SourceDateEpochTests(unittest.TestCase):
-    """Every kernel tree gets the pinned commit's date, so RANDSTRUCT seeds match."""
-
-    def test_is_the_pinned_commits_time(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve() / 'kernel'
-            commit = repository(root, {'Makefile': 'VERSION = 6\n'})
-            self.assertEqual(run_git(root, 'log', '-1', '--pretty=%ct', commit),
-                             kernel.source_date_epoch(root, commit))
-            self.assertGreater(int(kernel.source_date_epoch(root, commit)), 0)
-            # An unknown commit is refused.
-            with self.assertRaises(Exception):
-                kernel.source_date_epoch(root, '0' * 40)
+            common = Path(temp)
+            (common / 'gki/aarch64/symbols').mkdir(parents=True)
+            (common / 'BUILD.bazel').write_text('srcs = ["gki/aarch64/symbols/qcom", "gki/aarch64/symbols/pixel"]\n')
+            for name, symbols in (('base', ['kmalloc']), ('qcom', ['printk']), ('pixel', ['mine']), ('unlisted', ['other'])):
+                (common / 'gki/aarch64/symbols' / name).write_text('[abi_symbol_list]\n# comment\n  ' + '\n  '.join(symbols) + '\n' +
+                                                                  ''.join('  filler%d_%s\n' % (i, name) for i in range(600)))
+            found = kernel.kmi_symbols(common)
+            self.assertLessEqual({'kmalloc', 'printk', 'mine'}, found)
+            self.assertNotIn('other', found)
 
 
 class KernelReleaseTests(unittest.TestCase):
-    """Stamped releases come from the banner and must name the pinned commit."""
-
-    def test_banner_release_and_stamp(self):
+    def test_banner_release_is_read_from_vmlinux(self):
         with tempfile.TemporaryDirectory() as temp:
             vmlinux = Path(temp) / 'vmlinux'
-            vmlinux.write_bytes(b'\0Linux version 6.1.177-android14-11-g464c017656bd (build-user@build-host) #1\0')
-            release = kernel.kernel_release(vmlinux)
-            self.assertEqual('6.1.177-android14-11-g464c017656bd', release)
-            self.assertTrue(kernel.stamped_by(release, '464c017656bdd9c4c3e66cfda15ce826a4d9596d'))
-            self.assertFalse(kernel.stamped_by(release, '1711bb81f140ff2a59e55821b4a8356e62faaeba'))
-            self.assertFalse(kernel.stamped_by('6.1.177-android14-11-maybe-dirty', '464c017656bd' + '0' * 28))
+            vmlinux.write_bytes(b'\0Linux version 6.18.37-4k-g0f9205ec8de7 (build@build) #1\0')
+            self.assertEqual('6.18.37-4k-g0f9205ec8de7', kernel.kernel_release(vmlinux))
 
     def test_missing_or_conflicting_banner_is_refused(self):
         with tempfile.TemporaryDirectory() as temp:
             vmlinux = Path(temp) / 'vmlinux'
             vmlinux.write_bytes(b'no banner')
-            with self.assertRaises(Exception):
-                kernel.kernel_release(vmlinux)
-            vmlinux.write_bytes(b'Linux version 6.1.1-a (x) Linux version 6.1.2-b (x)')
-            with self.assertRaises(Exception):
-                kernel.kernel_release(vmlinux)
+            self.assertRaises(kernel.KernelError, kernel.kernel_release, vmlinux)
+            vmlinux.write_bytes(b'Linux version 6.18.1-a (x) Linux version 6.18.2-b (x)')
+            self.assertRaises(kernel.KernelError, kernel.kernel_release, vmlinux)
 
 
-if __name__=='__main__':unittest.main()
+class CommitTimeTests(unittest.TestCase):
+    """Every kernel tree gets the pinned commit's date."""
+
+    def test_is_the_pinned_commits_time(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / 'kernel'
+            commit = repository(root, {'Makefile': 'VERSION = 6\n'})
+            self.assertEqual(run_git(root, 'log', '-1', '--pretty=%ct', commit), kernel_util.commit_time(root, commit))
+            with self.assertRaises(Exception):
+                kernel_util.commit_time(root, '0' * 40)
+
+
+class VendorConfigTests(unittest.TestCase):
+    def test_vendor_defconfigs_sit_on_top_of_the_device_kernel_configuration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = Path(temp)
+            for name, text in (('base', 'CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\n'), ('audio', 'CONFIG_QRTR=m\nCONFIG_X=y\n')):
+                (vendor / 'modules' / name).mkdir(parents=True)
+                (vendor / 'modules' / name / 'defconfig').write_text(text)
+            text = kernel.vendor_config(b'# CONFIG_QRTR is not set\nCONFIG_SMP=y\n', vendor).decode()
+            self.assertEqual('CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\nCONFIG_SMP=y\nCONFIG_X=y\n', text)
+            (vendor / 'modules/audio/defconfig').write_text('CONFIG_QRTR=y\n')
+            self.assertRaisesRegex(kernel.KernelError, 'set CONFIG_QRTR differently', kernel.vendor_config, b'CONFIG_SMP=y\n', vendor)
+
+
+if __name__ == '__main__':
+    unittest.main()

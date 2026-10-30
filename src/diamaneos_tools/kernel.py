@@ -1,350 +1,44 @@
-"""Prepare and build the pinned FP6 kernel, modules and device trees.
+"""Prepare and build the pinned FP6 kernel, modules and device tree.
 
-The sources are one repository, DiamaneOS/kernel_qcom-6.1, at the commit pinned
-in config/kernel-sources-fp6.json. It holds Qualcomm's kernel workspace layout
-(kernel_platform/, vendor/) with the common kernel as a submodule. The
-toolchains it lists in prebuilts.json are fetched at their pinned revisions.
+The kernel is DiamaneOS/kernel_common-6.18 with the FP6 commits
+(DiamaneOS/kernel_common-6.18), built with the pinned Clang and Rust toolchain.
+The Qualcomm drivers are the vendor tree DiamaneOS/kernel_qcom-6.18, built as
+external modules against it. Both repositories, the toolchain and the base
+device tree are pinned in config/kernel-sources-fp6.json and
+config/fp6-kernel-dt.json. The result is the kernel set in the layout of
+device_fairphone_FP6-kernels, which the Android build reads.
 """
 import argparse
-from contextlib import contextmanager
-import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
-import stat
 import sys
 import tempfile
 import time
-import xml.etree.ElementTree as ET
 
-from . import kernel_layout, process
+from . import kernel_build, kernel_config, kernel_dt, kernel_kbuild, kernel_package, process
+from .kernel_util import (KernelError, SHA1, SPARSE_PATTERN, call, check_url, checkout_project, commit_time, locked,
+                          require, verify_project)
 from .vendor_extract import sha, relative
 from .vendor import ROOT, load_json, VendorError, encoded
 
-KMI = '--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom'
-STAMP = '--config=stamp'
-# DiamaneOS options applied to every kernel_build after its defconfig (kernel_platform/diamaneos).
-FRAGMENT = '--defconfig_fragment=//diamaneos:diamaneos_defconfig'
-# The GrapheneOS common kernel changes the GKI configuration and does not keep
-# a comparable recorded GKI ABI, so no ABI comparison is run: every module is
-# built from source with the kernel and signed with its key (MODULE_SIG_FORCE).
-CORE = ['//common:kernel_aarch64', '//msm-kernel:fps_gki', '//msm-kernel:fps_gki_abi']
-IMPLICIT = ['//common:kernel_aarch64_modules', '//common:kernel_aarch64_config']
-# External module targets left out of the build, with the reason. Each must
-# still exist, so a stale entry fails the build instead of hiding a new target.
-EXCLUDED_MODULE_TARGETS = {}
+SOURCE_PLAN = ROOT / 'config/kernel-sources-fp6.json'
+BUILD_PLAN = ROOT / 'config/fp6-kernel-build.json'
+DT_PLAN = ROOT / 'config/fp6-kernel-dt.json'
+PACKAGING = ROOT / 'config/fp6-kernel-packaging.json'
+POLICY = ROOT / 'config/kernel-policy-fp6.json'
+VENDOR_POLICY = ROOT / 'config/kernel-vendor-policy-fp6.json'
+CONFIG_PROFILES = ('production', 'development')
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
 DTB_NAME = re.compile(r'[A-Za-z0-9_-]+\.dtb')
-CONFIG_PROFILES = ('production', 'development')
-SOURCE_PLAN = ROOT / 'config/kernel-sources-fp6.json'
-SHA1 = re.compile(r'[0-9a-f]{40}')
-# Files the tools keep in the workspace next to the sources. Git ignores them
-# through the clone's own info/exclude, never through a committed file.
-OWN_FILES = ('.preparation.lock', 'preparation.json', 'resolved-manifest.xml', 'runs', 'current')
-EXCLUDES = ['/' + name + ('/' if name == 'runs' else '') for name in OWN_FILES] + ['/.publish-*']
-# Bazel's convenience links next to its workspace. They point into the build output.
-BAZEL_LINK = re.compile(r'kernel_platform/bazel-[A-Za-z0-9_.-]+')
-# Headers that the core kernel and the vendor kernel tree each carry must stay
-# byte-identical: structures in them cross the Image/module boundary, and a
-# difference can change a RANDSTRUCT layout on one side only.
-SHARED_HEADERS = ({'trees': ('kernel_platform/common', 'kernel_platform/msm-kernel'),
-                   'paths': ('include/drm', 'include/uapi/drm')},)
-FETCH_ATTEMPTS = 4
-
-
-class KernelError(ValueError):
-    pass
-
-
-def require(condition, message):
-    if not condition:
-        raise KernelError(message)
-
-
-@contextmanager
-def locked(root):
-    require(not root.is_symlink(), 'workspace cannot be a symlink')
-    root.mkdir(parents=True, exist_ok=True)
-    fd = os.open(root / '.preparation.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'rb') as lock:
-        require(stat.S_ISREG(os.fstat(lock.fileno()).st_mode), 'workspace lock is not a regular file')
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        yield
-
-
-def call(argv, *, cwd, env=None, timeout=600, log=None):
-    env = dict(os.environ) if env is None else dict(env)
-    env['GIT_TERMINAL_PROMPT'] = '0'
-    result = process.run(list(map(str, argv)), timeout, max_output_bytes=128*1024*1024,
-                         cwd=cwd, env=env, log_path=log,
-                         capture_bytes=16384 if log else None)
-    if result['transport'] != 'ok':
-        output = b''.join(result.get(k) or b'' for k in ('stdout', 'stderr'))
-        tail = output.decode('utf-8', 'replace').strip()[-2000:] if isinstance(output, bytes) else ''
-        raise KernelError('command failed: ' + ' '.join(map(str, argv[:4])) + ' (' + result['transport'] + ')'
-                          + (': ' + tail if tail else '. Inspect the command log'))
-    return result['stdout'].decode()
-
-
-def git(path, *args):
-    return call(['git', '-c', 'core.hooksPath=/dev/null', '-C', path, *args], cwd=path).strip()
-
-
-def check_url(url):
-    require(isinstance(url, str) and url.startswith('https://') and len(url) <= 512
-            and not any(c.isspace() for c in url), 'source URL must use HTTPS: ' + str(url))
-
-
-def configuration():
-    plan = load_json(SOURCE_PLAN)
-    require(isinstance(plan, dict) and set(plan) == {'repository', 'revision'}, 'invalid kernel source plan')
-    check_url(plan['repository'])
-    require(isinstance(plan['revision'], str) and SHA1.fullmatch(plan['revision']), 'invalid kernel source revision')
-    return plan
-
-
-def has_commit(repository, revision):
-    return process.run(['git', '-C', str(repository), 'cat-file', '-e', revision + '^{commit}'], 60,
-                       cwd=repository)['transport'] == 'ok'
-
-
-def fetch(repository, url, revision):
-    """Fetch one exact commit (no history) unless it is already present."""
-    if has_commit(repository, revision):
-        return
-    for attempt in range(FETCH_ATTEMPTS):
-        try:
-            call(['git', '-c', 'http.version=HTTP/1.1', '-c', 'core.hooksPath=/dev/null', '-C', repository,
-                  'fetch', '-q', '--depth=1', '--no-tags', url, revision], cwd=repository, timeout=5400)
-            break
-        except KernelError:
-            if attempt == FETCH_ATTEMPTS - 1:
-                raise
-    require(has_commit(repository, revision), 'fetched source lacks the pinned commit: ' + revision)
-
-
-def tracked_changes(repository, submodules=True):
-    ignore = [] if submodules else ['--ignore-submodules=all']
-    return git(repository, 'diff', '--name-only', *ignore) or git(repository, 'diff', '--cached', '--name-only', *ignore)
-
-
-def checkout(repository, url, revision, label):
-    """Bring one repository to an exact commit. Never discard a caller's edits."""
-    if not (repository / '.git').exists():
-        require(not repository.exists() or not any(repository.iterdir()), 'unowned directory is occupied: ' + label)
-        repository.mkdir(parents=True, exist_ok=True)
-        git(repository, 'init', '-q')
-    elif has_commit(repository, 'HEAD'):
-        require(not tracked_changes(repository), 'tracked source changes: ' + label)
-    fetch(repository, url, revision)
-    git(repository, 'checkout', '-q', '--detach', revision)
-    require(git(repository, 'rev-parse', 'HEAD') == revision, 'source revision mismatch: ' + label)
-
-
-def checkout_source(root, plan):
-    """The kernel repository itself, checked out in the workspace root."""
-    if not (root / '.git').exists():
-        occupied = sorted(p.name for p in root.iterdir() if p.name not in OWN_FILES)
-        require(not occupied, 'the kernel workspace holds other files (' + ', '.join(occupied[:5]) +
-                '). Prepare an empty directory or move them aside')
-        git(root, 'init', '-q')
-        git(root, 'config', 'diamaneos.kernelsource', plan['repository'])
-    require((root / '.git').is_dir() and not (root / '.git').is_symlink(), 'the kernel workspace .git is not a directory')
-    marked = process.run(['git', '-C', str(root), 'config', '--get', 'diamaneos.kernelsource'], 60, cwd=root)
-    shaped = all(process.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:' + name], 60, cwd=root)['transport'] == 'ok'
-                 for name in ('prebuilts.json', 'kernel_platform'))
-    require(marked['transport'] == 'ok' or shaped, 'the workspace is another Git repository, not a kernel source checkout')
-    exclude = root / '.git/info/exclude'
-    exclude.parent.mkdir(exist_ok=True)
-    present = exclude.read_text().splitlines() if exclude.is_file() else []
-    missing = [line for line in EXCLUDES if line not in present]
-    if missing:
-        exclude.write_text('\n'.join(present + missing) + '\n')
-    if has_commit(root, 'HEAD'):
-        require(not tracked_changes(root, submodules=False), 'tracked source changes in the kernel workspace')
-    fetch(root, plan['repository'], plan['revision'])
-    git(root, 'checkout', '-q', '--detach', plan['revision'])
-    require(git(root, 'rev-parse', 'HEAD') == plan['revision'], 'kernel source revision mismatch')
-
-
-def gitlinks(root):
-    """Path -> commit of every gitlink in the checked-out commit."""
-    links = {}
-    for line in git(root, 'ls-files', '--stage').splitlines():
-        mode, revision, rest = line.split(' ', 2)
-        if mode == '160000':
-            links[rest.split('\t', 1)[1]] = revision
-    return links
-
-
-def submodule_plan(root):
-    """(path, url, gitlink) for every submodule the top-level .gitmodules declares.
-
-    Gitlinks it does not declare (edk2 carries its upstream's own) stay
-    unpopulated. verify_source requires their directories to stay empty.
-    """
-    links = gitlinks(root)
-    configured = {}
-    if (root / '.gitmodules').is_file():
-        listing = process.run(['git', '-C', str(root), 'config', '-f', '.gitmodules', '--get-regexp',
-                               r'^submodule\..*\.path$'], 60, cwd=root)
-        for line in listing['stdout'].decode().splitlines() if listing['transport'] == 'ok' else []:
-            key, path = line.split(' ', 1)
-            name = key[len('submodule.'):-len('.path')]
-            configured[path] = git(root, 'config', '-f', '.gitmodules', '--get', 'submodule.' + name + '.url')
-    require(set(configured) <= set(links), 'a submodule in .gitmodules is not in the tree')
-    rows = []
-    for path in sorted(configured):
-        relative(path)
-        check_url(configured[path])
-        require(SHA1.fullmatch(links[path]), 'invalid submodule revision: ' + path)
-        rows.append((path, configured[path], links[path]))
-    return rows
-
-
-def prebuilt_plan(root):
-    """The toolchains prebuilts.json lists, each at an exact revision."""
-    data = load_json(root / 'prebuilts.json')
-    require(isinstance(data, dict) and set(data) == {'prebuilts'} and isinstance(data['prebuilts'], list)
-            and data['prebuilts'], 'invalid prebuilts.json')
-    rows = []
-    for entry in data['prebuilts']:
-        require(isinstance(entry, dict) and set(entry) == {'path', 'url', 'revision'}, 'invalid prebuilts.json entry')
-        relative(entry['path'])
-        require(entry['path'].startswith('kernel_platform/prebuilts/'), 'prebuilt outside kernel_platform/prebuilts')
-        check_url(entry['url'])
-        require(isinstance(entry['revision'], str) and SHA1.fullmatch(entry['revision']), 'invalid prebuilt revision')
-        rows.append((entry['path'], entry['url'], entry['revision']))
-    paths = [r[0] for r in rows]
-    require(len(paths) == len(set(paths)) and not any(a != b and b.startswith(a + '/') for a in paths for b in paths),
-            'duplicate or nested prebuilt paths')
-    return rows
-
-
-def nested_checkouts(root, rows):
-    result = {}
-    for path, url, revision in rows:
-        dest = root / path
-        for parent in [dest, *dest.parents]:
-            if parent == root:
-                break
-            require(not parent.is_symlink(), 'source directory is a symlink: ' + path)
-        checkout(dest, url, revision, path)
-        result[path] = revision
-    return result
-
-
-def verify_source(root, plan, submodules, prebuilts):
-    """The checkout is exactly the pinned commit, its submodules and toolchains."""
-    require(git(root, 'rev-parse', 'HEAD') == plan['revision'], 'kernel source revision mismatch')
-    status = call(['git', '-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all',
-                   '--ignore-submodules=none'], cwd=root)
-    unexpected = []
-    for entry in filter(None, status.split('\0')):
-        path = entry[3:]
-        if entry.startswith('?? ') and BAZEL_LINK.fullmatch(path) and (root / path).is_symlink():
-            continue
-        unexpected.append(path)
-    require(not unexpected, 'kernel source changes or untracked inputs: ' + ', '.join(unexpected[:10]))
-    require({p: r for p, _, r in submodule_plan(root)} == submodules, 'submodule pins differ from the preparation')
-    for path in sorted(set(gitlinks(root)) - set(submodules)):
-        # Git status does not look inside an unpopulated gitlink directory.
-        directory = root / path
-        require(not directory.is_symlink() and (not directory.exists() or
-                                                (directory.is_dir() and not any(directory.iterdir()))),
-                'undeclared submodule directory is not empty: ' + path)
-    for path, revision in submodules.items():
-        require(git(root / path, 'rev-parse', 'HEAD') == revision, 'submodule revision mismatch: ' + path)
-    require({p: r for p, _, r in prebuilt_plan(root)} == prebuilts, 'prebuilt pins differ from the preparation')
-    for path, revision in prebuilts.items():
-        require(git(root / path, 'rev-parse', 'HEAD') == revision, 'prebuilt revision mismatch: ' + path)
-        require(not git(root / path, 'status', '--porcelain=v1', '--untracked-files=all'),
-                'prebuilt has local changes: ' + path)
-        require(process.run(['git', '-C', str(root), 'check-ignore', '-q', path], 60, cwd=root)['transport'] == 'ok',
-                'prebuilt is not ignored by the kernel repository: ' + path)
-
-
-def tree_listing(root, tree, paths):
-    """Mode, object and path (relative to ``tree``) of the committed files under ``paths``."""
-    directory = (root / relative(tree)).resolve()
-    top = Path(git(directory, 'rev-parse', '--show-toplevel')).resolve()
-    prefix = directory.relative_to(top).as_posix()
-    prefix = '' if prefix == '.' else prefix + '/'
-    listing = git(top, 'ls-tree', '-r', '--full-tree', 'HEAD', '--',
-                  *[prefix + relative(p).as_posix() for p in paths])
-    rows = []
-    for line in listing.splitlines():
-        meta, name = line.split('\t', 1)
-        rows.append(meta + '\t' + name[len(prefix):])
-    return rows
-
-
-def shared_headers(root, groups=SHARED_HEADERS):
-    checked = 0
-    for group in groups:
-        listings = []
-        for tree in group['trees']:
-            listing = tree_listing(root, tree, group['paths'])
-            require(listing, 'shared headers missing: ' + tree)
-            listings.append(listing)
-        require(all(l == listings[0] for l in listings), 'shared headers differ between ' + ' and '.join(group['trees']))
-        checked += len(listings[0])
-    return checked
-
-
-def kleaf_manifest(plan, submodules):
-    """KLEAF_REPO_MANIFEST: the kernel trees Kleaf stamps with their revisions,
-    with paths relative to kernel_platform (the Bazel workspace)."""
-    manifest = ET.Element('manifest')
-    for path, revision in sorted(submodules.items()):
-        if path.startswith('kernel_platform/'):
-            ET.SubElement(manifest, 'project', name=path, path=os.path.relpath(path, 'kernel_platform'),
-                          revision=revision)
-    ET.SubElement(manifest, 'project', name='kernel_platform/msm-kernel', path='msm-kernel', revision=plan['revision'])
-    return ET.tostring(manifest, encoding='utf-8')
-
-
-def prepare(root):
-    plan = configuration()
-    with locked(root):
-        checkout_source(root, plan)
-        submodules = nested_checkouts(root, submodule_plan(root))
-        prebuilts = nested_checkouts(root, prebuilt_plan(root))
-        verify_source(root, plan, submodules, prebuilts)
-        shared = shared_headers(root)
-        (root / 'resolved-manifest.xml').write_bytes(kleaf_manifest(plan, submodules))
-        result = {'status': 'PASS', 'operation': 'kernel-source-preparation',
-                  'repository': plan['repository'], 'source_commit': plan['revision'],
-                  'source_plan_sha256': sha(SOURCE_PLAN), 'submodules': submodules, 'prebuilts': prebuilts,
-                  'prebuilts_sha256': sha(root / 'prebuilts.json'),
-                  'resolved_manifest_sha256': sha(root / 'resolved-manifest.xml'),
-                  'shared_headers_checked': shared, 'device_commands_executed': 0}
-        (root / 'preparation.json').write_bytes(encoded(result))
-        return result
-
-
-def prepared(root, plan):
-    """The preparation record, checked against the pin and the checkout."""
-    preparation = load_json(root / 'preparation.json')
-    require(preparation.get('status') == 'PASS' and preparation.get('source_commit') == plan['revision']
-            and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN),
-            'the kernel sources were prepared from another pin. Run "diamaneos kernel prepare" again')
-    require(sha(root / 'resolved-manifest.xml') == preparation.get('resolved_manifest_sha256'),
-            'resolved source manifest changed')
-    require(isinstance(preparation.get('submodules'), dict) and isinstance(preparation.get('prebuilts'), dict),
-            'the preparation record is incomplete. Run "diamaneos kernel prepare" again')
-    verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
-    return preparation
-
-
-def linux_version(work):
-    """VERSION.PATCHLEVEL.SUBLEVEL of the common kernel."""
-    values = dict(re.findall(r'^(VERSION|PATCHLEVEL|SUBLEVEL) = ([0-9]+)$',
-                             (work / 'common/Makefile').read_text(errors='replace'), re.M))
-    require(set(values) == {'VERSION', 'PATCHLEVEL', 'SUBLEVEL'}, 'common/Makefile names no kernel version')
-    return '.'.join(values[k] for k in ('VERSION', 'PATCHLEVEL', 'SUBLEVEL'))
+SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
+PROJECT_NAME = re.compile(r'[a-z][a-z0-9-]{0,30}')
+# Files the tools keep in the workspace next to the sources.
+OWN_FILES = ('.preparation.lock', 'preparation.json', 'runs', 'current')
+BUILD_TOOLS = ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl', 'perl', 'rsync', 'make', 'git', 'tar', 'python3', 'bash')
 
 
 def module_key(name):
@@ -352,11 +46,151 @@ def module_key(name):
     return name.removesuffix('.ko').replace('-', '_')
 
 
+def projects(plan, dt_plan):
+    """Every pinned checkout of the workspace: name, role, path, URL, revision."""
+    rows = []
+    for role in ('vendor', 'common'):
+        entry = plan[role]
+        rows.append(dict(entry, name=role, role=role))
+    for entry in plan['toolchain']:
+        rows.append(dict(entry, role='toolchain'))
+    base = dt_plan['base']
+    rows.append({'name': 'base-dt', 'role': 'device-tree', 'path': 'base-dt', 'url': base['repository'],
+                 'revision': base['revision']})
+    return rows
+
+
+def validate_plan(plan):
+    """The source plan: two repositories and the toolchain, each at an exact commit."""
+    require(isinstance(plan, dict) and set(plan) == {'schema_version', 'vendor', 'common', 'toolchain'}
+            and plan['schema_version'] == 2, 'invalid kernel source plan')
+    rows = [plan['vendor'], plan['common']] + (plan['toolchain'] if isinstance(plan['toolchain'], list) else [])
+    require(isinstance(plan['toolchain'], list) and plan['toolchain'], 'the source plan lists no toolchain')
+    names, paths = [], []
+    for entry in rows:
+        allowed = {'path', 'url', 'revision'} | ({'name', 'sparse'} if entry in plan['toolchain'] else set())
+        require(isinstance(entry, dict) and {'path', 'url', 'revision'} <= set(entry) <= allowed,
+                'invalid source plan entry')
+        relative(entry['path'])
+        check_url(entry['url'])
+        require(isinstance(entry['revision'], str) and SHA1.fullmatch(entry['revision']), 'invalid revision: ' + entry['path'])
+        if 'name' in entry:
+            require(isinstance(entry['name'], str) and PROJECT_NAME.fullmatch(entry['name']), 'invalid project name')
+            names.append(entry['name'])
+        if 'sparse' in entry:
+            require(isinstance(entry['sparse'], list) and entry['sparse'] and
+                    all(isinstance(p, str) and SPARSE_PATTERN.fullmatch(p) and '..' not in p for p in entry['sparse']),
+                    'invalid sparse patterns: ' + entry['path'])
+        paths.append(entry['path'])
+    paths.append('base-dt')
+    require(len(names) == len(set(names)) and not {'vendor', 'common', 'base-dt'} & set(names), 'duplicate project names')
+    require(len(paths) == len(set(paths)) and not any(a != b and b.startswith(a + '/') for a in paths for b in paths),
+            'duplicate or nested project paths')
+    return plan
+
+
+def validate_dt_plan(dt):
+    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups'} and dt['schema_version'] == 1,
+            'invalid device tree plan')
+    base = dt['base']
+    require(isinstance(base, dict) and set(base) == {'repository', 'revision', 'files', 'overlay_count'}
+            and SHA1.fullmatch(str(base['revision'])) and type(base['overlay_count']) is int
+            and isinstance(base['files'], dict) and set(base['files']) == {'dtbs/fp6.dtb', 'dtbo.img'}
+            and all(isinstance(v, str) and re.fullmatch(r'[0-9a-f]{64}', v) for v in base['files'].values()),
+            'invalid base device tree')
+    check_url(base['repository'])
+    return dt
+
+
+def base_digest(dt_plan):
+    """The digest of what preparation fetches for the device tree. The fix-ups edit the files after."""
+    return hashlib.sha256(json.dumps(dt_plan['base'], sort_keys=True).encode()).hexdigest()
+
+
+def configuration():
+    """The validated source and device tree plans."""
+    return validate_plan(load_json(SOURCE_PLAN)), validate_dt_plan(load_json(DT_PLAN))
+
+
+def resolve_overrides(rows, overrides):
+    """name -> where to fetch from. An override replaces the URL of a fetch only, never the pin."""
+    names = {r['name'] for r in rows}
+    require(set(overrides) <= names, 'unknown source to override: ' + ', '.join(sorted(set(overrides) - names)))
+    for name, where in overrides.items():
+        location = Path(where)
+        require(location.is_absolute() and (location / '.git').exists() or (location / 'HEAD').is_file(),
+                'not a Git repository: ' + where)
+    return dict(overrides)
+
+
+def core_header_copies(vendor_root, common_root):
+    """Core headers a vendor module set carries a copy of (core-headers.json: copy -> path in the
+    common kernel) must stay byte-identical to the common kernel, or module and core disagree on
+    the structures in them."""
+    checked = []
+    for listing in sorted((vendor_root / 'modules').rglob('core-headers.json')):
+        rows = load_json(listing)
+        require(isinstance(rows, dict) and rows, 'invalid core header list: ' + str(listing))
+        for copy, original in sorted(rows.items()):
+            mine, theirs = listing.parent / relative(copy), common_root / relative(original)
+            require(mine.is_file() and theirs.is_file(), 'core header copy or original missing: ' + copy)
+            require(mine.read_bytes() == theirs.read_bytes(),
+                    'core header copy differs from the common kernel: ' + str(mine.relative_to(vendor_root)))
+            checked.append(str(mine.relative_to(vendor_root)))
+    return checked
+
+
+def prepare(root, overrides=None):
+    plan, dt_plan = configuration()
+    rows = projects(plan, dt_plan)
+    where = resolve_overrides(rows, overrides or {})
+    with locked(root):
+        top = {r['path'].split('/')[0] for r in rows}
+        stray = sorted(p.name for p in root.iterdir() if p.name not in OWN_FILES and p.name not in top)
+        require(not stray, 'the kernel workspace holds other files (' + ', '.join(stray[:5]) +
+                '). Prepare an empty directory or move them aside')
+        for row in rows:
+            dest = root / row['path']
+            for parent in [dest, *dest.parents]:
+                if parent == root:
+                    break
+                require(not parent.is_symlink(), 'source directory is a symlink: ' + row['path'])
+            checkout_project(dest, row, where.get(row['name']))
+        for row in rows:
+            verify_project(root / row['path'], row)
+        copies = core_header_copies(root / 'vendor', root / 'common')
+        kernel_dt.base_files(root / 'base-dt', dt_plan['base'])
+        result = {'status': 'PASS', 'operation': 'kernel-source-preparation',
+                  'source_plan_sha256': sha(SOURCE_PLAN), 'device_tree_base_sha256': base_digest(dt_plan),
+                  'projects': {r['name']: {'path': r['path'], 'url': r['url'], 'revision': r['revision']} for r in rows},
+                  'fetched_from_overrides': sorted(where), 'core_header_copies_checked': len(copies),
+                  'device_commands_executed': 0}
+        (root / 'preparation.json').write_bytes(encoded(result))
+        return result
+
+
+def prepared(root, plan, dt_plan):
+    """The preparation record, checked against the pins and the checkouts."""
+    preparation = load_json(root / 'preparation.json')
+    require(preparation.get('status') == 'PASS' and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN)
+            and preparation.get('device_tree_base_sha256') == base_digest(dt_plan),
+            'the kernel sources were prepared from other pins. Run "diamaneos kernel prepare" again')
+    rows = projects(plan, dt_plan)
+    require(set(preparation.get('projects', {})) == {r['name'] for r in rows},
+            'the preparation record is incomplete. Run "diamaneos kernel prepare" again')
+    for row in rows:
+        require(preparation['projects'][row['name']]['revision'] == row['revision'],
+                'the preparation is not at the pin: ' + row['name'])
+        verify_project(root / row['path'], row)
+    return preparation
+
+
+# Recipe checks
+
 def denied_modules(recipe):
-    """The modules FP6 never ships, each with its reason. The partition and load
-    lists come from Fairphone's lists and may be regenerated. This deny list
-    survives that, and a denied module in any list fails the build. Whether a
-    remaining module still needs a denied one is checked on the built set
+    """The modules FP6 never ships, each with its reason. The partition and load lists may be
+    regenerated. This deny list survives that, and a denied module in any list fails the build.
+    Whether a remaining module still needs a denied one is checked on the built set
     (module-interfaces.json)."""
     denied = {}
     for group in recipe.get('denied_modules', []):
@@ -374,20 +208,6 @@ def denied_modules(recipe):
     return denied
 
 
-SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
-
-
-def clang_bin(work):
-    """The kernel's own clang, as its pinned common/build.config.constants names it."""
-    constants = work / 'common' / 'build.config.constants'
-    require(constants.is_file(), 'common/build.config.constants is missing')
-    match = re.search(r'^CLANG_VERSION=(r[0-9a-z]+)$', constants.read_text(), re.M)
-    require(match is not None, 'common/build.config.constants sets no CLANG_VERSION')
-    path = work / 'prebuilts/clang/host/linux-x86' / ('clang-' + match.group(1)) / 'bin'
-    require(path.is_dir(), 'the kernel\'s pinned clang is missing: clang-' + match.group(1))
-    return path
-
-
 def import_allowlist(recipe):
     """Symbols only the named modules may import, with the reason."""
     rules = recipe.get('module_import_allowlist', {})
@@ -401,27 +221,31 @@ def import_allowlist(recipe):
     return {symbol: sorted(rule['modules']) for symbol, rule in rules.items()}
 
 
+def symbol_rules(recipe, key, label, extra=()):
+    rules = recipe.get(key, [])
+    require(isinstance(rules, list), 'invalid ' + label + ' list')
+    for rule in rules:
+        require(isinstance(rule, dict) and set(rule) <= {'symbol', 'reason', *extra} and {'symbol', 'reason'} <= set(rule)
+                and isinstance(rule['symbol'], str) and SYMBOL_NAME.fullmatch(rule['symbol'])
+                and isinstance(rule['reason'], str) and rule['reason'].strip(), 'invalid ' + label)
+        if 'pending' in rule:
+            require(isinstance(rule['pending'], str) and rule['pending'].strip(), 'invalid pending reason: ' + rule['symbol'])
+    return rules
+
+
 def forbidden_symbols(recipe):
     """Kernel symbols that must not exist in the built Image, with the reason."""
-    rules = recipe.get('forbidden_symbols', [])
-    require(isinstance(rules, list), 'invalid forbidden symbol list')
-    for rule in rules:
-        require(isinstance(rule, dict) and set(rule) == {'symbol', 'reason'}
-                and isinstance(rule['symbol'], str) and SYMBOL_NAME.fullmatch(rule['symbol'])
-                and isinstance(rule['reason'], str) and rule['reason'].strip(), 'invalid forbidden symbol')
-    return [rule['symbol'] for rule in rules]
+    return [rule['symbol'] for rule in symbol_rules(recipe, 'forbidden_symbols', 'forbidden symbol')]
 
 
 def required_symbols(recipe):
-    """Kernel symbols the built Image must have, with the reason: each marks a
-    DiamaneOS change that a rebase or a merge could drop without notice."""
-    rules = recipe.get('required_symbols', [])
-    require(isinstance(rules, list), 'invalid required symbol list')
-    for rule in rules:
-        require(isinstance(rule, dict) and set(rule) == {'symbol', 'reason'}
-                and isinstance(rule['symbol'], str) and SYMBOL_NAME.fullmatch(rule['symbol'])
-                and isinstance(rule['reason'], str) and rule['reason'].strip(), 'invalid required symbol')
-    return [rule['symbol'] for rule in rules]
+    """Kernel symbols the built Image must have, with the reason: each marks a DiamaneOS change that a
+    rebase or a merge could drop without notice. A rule with a pending reason names a change the
+    sources do not carry yet. It is reported and does not fail the build until the symbol is there,
+    and then the build asks for the reason to be removed."""
+    rules = symbol_rules(recipe, 'required_symbols', 'required symbol', extra=('pending',))
+    return [rule['symbol'] for rule in rules if 'pending' not in rule], \
+        {rule['symbol']: rule['pending'] for rule in rules if 'pending' in rule}
 
 
 def undefined_symbols(nm_output):
@@ -436,6 +260,36 @@ def check_module_imports(modules, allowlist, undefined):
         require(importers == allowed, 'unexpected importers of ' + symbol + ': ' + (', '.join(importers) or 'none'))
 
 
+def kmi_symbols(common):
+    """The symbols of the GKI symbol lists the common tree's build lists (gki/aarch64/symbols)."""
+    named = set(re.findall(r'"gki/aarch64/symbols/([a-z_0-9]+)"', (common / 'BUILD.bazel').read_text())) | {'base'}
+    symbols = set()
+    for name in sorted(named):
+        path = common / 'gki/aarch64/symbols' / name
+        require(path.is_file(), 'KMI symbol list missing: ' + name)
+        symbols |= {line.strip() for line in path.read_text().splitlines()
+                    if line.strip() and not line.strip().startswith(('#', '['))}
+    require(len(symbols) > 1000, 'the KMI symbol lists look empty')
+    return symbols
+
+
+def kmi_exceptions(recipe):
+    """Kernel symbols modules may import although no GKI symbol list keeps them, with the reason."""
+    rules = symbol_rules(recipe, 'kmi_exceptions', 'KMI exception')
+    return {rule['symbol'] for rule in rules}
+
+
+def check_kmi(imports, exports, kmi, exceptions):
+    """Every kernel symbol a shipped module imports must be in the GKI symbol lists or be a reviewed
+    exception, and an exception must still be needed. imports: module -> undefined symbols."""
+    used = set().union(*imports.values()) & exports
+    missing = sorted(used - kmi - exceptions)
+    require(not missing, 'modules import kernel symbols no KMI symbol list keeps: ' + ', '.join(missing[:10]))
+    stale = sorted(exceptions - (used - kmi))
+    require(not stale, 'KMI exception no longer needed: ' + ', '.join(stale))
+    return sorted(used - kmi), len(used)
+
+
 def shipped_dtbs(recipe):
     names = recipe.get('dtbs')
     require(isinstance(names, list) and names and len(set(names)) == len(names) and
@@ -443,36 +297,26 @@ def shipped_dtbs(recipe):
     return names
 
 
-def check_forbidden_symbols(system_map, symbols):
+def map_symbols(system_map, strip_suffix=False):
     present = {line.split()[2] for line in system_map.splitlines() if len(line.split()) >= 3}
-    found = sorted(set(symbols) & present)
+    # ThinLTO renames a promoted static symbol to <name>.llvm.<hash>.
+    return {s.split('.llvm.')[0] for s in present} if strip_suffix else present
+
+
+def check_forbidden_symbols(system_map, symbols):
+    found = sorted(set(symbols) & map_symbols(system_map))
     require(not found, 'forbidden kernel symbol present: ' + ', '.join(found))
 
 
-def check_required_symbols(system_map, symbols):
-    # ThinLTO renames a promoted static symbol to <name>.llvm.<hash>.
-    present = {line.split()[2].split('.llvm.')[0] for line in system_map.splitlines() if len(line.split()) >= 3}
+def check_required_symbols(system_map, symbols, pending=None):
+    """Fail on a missing required symbol. Returns the pending ones still missing."""
+    present = map_symbols(system_map, True)
     missing = sorted(set(symbols) - present)
     require(not missing, 'required kernel symbol missing: ' + ', '.join(missing))
-
-
-def output_files(work, paths):
-    execution = Path(call([work / 'tools/bazel', '--batch', 'info', 'execution_root'], cwd=work).strip()).resolve()
-    require(execution.is_relative_to(work / 'out'), 'execution root outside workspace output')
-    files = []
-    for name in sorted(set(paths.splitlines())):
-        relative(name)
-        p = execution / name
-        require(p.resolve().is_relative_to(work / 'out' if name.startswith('bazel-out/') else work.parent),
-                'Bazel output escaped workspace')
-        require(p.exists(), 'declared output missing: ' + name)
-        if p.is_dir():
-            for child in sorted(p.rglob('*')):
-                require(not child.is_symlink(), 'tree artifact contains a symlink')
-                if child.is_file(): files.append(child)
-        elif p.is_file():
-            files.append(p)
-    return execution, sorted(set(files))
+    pending = pending or {}
+    carried = sorted(set(pending) & present)
+    require(not carried, 'the kernel has a symbol marked pending, remove its pending reason: ' + ', '.join(carried))
+    return sorted(pending)
 
 
 def module_metadata(path):
@@ -480,80 +324,13 @@ def module_metadata(path):
     require(raw['transport'] == 'ok', 'module metadata unavailable')
     values = []
     for row in raw['stdout'].split(b'\0'):
-        if not row: continue
+        if not row:
+            continue
         match = re.fullmatch(rb'([a-zA-Z0-9_]+)(?:=|: *)(.*)', row, re.DOTALL)
         require(match, 'unrecognized module metadata')
-        if match[1] != b'filename': values.append((match[1], match[2]))
+        if match[1] != b'filename':
+            values.append((match[1], match[2]))
     return sorted(values)
-
-
-SIGNATURE_FIELDS = (b'sig_id', b'signer', b'sig_key', b'sig_hashalgo', b'signature')
-
-
-def signature(values):
-    return [(k, v) for k, v in values if k in SIGNATURE_FIELDS]
-
-
-def render_package(candidate, selected, merged, image, recipe, strip, work, signing=None):
-    """Stage the kernel package. The GKI build signs its own modules. Vendor
-    and external modules are stripped and then signed with the same build key,
-    because the kernel only loads modules signed with it (MODULE_SIG_FORCE).
-    signing is (sign-file, private key, certificate, hash algorithm)."""
-    candidate.mkdir()
-    (candidate / 'modules').mkdir()
-    signed = []
-    for name, source in sorted(selected.items()):
-        dest = candidate / 'modules' / name
-        before = module_metadata(source)
-        if any(k == b'signer' and v for k, v in before):
-            shutil.copyfile(source, dest); signed.append(name)
-            require(sha(dest) == sha(source), 'signed module changed')
-            require(module_metadata(dest) == before, 'copying changed module metadata')
-        else:
-            call([strip, '--strip-debug', '-o', dest, source], cwd=work)
-            require(module_metadata(dest) == before, 'stripping changed module metadata')
-            if signing:
-                sign_file, key, cert, algorithm = signing
-                # sign-file is a host tool linked to the kernel build tools' libcrypto.
-                tools_env = dict(os.environ, LD_LIBRARY_PATH=str(work / 'prebuilts/kernel-build-tools/linux-x86/lib64'))
-                call([sign_file, algorithm, key, cert, dest], cwd=work, env=tools_env)
-                after = module_metadata(dest)
-                require([r for r in after if r[0] not in SIGNATURE_FIELDS] == before and signature(after),
-                        'signing changed module metadata')
-        require(call(['modprobe', '--dump-modversions', source], cwd=work) ==
-                call(['modprobe', '--dump-modversions', dest], cwd=work), 'stripping changed symbol CRCs')
-    require(set(signed) == set(recipe['partitions']['system_dlkm']), 'signed module placement differs')
-    if signing:
-        keys = {tuple(r for r in signature(module_metadata(p)) if r[0] != b'signature')
-                for p in (candidate / 'modules').iterdir()}
-        require(len(keys) == 1, 'modules are not all signed with the kernel build key')
-    shutil.copyfile(image, candidate / 'Image')
-    (candidate / 'dtbs').mkdir()
-    # The vendor build also makes device trees for other boards and chips. Only the listed ones ship.
-    for name in recipe['dtbs']: shutil.copyfile(merged / name, candidate / 'dtbs' / name)
-    shutil.copyfile(merged / 'dtbo.img', candidate / 'dtbo.img')
-    lines = ['# Generated source-built kernel.',
-             'FP6_KERNEL_PATH := device/fairphone/FP6-kernel',
-             'BOARD_INCLUDE_DTB_IN_BOOTIMG := true',
-             'BOARD_PREBUILT_DTBIMAGE_DIR := $(FP6_KERNEL_PATH)/dtbs',
-             'BOARD_PREBUILT_DTBOIMAGE := $(FP6_KERNEL_PATH)/dtbo.img',
-             'BOARD_DO_NOT_STRIP_VENDOR_MODULES := true',
-             'BOARD_DO_NOT_STRIP_VENDOR_RAMDISK_MODULES := true']
-    variables = {'vendor_boot': 'VENDOR_RAMDISK', 'vendor_dlkm': 'VENDOR', 'system_dlkm': 'SYSTEM'}
-    for partition, names in recipe['partitions'].items():
-        lines.append('BOARD_' + variables[partition] + '_KERNEL_MODULES := ' +
-                     ' '.join('$(FP6_KERNEL_PATH)/modules/' + n for n in names))
-    for key, names in recipe['load_lists'].items():
-        partition, filename = key.split('/')
-        require(set(names) <= set(recipe['partitions'][partition]), 'load list escapes partition')
-        label = 'VENDOR_RAMDISK_RECOVERY' if filename == 'modules.load.recovery' else variables[partition]
-        lines.append('BOARD_' + label + '_KERNEL_MODULES_LOAD := ' + ' '.join(names))
-    for key, contents in recipe['blocklists'].items():
-        partition, filename = key.split('/')
-        out = candidate / (partition + '-' + filename); out.write_text(contents)
-        lines.append('BOARD_' + variables[partition] + '_KERNEL_MODULES_BLOCKLIST_FILE := $(FP6_KERNEL_PATH)/' + out.name)
-    (candidate / 'BoardConfigKernel.mk').write_text('\n'.join(lines) + '\n')
-    (candidate / 'device-kernel.mk').write_text('# Generated source-built kernel.\nPRODUCT_COPY_FILES += device/fairphone/FP6-kernel/Image:kernel\n')
 
 
 def kernel_release(vmlinux):
@@ -564,261 +341,271 @@ def kernel_release(vmlinux):
     return found.pop().decode('ascii')
 
 
-def stamped_by(release, commit):
-    """A stamped release ends in -g<at least 12 hex digits of commit>."""
-    m = re.search(r'-g([0-9a-f]{12,40})$', release)
-    return bool(m) and commit.startswith(m.group(1))
-
-
-def source_date_epoch(repository, commit):
-    """The commit time of the pinned kernel commit, as Kleaf's SOURCE_DATE_EPOCH."""
-    value = git(repository, 'log', '-1', '--pretty=%ct', commit)
-    require(value.isdigit() and int(value) > 0, 'invalid commit time for ' + commit)
-    return value
+def vendor_config(device_config, vendor_root):
+    """The vendor view of the configuration, as text kernel_config reads: the device kernel build's
+    configuration with the values of the vendor defconfigs on top, which is what the vendor modules
+    are built with (vendor_autoconf.h)."""
+    values = kernel_config.parse_config(device_config)
+    set_by = {}
+    for path in sorted((vendor_root / 'modules').glob('*/defconfig')):
+        for key, value in kernel_kbuild.read_config(str(path)).items():
+            require(set_by.setdefault(key, value) == value, 'vendor defconfigs set %s differently' % key)
+            values[key] = value
+    return ''.join('# %s is not set\n' % k if v == 'n' else '%s=%s\n' % (k, v) for k, v in sorted(values.items())).encode()
 
 
 def build(root, jobs, timeout, profile='production'):
-    missing = [name for name in ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl')
-               if shutil.which(name) is None]
+    missing = [name for name in BUILD_TOOLS if shutil.which(name) is None]
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
     require(profile in CONFIG_PROFILES, 'unknown kernel configuration profile')
-    plan = configuration()
-    recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
+    plan, dt_plan = configuration()
+    build_plan = load_json(BUILD_PLAN)
+    recipe = load_json(PACKAGING)
     denied = denied_modules(recipe)
     allowlist = import_allowlist(recipe)
     forbidden = forbidden_symbols(recipe)
-    required = required_symbols(recipe)
+    required, pending = required_symbols(recipe)
     dtbs = shipped_dtbs(recipe)
+    arguments = kernel_package.cmdline_arguments(recipe, set(load_json(ROOT / 'config/fp6-build.json')['kernel_arguments']['forbidden']))
+    from .product_inputs import tools_identity
     with locked(root):
-        preparation = prepared(root, plan)
-        shared_headers(root)
-        work = root / 'kernel_platform'
-        from .product_inputs import tools_identity
+        preparation = prepared(root, plan, dt_plan)
+        common = root / 'common'
+        revisions = {n: preparation['projects'][n]['revision'] for n in ('vendor', 'common')}
         run = root / 'runs' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
         run.mkdir(parents=True)
         result = {'status': 'RUNNING', 'operation': 'kernel-build-and-package', 'commands': [],
                   'device_commands_executed': 0, 'kernel_accepted': False, 'config_profile': profile,
                   'preparation_sha256': sha(root / 'preparation.json'),
-                  'repository': preparation['repository'], 'source_commit': preparation['source_commit'],
-                  'linux_version': linux_version(work), 'tools': tools_identity(),
-                  'recipe_sha256': sha(Path(__file__)), 'packaging_recipe_sha256': sha(ROOT / 'config/fp6-kernel-packaging.json')}
+                  'repository': plan['vendor']['url'], 'source_commit': revisions['vendor'],
+                  'common_repository': plan['common']['url'], 'common_commit': revisions['common'],
+                  'linux_version': linux_version(common), 'tools': tools_identity(),
+                  'recipe_sha256': sha(Path(__file__)), 'packaging_recipe_sha256': sha(PACKAGING),
+                  'build_plan_sha256': sha(BUILD_PLAN), 'device_tree_plan_sha256': sha(DT_PLAN)}
+
         def save():
-            temp = run / 'result.tmp'; temp.write_bytes(encoded(result)); temp.replace(run / 'result.json')
-        env = {k: v for k, v in os.environ.items() if k not in (
-            'OUT_DIR', 'DIST_DIR', 'BUILD_CONFIG', 'KERNEL_DIR', 'KERNEL_KIT',
-            'EXT_MODULES', 'VARIANT', 'MAKEFLAGS', 'LD_PRELOAD', 'LD_LIBRARY_PATH')}
-        env.update(KLEAF_REPO_MANIFEST=str(root / 'resolved-manifest.xml'),
-                   KLEAF_MAKE_JOBS=str(jobs), LC_ALL='C')
-        # One build date for every kernel tree. Stamped Kleaf builds otherwise take
-        # each tree's own commit date, and the RANDSTRUCT seed derives from that
-        # date (scripts/gen-randstruct-seed.sh), so the core kernel and the vendor
-        # modules would get different structure layouts.
-        env['SOURCE_DATE_EPOCH'] = source_date_epoch(root, preparation['source_commit'])
-        def command(name, argv, custom_env=None, seconds=None):
-            result['phase'] = name; save(); print(name, flush=True)
-            log = run / (name + '.log')
-            out = call(argv, cwd=work, env=custom_env or env, timeout=seconds or timeout, log=log)
-            result['commands'].append({'name': name, 'log_sha256': sha(log), 'status': 'PASS'})
-            save(); return out
-        def bazel(name, args):
-            return command(name, [work / 'tools/bazel', '--batch', *args])
-        # Stamped like GrapheneOS and Pixel kernels: the version names the source
-        # commit (-g<hash>) and the build date is the pinned commit's, so it stays
-        # reproducible. Unstamped Kleaf builds say -maybe-dirty and 1970.
-        flags = ['--jobs=' + str(jobs), KMI, STAMP, FRAGMENT]
+            temp = run / 'result.tmp'
+            temp.write_bytes(encoded(result))
+            temp.replace(run / 'result.json')
+
+        def phase(name):
+            result['phase'] = name
+            save()
+            print(name, flush=True)
         save()
         try:
-            bazel('core-build', ['build', *flags, *CORE, *IMPLICIT])
-            # Capture only top-level configured outputs. Other transitions can be unbuilt.
-            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, STAMP, FRAGMENT, '--output=files',
-                          'config(set(' + ' '.join(CORE + IMPLICIT) + '), target)'], cwd=work, env=env)
-            (run / 'core-paths.txt').write_text(paths)
-            execution, core = output_files(work, paths)
-            def one(files, name, fragment):
-                found = [p for p in files if p.name == name and fragment in str(p)]
-                require(len(found) == 1, 'ambiguous/missing artifact: ' + fragment + '/' + name)
-                return found[0]
-            vendor_core = [p for p in core if '/msm-kernel/fps_gki/' in str(p)]
-            # Check both configurations before building the modules: the Image
-            # uses the GKI one, the vendor modules are built against the vendor
-            # tree's, and both must meet the same policy.
-            from . import kernel_config
-            policy = load_json(ROOT / 'config/kernel-policy-fp6.json')
-            effective = one(core, '.config', '/common/kernel_aarch64_config/')
-            for label, config, report in ((profile + ' kernel', effective, 'kernel-config.json'),
-                                          (profile + ' vendor kernel', one(vendor_core, '.config', '/fps_gki/'),
-                                           'vendor-kernel-config.json')):
-                checked = kernel_config.check(config.read_bytes(), policy, profile)
-                (run / report).write_bytes(encoded(checked))
-                require(checked['status'] == 'PASS', label + ' configuration regressed')
-            # QRTR and Qualcomm's download-mode driver live in the vendor
-            # kernel configuration only (the GKI Image has neither): check the
-            # IMS role guard and the panic dump default where they are built.
-            vendor_policy = load_json(ROOT / 'config/kernel-vendor-policy-fp6.json')
-            checked = kernel_config.check(one(vendor_core, '.config', '/fps_gki/').read_bytes(),
-                                          vendor_policy, profile)
-            (run / 'vendor-role-kernel-config.json').write_bytes(encoded(checked))
-            require(checked['status'] == 'PASS', 'vendor kernel configuration regressed')
-            query = 'filter(":fps_gki.*", kind("_kernel_module rule", //vendor/...))'
-            found = set(call([work / 'tools/bazel', '--batch', 'query', '--output=label', query], cwd=work, env=env).splitlines())
-            require(set(EXCLUDED_MODULE_TARGETS) <= found, 'excluded external target no longer exists')
-            targets = sorted(found - set(EXCLUDED_MODULE_TARGETS))
-            require(targets and all(re.fullmatch(r'//vendor/[A-Za-z0-9_./-]+:fps_gki[A-Za-z0-9_.-]*', t) for t in targets), 'invalid external target set')
-            require(any('/audio-kernel:' in t for t in targets) and any('/wlan/qcacld-3.0:' in t for t in targets), 'missing audio/WLAN target')
-            (run / 'module-targets.txt').write_text('\n'.join(targets) + '\n')
-            bazel('external-modules', ['build', *flags, *targets])
-            warnings = [w for name in ('core-build', 'external-modules')
-                        for w in kernel_layout.visibility_warnings((run / (name + '.log')).read_bytes())]
-            require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + '; '.join(warnings[:5]))
-            paths = call([work / 'tools/bazel', '--batch', 'cquery', KMI, STAMP, FRAGMENT, '--output=files',
-                          'config(set(' + ' '.join(targets) + '), target)'], cwd=work, env=env)
-            (run / 'module-paths.txt').write_text(paths)
-            _, external = output_files(work, paths)
-            kit = run / 'kit'; kit.mkdir()
-            base = run / 'base-dts'; base.mkdir()
-            for name in ('.config', 'Module.symvers'):
-                shutil.copyfile(one(vendor_core, name, '/fps_gki/'), kit / name)
-            for p in vendor_core:
-                if p.suffix in ('.dtb', '.dtbo'): shutil.copyfile(p, base / p.name)
-            require((base / 'fp6.dtb').is_file(), 'FP6 base DT missing')
-            output = run / 'dt-output'; output.mkdir()
-            dt_env = dict(env, KERNEL_DIR='msm-kernel', BUILD_CONFIG='msm-kernel/build.config.msm.fps', VARIANT='gki',
-                          OUT_DIR=str(output / 'kernel_platform'), KERNEL_KIT=str(kit), TARGET_BOARD_PLATFORM='FP6',
-                          MAKEFLAGS='-j' + str(jobs), EXT_MODULES='')
-            command('dt-environment', ['bash', 'build/build_module.sh', '-j' + str(jobs)], dt_env)
-            command('dt-compiler', ['bash', '-e', '-c', 'source build/_setup_env.sh; compile_external_dtc'], dt_env)
-            require(sha(output / 'kernel_platform/msm-kernel/.config') == sha(kit / '.config'), 'DT config differs from vendor kernel')
-            dt_trees = sorted(p for p in root.glob('vendor/*/*/*-devicetree') if p.is_dir() and not p.is_symlink())
-            require(dt_trees, 'vendor device-tree projects missing')
-            for tree in dt_trees:
-                dt_env['EXT_MODULES'] = os.path.relpath(tree, work)
-                command('dt-' + tree.name, ['bash', 'build/build_module.sh', '-j' + str(jobs), 'dtbs'], dt_env)
-            dtc = output / 'kernel_platform/external/dtc'
-            host = run / 'host'; (host / 'bin').mkdir(parents=True); (host / 'lib').mkdir()
-            for name in ('dtc', 'fdtget', 'fdtput', 'fdtoverlay', 'fdtoverlaymerge'):
-                shutil.copy2(dtc / name, host / 'bin' / name)
-            lib = dtc / 'libfdt/libfdt-1.6.0.so'; shutil.copy2(lib, host / 'lib' / lib.name)
-            (host / 'lib/libfdt.so.1').symlink_to(lib.name)
-            merge_env = dict(env, PATH=str(host / 'bin') + ':' + str(work / 'prebuilts/kernel-build-tools/linux-x86/bin') + ':' +
-                             str(work / 'build/kernel/build-tools/path/linux-x86') + ':/usr/bin:/bin',
-                             LD_LIBRARY_PATH=str(host / 'lib') + ':' + str(work / 'prebuilts/kernel-build-tools/linux-x86/lib64'))
-            merged = run / 'merged'; merged.mkdir()
-            command('merge-dt', ['python3', 'build/android/merge_dtbs.py', '--base', str(base), '--techpack', str(output / 'vendor'), '--out', str(merged)], merge_env)
-            dtbos = sorted(merged.glob('*.dtbo'))
-            require(all((merged / n).is_file() for n in dtbs) and len(dtbos) == recipe['dtbo_count'],
-                    'merged DT inventory changed')
-            command('pack-dtbo', [work / 'prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg', 'create', merged / 'dtbo.img', '--page_size=4096', *dtbos], merge_env)
-            wanted = set().union(*map(set, recipe['partitions'].values()))
-            # A denied module that is no longer built was renamed or dropped.
-            # Review the deny list rather than let a renamed copy back in.
-            built = {module_key(p.name) for p in core + vendor_core + external if p.suffix == '.ko'}
-            stale = sorted(n for n in denied if module_key(n) not in built)
-            require(not stale, 'denied module no longer built (update the deny list): ' + ', '.join(stale))
-            selected = {}
-            for name in sorted(wanted):
-                pool = core if name in recipe['partitions']['system_dlkm'] else vendor_core + external
-                choices = [p for p in pool if p.name == name]
-                if name in recipe['partitions']['system_dlkm']:
-                    choices = [p for p in choices if '/common/' in str(p)]
-                require(choices and len({sha(p) for p in choices}) == 1, 'missing/ambiguous selected module: ' + name)
-                selected[name] = choices[0]
-            # Every built module and both kernels' debug objects, from the output
-            # tree of the packaged Image (Bazel also keeps other configurations).
-            vmlinux = one(core, 'vmlinux', '/common/kernel_aarch64/')
-            bin_dir = next(p for p in vmlinux.parents if p.name == 'bin')
-            debug = sorted(bin_dir.rglob('unstripped/*.ko'))
-            require({p.name for p in debug} >= set(selected), 'unstripped module missing for the layout scan')
-            debug += [vmlinux, bin_dir / 'msm-kernel/fps_gki_kbuild_mixed_tree/vmlinux']
-            require(debug[-1].is_file(), 'vendor kernel vmlinux missing for the layout scan')
-            result['phase'] = 'layout-scan'; save(); print('layout-scan', flush=True)
-            layout = kernel_layout.scan(work / 'prebuilts/kernel-build-tools/linux-x86/bin/pahole', debug, min(jobs, 4))
-            layout['objects_scanned'] = [p.relative_to(execution).as_posix() for p in debug]
-            (run / 'layout-scan.json').write_bytes(encoded(layout))
-            require(not layout['errors'], 'layout scan could not read ' + str(len(layout['errors'])) + ' objects')
-            require(not layout['mismatches'], 'RANDSTRUCT layout differs between compilation units: ' +
-                    ', '.join(m['name'] for m in layout['mismatches']))
-            shutil.copyfile(effective, run / 'gki.config')
-            shutil.copyfile(kit / '.config', run / 'vendor.config')
-            image = one(core, 'Image', '/common/kernel_aarch64/')
-            # The GKI build's own key and signing tool, next to its Image.
-            gki = image.parent
-            for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
-                require((gki / name).is_file() and (gki / name).resolve().is_relative_to(work / 'out'),
-                        'kernel signing input missing: ' + name)
-            require(re.search(rb'^CONFIG_MODULE_SIG_FORCE=y$', effective.read_bytes(), re.M) and
-                    re.search(rb'^CONFIG_MODULE_SIG_HASH="sha256"$', effective.read_bytes(), re.M),
-                    'kernel does not enforce sha256 module signatures')
-            candidate = run / 'candidate'
-            render_package(candidate, selected, merged, image, recipe,
-                           clang_bin(work) / 'llvm-strip', work,
-                           (gki / 'scripts/sign-file', gki / 'certs/signing_key.pem',
-                            gki / 'certs/signing_key.x509', 'sha256'))
-            # Check the packaged (stripped and signed) modules against the Image's
-            # built-in certificate, symbol CRCs and namespaces.
-            # Stamped builds name each tree's commit: the Image the common kernel's,
-            # the vendor modules the kernel_qcom commit's. Both must be the pins.
-            image_release = kernel_release(vmlinux)
-            require(stamped_by(image_release, preparation['submodules']['kernel_platform/common']),
-                    'Image release does not name the pinned common kernel: ' + image_release)
-            releases = {'image': image_release, 'vendor_base': image_release.rsplit('-g', 1)[0],
-                        'vendor_commit': preparation['source_commit']}
-            result['kernel_releases'] = releases
-            from .kernel_interfaces import verify_built
-            verify_built(work, run, {name: candidate / 'modules' / name for name in selected},
-                         core + external, one(core, 'vmlinux', '/common/kernel_aarch64/'),
-                         module_metadata, call, require, releases=releases)
-            # Symbol rules moved from the per-build checks: which modules may
-            # import a symbol, and symbols that must or must not exist in the Image.
-            nm = clang_bin(work) / 'llvm-nm'
-            check_module_imports({name: candidate / 'modules' / name for name in selected}, allowlist,
-                                 lambda path: undefined_symbols(call([nm, '-u', path], cwd=work)))
-            system_map = vmlinux.parent / 'System.map'
-            require(system_map.is_file(), 'System.map missing next to the packaged kernel')
-            check_forbidden_symbols(system_map.read_text(errors='replace'), forbidden)
-            check_required_symbols(system_map.read_text(errors='replace'), required)
-            verify_source(root, plan, preparation['submodules'], preparation['prebuilts'])
-            for p in candidate.rglob('*'):
-                if p.is_file(): p.chmod(0o640)
-            inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
-                         for p in sorted(candidate.rglob('*')) if p.is_file()]
-            (run / 'artifacts.json').write_bytes(encoded(inventory))
-            result.update(status='PASS', module_count=len(selected), denied_module_count=len(denied),
-                          dtb_count=len(dtbs), dtbo_count=len(dtbos),
-                          import_rules_checked=len(allowlist), forbidden_symbols_checked=len(forbidden),
-                          required_symbols_checked=len(required),
-                          inventory_sha256=sha(run / 'artifacts.json'),
-                          interfaces_sha256=sha(run / 'module-interfaces.json'),
-                          layout_scan_sha256=sha(run / 'layout-scan.json'),
-                          scope='Kernel build and packaging. Installed-image, runtime and production qualification are separate.')
+            execute(root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase,
+                    denied=denied, allowlist=allowlist, forbidden=forbidden, required=required, pending=pending,
+                    dtbs=dtbs, arguments=arguments)
             save()
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:
-                link = Path(temp) / 'current'; link.symlink_to(os.path.relpath(candidate, root))
+                link = Path(temp) / 'current'
+                link.symlink_to(os.path.relpath(run / 'candidate', root))
                 os.replace(link, root / 'current')
         except (Exception, KeyboardInterrupt) as exc:
-            result.update(status='FAIL', error=str(exc)); save(); raise
+            result.update(status='FAIL', error=str(exc))
+            save()
+            raise
         return result
+
+
+def linux_version(common):
+    """VERSION.PATCHLEVEL.SUBLEVEL of the common kernel."""
+    values = dict(re.findall(r'^(VERSION|PATCHLEVEL|SUBLEVEL) = ([0-9]+)$',
+                             (common / 'Makefile').read_text(errors='replace'), re.M))
+    require(set(values) == {'VERSION', 'PATCHLEVEL', 'SUBLEVEL'}, 'Makefile names no kernel version')
+    return '.'.join(values[k] for k in ('VERSION', 'PATCHLEVEL', 'SUBLEVEL'))
+
+
+def execute(root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase, *,
+            denied, allowlist, forbidden, required, pending, dtbs, arguments):
+    vendor, common = root / 'vendor', root / 'common'
+    logs = run / 'logs'
+    logs.mkdir()
+    env, make = kernel_build.toolchain(root, build_plan, run / 'tools', commit_time(common, preparation['projects']['common']['revision']))
+    ctx = {'env': env, 'make': make, 'common': common, 'jobs': jobs, 'timeout': timeout, 'logs': logs,
+           'runs': run, 'out': run / 'out', 'tools_root': ROOT}
+    policy = load_json(POLICY)
+    vendor_policy = load_json(VENDOR_POLICY)
+    core_plan, device_plan = build_plan['core'], build_plan['device']
+
+    def record(name, started):
+        result['commands'].append({'name': name, 'log_sha256': sha(logs / (name + '.log')) if (logs / (name + '.log')).is_file() else None,
+                                   'seconds': round(time.monotonic() - started), 'status': 'PASS'})
+
+    def make_kernel(name, out, arguments_, goals):
+        phase(name)
+        started = time.monotonic()
+        call([*make, '-C', common, 'O=' + str(out), *arguments_, '-j%d' % jobs, *goals], cwd=common, env=env,
+             timeout=timeout, log=logs / (name + '.log'))
+        record(name, started)
+
+    # The GKI core build: gki_defconfig, the DiamaneOS hardening and the profile.
+    fragments = [vendor / f for f in core_plan['fragments'] + [core_plan['profile_fragments'][profile]]]
+    core = run / 'core'
+    kernel_build.merge_config([common / core_plan['defconfig'], *fragments], core / '.config')
+    make_kernel('core-configure', core, [], ['olddefconfig'])
+    core_config = (core / '.config').read_bytes()
+    unmet = kernel_build.unmet_requests([p.read_text() for p in fragments], core_config)
+    (run / 'fragment-check.json').write_bytes(encoded({'unmet': unmet}))
+    require(not unmet, 'configuration requests the build does not honour: ' + ', '.join(list(unmet)[:8]))
+    checks = {}
+    checked = kernel_config.check(core_config, policy, profile)
+    checks['kernel-config'] = checked
+    (run / 'kernel-config.json').write_bytes(encoded(checked))
+    require(checked['status'] == 'PASS', profile + ' kernel configuration regressed')
+    make_kernel('core-build', core, [], core_plan['goals'])
+
+    # The device kernel build: the same tree and configuration plus the drivers the GKI build lacks.
+    device = run / 'device'
+    kernel_build.merge_config([core / '.config', *[vendor / f for f in device_plan['fragments']]], device / '.config')
+    make_kernel('device-configure', device, [], ['olddefconfig'])
+    changed = kernel_build.device_config_differences(core_config, (device / '.config').read_bytes(), device_plan['config_symbols'])
+    (run / 'device-config.json').write_bytes(encoded({'changed': changed, 'reason': device_plan['reason']}))
+    make_kernel('device-build', device, [], device_plan['goals'])
+    require(kernel_build.vmlinux_exports((core / kernel_build.SYMVERS).read_text()) ==
+            kernel_build.vmlinux_exports((device / kernel_build.SYMVERS).read_text()),
+            'the device kernel build exports other kernel symbols than the GKI build')
+
+    # The vendor policy applies to the device kernel configuration with the vendor defconfigs on top.
+    vendor_checked = kernel_config.check(vendor_config((device / '.config').read_bytes(), vendor), vendor_policy, profile)
+    (run / 'vendor-role-kernel-config.json').write_bytes(encoded(vendor_checked))
+    require(vendor_checked['status'] == 'PASS', 'vendor kernel configuration regressed')
+
+    # The vendor module packages, built from a clean copy of the pinned modules tree.
+    stage = run / 'vendor-src'
+    kernel_build.stage_vendor_modules(vendor, preparation['projects']['vendor']['revision'], stage)
+    ctx.update(device=device)
+    ctx['out'].mkdir()
+    outputs, built = {}, {}
+    for step in build_plan['vendor']['steps']:
+        phase(step['name'])
+        started = time.monotonic()
+        built[step['name']] = kernel_build.STEPS[step['kind']](ctx, step, stage, outputs)
+        record(step['name'], started)
+    warnings = [w for name in ('core-build', 'device-build', *built) for w in
+                kernel_build.visibility_warnings((logs / (name + '.log')).read_bytes())]
+    require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + ', '.join(warnings[:5]))
+    (run / 'modules-built.json').write_bytes(encoded({k: v for k, v in sorted(built.items())}))
+
+    # The module set: every listed module from its build, stripped and signed with the Image's key.
+    vendor_pool = kernel_build.collect(outputs.values())
+    core_pool = {}
+    for path in sorted(core.rglob('*.ko')):
+        core_pool.setdefault(path.name, path)
+    wanted = set().union(*map(set, recipe['partitions'].values()))
+    keys_built = {module_key(n) for n in list(vendor_pool) + list(core_pool)}
+    result['denied_modules_not_built'] = sorted(n for n in denied if module_key(n) not in keys_built)
+    result['denied_module_count'] = len(denied) - len(result['denied_modules_not_built'])
+    device_pool = {}
+    for module in device_plan['modules']:
+        path = device / module
+        require(path.is_file(), 'device kernel module missing: ' + module)
+        require(path.name not in vendor_pool and path.name not in device_pool, 'two builds make the module ' + path.name)
+        device_pool[path.name] = path
+    selected = kernel_package.select(wanted, {**vendor_pool, **device_pool}, core_pool)
+    kernel_package.check_placement(recipe, lambda n: dependencies(selected[n]) if n in selected else [])
+    signing_dir = core
+    for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
+        require((signing_dir / name).is_file(), 'kernel signing input missing: ' + name)
+    config_text = core_config
+    require(re.search(rb'^CONFIG_MODULE_SIG_FORCE=y$', config_text, re.M) and
+            re.search(rb'^CONFIG_MODULE_SIG_HASH="sha256"$', config_text, re.M), 'kernel does not enforce sha256 module signatures')
+    phase('package')
+    staged = run / 'staged-modules'
+    llvm = root / build_plan['toolchain']['clang'] / 'bin'
+    kernel_package.stage_modules(staged, selected, llvm / 'llvm-strip',
+                                 (core / 'scripts/sign-file', core / 'certs/signing_key.pem', core / 'certs/signing_key.x509', 'sha256'),
+                                 module_metadata, common,
+                                 root / build_plan['toolchain']['host_libraries'] / 'lib64')
+
+    # The device tree: the pinned base with the declared fix-ups.
+    phase('device-tree')
+    files = kernel_dt.base_files(root / 'base-dt', dt_plan['base'])
+    fixed, changes = kernel_dt.apply_fixups(files['dtbs/fp6.dtb'], dt_plan['fixups'])
+    count = kernel_dt.overlay_count(files['dtbo.img'])
+    require(count == dt_plan['base']['overlay_count'] == recipe['dtbo_count'], 'overlay count changed')
+    (run / 'device-tree-fixups.json').write_bytes(encoded({'base_sha256': dt_plan['base']['files'], 'fixups': changes}))
+    (run / 'fp6.dtb').write_bytes(fixed)
+    call([root / build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts', '-o', run / 'fp6.dts', run / 'fp6.dtb'],
+         cwd=run, env=env)
+
+    image = core / 'arch/arm64/boot/Image'
+    candidate = run / 'candidate'
+    kernel_package.render_package(candidate, staged, image, {dtbs[0]: fixed}, files['dtbo.img'], recipe, arguments)
+
+    # The packaged modules against the Image's certificate, symbol versions and namespaces.
+    phase('module-interfaces')
+    vmlinux = core / 'vmlinux'
+    release = kernel_release(vmlinux)
+    require(release == (core / 'include/config/kernel.release').read_text().strip()
+            and release.endswith('-g' + preparation['projects']['common']['revision'][:12]),
+            'Image release does not name the pinned common kernel: ' + release)
+    result['kernel_release'] = release
+    from .kernel_interfaces import verify_built
+    tables = [core / kernel_build.SYMVERS, device / kernel_build.SYMVERS] + [p / kernel_build.SYMVERS for p in outputs.values()]
+    verify_built(common, common, run, {n: candidate / 'modules' / n for n in selected}, [t for t in tables if t.is_file()],
+                 vmlinux, core / kernel_build.SYMVERS, module_metadata, call, require, release=release)
+    nm = llvm / 'llvm-nm'
+    undefined = {n: undefined_symbols(call([nm, '-u', candidate / 'modules' / n], cwd=common)) for n in selected}
+    check_module_imports({n: candidate / 'modules' / n for n in selected}, allowlist, lambda path: undefined[path.name])
+    exports = {row.split('\t')[1] for row in kernel_build.vmlinux_exports((core / kernel_build.SYMVERS).read_text())}
+    # The Qualcomm modules are held to the symbol lists. The modules of the common tree itself are not.
+    vendor_imports = {n: u for n, u in undefined.items() if n in vendor_pool}
+    outside, used = check_kmi(vendor_imports, exports, kmi_symbols(common), kmi_exceptions(recipe))
+    result['kmi'] = {'modules_checked': len(vendor_imports), 'kernel_symbols_imported': used, 'outside_symbol_lists': outside}
+    system_map = (core / 'System.map').read_text(errors='replace')
+    check_forbidden_symbols(system_map, forbidden)
+    result['pending_required_symbols'] = check_required_symbols(system_map, required, pending)
+    for p in candidate.rglob('*'):
+        if p.is_file():
+            p.chmod(0o640)
+    inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
+                 for p in sorted(candidate.rglob('*')) if p.is_file()]
+    (run / 'artifacts.json').write_bytes(encoded(inventory))
+    for name, path in (('core.config', core / '.config'), ('device.config', device / '.config'),
+                       ('core.symvers', core / kernel_build.SYMVERS), ('System.map', core / 'System.map')):
+        shutil.copyfile(path, run / name)
+    result.update(status='PASS', module_count=len(selected), dtb_count=len(dtbs), dtbo_count=count,
+                  import_rules_checked=len(allowlist), forbidden_symbols_checked=len(forbidden),
+                  required_symbols_checked=len(required), inventory_sha256=sha(run / 'artifacts.json'),
+                  interfaces_sha256=sha(run / 'module-interfaces.json'),
+                  scope='Kernel build and packaging. Installed-image, runtime and production qualification are separate.')
+
+
+def dependencies(path):
+    values = dict(module_metadata(path))
+    return [d for d in values.get(b'depends', b'').decode().split(',') if d]
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['prepare', 'build'])
     parser.add_argument('--workspace', type=Path, required=True,
-                        help='kernel source workspace: the kernel repository checkout and its build runs')
+                        help='kernel workspace: the pinned sources, the toolchain and the build runs')
     parser.add_argument('--jobs', type=int, default=16)
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
     parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
                         help='build: kernel configuration policy to check. The development profile checks only the '
-                             'baseline. It does not change the kernel configuration, which comes from '
-                             'the pinned defconfig')
+                             'baseline. Both build the configuration of the vendor tree\'s production profile')
+    parser.add_argument('--source', action='append', default=[], metavar='NAME=PATH',
+                        help='prepare: fetch the pinned commit of NAME (vendor, common, a toolchain part or base-dt) '
+                             'from this local Git repository instead of its URL. The commit stays the pin')
     args = parser.parse_args(argv)
     try:
         require(1 <= args.jobs <= 64 and 60 <= args.timeout <= 21600, 'invalid build resource limits')
         require(args.operation == 'build' or args.config_profile == 'production', 'config profile is a build option')
+        require(args.operation == 'prepare' or not args.source, 'source overrides are a prepare option')
+        overrides = dict(s.split('=', 1) for s in args.source if '=' in s)
+        require(len(overrides) == len(args.source), 'use --source NAME=PATH')
         with process.interrupt_on_termination():
-            result = (prepare(args.workspace.absolute()) if args.operation == 'prepare' else
+            result = (prepare(args.workspace.absolute(), overrides) if args.operation == 'prepare' else
                       build(args.workspace.absolute(), args.jobs, args.timeout, args.config_profile))
-        print(json.dumps(result, indent=2)); return 0
+        print(json.dumps(result, indent=2))
+        return 0
     except KeyboardInterrupt:
-        print('ERROR: kernel ' + args.operation + ' interrupted', file=sys.stderr); return 130
-    except (KernelError, VendorError, OSError, ValueError, KeyError) as exc:
-        print('ERROR: kernel ' + args.operation + ' failed: ' + str(exc), file=sys.stderr); return 2
+        print('ERROR: kernel ' + args.operation + ' interrupted', file=sys.stderr)
+        return 130
+    except (KernelError, kernel_dt.DeviceTreeError, VendorError, OSError, ValueError, KeyError) as exc:
+        print('ERROR: kernel ' + args.operation + ' failed: ' + str(exc), file=sys.stderr)
+        return 2

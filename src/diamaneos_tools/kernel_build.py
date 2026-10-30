@@ -1,0 +1,217 @@
+"""Compile the FP6 kernel set on the 6.18 common kernel.
+
+The common kernel (DiamaneOS/kernel_common-6.18 with the FP6 commits) is
+built twice from one tree: the GKI core build (Image, GKI modules, the signing
+key) and the FP6 device kernel build, which adds the drivers the 6.18 GKI build
+does not make (cfg80211, mac80211, BAM DMA, cqhci). The vendor module packages
+of the vendor tree build as external modules against the device kernel build,
+in the order config/fp6-kernel-build.json lists.
+"""
+from pathlib import Path
+import re
+import tarfile
+import time
+
+from . import kernel_config, kernel_kbuild
+from .kernel_util import call, git, require
+
+VISIBILITY_WARNING = re.compile(rb'^.*\[-Wvisibility\]$', re.M)
+SYMVERS = 'Module.symvers'
+
+
+def visibility_warnings(log_bytes):
+    """Clang's -Wvisibility names a struct first declared inside a parameter list.
+    It is on by default, so any occurrence in a build log is new."""
+    return [m.decode(errors='replace').strip() for m in VISIBILITY_WARNING.findall(log_bytes)]
+
+
+def toolchain(root, plan, farm, epoch):
+    """The environment and make arguments of every kernel build: the pinned toolchain
+    through a small farm of links, and nothing from the caller's environment."""
+    paths = {key: root / value for key, value in plan['toolchain'].items() if isinstance(value, str)}
+    for key in ('clang', 'rust', 'bindgen', 'kernel_build_tools', 'build_tools', 'bison_data', 'host_libraries',
+                'zlib_include'):
+        require(paths[key].exists(), 'toolchain missing: ' + plan['toolchain'][key])
+    bin_dir, include, lib = farm / 'bin', farm / 'include', farm / 'lib'
+    for directory in (bin_dir, include, lib):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    def link(directory, name, target):
+        path = directory / name
+        if path.is_symlink() or path.exists():
+            path.unlink()
+        path.symlink_to(target)
+    tools = paths['build_tools']
+    for name, target in (('bison', tools / 'bison'), ('flex', tools / 'flex'), ('m4', tools / 'm4'),
+                         ('bc', tools / 'gavinhoward-bc'), ('pahole', paths['kernel_build_tools'] / 'bin/pahole'),
+                         ('bindgen', paths['bindgen'])):
+        require(target.exists(), 'toolchain tool missing: ' + target.name)
+        link(bin_dir, name, target)
+    for name in ('elfutils', 'gelf.h', 'libelf.h', 'dwarf.h', 'nlist.h'):
+        link(include, name, paths['kernel_build_tools'] / 'include' / name)
+    link(include, 'zlib.h', paths['zlib_include'] / 'zlib.h')
+    link(include, 'zconf.h', paths['zlib_include'] / 'x86_64-linux-gnu/zconf.h')
+    link(lib, 'libz.so', paths['host_libraries'] / 'lib64/libz-host.so')
+    for soname in plan['toolchain']['system_libraries']:
+        found = [Path(d) / soname for d in ('/usr/lib/x86_64-linux-gnu', '/usr/lib64', '/lib/x86_64-linux-gnu')
+                 if (Path(d) / soname).exists()]
+        require(found, 'host library missing: ' + soname)
+        link(lib, soname.split('.so')[0] + '.so', found[0])
+    host = paths['host_libraries']
+    env = {'PATH': ':'.join(str(p) for p in (paths['clang'] / 'bin', paths['rust'] / 'bin', bin_dir)) + ':/usr/bin:/bin',
+           'LIBCLANG_PATH': str(paths['clang'] / 'lib'),
+           'BISON_PKGDATADIR': str(paths['bison_data']), 'M4': str(tools / 'm4'),
+           'SOURCE_DATE_EPOCH': epoch,
+           'KBUILD_BUILD_TIMESTAMP': time.strftime('%a %b %e %H:%M:%S UTC %Y', time.gmtime(int(epoch))),
+           'KBUILD_BUILD_USER': plan['make']['build_user'], 'KBUILD_BUILD_HOST': plan['make']['build_host'],
+           'KCFLAGS': ' '.join(plan['make']['kcflags']), 'LC_ALL': 'C', 'TZ': 'UTC', 'HOME': str(farm)}
+    make = ['make', *plan['make']['arguments'],
+            'HOSTCFLAGS=-I%s -I%s' % (host / 'include', include),
+            'HOSTLDFLAGS=-L%s -L%s -Wl,-rpath,%s' % (lib, host / 'lib64', host / 'lib64')]
+    return env, make
+
+
+def vendor_environment(env, stage):
+    """The environment of the vendor module builds: file names in the modules carry no build directory."""
+    return dict(env, KCFLAGS=env['KCFLAGS'] + ' -ffile-prefix-map=%s/=' % stage)
+
+
+def merge_config(parts, destination):
+    """The configuration to start from: the defconfig, then each fragment, later lines winning."""
+    texts = []
+    for part in parts:
+        require(part.is_file(), 'configuration file missing: ' + part.name)
+        texts.append(part.read_text())
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text('\n'.join(texts) + '\n')
+
+
+def requested_values(fragments):
+    """The value each fragment asks for, the last request of a symbol winning."""
+    wanted = {}
+    for text in fragments:
+        for line in text.splitlines():
+            line = line.strip()
+            match = re.fullmatch(r'(CONFIG_[A-Za-z0-9_]+)=(.*)', line)
+            if match:
+                wanted[match.group(1)] = match.group(2)
+                continue
+            match = re.fullmatch(r'# (CONFIG_[A-Za-z0-9_]+) is not set', line)
+            if match:
+                wanted[match.group(1)] = 'n'
+    return wanted
+
+
+def unmet_requests(fragments, final):
+    """Fragment requests the final configuration does not honour (a symbol Kconfig
+    turned back, dropped or never knew)."""
+    values = kernel_config.parse_config(final)
+    return {s: [w, values.get(s)] for s, w in sorted(requested_values(fragments).items()) if values.get(s, 'n') != w}
+
+
+def device_config_differences(core, device, allowed):
+    """Symbols whose value differs between the GKI and the device kernel configuration.
+    Both builds share one source tree and one Image, so any other difference could
+    change a structure the modules and the Image disagree on."""
+    core, device = kernel_config.parse_config(core), kernel_config.parse_config(device)
+    changed = {s: [core.get(s, 'n'), device.get(s, 'n')] for s in sorted(set(core) | set(device))
+               if core.get(s, 'n') != device.get(s, 'n')}
+    stray = sorted(set(changed) - set(allowed))
+    require(not stray, 'the device kernel build changes the GKI configuration: ' + ', '.join(stray[:5]))
+    return changed
+
+
+def vmlinux_exports(symvers_text):
+    return sorted(line for line in symvers_text.splitlines() if line.split('\t')[2:3] == ['vmlinux'])
+
+
+def stage_vendor_modules(vendor, revision, destination):
+    """The modules/ tree of the pinned vendor commit, extracted clean so that the
+    generated Kbuild files never touch the checkout."""
+    destination.mkdir(parents=True)
+    archive = destination.with_suffix('.tar')
+    git(vendor, 'archive', '--format=tar', '-o', archive, revision, 'modules')
+    with tarfile.open(archive) as tar:
+        tar.extractall(destination, filter='data')
+    archive.unlink()
+    require((destination / 'modules/base/Makefile').is_file(), 'the vendor tree has no modules/base')
+
+
+def package_step(ctx, step, stage, outputs):
+    """One vendor package: its Kbuild from the DDK registry, then an external-module build."""
+    package = stage / 'modules' / step['package']
+    base = stage / 'modules/base'
+    out = ctx['out'] / step.get('output', step['name'])
+    extra = [str(ctx['tools_root'] / step['extra_defconfig'])] if step.get('extra_defconfig') else []
+    if step.get('defconfig_check'):
+        check_defconfig(package / step['defconfig_check'], Path(extra[0]))
+    if step.get('feature_header'):
+        lines = kernel_kbuild.feature_probes(ctx['common'], [tuple(p) for p in step['feature_probes']])
+        header = package / step['feature_header']
+        header.write_text('\n'.join(lines) + ('\n' if lines else ''))
+    table = kernel_kbuild.generate(str(package), str(base), str(out), str(ctx['device'] / 'include/config/auto.conf'),
+                                   only=step.get('modules', ()), extra_defconfig=extra)
+    symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
+    for path in symbols:
+        require(path.is_file(), 'symbol table missing for %s: %s' % (step['name'], path.relative_to(ctx['out'])))
+    arguments = ['-C', str(ctx['common']), 'O=' + str(ctx['device']), 'M=' + str(package), 'MO=' + str(out),
+                 'VENDOR_ROOT=' + str(package), 'VENDOR_OUT=' + str(out),
+                 'KBUILD_EXTRA_SYMBOLS=' + ' '.join(map(str, symbols)), '-k', 'modules']
+    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=package, env=vendor_environment(ctx['env'], stage),
+         timeout=ctx['timeout'],
+         log=ctx['logs'] / (step['name'] + '.log'))
+    modules = sorted(p.name for p in out.rglob('*.ko'))
+    require(len(modules) == len(table), '%s built %d of %d registered modules' % (step['name'], len(modules), len(table)))
+    outputs[step['name']] = out
+    return modules
+
+
+def check_defconfig(defconfig, effective):
+    """Every value the vendor defconfig sets must hold in the effective configuration."""
+    wanted, have = kernel_kbuild.read_config(str(defconfig)), kernel_kbuild.read_config(str(effective))
+    wrong = sorted(k for k, v in wanted.items() if have.get(k) != v)
+    require(not wrong, 'the effective configuration differs from the vendor defconfig: ' + ', '.join(wrong[:5]))
+
+
+def base_step(ctx, step, stage, outputs):
+    out = ctx['out'] / step['output']
+    arguments = ['-C', str(stage / 'modules' / step['package']), 'KERNEL_SRC=' + str(ctx['common']),
+                 'KERNEL_OUT=' + str(ctx['device']), 'OUT=' + str(out)]
+    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=stage, env=vendor_environment(ctx['env'], stage),
+         timeout=ctx['timeout'],
+         log=ctx['logs'] / (step['name'] + '.log'))
+    outputs[step['name']] = out
+    return sorted(p.name for p in out.rglob('*.ko'))
+
+
+def groups_step(ctx, step, stage, outputs):
+    """The display, GPU and touch groups through the vendor tree's own check script."""
+    modules = stage / 'modules'
+    out = ctx['out'] / step['output']
+    symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
+    configs = [modules / d / 'defconfig' for d in step['defconfigs']]
+    env = dict(vendor_environment(ctx['env'], stage), KSRC=str(ctx['common']), KOUT=str(ctx['device']), VINC=str(modules / 'base'),
+               VCONFIG=' '.join(map(str, configs)), OUT=str(out), JOBS=str(ctx['jobs']),
+               MK=' '.join(ctx['make'][:1] + [a for a in ctx['make'][1:] if not a.startswith('HOST')]),
+               BASE_SYMVERS=' '.join(map(str, symbols)))
+    script = modules / step['package'] / 'build/check.sh'
+    require(script.is_file(), 'the vendor tree has no ' + step['package'] + '/build/check.sh')
+    call(['bash', script, *step['groups']], cwd=modules, env=env, timeout=ctx['timeout'],
+         log=ctx['logs'] / (step['name'] + '.log'))
+    found = sorted(p.name for p in out.rglob('*.ko'))
+    for group in step['groups']:
+        outputs['p4/obj/' + group] = out / 'obj' / group
+    return found
+
+
+STEPS = {'base': base_step, 'package': package_step, 'groups': groups_step}
+
+
+def collect(directories):
+    """name -> file of every module built, each name once."""
+    pool = {}
+    for directory in directories:
+        for path in sorted(Path(directory).rglob('*.ko')):
+            require(path.name not in pool, 'two builds make the module ' + path.name)
+            pool[path.name] = path
+    return pool

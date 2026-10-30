@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "scope": "How the FP6 kernel set is built on the 6.18 common kernel: toolchain, kernel configuration, device kernel and the vendor module packages in build order. Packaging is in fp6-kernel-packaging.json.",
+  "toolchain": {
+    "clang": "toolchain/clang/clang-r584948c",
+    "rust": "toolchain/rust/1.91.1.p3",
+    "bindgen": "toolchain/clang-tools/linux-x86/bin/bindgen",
+    "kernel_build_tools": "toolchain/kernel-build-tools/linux_musl-x86",
+    "build_tools": "toolchain/build-tools/linux-x86/bin",
+    "bison_data": "toolchain/build-tools/common/bison",
+    "host_libraries": "toolchain/host-libraries/linux-x86",
+    "zlib_include": "toolchain/host-zlib/sysroot/usr/include",
+    "system_libraries": ["libdw.so.1", "libelf.so.1"]
+  },
+  "make": {
+    "arguments": ["ARCH=arm64", "LLVM=1", "LLVM_IAS=1"],
+    "kcflags": ["-D__ANDROID_COMMON_KERNEL__"],
+    "build_user": "build",
+    "build_host": "build"
+  },
+  "core": {
+    "defconfig": "arch/arm64/configs/gki_defconfig",
+    "fragments": ["configs/diamaneos_defconfig"],
+    "profile_fragments": {
+      "production": "configs/production_defconfig",
+      "development": "configs/production_defconfig"
+    },
+    "goals": ["Image", "modules"]
+  },
+  "device": {
+    "fragments": ["kernel/wireless_defconfig", "kernel/platform_defconfig"],
+    "goals": ["modules"],
+    "modules": ["drivers/dma/qcom/bam_dma.ko", "drivers/mmc/host/cqhci.ko", "net/mac80211/mac80211.ko", "net/wireless/cfg80211.ko"],
+    "config_symbols": [
+      "CONFIG_CFG80211",
+      "CONFIG_CFG80211_DEFAULT_PS",
+      "CONFIG_CFG80211_REQUIRE_SIGNED_REGDB",
+      "CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS",
+      "CONFIG_MAC80211",
+      "CONFIG_MAC80211_HAS_RC",
+      "CONFIG_MAC80211_RC_DEFAULT",
+      "CONFIG_MAC80211_RC_DEFAULT_MINSTREL",
+      "CONFIG_MAC80211_RC_MINSTREL",
+      "CONFIG_MMC_CQHCI",
+      "CONFIG_MODULE_SIG_ALL",
+      "CONFIG_NL80211_TESTMODE",
+      "CONFIG_QCOM_BAM_DMA"
+    ],
+    "reason": "The android17-6.18 GKI build makes no cfg80211, mac80211, BAM DMA engine or cqhci. The FP6 device kernel build makes them from the common tree with the GKI configuration, and every vendor module builds against it. It may differ from the GKI configuration only in these drivers and in leaving module signing to these tools. Its exports of the kernel itself must equal the GKI build's."
+  },
+  "vendor": {
+    "source_directories": ["modules"],
+    "steps": [
+      {"name": "base", "kind": "base", "package": "base", "output": "vendor"},
+      {"name": "thermal-dcvs", "kind": "package", "package": "thermal-dcvs", "symbols": []},
+      {"name": "audio-sensors", "kind": "package", "package": "audio-sensors", "symbols": ["thermal-dcvs"]},
+      {"name": "modem-data", "kind": "package", "package": "modem-data", "symbols": ["thermal-dcvs", "audio-sensors"]},
+      {
+        "name": "display",
+        "kind": "groups",
+        "package": "display",
+        "output": "p4",
+        "groups": ["emkit", "panel", "extdisp", "syncfence", "hwfence", "mmrm", "display", "kgsl", "touch"],
+        "symbols": ["thermal-dcvs"],
+        "defconfigs": ["base", "thermal-dcvs"]
+      },
+      {
+        "name": "camera-video",
+        "kind": "package",
+        "package": "camera-video",
+        "symbols": ["thermal-dcvs", "audio-sensors", "modem-data", "p4/obj/mmrm", "p4/obj/hwfence", "p4/obj/syncfence", "p4/obj/display", "p4/obj/emkit"]
+      },
+      {
+        "name": "wlan-bt",
+        "kind": "package",
+        "package": "wlan-bt",
+        "modules": ["cnss_prealloc", "cnss_utils", "wlan_firmware_service", "cnss_plat_ipc_qmi_svc", "cnss_nl", "icnss2", "btpower", "btfmcodec", "bt_fm_slim", "bt_fm_swr"],
+        "symbols": ["thermal-dcvs", "audio-sensors", "modem-data"]
+      },
+      {
+        "name": "peripherals",
+        "kind": "package",
+        "package": "peripherals",
+        "symbols": ["thermal-dcvs", "audio-sensors", "modem-data", "wlan-bt", "p4/obj/emkit", "p4/obj/display"]
+      },
+      {
+        "name": "qcacld",
+        "kind": "package",
+        "package": "wlan-bt",
+        "output": "wlan-qcacld",
+        "modules": ["qca_cld3_qca6750"],
+        "extra_defconfig": "config/fp6-kernel-qcacld.config",
+        "defconfig_check": "wlan/qcacld-3.0/configs/fps_gki_qca6750_defconfig",
+        "symbols": ["wlan-bt", "thermal-dcvs", "audio-sensors", "modem-data"],
+        "feature_header": "wlan/qcacld-3.0/configs/grep_defines_fps_gki_qca6750.h",
+        "feature_probes": [
+          ["net/wireless/nl80211.c", "nl80211_validate_key_link_id", "CFG80211_MLO_KEY_OPERATION_SUPPORT"],
+          ["include/net/cfg80211.h", "struct link_station_parameters", "CFG80211_LINK_STA_PARAMS_PRESENT"],
+          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_PUNCT", "NL80211_EXT_FEATURE_PUNCT_SUPPORT"],
+          ["include/net/cfg80211.h", "unsigned int link_id, u16 punct_bitmap", "CFG80211_RU_PUNCT_NOTIFY"],
+          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA", "CFG80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA"]
+        ]
+      }
+    ]
+  }
+}

@@ -10,6 +10,9 @@ from . import safe_json
 MAX_CONFIG_BYTES = 2 * 1024 * 1024
 SYMBOL = re.compile(r'CONFIG_[A-Za-z0-9_]+')
 VALUE = re.compile(r'(?:y|m|n|-?[0-9]+|0x[0-9a-fA-F]+|"(?:[^"\\\n]|\\.)*")')
+# Rules that accept more than one observed value. None stands for a symbol the configuration does not
+# mention, which is what a symbol hidden by an option that is off looks like.
+ALTERNATIVES = {'off': ('n', None), 'not-built-in': ('n', 'm', None)}
 
 
 def parse_config(data):
@@ -52,7 +55,8 @@ def validate_policy(policy):
         if not isinstance(rules, dict) or not 1 <= len(rules) <= 256:
             raise ValueError('invalid kernel policy requirements')
         for key, value in rules.items():
-            if not isinstance(key, str) or not SYMBOL.fullmatch(key) or not isinstance(value, str) or not VALUE.fullmatch(value):
+            if (not isinstance(key, str) or not SYMBOL.fullmatch(key) or not isinstance(value, str)
+                    or not (VALUE.fullmatch(value) or value in ALTERNATIVES)):
                 raise ValueError('invalid kernel policy requirement')
     if set(policy['baseline']) & set(policy['production']):
         raise ValueError('production policy cannot override baseline requirements')
@@ -65,7 +69,8 @@ def check(data, policy, profile):
     values = parse_config(data)
     def differences(rules):
         return [{'symbol': key, 'expected': expected, 'observed': values.get(key)}
-                for key, expected in sorted(rules.items()) if values.get(key) != expected]
+                for key, expected in sorted(rules.items())
+                if values.get(key) not in ALTERNATIVES.get(expected, (expected,))]
     baseline = differences(policy['baseline'])
     production = differences(policy['production'])
     failures = baseline + (production if profile == 'production' else [])

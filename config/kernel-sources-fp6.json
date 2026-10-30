@@ -1,4 +1,64 @@
 {
-  "repository": "https://github.com/DiamaneOS/kernel_qcom-6.1",
-  "revision": "51b4986c187b3ff642c04186b1dc08af29f4506a"
+  "schema_version": 2,
+  "vendor": {
+    "path": "vendor",
+    "url": "https://github.com/DiamaneOS/kernel_qcom-6.18",
+    "revision": "fa6b625ce3a93572875609590bd1d757c7740dc6"
+  },
+  "common": {
+    "path": "common",
+    "url": "https://github.com/DiamaneOS/kernel_common-6.18",
+    "revision": "03c6a8d2a9cdb52d645eac1596047b6436727822"
+  },
+  "toolchain": [
+    {
+      "name": "clang",
+      "path": "toolchain/clang",
+      "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86",
+      "revision": "4a7d0a5e443c27d8f68fbd46abfab464e1355a69",
+      "sparse": ["/*", "!/*/", "/clang-r584948c/"]
+    },
+    {
+      "name": "rust",
+      "path": "toolchain/rust",
+      "url": "https://android.googlesource.com/platform/prebuilts/rust-toolchain/linux-x86",
+      "revision": "a04f70c5179f23eff11c58cb480acee4afb1334b",
+      "sparse": ["/*", "!/*/", "/1.91.1.p3/"]
+    },
+    {
+      "name": "clang-tools",
+      "path": "toolchain/clang-tools",
+      "url": "https://android.googlesource.com/platform/prebuilts/clang-tools",
+      "revision": "4155cb466dcd9b53c6f873829c53aa6f905449dd",
+      "sparse": ["/*", "!/*/", "/linux-x86/"]
+    },
+    {
+      "name": "kernel-build-tools",
+      "path": "toolchain/kernel-build-tools",
+      "url": "https://android.googlesource.com/kernel/prebuilts/build-tools",
+      "revision": "78af2daf5d9d36fc6e1ddb28ee0d7b6516709eb4",
+      "sparse": ["/*", "!/*/", "/linux_musl-x86/"]
+    },
+    {
+      "name": "build-tools",
+      "path": "toolchain/build-tools",
+      "url": "https://android.googlesource.com/platform/prebuilts/build-tools",
+      "revision": "e25d4821f50af3f6e0b87d7751dfd27037445fe5",
+      "sparse": ["/*", "!/*/", "/linux-x86/bin/", "/common/bison/"]
+    },
+    {
+      "name": "host-libraries",
+      "path": "toolchain/host-libraries",
+      "url": "https://git.codelinaro.org/clo/la/kernel/prebuilts/build-tools",
+      "revision": "d153b7ab4a4956198957e258d4f370e875c53059",
+      "sparse": ["/*", "!/*/", "/linux-x86/include/", "/linux-x86/lib64/"]
+    },
+    {
+      "name": "host-zlib",
+      "path": "toolchain/host-zlib",
+      "url": "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+      "revision": "b1d5a0acb5df6aed7db41faedd5ff06496df6141",
+      "sparse": ["/*", "!/*/", "/sysroot/usr/include/zlib.h", "/sysroot/usr/include/x86_64-linux-gnu/zconf.h"]
+    }
+  ]
 }

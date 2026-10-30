@@ -8,11 +8,11 @@ def name(value):
     return Path(value).name.removesuffix('.ko').replace('-', '_')
 
 
-def review(modules, symbols, selected, *, protection=None, signed=(), releases=None):
-    """releases: the Image's release, and the base and commit a vendor-tree release has.
-    Stamped builds name each tree's own commit (-g<hash>), so a module may carry the
-    Image's release or the vendor tree's. The kernel then compares only the rest of
-    the vermagic, and only for modules with symbol CRCs."""
+def review(modules, symbols, selected, *, protection=None, signed=(), release=None, vmlinux_table=None):
+    """release: the Image's kernel release. Every module is built from the same tree
+    as the Image, so each must carry that release and the same remaining vermagic.
+    vmlinux_table: the symbol table of the Image's own build. Only it supplies the
+    built-in exports, as another build's vmlinux is not the kernel being packaged."""
     issues = []
     by_name = {}
     for module in modules:
@@ -28,31 +28,15 @@ def review(modules, symbols, selected, *, protection=None, signed=(), releases=N
         return {'status': 'FAIL', 'issues': [{'missing_modules': missing}]}
     versions = {v for n in selected for v in by_name[n]['metadata'].get('vermagic', [])}
     single = all(len(by_name[n]['metadata'].get('vermagic', [])) == 1 for n in selected)
-    if releases is None:
-        if len(versions) != 1 or not single:
-            issues.append({'check': 'vermagic', 'values': sorted(versions)})
-    else:
-        tails = {v.partition(' ')[2] for v in versions}
-        if not single or len(tails) != 1:
-            issues.append({'check': 'vermagic', 'values': sorted(versions)})
-        for n in sorted(selected):
-            for v in by_name[n]['metadata'].get('vermagic', []):
-                release = v.partition(' ')[0]
-                head, _, stamp = release.rpartition('-g')
-                vendor = (head == releases['vendor_base'] and len(stamp) >= 12
-                          and releases['vendor_commit'].startswith(stamp))
-                if release != releases['image'] and not vendor:
-                    issues.append({'module': n, 'check': 'vermagic-release', 'value': release})
-                elif release != releases['image'] and not by_name[n]['required_symbols']:
-                    # The kernel ignores the release part only for modules with CRCs.
-                    issues.append({'module': n, 'check': 'vermagic-release-without-crcs', 'value': release})
+    if len(versions) != 1 or not single:
+        issues.append({'check': 'vermagic', 'values': sorted(versions)})
+    elif release is not None and next(iter(versions)).partition(' ')[0] != release:
+        issues.append({'check': 'vermagic-release', 'values': sorted(versions), 'release': release})
     providers = defaultdict(set)
     for symbol in symbols:
         owner = name(symbol['owner'])
-        # Only the chosen common GKI supplies built-ins. A vendor compilation's
-        # vmlinux is not a substitute provider for the Image being packaged.
         if owner == 'vmlinux':
-            if not symbol['table'].endswith('/common/kernel_aarch64/vmlinux.symvers'):
+            if vmlinux_table is not None and symbol['table'] != str(vmlinux_table):
                 continue
         elif owner not in selected:
             continue
@@ -127,7 +111,22 @@ def read_symbol_tables(outputs):
                                 export=fields[3], namespace=fields[4] if len(fields)==5 else '', table=str(p)))
     return symbols
 
-def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require, releases=None):
+def without_padding(data):
+    """The built-in certificate list without the zero bytes 6.18 aligns it with
+    (certs/system_certificates.S pads to 4 bytes). One DER element, then at most
+    7 zero bytes, else it is returned unchanged and fails the exact check."""
+    if len(data) < 4 or data[0] != 0x30:
+        return data
+    if data[1] & 0x80:
+        count = data[1] & 0x7f
+        length = 2 + count + int.from_bytes(data[2:2 + count], 'big')
+    else:
+        length = 2 + data[1]
+    rest = data[length:]
+    return data[:length] if len(rest) < 8 and not rest.strip(b'\0') else data
+
+
+def verify_built(ksrc, work, run, selected, outputs, vmlinux, vmlinux_table, metadata, call, require, release=None):
     """Bind selected module CRCs/namespaces and signatures to the built GKI ELF."""
     import re
     import tempfile
@@ -166,7 +165,7 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require,
         require(len(value) == size, 'truncated GKI symbol data')
         return value
     size = int.from_bytes(data(int(symbol('system_certificate_list_size')[0],16),8),'little')
-    cert = data(int(symbol('system_certificate_list')[0],16),size)
+    cert = without_padding(data(int(symbol('system_certificate_list')[0],16),size))
     der = run / 'builtin-cert.der'; der.write_bytes(cert)
     require(binary(['openssl','x509','-inform','DER','-in',der,'-outform','DER']) == cert, 'expected one exact built-in certificate')
     pem = run / 'builtin-cert.pem'; pem.write_bytes(binary(['openssl','x509','-inform','DER','-in',der]))
@@ -196,7 +195,7 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require,
         if any(info.get('signer',[])):
             with tempfile.TemporaryDirectory(dir=run) as temp:
                 temp = Path(temp); payload = temp/'payload'; signature = temp/'signature'
-                extractor = work/'common/scripts/extract-module-sig.pl'
+                extractor = ksrc/'scripts/extract-module-sig.pl'
                 payload.write_bytes(binary(['perl',extractor,'-0',p]))
                 signature.write_bytes(binary(['perl',extractor,'-s',p]))
                 binary(['openssl','cms','-verify','-binary','-inform','DER','-in',signature,
@@ -204,7 +203,8 @@ def verify_built(work, run, selected, outputs, vmlinux, metadata, call, require,
             signed.append(filename)
     if protection is None:
         require(sorted(signed) == sorted(selected), 'unsigned module with forced module signatures')
-    result = review(modules, symbols, selected, protection=protection, signed=signed, releases=releases)
+    result = review(modules, symbols, selected, protection=protection, signed=signed, release=release,
+                    vmlinux_table=vmlinux_table)
     result.update(builtin_certificate_sha256=sha(der),vmlinux_sha256=sha(vmlinux),signed_module_count=len(signed),
                   module_protection='gki-protected-exports' if protection else 'forced-signatures')
     (run/'module-interfaces.json').write_bytes(encoded(result))

@@ -78,8 +78,9 @@ class PublishTests(unittest.TestCase):
                      for name, data in sorted(files.items())]
         (self.run / 'artifacts.json').write_text(json.dumps(inventory))
         values = {'status': 'PASS', 'inventory_sha256': sha(self.run / 'artifacts.json'),
-                  'repository': 'https://github.com/DiamaneOS/kernel_qcom-6.1', 'source_commit': 'c6429ea3' + '0' * 32,
-                  'linux_version': '6.1.177', 'config_profile': 'production',
+                  'repository': 'https://github.com/DiamaneOS/kernel_qcom-6.18', 'source_commit': 'c6429ea3' + '0' * 32,
+                  'common_repository': 'https://github.com/DiamaneOS/kernel_common-6.18', 'common_commit': '0f9205ec' + '0' * 32,
+                  'linux_version': '6.18.37', 'config_profile': 'production',
                   'tools': {'commit': '3fbed18' + '1' * 33, 'clean': True},
                   'module_count': sum(1 for n in files if n.startswith('modules/')), 'denied_module_count': 47,
                   'dtb_count': sum(1 for n in files if n.startswith('dtbs/')), 'dtbo_count': 95}
@@ -100,8 +101,9 @@ class PublishTests(unittest.TestCase):
         self.assertFalse((self.checkout / 'modules/old.ko').exists())
         self.assertFalse((self.checkout / 'vendor_dlkm-modules.blocklist').exists())
         readme = (self.checkout / 'README.md').read_text()
-        self.assertIn('- Sources: [kernel_qcom-6.1](https://github.com/DiamaneOS/kernel_qcom-6.1) at `c6429ea`, '
-                      'Linux 6.1.177.\n', readme)
+        self.assertIn('- Sources: [kernel_qcom-6.18](https://github.com/DiamaneOS/kernel_qcom-6.18) at `c6429ea` and '
+                      '[kernel_common-6.18](https://github.com/DiamaneOS/kernel_common-6.18) at `0f9205e`, '
+                      'Linux 6.18.37.\n', readme)
         self.assertIn('at `3fbed18`, production kernel configuration.', readme)
         self.assertIn('- 2 modules (47 left out by policy), 1 device tree, 95 overlays.\n', readme)
         self.assertIn('- Built 4 October 2026.\n\n## Contents', readme)
@@ -162,6 +164,8 @@ class PublishTests(unittest.TestCase):
         self.assertRaisesRegex(subject.PublishError, 'modified tools checkout', self.publish)
         self.write_run(CANDIDATE, source_commit=None)
         self.assertRaisesRegex(subject.PublishError, 'does not record source_commit', self.publish)
+        self.write_run(CANDIDATE, common_commit=None)
+        self.assertRaisesRegex(subject.PublishError, 'does not record common_commit', self.publish)
         self.write_run(CANDIDATE, module_count=7)
         self.assertRaisesRegex(subject.PublishError, 'counts', self.publish)
 

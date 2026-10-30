@@ -47,10 +47,11 @@ HOST_TOOLS_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_L
 ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNCH" '
                   '&& { [ ! -d "$OUT_DIR/target/product/$DIAMANEOS_PRODUCT" ] || m $DIAMANEOS_JOBS installclean; } '
                   '&& m $DIAMANEOS_JOBS $DIAMANEOS_TARGETS')
-KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-packaging.json', 'kernel-policy-fp6.json',
-                  'kernel-vendor-policy-fp6.json')
-KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py',
-               'product_inputs.py', 'safe_json.py', 'vendor.py', 'vendor_extract.py', 'vendor_files.py')
+KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-build.json', 'fp6-kernel-dt.json', 'fp6-kernel-packaging.json',
+                  'fp6-kernel-qcacld.config', 'kernel-policy-fp6.json', 'kernel-vendor-policy-fp6.json')
+KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_build.py', 'kernel_config.py', 'kernel_dt.py', 'kernel_interfaces.py',
+               'kernel_kbuild.py', 'kernel_package.py', 'kernel_util.py', 'process.py', 'product_inputs.py', 'safe_json.py',
+               'vendor.py', 'vendor_extract.py', 'vendor_files.py')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
 # The parts of the device's build settings (config/fp6-build.json) each step

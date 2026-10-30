@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scope": "FP6 device tree of the 6.18 kernel set: the pinned 6.1 base and the edits the 5.0-based drivers and the 6.18 core need. Replaced by a 6.18 device tree built from source.",
+  "base": {
+    "repository": "https://github.com/DiamaneOS/device_fairphone_FP6-kernels",
+    "revision": "a987520fa48467321967497585f0b2b5136f0cf8",
+    "files": {
+      "dtbs/fp6.dtb": "af0f8bc80783137ae000dbeecfa24af91c7280c704e6d6503cf386ed95334e52",
+      "dtbo.img": "c4222d0a23c5289dce1fe42bb4c8ed9b6e109e136d146ac92798852e557cfacc"
+    },
+    "overlay_count": 95
+  },
+  "fixups": [
+    {
+      "id": "nvmem-modem-cpucp",
+      "reason": "The 6.18 nvmem core rejects a bit range past its one-byte cell and a zero-width range, and with them the whole PMIC SDAM, so UFS waits for its ufs_dev cell. The 5.0 modem remoteproc takes its CMA area at memory-region index 1 without a firmware region where 6.1 took index 2. The 5.0 CPUCP driver looks its two regions up by name where 6.1 used the index.",
+      "edits": [
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/smb1510_present@5d", "property": "bits", "expect": {"cells": [5, 5]}, "set": {"cells": [5, 5]}},
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/smb1510_present@5d", "property": "reg", "expect": {"cells": [93, 1]}, "set": {"cells": [93, 2]}},
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/ufs_dev@96", "property": "bits", "expect": {"cells": [0, 0]}, "set": null},
+        {"node": "/soc/remoteproc-mss@04080000", "property": "memory-region", "expect": {"cells": [120, 121, 122]}, "set": {"cells": [120, 122]}},
+        {"node": "/soc/qcom,cpucp@17400000", "property": "reg-names", "expect": null, "set": {"strings": ["tx", "rx"]}}
+      ]
+    },
+    {
+      "id": "explicit-cells",
+      "reason": "Parents without #address-cells or #size-cells: 6.18 warns when it walks up the tree for them. They get both as properties with the value that walk resolves to in the base tree, and the build fails when a node resolves to another value, so every parse stays the same.",
+      "edits": [
+        {"node": "/soc/funnel@109b4000/out-ports", "inherit_cells": [1, 1]},
+        {"node": "/soc/funnel@10c0b000/out-ports", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,cam_smmu", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,ipa@3E00000", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,msm_fastrpc", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@b600", "inherit_cells": [1, 0]},
+        {"node": "/soc/remoteproc-adsp@03000000/glink-edge", "inherit_cells": [1, 1]},
+        {"node": "/soc/remoteproc-adsp@03000000/glink-edge/qcom,gpr", "inherit_cells": [1, 1]},
+        {"node": "/soc/spf_core_platform", "inherit_cells": [1, 1]},
+        {"node": "/soc/ssusb@a600000", "inherit_cells": [1, 1]}
+      ]
+    },
+    {
+      "id": "static-ramoops",
+      "reason": "6.18 no longer supports a dynamically placed ramoops region (alloc-ranges and size), so ramoops found no resource and pstore stayed empty. The region is fixed at 0x9fe000000 (4 MiB), where 6.1 and every 6.18 boot placed it.",
+      "edits": [
+        {"node": "/reserved-memory", "property": "#address-cells", "expect": {"cells": [2]}, "set": {"cells": [2]}},
+        {"node": "/reserved-memory", "property": "#size-cells", "expect": {"cells": [2]}, "set": {"cells": [2]}},
+        {"node": "/reserved-memory/ramoops_region", "property": "alloc-ranges", "expect": {"cells": [0, 0, 4294967295, 4294967295]}, "set": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "size", "expect": {"cells": [0, 4194304]}, "set": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "alignment", "expect": {"cells": [0, 4194304]}, "set": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "reg", "expect": null, "set": {"cells": [9, 4261412864, 0, 4194304]}}
+      ]
+    }
+  ]
+}

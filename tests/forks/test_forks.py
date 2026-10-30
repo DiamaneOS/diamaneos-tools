@@ -231,8 +231,8 @@ class ForkTests(unittest.TestCase):
         # Only the common kernel stays a fork. The other kernel projects are folders of kernel_qcom-6.1.
         self.assertEqual({'kernel-common'}, {f['id'] for f in registry if f.get('workspace') == 'kernel'})
         record = json.loads((ROOT / 'config/kernel-upstream-fp6.json').read_text())
-        kernel_sources = json.loads((ROOT / 'config/kernel-sources-fp6.json').read_text())
-        self.assertEqual(kernel_sources['repository'], record['repository'])
+        # The record is the import history of the 6.1 vendor repository.
+        self.assertEqual('https://github.com/DiamaneOS/kernel_qcom-6.1', record['repository'])
         imports = {row['path']: row for row in record['imports']}
         self.assertEqual(len(record['imports']), len(imports))
         pinned = [s for s in sources if s['pin']['file'] == 'config/kernel-upstream-fp6.json']

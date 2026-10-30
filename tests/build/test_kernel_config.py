@@ -17,7 +17,7 @@ class KernelConfigTests(unittest.TestCase):
         rules = dict(self.policy['baseline'])
         if production:
             rules.update(self.policy['production'])
-        return '\n'.join(f'# {key} is not set' if value == 'n' else f'{key}={value}'
+        return '\n'.join(f'# {key} is not set' if value in ('n', 'off', 'not-built-in') else f'{key}={value}'
                          for key, value in rules.items()).encode()
 
     def test_production_rejects_each_debug_regression(self):
@@ -25,11 +25,30 @@ class KernelConfigTests(unittest.TestCase):
         self.assertEqual(kernel_config.check(data, self.policy, 'production')['status'], 'PASS')
         for key, expected in self.policy['production'].items():
             with self.subTest(symbol=key):
-                old = f'# {key} is not set' if expected == 'n' else f'{key}=y'
+                old = f'# {key} is not set' if expected == 'n' else f'{key}={expected}'
                 new = f'{key}=y' if expected == 'n' else f'# {key} is not set'
                 result = kernel_config.check(data.replace(old.encode(), new.encode()), self.policy, 'production')
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual([r['symbol'] for r in result['failures']], [key])
+
+    def test_off_and_not_built_in_rules_accept_absent_symbols_and_name_what_they_refuse(self):
+        policy = {'schema_version': 1, 'id': 'x', 'baseline': {'CONFIG_A': 'off', 'CONFIG_B': 'not-built-in'}, 'production': {'CONFIG_C': 'y'}}
+        failures = lambda data: [r['symbol'] for r in kernel_config.check(data, policy, 'development')['failures']]
+        self.assertEqual([], failures(b'# CONFIG_A is not set\n# CONFIG_B is not set\nCONFIG_C=y\n'))
+        self.assertEqual([], failures(b'CONFIG_C=y\nCONFIG_B=m\n# CONFIG_A is not set\n'))
+        self.assertEqual([], failures(b'CONFIG_C=y\nCONFIG_X=y\n'))
+        self.assertEqual(['CONFIG_A'], failures(b'CONFIG_A=m\nCONFIG_C=y\n'))
+        self.assertEqual(['CONFIG_A', 'CONFIG_B'], failures(b'CONFIG_A=y\nCONFIG_B=y\nCONFIG_C=y\n'))
+        policy['baseline']['CONFIG_D'] = 'sometimes'
+        self.assertRaisesRegex(ValueError, 'invalid kernel policy requirement', kernel_config.validate_policy, policy)
+
+    def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
+        self.assertEqual({'off'}, {self.policy['baseline'][k] for k in
+                                   ('CONFIG_TIPC_CRYPTO', 'CONFIG_TIPC_DIAG', 'CONFIG_TIPC_MEDIA_UDP')})
+        vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
+        self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
+        for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
+            self.assertEqual('off', vendor[key])
 
     def test_development_still_enforces_hardening(self):
         data = self.config(False)
@@ -48,26 +67,28 @@ class KernelConfigTests(unittest.TestCase):
         enabled = lambda symbol, value='y': (flipped((off(symbol), on(symbol, value))), [symbol])
         confidentiality = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY'
         integrity = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY'
-        no_confidentiality = (on(confidentiality), off(confidentiality))
+        no_lockdown = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE'
         rows = [
-            disabled('CONFIG_CFI_CLANG'),
+            disabled('CONFIG_CFI'),
+            # Rust and the Rust binder replace RANDSTRUCT and the C binder.
+            disabled('CONFIG_RUST'), disabled('CONFIG_ANDROID_BINDER_IPC_RUST'), disabled('CONFIG_RANDSTRUCT_NONE'),
+            enabled('CONFIG_ANDROID_BINDER_IPC'),
             # The 48-bit address space.
             (flipped((b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y'),
                      (b'CONFIG_ARM64_VA_BITS=48', b'CONFIG_ARM64_VA_BITS=39')),
              ['CONFIG_ARM64_VA_BITS', 'CONFIG_ARM64_VA_BITS_48']),
-            # Qualcomm's data stack needs TIPC. Its network bearer, crypto and diag must stay out.
-            disabled('CONFIG_TIPC', 'm'), disabled('CONFIG_TIPC_LOCAL_ONLY'), enabled('CONFIG_TIPC_MEDIA_UDP'),
-            enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
-            # ART's garbage collector (userfaultfd), compressed OTAs (io_uring), casefolded
-            # /data (unicode, f2fs) and confidentiality lockdown, which keeps user space
-            # from modifying or reading the running kernel.
-            *map(disabled, ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS',
-                            confidentiality)),
-            # As on GrapheneOS: integrity lockdown lets privileged processes read kernel
-            # memory (kprobes, BPF, XFRM secrets), no lockdown lets them modify it. Either
-            # choice fails the check.
-            (flipped(no_confidentiality, (off(integrity), on(integrity))), [confidentiality, integrity]),
-            (flipped(no_confidentiality) + b'\nCONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y', [confidentiality]),
+            # ART's garbage collector (userfaultfd), compressed OTAs (io_uring) and casefolded
+            # /data (unicode, f2fs).
+            *map(disabled, ('CONFIG_USERFAULTFD', 'CONFIG_IO_URING', 'CONFIG_UNICODE', 'CONFIG_F2FS_FS')),
+            # Lockdown at integrity level. Confidentiality breaks the BPF
+            # program that reads DMA-BUF statistics, and no lockdown lets privileged processes
+            # modify the running kernel. Either choice fails the check.
+            disabled(integrity),
+            enabled(confidentiality),
+            # Qualcomm's data stack needs TIPC only as a local-only module. Its bearer, crypto and diag stay out.
+            enabled('CONFIG_TIPC_MEDIA_UDP'), enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
+
+            (flipped((on(integrity), off(integrity)), (off(no_lockdown), on(no_lockdown))), [integrity, no_lockdown]),
             # These interfaces would read or replace kernel memory. Lockdown refuses them
             # at run time. Leaving them out of the build keeps them away from a bypass.
             *map(enabled, ('CONFIG_PROC_KCORE', 'CONFIG_KGDB', 'CONFIG_KEXEC', 'CONFIG_KEXEC_FILE',
@@ -91,22 +112,20 @@ class KernelConfigTests(unittest.TestCase):
                     self.assertEqual([r['symbol'] for r in result['failures'] if r['symbol'] not in other], failing)
 
     def test_vendor_role_policy_rejects_missing_or_disabled_ownership(self):
-        # QRTR ownership stays on and the QRTR tunnel off. The download-mode driver no
+        # QRTR stays a vendor module and the QRTR tunnel off. The download-mode driver no
         # longer lets the running system turn dumps on, so its built-in default alone
         # decides what a panic does.
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
-        good = (b'CONFIG_QRTR=m\nCONFIG_QRTR_IMSDCM_OWNERSHIP=y\n# CONFIG_QRTR_TUN is not set\n'
+        good = (b'CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n'
-                b'# CONFIG_CORESIGHT is not set\n# CONFIG_STM is not set\n# CONFIG_USB_CONFIGFS_F_QDSS is not set\n'
-                b'# CONFIG_USB_F_FS_IPC_LOGGING is not set\n# CONFIG_QCOM_EUD is not set\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n# CONFIG_STM is not set\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
-        ownership, tunnel = 'CONFIG_QRTR_IMSDCM_OWNERSHIP', 'CONFIG_QRTR_TUN'
+        qrtr, tunnel = 'CONFIG_QRTR', 'CONFIG_QRTR_TUN'
         dumps = 'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'
         unset = lambda symbol: f'# {symbol} is not set'.encode()
         # Each symbol missing, and each with the wrong value.
-        for symbol, old, new in ((ownership, b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', b''),
-                                 (ownership, b'CONFIG_QRTR_IMSDCM_OWNERSHIP=y', unset(ownership)),
+        for symbol, old, new in ((qrtr, b'CONFIG_QRTR=m\n', b''),
+                                 (qrtr, b'CONFIG_QRTR=m', unset(qrtr)),
                                  (tunnel, unset(tunnel) + b'\n', b''),
                                  (tunnel, unset(tunnel), b'CONFIG_QRTR_TUN=m'),
                                  (dumps, unset(dumps) + b'\n', b''),
@@ -115,9 +134,8 @@ class KernelConfigTests(unittest.TestCase):
                 report = kernel_config.check(good.replace(old, new), policy, 'production')
                 self.assertEqual(report['status'], 'FAIL')
                 self.assertEqual([row['symbol'] for row in report['failures']], [symbol])
-        # The debug trace and USB debug modules stay unbuilt.
-        for symbol in ('CONFIG_CORESIGHT', 'CONFIG_STM', 'CONFIG_USB_CONFIGFS_F_QDSS',
-                       'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
+        # The system trace module stays unbuilt.
+        for symbol in ('CONFIG_STM',):
             for new in (b'', f'{symbol}=m'.encode()):
                 with self.subTest(symbol=symbol, new=new):
                     report = kernel_config.check(good.replace(unset(symbol), new), policy, 'production')
@@ -141,7 +159,7 @@ class KernelConfigTests(unittest.TestCase):
                     kernel_config.parse_config(data)
 
     def test_policy_cannot_override_baseline(self):
-        self.policy['production']['CONFIG_CFI_CLANG'] = 'n'
+        self.policy['production']['CONFIG_CFI'] = 'n'
         with self.assertRaisesRegex(ValueError, 'cannot override'):
             kernel_config.validate_policy(self.policy)
 

@@ -125,19 +125,23 @@ def candidate_files(run):
 
 def describe(result, run):
     """The README's "This build" lines for this run."""
-    for key in ('repository', 'source_commit', 'linux_version', 'tools', 'config_profile'):
+    for key in ('repository', 'source_commit', 'common_repository', 'common_commit', 'linux_version', 'tools', 'config_profile'):
         require(result.get(key), 'the kernel run does not record ' + key + '. Build it again with these tools')
     tools = result['tools']
     require(isinstance(tools, dict) and isinstance(tools.get('commit'), str) and SHA1.fullmatch(tools['commit'])
             and tools.get('clean') is True, 'the kernel run was built from a modified tools checkout')
-    require(SHA1.fullmatch(result['source_commit']), 'invalid source commit in the kernel run')
-    require(str(result['repository']).startswith('https://'), 'invalid source repository in the kernel run')
+    for key in ('source_commit', 'common_commit'):
+        require(SHA1.fullmatch(result[key]), 'invalid ' + key + ' in the kernel run')
+    for key in ('repository', 'common_repository'):
+        require(str(result[key]).startswith('https://'), 'invalid ' + key + ' in the kernel run')
     match = RUN_NAME.fullmatch(run.name)
     built = (datetime.datetime.strptime(match.group(1), '%Y%m%d').date() if match else
              datetime.datetime.fromtimestamp((run / 'result.json').stat().st_mtime, datetime.timezone.utc).date())
-    name = result['repository'].rstrip('/').removesuffix('.git').rsplit('/', 1)[-1]
+    source = lambda url: url.rstrip('/').removesuffix('.git').rsplit('/', 1)[-1]
     return [
-        f'- Sources: [{name}]({result["repository"].removesuffix(".git")}) at `{result["source_commit"][:7]}`, '
+        f'- Sources: [{source(result["repository"])}]({result["repository"].removesuffix(".git")}) at '
+        f'`{result["source_commit"][:7]}` and [{source(result["common_repository"])}]'
+        f'({result["common_repository"].removesuffix(".git")}) at `{result["common_commit"][:7]}`, '
         f'Linux {result["linux_version"]}.',
         f'- Tools: [diamaneos-tools]({TOOLS_URL}) at `{tools["commit"][:7]}`, {result["config_profile"]} '
         'kernel configuration.',
@@ -205,7 +209,8 @@ def publish(run, checkout, forbid=()):
     require(set(published) == set(records) and all(sha(p) == records[rel]['sha256'] for rel, p in published.items()),
             'the published files differ from the kernel run')
     return {'status': 'PASS', 'operation': 'kernel-publish', 'files': len(published),
-            'source_commit': result['source_commit'], 'tools_commit': result['tools']['commit'],
+            'source_commit': result['source_commit'], 'common_commit': result['common_commit'],
+            'tools_commit': result['tools']['commit'], 'pending_required_symbols': result.get('pending_required_symbols', []),
             'module_count': result.get('module_count'), 'dtb_count': result.get('dtb_count'),
             'readme': lines, 'changed': git_status(checkout).count('\n'), 'committed': False}
 
