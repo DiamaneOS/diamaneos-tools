@@ -178,8 +178,8 @@
       "path": "servers/network-services",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "85d9493b4a4c2a3913a7bbf3afc6db99a0eeb9d6",
-      "reviewed": "99a90df4cadfed07f1798d08631b80eb772dac4e",
+      "upstream_revision": "44305e0e627f56c88a384545d18d7e044fa1722d",
+      "reviewed": "44305e0e627f56c88a384545d18d7e044fa1722d",
       "upstream": {
         "url": "https://github.com/GrapheneOS/grapheneos.org",
         "ref": "main",
@@ -206,8 +206,8 @@
       "path": "servers/apps.diamaneos.de",
       "branch": "main",
       "scope": "server",
-      "upstream_revision": "3329c4bd0a0a1b13754ba2c87878e9e815559471",
-      "reviewed": "022d6bddf25561a8fac104652e834333ecbe3422",
+      "upstream_revision": "08d5b1dc94ad969cacffcde386a656a673179220",
+      "reviewed": "08d5b1dc94ad969cacffcde386a656a673179220",
       "upstream": {
         "url": "https://github.com/GrapheneOS/apps.grapheneos.org",
         "ref": "main",
