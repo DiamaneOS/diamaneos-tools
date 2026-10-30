@@ -57,6 +57,18 @@
         {"node": "/soc/qcedev@1de0000", "property": "compatible", "expect": {"strings": ["qcom,qcedev"]}, "set": {"strings": ["qcom,qcedev"]}},
         {"node": "/soc/qcedev@1de0000", "property": "status", "expect": null, "set": {"strings": ["disabled"]}}
       ]
+    },
+    {
+      "id": "sdhc-supplies",
+      "reason": "The 5.0 sdhci-msm takes the card supply and the I/O supply as vmmc and vqmmc through mmc_regulator_get_supply(). The 6.1 tree names them vdd-supply and vdd-io-supply, so the driver finds none, never powers the card and every command times out. vmmc is the pm7550 l13 regulator and vqmmc its l23 I/O regulator, and the phandles are asserted.",
+      "edits": [
+        {"node": "/soc/sdhci@4784000", "property": "compatible", "expect": {"strings": ["qcom,sdhci-msm-v5"]}, "set": {"strings": ["qcom,sdhci-msm-v5"]}},
+        {"node": "/soc/sdhci@4784000", "property": "reg", "expect": {"cells": [142622720, 4096]}, "set": {"cells": [142622720, 4096]}},
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13", "property": "phandle", "expect": {"cells": [646]}, "set": {"cells": [646]}},
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23", "property": "phandle", "expect": {"cells": [655]}, "set": {"cells": [655]}},
+        {"node": "/soc/sdhci@4784000", "property": "vmmc-supply", "expect": null, "set": {"cells": [646]}},
+        {"node": "/soc/sdhci@4784000", "property": "vqmmc-supply", "expect": null, "set": {"cells": [655]}}
+      ]
     }
   ],
   "forbidden_properties": ["qcom,disable-lpm"]

@@ -108,11 +108,49 @@ class DeviceTreeTests(unittest.TestCase):
         self.assertEqual(95, dt.overlay_count(header))
         self.assertRaises(dt.DeviceTreeError, dt.overlay_count, bytes(64))
 
+    def sdhc_blob(self, compatible=b'qcom,sdhci-msm-v5\0', reg=(0x8804000, 0x1000), phandles=(0x286, 0x28f), extra=()):
+        """The nodes the shipped sdhc-supplies fix-up asserts, under their real paths."""
+        def make(path, props):
+            node = root
+            for name in path.strip('/').split('/'):
+                found = node.child(name)
+                if found is None:
+                    found = dt.Node(name)
+                    node.children.append(found)
+                node = found
+            node.props = props
+        root = dt.Node('')
+        make('/soc/sdhci@4784000', [('compatible', compatible), ('reg', cells(*reg)), *extra])
+        make('/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13', [('phandle', cells(phandles[0]))])
+        make('/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23', [('phandle', cells(phandles[1]))])
+        return dt.serialize(dt.Tree(root, [], 0))
+
+    def test_the_shipped_sdhc_fixup_adds_the_two_supplies_and_asserts_what_it_relies_on(self):
+        plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
+        fixups = [f for f in plan['fixups'] if f['id'] == 'sdhc-supplies']
+        out, report = dt.apply_fixups(self.sdhc_blob(), fixups)
+        card = dt.find(dt.parse(out).root, '/soc/sdhci@4784000')
+        self.assertEqual(cells(0x286), card.prop('vmmc-supply'))
+        self.assertEqual(cells(0x28f), card.prop('vqmmc-supply'))
+        # A new property goes first, so the second one added is the first in the node.
+        self.assertEqual(['vqmmc-supply', 'vmmc-supply'], [name for name, _ in card.props[:2]])
+        self.assertEqual([('/soc/sdhci@4784000', 'vmmc-supply', 'absent', '<0x286>'),
+                          ('/soc/sdhci@4784000', 'vqmmc-supply', 'absent', '<0x28f>')],
+                         [(c['node'], c['property'], c['before'], c['after']) for c in report[0]['changes']])
+        for what, blob in (('compatible', self.sdhc_blob(compatible=b'qcom,sdhci-msm-v4\0')),
+                           ('reg', self.sdhc_blob(reg=(0x8804000, 0x2000))),
+                           ('l13 phandle', self.sdhc_blob(phandles=(0x287, 0x28f))),
+                           ('l23 phandle', self.sdhc_blob(phandles=(0x286, 0x290))),
+                           ('vmmc-supply present', self.sdhc_blob(extra=[('vmmc-supply', cells(1))])),
+                           ('vqmmc-supply present', self.sdhc_blob(extra=[('vqmmc-supply', cells(1))]))):
+            with self.subTest(changed=what):
+                self.assertRaisesRegex(dt.DeviceTreeError, 'unexpected', dt.apply_fixups, blob, fixups)
+
     def test_the_shipped_plan_is_well_formed(self):
         plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
         self.assertEqual(['qcom,disable-lpm'], plan['forbidden_properties'])
         ids = [f['id'] for f in plan['fixups']]
-        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off'], ids)
+        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off', 'sdhc-supplies'], ids)
         for fixup in plan['fixups']:
             self.assertTrue(fixup['reason'].strip())
             for edit in fixup['edits']:

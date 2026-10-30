@@ -231,6 +231,12 @@ The fix-ups:
   - Both interconnect providers then wait for it in sync_state and keep their boot votes, and the
     SoC never reaches AOSD or CXSD.
   - No domain may open `/dev/qce` on these builds, so the node is disabled.
+- `sdhc-supplies`:
+  - The 5.0 `sdhci-msm` takes the card supply and the I/O supply as `vmmc` and `vqmmc`. The 6.1 tree
+    names them `vdd` and `vdd-io`, so the driver finds none and never powers the card.
+  - The node gets `vmmc-supply` (the pm7550 l13 regulator) and `vqmmc-supply` (l23).
+  - The edit asserts the node's compatible and reg, both regulator phandles and that neither
+    property exists.
 
 ## Configuration policy
 
