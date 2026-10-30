@@ -111,6 +111,13 @@ class PublishTests(unittest.TestCase):
         self.assertNotIn('20261004T', readme)
         self.assertEqual([], [p.name for p in self.checkout.iterdir() if p.name.startswith('.diamaneos-publish')])
 
+    def test_a_run_with_pending_required_symbols_is_refused(self):
+        self.write_run(CANDIDATE, pending_required_symbols=['names_command_line', 'selinux_enforcing_lock'])
+        self.assertRaisesRegex(subject.PublishError, 'marked pending: names_command_line, selinux_enforcing_lock', self.publish)
+        self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
+        self.write_run(CANDIDATE, pending_required_symbols=[])
+        self.assertEqual([], self.publish()['pending_required_symbols'])
+
     def test_changed_candidate_is_refused_and_the_checkout_is_untouched(self):
         (self.run / 'candidate/modules/a.ko').write_bytes(b'tampered')
         self.assertRaisesRegex(subject.PublishError, 'differs from artifacts.json: modules/a.ko', self.publish)

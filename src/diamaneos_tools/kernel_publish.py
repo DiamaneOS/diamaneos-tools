@@ -4,8 +4,9 @@ diamaneos kernel publish --run RUN --to CHECKOUT copies the candidate of one
 passed kernel build (Image, dtbo.img, dtbs/, modules/, the board makefiles and
 the module blocklists) into a device_fairphone_FP6-kernels checkout. It checks
 every file against the run's artifacts.json, refuses private key material,
-strings that name the build host and modules on the packaging deny list, and
-updates the README's "This build" lines.
+strings that name the build host and modules on the packaging deny list, refuses
+a run whose Image lacks a required symbol the recipe marks pending, and updates
+the README's "This build" lines.
 It never commits or pushes: review the change and commit it yourself.
 """
 import argparse
@@ -177,6 +178,8 @@ def git_status(checkout):
 def publish(run, checkout, forbid=()):
     run, checkout = Path(run).absolute(), Path(checkout).absolute()
     result, records, present = candidate_files(run)
+    pending = sorted(result.get('pending_required_symbols') or [])
+    require(not pending, 'the kernel run is missing required symbols marked pending: ' + ', '.join(pending))
     denied = denied_names(present)
     require(not denied, 'refusing to publish a denied module: ' + ', '.join(denied))
     lines = describe(result, run)
