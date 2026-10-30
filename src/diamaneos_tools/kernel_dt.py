@@ -352,7 +352,8 @@ def lookup(root, path):
 
 
 def overlay_targets(base, overlay):
-    """(overlay node, base path) for every fragment whose target can be resolved: by target-path, by a
+    """The fragments of an overlay and the base nodes they apply to: ((overlay node, base path) for every fragment
+    whose target resolves, the names of the fragments whose target does not). A target resolves by target-path, by a
     phandle of the base, or by the symbol the overlay's __fixups__ names, which the base's __symbols__ resolves."""
     symbols = base.root.child('__symbols__')
     labels = {name: value.rstrip(b'\0').decode(errors='replace') for name, value in (symbols.props if symbols else [])}
@@ -364,7 +365,7 @@ def overlay_targets(base, overlay):
             fragment, name, field = entry.decode(errors='replace').rsplit(':', 2)
             if name == 'target' and field == '0':
                 placed[fragment] = label
-    found = []
+    found, unresolved = [], []
     for fragment in overlay.root.children:
         body = fragment.child('__overlay__')
         if body is None:
@@ -376,33 +377,64 @@ def overlay_targets(base, overlay):
             target = labels.get(placed.get('/' + fragment.name))
         else:
             target = phandles.get(fragment.prop('target'))
-        if target:
+        if target and lookup(base.root, target) is not None:
             found.append((body, target))
-    return found
+        else:
+            unresolved.append(fragment.name)
+    return found, unresolved
+
+
+def applicable(base, overlay_blobs):
+    """(index, tree) of the overlays the bootloader applies to the base's SoC. An overlay without a qcom,msm-id
+    applies to every SoC."""
+    socs = soc_ids(base)
+    trees = [(index, parse(blob)) for index, blob in enumerate(overlay_blobs)]
+    return [(index, tree) for index, tree in trees if not soc_ids(tree) or soc_ids(tree) & socs]
 
 
 def check_disabled_nodes(base_data, overlay_blobs, rules):
     """The nodes of drivers that do not ship, which the rules name by compatible, are disabled in the base and
     in every overlay the bootloader applies to its SoC (an overlay without a qcom,msm-id applies to all). An
-    overlay also may not enable such a base node it targets. Returns the problems found."""
+    overlay also may not enable such a base node it targets, and every fragment of those overlays must have a target
+    the base resolves, or this check could not see what the fragment enables. Returns the problems found."""
     wanted = {rule['compatible'] for rule in rules}
     base = parse(base_data)
-    socs = soc_ids(base)
     off = (b'disabled\0', b'fail\0')
     problems = []
     for path, node in walk(base.root):
         if compatibles(node) & wanted and node.prop('status') not in off:
             problems.append('%s in the device tree' % path)
-    for index, blob in enumerate(overlay_blobs):
-        overlay = parse(blob)
-        if soc_ids(overlay) and not soc_ids(overlay) & socs:
-            continue
+    for index, overlay in applicable(base, overlay_blobs):
         for path, node in walk(overlay.root):
             if compatibles(node) & wanted and node.prop('status') not in off:
                 problems.append('%s in overlay %d' % (path, index))
-        for body, target in overlay_targets(base, overlay):
+        targets, unresolved = overlay_targets(base, overlay)
+        problems += ['/%s of overlay %d has a target the device tree does not resolve' % (name, index) for name in unresolved]
+        for body, target in targets:
             for path, node in walk(body, target):
                 status, original = node.prop('status'), lookup(base.root, path)
                 if status is not None and status not in off and original is not None and compatibles(original) & wanted:
                     problems.append('%s enabled by overlay %d' % (path, index))
+    return problems
+
+
+def check_forbidden_properties(base_data, overlay_blobs, names, exemptions=()):
+    """No property of the forbidden list is in an overlay the bootloader applies to the base's SoC. An exemption
+    names one overlay by index and the board id (the first cell of its qcom,board-id) that justifies it, and must
+    still be needed. Returns the problems found."""
+    base = parse(base_data)
+    problems, used = [], set()
+    exempt = {(row['overlay'], row['property']): row for row in exemptions}
+    for index, overlay in applicable(base, overlay_blobs):
+        board = (overlay.root.prop('qcom,board-id') or b'')[:4]
+        for path, node in walk(overlay.root):
+            for name in sorted({n for n, _ in node.props} & set(names)):
+                row = exempt.get((index, name))
+                if row is None:
+                    problems.append('%s %s in overlay %d' % (path, name, index))
+                    continue
+                used.add((index, name))
+                if board != struct.pack('>I', row['board_id']):
+                    problems.append('overlay %d is exempt for board id %d and has another' % (index, row['board_id']))
+    problems += ['the exemption of %s in overlay %d is no longer needed' % (name, index) for index, name in sorted(set(exempt) - used)]
     return problems

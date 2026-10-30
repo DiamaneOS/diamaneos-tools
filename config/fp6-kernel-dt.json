@@ -89,5 +89,13 @@
       "reason": "6.18 has no qcedev driver, so the node never binds and both interconnect providers wait for it in sync_state. The crypto-engine-off fix-up disables it."
     }
   ],
-  "forbidden_properties": ["qcom,disable-lpm"]
+  "forbidden_properties": ["qcom,disable-lpm"],
+  "forbidden_property_exemptions": [
+    {
+      "property": "qcom,disable-lpm",
+      "overlay": 84,
+      "board_id": 15,
+      "reason": "Overlay 84 is the Volcano RUMI emulator board (board id 0xf). It matches the SoC of the base tree, but no FP6 board has that board id, so the bootloader never applies it."
+    }
+  ]
 }

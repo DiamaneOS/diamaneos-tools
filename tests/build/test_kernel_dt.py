@@ -110,9 +110,22 @@ class DisabledNodeTests(unittest.TestCase):
         disable = blob({'/': {}, '/fragment@0': path, '/fragment@0/__overlay__/qcedev@1': {'status': b'disabled\0'}})
         other = blob({'/': {}, '/fragment@0': path, '/fragment@0/__overlay__/sdhc': {'status': b'okay\0'}})
         untouched = blob({'/': {}, '/fragment@0': {'target-path': b'/soc/qcedev@1\0'}, '/fragment@0/__overlay__': {'x': b'1'}})
-        unresolved = blob({'/': {}, '/fragment@0': {'target': cells(0xffffffff)},
-                           '/fragment@0/__overlay__/qcedev@1': {'status': b'okay\0'}})
-        self.assertEqual([], self.check(overlays=[disable, other, untouched, unresolved]))
+        self.assertEqual([], self.check(overlays=[disable, other, untouched]))
+
+    def test_an_unresolved_target_in_an_overlay_that_applies_fails_because_the_check_could_not_see_it(self):
+        placeholder = {'target': cells(0xffffffff)}
+        for how, fragment, extra in (('no symbol', placeholder, {}),
+                                     ('no such label', placeholder, {'/__fixups__': {'ghost': b'/fragment@0:target:0\0'}}),
+                                     ('no such phandle', {'target': cells(77)}, {}),
+                                     ('no such path', {'target-path': b'/nowhere\0'}, {})):
+            overlay = blob({'/': {'qcom,msm-id': self.VOLCANO}, '/fragment@0': fragment,
+                            '/fragment@0/__overlay__/qcedev@1': {'status': b'okay\0'}, **extra})
+            with self.subTest(how=how):
+                self.assertEqual(['/fragment@0 of overlay 0 has a target the device tree does not resolve'],
+                                 self.check(overlays=[overlay]))
+        # Another SoC's overlay is not applied, so its targets do not matter.
+        other = blob({'/': {'qcom,msm-id': self.CLIFFS}, '/fragment@0': placeholder, '/fragment@0/__overlay__': {}})
+        self.assertEqual([], self.check(overlays=[other]))
 
     def test_the_overlay_image_is_read_entry_by_entry(self):
         blobs = [self.overlay(), self.overlay(status=b'okay\0')]
@@ -135,6 +148,61 @@ class DisabledNodeTests(unittest.TestCase):
             with self.subTest(rows=rows):
                 self.assertRaisesRegex(kernel.KernelError, 'invalid disabled device tree nodes', kernel.validate_dt_plan,
                                        dict(plan, disabled_nodes=rows))
+
+
+class ForbiddenPropertyTests(unittest.TestCase):
+    NAMES = ['qcom,disable-lpm']
+    EXEMPT = [{'property': 'qcom,disable-lpm', 'overlay': 1, 'board_id': 15, 'reason': 'r'}]
+    VOLCANO, CLIFFS = cells(0x27c, 0x10000), cells(0x266, 0x10000)
+
+    def base(self):
+        return blob({'/': {'qcom,msm-id': self.VOLCANO}, '/soc': {}})
+
+    def overlay(self, soc=None, board=None, forbidden=True):
+        soc = self.VOLCANO if soc is None else soc
+        root = {'qcom,msm-id': soc, **({'qcom,board-id': cells(board, 0)} if board is not None else {})}
+        return blob({'/': root, '/fragment@0': {'target-path': b'/soc\0'},
+                     '/fragment@0/__overlay__': {'qcom,disable-lpm': b''} if forbidden else {}})
+
+    def check(self, overlays, exemptions=()):
+        return dt.check_forbidden_properties(self.base(), overlays, self.NAMES, exemptions)
+
+    def test_a_forbidden_property_in_an_overlay_for_the_base_soc_fails(self):
+        self.assertEqual([], self.check([self.overlay(forbidden=False)]))
+        self.assertEqual(['/fragment@0/__overlay__ qcom,disable-lpm in overlay 1'],
+                         self.check([self.overlay(forbidden=False), self.overlay()]))
+        # An overlay for another SoC is not applied.
+        self.assertEqual([], self.check([self.overlay(soc=self.CLIFFS)]))
+
+    def test_an_exemption_names_the_overlay_and_the_board_id_that_justifies_it(self):
+        overlays = [self.overlay(forbidden=False), self.overlay(board=15)]
+        self.assertEqual([], self.check(overlays, self.EXEMPT))
+        self.assertEqual(['overlay 1 is exempt for board id 15 and has another'],
+                         self.check([self.overlay(forbidden=False), self.overlay(board=8)], self.EXEMPT))
+        self.assertEqual(['overlay 1 is exempt for board id 15 and has another'],
+                         self.check([self.overlay(forbidden=False), self.overlay()], self.EXEMPT))
+
+    def test_an_exemption_that_is_not_needed_any_more_fails(self):
+        self.assertEqual(['the exemption of qcom,disable-lpm in overlay 1 is no longer needed'],
+                         self.check([self.overlay(forbidden=False), self.overlay(board=15, forbidden=False)], self.EXEMPT))
+        self.assertEqual(['the exemption of qcom,disable-lpm in overlay 1 is no longer needed'],
+                         self.check([self.overlay(forbidden=False)], self.EXEMPT))
+        # An exempt overlay for another SoC is not applied and so the exemption is not needed either.
+        self.assertEqual(['the exemption of qcom,disable-lpm in overlay 1 is no longer needed'],
+                         self.check([self.overlay(forbidden=False), self.overlay(soc=self.CLIFFS, board=15)], self.EXEMPT))
+
+    def test_the_shipped_exemption_is_the_volcano_emulator_overlay(self):
+        plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
+        self.assertEqual([('qcom,disable-lpm', 84, 15)],
+                         [(r['property'], r['overlay'], r['board_id']) for r in plan['forbidden_property_exemptions']])
+        for rows in ([{'property': 'qcom,other', 'overlay': 1, 'board_id': 1, 'reason': 'r'}],
+                     [{'property': 'qcom,disable-lpm', 'overlay': -1, 'board_id': 1, 'reason': 'r'}],
+                     [{'property': 'qcom,disable-lpm', 'overlay': 1, 'board_id': 'x', 'reason': 'r'}],
+                     [{'property': 'qcom,disable-lpm', 'overlay': 1, 'board_id': 1, 'reason': ' '}],
+                     self.EXEMPT * 2, [{'property': 'qcom,disable-lpm', 'overlay': 1}]):
+            with self.subTest(rows=rows):
+                self.assertRaisesRegex(kernel.KernelError, 'invalid forbidden property exemptions', kernel.validate_dt_plan,
+                                       dict(plan, forbidden_property_exemptions=rows))
 
 
 class DeviceTreeTests(unittest.TestCase):
