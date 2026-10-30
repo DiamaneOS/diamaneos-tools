@@ -207,11 +207,22 @@ class BuildPlanTests(unittest.TestCase):
         self.assertEqual(['CONFIG_TIPC_LOCAL_ONLY=y'], text('config/fp6-kernel-tipc-local.config'))
         self.assertEqual(['# CONFIG_TIPC_LOCAL_ONLY is not set'], text('config/fp6-kernel-tipc-open.config'))
 
-    def test_the_overrides_are_reviewed_vendor_drivers_and_each_probe_declares_its_result(self):
+    def test_the_overrides_are_reviewed_vendor_drivers_with_the_values_the_review_saw_and_each_probe_declares_its_result(self):
         overrides = self.plan['vendor']['kernel_overrides']
-        self.assertEqual(sorted(overrides['symbols']), overrides['symbols'])
-        self.assertIn('CONFIG_QRTR', overrides['symbols'])
+        symbols = kernel.kernel_overrides(self.plan)
+        self.assertEqual(sorted(symbols), list(symbols))
+        self.assertEqual(['m', 'n'], symbols['CONFIG_QRTR'])
+        # Symbols hidden behind an option that is off in the kernel configuration are overrides too.
+        self.assertEqual(['m', 'n'], symbols['CONFIG_QCOM_SCM'])
+        self.assertEqual(['y', 'n'], symbols['CONFIG_QCOM_TZMEM_MODE_SHMBRIDGE'])
+        self.assertEqual({'m', 'y'}, {v[0] for v in symbols.values()})
+        self.assertEqual({'n'}, {v[1] for v in symbols.values()})
         self.assertTrue(overrides['reason'].strip())
+        for bad in ({'CONFIG_B': ['m', 'n'], 'CONFIG_A': ['m', 'n']}, {'CONFIG_A': ['m']}, {'CONFIG_A': ['m', 'm']},
+                    {'A': ['m', 'n']}, {'CONFIG_A': 'm'}, {}, ['CONFIG_A']):
+            with self.subTest(bad=bad):
+                plan = {'vendor': {'kernel_overrides': {'symbols': bad, 'reason': 'r'}}}
+                self.assertRaisesRegex(kernel.KernelError, 'invalid kernel overrides', kernel.kernel_overrides, plan)
         probes = [s for s in self.plan['vendor']['steps'] if s.get('feature_probes')][0]['feature_probes']
         self.assertEqual({'CFG80211_RU_PUNCT_NOTIFY': False}, {p[2]: p[3] for p in probes if not p[3]})
         self.assertTrue(all(len(p) == 4 and isinstance(p[3], bool) for p in probes))

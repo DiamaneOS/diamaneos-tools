@@ -23,7 +23,7 @@ BUILD_PLAN = {
              'goals': ['Image', 'modules']},
     'device': {'fragments': ['kernel/wireless_defconfig'], 'goals': ['modules'], 'modules': ['net/cfg80211.ko'],
                'config_symbols': ['CONFIG_CFG80211'], 'reason': 'r'},
-    'vendor': {'kernel_overrides': {'symbols': ['CONFIG_QRTR'], 'reason': 'r'},
+    'vendor': {'kernel_overrides': {'symbols': {'CONFIG_QRTR': ['m', 'n']}, 'reason': 'r'},
                'steps': [{'name': 'base', 'kind': 'base'}, {'name': 'pkg', 'kind': 'package'}]}}
 
 
@@ -197,10 +197,14 @@ class VendorStageTests(RunFixture):
         patcher = patch.object(kernel_build, 'stage_vendor_modules', lambda vendor, revision, stage: stage.mkdir(parents=True))
         patcher.start()
         self.addCleanup(patcher.stop)
+        patcher = patch.object(kernel_build, 'kconfig_symbols', lambda common: {'CONFIG_QRTR'})
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.conflicts = {'CONFIG_QRTR': ['m', 'n']}
 
     def step(self, kind):
         def run_step(ctx, step, stage, outputs):
+            self.declared = ctx['declared']
             out = ctx['out'] / step['name']
             out.mkdir(parents=True)
             (ctx['logs'] / (step['name'] + '.log')).write_text('built')
@@ -214,6 +218,8 @@ class VendorStageTests(RunFixture):
             (self.run.logs / (name + '.log')).write_text('fine')
         self.run.vendor_build()
         self.assertEqual(['base', 'pkg'], self.phases)
+        # The steps get the symbols the Kconfig files of the common tree declare.
+        self.assertEqual({'CONFIG_QRTR'}, self.declared)
         self.assertEqual({'base': ['base.ko'], 'pkg': ['pkg.ko']}, json.loads((self.run.run / 'modules-built.json').read_text()))
         self.assertEqual(self.conflicts, json.loads((self.run.run / 'vendor-overrides.json').read_text()))
 

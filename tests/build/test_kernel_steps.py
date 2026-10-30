@@ -39,8 +39,9 @@ class StepFixture(unittest.TestCase):
         self.ctx = {'env': {'PATH': '/bin'}, 'make': ['make', 'ARCH=arm64'], 'common': self.top / 'common', 'jobs': 4,
                     'timeout': 60, 'logs': self.top / 'run/logs', 'runs': self.top / 'run', 'out': self.out,
                     'tools_root': self.top, 'device': self.device,
-                    'kernel_values': {'CONFIG_SMP': 'y', 'CONFIG_MODULE_SIG_ALL': 'n'}, 'overrides': {'CONFIG_VENDOR_BASE'},
-                    'conflicts': {}}
+                    'kernel_values': {'CONFIG_SMP': 'y', 'CONFIG_MODULE_SIG_ALL': 'n'},
+                    'declared': {'CONFIG_SMP', 'CONFIG_MODULE_SIG_ALL', 'CONFIG_HIDDEN'},
+                    'overrides': {'CONFIG_VENDOR_BASE': ['y', 'n']}, 'conflicts': {}}
         self.made = lambda argv, env: None
         patcher = patch.object(build, 'call', self.fake_call)
         patcher.start()
@@ -101,9 +102,31 @@ class PackageStepTests(StepFixture):
                                             'CONFIG_MODULE_SIG_ALL=y .kernel n., CONFIG_SMP=n .kernel y.',
                                build.package_step, self.ctx, self.step, self.stage, {})
         self.assertEqual([], self.calls)
-        self.ctx['overrides'] |= {'CONFIG_SMP', 'CONFIG_MODULE_SIG_ALL'}
+        self.ctx['overrides'].update({'CONFIG_SMP': ['n', 'y'], 'CONFIG_MODULE_SIG_ALL': ['y', 'n']})
         build.package_step(self.ctx, self.step, self.stage, {})
         self.assertEqual({'CONFIG_SMP': ['n', 'y'], 'CONFIG_MODULE_SIG_ALL': ['y', 'n']}, self.ctx['conflicts'])
+
+    def test_a_hidden_kernel_symbol_reads_as_n_and_needs_a_reviewed_override(self):
+        (self.stage / 'modules/pkg/defconfig').write_text('CONFIG_HIDDEN=m\nCONFIG_VENDOR_ONLY=y\n')
+        self.make_modules(['one.ko', 'two.ko'])
+        self.assertRaisesRegex(KernelError, 'pkg sets kernel symbols to other values than the kernel configuration: '
+                                            'CONFIG_HIDDEN=m .kernel n.', build.package_step, self.ctx, self.step, self.stage, {})
+        self.ctx['overrides']['CONFIG_HIDDEN'] = ['m', 'n']
+        build.package_step(self.ctx, self.step, self.stage, {})
+        # CONFIG_VENDOR_ONLY is no kernel symbol, so it is not a conflict.
+        self.assertEqual({'CONFIG_HIDDEN': ['m', 'n']}, self.ctx['conflicts'])
+
+    def test_a_reviewed_override_with_another_value_than_the_review_saw_fails(self):
+        (self.stage / 'modules/pkg/defconfig').write_text('CONFIG_SMP=m\n')
+        self.ctx['overrides']['CONFIG_SMP'] = ['n', 'y']
+        self.make_modules(['one.ko', 'two.ko'])
+        self.assertRaisesRegex(KernelError, 'reviewed overrides now have other values: CONFIG_SMP is vendor m kernel y, '
+                                            'reviewed vendor n kernel y', build.package_step, self.ctx, self.step, self.stage, {})
+        self.ctx['kernel_values']['CONFIG_SMP'] = 'm'
+        (self.stage / 'modules/pkg/defconfig').write_text('CONFIG_SMP=n\n')
+        self.ctx['overrides']['CONFIG_SMP'] = ['n', 'y']
+        self.assertRaisesRegex(KernelError, 'CONFIG_SMP is vendor n kernel m, reviewed vendor n kernel y', build.package_step,
+                               self.ctx, self.step, self.stage, {})
 
     def test_extra_configurations_are_held_to_the_kernel_too(self):
         extra = self.top / 'extra.config'
@@ -201,8 +224,26 @@ class BaseAndGroupStepTests(StepFixture):
 class OverrideTests(unittest.TestCase):
     def test_conflicts_are_the_values_that_differ_from_the_kernel_configuration(self):
         kernel = {'CONFIG_A': 'y', 'CONFIG_B': 'n', 'CONFIG_C': 'm'}
-        self.assertEqual({'CONFIG_B': ['m', 'n'], 'CONFIG_C': ['n', 'm']},
-                         build.vendor_conflicts(kernel, {'CONFIG_A': 'y', 'CONFIG_B': 'm', 'CONFIG_C': 'n', 'CONFIG_D': 'y'}))
+        vendor = {'CONFIG_A': 'y', 'CONFIG_B': 'm', 'CONFIG_C': 'n', 'CONFIG_D': 'y', 'CONFIG_E': 'm', 'CONFIG_F': 'n'}
+        self.assertEqual({'CONFIG_B': ['m', 'n'], 'CONFIG_C': ['n', 'm']}, build.vendor_conflicts(kernel, vendor))
+        # A symbol the Kconfig files declare and the configuration lacks is n, so the vendor's m is a conflict and its n is not.
+        self.assertEqual({'CONFIG_B': ['m', 'n'], 'CONFIG_C': ['n', 'm'], 'CONFIG_E': ['m', 'n']},
+                         build.vendor_conflicts(kernel, vendor, {'CONFIG_E', 'CONFIG_F'}))
+
+    def test_the_declared_symbols_are_the_config_and_menuconfig_names_of_the_kconfig_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            top = Path(temp)
+            (top / 'drivers/x').mkdir(parents=True)
+            (top / '.git').mkdir()
+            (top / 'drivers/x/Kconfig').write_text('menu "x"\nconfig FIRST\n\ttristate "first"\nmenuconfig SECOND\n\tbool\n'
+                                                   '  config THIRD\nendmenu\n# config COMMENTED\n')
+            (top / 'Kconfig.debug').write_text('config FOURTH if X\nconfig FIFTH\n')
+            (top / 'drivers/x/other.kconfig').write_text('config SIXTH\n')
+            (top / 'drivers/x/Makefile').write_text('config NOT_A_KCONFIG\n')
+            (top / '.git/Kconfig').write_text('config IN_GIT\n')
+            self.assertEqual({'CONFIG_FIRST', 'CONFIG_SECOND', 'CONFIG_THIRD', 'CONFIG_FIFTH', 'CONFIG_SIXTH'},
+                             build.kconfig_symbols(top, minimum=1))
+            self.assertRaisesRegex(KernelError, 'too few Kconfig symbols', build.kconfig_symbols, top)
 
 
 class HostToolTests(unittest.TestCase):

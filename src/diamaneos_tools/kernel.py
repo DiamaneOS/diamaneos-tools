@@ -295,6 +295,18 @@ def check_module_imports(modules, allowlist, undefined):
         require(importers == allowed, 'unexpected importers of ' + symbol + ': ' + (', '.join(importers) or 'none'))
 
 
+def kernel_overrides(build_plan):
+    """The reviewed vendor values that differ from the kernel configuration: symbol -> [vendor value, kernel value]."""
+    section = build_plan['vendor']['kernel_overrides']
+    rows = section.get('symbols')
+    require(isinstance(section.get('reason'), str) and section['reason'].strip() and isinstance(rows, dict) and rows
+            and list(rows) == sorted(rows) and all(
+                SYMBOL_NAME.fullmatch(s) and s.startswith('CONFIG_') and isinstance(v, list) and len(v) == 2
+                and all(isinstance(x, str) and x for x in v) and v[0] != v[1] for s, v in rows.items()),
+            'invalid kernel overrides of the vendor modules')
+    return rows
+
+
 def kmi_symbols(common):
     """The symbols of the GKI symbol lists the common tree's build lists (gki/aarch64/symbols)."""
     named = set(re.findall(r'"gki/aarch64/symbols/([a-z_0-9]+)"', (common / 'BUILD.bazel').read_text())) | {'base'}
@@ -441,7 +453,7 @@ def build(root, jobs, timeout, profile='production'):
     recipe = load_json(PACKAGING)
     # Reads every recipe before the workspace is touched, so a broken recipe stops here.
     denied_modules(recipe), import_allowlist(recipe), forbidden_symbols(recipe), required_symbols(recipe), shipped_dtbs(recipe)
-    kmi_exceptions(recipe), kmi_exceptions(recipe, 'debug')
+    kmi_exceptions(recipe), kmi_exceptions(recipe, 'debug'), kernel_overrides(load_json(BUILD_PLAN))
     kernel_package.check_required_modules(recipe, shipped_vendor_files())
     kernel_package.cmdline_arguments(recipe, forbidden_arguments())
     kernel_package.debug_recipe(recipe, {module_key(n) for n in denied_modules(recipe)})
@@ -583,17 +595,17 @@ class Run:
         plan = self.build_plan['vendor']
         kernel_build.stage_vendor_modules(self.vendor, self.preparation['projects']['vendor']['revision'], self.stage)
         self.out.mkdir()
-        overrides = set(plan['kernel_overrides']['symbols'])
+        overrides = kernel_overrides(self.build_plan)
         ctx = {'env': self.env, 'make': self.make, 'common': self.common, 'jobs': self.jobs, 'timeout': self.timeout,
                'logs': self.logs, 'runs': self.run, 'out': self.out, 'tools_root': ROOT, 'device': self.device,
-               'kernel_values': kernel_kbuild.read_config(str(self.device / '.config')), 'overrides': overrides,
-               'conflicts': {}}
+               'kernel_values': kernel_kbuild.read_config(str(self.device / '.config')),
+               'declared': kernel_build.kconfig_symbols(self.common), 'overrides': overrides, 'conflicts': {}}
         for step in plan['steps']:
             self.phase(step['name'])
             started = time.monotonic()
             self.built[step['name']] = kernel_build.STEPS[step['kind']](ctx, step, self.stage, self.outputs)
             self.record(step['name'], started)
-        stale = sorted(overrides - set(ctx['conflicts']))
+        stale = sorted(set(overrides) - set(ctx['conflicts']))
         require(not stale, 'vendor override no longer differs from the kernel configuration: ' + ', '.join(stale))
         (self.run / 'vendor-overrides.json').write_bytes(encoded(ctx['conflicts']))
         warnings = [w for name in ('core-build', 'device-build', *self.built) for w in

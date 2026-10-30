@@ -7,6 +7,7 @@ does not make (cfg80211, mac80211, BAM DMA, cqhci). The vendor module packages
 of the vendor tree build as external modules against the device kernel build,
 in the order config/fp6-kernel-build.json lists.
 """
+import os
 from pathlib import Path
 import re
 import shutil
@@ -93,20 +94,63 @@ def single_thread_pahole(wrapper, pahole):
     wrapper.chmod(0o755)
 
 
-def vendor_conflicts(kernel_values, vendor_values):
-    """Vendor values that differ from the kernel configuration: symbol -> [vendor, kernel]. The vendor
-    modules compile with the kernel's values plus these, so each one is a decision."""
-    return {k: [v, kernel_values[k]] for k, v in sorted(vendor_values.items())
-            if k in kernel_values and kernel_values[k] != v}
+KCONFIG_SYMBOL = re.compile(r'^[ \t]*(?:menu)?config[ \t]+([A-Za-z0-9_]+)[ \t]*$', re.M)
+
+
+def kconfig_symbols(common, minimum=5000):
+    """The CONFIG_ names the Kconfig files of the common tree declare. A declared symbol that the kernel
+    configuration does not mention is hidden behind an option that is off, so it is n."""
+    found = set()
+    for top, directories, files in os.walk(common):
+        directories[:] = [d for d in directories if d != '.git']
+        for name in files:
+            if name.startswith('Kconfig') or name.endswith('.kconfig'):
+                found |= {'CONFIG_' + s for s in KCONFIG_SYMBOL.findall(Path(top, name).read_text(errors='replace'))}
+    require(len(found) >= minimum, 'the common tree declares too few Kconfig symbols')
+    return found
+
+
+def vendor_conflicts(kernel_values, vendor_values, declared=()):
+    """Vendor values that differ from the kernel configuration: symbol -> [vendor, kernel]. A symbol the kernel
+    configuration lacks but the Kconfig files declare counts as n. The vendor modules compile with the kernel's
+    values plus these, so each one is a decision."""
+    found = {}
+    for symbol, value in sorted(vendor_values.items()):
+        kernel = kernel_values.get(symbol, 'n' if symbol in declared else None)
+        if kernel is not None and kernel != value:
+            found[symbol] = [value, kernel]
+    return found
 
 
 def check_overrides(ctx, step, vendor_values):
-    """Vendor values that differ from the kernel's must be the reviewed overrides of the build plan."""
-    found = vendor_conflicts(ctx['kernel_values'], vendor_values)
-    stray = sorted(set(found) - ctx['overrides'])
+    """Vendor values that differ from the kernel's must be the reviewed overrides of the build plan, each with
+    the vendor and kernel value the review saw."""
+    found = vendor_conflicts(ctx['kernel_values'], vendor_values, ctx['declared'])
+    stray = sorted(set(found) - set(ctx['overrides']))
     require(not stray, '%s sets kernel symbols to other values than the kernel configuration: %s' %
             (step['name'], ', '.join('%s=%s (kernel %s)' % (k, found[k][0], found[k][1]) for k in stray[:5])))
+    changed = sorted(k for k in found if found[k] != ctx['overrides'][k])
+    require(not changed, '%s: reviewed overrides now have other values: %s' % (
+        step['name'], ', '.join('%s is vendor %s kernel %s, reviewed vendor %s kernel %s' % (k, *found[k], *ctx['overrides'][k])
+                                for k in changed[:5])))
     ctx['conflicts'].update(found)
+
+
+def step_values(ctx, step, stage):
+    """The kernel symbols the vendor tree sets for one step: the base and package defconfigs, the extra
+    configuration and the symbols the package selects, or the merged defconfigs of a group step."""
+    modules = stage / 'modules'
+    if step['kind'] == 'base':
+        return kernel_kbuild.read_config(str(modules / step['package'] / 'defconfig'))
+    if step['kind'] == 'groups':
+        merged = {}
+        configs = [modules / d / 'defconfig' for d in step['defconfigs']]
+        for path in [*configs, *(modules / g / 'defconfig' for g in ('display', 'gpu', 'touch'))]:
+            merged.update(kernel_kbuild.read_config(str(path)))
+        return merged
+    extra = [str(ctx['tools_root'] / step['extra_defconfig'])] if step.get('extra_defconfig') else []
+    return kernel_kbuild.package_config(str(modules / step['package']), str(modules / 'base'),
+                                        str(ctx['device'] / 'include/config/auto.conf'), extra)[0]
 
 
 HOST_TOOLS = {'make': ['--version'], 'perl': ['-e', 'print "$^V\\n"'], 'openssl': ['version'], 'python3': ['--version'],
@@ -224,8 +268,7 @@ def package_step(ctx, step, stage, outputs):
         header = kernel_kbuild.feature_header(found)
         (package / step['feature_header']).write_text(header)
         (ctx['runs'] / (step['name'] + '-features.h')).write_text(header)
-    vendor, _ = kernel_kbuild.package_config(str(package), str(base), str(ctx['device'] / 'include/config/auto.conf'), extra)
-    check_overrides(ctx, step, vendor)
+    check_overrides(ctx, step, step_values(ctx, step, stage))
     table = kernel_kbuild.generate(str(package), str(base), str(out), str(ctx['device'] / 'include/config/auto.conf'),
                                    only=step.get('modules', ()), extra_defconfig=extra)
     symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
@@ -259,7 +302,7 @@ def check_defconfig(defconfig, effective):
 
 def base_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
-    check_overrides(ctx, step, kernel_kbuild.read_config(str(stage / 'modules' / step['package'] / 'defconfig')))
+    check_overrides(ctx, step, step_values(ctx, step, stage))
     arguments = ['-C', str(stage / 'modules' / step['package']), 'KERNEL_SRC=' + str(ctx['common']),
                  'KERNEL_OUT=' + str(ctx['device']), 'OUT=' + str(out)]
     call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=stage, env=ctx['env'], timeout=ctx['timeout'],
@@ -275,10 +318,7 @@ def groups_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
     symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
     configs = [modules / d / 'defconfig' for d in step['defconfigs']]
-    merged = {}
-    for path in [*configs, *(modules / g / 'defconfig' for g in ('display', 'gpu', 'touch'))]:
-        merged.update(kernel_kbuild.read_config(str(path)))
-    check_overrides(ctx, step, merged)
+    check_overrides(ctx, step, step_values(ctx, step, stage))
     env = dict(ctx['env'], KSRC=str(ctx['common']), KOUT=str(ctx['device']), VINC=str(modules / 'base'),
                VCONFIG=' '.join(map(str, configs)), OUT=str(out), JOBS=str(ctx['jobs']),
                MK=' '.join(ctx['make'][:1] + [a for a in ctx['make'][1:] if not a.startswith('HOST')]),
