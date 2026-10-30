@@ -189,8 +189,8 @@ class BuildPlanTests(unittest.TestCase):
 
     def test_each_profile_names_the_fragment_it_builds(self):
         core = self.plan['core']
-        self.assertEqual({'production': 'configs/production_defconfig', 'development': 'configs/production_defconfig'},
-                         core['profile_fragments'])
+        self.assertEqual({'production': 'configs/production_defconfig', 'development': 'configs/production_defconfig',
+                          'debug': 'configs/bringup_defconfig'}, core['profile_fragments'])
         self.assertEqual(['configs/diamaneos_defconfig'], core['fragments'])
         self.assertEqual('arch/arm64/configs/gki_defconfig', core['defconfig'])
         self.assertEqual(set(kernel.CONFIG_PROFILES), set(core['profile_fragments']))

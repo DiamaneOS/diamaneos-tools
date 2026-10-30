@@ -83,12 +83,11 @@ def stage_modules(destination, selected, strip, signing, metadata, work, library
     require(len(keys) == 1, 'modules are not all signed with the kernel build key')
 
 
-def cmdline_arguments(recipe, forbidden):
-    """The kernel command line words of the recipe, checked against the forbidden ones."""
-    words = recipe.get('kernel_cmdline', [])
-    require(isinstance(words, list), 'invalid kernel command line')
+def argument_rows(rows, forbidden):
+    """The words of a list of {argument, reason} rows, checked against the forbidden ones."""
+    require(isinstance(rows, list), 'invalid kernel command line')
     found = []
-    for row in words:
+    for row in rows:
         require(isinstance(row, dict) and set(row) == {'argument', 'reason'} and isinstance(row['argument'], str)
                 and ARGUMENT.fullmatch(row['argument']) and isinstance(row['reason'], str) and row['reason'].strip(),
                 'invalid kernel command line argument')
@@ -96,6 +95,60 @@ def cmdline_arguments(recipe, forbidden):
         found.append(row['argument'])
     require(len(set(found)) == len(found), 'duplicate kernel command line argument')
     return found
+
+
+def cmdline_arguments(recipe, forbidden):
+    """The kernel command line words of the recipe, checked against the forbidden ones."""
+    return argument_rows(recipe.get('kernel_cmdline', []), forbidden)
+
+
+def debug_arguments(recipe):
+    """The words the debug profile adds. They are the ones a production command line must not have, so
+    nothing is forbidden, but none may repeat a production word."""
+    section = recipe.get('debug')
+    require(isinstance(section, dict) and set(section) == {'kernel_cmdline', 'modules', 'kmi_symbols'}, 'invalid debug packaging')
+    added = argument_rows(section['kernel_cmdline'], set())
+    names = {w.split('=', 1)[0] for w in cmdline_arguments(recipe, set())}
+    require(not names & {w.split('=', 1)[0] for w in added}, 'a debug argument repeats a production argument')
+    return added
+
+
+def debug_kmi_symbols(recipe):
+    """The kernel symbols the debug aids make modules import. The compiler or the kernel's own macros
+    insert them, so no importer list can bind them."""
+    section = recipe['debug']['kmi_symbols']
+    require(isinstance(section, dict) and set(section) == {'symbols', 'reason'} and isinstance(section['reason'], str)
+            and section['reason'].strip() and isinstance(section['symbols'], list) and section['symbols']
+            and len(set(section['symbols'])) == len(section['symbols'])
+            and all(isinstance(n, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', n) for n in section['symbols']),
+            'invalid debug KMI symbols')
+    return section['symbols']
+
+
+def debug_recipe(recipe, denied):
+    """The recipe with the debug modules placed: in their partitions, and in the second-stage load list and the
+    recovery list right after the anchor module. denied: the module keys of the deny list, which the
+    debug modules must be on."""
+    debug_arguments(recipe)
+    section = recipe['debug']['modules']
+    require(isinstance(section, dict) and set(section) == {'names', 'after', 'partitions', 'reason'}
+            and isinstance(section['reason'], str) and section['reason'].strip() and isinstance(section['names'], list)
+            and section['names'] and len(set(section['names'])) == len(section['names'])
+            and isinstance(section['partitions'], list) and set(section['partitions']) <= set(recipe['partitions']),
+            'invalid debug modules')
+    placed = set().union(*map(set, recipe['partitions'].values()))
+    require(all(module_key(n) in denied and n not in placed for n in section['names']),
+            'a debug module is not on the deny list or is already placed')
+    result = {**recipe, 'partitions': {k: list(v) for k, v in recipe['partitions'].items()},
+              'load_lists': {k: list(v) for k, v in recipe['load_lists'].items()}}
+    for partition in section['partitions']:
+        result['partitions'][partition] = sorted(result['partitions'][partition] + section['names'])
+    for key in ('vendor_boot/modules.load.recovery', 'vendor_dlkm/modules.load'):
+        names = result['load_lists'][key]
+        require(section['after'] in names, 'the debug modules follow %s, which %s lacks' % (section['after'], key))
+        at = names.index(section['after']) + 1
+        result['load_lists'][key] = names[:at] + section['names'] + names[at:]
+    return result
 
 
 def board_config(recipe, arguments):

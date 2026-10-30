@@ -93,6 +93,8 @@ def candidate_files(run):
     """The verified candidate: relative path -> file, exactly as artifacts.json lists it."""
     result = read_json(run / 'result.json')
     require(result.get('status') == 'PASS', 'the kernel run did not pass')
+    require(result.get('config_profile') != 'debug' and not result.get('debug_build'),
+            'a debug run is never published: it has the debug aids on and its own command line')
     inventory_path = run / 'artifacts.json'
     require(sha(inventory_path) == result.get('inventory_sha256'), 'artifacts.json does not match the run result')
     inventory = read_json(inventory_path)

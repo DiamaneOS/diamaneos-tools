@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 import shutil
 import sys
@@ -56,6 +57,82 @@ class PlacementTests(unittest.TestCase):
         self.assertEqual('scsi_mod.scan=sync', lines['BOARD_KERNEL_CMDLINE'])
         self.assertEqual('$(FP6_KERNEL_PATH)/vendor_dlkm-modules.blocklist', lines['BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE'])
         self.assertNotIn('BOARD_KERNEL_CMDLINE', package.board_config(RECIPE, []))
+
+
+class DebugPackagingTests(unittest.TestCase):
+    def recipe(self):
+        recipe = copy.deepcopy(RECIPE)
+        recipe['kernel_cmdline'] = [{'argument': 'scsi_mod.scan=sync', 'reason': 'r'}]
+        recipe['debug'] = {
+            'kernel_cmdline': [{'argument': 'loglevel=8', 'reason': 'r'}, {'argument': 'reboot=panic_warm', 'reason': 'r'}],
+            'modules': {'names': ['dbg1.ko', 'dbg-2.ko'], 'after': 'b-dev.ko', 'partitions': ['vendor_boot', 'vendor_dlkm'],
+                        'reason': 'r'},
+            'kmi_symbols': {'symbols': ['__might_sleep'], 'reason': 'r'}}
+        return recipe
+
+    def test_the_debug_words_are_allowed_where_production_forbids_them_and_may_not_repeat_a_production_word(self):
+        recipe = self.recipe()
+        self.assertEqual(['loglevel=8', 'reboot=panic_warm'], package.debug_arguments(recipe))
+        self.assertRaisesRegex(KernelError, 'forbidden kernel argument: reboot=panic_warm', package.cmdline_arguments,
+                               {'kernel_cmdline': recipe['debug']['kernel_cmdline']}, {'reboot'})
+        recipe['debug']['kernel_cmdline'].append({'argument': 'scsi_mod.scan=async', 'reason': 'r'})
+        self.assertRaisesRegex(KernelError, 'repeats a production argument', package.debug_arguments, recipe)
+
+    def test_the_debug_modules_are_placed_after_their_anchor_in_the_second_stage_and_the_recovery_list(self):
+        recipe = self.recipe()
+        denied = {'dbg1', 'dbg_2'}
+        placed = package.debug_recipe(recipe, denied)
+        self.assertEqual(['a.ko', 'b-dev.ko', 'dbg1.ko', 'dbg-2.ko'], placed['load_lists']['vendor_boot/modules.load.recovery'])
+        self.assertEqual(['b-dev.ko', 'dbg1.ko', 'dbg-2.ko', 'c.ko'], placed['load_lists']['vendor_dlkm/modules.load'])
+        self.assertEqual(['a.ko', 'dbg-2.ko', 'dbg1.ko'], [n for n in placed['partitions']['vendor_boot'] if n != 'b-dev.ko' and n != 'rfkill.ko'])
+        self.assertIn('dbg1.ko', placed['partitions']['vendor_dlkm'])
+        self.assertNotIn('dbg1.ko', placed['partitions']['system_dlkm'])
+        self.assertEqual(['a.ko'], placed['load_lists']['vendor_boot/modules.load'])
+        # The production recipe is untouched.
+        self.assertNotIn('dbg1.ko', recipe['partitions']['vendor_dlkm'])
+        package.check_placement(placed, lambda n: [])
+
+    def test_a_debug_module_must_be_denied_unplaced_and_follow_a_listed_module(self):
+        recipe = self.recipe()
+        self.assertRaisesRegex(KernelError, 'not on the deny list', package.debug_recipe, recipe, {'dbg1'})
+        recipe['debug']['modules']['names'] = ['a.ko']
+        self.assertRaisesRegex(KernelError, 'already placed', package.debug_recipe, recipe, {'a'})
+        recipe = self.recipe()
+        recipe['debug']['modules']['after'] = 'ghost.ko'
+        self.assertRaisesRegex(KernelError, 'follow ghost.ko', package.debug_recipe, recipe, {'dbg1', 'dbg_2'})
+
+    def test_the_debug_kmi_symbols_need_names_and_a_reason(self):
+        recipe = self.recipe()
+        self.assertEqual(['__might_sleep'], package.debug_kmi_symbols(recipe))
+        for bad in ({'symbols': ['__might_sleep']}, {'symbols': [], 'reason': 'r'}, {'symbols': ['a', 'a'], 'reason': 'r'},
+                    {'symbols': ['bad name'], 'reason': 'r'}, {'symbols': ['a'], 'reason': ' '},
+                    {'symbols': ['a'], 'reason': 'r', 'extra': 1}):
+            with self.subTest(bad=bad):
+                recipe['debug']['kmi_symbols'] = bad
+                self.assertRaisesRegex(KernelError, 'invalid debug KMI symbols', package.debug_kmi_symbols, recipe)
+        del recipe['debug']['kmi_symbols']
+        self.assertRaisesRegex(KernelError, 'invalid debug packaging', package.debug_arguments, recipe)
+
+    def test_the_committed_debug_data_is_the_bring_up_command_line_and_the_five_debug_modules(self):
+        import json
+        from pathlib import Path as P
+        recipe = json.loads((P(__file__).resolve().parents[2] / 'config/fp6-kernel-packaging.json').read_text())
+        self.assertEqual(['loglevel=8', 'log_buf_len=4M', 'sysctl.kernel.panic_on_rcu_stall=1', 'panic=5',
+                          'qcom_dload_mode.download_mode=1', 'qcom_scm.download_mode=1', 'reboot=panic_warm'],
+                         package.debug_arguments(recipe))
+        denied = {n.removesuffix('.ko').replace('-', '_') for g in recipe['denied_modules'] for n in g['modules']}
+        placed = package.debug_recipe(recipe, denied)
+        names = recipe['debug']['modules']['names']
+        self.assertEqual(5, len(names))
+        # The clock debug module would bind a node that must stay disabled.
+        self.assertNotIn('debugcc-volcano.ko', names)
+        second = placed['load_lists']['vendor_dlkm/modules.load']
+        at = second.index(names[0])
+        self.assertEqual(names, second[at:at + 5])
+        self.assertEqual('qrtr-smd.ko', second[at - 1])
+        self.assertEqual(len(recipe['partitions']['vendor_dlkm']) + 5, len(placed['partitions']['vendor_dlkm']))
+        self.assertEqual(len(recipe['load_lists']['vendor_boot/modules.load.recovery']) + 5,
+                         len(placed['load_lists']['vendor_boot/modules.load.recovery']))
 
 
 class StagingTests(unittest.TestCase):

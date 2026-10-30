@@ -149,6 +149,13 @@ class ReferenceTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             subject.main(['--run', str(self.run), '--reference', str(self.reference)])
 
+    def test_a_debug_run_carries_the_bring_up_words_on_purpose(self):
+        (self.run / 'candidate/BoardConfigKernel.mk').write_text(
+            BOARD.replace(' $(FP6_KERNEL_PATH)/modules/dbg.ko', '').replace(' dbg.ko', '') + 'BOARD_KERNEL_CMDLINE += loglevel=8\n')
+        self.assertIn('bring-up words on the command line', self.compare()['problems'])
+        (self.run / 'result.json').write_text(json.dumps({'status': 'PASS', 'kernel_release': '6.18.37', 'config_profile': 'debug'}))
+        self.assertNotIn('bring-up words on the command line', self.compare()['problems'])
+
     def test_the_order_of_listed_dependencies_does_not_matter(self):
         self.metadata = lambda path: {'depends': ['x,y' if 'candidate' in path.parts else 'y,x']}
         self.assertEqual('PASS', self.compare()['status'])

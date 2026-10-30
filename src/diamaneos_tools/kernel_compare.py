@@ -215,7 +215,8 @@ def compare_reference(run, reference, denied, metadata, dtc):
         problems.append('module set or module metadata differs')
     if lists:
         problems.append('module lists or load order differ')
-    if result['command_line']['run_bring_up_words']:
+    # The debug profile carries the bring-up arguments on purpose.
+    if result['command_line']['run_bring_up_words'] and record.get('config_profile') != 'debug':
         problems.append('bring-up words on the command line')
     if dtbs != their_dtbs or not all(same.values()):
         problems.append('device trees differ')

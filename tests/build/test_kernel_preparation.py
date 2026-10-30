@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -369,6 +370,41 @@ class KmiTests(unittest.TestCase):
             with self.subTest(bad=bad):
                 self.assertRaises(kernel.KernelError, kernel.kmi_exceptions, {'kmi_exceptions': [bad]})
         self.assertRaisesRegex(kernel.KernelError, 'listed twice: x', kernel.kmi_exceptions, {'kmi_exceptions': [group, group]})
+
+    def test_the_debug_profile_adds_the_symbols_its_aids_make_modules_import_with_no_importer_list(self):
+        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+        production, debug = kernel.kmi_exceptions(recipe), kernel.kmi_exceptions(recipe, 'debug')
+        added = {symbol: modules for symbol, modules in debug.items() if symbol not in production}
+        self.assertEqual({'__might_fault', '__might_resched', '__might_sleep', '__ubsan_handle_out_of_bounds'}, set(added))
+        self.assertEqual({None}, set(added.values()))
+        self.assertEqual(production, {symbol: debug[symbol] for symbol in production})
+        self.assertIn('__might_sleep', kernel.kmi_whitelist(self.common_with_lists(), debug).split())
+        self.assertNotIn('__might_sleep', kernel.kmi_whitelist(self.common_with_lists(), production).split())
+
+    def common_with_lists(self):
+        common = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, common)
+        (common / 'gki/aarch64/symbols').mkdir(parents=True)
+        (common / 'BUILD.bazel').write_text('')
+        (common / 'gki/aarch64/symbols/base').write_text('\n'.join('s%d' % n for n in range(1001)))
+        return common
+
+    def test_a_debug_symbol_may_not_repeat_a_production_exception(self):
+        group = {'symbols': ['x'], 'modules': ['a.ko'], 'reason': 'r'}
+        recipe = {'kmi_exceptions': [group], 'debug': {'kmi_symbols': {'symbols': ['x'], 'reason': 'r'}}}
+        self.assertRaisesRegex(kernel.KernelError, 'listed twice: x', kernel.kmi_exceptions, recipe, 'debug')
+        recipe['debug']['kmi_symbols']['symbols'] = ['y']
+        self.assertEqual({'x': ['a.ko'], 'y': None}, kernel.kmi_exceptions(recipe, 'debug'))
+        self.assertEqual({'x': ['a.ko']}, kernel.kmi_exceptions(recipe))
+
+    def test_an_exception_with_no_importer_list_covers_any_importer_but_must_still_be_used(self):
+        imports = {'a.ko': {'mine'}, 'b.ko': {'mine', 'printk'}}
+        exports = {'printk', 'mine'}
+        self.assertEqual((['mine'], 2), kernel.check_kmi(imports, exports, {'printk'}, {'mine': None}))
+        self.assertRaisesRegex(kernel.KernelError, 'no longer needed: mine', kernel.check_kmi, {'a.ko': {'printk'}}, exports,
+                               {'printk'}, {'mine': None})
+        self.assertRaisesRegex(kernel.KernelError, 'no KMI symbol list keeps: mine', kernel.check_kmi, imports, exports,
+                               {'printk'}, {})
 
     def test_imports_outside_the_symbol_lists_need_a_reviewed_exception_with_the_right_importers(self):
         imports = {'a.ko': {'printk', 'mine', 'local_function'}, 'b.ko': {'kmalloc'}}

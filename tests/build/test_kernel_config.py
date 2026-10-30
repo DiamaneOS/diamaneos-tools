@@ -42,6 +42,51 @@ class KernelConfigTests(unittest.TestCase):
         policy['baseline']['CONFIG_D'] = 'sometimes'
         self.assertRaisesRegex(ValueError, 'invalid kernel policy requirement', kernel_config.validate_policy, policy)
 
+    def debug_config(self):
+        rules = {**self.policy['baseline'], **self.policy['debug']}
+        return '\n'.join(f'# {k} is not set' if v in ('n', 'off', 'not-built-in') else f'{k}={v}' for k, v in rules.items()).encode()
+
+    def test_the_debug_profile_swaps_the_rules_the_aids_need_and_keeps_the_rest(self):
+        data = self.debug_config()
+        result = kernel_config.check(data, self.policy, 'debug')
+        self.assertEqual('PASS', result['status'], result['failures'])
+        # The production tier is recorded, not enforced.
+        self.assertIn('CONFIG_TIPC', [r['symbol'] for r in result['production_differences']])
+        for profile in ('development', 'production'):
+            failing = {r['symbol'] for r in kernel_config.check(data, self.policy, profile)['failures']}
+            self.assertLessEqual({'CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE',
+                                  'CONFIG_DEBUG_FS_DISALLOW_MOUNT'}, failing)
+
+    def test_the_debug_profile_still_enforces_the_hardening_it_does_not_touch(self):
+        data = self.debug_config()
+        for old, new, symbol in ((b'CONFIG_CFI=y', b'# CONFIG_CFI is not set', 'CONFIG_CFI'),
+                                 (b'CONFIG_MODULE_SIG_FORCE=y', b'# CONFIG_MODULE_SIG_FORCE is not set', 'CONFIG_MODULE_SIG_FORCE'),
+                                 (b'CONFIG_TRIM_UNUSED_KSYMS=y', b'# CONFIG_TRIM_UNUSED_KSYMS is not set', 'CONFIG_TRIM_UNUSED_KSYMS')):
+            with self.subTest(symbol=symbol):
+                result = kernel_config.check(data.replace(old, new), self.policy, 'debug')
+                self.assertEqual([symbol], [r['symbol'] for r in result['failures']])
+
+    def test_the_debug_profile_needs_its_aids_on(self):
+        data = self.debug_config()
+        for symbol in ('CONFIG_FUNCTION_TRACER', 'CONFIG_KFENCE', 'CONFIG_PANIC_ON_OOPS', 'CONFIG_PSTORE_FTRACE'):
+            with self.subTest(symbol=symbol):
+                result = kernel_config.check(data.replace(f'{symbol}=y'.encode(), f'# {symbol} is not set'.encode()), self.policy, 'debug')
+                self.assertEqual([symbol], [r['symbol'] for r in result['failures']])
+        self.assertEqual('5', self.policy['debug']['CONFIG_PANIC_TIMEOUT'])
+
+    def test_a_debug_tier_may_not_name_a_production_rule(self):
+        self.policy['debug']['CONFIG_TIPC'] = 'm'
+        self.assertRaisesRegex(ValueError, 'debug policy cannot name production', kernel_config.validate_policy, self.policy)
+
+    def test_the_cli_takes_the_debug_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / '.config'
+            path.write_bytes(self.debug_config())
+            result = subprocess.run([str(ROOT / 'bin/diamaneos'), 'build', 'kernel-config', '--config', str(path), '--policy',
+                                     str(ROOT / 'config/kernel-policy-fp6.json'), '--profile', 'debug'], text=True, capture_output=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual('debug', json.loads(result.stdout)['profile'])
+
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
         self.assertEqual({'off'}, {self.policy['baseline'][k] for k in
                                    ('CONFIG_TIPC_CRYPTO', 'CONFIG_TIPC_DIAG', 'CONFIG_TIPC_MEDIA_UDP')})

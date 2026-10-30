@@ -31,13 +31,23 @@ DT_PLAN = ROOT / 'config/fp6-kernel-dt.json'
 PACKAGING = ROOT / 'config/fp6-kernel-packaging.json'
 POLICY = ROOT / 'config/kernel-policy-fp6.json'
 VENDOR_POLICY = ROOT / 'config/kernel-vendor-policy-fp6.json'
-CONFIG_PROFILES = ('production', 'development')
+CONFIG_PROFILES = ('production', 'development', 'debug')
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
 DTB_NAME = re.compile(r'[A-Za-z0-9_-]+\.dtb')
 SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
 PROJECT_NAME = re.compile(r'[a-z][a-z0-9-]{0,30}')
 # Files the tools keep in the workspace next to the sources.
 OWN_FILES = ('.preparation.lock', 'preparation.json', 'runs', 'current')
+DEBUG_README = """# Debug build of the FP6 kernel set
+
+This set was built with the debug profile. The Image has the debug aids on (tracing, kprobes and uprobes, KFENCE, UBSAN
+reports, lock and stall detectors, mountable debugfs, no lockdown, dmesg not restricted), the vendor_boot command line
+adds loglevel=8, log_buf_len, panic_on_rcu_stall, panic=5, the download mode arguments and reboot=panic_warm, and the
+debug modules the production deny list drops are in the module lists (not the clock debug module, whose device
+tree node stays disabled).
+
+It is for test builds that reproduce a fault with the aids on. Never publish it: kernel publish refuses it.
+"""
 BUILD_TOOLS = ('modinfo', 'modprobe', 'nm', 'readelf', 'openssl', 'perl', 'rsync', 'make', 'git', 'tar', 'python3', 'bash')
 
 
@@ -292,10 +302,10 @@ def kmi_symbols(common):
     return symbols
 
 
-def kmi_exceptions(recipe):
+def kmi_exceptions(recipe, profile='production'):
     """Kernel symbols modules import although no GKI symbol list keeps them: symbol -> importers. A group names
     its symbols, its importers and the reason. Together they are the vendor symbol list the Image keeps
-    exporting."""
+    exporting. The debug profile adds the symbols its debug aids make any module import (importers None)."""
     groups = recipe.get('kmi_exceptions', [])
     require(isinstance(groups, list), 'invalid KMI exception list')
     found = {}
@@ -308,6 +318,10 @@ def kmi_exceptions(recipe):
         for symbol in group['symbols']:
             require(symbol not in found, 'KMI exception listed twice: ' + symbol)
             found[symbol] = sorted(group['modules'])
+    if profile == 'debug':
+        for symbol in kernel_package.debug_kmi_symbols(recipe):
+            require(symbol not in found, 'KMI exception listed twice: ' + symbol)
+            found[symbol] = None
     return found
 
 
@@ -320,14 +334,14 @@ def kmi_whitelist(common, exceptions):
 def check_kmi(imports, exports, kmi, exceptions):
     """Every kernel symbol a Qualcomm or device module imports must be in the GKI symbol lists or be a
     reviewed exception that names its importers, and an exception must still be needed.
-    imports: module -> undefined symbols. exceptions: symbol -> importers."""
+    imports: module -> undefined symbols. exceptions: symbol -> importers (None: any module)."""
     used = set().union(*imports.values()) & exports
     outside = used - kmi
     missing = sorted(outside - set(exceptions))
     require(not missing, 'modules import kernel symbols no KMI symbol list keeps: ' + ', '.join(missing[:10]))
     stale = sorted(set(exceptions) - outside)
     require(not stale, 'KMI exception no longer needed: ' + ', '.join(stale))
-    wrong = {s: sorted(m for m, u in imports.items() if s in u) for s in exceptions}
+    wrong = {s: sorted(m for m, u in imports.items() if s in u) for s, bound in exceptions.items() if bound is not None}
     wrong = sorted('%s is imported by %s, not %s' % (s, ', '.join(found) or 'no module', ', '.join(exceptions[s]))
                    for s, found in wrong.items() if found != exceptions[s])
     require(not wrong, 'KMI exception importers differ: ' + ', '.join(wrong[:5]))
@@ -416,8 +430,9 @@ def build(root, jobs, timeout, profile='production'):
     recipe = load_json(PACKAGING)
     # Reads every recipe before the workspace is touched, so a broken recipe stops here.
     denied_modules(recipe), import_allowlist(recipe), forbidden_symbols(recipe), required_symbols(recipe), shipped_dtbs(recipe)
-    kmi_exceptions(recipe)
+    kmi_exceptions(recipe), kmi_exceptions(recipe, 'debug')
     kernel_package.cmdline_arguments(recipe, forbidden_arguments())
+    kernel_package.debug_recipe(recipe, {module_key(n) for n in denied_modules(recipe)})
     from .product_inputs import tools_identity
     with locked(root):
         preparation = prepared(root, plan, dt_plan)
@@ -476,13 +491,15 @@ class Run:
 
     def __init__(self, root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase):
         self.root, self.run, self.plan, self.dt_plan, self.build_plan = root, run, plan, dt_plan, build_plan
-        self.recipe, self.profile, self.jobs, self.timeout = recipe, profile, jobs, timeout
+        self.base_recipe, self.profile, self.jobs, self.timeout = recipe, profile, jobs, timeout
         self.preparation, self.result, self.phase = preparation, result, phase
         self.vendor, self.common = root / 'vendor', root / 'common'
         self.core, self.device, self.stage = run / 'core', run / 'device', run / 'vendor-src'
         self.logs, self.out = run / 'logs', run / 'out'
         self.denied = denied_modules(recipe)
-        self.exceptions = kmi_exceptions(recipe)
+        # The debug profile ships the debug modules the deny list drops. The deny list itself is checked on the base recipe.
+        self.recipe = kernel_package.debug_recipe(recipe, {module_key(n) for n in self.denied}) if profile == 'debug' else recipe
+        self.exceptions = kmi_exceptions(recipe, profile)
         self.llvm = root / build_plan['toolchain']['clang'] / 'bin'
         self.env = self.make = None
         self.outputs, self.built, self.selected = {}, {}, {}
@@ -580,7 +597,7 @@ class Run:
             require(path.is_file(), 'device kernel module missing: ' + module)
             require(path.name not in self.vendor_pool and path.name not in self.device_pool, 'two builds make the module ' + path.name)
             self.device_pool[path.name] = path
-        absent = check_denied_built(recipe, {**self.vendor_pool, **self.device_pool, **self.core_pool})
+        absent = check_denied_built(self.base_recipe, {**self.vendor_pool, **self.device_pool, **self.core_pool})
         self.result['denied_modules_not_built'] = absent
         self.result['denied_module_count'] = len(self.denied) - len(absent)
         wanted = set().union(*map(set, recipe['partitions'].values()))
@@ -614,9 +631,13 @@ class Run:
     def package(self):
         dtbs = shipped_dtbs(self.recipe)
         arguments = kernel_package.cmdline_arguments(self.recipe, forbidden_arguments())
+        if self.profile == 'debug':
+            arguments += kernel_package.debug_arguments(self.recipe)
         self.candidate = self.run / 'candidate'
         kernel_package.render_package(self.candidate, self.staged, self.core / 'arch/arm64/boot/Image', {dtbs[0]: self.tree},
                                       self.dtbo, self.recipe, arguments)
+        if self.profile == 'debug':
+            (self.candidate / 'README.md').write_text(DEBUG_README)
 
     def checks(self):
         """The packaged modules against the Image: certificate, symbol versions, namespaces, imports and symbols."""
@@ -666,7 +687,7 @@ class Run:
         for name, path in (('core.config', core / '.config'), ('device.config', self.device / '.config'),
                            ('core.symvers', core / kernel_build.SYMVERS), ('System.map', core / 'System.map')):
             shutil.copyfile(path, self.run / name)
-        result.update(status='PASS', module_count=len(self.selected), dtb_count=len(shipped_dtbs(recipe)), dtbo_count=self.overlays,
+        result.update(status='PASS', debug_build=self.profile == 'debug', module_count=len(self.selected), dtb_count=len(shipped_dtbs(recipe)), dtbo_count=self.overlays,
                       import_rules_checked=len(import_allowlist(recipe)), forbidden_symbols_checked=len(forbidden_symbols(recipe)),
                       required_symbols_checked=len(required), inventory_sha256=sha(self.run / 'artifacts.json'),
                       interfaces_sha256=sha(self.run / 'module-interfaces.json'),
@@ -705,7 +726,9 @@ def main(argv=None):
     parser.add_argument('--timeout', type=int, default=7200, help='maximum seconds per compilation command')
     parser.add_argument('--config-profile', choices=CONFIG_PROFILES, default='production',
                         help='build: kernel configuration policy to check. The development profile checks only the '
-                             'baseline. Both build the configuration of the vendor tree\'s production profile')
+                             'baseline. Both build the configuration of the vendor tree\'s production profile. The debug '
+                             'profile builds its bring-up configuration with the debug aids on, adds the debug '
+                             'modules and command line arguments, and is never published')
     parser.add_argument('--source', action='append', default=[], metavar='NAME=PATH',
                         help='prepare: fetch the pinned commit of NAME (vendor, common, a toolchain part or base-dt) '
                              'from this local Git repository instead of its URL. The commit stays the pin')

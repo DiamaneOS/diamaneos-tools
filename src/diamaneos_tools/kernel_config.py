@@ -44,13 +44,13 @@ def parse_config(data):
 
 
 def validate_policy(policy):
-    if (not isinstance(policy, dict)
-            or set(policy) != {'schema_version', 'id', 'baseline', 'production'}
+    keys = {'schema_version', 'id', 'baseline', 'production'}
+    if (not isinstance(policy, dict) or set(policy) not in (keys, keys | {'debug'})
             or type(policy['schema_version']) is not int or policy['schema_version'] != 1
             or not isinstance(policy['id'], str)
             or not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,127}', policy['id'])):
         raise ValueError('invalid kernel policy')
-    for group in ('baseline', 'production'):
+    for group in sorted(set(policy) & {'baseline', 'production', 'debug'}):
         rules = policy[group]
         if not isinstance(rules, dict) or not 1 <= len(rules) <= 256:
             raise ValueError('invalid kernel policy requirements')
@@ -60,10 +60,15 @@ def validate_policy(policy):
                 raise ValueError('invalid kernel policy requirement')
     if set(policy['baseline']) & set(policy['production']):
         raise ValueError('production policy cannot override baseline requirements')
+    if set(policy.get('debug', {})) & set(policy['production']):
+        raise ValueError('debug policy cannot name production requirements')
 
 
 def check(data, policy, profile):
-    if profile not in ('development', 'production'):
+    """Check a configuration. The development profile enforces the baseline, production adds the production
+    tier. The debug profile enforces the baseline with the debug tier's rules taking the place of the rules
+    they name, and records the production tier."""
+    if profile not in ('development', 'production', 'debug'):
         raise ValueError('unknown kernel policy profile')
     validate_policy(policy)
     values = parse_config(data)
@@ -71,7 +76,7 @@ def check(data, policy, profile):
         return [{'symbol': key, 'expected': expected, 'observed': values.get(key)}
                 for key, expected in sorted(rules.items())
                 if values.get(key) not in ALTERNATIVES.get(expected, (expected,))]
-    baseline = differences(policy['baseline'])
+    baseline = differences({**policy['baseline'], **policy.get('debug', {})} if profile == 'debug' else policy['baseline'])
     production = differences(policy['production'])
     failures = baseline + (production if profile == 'production' else [])
     return {'schema_version': 1, 'operation': 'kernel-config-check',
@@ -87,7 +92,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--policy', required=True, type=Path)
-    parser.add_argument('--profile', required=True, choices=('development', 'production'))
+    parser.add_argument('--profile', required=True, choices=('development', 'production', 'debug'))
     args = parser.parse_args(argv)
     try:
         with args.config.open('rb') as stream:

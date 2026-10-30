@@ -207,6 +207,79 @@ class VendorStageTests(RunFixture):
         self.assertRaisesRegex(KernelError, 'Wvisibility', self.run.vendor_build)
 
 
+class DebugProfileTests(RunFixture):
+    def setUp(self):
+        super().setUp()
+        (self.root / 'vendor/configs/bringup_defconfig').write_text(
+            'CONFIG_DEBUG_FS_ALLOW_ALL=y\n# CONFIG_DEBUG_FS_DISALLOW_MOUNT is not set\nCONFIG_FUNCTION_TRACER=y\n')
+        self.build_plan = json.loads(json.dumps(BUILD_PLAN))
+        self.build_plan['core']['profile_fragments']['debug'] = 'configs/bringup_defconfig'
+        self.recipe.update({'kernel_cmdline': [{'argument': 'scsi_mod.scan=sync', 'reason': 'r'}],
+                            'denied_modules': [{'modules': ['dbg.ko'], 'reason': 'r'}],
+                            'partitions': {'system_dlkm': ['a.ko'], 'vendor_boot': ['v.ko'], 'vendor_dlkm': ['v.ko']},
+                            'load_lists': {'vendor_boot/modules.load.recovery': ['v.ko'], 'vendor_dlkm/modules.load': ['v.ko']},
+                            'debug': {'kernel_cmdline': [{'argument': 'loglevel=8', 'reason': 'r'}],
+                                      'modules': {'names': ['dbg.ko'], 'after': 'v.ko', 'partitions': ['vendor_boot', 'vendor_dlkm'],
+                                                  'reason': 'r'},
+                                      'kmi_symbols': {'symbols': ['__might_sleep'], 'reason': 'r'}}})
+        self.policy.write_text(json.dumps(dict(POLICY, baseline={'CONFIG_RUST': 'y', 'CONFIG_DEBUG_FS_ALLOW_ALL': 'n'},
+                                               debug={'CONFIG_DEBUG_FS_ALLOW_ALL': 'y', 'CONFIG_FUNCTION_TRACER': 'y'})))
+
+    def make_run(self, profile):
+        run = kernel.Run(self.root, self.run.run, {}, {}, self.build_plan, self.recipe, profile, 4, 60, self.preparation,
+                         self.result, self.phases.append)
+        run.logs.mkdir(exist_ok=True)
+        run.env, run.make = {'PATH': '/bin'}, ['make']
+        return run
+
+    def test_the_debug_profile_builds_the_bring_up_fragment_and_checks_the_debug_tier(self):
+        run = self.make_run('debug')
+        with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'):
+            run.core_build()
+        config = (run.core / '.config').read_text()
+        self.assertIn('CONFIG_FUNCTION_TRACER=y', config)
+        self.assertIn('CONFIG_DEBUG_FS_ALLOW_ALL=y', config)
+        self.assertEqual('debug', json.loads((run.run / 'kernel-config.json').read_text())['profile'])
+        # The same configuration fails the development profile, whose baseline refuses mountable debugfs.
+        run = self.make_run('development')
+        (self.root / 'vendor/configs/production_defconfig').write_text('CONFIG_DEBUG_FS_ALLOW_ALL=y\n')
+        with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'):
+            self.assertRaisesRegex(KernelError, 'development kernel configuration regressed', run.core_build)
+
+    def test_the_debug_profile_ships_the_debug_modules_and_the_deny_list_is_checked_without_them(self):
+        run = self.make_run('debug')
+        self.assertEqual(['dbg.ko', 'v.ko'], sorted(run.recipe['partitions']['vendor_dlkm']))
+        self.assertEqual(['v.ko', 'dbg.ko'], run.recipe['load_lists']['vendor_dlkm/modules.load'])
+        self.assertEqual(['v.ko'], run.base_recipe['partitions']['vendor_dlkm'])
+        self.assertEqual({'dbg.ko'}, set(run.denied))
+        self.assertEqual(['v.ko'], self.make_run('production').recipe['partitions']['vendor_dlkm'])
+
+    def package(self, profile):
+        run = self.make_run(profile)
+        run.tree, run.dtbo, run.staged = b'tree', b'dtbo', run.run / 'staged'
+        shown = {}
+
+        def render(candidate, staged, image, dtbs, dtbo, recipe, arguments):
+            candidate.mkdir()
+            shown.update(arguments=arguments, recipe=recipe)
+        with patch.object(kernel.kernel_package, 'render_package', render):
+            run.package()
+        return run, shown
+
+    def test_the_debug_command_line_adds_the_bring_up_arguments_and_the_candidate_names_the_profile(self):
+        run, shown = self.package('debug')
+        self.assertEqual(['scsi_mod.scan=sync', 'loglevel=8'], shown['arguments'])
+        readme = (run.candidate / 'README.md').read_text()
+        self.assertIn('debug profile', readme)
+        self.assertIn('Never publish it', readme)
+        self.assertIn('dbg.ko', shown['recipe']['partitions']['vendor_dlkm'])
+
+    def test_a_production_candidate_has_no_debug_arguments_and_no_readme(self):
+        run, shown = self.package('production')
+        self.assertEqual(['scsi_mod.scan=sync'], shown['arguments'])
+        self.assertFalse((run.candidate / 'README.md').exists())
+
+
 class DeviceTreeStageTests(RunFixture):
     def test_the_base_files_get_the_fixups_and_the_result_must_decompile(self):
         root = kernel_dt.Node('')
@@ -355,6 +428,13 @@ class ChecksStageTests(RunFixture):
         self.run.exceptions = {'odd': ['a.ko', 'vendor.ko']}
         self.run.checks()
         self.assertEqual(['odd'], self.result['kmi']['outside_symbol_lists'])
+
+    def test_the_result_says_whether_the_build_is_a_debug_build(self):
+        self.run.checks()
+        self.assertIs(False, self.result['debug_build'])
+        self.run.profile = 'debug'
+        self.run.checks()
+        self.assertIs(True, self.result['debug_build'])
 
     def test_an_export_of_a_device_kernel_module_is_held_to_the_lists_too(self):
         (self.run.device / kernel_build.SYMVERS).write_text(symbols_table(('printk', 'vmlinux'), ('cqhci_init', 'drivers/mmc/host/cqhci')))

@@ -23,7 +23,8 @@
     "fragments": ["configs/diamaneos_defconfig"],
     "profile_fragments": {
       "production": "configs/production_defconfig",
-      "development": "configs/production_defconfig"
+      "development": "configs/production_defconfig",
+      "debug": "configs/bringup_defconfig"
     },
     "goals": ["Image", "modules"]
   },

@@ -118,6 +118,16 @@ class PublishTests(unittest.TestCase):
         self.write_run(CANDIDATE, pending_required_symbols=[])
         self.assertEqual([], self.publish()['pending_required_symbols'])
 
+    def test_a_debug_run_is_never_published(self):
+        for values in ({'config_profile': 'debug'}, {'debug_build': True}):
+            with self.subTest(values=values):
+                self.write_run(CANDIDATE, **values)
+                self.assertRaisesRegex(subject.PublishError, 'a debug run is never published', self.publish)
+                self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
+        # Even a debug candidate that claims another profile carries the README and is refused for it.
+        self.write_run(dict(CANDIDATE, **{'README.md': b'# Debug build'}))
+        self.assertRaisesRegex(subject.PublishError, 'unexpected file in the kernel build: README.md', self.publish)
+
     def test_changed_candidate_is_refused_and_the_checkout_is_untouched(self):
         (self.run / 'candidate/modules/a.ko').write_bytes(b'tampered')
         self.assertRaisesRegex(subject.PublishError, 'differs from artifacts.json: modules/a.ko', self.publish)

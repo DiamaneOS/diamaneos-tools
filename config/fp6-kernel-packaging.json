@@ -1466,5 +1466,61 @@
       "argument": "scsi_mod.scan=sync",
       "reason": "The 6.18 GKI scans SCSI devices asynchronously, which numbers the UFS logical units in a different order on each boot. The device files, the boot control HAL and the vendor ueventd rules name the disks by letter (sda to sdf are LUN 0 to 5), so scanning must stay synchronous."
     }
-  ]
+  ],
+  "debug": {
+    "kernel_cmdline": [
+      {
+        "argument": "loglevel=8",
+        "reason": "Kernel messages of every level reach the console."
+      },
+      {
+        "argument": "log_buf_len=4M",
+        "reason": "The kernel log buffer holds a whole boot with the debug aids on."
+      },
+      {
+        "argument": "sysctl.kernel.panic_on_rcu_stall=1",
+        "reason": "An RCU stall panics, like a lockup or a hung task does in this configuration."
+      },
+      {
+        "argument": "panic=5",
+        "reason": "A panic restarts the phone after 5 seconds."
+      },
+      {
+        "argument": "qcom_dload_mode.download_mode=1",
+        "reason": "A panic ends in Qualcomm dump mode, with the RAM and so the ramoops console kept."
+      },
+      {
+        "argument": "qcom_scm.download_mode=1",
+        "reason": "The secure channel call that arms dump mode."
+      },
+      {
+        "argument": "reboot=panic_warm",
+        "reason": "A panic restarts warm, so the dump mode reached by the watchdog bite keeps the RAM."
+      }
+    ],
+    "modules": {
+      "names": [
+        "dcc_v2.ko",
+        "memory_dump_v2.ko",
+        "qcom_iommu_debug.ko",
+        "spmi-pmic-arb-debug.ko",
+        "sysmon_subsystem_stats.ko"
+      ],
+      "after": "qrtr-smd.ko",
+      "partitions": [
+        "vendor_boot",
+        "vendor_dlkm"
+      ],
+      "reason": "The debug profile ships the debug modules the production deny list drops: the data capture engine, the dump table, IOMMU and SPMI debug and the subsystem stats. The clock debug module stays out, because the device tree keeps its node disabled in every profile and the module would bind nothing. They load in the second stage, right after qrtr-smd."
+    },
+    "kmi_symbols": {
+      "symbols": [
+        "__might_fault",
+        "__might_resched",
+        "__might_sleep",
+        "__ubsan_handle_out_of_bounds"
+      ],
+      "reason": "The debug aids insert calls to these symbols into every module that sleeps, copies from user space or indexes an array (atomic sleep checks and UBSAN reports). The Image exports them for its own modules, and no GKI symbol list keeps them."
+    }
+  }
 }
