@@ -153,9 +153,10 @@ def decompile(dtc, blob):
     return result.stdout
 
 
-def compare_reference(run, reference, denied, metadata, dtc):
+def compare_reference(run, reference, denied, metadata, dtc, required=()):
     """The run's candidate against a reference kernel set. denied: module keys of the packaging deny list.
-    dtc decompiles the device trees to compare them."""
+    required: module keys the packaging recipe requires, which a reference may lack. dtc decompiles the
+    device trees to compare them."""
     if dtc is None:
         raise ValueError('comparing with a reference needs dtc to compare the device trees')
     candidate = run / 'candidate'
@@ -166,10 +167,11 @@ def compare_reference(run, reference, denied, metadata, dtc):
     mine = {p.name: p for p in (candidate / 'modules').glob('*.ko')}
     theirs = {p.name: p for p in (reference / 'modules').glob('*.ko')}
     policy = sorted(n for n in set(theirs) - set(mine) if key(n) in denied)
+    added = sorted(n for n in set(mine) - set(theirs) if key(n) in required)
     result = {'modules': {'run': len(mine), 'reference': len(theirs),
-                          'only_in_run': sorted(set(mine) - set(theirs)),
+                          'only_in_run': sorted(set(mine) - set(theirs) - set(added)),
                           'only_in_reference': sorted(set(theirs) - set(mine) - set(policy)),
-                          'denied_by_policy': policy}}
+                          'denied_by_policy': policy, 'required_by_policy': added}}
     field_differences = {}
     for name in sorted(set(mine) & set(theirs)):
         a, b = metadata(mine[name]), metadata(theirs[name])
@@ -185,8 +187,8 @@ def compare_reference(run, reference, denied, metadata, dtc):
             continue
         a, b = first.get(variable, []), second.get(variable, [])
         if variable.endswith(('_LOAD', 'MODULES')):
-            # The deny list takes policy modules out of the run: leave them out of the reference side too.
-            difference = list_differences(a, [w for w in b if w not in policy])
+            # The deny list takes policy modules out of the reference side and the required modules out of the run side.
+            difference = list_differences([w for w in a if w not in added], [w for w in b if w not in policy])
             if difference['only_in_run'] or difference['only_in_reference'] or difference['order_differs']:
                 lists[variable] = difference
         elif a != b:
@@ -243,15 +245,18 @@ def main(argv=None):
             result = compare(args.run, args.against)
         else:
             from .kernel import denied_modules, module_key, module_metadata
+            from .kernel_package import required_modules
             from .vendor import ROOT, load_json
-            denied = {module_key(n) for n in denied_modules(load_json(ROOT / 'config/fp6-kernel-packaging.json'))}
+            recipe = load_json(ROOT / 'config/fp6-kernel-packaging.json')
+            denied = {module_key(n) for n in denied_modules(recipe)}
+            required = {module_key(row['module']) for row in required_modules(recipe)}
 
             def metadata(path):
                 values = {}
                 for name, value in module_metadata(path):
                     values.setdefault(name.decode(), []).append(value.decode(errors='replace'))
                 return values
-            result = compare_reference(args.run, args.reference, denied, metadata, args.dtc)
+            result = compare_reference(args.run, args.reference, denied, metadata, args.dtc, required)
     except (OSError, ValueError, KeyError) as error:
         print('ERROR: kernel compare failed: ' + str(error), file=sys.stderr)
         return 2

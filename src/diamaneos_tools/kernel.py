@@ -29,6 +29,7 @@ SOURCE_PLAN = ROOT / 'config/kernel-sources-fp6.json'
 BUILD_PLAN = ROOT / 'config/fp6-kernel-build.json'
 DT_PLAN = ROOT / 'config/fp6-kernel-dt.json'
 PACKAGING = ROOT / 'config/fp6-kernel-packaging.json'
+VENDOR_FILES = ROOT / 'config/fp6-minimal/vendor-files.json'
 POLICY = ROOT / 'config/kernel-policy-fp6.json'
 VENDOR_POLICY = ROOT / 'config/kernel-vendor-policy-fp6.json'
 CONFIG_PROFILES = ('production', 'development', 'debug')
@@ -394,6 +395,11 @@ def module_metadata(path):
     return sorted(values)
 
 
+def shipped_vendor_files():
+    """The paths of the vendor image files the product ships."""
+    return {row['path'] for row in load_json(VENDOR_FILES)['files']}
+
+
 def kernel_release(vmlinux):
     """The release a vmlinux reports, from its Linux version banner."""
     data = Path(vmlinux).read_bytes()
@@ -431,6 +437,7 @@ def build(root, jobs, timeout, profile='production'):
     # Reads every recipe before the workspace is touched, so a broken recipe stops here.
     denied_modules(recipe), import_allowlist(recipe), forbidden_symbols(recipe), required_symbols(recipe), shipped_dtbs(recipe)
     kmi_exceptions(recipe), kmi_exceptions(recipe, 'debug')
+    kernel_package.check_required_modules(recipe, shipped_vendor_files())
     kernel_package.cmdline_arguments(recipe, forbidden_arguments())
     kernel_package.debug_recipe(recipe, {module_key(n) for n in denied_modules(recipe)})
     from .product_inputs import tools_identity
@@ -532,7 +539,8 @@ class Run:
         (self.run / 'kmi-whitelist').write_text(kmi_whitelist(self.common, self.exceptions))
         trim = self.run / 'ksyms.config'
         trim.write_text('CONFIG_TRIM_UNUSED_KSYMS=y\nCONFIG_UNUSED_KSYMS_WHITELIST="../kmi-whitelist"\n')
-        fragments = [self.vendor / f for f in plan['fragments'] + [plan['profile_fragments'][self.profile]]] + [trim]
+        fragments = [self.vendor / f for f in plan['fragments'] + [plan['profile_fragments'][self.profile]]]
+        fragments += [ROOT / f for f in plan['tool_fragments'][self.profile]] + [trim]
         kernel_build.merge_config([self.common / plan['defconfig'], *fragments], self.core / '.config')
         self.make_kernel('core-configure', self.core, ['olddefconfig'])
         config = (self.core / '.config').read_bytes()
@@ -601,6 +609,7 @@ class Run:
         self.result['denied_modules_not_built'] = absent
         self.result['denied_module_count'] = len(self.denied) - len(absent)
         wanted = set().union(*map(set, recipe['partitions'].values()))
+        self.result['required_modules_checked'] = kernel_package.check_required_modules(recipe, shipped_vendor_files())
         self.selected = kernel_package.select(wanted, {**self.vendor_pool, **self.device_pool}, self.core_pool)
         kernel_package.check_placement(recipe, lambda n: dependencies(self.selected[n]) if n in self.selected else [])
         for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):

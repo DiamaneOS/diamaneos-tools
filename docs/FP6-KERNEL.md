@@ -97,8 +97,11 @@ Reproducibility:
 - A struct declared inside a parameter list (`-Wvisibility`) in any build log fails the build.
 - The core header copies listed in the vendor tree's `core-headers.json` files must stay byte for
   byte equal to the common kernel, because their structures cross the Image and module boundary.
-- `--config-profile development` and `production` build the same configuration (the vendor tree's
-  production profile). They differ in the policy that is enforced (below).
+- `--config-profile development` and `production` build the vendor tree's production profile and
+  differ in the policy that is enforced (below). Production also asks for `CONFIG_TIPC_LOCAL_ONLY`.
+- Every profile builds TIPC as a module (`config/fp6-kernel-tipc.config`) without the UDP bearer,
+  crypto and diag options. The files of `tool_fragments` in the build plan come after the vendor
+  profile's fragment, and the build fails on a request the configuration does not honour.
 - `--config-profile debug` builds with the debug aids on (see Debug profile below).
 
 ## Module packaging
@@ -115,6 +118,14 @@ Reproducibility:
   dependencies sit in its own partition. vendor_dlkm may depend on system_dlkm.
 - vendor_boot holds the first-stage modules, the recovery list (first stage plus second stage) and
   the common modules they depend on (`libarc4`, `rfkill`).
+- `required_modules` names a module that a vendor image file needs:
+  - `tipc.ko` is in system_dlkm and in its load list, as on 6.1, because `nicmd` opens AF_TIPC
+    sockets to reach the radio data service and every data call fails without it.
+  - The module declares no `net-pf-30` alias, so nothing autoloads it and the load list is what
+    loads it.
+  - The build fails while `vendor/bin/nicmd` ships (`config/fp6-minimal/vendor-files.json`) and the
+    module is missing from the partition or from its load list.
+  - A reference comparison reports such a module the reference lacks as policy.
 
 Its `denied_modules` lists, with reasons, what FP6 never ships:
 
@@ -259,7 +270,7 @@ Image configuration right after configuring, by default with the production prof
 - The `production` tier adds dmesg restricted from boot and TIPC as a local-only module for
   Qualcomm's data stack.
 - `--config-profile development` checks only the baseline and records the production
-  differences. The configuration itself is the same.
+  differences.
 - The debug tier replaces baseline rules the debug aids need and may not name a production rule.
 - A rule value `off` accepts `n` or a symbol the configuration does not mention (hidden by an
   option that is off). `not-built-in` also accepts `m`.
@@ -290,7 +301,7 @@ Settings that differ from the 6.1 kernel:
 | `CONFIG_RANDSTRUCT_FULL` | `CONFIG_RANDSTRUCT_NONE`: 6.18 builds Rust only without RANDSTRUCT. The Rust binder (`CONFIG_ANDROID_BINDER_IPC_RUST`, no C binder) replaces the most attacked IPC driver with memory-safe code. The structure layout scan is gone with RANDSTRUCT |
 | lockdown at confidentiality level | lockdown at integrity level: Android reads DMA-BUF statistics with a BPF program, which confidentiality breaks |
 | `CONFIG_DEBUG_CREDENTIALS`, `CONFIG_CRYPTO_SHA1_ARM64_CE` | gone from 6.18 |
-| TIPC as a local-only module | `production` tier: the GKI build does not declare `tipc.ko` and `CONFIG_TIPC_LOCAL_ONLY` is a DiamaneOS patch, so TIPC is off. The bearer, crypto and diag options stay in the baseline as `off` |
+| TIPC as a local-only module | `production` tier: `CONFIG_TIPC_LOCAL_ONLY` is a DiamaneOS patch of the common kernel. Every profile builds TIPC as a module, and the bearer, crypto and diag options stay in the baseline as `off` |
 | `CONFIG_CORESIGHT` off | the GKI configuration builds it as modules, so the baseline requires `not-built-in` and the deny list keeps `coresight*.ko` out |
 | `CONFIG_QRTR_IMSDCM_OWNERSHIP` | the vendor tree declares it and no source implements the IMS role guard, so it is not checked |
 | `CONFIG_USB_CONFIGFS_F_QDSS`, `CONFIG_USB_F_FS_IPC_LOGGING`, `CONFIG_QCOM_EUD` | the symbols do not exist in the 6.18 sources, the baseline requires `off` |
@@ -328,6 +339,8 @@ production build can be reproduced with the debug aids on.
   - `loglevel=8` and `log_buf_len=4M`.
   - `sysctl.kernel.panic_on_rcu_stall=1` and `panic=5`.
   - The two download mode arguments and `reboot=panic_warm`.
+- TIPC is a module as in the other profiles, and `config/fp6-kernel-tipc-open.config` turns the
+  local-only option off, as in the bring-up Image.
 - The vendor_boot and vendor_dlkm partitions and the load lists keep five of the debug modules the
   production deny list drops, right after `qrtr-smd.ko`. The clock debug module stays out, because
   its device tree node stays disabled in every profile.

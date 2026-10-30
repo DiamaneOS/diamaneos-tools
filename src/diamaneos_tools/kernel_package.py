@@ -65,6 +65,35 @@ def check_placement(recipe, depends):
     require(not problems, 'incomplete module placement: ' + ', '.join(problems[:5]))
 
 
+def required_modules(recipe):
+    """The modules that userspace in the vendor image needs: the module, its partition, the vendor file that needs
+    it and why. The module must be in the partition's load list, because nothing else loads it."""
+    rows = recipe.get('required_modules', [])
+    require(isinstance(rows, list), 'invalid required module list')
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {'module', 'partition', 'needed_by', 'reason'}
+                and all(isinstance(row[k], str) and row[k].strip() for k in row)
+                and row['module'].endswith('.ko') and row['partition'] in VARIABLES, 'invalid required module')
+    require(len({r['module'] for r in rows}) == len(rows), 'required module listed twice')
+    return rows
+
+
+def check_required_modules(recipe, shipped):
+    """Every module a shipped vendor file needs is in its partition and in the partition's load list. Rows whose
+    vendor file is not shipped do not apply. Returns the modules checked."""
+    checked = []
+    for row in required_modules(recipe):
+        if row['needed_by'] not in shipped:
+            continue
+        name, partition = row['module'], row['partition']
+        require(name in recipe['partitions'][partition],
+                '%s is needed by %s and is not in the %s module list' % (name, row['needed_by'], partition))
+        require(name in recipe['load_lists'].get(partition + '/modules.load', []),
+                '%s is needed by %s and is not in the %s load list' % (name, row['needed_by'], partition))
+        checked.append(name)
+    return checked
+
+
 def stage_modules(destination, selected, strip, signing, metadata, work, library_path):
     """Strip every selected module and sign it. signing is (sign-file, key, certificate, hash)."""
     destination.mkdir(parents=True)

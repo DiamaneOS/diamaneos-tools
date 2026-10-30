@@ -24,6 +24,7 @@
       "rfkill.ko",
       "rtl8150.ko",
       "slhc.ko",
+      "tipc.ko",
       "usbnet.ko",
       "usbserial.ko",
       "wwan.ko",
@@ -947,6 +948,7 @@
       "usbserial.ko",
       "ftdi_sio.ko",
       "8021q.ko",
+      "tipc.ko",
       "rfkill.ko"
     ],
     "vendor_dlkm/modules.load": [
@@ -1388,6 +1390,14 @@
     }
   },
   "forbidden_symbols": [],
+  "required_modules": [
+    {
+      "module": "tipc.ko",
+      "partition": "system_dlkm",
+      "needed_by": "vendor/bin/nicmd",
+      "reason": "nicmd opens AF_TIPC sockets to reach the radio stack's data service, and without the TIPC module every data call setup fails at once. The module declares no net-pf-30 alias, so nothing autoloads it, and as on 6.1 it is in system_dlkm and in its load list."
+    }
+  ],
   "kmi_exceptions": [
     {
       "symbols": [

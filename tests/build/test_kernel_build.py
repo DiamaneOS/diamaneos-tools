@@ -195,6 +195,18 @@ class BuildPlanTests(unittest.TestCase):
         self.assertEqual('arch/arm64/configs/gki_defconfig', core['defconfig'])
         self.assertEqual(set(kernel.CONFIG_PROFILES), set(core['profile_fragments']))
 
+    def test_every_profile_builds_tipc_as_a_module_production_asks_for_local_only_and_debug_turns_it_off(self):
+        fragments = self.plan['core']['tool_fragments']
+        self.assertEqual(set(kernel.CONFIG_PROFILES), set(fragments))
+        self.assertEqual(['config/fp6-kernel-tipc.config'], fragments['development'])
+        self.assertEqual(['config/fp6-kernel-tipc.config', 'config/fp6-kernel-tipc-open.config'], fragments['debug'])
+        self.assertEqual(['config/fp6-kernel-tipc.config', 'config/fp6-kernel-tipc-local.config'], fragments['production'])
+        text = lambda name: (ROOT / name).read_text().splitlines()
+        self.assertEqual(['CONFIG_TIPC=m', '# CONFIG_TIPC_MEDIA_UDP is not set', '# CONFIG_TIPC_CRYPTO is not set',
+                          '# CONFIG_TIPC_DIAG is not set'], text('config/fp6-kernel-tipc.config'))
+        self.assertEqual(['CONFIG_TIPC_LOCAL_ONLY=y'], text('config/fp6-kernel-tipc-local.config'))
+        self.assertEqual(['# CONFIG_TIPC_LOCAL_ONLY is not set'], text('config/fp6-kernel-tipc-open.config'))
+
     def test_the_overrides_are_reviewed_vendor_drivers_and_each_probe_declares_its_result(self):
         overrides = self.plan['vendor']['kernel_overrides']
         self.assertEqual(sorted(overrides['symbols']), overrides['symbols'])

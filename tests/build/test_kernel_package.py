@@ -59,6 +59,52 @@ class PlacementTests(unittest.TestCase):
         self.assertNotIn('BOARD_KERNEL_CMDLINE', package.board_config(RECIPE, []))
 
 
+class RequiredModuleTests(unittest.TestCase):
+    ROW = {'module': 'rfkill.ko', 'partition': 'system_dlkm', 'needed_by': 'vendor/bin/daemon', 'reason': 'r'}
+    SHIPPED = {'vendor/bin/daemon'}
+
+    def recipe(self, **changes):
+        return {**RECIPE, 'required_modules': [{**self.ROW, **changes}]}
+
+    def test_a_module_the_shipped_vendor_file_needs_must_be_listed_and_in_the_load_list(self):
+        self.assertEqual(['rfkill.ko'], package.check_required_modules(self.recipe(), self.SHIPPED))
+        recipe = self.recipe()
+        recipe['partitions'] = {**RECIPE['partitions'], 'system_dlkm': []}
+        self.assertRaisesRegex(KernelError, 'rfkill.ko is needed by vendor/bin/daemon and is not in the system_dlkm module list',
+                               package.check_required_modules, recipe, self.SHIPPED)
+        recipe = self.recipe()
+        recipe['load_lists'] = {**RECIPE['load_lists'], 'system_dlkm/modules.load': []}
+        self.assertRaisesRegex(KernelError, 'rfkill.ko is needed by vendor/bin/daemon and is not in the system_dlkm load list',
+                               package.check_required_modules, recipe, self.SHIPPED)
+
+    def test_a_row_applies_only_while_the_vendor_image_ships_the_file_that_needs_it(self):
+        recipe = self.recipe()
+        recipe['partitions'] = {**RECIPE['partitions'], 'system_dlkm': []}
+        self.assertEqual([], package.check_required_modules(recipe, set()))
+
+    def test_a_malformed_row_is_refused(self):
+        for changes in ({'module': 'rfkill'}, {'partition': 'boot'}, {'reason': ' '}, {'needed_by': ''}):
+            with self.subTest(changes=changes):
+                self.assertRaisesRegex(KernelError, 'invalid required module', package.required_modules, self.recipe(**changes))
+        self.assertRaisesRegex(KernelError, 'invalid required module', package.required_modules,
+                               {'required_modules': [{**self.ROW, 'extra': 1}]})
+        self.assertRaisesRegex(KernelError, 'listed twice', package.required_modules, {'required_modules': [self.ROW, self.ROW]})
+        self.assertEqual([], package.required_modules({}))
+
+    def test_the_committed_recipe_ships_the_tipc_module_nicmd_needs_as_6_1_does(self):
+        import json
+        top = Path(__file__).resolve().parents[2]
+        recipe = json.loads((top / 'config/fp6-kernel-packaging.json').read_text())
+        shipped = {row['path'] for row in json.loads((top / 'config/fp6-minimal/vendor-files.json').read_text())['files']}
+        self.assertIn('vendor/bin/nicmd', shipped)
+        self.assertEqual(['tipc.ko'], package.check_required_modules(recipe, shipped))
+        self.assertEqual(['tipc.ko'], [r['module'] for r in recipe['required_modules']])
+        self.assertIn('tipc.ko', recipe['partitions']['system_dlkm'])
+        load = recipe['load_lists']['system_dlkm/modules.load']
+        self.assertEqual(['8021q.ko', 'tipc.ko', 'rfkill.ko'], load[-3:])
+        package.check_placement(recipe, lambda name: [])
+
+
 class DebugPackagingTests(unittest.TestCase):
     def recipe(self):
         recipe = copy.deepcopy(RECIPE)

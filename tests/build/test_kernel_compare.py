@@ -100,8 +100,8 @@ class ReferenceTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def compare(self, denied=('dbg',)):
-        return subject.compare_reference(self.run, self.reference, set(denied), self.metadata, 'dtc')
+    def compare(self, denied=('dbg',), required=()):
+        return subject.compare_reference(self.run, self.reference, set(denied), self.metadata, 'dtc', set(required))
 
     def test_a_denied_module_the_reference_ships_is_policy_not_a_difference(self):
         result = self.compare()
@@ -123,6 +123,18 @@ class ReferenceTests(unittest.TestCase):
         result = self.compare()
         self.assertEqual(['loglevel=8'], result['command_line']['run_bring_up_words'])
         self.assertIn('bring-up words on the command line', result['problems'])
+
+    def test_a_required_module_the_reference_lacks_is_policy_not_a_difference(self):
+        (self.run / 'candidate/modules/tip-c.ko').write_bytes(b'module')
+        board = self.run / 'candidate/BoardConfigKernel.mk'
+        board.write_text(board.read_text().replace('modules/z.ko', 'modules/z.ko $(FP6_KERNEL_PATH)/modules/tip-c.ko'))
+        failing = self.compare()
+        self.assertEqual(('FAIL', ['tip-c.ko']), (failing['status'], failing['modules']['only_in_run']))
+        self.assertIn('BOARD_SYSTEM_KERNEL_MODULES', failing['lists'])
+        result = self.compare(required=('tip_c',))
+        self.assertEqual('PASS', result['status'], result['problems'])
+        self.assertEqual((['tip-c.ko'], []), (result['modules']['required_by_policy'], result['modules']['only_in_run']))
+        self.assertEqual({}, result['lists'])
 
     def test_module_metadata_differences_are_reported_per_module(self):
         self.metadata = lambda path: {'depends': ['x' if 'candidate' in path.parts else 'y']}

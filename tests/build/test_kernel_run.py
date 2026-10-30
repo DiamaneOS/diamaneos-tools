@@ -1,4 +1,5 @@
 """The stages of a kernel build run, each with stand-ins for make and the toolchain."""
+import copy
 import json
 from pathlib import Path
 import struct
@@ -18,6 +19,7 @@ BUILD_PLAN = {
                   'system_libraries': []},
     'core': {'defconfig': 'arch/arm64/configs/gki_defconfig', 'fragments': ['configs/diamaneos_defconfig'],
              'profile_fragments': {'production': 'configs/production_defconfig', 'development': 'configs/production_defconfig'},
+             'tool_fragments': {'production': [], 'development': [], 'debug': []},
              'goals': ['Image', 'modules']},
     'device': {'fragments': ['kernel/wireless_defconfig'], 'goals': ['modules'], 'modules': ['net/cfg80211.ko'],
                'config_symbols': ['CONFIG_CFG80211'], 'reason': 'r'},
@@ -102,6 +104,25 @@ class CoreAndDeviceTests(RunFixture):
         self.assertEqual(['core-configure', 'core-build'], [c['name'] for c in self.result['commands']])
         self.assertEqual({'unmet': {}}, json.loads((self.run.run / 'fragment-check.json').read_text()))
         self.assertEqual('PASS', json.loads((self.run.run / 'kernel-config.json').read_text())['status'])
+
+    def test_the_tool_fragments_of_the_profile_come_after_the_vendor_ones_and_must_be_honoured(self):
+        (self.top / 'config').mkdir()
+        (self.top / 'config/net.config').write_text('CONFIG_NET_X=m\n# CONFIG_NET_Y is not set\n')
+        (self.top / 'config/more.config').write_text('CONFIG_NET_Z=y\n')
+        self.run.build_plan = copy.deepcopy(self.run.build_plan)
+        self.run.build_plan['core']['tool_fragments'] = {'development': ['config/net.config'], 'production': ['config/net.config', 'config/more.config']}
+        with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'), patch.object(kernel, 'ROOT', self.top):
+            self.run.core_build()
+            config = (self.run.core / '.config').read_text()
+            self.assertIn('CONFIG_NET_X=m', config)
+            self.assertIn('# CONFIG_NET_Y is not set', config)
+            self.assertNotIn('CONFIG_NET_Z', config)
+            # The production profile adds the second file, and a request the build drops stops it before compiling.
+            self.run.profile = 'production'
+            self.on_make = lambda argv: (self.run.core / '.config').write_text('CONFIG_RUST=y\nCONFIG_NET_X=m\n')
+            self.calls.clear()
+            self.assertRaisesRegex(KernelError, 'does not honour: CONFIG_NET_Z', self.run.core_build)
+        self.assertEqual(1, len(self.calls))
 
     def test_a_request_kconfig_does_not_honour_stops_before_compiling(self):
         def drop(argv):
@@ -359,6 +380,35 @@ class ModuleSetStageTests(RunFixture):
     def test_kernel_modules_must_be_signed_with_a_forced_sha256_key(self):
         (self.run.core / '.config').write_text('CONFIG_MODULE_SIG_FORCE=y\n')
         self.assertRaisesRegex(KernelError, 'does not enforce sha256', self.run.module_set)
+
+
+class RequiredModuleStageTests(ModuleSetStageTests):
+    def setUp(self):
+        super().setUp()
+        self.recipe['required_modules'] = [{'module': 'a.ko', 'partition': 'system_dlkm', 'needed_by': 'vendor/bin/daemon',
+                                            'reason': 'r'}]
+        self.recipe['load_lists'] = {'system_dlkm/modules.load': ['a.ko']}
+        patcher = patch.object(kernel, 'shipped_vendor_files', lambda: {'vendor/bin/daemon'})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_stage_checks_the_listing_and_records_the_module(self):
+        self.run.module_set()
+        self.assertEqual(['a.ko'], self.result['required_modules_checked'])
+
+    def test_a_module_missing_from_the_list_or_the_load_list_stops_the_build(self):
+        self.recipe['load_lists'] = {'system_dlkm/modules.load': []}
+        self.assertRaisesRegex(KernelError, 'a.ko is needed by vendor/bin/daemon and is not in the system_dlkm load list',
+                               self.run.module_set)
+
+    def test_a_module_missing_from_the_partition_stops_the_build(self):
+        self.recipe['partitions']['system_dlkm'] = []
+        self.assertRaisesRegex(KernelError, 'a.ko is needed by vendor/bin/daemon and is not in the system_dlkm module list',
+                               self.run.module_set)
+
+    def test_a_module_that_was_not_built_stops_the_build(self):
+        (self.run.core / 'drivers/a.ko').unlink()
+        self.assertRaisesRegex(KernelError, 'listed module was not built: a.ko', self.run.module_set)
 
 
 class ChecksStageTests(RunFixture):
