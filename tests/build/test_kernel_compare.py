@@ -1,9 +1,12 @@
 """kernel compare: two builds of one pin match except for their signing keys, and a build against a reference set."""
+import contextlib
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
@@ -93,9 +96,12 @@ class ReferenceTests(unittest.TestCase):
         (self.reference / 'config').write_text('CONFIG_A=y\nCONFIG_DEBUG=y\n')
         (self.reference / 'vendor_cmdline').write_text('bootconfig loglevel=8 panic=5 scsi_mod.scan=sync\n')
         self.metadata = lambda path: {'depends': ['x'], 'vermagic': [path.name]}
+        patcher = patch.object(subject, 'decompile', lambda dtc, blob: Path(blob).read_text())
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def compare(self, denied=('dbg',)):
-        return subject.compare_reference(self.run, self.reference, set(denied), self.metadata)
+        return subject.compare_reference(self.run, self.reference, set(denied), self.metadata, 'dtc')
 
     def test_a_denied_module_the_reference_ships_is_policy_not_a_difference(self):
         result = self.compare()
@@ -123,6 +129,25 @@ class ReferenceTests(unittest.TestCase):
         result = self.compare()
         self.assertEqual('FAIL', result['status'])
         self.assertEqual({'depends': [['x'], ['y']]}, result['modules']['metadata_differences']['a.ko'])
+
+    def test_overlay_and_device_tree_differences_fail(self):
+        (self.reference / 'dtbo.img').write_bytes(b'other overlays')
+        result = self.compare()
+        self.assertEqual('FAIL', result['status'])
+        self.assertIn('overlay image differs', result['problems'])
+        (self.reference / 'dtbo.img').write_bytes(b'overlays')
+        (self.reference / 'dtbs/fp6.dtb').write_bytes(b'other tree')
+        self.assertIn('device trees differ', self.compare()['problems'])
+        (self.reference / 'dtbs/fp6.dtb').write_bytes(b'tree')
+        (self.reference / 'dtbs/extra.dtb').write_bytes(b'tree')
+        result = self.compare()
+        self.assertIn('device trees differ', result['problems'])
+        self.assertEqual([['fp6.dtb'], ['extra.dtb', 'fp6.dtb']], result['device_tree']['files'])
+
+    def test_a_reference_comparison_needs_dtc(self):
+        self.assertRaisesRegex(ValueError, 'needs dtc', subject.compare_reference, self.run, self.reference, set(), self.metadata, None)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            subject.main(['--run', str(self.run), '--reference', str(self.reference)])
 
     def test_the_order_of_listed_dependencies_does_not_matter(self):
         self.metadata = lambda path: {'depends': ['x,y' if 'candidate' in path.parts else 'y,x']}

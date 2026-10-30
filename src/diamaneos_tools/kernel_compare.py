@@ -153,8 +153,11 @@ def decompile(dtc, blob):
     return result.stdout
 
 
-def compare_reference(run, reference, denied, metadata, dtc=None):
-    """The run's candidate against a reference kernel set. denied: module keys of the packaging deny list."""
+def compare_reference(run, reference, denied, metadata, dtc):
+    """The run's candidate against a reference kernel set. denied: module keys of the packaging deny list.
+    dtc decompiles the device trees to compare them."""
+    if dtc is None:
+        raise ValueError('comparing with a reference needs dtc to compare the device trees')
     candidate = run / 'candidate'
     record = json.loads((run / 'result.json').read_text())
     if record.get('status') != 'PASS' or not candidate.is_dir():
@@ -194,15 +197,12 @@ def compare_reference(run, reference, denied, metadata, dtc=None):
     result['command_line'] = {'run': mine_cmd, 'run_bring_up_words': bring_up_words(mine_cmd), 'reference': their_cmd,
                               'reference_bring_up_words': bring_up_words(their_cmd or []),
                               'only_in_run': [w for w in mine_cmd if their_cmd is not None and w not in their_cmd]}
-    result['device_tree'] = {}
-    dtbs = sorted(p.name for p in (candidate / 'dtbs').glob('*.dtb'))
-    result['device_tree']['files'] = [dtbs, sorted(p.name for p in (reference / 'dtbs').glob('*.dtb'))]
-    if dtc is not None:
-        same = {n: decompile(dtc, candidate / 'dtbs' / n) == decompile(dtc, reference / 'dtbs' / n) for n in dtbs
-                if (reference / 'dtbs' / n).is_file()}
-        result['device_tree']['decompiled_identical'] = same
-        result['device_tree']['bytes_identical'] = {n: (candidate / 'dtbs' / n).read_bytes() == (reference / 'dtbs' / n).read_bytes()
-                                                    for n in same}
+    dtbs, their_dtbs = (sorted(p.name for p in (top / 'dtbs').glob('*.dtb')) for top in (candidate, reference))
+    result['device_tree'] = {'files': [dtbs, their_dtbs]}
+    same = {n: decompile(dtc, candidate / 'dtbs' / n) == decompile(dtc, reference / 'dtbs' / n) for n in dtbs if n in their_dtbs}
+    result['device_tree']['decompiled_identical'] = same
+    result['device_tree']['bytes_identical'] = {n: (candidate / 'dtbs' / n).read_bytes() == (reference / 'dtbs' / n).read_bytes()
+                                                for n in same}
     result['device_tree']['dtbo_identical'] = (candidate / 'dtbo.img').read_bytes() == (reference / 'dtbo.img').read_bytes()
     result['image'] = {'run_bytes': (candidate / 'Image').stat().st_size, 'reference_bytes': (reference / 'Image').stat().st_size,
                        'identical': (candidate / 'Image').read_bytes() == (reference / 'Image').read_bytes(),
@@ -217,8 +217,10 @@ def compare_reference(run, reference, denied, metadata, dtc=None):
         problems.append('module lists or load order differ')
     if result['command_line']['run_bring_up_words']:
         problems.append('bring-up words on the command line')
-    if result['device_tree'].get('decompiled_identical') is not None and not all(result['device_tree']['decompiled_identical'].values()):
-        problems.append('device tree differs')
+    if dtbs != their_dtbs or not all(same.values()):
+        problems.append('device trees differ')
+    if not result['device_tree']['dtbo_identical']:
+        problems.append('overlay image differs')
     result['problems'] = problems
     result['status'] = 'FAIL' if problems else 'PASS'
     return result
@@ -231,8 +233,10 @@ def main(argv=None):
     which = parser.add_mutually_exclusive_group(required=True)
     which.add_argument('--against', type=Path, help='another build run of the same pins')
     which.add_argument('--reference', type=Path, help='a kernel set in the layout of the prebuilts repository')
-    parser.add_argument('--dtc', type=Path, help='dtc, to compare device trees decompiled (with --reference)')
+    parser.add_argument('--dtc', type=Path, help='dtc, to compare device trees decompiled (required with --reference)')
     args = parser.parse_args(argv)
+    if args.reference and not args.dtc:
+        parser.error('--reference needs --dtc')
     try:
         if args.against:
             result = compare(args.run, args.against)
