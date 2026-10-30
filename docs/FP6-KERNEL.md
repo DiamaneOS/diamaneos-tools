@@ -49,8 +49,10 @@ Reproducibility:
 
 - `SOURCE_DATE_EPOCH` and `KBUILD_BUILD_TIMESTAMP` are the pinned common commit's time, and the
   build user and host are fixed.
-- The vendor modules compile with `-ffile-prefix-map` for the copy of the vendor tree they build
-  from, so no build directory ends up in a module.
+- C file names and Rust paths lose the prefix of every build directory (`-ffile-prefix-map` and
+  `--remap-path-prefix`), so no build directory ends up in the Image or a module.
+- pahole runs with one thread, because its parallel BTF encoding orders types differently on each
+  run and changes the Image and every module with it.
 - The vendor tree is extracted from the pinned commit (`git archive`) into the run directory.
   The generated `Kbuild` files go there, never into the checkout.
 

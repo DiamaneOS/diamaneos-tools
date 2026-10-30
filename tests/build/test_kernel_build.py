@@ -70,17 +70,29 @@ class ToolchainTests(unittest.TestCase):
 
     def test_the_environment_holds_the_pinned_toolchain_and_nothing_of_the_callers(self):
         with patch.dict('os.environ', {'LD_PRELOAD': 'evil.so', 'MAKEFLAGS': '-j1'}):
-            env, make = build.toolchain(self.root, self.plan, self.root / 'farm', '1793273496')
+            env, make = build.toolchain(self.root, self.plan, self.root / 'farm', '1793273496', [Path('/ws/common'), Path('/ws/run/out')])
         self.assertTrue(env['PATH'].startswith(str(self.root / 'toolchain/clang/clang-r584948c/bin')))
         self.assertNotIn('LD_PRELOAD', env)
         self.assertNotIn('MAKEFLAGS', env)
         self.assertEqual('1793273496', env['SOURCE_DATE_EPOCH'])
         self.assertIn('2026 ', env['KBUILD_BUILD_TIMESTAMP'] + ' ')
-        self.assertEqual('-D__ANDROID_COMMON_KERNEL__', env['KCFLAGS'])
+        # Neither C nor Rust code keeps the build directories in its file names.
+        self.assertEqual('-D__ANDROID_COMMON_KERNEL__ -ffile-prefix-map=/ws/common= -ffile-prefix-map=/ws/run/out=', env['KCFLAGS'])
+        self.assertEqual('--remap-path-prefix=/ws/common= --remap-path-prefix=/ws/run/out=', env['KRUSTFLAGS'])
         self.assertEqual(['make', 'ARCH=arm64', 'LLVM=1', 'LLVM_IAS=1'], make[:4])
         self.assertTrue(make[4].startswith('HOSTCFLAGS=-I'))
-        self.assertTrue((self.root / 'farm/bin/pahole').is_symlink())
+        self.assertTrue((self.root / 'farm/bin/bison').is_symlink())
         self.assertEqual((self.root / 'farm/include/zlib.h').resolve(), (self.root / self.plan['toolchain']['zlib_include'] / 'zlib.h').resolve())
+
+    def test_pahole_runs_with_one_thread(self):
+        build.toolchain(self.root, self.plan, self.root / 'farm', '1')
+        wrapper = self.root / 'farm/bin/pahole'
+        recorder = self.root / 'real-pahole'
+        recorder.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        recorder.chmod(0o755)
+        build.single_thread_pahole(wrapper, recorder)
+        shown = subprocess.run([str(wrapper), '-j32', '--btf_features=var', 'vmlinux'], capture_output=True, text=True).stdout
+        self.assertEqual(['-j1', '--btf_features=var', 'vmlinux'], shown.split())
 
     def test_a_missing_toolchain_part_stops_the_build(self):
         (self.root / self.plan['toolchain']['build_tools'] / 'bison').unlink()
@@ -126,10 +138,6 @@ class VendorTreeTests(unittest.TestCase):
         build.check_defconfig(self.top / 'vendor.defconfig', self.top / 'effective')
         (self.top / 'effective').write_text('CONFIG_A=y\nCONFIG_B=y\n')
         self.assertRaisesRegex(KernelError, 'CONFIG_B', build.check_defconfig, self.top / 'vendor.defconfig', self.top / 'effective')
-
-    def test_vendor_builds_drop_the_build_directory_from_file_names(self):
-        env = build.vendor_environment({'KCFLAGS': '-DX', 'PATH': 'p'}, Path('/stage'))
-        self.assertEqual('-DX -ffile-prefix-map=/stage/=', env['KCFLAGS'])
 
 
 class BuildPlanTests(unittest.TestCase):

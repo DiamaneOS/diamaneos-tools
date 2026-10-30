@@ -25,9 +25,12 @@ def visibility_warnings(log_bytes):
     return [m.decode(errors='replace').strip() for m in VISIBILITY_WARNING.findall(log_bytes)]
 
 
-def toolchain(root, plan, farm, epoch):
+def toolchain(root, plan, farm, epoch, maps=()):
     """The environment and make arguments of every kernel build: the pinned toolchain
-    through a small farm of links, and nothing from the caller's environment."""
+    through a small farm of links, and nothing from the caller's environment.
+    maps are the directories whose names must not end up in the Image or a module:
+    C file names, Rust paths and the compilation directory of the debug information lose
+    their prefix."""
     paths = {key: root / value for key, value in plan['toolchain'].items() if isinstance(value, str)}
     for key in ('clang', 'rust', 'bindgen', 'kernel_build_tools', 'build_tools', 'bison_data', 'host_libraries',
                 'zlib_include'):
@@ -43,10 +46,12 @@ def toolchain(root, plan, farm, epoch):
         path.symlink_to(target)
     tools = paths['build_tools']
     for name, target in (('bison', tools / 'bison'), ('flex', tools / 'flex'), ('m4', tools / 'm4'),
-                         ('bc', tools / 'gavinhoward-bc'), ('pahole', paths['kernel_build_tools'] / 'bin/pahole'),
-                         ('bindgen', paths['bindgen'])):
+                         ('bc', tools / 'gavinhoward-bc'), ('bindgen', paths['bindgen'])):
         require(target.exists(), 'toolchain tool missing: ' + target.name)
         link(bin_dir, name, target)
+    pahole = paths['kernel_build_tools'] / 'bin/pahole'
+    require(pahole.exists(), 'toolchain tool missing: pahole')
+    single_thread_pahole(bin_dir / 'pahole', pahole)
     for name in ('elfutils', 'gelf.h', 'libelf.h', 'dwarf.h', 'nlist.h'):
         link(include, name, paths['kernel_build_tools'] / 'include' / name)
     link(include, 'zlib.h', paths['zlib_include'] / 'zlib.h')
@@ -64,16 +69,26 @@ def toolchain(root, plan, farm, epoch):
            'SOURCE_DATE_EPOCH': epoch,
            'KBUILD_BUILD_TIMESTAMP': time.strftime('%a %b %e %H:%M:%S UTC %Y', time.gmtime(int(epoch))),
            'KBUILD_BUILD_USER': plan['make']['build_user'], 'KBUILD_BUILD_HOST': plan['make']['build_host'],
-           'KCFLAGS': ' '.join(plan['make']['kcflags']), 'LC_ALL': 'C', 'TZ': 'UTC', 'HOME': str(farm)}
+           'KCFLAGS': ' '.join([*plan['make']['kcflags'], *('-ffile-prefix-map=%s=' % m for m in maps)]),
+           'KRUSTFLAGS': ' '.join('--remap-path-prefix=%s=' % m for m in maps),
+           'LC_ALL': 'C', 'TZ': 'UTC', 'HOME': str(farm)}
     make = ['make', *plan['make']['arguments'],
             'HOSTCFLAGS=-I%s -I%s' % (host / 'include', include),
             'HOSTLDFLAGS=-L%s -L%s -Wl,-rpath,%s' % (lib, host / 'lib64', host / 'lib64')]
     return env, make
 
 
-def vendor_environment(env, stage):
-    """The environment of the vendor module builds: file names in the modules carry no build directory."""
-    return dict(env, KCFLAGS=env['KCFLAGS'] + ' -ffile-prefix-map=%s/=' % stage)
+def single_thread_pahole(wrapper, pahole):
+    """pahole run with one thread. Its parallel BTF encoding orders types differently on each run,
+    which changes the Image and every module with it."""
+    wrapper.unlink(missing_ok=True)
+    wrapper.write_text('#!/bin/bash\n'
+                       'arguments=()\n'
+                       'for argument in "$@"; do\n'
+                       '    case "$argument" in -j[0-9]*) ;; *) arguments+=("$argument") ;; esac\n'
+                       'done\n'
+                       'exec %s -j1 "${arguments[@]}"\n' % pahole)
+    wrapper.chmod(0o755)
 
 
 def merge_config(parts, destination):
@@ -157,8 +172,7 @@ def package_step(ctx, step, stage, outputs):
     arguments = ['-C', str(ctx['common']), 'O=' + str(ctx['device']), 'M=' + str(package), 'MO=' + str(out),
                  'VENDOR_ROOT=' + str(package), 'VENDOR_OUT=' + str(out),
                  'KBUILD_EXTRA_SYMBOLS=' + ' '.join(map(str, symbols)), '-k', 'modules']
-    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=package, env=vendor_environment(ctx['env'], stage),
-         timeout=ctx['timeout'],
+    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=package, env=ctx['env'], timeout=ctx['timeout'],
          log=ctx['logs'] / (step['name'] + '.log'))
     modules = sorted(p.name for p in out.rglob('*.ko'))
     require(len(modules) == len(table), '%s built %d of %d registered modules' % (step['name'], len(modules), len(table)))
@@ -177,8 +191,7 @@ def base_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
     arguments = ['-C', str(stage / 'modules' / step['package']), 'KERNEL_SRC=' + str(ctx['common']),
                  'KERNEL_OUT=' + str(ctx['device']), 'OUT=' + str(out)]
-    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=stage, env=vendor_environment(ctx['env'], stage),
-         timeout=ctx['timeout'],
+    call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=stage, env=ctx['env'], timeout=ctx['timeout'],
          log=ctx['logs'] / (step['name'] + '.log'))
     outputs[step['name']] = out
     return sorted(p.name for p in out.rglob('*.ko'))
@@ -190,7 +203,7 @@ def groups_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
     symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
     configs = [modules / d / 'defconfig' for d in step['defconfigs']]
-    env = dict(vendor_environment(ctx['env'], stage), KSRC=str(ctx['common']), KOUT=str(ctx['device']), VINC=str(modules / 'base'),
+    env = dict(ctx['env'], KSRC=str(ctx['common']), KOUT=str(ctx['device']), VINC=str(modules / 'base'),
                VCONFIG=' '.join(map(str, configs)), OUT=str(out), JOBS=str(ctx['jobs']),
                MK=' '.join(ctx['make'][:1] + [a for a in ctx['make'][1:] if not a.startswith('HOST')]),
                BASE_SYMVERS=' '.join(map(str, symbols)))

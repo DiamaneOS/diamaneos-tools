@@ -422,7 +422,10 @@ def execute(root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout
     vendor, common = root / 'vendor', root / 'common'
     logs = run / 'logs'
     logs.mkdir()
-    env, make = kernel_build.toolchain(root, build_plan, run / 'tools', commit_time(common, preparation['projects']['common']['revision']))
+    # No build directory may end up in the Image or a module.
+    maps = [common, root / 'toolchain', run / 'core', run / 'device', run / 'vendor-src', run / 'out']
+    env, make = kernel_build.toolchain(root, build_plan, run / 'tools',
+                                       commit_time(common, preparation['projects']['common']['revision']), maps)
     ctx = {'env': env, 'make': make, 'common': common, 'jobs': jobs, 'timeout': timeout, 'logs': logs,
            'runs': run, 'out': run / 'out', 'tools_root': ROOT}
     policy = load_json(POLICY)
