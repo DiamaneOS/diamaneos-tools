@@ -148,6 +148,25 @@ class PlanTests(unittest.TestCase):
         ctx = self.context(allow_network=True)
         self.assertFalse(bw.Runner(ctx.allow_network).isolated(steps.plan_kernel(ctx).actions[1]))
 
+    def test_the_kernel_step_builds_the_production_profile_and_says_so(self):
+        plan = steps.plan_kernel(self.context())
+        build = plan.actions[1]
+        self.assertEqual(['--config-profile', 'production'], build.argv[build.argv.index('--config-profile'):][:2])
+        self.assertIn('production profile', build.detail)
+        self.assertEqual('production', plan.inputs['profile'])
+        self.assertEqual(64, len(plan.inputs['kernel_arguments']))
+
+    def test_the_kernel_step_hashes_every_config_file_the_kernel_pipeline_reads(self):
+        from diamaneos_tools import kernel
+        build_plan = kernel.load_json(kernel.BUILD_PLAN)
+        read = [kernel.SOURCE_PLAN, kernel.BUILD_PLAN, kernel.DT_PLAN, kernel.PACKAGING, kernel.POLICY, kernel.VENDOR_POLICY,
+                kernel.VENDOR_FILES]
+        read += [ROOT / f for f in sum(build_plan['core']['tool_fragments'].values(), [])]
+        read += [ROOT / s['extra_defconfig'] for s in build_plan['vendor']['steps'] if s.get('extra_defconfig')]
+        listed = {(ROOT / 'config' / name).resolve() for name in steps.KERNEL_RECIPES}
+        self.assertEqual([], sorted(str(p.relative_to(ROOT)) for p in read if p.resolve() not in listed))
+        self.assertTrue(all((ROOT / 'config' / name).is_file() for name in steps.KERNEL_RECIPES))
+
     def test_the_kernel_step_hashes_every_module_the_kernel_code_imports(self):
         package = ROOT / 'src/diamaneos_tools'
         found, todo = set(), ['kernel.py']

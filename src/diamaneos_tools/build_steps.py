@@ -48,7 +48,12 @@ ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNC
                   '&& { [ ! -d "$OUT_DIR/target/product/$DIAMANEOS_PRODUCT" ] || m $DIAMANEOS_JOBS installclean; } '
                   '&& m $DIAMANEOS_JOBS $DIAMANEOS_TARGETS')
 KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-build.json', 'fp6-kernel-dt.json', 'fp6-kernel-packaging.json',
-                  'fp6-kernel-qcacld.config', 'kernel-policy-fp6.json', 'kernel-vendor-policy-fp6.json')
+                  'fp6-kernel-qcacld.config', 'fp6-kernel-tipc.config', 'fp6-kernel-tipc-local.config',
+                  'fp6-kernel-tipc-open.config', 'kernel-policy-fp6.json', 'kernel-vendor-policy-fp6.json',
+                  'fp6-minimal/vendor-files.json')
+# The kernel the Android build takes is the production profile. The development profile skips the production tier of
+# the policy and the debug profile has the debug aids on, and neither is published.
+KERNEL_PROFILE = 'production'
 KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_build.py', 'kernel_config.py', 'kernel_dt.py', 'kernel_interfaces.py',
                'kernel_kbuild.py', 'kernel_package.py', 'kernel_util.py', 'process.py', 'product_inputs.py', 'safe_json.py',
                'vendor.py', 'vendor_extract.py', 'vendor_files.py')
@@ -612,12 +617,13 @@ def _opener(ctx):
 
 def plan_kernel(ctx: Context) -> StepPlan:
     ws = ctx.workspace
-    inputs = {'recipes': config_hashes(KERNEL_RECIPES), 'code': code_hashes(KERNEL_CODE)}
+    inputs = {'recipes': config_hashes(KERNEL_RECIPES), 'code': code_hashes(KERNEL_CODE), 'profile': KERNEL_PROFILE,
+              'kernel_arguments': config_subset(ctx.config, ('kernel_arguments',))}
     prepare = [sys.executable, DIAMANEOS, 'kernel', 'prepare', '--workspace', ws.kernel]
     actions = [
         Action('Prepare the kernel sources', detail='at their pinned revisions', argv=prepare, network=True),
-        Action('Build the kernel', detail='build and package the kernel, modules and device trees',
-               argv=[sys.executable, DIAMANEOS, 'kernel', 'build', '--workspace', ws.kernel,
+        Action('Build the kernel', detail='the %s profile: build and package the kernel, modules and device trees' % KERNEL_PROFILE,
+               argv=[sys.executable, DIAMANEOS, 'kernel', 'build', '--workspace', ws.kernel, '--config-profile', KERNEL_PROFILE,
                      '--jobs', str(ctx.jobs_for(cap=64))], compile=True),
     ]
 

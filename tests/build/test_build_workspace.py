@@ -236,6 +236,9 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(64, bw.default_jobs(64, 8 * bw.GIB))
             self.assertEqual(16, bw.default_jobs(None, 256 * bw.GIB, cap=16))
 
+    def test_the_kernel_step_checks_every_host_tool_the_kernel_build_records(self):
+        from diamaneos_tools import kernel_build
+        self.assertLessEqual(set(kernel_build.HOST_TOOLS), set(bw.STEP_COMMANDS['kernel']))
 
 
 if __name__ == '__main__':

@@ -445,7 +445,7 @@ def package_versions(names) -> dict | None:
 # Commands each step runs itself, checked before a step starts.
 STEP_COMMANDS = {
     'sync': ('git', 'repo', 'ssh-keygen', 'gpg'),
-    'kernel': ('git', 'bash', 'make', 'perl', 'openssl', 'modinfo', 'modprobe', 'nm', 'readelf'),
+    'kernel': ('git', 'bash', 'make', 'perl', 'openssl', 'modinfo', 'modprobe', 'nm', 'readelf', 'rsync', 'tar', 'python3'),
     'vendor': ('bash', 'zip', 'unzip'),
     'android': ('bash', 'zip', 'unzip', 'rsync'),
     'package': (),
