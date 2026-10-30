@@ -49,6 +49,14 @@
         {"node": "/reserved-memory/ramoops_region", "property": "alignment", "expect": {"cells": [0, 4194304]}, "set": null},
         {"node": "/reserved-memory/ramoops_region", "property": "reg", "expect": null, "set": {"cells": [9, 4261412864, 0, 4194304]}}
       ]
+    },
+    {
+      "id": "crypto-engine-off",
+      "reason": "6.18 has no qcedev driver, so the crypto engine node never binds and both interconnect providers wait for it in sync_state, keep their boot votes and the SoC never reaches AOSD or CXSD. No domain may open /dev/qce on these builds, so the node is disabled.",
+      "edits": [
+        {"node": "/soc/qcedev@1de0000", "property": "compatible", "expect": {"strings": ["qcom,qcedev"]}, "set": {"strings": ["qcom,qcedev"]}},
+        {"node": "/soc/qcedev@1de0000", "property": "status", "expect": null, "set": {"strings": ["disabled"]}}
+      ]
     }
   ]
 }

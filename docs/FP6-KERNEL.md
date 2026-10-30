@@ -202,6 +202,11 @@ The fix-ups:
   to another value, so every parse stays the same and 6.18 stops warning.
 - `static-ramoops`: 6.18 no longer supports a dynamically placed ramoops region, so it is fixed at
   `0x9fe000000` (4 MiB), where 6.1 and every 6.18 boot placed it.
+- `crypto-engine-off`:
+  - 6.18 has no qcedev driver, so the crypto engine node never binds.
+  - Both interconnect providers then wait for it in sync_state and keep their boot votes, and the
+    SoC never reaches AOSD or CXSD.
+  - No domain may open `/dev/qce` on these builds, so the node is disabled.
 
 ## Configuration policy
 

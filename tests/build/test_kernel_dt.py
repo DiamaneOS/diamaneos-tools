@@ -98,7 +98,7 @@ class DeviceTreeTests(unittest.TestCase):
     def test_the_shipped_plan_is_well_formed(self):
         plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
         ids = [f['id'] for f in plan['fixups']]
-        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops'], ids)
+        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off'], ids)
         for fixup in plan['fixups']:
             self.assertTrue(fixup['reason'].strip())
             for edit in fixup['edits']:
