@@ -28,10 +28,9 @@ def require(condition, message):
 
 
 def read_config(path):
-    """CONFIG_ values of a defconfig or auto.conf. Unset symbols read 'n'."""
+    """CONFIG_ values of a defconfig or auto.conf. Unset symbols read 'n'. A missing file is an error."""
+    require(os.path.isfile(path), 'configuration file missing: ' + str(path))
     values = {}
-    if not os.path.exists(path):
-        return values
     with open(path) as stream:
         for line in stream:
             line = line.strip()
@@ -191,11 +190,15 @@ def generate(root, base, out, kernel_auto, only=(), extra_defconfig=()):
 
 
 def feature_probes(kernel_source, probes):
-    """The #define lines for cfg80211 features the Wi-Fi driver tests for: each probe is
-    (file in the kernel source, text to find, symbol). A symbol is defined when the text is there."""
-    lines = []
+    """What the sources contain of the cfg80211 features the Wi-Fi driver tests for: symbol -> found. Each
+    probe is (file in the kernel source, text to find, symbol)."""
+    found = {}
     for path, text, symbol in probes:
         with open(os.path.join(kernel_source, path), errors='replace') as stream:
-            if text in stream.read():
-                lines.append('#define %s (1)' % symbol)
-    return lines
+            found[symbol] = text in stream.read()
+    return found
+
+
+def feature_header(results):
+    """The #define lines for the features found, in the order the probes were declared."""
+    return ''.join('#define %s (1)\n' % symbol for symbol, found in results.items() if found)

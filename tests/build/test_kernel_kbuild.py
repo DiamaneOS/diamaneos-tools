@@ -93,9 +93,18 @@ class KbuildTests(unittest.TestCase):
         source = self.top / 'src'
         (source / 'net').mkdir(parents=True)
         (source / 'net/a.c').write_text('int nl80211_validate_key_link_id(void);\n')
-        lines = kbuild.feature_probes(str(source), [('net/a.c', 'nl80211_validate_key_link_id', 'HAS_LINK_ID'),
+        found = kbuild.feature_probes(str(source), [('net/a.c', 'nl80211_validate_key_link_id', 'HAS_LINK_ID'),
                                                      ('net/a.c', 'punct_bitmap', 'HAS_PUNCT')])
-        self.assertEqual(['#define HAS_LINK_ID (1)'], lines)
+        self.assertEqual({'HAS_LINK_ID': True, 'HAS_PUNCT': False}, found)
+        self.assertEqual('#define HAS_LINK_ID (1)\n', kbuild.feature_header(found))
+
+    def test_a_missing_configuration_file_is_an_error_not_an_empty_configuration(self):
+        self.assertRaisesRegex(kbuild.KbuildError, 'configuration file missing', kbuild.read_config, str(self.top / 'nothing'))
+        self.auto.unlink()
+        self.assertRaisesRegex(kbuild.KbuildError, 'configuration file missing', self.generate)
+        self.auto.write_text('')
+        (self.pkg / 'defconfig').unlink()
+        self.assertRaisesRegex(kbuild.KbuildError, 'configuration file missing', self.generate)
 
 
 if __name__ == '__main__':

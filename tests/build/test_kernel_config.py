@@ -87,7 +87,8 @@ class KernelConfigTests(unittest.TestCase):
             enabled(confidentiality),
             # Qualcomm's data stack needs TIPC only as a local-only module. Its bearer, crypto and diag stay out.
             enabled('CONFIG_TIPC_MEDIA_UDP'), enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
-
+            # Exports are trimmed to the symbols modules import.
+            disabled('CONFIG_TRIM_UNUSED_KSYMS'),
             (flipped((on(integrity), off(integrity)), (off(no_lockdown), on(no_lockdown))), [integrity, no_lockdown]),
             # These interfaces would read or replace kernel memory. Lockdown refuses them
             # at run time. Leaving them out of the build keeps them away from a bypass.

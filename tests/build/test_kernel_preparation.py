@@ -3,6 +3,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -83,7 +84,11 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertEqual(['vendor'], result['fetched_from_overrides'])
         self.assertEqual(self.vendor_rev, result['projects']['vendor']['revision'])
         self.assertRaisesRegex(kernel.KernelError, 'unknown source to override: nothing', self.prepare, {'nothing': str(other)})
-        self.assertRaisesRegex(kernel.KernelError, 'not a Git repository', self.prepare, {'common': str(self.root)})
+        self.assertRaisesRegex(kernel.KernelError, 'not an absolute path to a Git repository', self.prepare, {'common': str(self.root)})
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, '/')
+        subprocess.check_call(['git', 'init', '-q', '--bare', 'bare.git'])
+        self.assertRaisesRegex(kernel.KernelError, 'not an absolute path', self.prepare, {'common': 'bare.git'})
 
     def test_an_override_without_the_pinned_commit_is_refused(self):
         other = self.root / 'unrelated'
@@ -311,11 +316,20 @@ class KernelSymbolRuleTests(unittest.TestCase):
                 with self.assertRaisesRegex(kernel.KernelError, 'required kernel symbol missing: names_command_line'):
                     kernel.check_required_symbols(system_map, ['names_command_line'])
 
-    def test_a_pending_symbol_is_reported_while_missing_and_refused_once_it_is_there(self):
-        pending = {'names_command_line': 'not ported yet'}
+    def test_a_pending_symbol_is_reported_when_missing_and_refused_when_present(self):
+        pending = {'names_command_line': 'not carried'}
         self.assertEqual(['names_command_line'], kernel.check_required_symbols('ffffffc080000000 T _text\n', [], pending))
         with self.assertRaisesRegex(kernel.KernelError, 'remove its pending reason: names_command_line'):
             kernel.check_required_symbols('ffffffc082000000 d names_command_line\n', [], pending)
+
+    def test_the_production_profile_counts_a_pending_symbol_as_missing(self):
+        pending = {'names_command_line': 'not carried'}
+        absent = 'ffffffc080000000 T _text\n'
+        self.assertEqual(['names_command_line'], kernel.check_required_symbols(absent, [], pending, 'development'))
+        with self.assertRaisesRegex(kernel.KernelError, 'required kernel symbol missing: names_command_line'):
+            kernel.check_required_symbols(absent, [], pending, 'production')
+        with self.assertRaisesRegex(kernel.KernelError, 'required kernel symbol missing: other'):
+            kernel.check_required_symbols(absent, ['other'], pending, 'development')
 
     def test_rules_need_reasons_and_safe_names(self):
         for rules in ({'register_kretprobe': {'modules': ['x.ko'], 'reason': ' '}},
@@ -332,19 +346,45 @@ class KernelSymbolRuleTests(unittest.TestCase):
 
 
 class KmiTests(unittest.TestCase):
-    def test_the_common_kernels_symbol_list_keeps_what_the_core_exports_for_vendor_modules(self):
+    def test_the_committed_exceptions_each_name_their_importers_and_a_reason(self):
         recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
-        self.assertEqual(set(), kernel.kmi_exceptions(recipe))
+        found = kernel.kmi_exceptions(recipe)
+        importers = {}
+        for symbol, modules in found.items():
+            importers.setdefault(modules[0], []).append(symbol)
+        # Only the exports of cfg80211.ko and cqhci.ko, which the device kernel build makes. The common kernel's
+        # fairphone symbol list keeps the exports of the core that vendor modules import.
+        self.assertEqual(['qca_cld3_qca6750.ko', 'sdhci-msm.ko'], sorted(importers))
+        self.assertEqual((41, 4), (len(importers['qca_cld3_qca6750.ko']), len(importers['sdhci-msm.ko'])))
+        self.assertIn('cqhci_init', importers['sdhci-msm.ko'])
+        self.assertIn('cfg80211_scan_done', importers['qca_cld3_qca6750.ko'])
+        self.assertTrue(all(group['reason'].strip() for group in recipe['kmi_exceptions']))
 
-    def test_imports_outside_the_symbol_lists_need_a_reviewed_exception(self):
+    def test_a_malformed_exception_is_refused(self):
+        group = {'symbols': ['x'], 'modules': ['a.ko'], 'reason': 'r'}
+        self.assertEqual({'x': ['a.ko']}, kernel.kmi_exceptions({'kmi_exceptions': [group]}))
+        for bad in (dict(group, modules=[]), dict(group, modules=['../x.ko']), dict(group, modules=['a.ko', 'a.ko']),
+                    dict(group, symbols=[]), dict(group, symbols=['bad name']), dict(group, reason=' '),
+                    {'symbol': 'x', 'modules': ['a.ko'], 'reason': 'r'}):
+            with self.subTest(bad=bad):
+                self.assertRaises(kernel.KernelError, kernel.kmi_exceptions, {'kmi_exceptions': [bad]})
+        self.assertRaisesRegex(kernel.KernelError, 'listed twice: x', kernel.kmi_exceptions, {'kmi_exceptions': [group, group]})
+
+    def test_imports_outside_the_symbol_lists_need_a_reviewed_exception_with_the_right_importers(self):
         imports = {'a.ko': {'printk', 'mine', 'local_function'}, 'b.ko': {'kmalloc'}}
         exports = {'printk', 'mine', 'kmalloc'}
-        outside, used = kernel.check_kmi(imports, exports, {'printk', 'kmalloc'}, {'mine'})
+        outside, used = kernel.check_kmi(imports, exports, {'printk', 'kmalloc'}, {'mine': ['a.ko']})
         self.assertEqual((['mine'], 3), (outside, used))
         self.assertRaisesRegex(kernel.KernelError, 'no KMI symbol list keeps: mine', kernel.check_kmi, imports, exports,
-                               {'printk', 'kmalloc'}, set())
+                               {'printk', 'kmalloc'}, {})
         self.assertRaisesRegex(kernel.KernelError, 'no longer needed: printk', kernel.check_kmi, imports, exports,
-                               {'printk', 'kmalloc'}, {'mine', 'printk'})
+                               {'printk', 'kmalloc'}, {'mine': ['a.ko'], 'printk': ['a.ko']})
+        # Another module importing an excepted symbol is not covered by the exception.
+        imports['c.ko'] = {'mine'}
+        self.assertRaisesRegex(kernel.KernelError, 'mine is imported by a.ko, c.ko, not a.ko', kernel.check_kmi, imports,
+                               exports, {'printk', 'kmalloc'}, {'mine': ['a.ko']})
+        self.assertRaisesRegex(kernel.KernelError, 'mine is imported by a.ko, not a.ko, c.ko', kernel.check_kmi,
+                               {'a.ko': {'mine'}}, exports, {'printk', 'kmalloc'}, {'mine': ['a.ko', 'c.ko']})
 
     def test_the_symbol_lists_are_the_ones_the_build_file_names(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -357,6 +397,44 @@ class KmiTests(unittest.TestCase):
             found = kernel.kmi_symbols(common)
             self.assertLessEqual({'kmalloc', 'printk', 'mine'}, found)
             self.assertNotIn('other', found)
+            whitelist = kernel.kmi_whitelist(common, {'extra_symbol': ['x.ko']}).splitlines()
+            self.assertEqual(sorted(whitelist), whitelist)
+            self.assertLessEqual({'kmalloc', 'printk', 'mine', 'extra_symbol'}, set(whitelist))
+            self.assertNotIn('other', whitelist)
+            self.assertFalse(any(line.startswith(('[', '#', ' ')) for line in whitelist))
+
+    def test_the_image_exports_are_its_ksymtab_entries(self):
+        nm = 'ffff800080001000 R __ksymtab_printk\nffff800080001018 R __ksymtab_kmalloc\nffff800080002000 T printk\n'
+        self.assertEqual({'printk', 'kmalloc'}, kernel.image_exports(nm))
+
+
+class DeniedBuiltTests(unittest.TestCase):
+    def setUp(self):
+        self.recipe = {'partitions': {'system_dlkm': ['a.ko']}, 'load_lists': {},
+                       'denied_modules': [{'modules': ['can.ko', 'old-driver.ko'], 'absent': ['old-driver.ko'], 'reason': 'r'},
+                                          {'modules': ['nfc.ko'], 'reason': 'r'}]}
+
+    def test_a_denied_name_the_build_does_not_make_must_be_marked_absent(self):
+        self.assertEqual(['old-driver.ko'], kernel.check_denied_built(self.recipe, {'can.ko', 'nfc.ko', 'other.ko'}))
+        # A renamed copy would slip past the list: the unmarked name is no longer built.
+        self.assertRaisesRegex(kernel.KernelError, 'no longer built, review the entry: nfc.ko', kernel.check_denied_built,
+                               self.recipe, {'can.ko', 'nfc_new.ko'})
+
+    def test_a_name_marked_absent_that_the_build_makes_needs_its_mark_removed(self):
+        self.assertRaisesRegex(kernel.KernelError, 'marked absent but built, remove the mark: old-driver.ko',
+                               kernel.check_denied_built, self.recipe, {'can.ko', 'nfc.ko', 'old_driver.ko'})
+
+    def test_absent_names_belong_to_their_group(self):
+        self.recipe['denied_modules'][0]['absent'] = ['elsewhere.ko']
+        self.assertRaisesRegex(kernel.KernelError, 'invalid absent denied modules', kernel.denied_modules, self.recipe)
+
+    def test_the_committed_deny_list_marks_exactly_the_names_the_618_sources_do_not_build(self):
+        recipe = kernel.load_json(kernel.ROOT / 'config/fp6-kernel-packaging.json')
+        marked = [n for g in recipe['denied_modules'] for n in g.get('absent', [])]
+        self.assertEqual(32, len(marked))
+        self.assertIn('qseecom_dlkm.ko', marked)
+        self.assertNotIn('coresight.ko', marked)
+        self.assertNotIn('debugcc-volcano.ko', marked)
 
 
 class KernelReleaseTests(unittest.TestCase):
@@ -388,16 +466,45 @@ class CommitTimeTests(unittest.TestCase):
 
 
 class VendorConfigTests(unittest.TestCase):
+    def tree(self, temp, base='CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\n', audio='CONFIG_QRTR=m\nCONFIG_X=y\n'):
+        vendor = Path(temp)
+        for name, text in (('base', base), ('audio', audio)):
+            (vendor / 'modules' / name).mkdir(parents=True)
+            (vendor / 'modules' / name / 'defconfig').write_text(text)
+        return vendor
+
     def test_vendor_defconfigs_sit_on_top_of_the_device_kernel_configuration(self):
         with tempfile.TemporaryDirectory() as temp:
-            vendor = Path(temp)
-            for name, text in (('base', 'CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\n'), ('audio', 'CONFIG_QRTR=m\nCONFIG_X=y\n')):
-                (vendor / 'modules' / name).mkdir(parents=True)
-                (vendor / 'modules' / name / 'defconfig').write_text(text)
+            vendor = self.tree(temp)
             text = kernel.vendor_config(b'# CONFIG_QRTR is not set\nCONFIG_SMP=y\n', vendor).decode()
             self.assertEqual('CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\nCONFIG_SMP=y\nCONFIG_X=y\n', text)
             (vendor / 'modules/audio/defconfig').write_text('CONFIG_QRTR=y\n')
             self.assertRaisesRegex(kernel.KernelError, 'set CONFIG_QRTR differently', kernel.vendor_config, b'CONFIG_SMP=y\n', vendor)
+
+    def test_a_vendor_n_does_not_switch_off_what_the_kernel_has_on(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = self.tree(temp, base='# CONFIG_SMP is not set\n# CONFIG_MODULES is not set\n', audio='')
+            text = kernel.vendor_config(b'CONFIG_SMP=y\n# CONFIG_MODULES is not set\nCONFIG_A=m\n', vendor).decode()
+            self.assertEqual('CONFIG_A=m\n# CONFIG_MODULES is not set\nCONFIG_SMP=y\n', text)
+
+    def test_extra_configurations_count_and_a_missing_one_is_an_error(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = self.tree(temp)
+            extra = Path(temp) / 'qcacld.config'
+            extra.write_text('CONFIG_WLAN=y\nCONFIG_X=m\n')
+            text = kernel.vendor_config(b'CONFIG_SMP=y\n', vendor, [extra]).decode()
+            self.assertIn('CONFIG_WLAN=y\n', text)
+            self.assertIn('CONFIG_X=m\n', text)
+            self.assertRaisesRegex(Exception, 'configuration file missing', kernel.vendor_config, b'CONFIG_SMP=y\n', vendor,
+                                   [Path(temp) / 'gone'])
+
+
+class DeviceTreePlanTests(unittest.TestCase):
+    def test_the_plan_forbids_the_property_the_ufs_low_power_work_removed(self):
+        plan = kernel.validate_dt_plan(kernel.load_json(kernel.DT_PLAN))
+        self.assertEqual(['qcom,disable-lpm'], plan['forbidden_properties'])
+        plan['forbidden_properties'] = ['bad name']
+        self.assertRaisesRegex(kernel.KernelError, 'invalid device tree plan', kernel.validate_dt_plan, plan)
 
 
 if __name__ == '__main__':

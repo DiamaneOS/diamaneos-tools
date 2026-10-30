@@ -90,7 +90,9 @@ def validate_plan(plan):
 
 
 def validate_dt_plan(dt):
-    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups'} and dt['schema_version'] == 1,
+    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups', 'forbidden_properties'}
+            and dt['schema_version'] == 1 and isinstance(dt['forbidden_properties'], list)
+            and all(isinstance(n, str) and re.fullmatch(r'[a-zA-Z0-9,._+#-]+', n) for n in dt['forbidden_properties']),
             'invalid device tree plan')
     base = dt['base']
     require(isinstance(base, dict) and set(base) == {'repository', 'revision', 'files', 'overlay_count'}
@@ -118,8 +120,8 @@ def resolve_overrides(rows, overrides):
     require(set(overrides) <= names, 'unknown source to override: ' + ', '.join(sorted(set(overrides) - names)))
     for name, where in overrides.items():
         location = Path(where)
-        require(location.is_absolute() and (location / '.git').exists() or (location / 'HEAD').is_file(),
-                'not a Git repository: ' + where)
+        require(location.is_absolute() and ((location / '.git').exists() or (location / 'HEAD').is_file()),
+                'not an absolute path to a Git repository: ' + where)
     return dict(overrides)
 
 
@@ -191,12 +193,14 @@ def denied_modules(recipe):
     """The modules FP6 never ships, each with its reason. The partition and load lists may be
     regenerated. This deny list survives that, and a denied module in any list fails the build.
     Whether a remaining module still needs a denied one is checked on the built set
-    (module-interfaces.json)."""
+    (module-interfaces.json). A group may name the modules the 6.18 sources do not build (absent)."""
     denied = {}
     for group in recipe.get('denied_modules', []):
-        require(isinstance(group, dict) and set(group) == {'modules', 'reason'} and
+        require(isinstance(group, dict) and set(group) in ({'modules', 'reason'}, {'modules', 'absent', 'reason'}) and
                 isinstance(group['reason'], str) and group['reason'].strip() and
                 isinstance(group['modules'], list) and group['modules'], 'invalid denied module group')
+        absent = group.get('absent', [])
+        require(isinstance(absent, list) and set(absent) <= set(group['modules']), 'invalid absent denied modules')
         for name in group['modules']:
             require(isinstance(name, str) and MODULE_NAME.fullmatch(name), 'invalid denied module name')
             require(module_key(name) not in {module_key(n) for n in denied}, 'duplicate denied module: ' + name)
@@ -206,6 +210,20 @@ def denied_modules(recipe):
     back = sorted(n for n in listed if module_key(n) in keys)
     require(not back, 'denied module in the packaging recipe: ' + ', '.join(back))
     return denied
+
+
+def check_denied_built(recipe, built):
+    """The deny list names what the build makes. A name the build does not make was renamed or dropped,
+    and a renamed copy would slip past the list, unless the recipe marks the name absent. A name marked
+    absent that the build makes needs its mark removed. Returns the absent names."""
+    denied = {module_key(n): n for n in denied_modules(recipe)}
+    absent = {module_key(n): n for g in recipe.get('denied_modules', []) for n in g.get('absent', [])}
+    built = {module_key(n) for n in built}
+    unmarked = sorted(denied[k] for k in set(denied) - built - set(absent))
+    require(not unmarked, 'denied module no longer built, review the entry: ' + ', '.join(unmarked))
+    marked = sorted(absent[k] for k in set(absent) & built)
+    require(not marked, 'denied module marked absent but built, remove the mark: ' + ', '.join(marked))
+    return sorted(absent.values())
 
 
 def import_allowlist(recipe):
@@ -240,9 +258,10 @@ def forbidden_symbols(recipe):
 
 def required_symbols(recipe):
     """Kernel symbols the built Image must have, with the reason: each marks a DiamaneOS change that a
-    rebase or a merge could drop without notice. A rule with a pending reason names a change the
-    sources do not carry yet. It is reported and does not fail the build until the symbol is there,
-    and then the build asks for the reason to be removed."""
+    rebase or a merge could drop without notice. A rule with a pending reason names a change the 6.18
+    sources do not carry. The development profile reports it, the production profile counts it as
+    missing, and publishing a run refuses it. When the symbol is there, the build asks for the reason
+    to be removed."""
     rules = symbol_rules(recipe, 'required_symbols', 'required symbol', extra=('pending',))
     return [rule['symbol'] for rule in rules if 'pending' not in rule], \
         {rule['symbol']: rule['pending'] for rule in rules if 'pending' in rule}
@@ -274,20 +293,45 @@ def kmi_symbols(common):
 
 
 def kmi_exceptions(recipe):
-    """Kernel symbols modules may import although no GKI symbol list keeps them, with the reason."""
-    rules = symbol_rules(recipe, 'kmi_exceptions', 'KMI exception')
-    return {rule['symbol'] for rule in rules}
+    """Kernel symbols modules import although no GKI symbol list keeps them: symbol -> importers. A group names
+    its symbols, its importers and the reason. Together they are the vendor symbol list the Image keeps
+    exporting."""
+    groups = recipe.get('kmi_exceptions', [])
+    require(isinstance(groups, list), 'invalid KMI exception list')
+    found = {}
+    for group in groups:
+        require(isinstance(group, dict) and set(group) == {'symbols', 'modules', 'reason'} and isinstance(group['reason'], str)
+                and group['reason'].strip() and isinstance(group['symbols'], list) and group['symbols']
+                and isinstance(group['modules'], list) and group['modules'] and len(set(group['modules'])) == len(group['modules'])
+                and all(isinstance(m, str) and MODULE_NAME.fullmatch(m) for m in group['modules'])
+                and all(isinstance(n, str) and SYMBOL_NAME.fullmatch(n) for n in group['symbols']), 'invalid KMI exception')
+        for symbol in group['symbols']:
+            require(symbol not in found, 'KMI exception listed twice: ' + symbol)
+            found[symbol] = sorted(group['modules'])
+    return found
+
+
+def kmi_whitelist(common, exceptions):
+    """The text of the symbol list the kernel build trims its exports to: the GKI symbol lists and the
+    exceptions, one symbol per line."""
+    return ''.join(symbol + '\n' for symbol in sorted(kmi_symbols(common) | set(exceptions)))
 
 
 def check_kmi(imports, exports, kmi, exceptions):
-    """Every kernel symbol a shipped module imports must be in the GKI symbol lists or be a reviewed
-    exception, and an exception must still be needed. imports: module -> undefined symbols."""
+    """Every kernel symbol a Qualcomm or device module imports must be in the GKI symbol lists or be a
+    reviewed exception that names its importers, and an exception must still be needed.
+    imports: module -> undefined symbols. exceptions: symbol -> importers."""
     used = set().union(*imports.values()) & exports
-    missing = sorted(used - kmi - exceptions)
+    outside = used - kmi
+    missing = sorted(outside - set(exceptions))
     require(not missing, 'modules import kernel symbols no KMI symbol list keeps: ' + ', '.join(missing[:10]))
-    stale = sorted(exceptions - (used - kmi))
+    stale = sorted(set(exceptions) - outside)
     require(not stale, 'KMI exception no longer needed: ' + ', '.join(stale))
-    return sorted(used - kmi), len(used)
+    wrong = {s: sorted(m for m, u in imports.items() if s in u) for s in exceptions}
+    wrong = sorted('%s is imported by %s, not %s' % (s, ', '.join(found) or 'no module', ', '.join(exceptions[s]))
+                   for s, found in wrong.items() if found != exceptions[s])
+    require(not wrong, 'KMI exception importers differ: ' + ', '.join(wrong[:5]))
+    return sorted(outside), len(used)
 
 
 def shipped_dtbs(recipe):
@@ -308,14 +352,17 @@ def check_forbidden_symbols(system_map, symbols):
     require(not found, 'forbidden kernel symbol present: ' + ', '.join(found))
 
 
-def check_required_symbols(system_map, symbols, pending=None):
-    """Fail on a missing required symbol. Returns the pending ones still missing."""
+def check_required_symbols(system_map, symbols, pending=None, profile='development'):
+    """Fail on a missing required symbol. A pending symbol that is there fails too, so that its reason
+    cannot stay. The production profile counts a pending symbol as missing. Returns the pending
+    symbols still missing."""
     present = map_symbols(system_map, True)
-    missing = sorted(set(symbols) - present)
-    require(not missing, 'required kernel symbol missing: ' + ', '.join(missing))
     pending = pending or {}
     carried = sorted(set(pending) & present)
     require(not carried, 'the kernel has a symbol marked pending, remove its pending reason: ' + ', '.join(carried))
+    wanted = set(symbols) | (set(pending) if profile == 'production' else set())
+    missing = sorted(wanted - present)
+    require(not missing, 'required kernel symbol missing: ' + ', '.join(missing))
     return sorted(pending)
 
 
@@ -341,15 +388,22 @@ def kernel_release(vmlinux):
     return found.pop().decode('ascii')
 
 
-def vendor_config(device_config, vendor_root):
+def vendor_config(device_config, vendor_root, extras=()):
     """The vendor view of the configuration, as text kernel_config reads: the device kernel build's
-    configuration with the values of the vendor defconfigs on top, which is what the vendor modules
-    are built with (vendor_autoconf.h)."""
+    configuration with the values of the vendor defconfigs and the extra configurations on top, which
+    is what the vendor modules are built with (vendor_autoconf.h). A vendor n does not switch off
+    what the kernel configuration has on, as the generated header defines nothing for it."""
     values = kernel_config.parse_config(device_config)
     set_by = {}
+    layers = []
     for path in sorted((vendor_root / 'modules').glob('*/defconfig')):
         for key, value in kernel_kbuild.read_config(str(path)).items():
             require(set_by.setdefault(key, value) == value, 'vendor defconfigs set %s differently' % key)
+        layers.append(path)
+    for path in [*layers, *extras]:
+        for key, value in kernel_kbuild.read_config(str(path)).items():
+            if value == 'n' and values.get(key) not in (None, 'n'):
+                continue
             values[key] = value
     return ''.join('# %s is not set\n' % k if v == 'n' else '%s=%s\n' % (k, v) for k, v in sorted(values.items())).encode()
 
@@ -359,14 +413,11 @@ def build(root, jobs, timeout, profile='production'):
     require(not missing, 'kernel verification tools missing from PATH: ' + ', '.join(missing))
     require(profile in CONFIG_PROFILES, 'unknown kernel configuration profile')
     plan, dt_plan = configuration()
-    build_plan = load_json(BUILD_PLAN)
     recipe = load_json(PACKAGING)
-    denied = denied_modules(recipe)
-    allowlist = import_allowlist(recipe)
-    forbidden = forbidden_symbols(recipe)
-    required, pending = required_symbols(recipe)
-    dtbs = shipped_dtbs(recipe)
-    arguments = kernel_package.cmdline_arguments(recipe, set(load_json(ROOT / 'config/fp6-build.json')['kernel_arguments']['forbidden']))
+    # Reads every recipe before the workspace is touched, so a broken recipe stops here.
+    denied_modules(recipe), import_allowlist(recipe), forbidden_symbols(recipe), required_symbols(recipe), shipped_dtbs(recipe)
+    kmi_exceptions(recipe)
+    kernel_package.cmdline_arguments(recipe, forbidden_arguments())
     from .product_inputs import tools_identity
     with locked(root):
         preparation = prepared(root, plan, dt_plan)
@@ -394,9 +445,8 @@ def build(root, jobs, timeout, profile='production'):
             print(name, flush=True)
         save()
         try:
-            execute(root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase,
-                    denied=denied, allowlist=allowlist, forbidden=forbidden, required=required, pending=pending,
-                    dtbs=dtbs, arguments=arguments)
+            execute(Run(root, run, plan, dt_plan, load_json(BUILD_PLAN), recipe, profile, jobs, timeout, preparation,
+                        result, phase))
             save()
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:
                 link = Path(temp) / 'current'
@@ -409,6 +459,10 @@ def build(root, jobs, timeout, profile='production'):
         return result
 
 
+def forbidden_arguments():
+    return set(load_json(ROOT / 'config/fp6-build.json')['kernel_arguments']['forbidden'])
+
+
 def linux_version(common):
     """VERSION.PATCHLEVEL.SUBLEVEL of the common kernel."""
     values = dict(re.findall(r'^(VERSION|PATCHLEVEL|SUBLEVEL) = ([0-9]+)$',
@@ -417,163 +471,224 @@ def linux_version(common):
     return '.'.join(values[k] for k in ('VERSION', 'PATCHLEVEL', 'SUBLEVEL'))
 
 
-def execute(root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase, *,
-            denied, allowlist, forbidden, required, pending, dtbs, arguments):
-    vendor, common = root / 'vendor', root / 'common'
-    logs = run / 'logs'
-    logs.mkdir()
-    # No build directory may end up in the Image or a module.
-    maps = [common, root / 'toolchain', run / 'core', run / 'device', run / 'vendor-src', run / 'out']
-    env, make = kernel_build.toolchain(root, build_plan, run / 'tools',
-                                       commit_time(common, preparation['projects']['common']['revision']), maps)
-    ctx = {'env': env, 'make': make, 'common': common, 'jobs': jobs, 'timeout': timeout, 'logs': logs,
-           'runs': run, 'out': run / 'out', 'tools_root': ROOT}
-    policy = load_json(POLICY)
-    vendor_policy = load_json(VENDOR_POLICY)
-    core_plan, device_plan = build_plan['core'], build_plan['device']
+class Run:
+    """One build run: its directories, the toolchain and what the stages hand to each other."""
 
-    def record(name, started):
-        result['commands'].append({'name': name, 'log_sha256': sha(logs / (name + '.log')) if (logs / (name + '.log')).is_file() else None,
-                                   'seconds': round(time.monotonic() - started), 'status': 'PASS'})
+    def __init__(self, root, run, plan, dt_plan, build_plan, recipe, profile, jobs, timeout, preparation, result, phase):
+        self.root, self.run, self.plan, self.dt_plan, self.build_plan = root, run, plan, dt_plan, build_plan
+        self.recipe, self.profile, self.jobs, self.timeout = recipe, profile, jobs, timeout
+        self.preparation, self.result, self.phase = preparation, result, phase
+        self.vendor, self.common = root / 'vendor', root / 'common'
+        self.core, self.device, self.stage = run / 'core', run / 'device', run / 'vendor-src'
+        self.logs, self.out = run / 'logs', run / 'out'
+        self.denied = denied_modules(recipe)
+        self.exceptions = kmi_exceptions(recipe)
+        self.llvm = root / build_plan['toolchain']['clang'] / 'bin'
+        self.env = self.make = None
+        self.outputs, self.built, self.selected = {}, {}, {}
+        self.vendor_pool, self.device_pool, self.core_pool = {}, {}, {}
 
-    def make_kernel(name, out, arguments_, goals):
-        phase(name)
+    def record(self, name, started):
+        log = self.logs / (name + '.log')
+        self.result['commands'].append({'name': name, 'log_sha256': sha(log) if log.is_file() else None,
+                                        'seconds': round(time.monotonic() - started), 'status': 'PASS'})
+
+    def make_kernel(self, name, out, goals):
+        self.phase(name)
         started = time.monotonic()
-        call([*make, '-C', common, 'O=' + str(out), *arguments_, '-j%d' % jobs, *goals], cwd=common, env=env,
-             timeout=timeout, log=logs / (name + '.log'))
-        record(name, started)
+        call([*self.make, '-C', self.common, 'O=' + str(out), '-j%d' % self.jobs, *goals], cwd=self.common,
+             env=self.env, timeout=self.timeout, log=self.logs / (name + '.log'))
+        self.record(name, started)
 
-    # The GKI core build: gki_defconfig, the DiamaneOS hardening and the profile.
-    fragments = [vendor / f for f in core_plan['fragments'] + [core_plan['profile_fragments'][profile]]]
-    core = run / 'core'
-    kernel_build.merge_config([common / core_plan['defconfig'], *fragments], core / '.config')
-    make_kernel('core-configure', core, [], ['olddefconfig'])
-    core_config = (core / '.config').read_bytes()
-    unmet = kernel_build.unmet_requests([p.read_text() for p in fragments], core_config)
-    (run / 'fragment-check.json').write_bytes(encoded({'unmet': unmet}))
-    require(not unmet, 'configuration requests the build does not honour: ' + ', '.join(list(unmet)[:8]))
-    checks = {}
-    checked = kernel_config.check(core_config, policy, profile)
-    checks['kernel-config'] = checked
-    (run / 'kernel-config.json').write_bytes(encoded(checked))
-    require(checked['status'] == 'PASS', profile + ' kernel configuration regressed')
-    make_kernel('core-build', core, [], core_plan['goals'])
+    def start(self):
+        """The toolchain and the host tools. No build directory may end up in the Image or a module."""
+        self.logs.mkdir()
+        maps = [self.common, self.root / 'toolchain', self.core, self.device, self.stage, self.out]
+        epoch = commit_time(self.common, self.preparation['projects']['common']['revision'])
+        self.env, self.make = kernel_build.toolchain(self.root, self.build_plan, self.run / 'tools', epoch, maps)
+        self.result['host_tools'] = kernel_build.host_tools(self.run / 'tools', self.build_plan['toolchain']['system_libraries'])
 
-    # The device kernel build: the same tree and configuration plus the drivers the GKI build lacks.
-    device = run / 'device'
-    kernel_build.merge_config([core / '.config', *[vendor / f for f in device_plan['fragments']]], device / '.config')
-    make_kernel('device-configure', device, [], ['olddefconfig'])
-    changed = kernel_build.device_config_differences(core_config, (device / '.config').read_bytes(), device_plan['config_symbols'])
-    (run / 'device-config.json').write_bytes(encoded({'changed': changed, 'reason': device_plan['reason']}))
-    make_kernel('device-build', device, [], device_plan['goals'])
-    require(kernel_build.vmlinux_exports((core / kernel_build.SYMVERS).read_text()) ==
-            kernel_build.vmlinux_exports((device / kernel_build.SYMVERS).read_text()),
-            'the device kernel build exports other kernel symbols than the GKI build')
+    def core_build(self):
+        """The GKI core build: gki_defconfig, the DiamaneOS hardening, the profile and the export trimming."""
+        plan = self.build_plan['core']
+        # The Image exports the symbols of the GKI lists and of the reviewed exceptions, and what its modules use.
+        (self.run / 'kmi-whitelist').write_text(kmi_whitelist(self.common, self.exceptions))
+        trim = self.run / 'ksyms.config'
+        trim.write_text('CONFIG_TRIM_UNUSED_KSYMS=y\nCONFIG_UNUSED_KSYMS_WHITELIST="../kmi-whitelist"\n')
+        fragments = [self.vendor / f for f in plan['fragments'] + [plan['profile_fragments'][self.profile]]] + [trim]
+        kernel_build.merge_config([self.common / plan['defconfig'], *fragments], self.core / '.config')
+        self.make_kernel('core-configure', self.core, ['olddefconfig'])
+        config = (self.core / '.config').read_bytes()
+        unmet = kernel_build.unmet_requests([p.read_text() for p in fragments], config)
+        (self.run / 'fragment-check.json').write_bytes(encoded({'unmet': unmet}))
+        require(not unmet, 'configuration requests the build does not honour: ' + ', '.join(list(unmet)[:8]))
+        checked = kernel_config.check(config, load_json(POLICY), self.profile)
+        (self.run / 'kernel-config.json').write_bytes(encoded(checked))
+        require(checked['status'] == 'PASS', self.profile + ' kernel configuration regressed')
+        self.make_kernel('core-build', self.core, plan['goals'])
 
-    # The vendor policy applies to the device kernel configuration with the vendor defconfigs on top.
-    vendor_checked = kernel_config.check(vendor_config((device / '.config').read_bytes(), vendor), vendor_policy, profile)
-    (run / 'vendor-role-kernel-config.json').write_bytes(encoded(vendor_checked))
-    require(vendor_checked['status'] == 'PASS', 'vendor kernel configuration regressed')
+    def device_build(self):
+        """The device kernel build: the same tree and configuration plus the drivers the GKI build lacks."""
+        plan = self.build_plan['device']
+        kernel_build.merge_config([self.core / '.config', *[self.vendor / f for f in plan['fragments']]], self.device / '.config')
+        self.make_kernel('device-configure', self.device, ['olddefconfig'])
+        changed = kernel_build.device_config_differences((self.core / '.config').read_bytes(),
+                                                         (self.device / '.config').read_bytes(), plan['config_symbols'])
+        (self.run / 'device-config.json').write_bytes(encoded({'changed': changed, 'reason': plan['reason']}))
+        self.make_kernel('device-build', self.device, plan['goals'])
+        require(kernel_build.vmlinux_exports((self.core / kernel_build.SYMVERS).read_text()) ==
+                kernel_build.vmlinux_exports((self.device / kernel_build.SYMVERS).read_text()),
+                'the device kernel build exports other kernel symbols than the GKI build')
+        # The vendor policy applies to the device kernel configuration with the vendor defconfigs on top.
+        extras = [ROOT / step['extra_defconfig'] for step in self.build_plan['vendor']['steps'] if step.get('extra_defconfig')]
+        checked = kernel_config.check(vendor_config((self.device / '.config').read_bytes(), self.vendor, extras),
+                                      load_json(VENDOR_POLICY), self.profile)
+        (self.run / 'vendor-role-kernel-config.json').write_bytes(encoded(checked))
+        require(checked['status'] == 'PASS', 'vendor kernel configuration regressed')
 
-    # The vendor module packages, built from a clean copy of the pinned modules tree.
-    stage = run / 'vendor-src'
-    kernel_build.stage_vendor_modules(vendor, preparation['projects']['vendor']['revision'], stage)
-    ctx.update(device=device)
-    ctx['out'].mkdir()
-    outputs, built = {}, {}
-    for step in build_plan['vendor']['steps']:
-        phase(step['name'])
-        started = time.monotonic()
-        built[step['name']] = kernel_build.STEPS[step['kind']](ctx, step, stage, outputs)
-        record(step['name'], started)
-    warnings = [w for name in ('core-build', 'device-build', *built) for w in
-                kernel_build.visibility_warnings((logs / (name + '.log')).read_bytes())]
-    require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + ', '.join(warnings[:5]))
-    (run / 'modules-built.json').write_bytes(encoded({k: v for k, v in sorted(built.items())}))
+    def vendor_build(self):
+        """The vendor module packages, built from a clean copy of the pinned modules tree."""
+        plan = self.build_plan['vendor']
+        kernel_build.stage_vendor_modules(self.vendor, self.preparation['projects']['vendor']['revision'], self.stage)
+        self.out.mkdir()
+        overrides = set(plan['kernel_overrides']['symbols'])
+        ctx = {'env': self.env, 'make': self.make, 'common': self.common, 'jobs': self.jobs, 'timeout': self.timeout,
+               'logs': self.logs, 'runs': self.run, 'out': self.out, 'tools_root': ROOT, 'device': self.device,
+               'kernel_values': kernel_kbuild.read_config(str(self.device / '.config')), 'overrides': overrides,
+               'conflicts': {}}
+        for step in plan['steps']:
+            self.phase(step['name'])
+            started = time.monotonic()
+            self.built[step['name']] = kernel_build.STEPS[step['kind']](ctx, step, self.stage, self.outputs)
+            self.record(step['name'], started)
+        stale = sorted(overrides - set(ctx['conflicts']))
+        require(not stale, 'vendor override no longer differs from the kernel configuration: ' + ', '.join(stale))
+        (self.run / 'vendor-overrides.json').write_bytes(encoded(ctx['conflicts']))
+        warnings = [w for name in ('core-build', 'device-build', *self.built) for w in
+                    kernel_build.visibility_warnings((self.logs / (name + '.log')).read_bytes())]
+        require(not warnings, 'struct declared inside a parameter list (-Wvisibility): ' + ', '.join(warnings[:5]))
+        (self.run / 'modules-built.json').write_bytes(encoded({k: v for k, v in sorted(self.built.items())}))
 
-    # The module set: every listed module from its build, stripped and signed with the Image's key.
-    vendor_pool = kernel_build.collect(outputs.values())
-    core_pool = {}
-    for path in sorted(core.rglob('*.ko')):
-        core_pool.setdefault(path.name, path)
-    wanted = set().union(*map(set, recipe['partitions'].values()))
-    keys_built = {module_key(n) for n in list(vendor_pool) + list(core_pool)}
-    result['denied_modules_not_built'] = sorted(n for n in denied if module_key(n) not in keys_built)
-    result['denied_module_count'] = len(denied) - len(result['denied_modules_not_built'])
-    device_pool = {}
-    for module in device_plan['modules']:
-        path = device / module
-        require(path.is_file(), 'device kernel module missing: ' + module)
-        require(path.name not in vendor_pool and path.name not in device_pool, 'two builds make the module ' + path.name)
-        device_pool[path.name] = path
-    selected = kernel_package.select(wanted, {**vendor_pool, **device_pool}, core_pool)
-    kernel_package.check_placement(recipe, lambda n: dependencies(selected[n]) if n in selected else [])
-    signing_dir = core
-    for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
-        require((signing_dir / name).is_file(), 'kernel signing input missing: ' + name)
-    config_text = core_config
-    require(re.search(rb'^CONFIG_MODULE_SIG_FORCE=y$', config_text, re.M) and
-            re.search(rb'^CONFIG_MODULE_SIG_HASH="sha256"$', config_text, re.M), 'kernel does not enforce sha256 module signatures')
-    phase('package')
-    staged = run / 'staged-modules'
-    llvm = root / build_plan['toolchain']['clang'] / 'bin'
-    kernel_package.stage_modules(staged, selected, llvm / 'llvm-strip',
-                                 (core / 'scripts/sign-file', core / 'certs/signing_key.pem', core / 'certs/signing_key.x509', 'sha256'),
-                                 module_metadata, common,
-                                 root / build_plan['toolchain']['host_libraries'] / 'lib64')
+    def module_set(self):
+        """Every listed module from its build, stripped and signed with the Image's key."""
+        recipe = self.recipe
+        self.vendor_pool = kernel_build.collect(self.outputs.values())
+        for path in sorted(self.core.rglob('*.ko')):
+            self.core_pool.setdefault(path.name, path)
+        for module in self.build_plan['device']['modules']:
+            path = self.device / module
+            require(path.is_file(), 'device kernel module missing: ' + module)
+            require(path.name not in self.vendor_pool and path.name not in self.device_pool, 'two builds make the module ' + path.name)
+            self.device_pool[path.name] = path
+        absent = check_denied_built(recipe, {**self.vendor_pool, **self.device_pool, **self.core_pool})
+        self.result['denied_modules_not_built'] = absent
+        self.result['denied_module_count'] = len(self.denied) - len(absent)
+        wanted = set().union(*map(set, recipe['partitions'].values()))
+        self.selected = kernel_package.select(wanted, {**self.vendor_pool, **self.device_pool}, self.core_pool)
+        kernel_package.check_placement(recipe, lambda n: dependencies(self.selected[n]) if n in self.selected else [])
+        for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):
+            require((self.core / name).is_file(), 'kernel signing input missing: ' + name)
+        config = (self.core / '.config').read_bytes()
+        require(re.search(rb'^CONFIG_MODULE_SIG_FORCE=y$', config, re.M) and
+                re.search(rb'^CONFIG_MODULE_SIG_HASH="sha256"$', config, re.M), 'kernel does not enforce sha256 module signatures')
+        self.phase('package')
+        self.staged = self.run / 'staged-modules'
+        kernel_package.stage_modules(self.staged, self.selected, self.llvm / 'llvm-strip',
+                                     (self.core / 'scripts/sign-file', self.core / 'certs/signing_key.pem',
+                                      self.core / 'certs/signing_key.x509', 'sha256'),
+                                     module_metadata, self.common, self.root / self.build_plan['toolchain']['host_libraries'] / 'lib64')
 
-    # The device tree: the pinned base with the declared fix-ups.
-    phase('device-tree')
-    files = kernel_dt.base_files(root / 'base-dt', dt_plan['base'])
-    fixed, changes = kernel_dt.apply_fixups(files['dtbs/fp6.dtb'], dt_plan['fixups'])
-    count = kernel_dt.overlay_count(files['dtbo.img'])
-    require(count == dt_plan['base']['overlay_count'] == recipe['dtbo_count'], 'overlay count changed')
-    (run / 'device-tree-fixups.json').write_bytes(encoded({'base_sha256': dt_plan['base']['files'], 'fixups': changes}))
-    (run / 'fp6.dtb').write_bytes(fixed)
-    call([root / build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts', '-o', run / 'fp6.dts', run / 'fp6.dtb'],
-         cwd=run, env=env)
+    def device_tree(self):
+        """The pinned base with the declared fix-ups."""
+        self.phase('device-tree')
+        files = kernel_dt.base_files(self.root / 'base-dt', self.dt_plan['base'])
+        fixed, changes = kernel_dt.apply_fixups(files['dtbs/fp6.dtb'], self.dt_plan['fixups'], self.dt_plan['forbidden_properties'])
+        count = kernel_dt.overlay_count(files['dtbo.img'])
+        require(count == self.dt_plan['base']['overlay_count'] == self.recipe['dtbo_count'], 'overlay count changed')
+        (self.run / 'device-tree-fixups.json').write_bytes(encoded({'base_sha256': self.dt_plan['base']['files'], 'fixups': changes}))
+        (self.run / 'fp6.dtb').write_bytes(fixed)
+        call([self.root / self.build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts',
+              '-o', self.run / 'fp6.dts', self.run / 'fp6.dtb'], cwd=self.run, env=self.env)
+        self.dtbo, self.overlays, self.tree = files['dtbo.img'], count, fixed
 
-    image = core / 'arch/arm64/boot/Image'
-    candidate = run / 'candidate'
-    kernel_package.render_package(candidate, staged, image, {dtbs[0]: fixed}, files['dtbo.img'], recipe, arguments)
+    def package(self):
+        dtbs = shipped_dtbs(self.recipe)
+        arguments = kernel_package.cmdline_arguments(self.recipe, forbidden_arguments())
+        self.candidate = self.run / 'candidate'
+        kernel_package.render_package(self.candidate, self.staged, self.core / 'arch/arm64/boot/Image', {dtbs[0]: self.tree},
+                                      self.dtbo, self.recipe, arguments)
 
-    # The packaged modules against the Image's certificate, symbol versions and namespaces.
-    phase('module-interfaces')
-    vmlinux = core / 'vmlinux'
-    release = kernel_release(vmlinux)
-    require(release == (core / 'include/config/kernel.release').read_text().strip()
-            and release.endswith('-g' + preparation['projects']['common']['revision'][:12]),
-            'Image release does not name the pinned common kernel: ' + release)
-    result['kernel_release'] = release
-    from .kernel_interfaces import verify_built
-    tables = [core / kernel_build.SYMVERS, device / kernel_build.SYMVERS] + [p / kernel_build.SYMVERS for p in outputs.values()]
-    verify_built(common, common, run, {n: candidate / 'modules' / n for n in selected}, [t for t in tables if t.is_file()],
-                 vmlinux, core / kernel_build.SYMVERS, module_metadata, call, require, release=release)
-    nm = llvm / 'llvm-nm'
-    undefined = {n: undefined_symbols(call([nm, '-u', candidate / 'modules' / n], cwd=common)) for n in selected}
-    check_module_imports({n: candidate / 'modules' / n for n in selected}, allowlist, lambda path: undefined[path.name])
-    exports = {row.split('\t')[1] for row in kernel_build.vmlinux_exports((core / kernel_build.SYMVERS).read_text())}
-    # The Qualcomm modules are held to the symbol lists. The modules of the common tree itself are not.
-    vendor_imports = {n: u for n, u in undefined.items() if n in vendor_pool}
-    outside, used = check_kmi(vendor_imports, exports, kmi_symbols(common), kmi_exceptions(recipe))
-    result['kmi'] = {'modules_checked': len(vendor_imports), 'kernel_symbols_imported': used, 'outside_symbol_lists': outside}
-    system_map = (core / 'System.map').read_text(errors='replace')
-    check_forbidden_symbols(system_map, forbidden)
-    result['pending_required_symbols'] = check_required_symbols(system_map, required, pending)
-    for p in candidate.rglob('*'):
-        if p.is_file():
-            p.chmod(0o640)
-    inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
-                 for p in sorted(candidate.rglob('*')) if p.is_file()]
-    (run / 'artifacts.json').write_bytes(encoded(inventory))
-    for name, path in (('core.config', core / '.config'), ('device.config', device / '.config'),
-                       ('core.symvers', core / kernel_build.SYMVERS), ('System.map', core / 'System.map')):
-        shutil.copyfile(path, run / name)
-    result.update(status='PASS', module_count=len(selected), dtb_count=len(dtbs), dtbo_count=count,
-                  import_rules_checked=len(allowlist), forbidden_symbols_checked=len(forbidden),
-                  required_symbols_checked=len(required), inventory_sha256=sha(run / 'artifacts.json'),
-                  interfaces_sha256=sha(run / 'module-interfaces.json'),
-                  scope='Kernel build and packaging. Installed-image, runtime and production qualification are separate.')
+    def checks(self):
+        """The packaged modules against the Image: certificate, symbol versions, namespaces, imports and symbols."""
+        self.phase('module-interfaces')
+        recipe, result, core, candidate = self.recipe, self.result, self.core, self.candidate
+        vmlinux = core / 'vmlinux'
+        release = kernel_release(vmlinux)
+        require(release == (core / 'include/config/kernel.release').read_text().strip()
+                and release.endswith('-g' + self.preparation['projects']['common']['revision'][:12]),
+                'Image release does not name the pinned common kernel: ' + release)
+        result['kernel_release'] = release
+        from .kernel_interfaces import verify_built
+        tables = [core / kernel_build.SYMVERS, self.device / kernel_build.SYMVERS] + [p / kernel_build.SYMVERS for p in self.outputs.values()]
+        verify_built(self.common, self.common, self.run, {n: candidate / 'modules' / n for n in self.selected},
+                     [t for t in tables if t.is_file()], vmlinux, core / kernel_build.SYMVERS, module_metadata, call, require,
+                     release=release)
+        nm = self.llvm / 'llvm-nm'
+        undefined = {n: undefined_symbols(call([nm, '-u', candidate / 'modules' / n], cwd=self.common)) for n in self.selected}
+        check_module_imports({n: candidate / 'modules' / n for n in self.selected}, import_allowlist(recipe),
+                             lambda path: undefined[path.name])
+        exports = {row.split('\t')[1] for row in kernel_build.vmlinux_exports((core / kernel_build.SYMVERS).read_text())}
+        # What the kernel builds export: the Image and the modules of the common tree (the GKI modules and the device kernel's four).
+        offered = kernel_build.exported_symbols([core / kernel_build.SYMVERS, self.device / kernel_build.SYMVERS])
+        # The Image keeps the exports it was trimmed to, and every module of ours finds its imports among them.
+        kept = image_exports(call([nm, '--defined-only', vmlinux], cwd=self.common))
+        lost = sorted(exports & set().union(*undefined.values()) - kept)
+        require(not lost, 'modules import kernel symbols the Image no longer exports: ' + ', '.join(lost[:10]))
+        # The Qualcomm modules and the device kernel's four are held to the symbol lists. The GKI modules are not.
+        # The four use each other's exports in the tree, which the build trims by.
+        device_made = kernel_build.exported_symbols([self.device / kernel_build.SYMVERS],
+                                                    [Path(m).stem for m in self.build_plan['device']['modules']])
+        held = {n: u for n, u in undefined.items() if n in self.vendor_pool}
+        held.update({n: u - device_made for n, u in undefined.items() if n in self.device_pool})
+        outside, used = check_kmi(held, offered, kmi_symbols(self.common), self.exceptions)
+        result['kmi'] = {'modules_checked': len(held), 'kernel_symbols_imported': used, 'outside_symbol_lists': outside,
+                         'image_exports': len(kept), 'symbol_table_exports': len(exports)}
+        system_map = (core / 'System.map').read_text(errors='replace')
+        check_forbidden_symbols(system_map, forbidden_symbols(recipe))
+        required, pending = required_symbols(recipe)
+        result['pending_required_symbols'] = check_required_symbols(system_map, required, pending, self.profile)
+        for path in candidate.rglob('*'):
+            if path.is_file():
+                path.chmod(0o640)
+        inventory = [{'path': p.relative_to(candidate).as_posix(), 'bytes': p.stat().st_size, 'sha256': sha(p)}
+                     for p in sorted(candidate.rglob('*')) if p.is_file()]
+        (self.run / 'artifacts.json').write_bytes(encoded(inventory))
+        for name, path in (('core.config', core / '.config'), ('device.config', self.device / '.config'),
+                           ('core.symvers', core / kernel_build.SYMVERS), ('System.map', core / 'System.map')):
+            shutil.copyfile(path, self.run / name)
+        result.update(status='PASS', module_count=len(self.selected), dtb_count=len(shipped_dtbs(recipe)), dtbo_count=self.overlays,
+                      import_rules_checked=len(import_allowlist(recipe)), forbidden_symbols_checked=len(forbidden_symbols(recipe)),
+                      required_symbols_checked=len(required), inventory_sha256=sha(self.run / 'artifacts.json'),
+                      interfaces_sha256=sha(self.run / 'module-interfaces.json'),
+                      scope='Kernel build and packaging. Installed-image, runtime and production qualification are separate.')
+
+
+def execute(run):
+    """The stages of one build, in order."""
+    run.start()
+    run.core_build()
+    run.device_build()
+    run.vendor_build()
+    run.module_set()
+    run.device_tree()
+    run.package()
+    run.checks()
+
+
+def image_exports(nm_output):
+    """The symbols an Image exports, from the __ksymtab_ entries of its symbol table."""
+    return {line.split()[-1][len('__ksymtab_'):] for line in nm_output.splitlines()
+            if line.split()[-1:] and line.split()[-1].startswith('__ksymtab_')}
 
 
 def dependencies(path):

@@ -63,6 +63,19 @@ class DeviceTreeTests(unittest.TestCase):
         # A new property goes first in its node, as libfdt adds it.
         self.assertEqual('#size-cells', dt.find(fixed.root, '/soc/plain').props[0][0])
 
+    def test_a_forbidden_property_anywhere_in_the_result_stops_the_build(self):
+        edit = {'node': '/soc/plain', 'property': 'qcom,disable-lpm', 'expect': None, 'set': {'cells': [1]}}
+        fixup = {'id': 'a', 'reason': 'test', 'edits': [edit]}
+        dt.apply_fixups(self.blob(), [fixup])
+        self.assertRaisesRegex(dt.DeviceTreeError, 'forbidden property: /soc/plain qcom,disable-lpm', dt.apply_fixups,
+                               self.blob(), [fixup], ['qcom,disable-lpm'])
+        # A base that already carries it fails the same way, with or without an edit of it.
+        base = tree()
+        dt.find(base.root, '/soc/named').props.append(('qcom,disable-lpm', b''))
+        other = {'id': 'b', 'reason': 'test', 'edits': [{'node': '/soc/plain', 'inherit_cells': [1, 1]}]}
+        self.assertRaisesRegex(dt.DeviceTreeError, 'forbidden property', dt.apply_fixups, dt.serialize(base), [other],
+                               ['qcom,disable-lpm'])
+
     def test_an_edit_that_finds_another_value_stops_the_build(self):
         edit = {'node': '/soc/named', 'property': 'memory-region', 'expect': {'cells': [9]}, 'set': {'cells': [1]}}
         with self.assertRaisesRegex(dt.DeviceTreeError, 'unexpected memory-region'):
@@ -97,6 +110,7 @@ class DeviceTreeTests(unittest.TestCase):
 
     def test_the_shipped_plan_is_well_formed(self):
         plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
+        self.assertEqual(['qcom,disable-lpm'], plan['forbidden_properties'])
         ids = [f['id'] for f in plan['fixups']]
         self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off'], ids)
         for fixup in plan['fixups']:

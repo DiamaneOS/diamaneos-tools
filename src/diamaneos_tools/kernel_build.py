@@ -9,11 +9,13 @@ in the order config/fp6-kernel-build.json lists.
 """
 from pathlib import Path
 import re
+import shutil
 import tarfile
 import time
 
 from . import kernel_config, kernel_kbuild
 from .kernel_util import call, git, require
+from .vendor_extract import sha
 
 VISIBILITY_WARNING = re.compile(rb'^.*\[-Wvisibility\]$', re.M)
 SYMVERS = 'Module.symvers'
@@ -85,10 +87,49 @@ def single_thread_pahole(wrapper, pahole):
     wrapper.write_text('#!/bin/bash\n'
                        'arguments=()\n'
                        'for argument in "$@"; do\n'
-                       '    case "$argument" in -j[0-9]*) ;; *) arguments+=("$argument") ;; esac\n'
+                       '    case "$argument" in -j|-j[0-9]*|--jobs|--jobs=*) ;; *) arguments+=("$argument") ;; esac\n'
                        'done\n'
                        'exec %s -j1 "${arguments[@]}"\n' % pahole)
     wrapper.chmod(0o755)
+
+
+def vendor_conflicts(kernel_values, vendor_values):
+    """Vendor values that differ from the kernel configuration: symbol -> [vendor, kernel]. The vendor
+    modules compile with the kernel's values plus these, so each one is a decision."""
+    return {k: [v, kernel_values[k]] for k, v in sorted(vendor_values.items())
+            if k in kernel_values and kernel_values[k] != v}
+
+
+def check_overrides(ctx, step, vendor_values):
+    """Vendor values that differ from the kernel's must be the reviewed overrides of the build plan."""
+    found = vendor_conflicts(ctx['kernel_values'], vendor_values)
+    stray = sorted(set(found) - ctx['overrides'])
+    require(not stray, '%s sets kernel symbols to other values than the kernel configuration: %s' %
+            (step['name'], ', '.join('%s=%s (kernel %s)' % (k, found[k][0], found[k][1]) for k in stray[:5])))
+    ctx['conflicts'].update(found)
+
+
+HOST_TOOLS = {'make': ['--version'], 'perl': ['-e', 'print "$^V\\n"'], 'openssl': ['version'], 'python3': ['--version'],
+              'git': ['--version'], 'bash': ['--version'], 'rsync': ['--version'], 'tar': ['--version'],
+              'modinfo': ['--version'], 'modprobe': ['--version'], 'nm': ['--version'], 'readelf': ['--version']}
+
+
+def host_tools(farm, libraries):
+    """The host programs and libraries the build uses outside the pinned toolchain: where they are, a
+    SHA-256 of the file and the first line of their version output."""
+    found = {}
+    for name, arguments in sorted(HOST_TOOLS.items()):
+        path = shutil.which(name, path='/usr/bin:/bin:/usr/sbin:/sbin')
+        require(path is not None, 'host tool missing: ' + name)
+        real = Path(path).resolve()
+        output = call([real, *arguments], cwd=farm, env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}).strip().splitlines()
+        found[name] = {'path': str(real), 'sha256': sha(real), 'version': output[0] if output else ''}
+    for soname in libraries:
+        link = farm / 'lib' / (soname.split('.so')[0] + '.so')
+        require(link.exists(), 'host library missing: ' + soname)
+        real = link.resolve()
+        found[soname] = {'path': str(real), 'sha256': sha(real)}
+    return found
 
 
 def merge_config(parts, destination):
@@ -140,6 +181,19 @@ def vmlinux_exports(symvers_text):
     return sorted(line for line in symvers_text.splitlines() if line.split('\t')[2:3] == ['vmlinux'])
 
 
+def exported_symbols(tables, owners=None):
+    """Every symbol the Module.symvers tables of the kernel builds export, by the Image or by a module.
+    With owners (module names without .ko), only the symbols those modules export."""
+    wanted = None if owners is None else {o.replace('-', '_') for o in owners}
+    found = set()
+    for table in tables:
+        for line in Path(table).read_text().splitlines():
+            fields = line.split('\t')
+            if len(fields) >= 3 and (wanted is None or fields[2].rsplit('/', 1)[-1].replace('-', '_') in wanted):
+                found.add(fields[1])
+    return found
+
+
 def stage_vendor_modules(vendor, revision, destination):
     """The modules/ tree of the pinned vendor commit, extracted clean so that the
     generated Kbuild files never touch the checkout."""
@@ -161,9 +215,17 @@ def package_step(ctx, step, stage, outputs):
     if step.get('defconfig_check'):
         check_defconfig(package / step['defconfig_check'], Path(extra[0]))
     if step.get('feature_header'):
-        lines = kernel_kbuild.feature_probes(ctx['common'], [tuple(p) for p in step['feature_probes']])
-        header = package / step['feature_header']
-        header.write_text('\n'.join(lines) + ('\n' if lines else ''))
+        probes = step['feature_probes']
+        found = kernel_kbuild.feature_probes(ctx['common'], [tuple(p[:3]) for p in probes])
+        expected = {p[2]: p[3] for p in probes}
+        changed = sorted(k for k in expected if found[k] != expected[k])
+        require(not changed, 'the cfg80211 features of the common kernel changed: ' +
+                ', '.join('%s is %s' % (k, 'found' if found[k] else 'missing') for k in changed))
+        header = kernel_kbuild.feature_header(found)
+        (package / step['feature_header']).write_text(header)
+        (ctx['runs'] / (step['name'] + '-features.h')).write_text(header)
+    vendor, _ = kernel_kbuild.package_config(str(package), str(base), str(ctx['device'] / 'include/config/auto.conf'), extra)
+    check_overrides(ctx, step, vendor)
     table = kernel_kbuild.generate(str(package), str(base), str(out), str(ctx['device'] / 'include/config/auto.conf'),
                                    only=step.get('modules', ()), extra_defconfig=extra)
     symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
@@ -174,9 +236,17 @@ def package_step(ctx, step, stage, outputs):
                  'KBUILD_EXTRA_SYMBOLS=' + ' '.join(map(str, symbols)), '-k', 'modules']
     call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=package, env=ctx['env'], timeout=ctx['timeout'],
          log=ctx['logs'] / (step['name'] + '.log'))
-    modules = sorted(p.name for p in out.rglob('*.ko'))
-    require(len(modules) == len(table), '%s built %d of %d registered modules' % (step['name'], len(modules), len(table)))
+    modules = built_modules(out, [row.split('\t')[0] for row in table], step['name'])
     outputs[step['name']] = out
+    return modules
+
+
+def built_modules(out, registered, name):
+    """The modules under out, which must be exactly the ones the registry names."""
+    modules = sorted(p.name for p in out.rglob('*.ko'))
+    different = sorted(set(modules) ^ set(registered))
+    require(modules == sorted(registered) and len(set(modules)) == len(modules),
+            '%s: the built modules differ from the registry: %s' % (name, ', '.join(different[:5]) or 'a module twice'))
     return modules
 
 
@@ -189,12 +259,14 @@ def check_defconfig(defconfig, effective):
 
 def base_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
+    check_overrides(ctx, step, kernel_kbuild.read_config(str(stage / 'modules' / step['package'] / 'defconfig')))
     arguments = ['-C', str(stage / 'modules' / step['package']), 'KERNEL_SRC=' + str(ctx['common']),
                  'KERNEL_OUT=' + str(ctx['device']), 'OUT=' + str(out)]
     call([*ctx['make'], *arguments, '-j%d' % ctx['jobs']], cwd=stage, env=ctx['env'], timeout=ctx['timeout'],
          log=ctx['logs'] / (step['name'] + '.log'))
     outputs[step['name']] = out
-    return sorted(p.name for p in out.rglob('*.ko'))
+    table = [row.split('\t')[0] for row in (out / 'modules.tsv').read_text().splitlines() if row]
+    return built_modules(out, table, step['name'])
 
 
 def groups_step(ctx, step, stage, outputs):
@@ -203,6 +275,10 @@ def groups_step(ctx, step, stage, outputs):
     out = ctx['out'] / step['output']
     symbols = [ctx['out'] / 'vendor' / SYMVERS] + [ctx['out'] / s / SYMVERS for s in step['symbols']]
     configs = [modules / d / 'defconfig' for d in step['defconfigs']]
+    merged = {}
+    for path in [*configs, *(modules / g / 'defconfig' for g in ('display', 'gpu', 'touch'))]:
+        merged.update(kernel_kbuild.read_config(str(path)))
+    check_overrides(ctx, step, merged)
     env = dict(ctx['env'], KSRC=str(ctx['common']), KOUT=str(ctx['device']), VINC=str(modules / 'base'),
                VCONFIG=' '.join(map(str, configs)), OUT=str(out), JOBS=str(ctx['jobs']),
                MK=' '.join(ctx['make'][:1] + [a for a in ctx['make'][1:] if not a.startswith('HOST')]),
@@ -211,10 +287,10 @@ def groups_step(ctx, step, stage, outputs):
     require(script.is_file(), 'the vendor tree has no ' + step['package'] + '/build/check.sh')
     call(['bash', script, *step['groups']], cwd=modules, env=env, timeout=ctx['timeout'],
          log=ctx['logs'] / (step['name'] + '.log'))
-    found = sorted(p.name for p in out.rglob('*.ko'))
     for group in step['groups']:
+        require(any((out / 'obj' / group).rglob('*.ko')), step['name'] + ': the group %s built no module' % group)
         outputs['p4/obj/' + group] = out / 'obj' / group
-    return found
+    return sorted(p.name for p in out.rglob('*.ko'))
 
 
 STEPS = {'base': base_step, 'package': package_step, 'groups': groups_step}

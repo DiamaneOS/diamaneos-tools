@@ -1195,16 +1195,29 @@
         "lt9611uxc.ko",
         "snd-soc-hdmi-codec.ko"
       ],
+      "absent": [
+        "hdmi_dlkm.ko",
+        "lt9611uxc.ko",
+        "snd-soc-hdmi-codec.ko"
+      ],
       "reason": "HDMI bridge and HDMI/DisplayPort audio codecs: the FP6 device tree has no LT9611 node, and its sound card turns external-display audio off (qcom,ext-disp-audio-rx = 0) and names only the stub, lpass-cdc and wcd9378 codecs."
     },
     {
       "modules": [
         "max31760_fan.ko"
       ],
+      "absent": [
+        "max31760_fan.ko"
+      ],
       "reason": "Fan controller: no node in the FP6 device tree."
     },
     {
       "modules": [
+        "cnss2.ko",
+        "qca_cld3_peach_v2.ko",
+        "qca_cld3_wcn6450.ko"
+      ],
+      "absent": [
         "cnss2.ko",
         "qca_cld3_peach_v2.ko",
         "qca_cld3_wcn6450.ko"
@@ -1216,10 +1229,17 @@
         "wcd938x_dlkm.ko",
         "wcd938x_slave_dlkm.ko"
       ],
+      "absent": [
+        "wcd938x_dlkm.ko",
+        "wcd938x_slave_dlkm.ko"
+      ],
       "reason": "WCD938x audio codec: not in the FP6 device tree (the FP6 codec is WCD9378) and imported by nothing. wcd937x, wcd939x and wsa883x stay until the audio machine driver stops importing them."
     },
     {
       "modules": [
+        "radio-i2c-rtc6226-qca.ko"
+      ],
+      "absent": [
         "radio-i2c-rtc6226-qca.ko"
       ],
       "reason": "FM radio: its probe fails on the FP6 (GPIO busy) and no FM stack is shipped."
@@ -1228,16 +1248,25 @@
       "modules": [
         "tz_log_dlkm.ko"
       ],
+      "absent": [
+        "tz_log_dlkm.ko"
+      ],
       "reason": "TrustZone log reader (/proc/tzdbg): a debug interface with no user."
     },
     {
       "modules": [
         "qseecom_dlkm.ko"
       ],
+      "absent": [
+        "qseecom_dlkm.ko"
+      ],
       "reason": "Legacy QSEECom driver: it would create /dev/qseecom, a second TEE node with its own ioctl set. The FP6 reaches the TEE through smcinvoke_dlkm alone. qseecom_proxy is another module and stays."
     },
     {
       "modules": [
+        "hdcp_qseecom_dlkm.ko"
+      ],
+      "absent": [
         "hdcp_qseecom_dlkm.ko"
       ],
       "reason": "HDCP client: it lets the kernel load four trusted apps by name (hdcp1, ops, hdcp2p2, hdcpsrm) for DisplayPort content protection. The FP6 has no DisplayPort output, and its display driver is built without HDCP, so nothing imports the module."
@@ -1247,10 +1276,17 @@
         "qcom_spss.ko",
         "qsee_ipc_irq_bridge.ko"
       ],
+      "absent": [
+        "qcom_spss.ko",
+        "qsee_ipc_irq_bridge.ko"
+      ],
       "reason": "Secure processor (SPSS) loader and its QSEE interrupt bridge: the FP6 device tree has no SPSS or bridge node. qcom_glink_spss stays: glink_probe imports it."
     },
     {
       "modules": [
+        "focaltech_fts.ko"
+      ],
+      "absent": [
         "focaltech_fts.ko"
       ],
       "reason": "FocalTech touch driver: no matching node (the FP6 touch controllers are Goodix and ESWIN), and it creates a world-writable proc node."
@@ -1267,10 +1303,20 @@
         "pmic-glink-debug.ko",
         "qti_battery_debug.ko"
       ],
+      "absent": [
+        "debugcc-cliffs.ko",
+        "debugcc-pineapple.ko",
+        "qcom-cpufreq-hw-debug.ko",
+        "pmic-glink-debug.ko",
+        "qti_battery_debug.ko"
+      ],
       "reason": "Debug interfaces with no product use and no dependent module: clock measurement (debugcc), the data capture engine (DCC), IOMMU, cpufreq, SPMI arbiter and PMIC glink debug, and the battery debug node. On the FP6 build 12 they loaded with nothing using them. Modules other drivers depend on (minidump, ramdump, regmap and regulator debug) stay."
     },
     {
       "modules": [
+        "rdbg.ko"
+      ],
+      "absent": [
         "rdbg.ko"
       ],
       "reason": "The Hexagon remote debugger: /dev/rdbg_adsp, /dev/rdbg_cdsp and two more nodes carry debugger traffic to the DSPs through shared memory. Nothing on the phone opens them and no module depends on it."
@@ -1284,10 +1330,21 @@
         "mhi_dev_satellite.ko",
         "mhi_dev_uci.ko"
       ],
+      "absent": [
+        "pci-msm-drv.ko",
+        "pcie-pdc.ko",
+        "mhi.ko",
+        "qrtr-mhi.ko",
+        "mhi_dev_satellite.ko",
+        "mhi_dev_uci.ko"
+      ],
       "reason": "PCIe and MHI: the FP6 has no PCIe device. Its PCIe controller is disabled in the device tree and the built-in modem talks over shared memory. The PCIe host driver, its power domain controller, the MHI bus, QRTR over MHI and the MHI device-side drivers only depend on each other."
     },
     {
       "modules": [
+        "usb_f_ccid.ko"
+      ],
+      "absent": [
         "usb_f_ccid.ko"
       ],
       "reason": "The USB smart card (CCID) gadget function: init creates no ccid function, and nothing sets the vendor USB configuration that would make the gadget HAL ask for one."
@@ -1298,6 +1355,11 @@
         "memory_dump_v2.ko",
         "dmesg_dumper.ko",
         "sysmon_subsystem_stats.ko",
+        "gpu_dump_skip_cdev.ko"
+      ],
+      "absent": [
+        "icc-test.ko",
+        "dmesg_dumper.ko",
         "gpu_dump_skip_cdev.ko"
       ],
       "reason": "Test and crash-dump helpers with no product use and no dependent module: the interconnect bandwidth test, the CPU dump table for TrustZone, the Gunyah guest VM log dumper, the DSP load statistics and the GPU dump skip flag. The log dumper and the GPU flag find no device on the FP6, and the statistics go to debugfs only."
@@ -1326,7 +1388,69 @@
     }
   },
   "forbidden_symbols": [],
-  "kmi_exceptions": [],
+  "kmi_exceptions": [
+    {
+      "symbols": [
+        "__cfg80211_alloc_event_skb",
+        "__cfg80211_alloc_reply_skb",
+        "__cfg80211_get_bss",
+        "__cfg80211_send_event_skb",
+        "cfg80211_calculate_bitrate",
+        "cfg80211_ch_switch_notify",
+        "cfg80211_chandef_create",
+        "cfg80211_connect_done",
+        "cfg80211_del_sta_sinfo",
+        "cfg80211_disconnected",
+        "cfg80211_external_auth_request",
+        "cfg80211_gtk_rekey_notify",
+        "cfg80211_inform_bss_frame_data",
+        "cfg80211_mgmt_tx_status_ext",
+        "cfg80211_michael_mic_failure",
+        "cfg80211_new_sta",
+        "cfg80211_pmksa_candidate_notify",
+        "cfg80211_put_bss",
+        "cfg80211_ready_on_channel",
+        "cfg80211_register_netdevice",
+        "cfg80211_remain_on_channel_expired",
+        "cfg80211_roamed",
+        "cfg80211_rx_mgmt_ext",
+        "cfg80211_rx_unprot_mlme_mgmt",
+        "cfg80211_scan_done",
+        "cfg80211_sched_scan_results",
+        "cfg80211_stop_link",
+        "cfg80211_tdls_oper_request",
+        "cfg80211_unlink_bss",
+        "cfg80211_unregister_wdev",
+        "cfg80211_update_owe_info_event",
+        "cfg80211_vendor_cmd_get_sender",
+        "cfg80211_vendor_cmd_reply",
+        "ieee80211_freq_khz_to_channel",
+        "ieee80211_get_channel_khz",
+        "ieee80211_hdrlen",
+        "regulatory_set_wiphy_regd",
+        "wiphy_free",
+        "wiphy_new_nm",
+        "wiphy_register",
+        "wiphy_unregister"
+      ],
+      "modules": [
+        "qca_cld3_qca6750.ko"
+      ],
+      "reason": "Exports of cfg80211.ko, which the device kernel build makes and no GKI symbol list keeps, since the GKI build has no cfg80211. The Wi-Fi driver is the only importer."
+    },
+    {
+      "symbols": [
+        "cqhci_deactivate",
+        "cqhci_init",
+        "cqhci_irq",
+        "cqhci_pltfm_init"
+      ],
+      "modules": [
+        "sdhci-msm.ko"
+      ],
+      "reason": "Exports of cqhci.ko, which the device kernel build makes and no GKI symbol list keeps, since the GKI build has no cqhci. The microSD host driver is the only importer."
+    }
+  ],
   "required_symbols": [
     {
       "symbol": "names_command_line",

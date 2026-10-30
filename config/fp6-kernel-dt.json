@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "FP6 device tree of the 6.18 kernel set: the pinned 6.1 base and the edits the 5.0-based drivers and the 6.18 core need. Replaced by a 6.18 device tree built from source.",
+  "scope": "FP6 device tree of the 6.18 kernel set: the pinned 6.1 base and the edits the 5.0-based drivers and the 6.18 core need.",
   "base": {
     "repository": "https://github.com/DiamaneOS/device_fairphone_FP6-kernels",
     "revision": "a987520fa48467321967497585f0b2b5136f0cf8",
@@ -58,5 +58,6 @@
         {"node": "/soc/qcedev@1de0000", "property": "status", "expect": null, "set": {"strings": ["disabled"]}}
       ]
     }
-  ]
+  ],
+  "forbidden_properties": ["qcom,disable-lpm"]
 }

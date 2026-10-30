@@ -50,6 +50,33 @@
   },
   "vendor": {
     "source_directories": ["modules"],
+    "kernel_overrides": {
+      "symbols": [
+        "CONFIG_ARM_QCOM_CPUFREQ_HW",
+        "CONFIG_ARM_SMMU",
+        "CONFIG_COMMON_CLK_QCOM",
+        "CONFIG_HWSPINLOCK_QCOM",
+        "CONFIG_MFD_SPMI_PMIC",
+        "CONFIG_NVMEM_QCOM_QFPROM",
+        "CONFIG_NVMEM_SPMI_SDAM",
+        "CONFIG_PINCTRL_MSM",
+        "CONFIG_PINCTRL_QCOM_SPMI_PMIC",
+        "CONFIG_QCOM_AOSS_QMP",
+        "CONFIG_QCOM_COMMAND_DB",
+        "CONFIG_QCOM_IPCC",
+        "CONFIG_QCOM_LLCC",
+        "CONFIG_QCOM_PDC",
+        "CONFIG_QCOM_RPMH",
+        "CONFIG_QCOM_SMEM",
+        "CONFIG_QCOM_SPMI_TEMP_ALARM",
+        "CONFIG_QCOM_SYSMON",
+        "CONFIG_QRTR",
+        "CONFIG_SCSI_UFS_QCOM",
+        "CONFIG_SLIMBUS",
+        "CONFIG_SPMI_MSM_PMIC_ARB"
+      ],
+      "reason": "The vendor tree builds these drivers as modules from its own sources (modules.bzl) where the kernel configuration has them off. Every other value of a vendor defconfig must equal the kernel configuration's."
+    },
     "steps": [
       {"name": "base", "kind": "base", "package": "base", "output": "vendor"},
       {"name": "thermal-dcvs", "kind": "package", "package": "thermal-dcvs", "symbols": []},
@@ -94,11 +121,11 @@
         "symbols": ["wlan-bt", "thermal-dcvs", "audio-sensors", "modem-data"],
         "feature_header": "wlan/qcacld-3.0/configs/grep_defines_fps_gki_qca6750.h",
         "feature_probes": [
-          ["net/wireless/nl80211.c", "nl80211_validate_key_link_id", "CFG80211_MLO_KEY_OPERATION_SUPPORT"],
-          ["include/net/cfg80211.h", "struct link_station_parameters", "CFG80211_LINK_STA_PARAMS_PRESENT"],
-          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_PUNCT", "NL80211_EXT_FEATURE_PUNCT_SUPPORT"],
-          ["include/net/cfg80211.h", "unsigned int link_id, u16 punct_bitmap", "CFG80211_RU_PUNCT_NOTIFY"],
-          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA", "CFG80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA"]
+          ["net/wireless/nl80211.c", "nl80211_validate_key_link_id", "CFG80211_MLO_KEY_OPERATION_SUPPORT", true],
+          ["include/net/cfg80211.h", "struct link_station_parameters", "CFG80211_LINK_STA_PARAMS_PRESENT", true],
+          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_PUNCT", "NL80211_EXT_FEATURE_PUNCT_SUPPORT", true],
+          ["include/net/cfg80211.h", "unsigned int link_id, u16 punct_bitmap", "CFG80211_RU_PUNCT_NOTIFY", false],
+          ["include/uapi/linux/nl80211.h", "NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA", "CFG80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA", true]
         ]
       }
     ]

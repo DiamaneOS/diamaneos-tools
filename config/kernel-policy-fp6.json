@@ -48,6 +48,7 @@
     "CONFIG_TIPC_CRYPTO": "off",
     "CONFIG_TIPC_DIAG": "off",
     "CONFIG_TIPC_MEDIA_UDP": "off",
+    "CONFIG_TRIM_UNUSED_KSYMS": "y",
     "CONFIG_UNICODE": "y",
     "CONFIG_USERFAULTFD": "y"
   },

@@ -12,6 +12,10 @@ from diamaneos_tools.kernel_util import KernelError
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def symbols_row(symbol, owner):
+    return '0x00000000\t%s\t%s\tEXPORT_SYMBOL\t\n' % (symbol, owner)
+
+
 class ConfigurationTests(unittest.TestCase):
     def test_requests_are_the_last_value_asked_for(self):
         wanted = build.requested_values(['CONFIG_A=y\n# CONFIG_B is not set\n', 'CONFIG_A=m\nCONFIG_C=0x10\n# comment\n'])
@@ -43,6 +47,15 @@ class ConfigurationTests(unittest.TestCase):
     def test_the_kernel_exports_are_the_vmlinux_rows(self):
         table = '0x1\tfoo\tvmlinux\tEXPORT_SYMBOL\t\n0x2\tbar\tnet/x/mod\tEXPORT_SYMBOL_GPL\t\n'
         self.assertEqual(['0x1\tfoo\tvmlinux\tEXPORT_SYMBOL\t'], build.vmlinux_exports(table))
+
+    def test_the_exports_of_the_kernel_builds_include_the_modules_of_the_common_tree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            core, device = Path(temp) / 'core', Path(temp) / 'device'
+            core.write_text(symbols_row('printk', 'vmlinux'))
+            device.write_text(symbols_row('printk', 'vmlinux') + symbols_row('cqhci_init', 'drivers/mmc/host/cqhci') + '\n')
+            self.assertEqual({'printk', 'cqhci_init'}, build.exported_symbols([core, device]))
+            self.assertEqual({'cqhci_init'}, build.exported_symbols([core, device], ['cqhci']))
+            self.assertEqual(set(), build.exported_symbols([core, device], ['cfg80211']))
 
     def test_visibility_warnings_are_found_in_a_log(self):
         log = b'ok\nfoo.c:1:2: warning: declaration of struct x will not be visible [-Wvisibility]\nother\n'
@@ -91,8 +104,15 @@ class ToolchainTests(unittest.TestCase):
         recorder.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
         recorder.chmod(0o755)
         build.single_thread_pahole(wrapper, recorder)
-        shown = subprocess.run([str(wrapper), '-j32', '--btf_features=var', 'vmlinux'], capture_output=True, text=True).stdout
-        self.assertEqual(['-j1', '--btf_features=var', 'vmlinux'], shown.split())
+        for given in (['-j32', '--btf_features=var', 'vmlinux'], ['-j', '--btf_features=var', 'vmlinux'],
+                      ['--jobs=8', '--btf_features=var', 'vmlinux'], ['--btf_features=var', '--jobs', 'vmlinux'],
+                      ['--btf_features=var', 'vmlinux', '-j4']):
+            with self.subTest(given=given):
+                shown = subprocess.run([str(wrapper), *given], capture_output=True, text=True).stdout
+                self.assertEqual(['-j1', '--btf_features=var', 'vmlinux'], shown.split())
+        # Arguments with spaces and other options stay as they are.
+        shown = subprocess.run([str(wrapper), '--lang_exclude=rust', 'a b'], capture_output=True, text=True).stdout
+        self.assertEqual(['-j1', '--lang_exclude=rust', 'a b'], shown.splitlines())
 
     def test_a_missing_toolchain_part_stops_the_build(self):
         (self.root / self.plan['toolchain']['build_tools'] / 'bison').unlink()
@@ -167,10 +187,22 @@ class BuildPlanTests(unittest.TestCase):
         self.assertIn('CONFIG_MODULE_SIG_ALL', device['config_symbols'])
         self.assertTrue(device['reason'].strip())
 
-    def test_the_production_profile_builds_the_production_fragments(self):
+    def test_each_profile_names_the_fragment_it_builds(self):
         core = self.plan['core']
-        self.assertEqual({'production', 'development'}, set(core['profile_fragments']))
+        self.assertEqual({'production': 'configs/production_defconfig', 'development': 'configs/production_defconfig'},
+                         core['profile_fragments'])
+        self.assertEqual(['configs/diamaneos_defconfig'], core['fragments'])
+        self.assertEqual('arch/arm64/configs/gki_defconfig', core['defconfig'])
         self.assertEqual(set(kernel.CONFIG_PROFILES), set(core['profile_fragments']))
+
+    def test_the_overrides_are_reviewed_vendor_drivers_and_each_probe_declares_its_result(self):
+        overrides = self.plan['vendor']['kernel_overrides']
+        self.assertEqual(sorted(overrides['symbols']), overrides['symbols'])
+        self.assertIn('CONFIG_QRTR', overrides['symbols'])
+        self.assertTrue(overrides['reason'].strip())
+        probes = [s for s in self.plan['vendor']['steps'] if s.get('feature_probes')][0]['feature_probes']
+        self.assertEqual({'CFG80211_RU_PUNCT_NOTIFY': False}, {p[2]: p[3] for p in probes if not p[3]})
+        self.assertTrue(all(len(p) == 4 and isinstance(p[3], bool) for p in probes))
 
 
 if __name__ == '__main__':

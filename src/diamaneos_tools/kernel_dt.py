@@ -1,7 +1,7 @@
 """The FP6 device tree of the 6.18 kernel set: a pinned base with declared fix-ups.
 
 The 5.0-based vendor drivers and the 6.18 core read some 6.1 device tree
-bindings differently. Until the sources hold a 6.18 device tree, the set ships
+bindings differently. The sources hold no 6.18 device tree, so the set ships
 the 6.1 base device tree and overlay image (pinned by SHA-256 in
 config/fp6-kernel-dt.json) and edits the base through the fix-ups listed there.
 Each edit states the value it expects to find, so a different base stops the
@@ -257,9 +257,9 @@ def differences(first, second):
     return rows, sorted(nodes(first.root) ^ nodes(second.root))
 
 
-def apply_fixups(data, fixups):
-    """The base blob with every fix-up applied, and a report. The result must
-    differ from the base in exactly the edited properties."""
+def apply_fixups(data, fixups, forbidden=()):
+    """The base blob with every fix-up applied, and a report. The result must differ from the base in
+    exactly the edited properties, and no property of the forbidden list may be anywhere in it."""
     require(isinstance(fixups, list) and fixups, 'no device tree fix-ups')
     base = parse(data)
     tree = parse(data)
@@ -283,6 +283,8 @@ def apply_fixups(data, fixups):
     rows, nodes = differences(base, again)
     require(not nodes, 'the fix-ups added or removed nodes')
     require({(p, n): (b, a) for p, n, b, a in rows} == declared, 'the fixed device tree differs from the base beyond the declared edits')
+    present = sorted({'%s %s' % (path, name) for path, name, _ in flatten(again.root) if name in forbidden})
+    require(not present, 'the device tree has a forbidden property: ' + ', '.join(present[:5]))
     return out, report
 
 
