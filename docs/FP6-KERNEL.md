@@ -99,6 +99,7 @@ Reproducibility:
   byte equal to the common kernel, because their structures cross the Image and module boundary.
 - `--config-profile development` and `production` build the same configuration (the vendor tree's
   production profile). They differ in the policy that is enforced (below).
+- `--config-profile debug` builds with the debug aids on (see Debug profile below).
 
 ## Module packaging
 
@@ -169,8 +170,8 @@ Symbol rules in the same file run on every build, each with its reason:
 - `required_symbols`: symbols that must exist there, marking changes a rebase could drop. A
   ThinLTO `.llvm.` suffix counts.
   - A rule with a `pending` reason names a change that the pinned common kernel does not carry.
-  - The development profile reports it in `result.json`. The production profile counts it as
-    missing.
+  - The development and debug profiles report it in `result.json`. The production profile counts it
+    as missing.
   - A pending symbol that is present fails the build, so a stale reason cannot stay.
   - `kernel publish` refuses a run that reports pending symbols.
 - `kmi_exceptions`: kernel symbols modules import although no GKI symbol list keeps them. Each names
@@ -253,6 +254,7 @@ Image configuration right after configuring, by default with the production prof
   Qualcomm's data stack.
 - `--config-profile development` checks only the baseline and records the production
   differences. The configuration itself is the same.
+- The debug tier replaces baseline rules the debug aids need and may not name a production rule.
 - A rule value `off` accepts `n` or a symbol the configuration does not mention (hidden by an
   option that is off). `not-built-in` also accepts `m`.
 - `build kernel-config` runs the same check on any effective `.config`:
@@ -303,6 +305,31 @@ Settings that differ from the 6.1 kernel:
     when a process starts. That does not fit the 512 GiB of a 39-bit kernel.
   - The page-table depth is compiled into every module, so every module is built from the pinned
     trees with this kernel.
+
+## Debug profile
+
+`--config-profile debug` builds a test kernel on the same tree, so a regression found on a
+production build can be reproduced with the debug aids on.
+
+- The configuration is the same base (`gki_defconfig`, then `configs/diamaneos_defconfig`) with the
+  vendor tree's `configs/bringup_defconfig` as the profile fragment.
+- The debug tier of the policy checks what the fragment turns on:
+  - Tracing, kprobes and uprobes, KFENCE, UBSAN reports and the lock, stall and hung task detectors
+    that panic.
+  - Mountable debugfs, no lockdown and `CONFIG_PANIC_TIMEOUT=5`.
+- A debug rule replaces the baseline rule for the same symbol and never names a production rule.
+- The vendor_boot command line adds the arguments in the `debug` section of the packaging file:
+  - `loglevel=8` and `log_buf_len=4M`.
+  - `sysctl.kernel.panic_on_rcu_stall=1` and `panic=5`.
+  - The two download mode arguments and `reboot=panic_warm`.
+- The vendor_boot and vendor_dlkm partitions and the load lists keep five of the debug modules the
+  production deny list drops, right after `qrtr-smd.ko`. The clock debug module stays out, because
+  its device tree node stays disabled in every profile.
+- The strict KMI check also accepts four symbols that the atomic sleep checks and UBSAN reports make
+  modules import. They name no importer, and the build fails when no module imports one.
+- The candidate has its own `README.md`, `result.json` records `config_profile` and `debug_build`,
+  and `kernel compare --reference` accepts the bring-up arguments of a debug run.
+- `kernel publish` refuses a debug run, so debug output never reaches the prebuilts.
 
 ## Compare two builds
 
