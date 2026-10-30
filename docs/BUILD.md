@@ -760,8 +760,7 @@ commands](#the-build-commands).
 - Where `fairphone_changes` is true, the import must carry Fairphone's FP6 changes too (Fairphone's
   rebased branch, or the difference between the recorded commit and the folder on `upstream`,
   applied to the new state), or the rebased branch loses them.
-- The change that moves `config/kernel-sources-fp6.json` to the rebased commit also sets the
-  project's `commit` and `release`.
+- The change that takes an import also sets the project's `commit` and `release` in this record.
 - `git tag --merged <commit>` in a clone of the upstream project lists the releases a commit
   contains.
 
@@ -801,7 +800,7 @@ commits are replayed on it.
   Git source) and `error`.
 - `status` and `update` work on forks only.
 - Adopting any update is a reviewed, signed change: rebase or import, run the tests (and for the
-  kernel, the kernel build with its layout checks), build, then push the fork branch or update the
+  kernel, the kernel build with its checks), build, then push the fork branch or update the
   pinned revision.
 
 ## Signing handoff
@@ -828,7 +827,7 @@ the kernel commands. They stay available for inspection and for work on a single
 - No command accesses a phone.
 
 - The host is the one [BUILDING.md](BUILDING.md#requirements) describes.
-- The kernel workspace provides its pinned compiler, Bazel, DTC and DT image tools.
+- The kernel workspace provides its pinned Clang and Rust toolchain and the kernel build tools.
 - Keep its source and outputs on a filesystem supporting case-sensitive names and symbolic links.
 - Budget at least 100 GiB of free space for fresh kernel preparation and image extraction, in
   addition to the full Android checkout/build requirements.
@@ -1041,12 +1040,13 @@ bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json
   --workspace "$WORK_ROOT/fp6-kernel" --jobs 16 --timeout 7200
 ```
 
-- Preparation checks out the kernel repository at the commit pinned in
-  [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json), its common-kernel submodule
-  at the commit the tree records and the toolchains its `prebuilts.json` lists at their revisions.
-- The build runs the non-consolidate GKI and vendor targets, the KMI and ABI checks, the module
-  packaging from [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) and the
-  configuration policy.
+- Preparation checks out the vendor and common kernel repositories, the toolchain and the base device
+  tree at the commits pinned in
+  [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) and
+  [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json).
+- The build runs the GKI core and device kernel builds, the vendor module packages, the module
+  packaging from [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json), the
+  device tree fix-ups, the configuration policy and the module and KMI checks.
 - [FP6-KERNEL.md](FP6-KERNEL.md) describes each of these steps and checks.
 
 - Logs and terminal results are in `fp6-kernel/runs/<run>/`. `kernel publish` copies a passed run's
