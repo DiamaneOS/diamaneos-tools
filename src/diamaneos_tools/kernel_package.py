@@ -79,19 +79,24 @@ def required_modules(recipe):
 
 
 def check_required_modules(recipe, shipped):
-    """Every module a shipped vendor file needs is in its partition and in the partition's load list. Rows whose
-    vendor file is not shipped do not apply. Returns the modules checked."""
-    checked = []
+    """Both directions. A module that a shipped vendor file needs is in its partition and in the partition's load
+    list. A module whose vendor file is not shipped is in no partition and no load list, so nothing ships that
+    nothing needs. Returns the modules checked and the rows skipped because their file is not shipped."""
+    checked, skipped = [], []
     for row in required_modules(recipe):
-        if row['needed_by'] not in shipped:
-            continue
         name, partition = row['module'], row['partition']
+        if row['needed_by'] not in shipped:
+            placed = sorted(key for key, names in {**recipe['partitions'], **recipe['load_lists']}.items() if name in names)
+            require(not placed, '%s is placed (%s) and nothing shipped needs it: %s is not shipped' %
+                    (name, ', '.join(placed), row['needed_by']))
+            skipped.append(name)
+            continue
         require(name in recipe['partitions'][partition],
                 '%s is needed by %s and is not in the %s module list' % (name, row['needed_by'], partition))
         require(name in recipe['load_lists'].get(partition + '/modules.load', []),
                 '%s is needed by %s and is not in the %s load list' % (name, row['needed_by'], partition))
         checked.append(name)
-    return checked
+    return checked, skipped
 
 
 def stage_modules(destination, selected, strip, signing, metadata, work, library_path):

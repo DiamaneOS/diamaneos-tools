@@ -628,7 +628,8 @@ class Run:
         self.result['denied_modules_not_built'] = absent
         self.result['denied_module_count'] = len(self.denied) - len(absent)
         wanted = set().union(*map(set, recipe['partitions'].values()))
-        self.result['required_modules_checked'] = kernel_package.check_required_modules(recipe, shipped_vendor_files())
+        self.result['required_modules_checked'], self.result['required_modules_skipped'] = \
+            kernel_package.check_required_modules(recipe, shipped_vendor_files())
         self.selected = kernel_package.select(wanted, {**self.vendor_pool, **self.device_pool}, self.core_pool)
         kernel_package.check_placement(recipe, lambda n: dependencies(self.selected[n]) if n in self.selected else [])
         for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):

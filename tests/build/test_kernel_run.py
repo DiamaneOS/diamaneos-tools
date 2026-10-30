@@ -422,12 +422,23 @@ class RequiredModuleStageTests(ModuleSetStageTests):
 
     def test_the_stage_checks_the_listing_and_records_the_module(self):
         self.run.module_set()
-        self.assertEqual(['a.ko'], self.result['required_modules_checked'])
+        self.assertEqual((['a.ko'], []), (self.result['required_modules_checked'], self.result['required_modules_skipped']))
 
     def test_a_module_missing_from_the_list_or_the_load_list_stops_the_build(self):
         self.recipe['load_lists'] = {'system_dlkm/modules.load': []}
         self.assertRaisesRegex(KernelError, 'a.ko is needed by vendor/bin/daemon and is not in the system_dlkm load list',
                                self.run.module_set)
+
+    def test_a_module_nothing_shipped_needs_stops_the_build(self):
+        with patch.object(kernel, 'shipped_vendor_files', lambda: set()):
+            self.assertRaisesRegex(KernelError, 'a.ko is placed .* nothing shipped needs it', self.run.module_set)
+
+    def test_a_module_nothing_shipped_needs_is_recorded_as_skipped_when_it_is_left_out(self):
+        self.recipe['partitions'] = {**self.recipe['partitions'], 'system_dlkm': []}
+        self.recipe['load_lists'] = {'system_dlkm/modules.load': []}
+        with patch.object(kernel, 'shipped_vendor_files', lambda: set()):
+            self.run.module_set()
+        self.assertEqual(([], ['a.ko']), (self.result['required_modules_checked'], self.result['required_modules_skipped']))
 
     def test_a_module_missing_from_the_partition_stops_the_build(self):
         self.recipe['partitions']['system_dlkm'] = []
