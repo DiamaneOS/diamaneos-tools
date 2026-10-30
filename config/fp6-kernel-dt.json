@@ -71,5 +71,23 @@
       ]
     }
   ],
+  "disabled_nodes": [
+    {
+      "compatible": "qcom,msm-eud",
+      "reason": "The EUD debugger driver does not ship, and an enabled node without its driver keeps its suppliers from sync_state."
+    },
+    {
+      "compatible": "qcom,volcano-debugcc",
+      "reason": "The clock debug driver does not ship. An enabled node without its driver kept the clock controllers from sync_state, so the SoC never reached deep sleep."
+    },
+    {
+      "compatible": "rtc6226",
+      "reason": "The FM radio driver does not ship, and its node waits for suppliers that never see it probe."
+    },
+    {
+      "compatible": "qcom,qcedev",
+      "reason": "6.18 has no qcedev driver, so the node never binds and both interconnect providers wait for it in sync_state. The crypto-engine-off fix-up disables it."
+    }
+  ],
   "forbidden_properties": ["qcom,disable-lpm"]
 }

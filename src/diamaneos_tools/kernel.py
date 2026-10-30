@@ -101,10 +101,15 @@ def validate_plan(plan):
 
 
 def validate_dt_plan(dt):
-    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups', 'forbidden_properties'}
+    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups', 'disabled_nodes', 'forbidden_properties'}
             and dt['schema_version'] == 1 and isinstance(dt['forbidden_properties'], list)
             and all(isinstance(n, str) and re.fullmatch(r'[a-zA-Z0-9,._+#-]+', n) for n in dt['forbidden_properties']),
             'invalid device tree plan')
+    rows = dt['disabled_nodes']
+    require(isinstance(rows, list) and rows and all(
+        isinstance(r, dict) and set(r) == {'compatible', 'reason'} and isinstance(r['compatible'], str)
+        and re.fullmatch(r'[a-zA-Z0-9,._+-]+', r['compatible']) and isinstance(r['reason'], str) and r['reason'].strip()
+        for r in rows) and len({r['compatible'] for r in rows}) == len(rows), 'invalid disabled device tree nodes')
     base = dt['base']
     require(isinstance(base, dict) and set(base) == {'repository', 'revision', 'files', 'overlay_count'}
             and SHA1.fullmatch(str(base['revision'])) and type(base['overlay_count']) is int
@@ -631,6 +636,10 @@ class Run:
         fixed, changes = kernel_dt.apply_fixups(files['dtbs/fp6.dtb'], self.dt_plan['fixups'], self.dt_plan['forbidden_properties'])
         count = kernel_dt.overlay_count(files['dtbo.img'])
         require(count == self.dt_plan['base']['overlay_count'] == self.recipe['dtbo_count'], 'overlay count changed')
+        enabled = kernel_dt.check_disabled_nodes(fixed, kernel_dt.overlays(files['dtbo.img']), self.dt_plan['disabled_nodes'])
+        require(not enabled, 'nodes of drivers that do not ship are enabled: ' + ', '.join(enabled[:3]) +
+                (' and %d more' % (len(enabled) - 3) if len(enabled) > 3 else ''))
+        self.result['disabled_node_rules_checked'] = len(self.dt_plan['disabled_nodes'])
         (self.run / 'device-tree-fixups.json').write_bytes(encoded({'base_sha256': self.dt_plan['base']['files'], 'fixups': changes}))
         (self.run / 'fp6.dtb').write_bytes(fixed)
         call([self.root / self.build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts',

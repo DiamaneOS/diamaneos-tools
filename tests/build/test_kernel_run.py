@@ -309,7 +309,17 @@ class DeviceTreeStageTests(RunFixture):
         soc.props = [('status', b'okay\0')]
         root.children = [soc]
         blob = kernel_dt.serialize(kernel_dt.Tree(root, [], 0))
-        overlay = struct.pack('>8I', kernel_dt.DTBO_MAGIC, 64, 32, 32, 1, 32, 4096, 0) + bytes(32)
+        fragment = kernel_dt.Node('fragment@0')
+        fragment.props = [('target-path', b'/soc\0')]
+        body = kernel_dt.Node('__overlay__')
+        engine = kernel_dt.Node('engine')
+        engine.props = [('compatible', b'qcom,qcedev\0'), ('status', b'okay\0')]
+        body.children, fragment.children = [engine], [body]
+        top = kernel_dt.Node('')
+        top.children = [fragment]
+        piece = kernel_dt.serialize(kernel_dt.Tree(top, [], 0))
+        overlay = struct.pack('>8I', kernel_dt.DTBO_MAGIC, 64 + len(piece), 32, 32, 1, 32, 4096, 0) + \
+            struct.pack('>8I', len(piece), 64, 0, 0, 0, 0, 0, 0) + piece
         (self.root / 'base-dt/dtbs').mkdir(parents=True)
         (self.root / 'base-dt/dtbs/fp6.dtb').write_bytes(blob)
         (self.root / 'base-dt/dtbo.img').write_bytes(overlay)
@@ -318,12 +328,23 @@ class DeviceTreeStageTests(RunFixture):
                                                'dtbo.img': hashlib.sha256(overlay).hexdigest()}, 'overlay_count': 1},
                             'fixups': [{'id': 'off', 'reason': 'r', 'edits': [
                                 {'node': '/soc', 'property': 'status', 'expect': {'strings': ['okay']}, 'set': {'strings': ['disabled']}}]}],
+                            'disabled_nodes': [{'compatible': 'qcom,qcedev', 'reason': 'r'}],
                             'forbidden_properties': ['qcom,disable-lpm']}
         self.run.build_plan['toolchain']['kernel_build_tools'] = 'dtc-dir'
+        # The overlay enables a node that must be off: the build stops before it writes anything.
+        self.assertRaisesRegex(KernelError, 'nodes of drivers that do not ship are enabled: /fragment@0/__overlay__/engine in overlay 0',
+                               self.run.device_tree)
+        engine.props = [('compatible', b'qcom,qcedev\0'), ('status', b'disabled\0')]
+        piece = kernel_dt.serialize(kernel_dt.Tree(top, [], 0))
+        overlay = overlay[:64] + piece
+        overlay = overlay[:32] + struct.pack('>8I', len(piece), 64, 0, 0, 0, 0, 0, 0) + overlay[64:]
+        (self.root / 'base-dt/dtbo.img').write_bytes(overlay)
+        self.run.dt_plan['base']['files']['dtbo.img'] = hashlib.sha256(overlay).hexdigest()
         self.run.device_tree()
+        self.assertEqual(1, self.result['disabled_node_rules_checked'])
         fixed = kernel_dt.parse((self.run.run / 'fp6.dtb').read_bytes())
         self.assertEqual(b'disabled\0', kernel_dt.find(fixed.root, '/soc').prop('status'))
-        self.assertEqual(['device-tree'], self.phases)
+        self.assertEqual(['device-tree', 'device-tree'], self.phases)
         self.assertEqual(1, self.run.overlays)
         self.assertEqual('dtc', Path(self.calls[0][0]).name)
         self.assertEqual(['-q', '-I', 'dtb', '-O', 'dts'], self.calls[0][1:6])

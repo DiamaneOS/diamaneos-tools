@@ -224,6 +224,13 @@ base through the fix-ups of that file (`src/diamaneos_tools/kernel_dt.py`):
 - No property named in `forbidden_properties` may be anywhere in the result (`qcom,disable-lpm`,
   which UFS low power made obsolete).
 - The kernel build tools' `dtc` must decompile the result.
+- Nodes of drivers that do not ship must be disabled (`disabled_nodes` in the plan, each with its
+  reason, found by compatible): the EUD debugger, the clock debug, the FM radio and the crypto
+  engine. An enabled node without its driver keeps its suppliers from sync_state.
+  - The check covers the fixed base and every overlay for the base's SoC, as the bootloader applies
+    them. An overlay without a SoC list applies to all.
+  - It also fails when an overlay enables a listed base node that it targets by path, phandle or
+    symbol.
 
 The fix-ups:
 

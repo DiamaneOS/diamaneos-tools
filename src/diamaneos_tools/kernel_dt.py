@@ -300,10 +300,109 @@ def base_files(directory, spec):
     return files
 
 
+def overlay_table(data):
+    """(count, header size, entry size, entries offset) of a dtbo.img, checked against its size."""
+    require(len(data) >= 32, 'invalid overlay image')
+    magic, total, header_size, entry_size, count, offset = struct.unpack('>6I', data[:24])
+    require(magic == DTBO_MAGIC and total <= len(data) and header_size >= 32 and entry_size >= 20, 'not an overlay image')
+    require(offset >= header_size and offset + count * entry_size <= total, 'invalid overlay image table')
+    return count, entry_size, offset
+
+
 def overlay_count(data):
     """The number of overlays in a dtbo.img."""
-    require(len(data) >= 32, 'invalid overlay image')
-    magic, total, header_size, entry_size, count = struct.unpack('>5I', data[:20])
-    require(magic == DTBO_MAGIC and total <= len(data) and header_size >= 32 and entry_size >= 20,
-            'not an overlay image')
-    return count
+    return overlay_table(data)[0]
+
+
+def overlays(data):
+    """The overlay blobs of a dtbo.img, in table order."""
+    count, entry_size, offset = overlay_table(data)
+    blobs = []
+    for index in range(count):
+        size, start = struct.unpack('>2I', data[offset + index * entry_size:offset + index * entry_size + 8])
+        require(start + size <= len(data), 'overlay %d lies outside the image' % index)
+        blobs.append(data[start:start + size])
+    return blobs
+
+
+def walk(node, path='/'):
+    """(path, node) for a node and every node below it, the first one at the given path."""
+    yield path, node
+    for child in node.children:
+        yield from walk(child, path.rstrip('/') + '/' + child.name)
+
+
+def compatibles(node):
+    return {part.decode(errors='replace') for part in (node.prop('compatible') or b'').split(b'\0') if part}
+
+
+def soc_ids(tree):
+    """The SoC ids of a tree's qcom,msm-id (id and revision pairs)."""
+    data = tree.root.prop('qcom,msm-id') or b''
+    return set(struct.unpack('>%dI' % (len(data) // 4), data[:len(data) // 4 * 4])[0::2])
+
+
+def lookup(root, path):
+    node = root
+    for part in [p for p in path.split('/') if p]:
+        node = node.child(part)
+        if node is None:
+            return None
+    return node
+
+
+def overlay_targets(base, overlay):
+    """(overlay node, base path) for every fragment whose target can be resolved: by target-path, by a
+    phandle of the base, or by the symbol the overlay's __fixups__ names, which the base's __symbols__ resolves."""
+    symbols = base.root.child('__symbols__')
+    labels = {name: value.rstrip(b'\0').decode(errors='replace') for name, value in (symbols.props if symbols else [])}
+    phandles = {node.prop('phandle'): path for path, node in walk(base.root) if node.prop('phandle')}
+    fixups = overlay.root.child('__fixups__')
+    placed = {}
+    for label, value in (fixups.props if fixups else []):
+        for entry in filter(None, value.split(b'\0')):
+            fragment, name, field = entry.decode(errors='replace').rsplit(':', 2)
+            if name == 'target' and field == '0':
+                placed[fragment] = label
+    found = []
+    for fragment in overlay.root.children:
+        body = fragment.child('__overlay__')
+        if body is None:
+            continue
+        path = fragment.prop('target-path')
+        if path is not None:
+            target = path.rstrip(b'\0').decode(errors='replace')
+        elif fragment.prop('target') == bytes.fromhex('ffffffff'):
+            target = labels.get(placed.get('/' + fragment.name))
+        else:
+            target = phandles.get(fragment.prop('target'))
+        if target:
+            found.append((body, target))
+    return found
+
+
+def check_disabled_nodes(base_data, overlay_blobs, rules):
+    """The nodes of drivers that do not ship, which the rules name by compatible, are disabled in the base and
+    in every overlay the bootloader applies to its SoC (an overlay without a qcom,msm-id applies to all). An
+    overlay also may not enable such a base node it targets. Returns the problems found."""
+    wanted = {rule['compatible'] for rule in rules}
+    base = parse(base_data)
+    socs = soc_ids(base)
+    off = (b'disabled\0', b'fail\0')
+    problems = []
+    for path, node in walk(base.root):
+        if compatibles(node) & wanted and node.prop('status') not in off:
+            problems.append('%s in the device tree' % path)
+    for index, blob in enumerate(overlay_blobs):
+        overlay = parse(blob)
+        if soc_ids(overlay) and not soc_ids(overlay) & socs:
+            continue
+        for path, node in walk(overlay.root):
+            if compatibles(node) & wanted and node.prop('status') not in off:
+                problems.append('%s in overlay %d' % (path, index))
+        for body, target in overlay_targets(base, overlay):
+            for path, node in walk(body, target):
+                status, original = node.prop('status'), lookup(base.root, path)
+                if status is not None and status not in off and original is not None and compatibles(original) & wanted:
+                    problems.append('%s enabled by overlay %d' % (path, index))
+    return problems
