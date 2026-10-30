@@ -1054,11 +1054,11 @@ bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json
   ([FP6-KERNEL.md](FP6-KERNEL.md#publish-a-kernel-build)).
 - `current` advances to that run's `candidate` only after all steps pass.
 - Failed runs remain available.
-- A retry creates a new run and reuses Bazel's completed work. There is no automatic retry loop.
+- A retry creates a new run and builds again from the prepared sources. There is no automatic retry loop.
 - `--jobs` bounds the requested build parallelism.
 - `--timeout` is a per-command limit, not a limit on the entire multi-step workflow.
-- Bazel runs in batch mode so its JVM and workers remain in the owned command group. Termination
-  unwinds that group instead of leaving a detached build server.
+- `make` and its tools run as owned child processes. Termination unwinds that group instead of
+  leaving a detached build.
 - The workspace lock rejects a simultaneous preparation/build in the same workspace.
 
 ### Install the generated inputs

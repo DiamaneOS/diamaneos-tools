@@ -10,7 +10,7 @@ Component ownership, allowed dependencies and the main source decisions.
 | manifest | GrapheneOS release manifest, DiamaneOS forks and pinned upstream projects | The DiamaneOS manifest branch | Verify GrapheneOS's signed tag when merging a release. Every build records its resolved manifest |
 | device/product | Product base and device descriptors | Product configuration and overlays | Device/vendor policy only |
 | vendor/firmware | Exact stock inputs and extraction recipe | Generated inputs | Never hand-edit generated content |
-| kernel/modules/dt | For the FP6: Qualcomm's CodeLinaro release with GrapheneOS `kernel_common-6.1` merged in, and Fairphone's device trees | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
+| kernel/modules/dt | For the FP6: `kernel_common-6.18` with the FP6 commits, Qualcomm's drivers as external modules and Fairphone's device tree | Kernel/module/devicetree integration | Preserve verification and upstream grouping |
 | apps/build | Supported platform APIs | Feature-specific state | No umbrella privileged application |
 
 - Platform code owns credential, permission, update and hardware enforcement. Shared visual
@@ -27,8 +27,8 @@ device projects, the kernel prebuilts and the tools, minus other devices' kernel
 - Build preflight and overlay release checks read the device's build environment
   (`config/build-environment-fp6.json` for the FP6). Resolved manifests record the concrete source
   revisions of each build.
-- The FP6 kernel sources are one repository (`kernel_qcom-6.1`), built separately into the
-  published prebuilts.
+- The FP6 kernel sources are two repositories (`kernel_common-6.18` and `kernel_qcom-6.18`), built
+  separately into the published prebuilts.
 - Device policy and hardware setup are source-owned by the device tree (`device/fairphone/FP6`).
 - Add repositories only when needed. Remove unused dependencies and regenerate derived content from
   reviewed inputs.
