@@ -85,7 +85,11 @@ Reproducibility:
      on top of the base layer's and the kernel's. A missing configuration file is an error.
    - A vendor value that differs from the kernel configuration must be one of the reviewed
      overrides of the plan: drivers the vendor tree builds as modules where the kernel has them
-     off. A listed override that no longer differs fails too (`vendor-overrides.json`).
+     off or hidden behind an option that is off.
+     - A symbol that the Kconfig files of the common tree declare and the configuration lacks reads
+       as n.
+     - Each override states the vendor and kernel value the review saw, and a change of either
+       fails the build, as does an override that no longer differs (`vendor-overrides.json`).
    - The modules built must be exactly the ones the registry names.
    - qcacld-3.0 builds with the effective configuration in
      [`config/fp6-kernel-qcacld.config`](../config/fp6-kernel-qcacld.config), which must hold every
@@ -128,6 +132,8 @@ Reproducibility:
     loads it.
   - The build fails while `vendor/bin/nicmd` ships (`config/fp6-minimal/vendor-files.json`) and the
     module is missing from the partition or from its load list.
+  - It also fails when the file does not ship and the module is placed, and `result.json` records
+    the rows it skipped.
   - A reference comparison reports such a module the reference lacks as policy.
 
 Its `denied_modules` lists, with reasons, what FP6 never ships:
@@ -225,7 +231,10 @@ base through the fix-ups of that file (`src/diamaneos_tools/kernel_dt.py`):
 - The overlay image is the base one and must hold the number of overlays the packaging recipe
   names.
 - No property named in `forbidden_properties` may be anywhere in the result (`qcom,disable-lpm`,
-  which UFS low power made obsolete).
+  which UFS low power made obsolete). The same list is scanned in every overlay for the base's SoC.
+  - `forbidden_property_exemptions` names the one overlay that has it, the Volcano emulator board
+    (index 84, board id 0xf), which no FP6 board matches.
+  - An exemption fails when the overlay no longer has the board id or the property.
 - The kernel build tools' `dtc` must decompile the result.
 - Nodes of drivers that do not ship must be disabled (`disabled_nodes` in the plan, each with its
   reason, found by compatible): the EUD debugger, the clock debug, the FM radio and the crypto
@@ -234,6 +243,8 @@ base through the fix-ups of that file (`src/diamaneos_tools/kernel_dt.py`):
     them. An overlay without a SoC list applies to all.
   - It also fails when an overlay enables a listed base node that it targets by path, phandle or
     symbol.
+  - A fragment of such an overlay whose target the base does not resolve fails, because the check
+    could not see what the fragment enables.
 
 The fix-ups:
 

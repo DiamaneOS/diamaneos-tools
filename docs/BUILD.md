@@ -218,8 +218,8 @@ or deleted files):
 - If a project still fails, the step stops, and running it again starts that fetch over.
 
 - **Building the kernel.**
-  - `build kernel` runs `kernel prepare` (network) and `kernel build` (network off) in the
-    workspace's `kernel` directory.
+  - `build kernel` runs `kernel prepare` (network) and `kernel build --config-profile production`
+    (network off) in the workspace's `kernel` directory.
   - It is not part of `build all`: the Android build uses the kernel prebuilts the manifest selects.
   - It makes a new kernel set, which `kernel publish` copies into the kernel prebuilts repository
     ([FP6-KERNEL.md](FP6-KERNEL.md)).
