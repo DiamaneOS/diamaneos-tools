@@ -1040,6 +1040,9 @@ bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json
   --workspace "$WORK_ROOT/fp6-kernel" --jobs 16 --timeout 7200
 ```
 
+- The profile is `production` unless `--config-profile` names another. Only a production run is
+  published.
+
 - Preparation checks out the vendor and common kernel repositories, the toolchain and the base device
   tree at the commits pinned in
   [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) and

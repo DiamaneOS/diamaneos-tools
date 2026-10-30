@@ -4,9 +4,11 @@ diamaneos kernel publish --run RUN --to CHECKOUT copies the candidate of one
 passed kernel build (Image, dtbo.img, dtbs/, modules/, the board makefiles and
 the module blocklists) into a device_fairphone_FP6-kernels checkout. It checks
 every file against the run's artifacts.json, refuses private key material,
-strings that name the build host and modules on the packaging deny list, refuses
-a run whose Image lacks a required symbol the recipe marks pending, and updates
-the README's "This build" lines.
+strings that name the build host and modules on the packaging deny list, and
+updates the README's "This build" lines. Only a run of the production profile is
+published: the development profile skips the production tier of the policy and
+the debug profile has the debug aids on. A run whose Image lacks a required
+symbol the recipe marks pending is refused too.
 It never commits or pushes: review the change and commit it yourself.
 """
 import argparse
@@ -93,8 +95,9 @@ def candidate_files(run):
     """The verified candidate: relative path -> file, exactly as artifacts.json lists it."""
     result = read_json(run / 'result.json')
     require(result.get('status') == 'PASS', 'the kernel run did not pass')
-    require(result.get('config_profile') != 'debug' and not result.get('debug_build'),
-            'a debug run is never published: it has the debug aids on and its own command line')
+    require(result.get('config_profile') == 'production' and not result.get('debug_build'),
+            'only a run of the production profile is published (this one is %s). The development profile skips the '
+            'production tier of the policy and the debug profile has the debug aids on' % result.get('config_profile'))
     inventory_path = run / 'artifacts.json'
     require(sha(inventory_path) == result.get('inventory_sha256'), 'artifacts.json does not match the run result')
     inventory = read_json(inventory_path)
@@ -146,8 +149,8 @@ def describe(result, run):
         f'`{result["source_commit"][:7]}` and [{source(result["common_repository"])}]'
         f'({result["common_repository"].removesuffix(".git")}) at `{result["common_commit"][:7]}`, '
         f'Linux {result["linux_version"]}.',
-        f'- Tools: [diamaneos-tools]({TOOLS_URL}) at `{tools["commit"][:7]}`, {result["config_profile"]} '
-        'kernel configuration.',
+        f'- Tools: [diamaneos-tools]({TOOLS_URL}) at `{tools["commit"][:7]}`, '
+        f'{result["config_profile"]} kernel configuration policy.',
         f'- {result.get("module_count")} modules ({result.get("denied_module_count")} left out by policy), '
         f'{result.get("dtb_count")} device tree{"" if result.get("dtb_count") == 1 else "s"}, '
         f'{result.get("dtbo_count")} overlays.',

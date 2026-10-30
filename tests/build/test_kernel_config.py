@@ -51,7 +51,7 @@ class KernelConfigTests(unittest.TestCase):
         result = kernel_config.check(data, self.policy, 'debug')
         self.assertEqual('PASS', result['status'], result['failures'])
         # The production tier is recorded, not enforced.
-        self.assertIn('CONFIG_TIPC', [r['symbol'] for r in result['production_differences']])
+        self.assertIn('CONFIG_SECURITY_DMESG_RESTRICT', [r['symbol'] for r in result['production_differences']])
         for profile in ('development', 'production'):
             failing = {r['symbol'] for r in kernel_config.check(data, self.policy, profile)['failures']}
             self.assertLessEqual({'CONFIG_DEBUG_FS_ALLOW_ALL', 'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE',
@@ -75,7 +75,7 @@ class KernelConfigTests(unittest.TestCase):
         self.assertEqual('5', self.policy['debug']['CONFIG_PANIC_TIMEOUT'])
 
     def test_a_debug_tier_may_not_name_a_production_rule(self):
-        self.policy['debug']['CONFIG_TIPC'] = 'm'
+        self.policy['debug']['CONFIG_SECURITY_DMESG_RESTRICT'] = 'n'
         self.assertRaisesRegex(ValueError, 'debug policy cannot name production', kernel_config.validate_policy, self.policy)
 
     def test_the_cli_takes_the_debug_profile(self):
@@ -90,6 +90,11 @@ class KernelConfigTests(unittest.TestCase):
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
         self.assertEqual({'off'}, {self.policy['baseline'][k] for k in
                                    ('CONFIG_TIPC_CRYPTO', 'CONFIG_TIPC_DIAG', 'CONFIG_TIPC_MEDIA_UDP')})
+        # TIPC is a local-only module in the baseline, so no run that publishes or tests can lack it. Only the debug
+        # profile may leave the local-only option off.
+        self.assertEqual(('m', 'y'), (self.policy['baseline']['CONFIG_TIPC'], self.policy['baseline']['CONFIG_TIPC_LOCAL_ONLY']))
+        self.assertEqual({'CONFIG_SECURITY_DMESG_RESTRICT'}, set(self.policy['production']))
+        self.assertEqual('off', self.policy['debug']['CONFIG_TIPC_LOCAL_ONLY'])
         vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
         self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
         for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
@@ -131,6 +136,7 @@ class KernelConfigTests(unittest.TestCase):
             disabled(integrity),
             enabled(confidentiality),
             # Qualcomm's data stack needs TIPC only as a local-only module. Its bearer, crypto and diag stay out.
+            disabled('CONFIG_TIPC', 'm'), disabled('CONFIG_TIPC_LOCAL_ONLY'),
             enabled('CONFIG_TIPC_MEDIA_UDP'), enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
             # Exports are trimmed to the symbols modules import.
             disabled('CONFIG_TRIM_UNUSED_KSYMS'),

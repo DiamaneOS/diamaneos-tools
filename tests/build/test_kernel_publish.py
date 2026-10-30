@@ -104,12 +104,22 @@ class PublishTests(unittest.TestCase):
         self.assertIn('- Sources: [kernel_qcom-6.18](https://github.com/DiamaneOS/kernel_qcom-6.18) at `c6429ea` and '
                       '[kernel_common-6.18](https://github.com/DiamaneOS/kernel_common-6.18) at `0f9205e`, '
                       'Linux 6.18.37.\n', readme)
-        self.assertIn('at `3fbed18`, production kernel configuration.', readme)
+        self.assertIn('at `3fbed18`, production kernel configuration policy.', readme)
         self.assertIn('- 2 modules (47 left out by policy), 1 device tree, 95 overlays.\n', readme)
         self.assertIn('- Built 4 October 2026.\n\n## Contents', readme)
         self.assertNotIn('Tested on', readme)
         self.assertNotIn('20261004T', readme)
         self.assertEqual([], [p.name for p in self.checkout.iterdir() if p.name.startswith('.diamaneos-publish')])
+
+    def test_only_a_run_of_the_production_profile_is_published(self):
+        for profile in ('development', 'debug'):
+            with self.subTest(profile=profile):
+                self.write_run(CANDIDATE, config_profile=profile)
+                self.assertRaisesRegex(subject.PublishError, 'only a run of the production profile is published .this one is %s.' % profile,
+                                       self.publish)
+                self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
+        self.write_run(CANDIDATE, config_profile=None)
+        self.assertRaisesRegex(subject.PublishError, 'only a run of the production profile', self.publish)
 
     def test_a_run_with_pending_required_symbols_is_refused(self):
         self.write_run(CANDIDATE, pending_required_symbols=['names_command_line', 'selinux_enforcing_lock'])
@@ -122,7 +132,7 @@ class PublishTests(unittest.TestCase):
         for values in ({'config_profile': 'debug'}, {'debug_build': True}):
             with self.subTest(values=values):
                 self.write_run(CANDIDATE, **values)
-                self.assertRaisesRegex(subject.PublishError, 'a debug run is never published', self.publish)
+                self.assertRaisesRegex(subject.PublishError, 'only a run of the production profile', self.publish)
                 self.assertEqual(b'old image', (self.checkout / 'Image').read_bytes())
         # Even a debug candidate that claims another profile carries the README and is refused for it.
         self.write_run(dict(CANDIDATE, **{'README.md': b'# Debug build'}))

@@ -551,7 +551,9 @@ class Run:
         config = (self.core / '.config').read_bytes()
         unmet = kernel_build.unmet_requests([p.read_text() for p in fragments], config)
         (self.run / 'fragment-check.json').write_bytes(encoded({'unmet': unmet}))
-        require(not unmet, 'configuration requests the build does not honour: ' + ', '.join(list(unmet)[:8]))
+        require(not unmet, 'the %s profile asks for configuration the build does not honour: %s' % (
+            self.profile, ', '.join('%s (wants %s, %s)' % (s, w, 'the pinned common kernel does not declare it' if found is None
+                                                             else 'it ends up %s' % found) for s, (w, found) in list(unmet.items())[:8])))
         checked = kernel_config.check(config, load_json(POLICY), self.profile)
         (self.run / 'kernel-config.json').write_bytes(encoded(checked))
         require(checked['status'] == 'PASS', self.profile + ' kernel configuration regressed')

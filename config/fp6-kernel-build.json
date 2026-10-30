@@ -28,7 +28,7 @@
     },
     "tool_fragments": {
       "production": ["config/fp6-kernel-tipc.config", "config/fp6-kernel-tipc-local.config"],
-      "development": ["config/fp6-kernel-tipc.config"],
+      "development": ["config/fp6-kernel-tipc.config", "config/fp6-kernel-tipc-local.config"],
       "debug": ["config/fp6-kernel-tipc.config", "config/fp6-kernel-tipc-open.config"]
     },
     "goals": ["Image", "modules"]

@@ -97,12 +97,15 @@ Reproducibility:
 - A struct declared inside a parameter list (`-Wvisibility`) in any build log fails the build.
 - The core header copies listed in the vendor tree's `core-headers.json` files must stay byte for
   byte equal to the common kernel, because their structures cross the Image and module boundary.
-- `--config-profile development` and `production` build the vendor tree's production profile and
-  differ in the policy that is enforced (below). Production also asks for `CONFIG_TIPC_LOCAL_ONLY`.
-- Every profile builds TIPC as a module (`config/fp6-kernel-tipc.config`) without the UDP bearer,
-  crypto and diag options. The files of `tool_fragments` in the build plan come after the vendor
-  profile's fragment, and the build fails on a request the configuration does not honour.
+- `--config-profile production` is the default and the one `diamaneos build kernel` builds. It
+  enforces the whole policy, and only a production run is published.
+- `--config-profile development` builds the same vendor profile and enforces the baseline only.
 - `--config-profile debug` builds with the debug aids on (see Debug profile below).
+- Every profile builds TIPC as a module (`config/fp6-kernel-tipc.config`) without the UDP bearer,
+  crypto and diag options. All but debug ask for `CONFIG_TIPC_LOCAL_ONLY`.
+- The files of `tool_fragments` in the build plan come after the vendor profile's fragment. The
+  build fails on a request the configuration does not honour, and says when the pinned common
+  kernel does not declare the symbol.
 
 ## Module packaging
 
@@ -272,10 +275,9 @@ Image configuration right after configuring, by default with the production prof
     level.
   - The Rust binder without the C binder, debugfs not mountable and pstore with ramoops.
   - No `/dev/mem`, kexec, KGDB or hibernation.
-  - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`), and no TIPC bearer over UDP,
-    TIPC crypto or TIPC diag.
-- The `production` tier adds dmesg restricted from boot and TIPC as a local-only module for
-  Qualcomm's data stack.
+  - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
+  - TIPC as a local-only module for Qualcomm's data stack, without the UDP bearer, crypto and diag.
+- The `production` tier adds dmesg restricted from boot.
 - `--config-profile development` checks only the baseline and records the production
   differences.
 - The debug tier replaces baseline rules the debug aids need and may not name a production rule.
@@ -308,7 +310,7 @@ Settings that differ from the 6.1 kernel:
 | `CONFIG_RANDSTRUCT_FULL` | `CONFIG_RANDSTRUCT_NONE`: 6.18 builds Rust only without RANDSTRUCT. The Rust binder (`CONFIG_ANDROID_BINDER_IPC_RUST`, no C binder) replaces the most attacked IPC driver with memory-safe code. The structure layout scan is gone with RANDSTRUCT |
 | lockdown at confidentiality level | lockdown at integrity level: Android reads DMA-BUF statistics with a BPF program, which confidentiality breaks |
 | `CONFIG_DEBUG_CREDENTIALS`, `CONFIG_CRYPTO_SHA1_ARM64_CE` | gone from 6.18 |
-| TIPC as a local-only module | `production` tier: `CONFIG_TIPC_LOCAL_ONLY` is a DiamaneOS patch of the common kernel. Every profile builds TIPC as a module, and the bearer, crypto and diag options stay in the baseline as `off` |
+| TIPC as a local-only module | `baseline`: `CONFIG_TIPC_LOCAL_ONLY` is a DiamaneOS patch of the common kernel. Every profile builds TIPC as a module, the debug profile leaves the option off, and the bearer, crypto and diag options stay in the baseline as `off` |
 | `CONFIG_CORESIGHT` off | the GKI configuration builds it as modules, so the baseline requires `not-built-in` and the deny list keeps `coresight*.ko` out |
 | `CONFIG_QRTR_IMSDCM_OWNERSHIP` | the vendor tree declares it and no source implements the IMS role guard, so it is not checked |
 | `CONFIG_USB_CONFIGFS_F_QDSS`, `CONFIG_USB_F_FS_IPC_LOGGING`, `CONFIG_QCOM_EUD` | the symbols do not exist in the 6.18 sources, the baseline requires `off` |
@@ -413,10 +415,10 @@ replacing the previous set. It refuses to publish when:
   name (add more strings with `--forbid`).
 - The candidate carries a denied module, as a file or in a board makefile list.
 - The run was built from a modified tools checkout or does not record its source commits.
-- The run reports pending required symbols.
+- The run is not of the production profile, or reports pending required symbols.
 
 - It rewrites the README's "This build" lines (the two source commits and the Linux version, the
-  tools commit and configuration profile, the module, device tree and overlay counts, the build
-  date).
+  tools commit and the policy profile it met, the module, device tree and overlay
+  counts, the build date).
 - It does not commit or push: review the change, then commit and push.
 - The next Android build that syncs the manifest picks up the new commit.

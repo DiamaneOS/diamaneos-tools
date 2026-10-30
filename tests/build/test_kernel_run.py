@@ -121,7 +121,7 @@ class CoreAndDeviceTests(RunFixture):
             self.run.profile = 'production'
             self.on_make = lambda argv: (self.run.core / '.config').write_text('CONFIG_RUST=y\nCONFIG_NET_X=m\n')
             self.calls.clear()
-            self.assertRaisesRegex(KernelError, 'does not honour: CONFIG_NET_Z', self.run.core_build)
+            self.assertRaisesRegex(KernelError, 'production profile asks for configuration the build does not honour: CONFIG_NET_Z', self.run.core_build)
         self.assertEqual(1, len(self.calls))
 
     def test_a_request_kconfig_does_not_honour_stops_before_compiling(self):
@@ -130,7 +130,8 @@ class CoreAndDeviceTests(RunFixture):
                 (self.run.core / '.config').write_text('CONFIG_RUST=y\nCONFIG_QRTR=m\n')
         self.on_make = drop
         with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'):
-            self.assertRaisesRegex(KernelError, 'does not honour: CONFIG_SECURITY_DMESG_RESTRICT, CONFIG_TRIM_UNUSED_KSYMS',
+            self.assertRaisesRegex(KernelError, 'development profile asks for configuration the build does not honour: '
+                                   'CONFIG_SECURITY_DMESG_RESTRICT .wants y, the pinned common kernel does not declare it., CONFIG_TRIM_UNUSED_KSYMS',
                                    self.run.core_build)
         self.assertEqual(1, len(self.calls))
 
