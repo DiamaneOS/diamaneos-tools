@@ -1598,4 +1598,41 @@ class UpdateFirmwareTests(unittest.TestCase):
                           self.inventory, self.plan, self.update, self.root / 'scratch', self.root / 'radio')
 
 
+
+class DatadCommandTests(unittest.TestCase):
+    """`diamaneos vendor product --datad`: the device's pair without the stock nicm files, and the mark in the provenance."""
+
+    def run_main(self, *extra):
+        import contextlib
+        import io
+        with mock.patch.object(vendor_product, 'generate', return_value={'status': 'ok'}) as generate, \
+                contextlib.redirect_stdout(io.StringIO()):
+            code = vendor_product.main(['FP6', '--inputs', 'in', '--output', 'out', '--notice-kind', 'legacy_proprietary',
+                                        '--factory-zip', 'zip', *extra])
+        return code, generate
+
+    def test_without_the_option_the_command_is_what_it_was(self):
+        from diamaneos_tools import devices, datad_selection
+        code, generate = self.run_main()
+        self.assertEqual(0, code)
+        self.assertEqual(datad_selection.pair(devices.get('FP6'), False), generate.call_args.args[:2])
+        self.assertIs(False, generate.call_args.kwargs['datad'])
+
+    def test_the_option_takes_the_pair_of_the_data_stack_and_marks_the_tree(self):
+        from diamaneos_tools import devices, datad_selection
+        code, generate = self.run_main('--datad')
+        self.assertEqual(0, code)
+        self.assertEqual(datad_selection.pair(devices.get('FP6'), True), generate.call_args.args[:2])
+        self.assertIs(True, generate.call_args.kwargs['datad'])
+
+    def test_the_option_does_not_go_with_a_recipe_or_a_selection_of_its_own(self):
+        for extra in (['--recipe', 'r.json'], ['--selection', 's.json']):
+            with self.subTest(extra), mock.patch('sys.stderr'), self.assertRaises(SystemExit) as stop:
+                self.run_main('--datad', *extra)
+            self.assertEqual(2, stop.exception.code)
+
+    def test_the_two_libraries_are_reviewed_source_modules(self):
+        self.assertLessEqual({'libnicm', 'libnicm_dsi'}, vendor_product.SOURCE_MODULE_DEPENDENCIES)
+
+
 if __name__ == '__main__': unittest.main()

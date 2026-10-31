@@ -134,6 +134,13 @@ SOURCE_MODULE_DEPENDENCIES = {
     'android.hardware.media.c2@1.2',
     'libavservices_minijail',
     'vendor.qti.hardware.display.config-V5-ndk',
+    # Data (DIAMANEOS_DATAD): the open replacements of the stock libnicm.so and libnicm_dsi.so, which the closed
+    # libdsi_netctrl.so links. datad_selection.py drops the twelve stock files of nicmd and its libraries and
+    # turns the two edges of libdsi_netctrl.so into source-module edges, and the tree builds both libraries
+    # from hardware/diamaneos/datad with the stock sonames and every export the closed libraries import. The
+    # base recipe has no source-module edge to either, so nothing changes without the switch.
+    'libnicm',
+    'libnicm_dsi',
 }
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
@@ -1452,7 +1459,7 @@ def media_hwdec_config(path, data):
 
 
 def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_releases, firmware_inventory,
-             firmware_policy, factory_zip, aapt2=None, release_date=None):
+             firmware_policy, factory_zip, aapt2=None, release_date=None, datad=False):
     vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
     if not isinstance(firmware_releases, bytes) or not firmware_releases:
@@ -1472,6 +1479,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                   'notice_kind': notice_kind,
                   'update_firmware': {partition: firmware_plan['images'][image]['sha256']
                                       for partition, image in update_firmware.items()}}
+    if datad:
+        # The recipe and selection are those of datad_selection.pair(). Only a tree made with the open data
+        # stack says so, so the provenance of every other tree stays as it was.
+        provenance['datad_selection'] = True
     has_carrier_data = any(row['path'] == carrier_data.APK_PATH for row in recipe['files'])
     if has_carrier_data:
         if aapt2 is None:
@@ -1649,6 +1660,10 @@ def main(argv=None):
     devices.argument(parser)
     parser.add_argument('--recipe', type=Path, help='the selected-file recipe (default: the device\'s)')
     parser.add_argument('--selection', type=Path, help='the ELF selection (default: the device\'s)')
+    parser.add_argument('--datad', action='store_true',
+                        help='make the tree for a build with the open data stack (DIAMANEOS_DATAD=true): the '
+                             'device\'s recipe and selection without the stock nicm files. Not with --recipe or '
+                             '--selection')
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--notice-kind', required=True, help='reviewed Android notice classification')
@@ -1656,19 +1671,27 @@ def main(argv=None):
     parser.add_argument('--factory-zip', type=Path, required=True,
                         help='the device maker\'s factory package, for the firmware every update carries')
     args = parser.parse_args(argv)
+    if args.datad and (args.recipe or args.selection):
+        parser.error('--datad takes the device\'s recipe and selection, not --recipe or --selection')
     device = devices.from_args(parser, args.device)
     try:
         stock = safe_json.load_json(device.path('stock_image_recipe'))
         firmware_inventory = safe_json.load_json(device.path('firmware_inventory'))
         settings = safe_json.load_json(device.path('build'))
         firmware_table = firmware_release.table(firmware_inventory, settings['firmware_release'])
-        result = generate(safe_json.load_json(args.recipe or device.path('vendor_files')),
-            safe_json.load_json(args.selection or device.path('vendor_elf')),
+        if args.datad:
+            from . import datad_selection
+            recipe, selection = datad_selection.pair(device, True)
+        else:
+            recipe = safe_json.load_json(args.recipe or device.path('vendor_files'))
+            selection = safe_json.load_json(args.selection or device.path('vendor_elf'))
+        result = generate(recipe, selection,
             args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2, stock=stock,
             firmware_releases=firmware_table,
             firmware_inventory=firmware_inventory,
             firmware_policy=settings['firmware'], factory_zip=args.factory_zip,
-            release_date=release_date_of(stock, safe_json.load_json(device.path('stock_inputs'))))
+            release_date=release_date_of(stock, safe_json.load_json(device.path('stock_inputs'))),
+            datad=args.datad)
         print(json.dumps(result, indent=2))
         return 0
     except (ValueError, KeyError, TypeError, OSError, EOFError, safe_json.JsonError):
