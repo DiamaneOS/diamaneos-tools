@@ -62,6 +62,7 @@ class RunFixture(unittest.TestCase):
         self.run.run.mkdir(exist_ok=True)
         self.run.logs.mkdir(exist_ok=True)
         self.run.env, self.run.make = {'PATH': '/bin'}, ['make']
+        self.run.localversion = '-android17-5-g' + 'c' * 12
         self.calls = []
         self.on_make = lambda argv: None
         patcher = patch.object(kernel, 'call', self.fake_call)
@@ -94,6 +95,7 @@ class CoreAndDeviceTests(RunFixture):
         with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'):
             self.run.core_build()
         self.assertEqual('printk\n', (self.run.run / 'kmi-whitelist').read_text())
+        self.assertEqual(self.run.localversion, (self.run.core / 'localversion').read_text())
         config = (self.run.core / '.config').read_text()
         self.assertIn('CONFIG_TRIM_UNUSED_KSYMS=y', config)
         self.assertIn('CONFIG_UNUSED_KSYMS_WHITELIST="../kmi-whitelist"', config)
@@ -263,6 +265,7 @@ class DebugProfileTests(RunFixture):
                          self.result, self.phases.append)
         run.logs.mkdir(exist_ok=True)
         run.env, run.make = {'PATH': '/bin'}, ['make']
+        run.localversion = self.run.localversion
         return run
 
     def test_the_debug_profile_builds_the_bring_up_fragment_and_checks_the_debug_tier(self):
@@ -401,6 +404,27 @@ class DeviceTreeStageTests(RunFixture):
         self.assertEqual(self.run.logs / 'device-tree.log', seen['log'])
 
 
+class ReleaseTests(unittest.TestCase):
+    def constants(self, text):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        (Path(temp.name) / 'build.config.constants').write_text(text)
+        return Path(temp.name)
+
+    def test_the_release_names_the_android_release_the_kmi_generation_and_the_commit(self):
+        common = self.constants('BRANCH="android17-6.18"\nKMI_GENERATION=5\nCLANG_VERSION="r584948c"\n')
+        self.assertEqual('-android17-5-g' + 'a' * 12, kernel_build.release_localversion(common, 'a' * 40, 'android17'))
+        for text in ('BRANCH="android16-6.12"\nKMI_GENERATION=5\n', 'BRANCH="android17-6.18"\n',
+                     'BRANCH="android17-6.18"\nKMI_GENERATION=x\n', 'BRANCH=mainline\nKMI_GENERATION=5\n'):
+            with self.subTest(text=text):
+                self.assertRaisesRegex(KernelError, 'not an android17 branch', kernel_build.release_localversion,
+                                       self.constants(text), 'a' * 40, 'android17')
+
+    def test_the_build_plan_asks_for_android17(self):
+        self.assertEqual('android17', json.loads((Path(__file__).resolve().parents[2] / 'config/fp6-kernel-build.json')
+                                                 .read_text())['make']['android_release'])
+
+
 class DeviceTreeToolTests(unittest.TestCase):
     def test_qualcomms_tools_build_with_the_given_clang_and_dtc_comes_from_the_core_build(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -520,8 +544,8 @@ class ChecksStageTests(RunFixture):
         for name in ('core', 'device', 'candidate/modules'):
             (self.run.run / name).mkdir(parents=True, exist_ok=True)
         (self.run.core / 'include/config').mkdir(parents=True)
-        (self.run.core / 'include/config/kernel.release').write_text('6.18.37-4k-g' + 'c' * 12 + '\n')
-        (self.run.core / 'vmlinux').write_bytes(b'Linux version 6.18.37-4k-g' + b'c' * 12 + b' (build@build)')
+        (self.run.core / 'include/config/kernel.release').write_text('6.18.37-android17-5-g' + 'c' * 12 + '-4k\n')
+        (self.run.core / 'vmlinux').write_bytes(b'Linux version 6.18.37-android17-5-g' + b'c' * 12 + b'-4k (build@build)')
         (self.run.core / '.config').write_text('CONFIG_RUST=y\n')
         (self.run.device / '.config').write_text('CONFIG_RUST=y\n')
         (self.run.core / 'System.map').write_text('ffffffc080000000 T _text\n')
@@ -608,9 +632,13 @@ class ChecksStageTests(RunFixture):
         self.run.vendor_pool = {'vendor.ko': Path('v')}
         self.assertRaisesRegex(KernelError, 'no KMI symbol list keeps: wiphy_new', self.run.checks)
 
-    def test_a_kernel_release_that_does_not_name_the_pinned_commit_fails(self):
-        self.preparation['projects']['common']['revision'] = 'd' * 40
-        self.assertRaisesRegex(KernelError, 'does not name the pinned common kernel', self.run.checks)
+    def test_a_kernel_release_without_the_gki_release_of_the_pinned_commit_fails(self):
+        self.run.checks()
+        self.assertEqual('6.18.37-android17-5-g' + 'c' * 12 + '-4k', self.result['kernel_release'])
+        for localversion in ('-android17-5-g' + 'd' * 12, '-android16-5-g' + 'c' * 12, '-android17-6-g' + 'c' * 12):
+            with self.subTest(localversion=localversion):
+                self.run.localversion = localversion
+                self.assertRaisesRegex(KernelError, 'not the GKI release of the pinned common kernel', self.run.checks)
 
     def test_pending_symbols_are_reported_in_development_and_missing_in_production(self):
         self.recipe['required_symbols'] = [{'symbol': 'names_command_line', 'reason': 'r', 'pending': 'not carried'}]

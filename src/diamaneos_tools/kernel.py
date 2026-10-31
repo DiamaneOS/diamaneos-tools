@@ -563,6 +563,8 @@ class Run:
         maps = [self.common, self.root / 'toolchain', self.core, self.device, self.stage, self.out]
         epoch = commit_time(self.common, self.preparation['projects']['common']['revision'])
         self.env, self.make = kernel_build.toolchain(self.root, self.build_plan, self.run / 'tools', epoch, maps)
+        self.localversion = kernel_build.release_localversion(self.common, self.preparation['projects']['common']['revision'],
+                                                              self.build_plan['make']['android_release'])
         self.result['host_tools'] = kernel_build.host_tools(self.run / 'tools', self.build_plan['toolchain']['system_libraries'])
 
     def core_build(self):
@@ -575,6 +577,7 @@ class Run:
         fragments = [self.vendor / f for f in plan['fragments'] + [plan['profile_fragments'][self.profile]]]
         fragments += [ROOT / f for f in plan['tool_fragments'][self.profile]] + [trim]
         kernel_build.merge_config([self.common / plan['defconfig'], *fragments], self.core / '.config')
+        (self.core / 'localversion').write_text(self.localversion)
         self.make_kernel('core-configure', self.core, ['olddefconfig'])
         config = (self.core / '.config').read_bytes()
         unmet = kernel_build.unmet_requests([p.read_text() for p in fragments], config)
@@ -592,6 +595,7 @@ class Run:
         """The device kernel build: the same tree and configuration plus the drivers the GKI build lacks."""
         plan = self.build_plan['device']
         kernel_build.merge_config([self.core / '.config', *[self.vendor / f for f in plan['fragments']]], self.device / '.config')
+        (self.device / 'localversion').write_text(self.localversion)
         self.make_kernel('device-configure', self.device, ['olddefconfig'])
         changed = kernel_build.device_config_differences((self.core / '.config').read_bytes(),
                                                          (self.device / '.config').read_bytes(), plan['config_symbols'])
@@ -719,8 +723,8 @@ class Run:
         vmlinux = core / 'vmlinux'
         release = kernel_release(vmlinux)
         require(release == (core / 'include/config/kernel.release').read_text().strip()
-                and release.endswith('-g' + self.preparation['projects']['common']['revision'][:12]),
-                'Image release does not name the pinned common kernel: ' + release)
+                and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+' + re.escape(self.localversion) + r'(-[0-9a-z]+)?', release),
+                'Image release is not the GKI release of the pinned common kernel (%s): %s' % (self.localversion[1:], release))
         result['kernel_release'] = release
         from .kernel_interfaces import verify_built
         tables = [core / kernel_build.SYMVERS, self.device / kernel_build.SYMVERS] + [p / kernel_build.SYMVERS for p in self.outputs.values()]

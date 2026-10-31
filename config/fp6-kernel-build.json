@@ -15,6 +15,7 @@
   "make": {
     "arguments": ["ARCH=arm64", "LLVM=1", "LLVM_IAS=1"],
     "kcflags": ["-D__ANDROID_COMMON_KERNEL__"],
+    "android_release": "android17",
     "build_user": "build",
     "build_host": "build"
   },

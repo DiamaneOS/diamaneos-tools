@@ -74,11 +74,25 @@ def toolchain(root, plan, farm, epoch, maps=()):
            'KBUILD_BUILD_USER': plan['make']['build_user'], 'KBUILD_BUILD_HOST': plan['make']['build_host'],
            'KCFLAGS': ' '.join([*plan['make']['kcflags'], *('-ffile-prefix-map=%s=' % m for m in maps)]),
            'KRUSTFLAGS': ' '.join('--remap-path-prefix=%s=' % m for m in maps),
-           'LC_ALL': 'C', 'TZ': 'UTC', 'HOME': str(farm)}
+           'LC_ALL': 'C', 'TZ': 'UTC', 'HOME': str(farm),
+           # setlocalversion finds no repository and adds no version of its own: the release takes its commit
+           # from the localversion file, as a Kleaf build does.
+           'GIT_DIR': str(farm / 'no-repository')}
     make = ['make', *plan['make']['arguments'],
             'HOSTCFLAGS=-I%s -I%s' % (host / 'include', include),
             'HOSTLDFLAGS=-L%s -L%s -Wl,-rpath,%s' % (lib, host / 'lib64', host / 'lib64')]
     return env, make
+
+
+def release_localversion(common, revision, android_release):
+    """The localversion of a GKI release, -<android release>-<KMI generation>-g<12 hex>, from the BRANCH and
+    KMI_GENERATION of the common tree's build.config.constants. libvintf reads the kernel's FCM level from it."""
+    values = dict(re.findall(r'^([A-Z_]+)="?([^"\n]*)"?$', (common / 'build.config.constants').read_text(), re.M))
+    branch, generation = values.get('BRANCH', ''), values.get('KMI_GENERATION', '')
+    require(branch.startswith(android_release + '-') and re.fullmatch(r'[0-9]+', generation),
+            'the common tree is not an %s branch with a KMI generation: BRANCH %s, KMI_GENERATION %s' % (
+                android_release, branch or 'unset', generation or 'unset'))
+    return '-%s-%s-g%s' % (android_release, generation, revision[:12])
 
 
 def single_thread_pahole(wrapper, pahole):

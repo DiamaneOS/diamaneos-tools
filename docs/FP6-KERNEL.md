@@ -45,6 +45,15 @@ The toolchain is Clang `r584948c` and Rust `1.91.1.p3` from the pinned prebuilts
 tools and the host libraries the kernel's own host tools link. The build starts from an empty
 environment, so nothing of the calling shell reaches it.
 
+The kernel release has the GKI form, for example `6.18.38-android17-5-ge92c3f16af73-4k`:
+
+- `android17` and the KMI generation come from the common tree's `build.config.constants`
+  (`BRANCH` and `KMI_GENERATION`), and the commit is the pinned one. A `localversion` file in each
+  build directory carries them, as Kleaf writes it, and `-4k` is the configuration's
+  `CONFIG_LOCALVERSION`.
+- libvintf reads the kernel's FCM level from the `android17` part, so the build fails when the
+  common tree is not an `android17` branch or the Image reports another release.
+
 Reproducibility:
 
 - `SOURCE_DATE_EPOCH` and `KBUILD_BUILD_TIMESTAMP` are the pinned common commit's time, and the
