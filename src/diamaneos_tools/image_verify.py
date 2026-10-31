@@ -403,8 +403,24 @@ def property_lines(data: bytes) -> list[tuple[str, str]]:
     return result
 
 
+def datad_build(v):
+    """Whether the vendor generation of this image was made for the open data stack."""
+    vendor_dir = getattr(v, 'vendor_dir', None)
+    if vendor_dir is None:
+        return False
+    try:
+        return json.loads((vendor_dir / 'provenance.json').read_bytes()).get('datad_selection') is True
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def rule_files_present(rule, v):
-    missing = [p for p in rule['paths'] if not v.tf.exists(p)]
+    paths = rule['paths']
+    if datad_build(v):
+        # nicmd is not in this image, the daemon that replaces it and the two libraries must be
+        from . import datad_selection
+        paths = [q for p in paths for q in datad_selection.IMAGE_PATHS.get(p, (p,))]
+    missing = [p for p in paths if not v.tf.exists(p)]
     return not missing, 'missing: ' + ', '.join(missing) if missing else ''
 
 
@@ -1914,6 +1930,7 @@ def vintf_declarations(data: bytes):
 
 
 VENDOR_FILES = ROOT / 'config/fp6-minimal/vendor-files.json'
+VENDOR_ELF = ROOT / 'config/fp6-minimal/vendor-elf.json'
 
 
 def check_vendor(v):
@@ -1934,7 +1951,12 @@ def check_vendor(v):
     expected = {item['path']: item['sha256'] for item in recipe.get('files', [])}
     if not expected:
         return False, 'the vendor generation selects no files'
-    pinned = {item['path']: item['sha256'] for item in json.loads(VENDOR_FILES.read_bytes())['files']}
+    pinned_recipe = json.loads(VENDOR_FILES.read_bytes())
+    if provenance.get('datad_selection') is True:
+        # The generation of the open data stack selects the pinned files without the stock nicm files.
+        from . import datad_selection
+        pinned_recipe = datad_selection.transform(pinned_recipe, json.loads(VENDOR_ELF.read_bytes()))[0]
+    pinned = {item['path']: item['sha256'] for item in pinned_recipe['files']}
     if expected != pinned:
         changed = sorted(set(expected) ^ set(pinned) | {p for p in expected.keys() & pinned if expected[p] != pinned[p]})
         return False, "the vendor generation's recipe differs from the pinned vendor-files.json: " + ', '.join(changed[:10])

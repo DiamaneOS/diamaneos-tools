@@ -127,6 +127,63 @@ class ProductInputTests(unittest.TestCase):
             self.install()
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
 
+    def datad_generation(self, recipes=None, marked=True):
+        """The fixture generation made for the open data stack (its provenance says so, and records its recipes)."""
+        recipes = recipes or subject.current_recipes(self.device, datad=True)
+        provenance=(self.vendor/'current').resolve()/'provenance.json'
+        provenance.write_text(json.dumps({'recipe_sha256':recipes['vendor_files'],
+                                          'elf_selection_sha256':recipes['vendor_elf'],
+                                          **({'datad_selection':True} if marked else {})}))
+        inventory=self.vendor/'inventories'/('a'*64+'.json')
+        records=json.loads(inventory.read_text())
+        records['provenance.json']={'bytes':provenance.stat().st_size,'sha256':sha(provenance)}
+        inventory.write_text(json.dumps(records))
+        return recipes
+
+    def test_the_recipes_of_the_data_stack_are_not_the_stock_ones(self):
+        datad=subject.current_recipes(self.device,datad=True)
+        self.assertEqual(self.recipes,subject.current_recipes(self.device,datad=False))
+        self.assertNotEqual(self.recipes['vendor_files'],datad['vendor_files'])
+        self.assertNotEqual(self.recipes['vendor_elf'],datad['vendor_elf'])
+
+    def test_a_stock_descriptor_does_not_mention_the_data_stack(self):
+        self.install()
+        descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
+        self.assertNotIn('datad',descriptor)
+        self.assertFalse(subject.selected_inputs(self.vendor)['datad'])
+
+    def test_a_tree_made_for_the_data_stack_installs_with_its_own_recipes(self):
+        recipes=self.datad_generation()
+        self.install()
+        descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
+        self.assertIs(True,descriptor['datad'])
+        self.assertEqual(recipes,descriptor['recipes'])
+        self.assertEqual({'vendor/fairphone/FP6'},subject.verify_descriptor(self.source))
+
+    def test_the_data_stack_and_the_recipes_must_agree(self):
+        # the marker with the stock recipes, and the data stack recipes without the marker
+        self.datad_generation(recipes=self.recipes)
+        with self.assertRaisesRegex(ValueError,'other recipes .vendor_elf, vendor_files.. Rebuild them with "diamaneos build vendor FP6 --datad"'):
+            self.install()
+        self.datad_generation(marked=False)
+        with self.assertRaisesRegex(ValueError,'other recipes'):
+            self.install()
+        self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
+
+    def test_a_descriptor_that_says_data_stack_without_meaning_it_is_refused(self):
+        self.install()
+        path=self.source/'.repo/diamaneos-generated-inputs.json'
+        descriptor=json.loads(path.read_text())
+        for value in (False,'true',1,None):
+            with self.subTest(value=value):
+                path.write_text(json.dumps(dict(descriptor,datad=value)))
+                with self.assertRaisesRegex(ValueError,'incomplete'):
+                    subject.verify_descriptor(self.source)
+        # the stock recipes under a descriptor that claims the data stack
+        path.write_text(json.dumps(dict(descriptor,datad=True)))
+        with self.assertRaisesRegex(ValueError,'other recipes'):
+            subject.verify_descriptor(self.source)
+
     def test_replace_moves_the_differing_tree_aside(self):
         self.install();p=self.source/'vendor/fairphone/FP6/input';p.write_bytes(b'old tree')
         result=subject.install(self.source,self.vendor,replace=True,device=self.device)

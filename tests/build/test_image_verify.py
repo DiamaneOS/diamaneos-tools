@@ -2893,6 +2893,74 @@ class GenericCheckTests(unittest.TestCase):
                                          {'path': 'vendor/lib64/libextra.so', 'sha256': '0' * 64}]})
         self.assertIn('vendor/lib64/libextra.so', subject.check_vendor(v)[1])
 
+    def datad_vendor(self, transformed=True, marked=True):
+        """A vendor generation of a made-up pair (the real shape, three files left), and the pair as the tools pin it."""
+        from tests.vendor.test_datad_selection import stock_pair
+        from diamaneos_tools import datad_selection
+        recipe, selection = stock_pair()
+        contents = {}
+        for item in recipe['files']:
+            contents[item['path']] = item['path'].encode()
+            item['sha256'] = hashlib.sha256(contents[item['path']]).hexdigest()
+        left, _ = datad_selection.transform(recipe, selection)
+        (self.root / 'pinned-elf.json').write_text(json.dumps(selection))
+        self.pin_vendor_files(recipe)
+        patcher = mock.patch.object(subject, 'VENDOR_ELF', self.root / 'pinned-elf.json')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        vendor = self.root / 'vendor'
+        made = left if transformed else recipe
+        for item in made['files']:
+            target = vendor / 'files' / item['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(contents[item['path']])
+        (vendor / 'recipe.json').write_text(json.dumps(made))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [],
+                                                            **({'datad_selection': True} if marked else {})}))
+        members = {'VENDOR/' + item['path'].split('/', 1)[1]: contents[item['path']] for item in made['files']}
+        v = self.harness(members)
+        v.vendor_dir = vendor
+        return v
+
+    def test_vendor_binding_of_the_data_stack_selects_the_pin_without_the_stock_nicm_files(self):
+        self.assertEqual((True, '3 files'), subject.check_vendor(self.datad_vendor()))
+
+    def test_vendor_binding_refuses_a_data_stack_generation_that_kept_the_stock_files(self):
+        problem = subject.check_vendor(self.datad_vendor(transformed=False))
+        self.assertFalse(problem[0])
+        self.assertIn("differs from the pinned vendor-files.json", problem[1])
+        self.assertIn('vendor/bin/nicmd', problem[1])
+
+    def test_vendor_binding_refuses_a_stock_generation_that_lost_the_stock_files(self):
+        problem = subject.check_vendor(self.datad_vendor(marked=False))
+        self.assertFalse(problem[0])
+        self.assertIn("differs from the pinned vendor-files.json", problem[1])
+
+    def test_the_bringup_check_wants_the_daemon_in_a_data_stack_image(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['hardware-bringup']
+        stock = {path: b'elf' for path in rule['paths']}
+        self.assertTrue(subject.rule_files_present(rule, self.harness(stock))[0])
+        # without the marker the stock nicmd is still wanted
+        plain = self.datad_vendor(marked=False)
+        self.assertTrue(subject.rule_files_present(rule, self.harness(stock))[0])
+        self.assertFalse(subject.datad_build(plain))
+        datad = {p: b'elf' for p in stock if p != 'VENDOR/bin/nicmd'}
+        datad.update({p: b'elf' for p in ('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc', 'VENDOR/lib64/libnicm.so',
+                                          'VENDOR/lib64/libnicm_dsi.so')})
+        v = self.harness(datad)
+        v.vendor_dir = self.datad_vendor().vendor_dir
+        self.assertTrue(subject.datad_build(v))
+        self.assertTrue(subject.rule_files_present(rule, v)[0])
+        for gone in ('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc', 'VENDOR/lib64/libnicm.so',
+                     'VENDOR/lib64/libnicm_dsi.so'):
+            w = self.harness({p: b'elf' for p in datad if p != gone})
+            w.vendor_dir = v.vendor_dir
+            self.assertEqual((False, 'missing: ' + gone), subject.rule_files_present(rule, w))
+        # the same image without the marker is the stock check, which wants nicmd
+        w = self.harness(datad)
+        self.assertEqual((False, 'missing: VENDOR/bin/nicmd'), subject.rule_files_present(rule, w))
+
     def test_vendor_binding_compares_generated_bytes(self):
         from diamaneos_tools import carrier_data
         vendor = self.root / 'vendor'

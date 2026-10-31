@@ -34,6 +34,13 @@ On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
     stock identity, absent or self dependency, traversal, special files, concurrent publication and
     interrupted copying.
 
+- **Open data stack.**
+  - `tests/vendor/test_datad_selection.py` covers the recipe and selection transformation on made-up
+    pairs and on the FP6 files: 12 files and 86 edges leave, the renderer takes the result, and a
+    changed stock closure stops it.
+  - The command, the generated inputs, the image checks and the build steps have tests for the
+    option and for the switch off.
+
 ## Regions
 
 - On the FP6, vendor files and firmware come from the one stock package selected in

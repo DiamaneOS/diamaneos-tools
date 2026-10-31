@@ -49,11 +49,15 @@ def destinations(device):
     return {'vendor': device.vendor_tree}
 
 
-def current_recipes(device, root=ROOT):
-    """The device's recipe digests in this checkout, computed as the generator records them."""
+def current_recipes(device, root=ROOT, datad=False):
+    """The device's recipe digests in this checkout, computed as the generator records them.
+    With ``datad`` they are those of the recipe and selection of the open data stack."""
     from . import safe_json
-    return {key: hashlib.sha256(encoded(safe_json.load_json(root / 'config' / device.files[key]))).hexdigest()
-            for key in RECIPE_KEYS}
+    pair = {key: safe_json.load_json(root / 'config' / device.files[key]) for key in RECIPE_KEYS}
+    if datad:
+        from . import datad_selection
+        pair['vendor_files'], pair['vendor_elf'] = datad_selection.transform(pair['vendor_files'], pair['vendor_elf'])
+    return {key: hashlib.sha256(encoded(pair[key])).hexdigest() for key in RECIPE_KEYS}
 
 
 def generation_recipes(vendor_tree):
@@ -65,10 +69,15 @@ def generation_recipes(vendor_tree):
     return recipes
 
 
-def require_current(recipes, device, root=ROOT):
-    stale = sorted(k for k, v in current_recipes(device, root).items() if recipes.get(k) != v)
+def generation_datad(vendor_tree):
+    """Whether the vendor generation was made for the open data stack (its provenance says so)."""
+    return read(vendor_tree / 'provenance.json').get('datad_selection') is True
+
+
+def require_current(recipes, device, root=ROOT, datad=False):
+    stale = sorted(k for k, v in current_recipes(device, root, datad).items() if recipes.get(k) != v)
     require(not stale, 'generated inputs were made with other recipes (' + ', '.join(stale) +
-            f'). Rebuild them with "diamaneos build vendor {device.codename}"')
+            f'). Rebuild them with "diamaneos build vendor {device.codename}' + (' --datad' if datad else '') + '"')
 
 
 def tools_identity(root=ROOT):
@@ -149,6 +158,7 @@ def selected_inputs(vendor):
         'vendor': {'tree': vtree, 'records': vrecords, 'generation': Path(target).name,
                    'inventory_sha256': sha(vinventory)},
         'recipes': generation_recipes(vtree),
+        'datad': generation_datad(vtree),
     }
 
 
@@ -157,7 +167,7 @@ def install(source, vendor, environment=None, replace=False, *, device):
     source = source.resolve()
     require((source / '.repo').is_dir() and not (source / '.repo').is_symlink(), 'expected an Android repo checkout')
     selected = selected_inputs(vendor)
-    require_current(selected['recipes'], device)
+    require_current(selected['recipes'], device, datad=selected['datad'])
     environment = Path(environment or device.path('build_environment'))
     environment_bytes = environment.read_bytes()
     environment_id = json.loads(environment_bytes)['environment_id']
@@ -169,6 +179,8 @@ def install(source, vendor, environment=None, replace=False, *, device):
         'environment_id': environment_id,
         'environment_sha256': hashlib.sha256(environment_bytes).hexdigest(),
         'tools': tools_identity(), 'recipes': selected['recipes'], 'inputs': {},
+        # Only a tree made for the open data stack says so, so every other descriptor stays as it was.
+        **({'datad': True} if selected['datad'] else {}),
     }
     with locked(source / '.repo'):
         for label, rel in destinations(device).items():
@@ -211,7 +223,8 @@ def verify_descriptor(source, environment_sha256=None, root=ROOT):
                 'generated inputs were installed for another build environment')
     recipes = descriptor.get('recipes')
     require(isinstance(recipes, dict) and set(recipes) == set(RECIPE_KEYS), 'generated-input descriptor is incomplete')
-    require_current(recipes, device, root)
+    require('datad' not in descriptor or descriptor['datad'] is True, 'generated-input descriptor is incomplete')
+    require_current(recipes, device, root, descriptor.get('datad') is True)
     inputs = descriptor.get('inputs')
     expected = destinations(device)
     require(isinstance(inputs, dict) and set(inputs) == set(expected), 'generated-input descriptor is incomplete')

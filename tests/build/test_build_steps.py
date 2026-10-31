@@ -269,6 +269,129 @@ class PlanTests(unittest.TestCase):
         steps.remember_official(self.context().workspace, False)
         self.assertFalse(self.context().official)
 
+    def datad_android_plan(self, ctx, vendor_made_datad):
+        for name, outputs in (('sync', {}), ('vendor', {'datad': True} if vendor_made_datad else {})):
+            ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {
+                'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k', **outputs}})
+        with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                patch.object(steps, 'newest_commit_time', return_value='1'):
+            return steps.plan_android(ctx)
+
+    def test_only_a_data_stack_build_passes_the_flag_to_the_build(self):
+        plans = {datad: self.datad_android_plan(self.context(datad=datad), datad) for datad in (False, True)}
+        build = {datad: next(a for a in plan.actions if a.argv) for datad, plan in plans.items()}
+        self.assertEqual('true', build[True].env['DIAMANEOS_DATAD'])
+        self.assertNotIn('DIAMANEOS_DATAD', build[True].unset)
+        self.assertIn(', open data stack)', build[True].description)
+        self.assertNotIn('DIAMANEOS_DATAD', build[False].env)
+        self.assertIn('DIAMANEOS_DATAD', build[False].unset)
+        self.assertNotIn('open data stack', build[False].description)
+        self.assertIs(True, plans[True].inputs['datad'])
+        # Other builds keep the input digest they had before the option existed.
+        self.assertNotIn('datad', plans[False].inputs)
+        # The image tools never get the flag.
+        ctx = self.context(datad=True)
+        ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}})
+        with patch.object(steps, 'newest_commit_time', return_value=1):
+            tools = steps.plan_vendor(ctx).actions[0]
+        self.assertNotIn('DIAMANEOS_DATAD', tools.env)
+
+    def test_a_caller_environment_cannot_switch_on_the_data_stack(self):
+        build = next(a for a in self.datad_android_plan(self.context(), False).actions if a.argv)
+        result = self.root / 'flag'
+        probe = bw.Action('Probe', argv=['sh', '-c', 'printf "%s" "${DIAMANEOS_DATAD-unset}" > "$PROBE"'],
+                          compile=True, env={'PROBE': str(result)}, unset=build.unset)
+        with patch.dict(os.environ, {'DIAMANEOS_DATAD': 'true'}):
+            bw.Runner(True, self.lines.append).run(probe, self.root / 'probe.log')
+        self.assertEqual('unset', result.read_text())
+
+    def test_the_data_stack_gets_its_own_build_identity(self):
+        sync = {'outputs': {}}
+        with patch.object(steps.product_inputs, 'selected_inputs', return_value={'vendor': {'records': []}}), \
+                patch.object(steps.product_inputs, 'records_sha256', return_value='r'):
+            plain = steps.android_identity(self.context(), sync)
+            datad = steps.android_identity(self.context(datad=True), sync)
+            unchanged = bw.digest({'environment_sha256': self.context().environment_sha256,
+                                   **steps.source_record(sync), 'vendor_records_sha256': 'r', 'variant': 'user',
+                                   'build_config': steps.config_subset(self.context().config, steps.ANDROID_CONFIG)})
+        self.assertNotEqual(plain, datad)
+        self.assertEqual(unchanged, plain)
+
+    def test_the_vendor_tree_and_the_android_build_take_the_data_stack_together(self):
+        with self.assertRaisesRegex(bw.UsageError, 'made without the open data stack, and this build is with it. '
+                                                   'Run "diamaneos build vendor FP6 --datad"'):
+            self.datad_android_plan(self.context(datad=True), False)
+        with self.assertRaisesRegex(bw.UsageError, 'made with the open data stack, and this build is without it. '
+                                                   'Run "diamaneos build vendor FP6 --no-datad"'):
+            self.datad_android_plan(self.context(datad=False), True)
+
+    def test_the_vendor_step_is_the_same_without_the_switch_and_takes_its_own_pair_with_it(self):
+        from diamaneos_tools import datad_selection
+        sync = {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}}
+
+        def plan(**kw):
+            ctx = self.context(**kw)
+            ctx.workspace.write_state('sync', sync)
+            with patch.object(steps, 'newest_commit_time', return_value=1):
+                return ctx, steps.plan_vendor(ctx)
+        _, plain = plan()
+        ctx, datad = plan(datad=True)
+        self.assertNotIn('datad', plain.inputs)
+        self.assertEqual(set(steps.VENDOR_CODE), set(plain.inputs['code']))
+        self.assertIs(True, datad.inputs['datad'])
+        self.assertEqual(set(steps.VENDOR_CODE + steps.DATAD_CODE), set(datad.inputs['code']))
+        self.assertEqual({k: v for k, v in datad.inputs.items() if k not in ('datad', 'code')},
+                         {k: v for k, v in plain.inputs.items() if k != 'code'})
+        self.assertNotEqual(bw.digest(plain.inputs), bw.digest(datad.inputs))
+        # the extraction and the generation get the pair of the data stack, and only with the switch
+        want = datad_selection.pair(ctx.device, True)
+        base = datad_selection.pair(ctx.device, False)
+        for chosen, expected, flag in ((plain, base, False), (datad, want, True)):
+            actions = {a.description: a for a in chosen.actions}
+            with patch('diamaneos_tools.vendor_extract.extract', return_value={}) as extract, \
+                    patch('diamaneos_tools.vendor_product.generate', return_value={}) as generate:
+                actions['Extract the stock files'].func()
+                actions['Generate the vendor tree'].func()
+            self.assertEqual(expected[0], extract.call_args.args[4], flag)
+            self.assertEqual(expected[0], generate.call_args.args[0], flag)
+            self.assertEqual(expected[1], generate.call_args.args[1], flag)
+            self.assertIs(flag, generate.call_args.kwargs['datad'])
+
+    def test_the_workspace_remembers_the_data_stack_choice(self):
+        workspace = str(self.root / 'ws')
+        self.assertEqual((False, False), (self.context().datad, self.context().datad_given))
+        self.assertEqual(0, steps.main(['all', '--datad', '--dry-run', '--workspace', workspace], self.lines.append))
+        self.assertIn('open data stack', '\n'.join(self.lines))
+        self.assertFalse(self.context().datad, 'a dry run changes nothing')
+        steps.remember_datad(self.context().workspace, True)
+        later = self.context()
+        self.assertEqual((True, False), (later.datad, later.datad_given))
+        self.assertFalse(self.context(datad=False).datad)
+        # The option goes with the steps that make or build it, and a refused command leaves the choice.
+        for step in ('sync', 'package', 'verify'):
+            self.assertEqual(2, steps.main([step, '--datad', '--workspace', workspace], self.lines.append), step)
+        self.assertTrue(self.context().datad)
+        steps.remember_datad(self.context().workspace, False)
+        self.assertFalse(self.context().datad)
+        # An earlier step keeps the choice its inputs recorded.
+        recorded = replace(self.context(), datad_given=False)
+        recorded.workspace.write_state('android', {'status': 'PASS', 'inputs': {'datad': True}, 'outputs': {}})
+        self.assertTrue(steps.recorded_context(recorded, 'android').datad)
+        self.assertFalse(steps.recorded_context(replace(recorded, datad_given=True), 'android').datad)
+
+    def test_the_data_stack_choice_changes_when_the_vendor_or_android_step_makes_it(self):
+        ctx = self.context(datad=True)
+        steps.keep_datad_choice(ctx, 'sync')
+        steps.keep_datad_choice(ctx, 'package')
+        self.assertFalse((ctx.workspace.state_dir / steps.DATAD_MARKER).exists())
+        steps.keep_datad_choice(ctx, 'vendor')
+        self.assertTrue((ctx.workspace.state_dir / steps.DATAD_MARKER).is_file())
+        steps.keep_datad_choice(replace(ctx, datad=False), 'android')
+        self.assertFalse((ctx.workspace.state_dir / steps.DATAD_MARKER).exists())
+        # a choice the command did not name is not stored
+        steps.keep_datad_choice(replace(ctx, datad_given=False), 'vendor')
+        self.assertFalse((ctx.workspace.state_dir / steps.DATAD_MARKER).exists())
+
     def test_build_number_override_is_validated(self):
         os.environ.pop('DIAMANEOS_BUILD_NUMBER', None)  # the class sets one for official plans
         config = json.loads((ROOT / 'config/fp6-build.json').read_text())

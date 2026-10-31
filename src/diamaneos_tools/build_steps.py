@@ -59,6 +59,8 @@ KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_build.py', 'kernel_config.py',
                'vendor.py', 'vendor_extract.py', 'vendor_files.py')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
+# What a vendor step with the open data stack depends on as well.
+DATAD_CODE = ('datad_selection.py',)
 # The parts of the device's build settings (config/fp6-build.json) each step
 # depends on. Editing another part (flash texts, say) does not rebuild anything.
 ANDROID_CONFIG = ('product', 'release_config', 'variants', 'out_dir', 'make_targets', 'build_identity',
@@ -77,6 +79,11 @@ MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 # stays official. --no-official removes it.
 OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
 OFFICIAL_MARKER = 'official'
+# A build with the open data stack (DIAMANEOS_DATAD=true, read by the device's BoardConfig.mk and telephony.mk).
+# The vendor tree is made without the stock nicmd files and the Android step sets the variable. The workspace
+# remembers --datad in this state file, the way it remembers --official. --no-datad removes it.
+DATAD_FLAG = 'DIAMANEOS_DATAD'
+DATAD_MARKER = 'datad'
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
 # body are still expected"), and repo then retries the project with every
 # branch, which for the large prebuilt repositories never finishes. HTTP/1.1
@@ -150,6 +157,10 @@ class Context:
     official: bool = False
     # False when the choice comes from the workspace because the command named none.
     official_given: bool = True
+    # A build with the open data stack: the vendor tree has no stock nicm files and the Android step sets
+    # DIAMANEOS_DATAD=true.
+    datad: bool = False
+    datad_given: bool = True
     # Set only to check a prerequisite with the build number it was built with.
     build_number: str | None = None
     # A recorded resolved manifest to reproduce (build sync --resolved-manifest).
@@ -683,7 +694,9 @@ def plan_vendor(ctx: Context) -> StepPlan:
         'host_tools_build_number': HOST_TOOLS_BUILD_NUMBER, 'host_tools_out': HOST_TOOLS_OUT,
         'host_tools_variant': ctx.variant,
         'firmware_release': config_subset(config, ('firmware_release',)),
-        'firmware': config_subset(config, ('firmware',))}
+        'firmware': config_subset(config, ('firmware',)), **datad_input(ctx)}
+    if inputs is not None and ctx.datad:
+        inputs['code'] = code_hashes(VENDOR_CODE + DATAD_CODE)
     # A fixed build number and the sources' own date: without them the build
     # stamps the current date into the tools (aapt2's version string), their
     # hashes reach the vendor inventory, and the same sources would give a
@@ -730,7 +743,11 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     def extract():
         from . import vendor_extract
-        selection, _ = device.load('vendor_files')
+        if ctx.datad:
+            from . import datad_selection
+            selection = datad_selection.pair(device, True)[0]
+        else:
+            selection, _ = device.load('vendor_files')
         pins, _ = device.load('image_tools')
         ctx.cache['extract'] = vendor_extract.extract(
             (ws.stock_images / 'current' / 'super.img').resolve(), ctx.host_bin.resolve(), ws.stock_files,
@@ -739,14 +756,19 @@ def plan_vendor(ctx: Context) -> StepPlan:
     def product():
         from . import firmware_release, safe_json, vendor_product
         inventory = safe_json.load_json(device.path('firmware_inventory'))
+        if ctx.datad:
+            from . import datad_selection
+            vendor_files, vendor_elf = datad_selection.pair(device, True)
+        else:
+            vendor_files = safe_json.load_json(device.path('vendor_files'))
+            vendor_elf = safe_json.load_json(device.path('vendor_elf'))
         ctx.cache['product'] = vendor_product.generate(
-            safe_json.load_json(device.path('vendor_files')),
-            safe_json.load_json(device.path('vendor_elf')),
+            vendor_files, vendor_elf,
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
             aapt2=ctx.host_bin / 'aapt2', stock=recipe,
             firmware_releases=firmware_release.table(inventory, config['firmware_release']),
             firmware_inventory=inventory, firmware_policy=config['firmware'], factory_zip=zip_path,
-            release_date=archive.get('release_date'))
+            release_date=archive.get('release_date'), datad=ctx.datad)
 
     def install():
         # So a plain "m" after "build vendor" finds the vendor files. The
@@ -773,7 +795,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
                 'generation': product['generation_sha256'], 'inventory_sha256': product['inventory_sha256'],
                 'vendor_security_patch': product['vendor_security_patch'],
                 'aapt2_sha256': bw.sha_file(ctx.host_bin / 'aapt2'),
-                'network_isolation': 'off' if ctx.allow_network else 'on'}
+                'network_isolation': 'off' if ctx.allow_network else 'on', **datad_input(ctx)}
 
     def valid(state):
         # Packaging takes the firmware from the factory package, so that
@@ -812,13 +834,30 @@ def android_identity(ctx: Context, sync: dict) -> str:
         'environment_sha256': ctx.environment_sha256, **source_record(sync),
         'vendor_records_sha256': product_inputs.records_sha256(selected['vendor']['records']),
         'variant': ctx.variant, 'build_config': config_subset(ctx.config, ANDROID_CONFIG),
-        **official_input(ctx)})
+        **official_input(ctx), **datad_input(ctx)})
 
 
 def official_input(ctx: Context) -> dict:
     """The official choice as a step input: only when set, so the digests of
     other builds stay as they were."""
     return {'official': True} if ctx.official else {}
+
+
+def datad_input(ctx: Context) -> dict:
+    """The open data stack as a step input: only when set, so the digests and the records of
+    every other build stay as they were."""
+    return {'datad': True} if ctx.datad else {}
+
+
+def check_datad_vendor(ctx: Context, vendor: dict) -> None:
+    """The vendor tree and the Android build take the data stack together: a tree without the stock nicm files
+    cannot build without the switch, and the switch refuses a tree that still has them."""
+    made = vendor['outputs'].get('datad') is True
+    if made != ctx.datad:
+        raise UsageError(
+            'the vendor tree was made ' + ('with' if made else 'without') + ' the open data stack, and this build is '
+            + ('without' if made else 'with') + ' it. Run "diamaneos build vendor ' + ctx.device.codename
+            + (' --datad' if ctx.datad else ' --no-datad') + '" or give the same choice to this command')
 
 
 def find_target_files(ctx: Context) -> Path:
@@ -931,7 +970,8 @@ def plan_android(ctx: Context) -> StepPlan:
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
                   'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
-                  'network_isolation': not ctx.allow_network, **official_input(ctx)}
+                  'network_isolation': not ctx.allow_network, **official_input(ctx), **datad_input(ctx)}
+        check_datad_vendor(ctx, vendor)
         try:
             datetime = newest_commit_time(ctx, sync)
         except (BuildStepError, build.BuildError, ValueError, KeyError, OSError,
@@ -976,17 +1016,20 @@ def plan_android(ctx: Context) -> StepPlan:
 
     # GrapheneOS's OFFICIAL_BUILD never reaches the build. DIAMANEOS_OFFICIAL_BUILD
     # does only as --official sets it, never from the caller's environment.
+    # The same for DIAMANEOS_DATAD: only --datad sets it.
     compile_action = Action(
-        f'Build Android ({lunch}{", official" if ctx.official else ""})', argv=['bash', '-c', ANDROID_SCRIPT],
+        f'Build Android ({lunch}{", official" if ctx.official else ""}{", open data stack" if ctx.datad else ""})',
+        argv=['bash', '-c', ANDROID_SCRIPT],
         cwd=ws.src, compile=True,
-        unset=('OFFICIAL_BUILD',) + (() if ctx.official else (OFFICIAL_FLAG,)),
+        unset=('OFFICIAL_BUILD',) + (() if ctx.official else (OFFICIAL_FLAG,)) + (() if ctx.datad else (DATAD_FLAG,)),
         env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': lunch, 'DIAMANEOS_PRODUCT': config['product'],
              'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
              'BUILD_NUMBER': number or '<from the build identity>',
              'BUILD_DATETIME': datetime if datetime is not None else '<newest source commit time>',
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname'],
-             **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
+             **({OFFICIAL_FLAG: 'true'} if ctx.official else {}),
+             **({DATAD_FLAG: 'true'} if ctx.datad else {})})
     actions = [Action('Install the vendor tree', func=install),
                Action('Verify the source tree', func=preflight('preflight'),
                       detail='the source tree, the generated inputs and the device policy provenance record'),
@@ -1016,7 +1059,7 @@ def plan_android(ctx: Context) -> StepPlan:
                 'variant': ctx.variant, 'lunch': lunch, 'official': ctx.official,
                 'modified': after['modified'],
                 'descriptor_sha256': after['generated_input_descriptor_sha256'],
-                'network_isolation': isolation,
+                'network_isolation': isolation, **datad_input(ctx),
                 **({'tools_skew': ctx.cache['tools_skew']} if ctx.cache.get('tools_skew') else {})}
 
     def valid(state):
@@ -1066,8 +1109,10 @@ def plan_manual_android(ctx: Context) -> StepPlan:
     if ctx.official:
         raise UsageError('official images come only from "diamaneos build all". A build by hand is never official')
     lunch = f'{config["product"]}-{config["release_config"]}-{variant}'
+    check_datad_vendor(ctx, vendor)
     inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync), 'vendor': vendor['outputs'],
-              'variant': variant, 'build_config': config_subset(config, ANDROID_CONFIG), 'android_build': 'manual'}
+              'variant': variant, 'build_config': config_subset(config, ANDROID_CONFIG), 'android_build': 'manual',
+              **datad_input(ctx)}
     state = {}
 
     def check_out():
@@ -1210,6 +1255,8 @@ def recorded_context(ctx: Context, name: str) -> Context:
         changes['build_number'] = inputs['build_number']
     if not ctx.official_given and inputs.get('official') is True:
         changes['official'] = True
+    if not ctx.datad_given and inputs.get('datad') is True:
+        changes['datad'] = True
     if name == 'android' and inputs.get('android_build') == 'manual':
         changes['manual'] = True
     return replace(ctx, **changes) if changes else ctx
@@ -1344,6 +1391,7 @@ def run_each(ctx: Context, steps, force, dry_run) -> None:
         if not fresh:
             ctx.echo(f'{name}: up to date')
             keep_official_choice(ctx, name)
+            keep_datad_choice(ctx, name)
             if name == 'vendor' and ctx.check_only:
                 # A plain "m" follows, so the source must hold the vendor tree
                 # even when a sync moved it aside.
@@ -1372,6 +1420,7 @@ def run_each(ctx: Context, steps, force, dry_run) -> None:
             raise BuildStepError(f'{name} failed: {message}\nFull log: {log}') from error
         ws.write_state(name, dict(record, status='PASS', outputs=outputs))
         keep_official_choice(ctx, name)
+        keep_datad_choice(ctx, name)
         ctx.echo(f'{name}: done')
         # A sync that only checked the checkout moved nothing.
         synced_now = synced_now or (name == 'sync' and not ctx.check_only)
@@ -1383,6 +1432,13 @@ def keep_official_choice(ctx: Context, name: str) -> None:
     the earlier choice."""
     if name == 'android' and ctx.official_given and not ctx.manual:
         remember_official(ctx.workspace, ctx.official)
+
+
+def keep_datad_choice(ctx: Context, name: str) -> None:
+    """The workspace takes --datad or --no-datad once the vendor tree or the Android build was made that way,
+    so a refused or failed command leaves the earlier choice."""
+    if name in ('vendor', 'android') and ctx.datad_given and not ctx.manual:
+        remember_datad(ctx.workspace, ctx.datad)
 
 
 def refuse_after_failed_android(ctx: Context) -> None:
@@ -1410,6 +1466,17 @@ def remember_official(ws: bw.Workspace, official: bool) -> None:
         ws.state_dir.mkdir(parents=True, exist_ok=True)
         marker.write_text('Build official images in this workspace (DIAMANEOS_OFFICIAL_BUILD=true). '
                           '"diamaneos build all --no-official" turns it off.\n')
+    else:
+        marker.unlink(missing_ok=True)
+
+
+def remember_datad(ws: bw.Workspace, datad: bool) -> None:
+    """Keep --datad for later commands in this workspace, or forget it."""
+    marker = ws.state_dir / DATAD_MARKER
+    if datad:
+        ws.state_dir.mkdir(parents=True, exist_ok=True)
+        marker.write_text('Build with the open data stack in this workspace (DIAMANEOS_DATAD=true). '
+                          '"diamaneos build all --no-datad" turns it off.\n')
     else:
         marker.unlink(missing_ok=True)
 
@@ -1498,6 +1565,9 @@ def make_context(args, echo=print) -> Context:
     # Likewise a workspace that built with --official keeps building official images.
     given = getattr(args, 'official', None)
     official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
+    # And one that built with --datad keeps the open data stack.
+    datad_given = getattr(args, 'datad', None)
+    datad = datad_given if datad_given is not None else (workspace.state_dir / DATAD_MARKER).is_file()
     pinned = None
     tools_commit = product_inputs.tools_identity().get('commit')
     if getattr(args, 'resolved_manifest', None):
@@ -1508,7 +1578,8 @@ def make_context(args, echo=print) -> Context:
     return Context(workspace=workspace, tools_commit=tools_commit, project_inputs=project_inputs,
                    environment_path=environment_path, environment=environment, environment_raw=environment_raw,
                    config=config, config_raw=config_raw, variant=variant, variant_given=bool(args.variant),
-                   device=device, official=official, official_given=given is not None, jobs=args.jobs,
+                   device=device, official=official, official_given=given is not None,
+                   datad=datad, datad_given=datad_given is not None, jobs=args.jobs,
                    allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
                    shallow=shallow, pinned=pinned, release=release, echo=echo,
@@ -1533,6 +1604,11 @@ def parser() -> argparse.ArgumentParser:
                         help='build official images (DIAMANEOS_OFFICIAL_BUILD=true): they include the Updater, '
                              'which checks DiamaneOS\'s update server. For DiamaneOS\'s own builder. Leave it off '
                              'for other builds. The workspace remembers the choice. --no-official turns it off')
+    result.add_argument('--datad', action=argparse.BooleanOptionalAction, default=None,
+                        help='build with the open data stack (DIAMANEOS_DATAD=true): the vendor tree has no stock '
+                             'nicmd and nicm libraries, and the device builds the daemon datad and the two '
+                             'replacement libraries from source. For testing. The workspace remembers the choice. '
+                             '--no-datad turns it off')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
                         help='compile with network access instead of without it. Only for hosts where '
@@ -1560,6 +1636,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'), 'official': ('android', 'all'),
+                'datad': ('vendor', 'android', 'all'),
                 'from_step': ('all',), 'resolved_manifest': ('sync', 'all'), 'build_json': ('sync', 'all'),
                 'manifest_commit': ('sync', 'all'), 'release': bw.STEPS + ('all',)}
 
@@ -1574,8 +1651,8 @@ def main(argv=None, echo=print) -> int:
             raise UsageError('name the device: diamaneos build vendor CODENAME. ' + devices.supported())
         for option, steps in STEP_OPTIONS.items():
             value = getattr(args, option)
-            # --no-official is given too, as False.
-            given = value is not None if option == 'official' else bool(value)
+            # --no-official and --no-datad are given too, as False.
+            given = value is not None if option in ('official', 'datad') else bool(value)
             if given and args.step not in steps:
                 raise UsageError(f'--{option.replace("_", "-")} is an option of: ' + ', '.join(steps))
         if (args.build_json or args.manifest_commit) and not args.resolved_manifest:

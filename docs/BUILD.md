@@ -198,6 +198,32 @@ or deleted files):
   - The image checks marked `official` require the Updater, its permissions and its server URL in
     official builds, and its absence in the others.
 
+- **Open data stack.**
+  - For testing the daemon `datad` and the libraries `libnicm` and `libnicm_dsi`, which the device
+    builds from source in place of nicmd and its libraries.
+  - `build all --datad` (or `build vendor --datad`) makes the vendor tree without the twelve stock
+    files of nicmd and its libraries.
+  - `build android` then gives the build `DIAMANEOS_DATAD=true`, which the device's `BoardConfig.mk`
+    and `telephony.mk` read.
+  - The recipe and the ELF selection are the device's two files after `datad_selection.transform()`.
+    - The twelve files leave both.
+    - The two edges of `libdsi_netctrl.so` to `libnicm.so` and `libnicm_dsi.so` become edges of kind
+      `source-module`, which the renderer accepts for the two names in `SOURCE_MODULE_DEPENDENCIES`.
+    - It stops when the stock files are not the ones it was written for, so a stock update is
+      looked at before the next build.
+  - The vendor tree's provenance says `datad_selection`.
+    - The descriptor of the generated inputs says `datad` and records the hashes of the transformed
+      recipes.
+    - The image checks expect the pinned recipe without the twelve files, and `datad`, its init
+      file and the two libraries where they look for `nicmd`.
+  - Every other build runs with the variable removed from the environment. Its inputs, digests and
+    records carry no mention of the option.
+  - The vendor tree and the Android build must agree, or the Android step stops and names the
+    command to run.
+  - The workspace remembers the choice (`state/datad`) until `--no-datad`.
+  - For a build by hand, `build package` checks the same agreement. `m` needs
+    `DIAMANEOS_DATAD=true` from you, as it needs the lunch.
+
 - **Shallow sync.**
   - `build sync --shallow` passes `--depth=1` to `repo init` and `-c --no-tags` to `repo sync`, so
     only the resolved commits are fetched.
