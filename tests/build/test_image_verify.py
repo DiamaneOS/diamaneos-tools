@@ -468,7 +468,7 @@ class RuleTests(unittest.TestCase):
 
     def test_usb_data_gate_kernel_and_boot_default(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        dwc3, ucsi = 'VENDOR_DLKM/lib/modules/dwc3-msm.ko', 'VENDOR_DLKM/lib/modules/ucsi_glink.ko'
+        dwc3, ucsi = 'VENDOR_DLKM/lib/modules/dwc3-msm.ko', 'VENDOR_DLKM/lib/modules/ucsi_qti_glink.ko'
         ko = b'\x7fELF data_path_enable\x00disable_usb_data_by_default\x00altmode_set_ignore_alt_modes\x00'
         kernel = lambda data: subject.rule_binary_count(rules['usb-port-control-kernel'], self.harness({dwc3: data}))[0]
         self.assertTrue(kernel(ko))
@@ -1277,8 +1277,8 @@ class RuleTests(unittest.TestCase):
         firmware = next(r for r in rules if r['id'] == 'touch-firmware-path')
         tree = {'/': {}, '/chosen': {'bootargs': b'console=null firmware_class.path=/vendor/firmware_mnt,/vendor/firmware\0'},
                 '/reserved-memory': {},
-                '/reserved-memory/ramoops_region': {'compatible': b'ramoops\0', 'size': cells(0, 0x400000),
-                    'alignment': cells(0, 0x400000), 'console-size': cells(0x200000), 'pmsg-size': cells(0x200000),
+                '/reserved-memory/ramoops_region': {'compatible': b'ramoops\0', 'reg': cells(9, 0xfe000000, 0, 0x400000),
+                    'console-size': cells(0x200000), 'pmsg-size': cells(0x200000),
                     'record-size': cells(0), 'ftrace-size': cells(0), 'mem-type': cells(0), 'no-map': b''},
                 '/soc': {}}
         (self.root / 'dtbs').mkdir()
@@ -1287,11 +1287,11 @@ class RuleTests(unittest.TestCase):
         self.assertEqual((True, ''), subject.rule_devicetree(ramoops, v))
         self.assertEqual((True, ''), subject.rule_devicetree(firmware, v))
         tree['/soc/ramoops_region'] = {}
-        tree['/reserved-memory/ramoops_region']['size'] = cells(0, 0x200000)
+        tree['/reserved-memory/ramoops_region']['alloc-ranges'] = cells(0, 0, 0xffffffff, 0xffffffff)
         (self.root / 'dtbs/fp6.dtb').write_bytes(dtb(tree))
         ok, detail = subject.rule_devicetree(ramoops, v)
         self.assertFalse(ok)
-        self.assertIn('size', detail)
+        self.assertIn('alloc-ranges', detail)
         self.assertIn('/soc still has ramoops_region', detail)
 
     def test_usb_controller_takes_no_eud_extcon(self):

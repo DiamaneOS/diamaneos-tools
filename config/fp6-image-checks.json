@@ -1127,7 +1127,7 @@
       "id": "usb-port-control-kernel-ucsi",
       "why": "The UCSI driver refuses alt mode entry while USB-C port control ignores alt modes.",
       "type": "binary_count",
-      "file": "VENDOR_DLKM/lib/modules/ucsi_glink.ko",
+      "file": "VENDOR_DLKM/lib/modules/ucsi_qti_glink.ko",
       "patterns": [
         {
           "text": "altmode_alt_modes_ignored",
@@ -4679,7 +4679,7 @@
     },
     {
       "id": "ramoops",
-      "why": "pstore/ramoops is in the FP6 device tree with GrapheneOS's Pixel layout, naturally aligned. /soc has no ramoops node.",
+      "why": "pstore/ramoops is in the FP6 device tree as a fixed 4 MiB region at 0x9fe000000, naturally aligned, where the 6.1 kernel placed it. 6.18 no longer places a ramoops region dynamically. /soc has no ramoops node.",
       "type": "devicetree",
       "file": "kernel:dtbs/fp6.dtb",
       "checks": [
@@ -4690,19 +4690,18 @@
         },
         {
           "node": "/reserved-memory/ramoops_region",
-          "property": "size",
+          "property": "reg",
           "cells": [
+            9,
+            4261412864,
             0,
             4194304
           ]
         },
         {
           "node": "/reserved-memory/ramoops_region",
-          "property": "alignment",
-          "cells": [
-            0,
-            4194304
-          ]
+          "property": "alloc-ranges",
+          "absent": true
         },
         {
           "node": "/reserved-memory/ramoops_region",
