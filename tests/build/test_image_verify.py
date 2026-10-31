@@ -346,7 +346,7 @@ class RuleTests(unittest.TestCase):
               b'on early-boot && property:ro.debuggable=1\n    wait ' + sic + b' 5\n    write ' + sic + b' 0\n\n'
               b'on charger\n    write ' + sic + b' 0\n    wait ' + node + b' 5\n    write ' + node + b' 1\n\n'
               b'on shutdown\n    write ' + sic + b' 0\n\n'
-              b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' 0\n'
+              b'on property:sys.port_security_mode=ports_disabled\n    write ' + node + b' -2\n'
               b'    write ' + sic + b' 1\n\n'
               b'on property:sys.port_security_mode=charging-only_immediate\n    write ' + sic + b' 0\n'
               b'    write ' + node + b' 0\n\n'
@@ -365,9 +365,10 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(triggers(rc.replace(b'    write ' + node + b' -1\n', b'    write ' + node + b' 0\n')))
         self.assertFalse(triggers(rc.replace(b'    write ' + node + b' -1\n', b'')))
         self.assertFalse(triggers(rc.replace(b'=ports_enabled', b'=ports_on')))
-        # Off cuts data first, then the charger input.
-        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' 0\n    write ' + sic + b' 1\n',
-                                             b'    write ' + sic + b' 1\n    write ' + node + b' 0\n')))
+        # Off cuts data and ends a running alt mode first, then the charger input.
+        self.assertFalse(triggers(rc.replace(b'    write ' + node + b' -2\n    write ' + sic + b' 1\n',
+                                             b'    write ' + sic + b' 1\n    write ' + node + b' -2\n')))
+        self.assertFalse(triggers(rc.replace(b'ports_disabled\n    write ' + node + b' -2', b'ports_disabled\n    write ' + node + b' 0')))
         # The older dynamic_disable switch is not written.
         self.assertFalse(triggers(rc + b'\non property:sys.port_security_mode=ports_disabled\n    write ' + old + b' 1\n'))
         # Only Off suspends the input. Every other state, boot, charger mode and shutdown resume it.
@@ -385,8 +386,9 @@ class RuleTests(unittest.TestCase):
         # User builds also cut data at boot, before the input. Debuggable builds never do.
         self.assertFalse(triggers(rc.replace(b'debuggable=0\n    write ' + node + b' 0\n', b'debuggable=0\n')))
         self.assertFalse(triggers(rc.replace(b'debuggable=1\n    wait', b'debuggable=1\n    write ' + node + b' 0\n    wait')))
-        # Only the port states and the user-build boot cut write 0, only charging-only writes -1,
-        # only ports_enabled and charger mode write 1.
+        # Only Off writes -2, only charging-only_immediate and the user-build boot cut write 0, only
+        # charging-only writes -1, only ports_enabled and charger mode write 1.
+        self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' -2\n'))
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 0\n'))
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' -1\n'))
         self.assertFalse(triggers(rc + b'\non property:sys.boot_completed=1\n    write ' + node + b' 1\n'))
