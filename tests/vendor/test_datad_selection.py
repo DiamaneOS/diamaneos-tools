@@ -224,3 +224,12 @@ class RealRecipeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TelephonyRewriteTests(unittest.TestCase):
+    def test_datad_skips_only_the_rewrites_of_dropped_files(self):
+        from diamaneos_tools import vendor_product
+        rewrites = set(vendor_product.TELEPHONY_CONFIG_REWRITES)
+        skipped = rewrites & set(vendor_product.datad_dropped(True))
+        self.assertEqual(skipped, {'vendor/etc/init/nicmd.rc', 'vendor/etc/data/nicm_config.xml'})
+        self.assertEqual(vendor_product.datad_dropped(False), ())

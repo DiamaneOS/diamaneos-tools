@@ -1119,6 +1119,14 @@ TELEPHONY_CONFIG_REWRITES = {
 }
 
 
+def datad_dropped(datad):
+    """The stock nicmd files a tree with the open data stack leaves out, so their rewrites do not apply."""
+    if not datad:
+        return ()
+    from . import datad_selection
+    return datad_selection.DROPPED
+
+
 def telephony_config(path, data):
     """Pinned reductions of the stock radio daemon, nicmd service, nicmd log and QCRIL database."""
     rule = TELEPHONY_CONFIG_REWRITES[path]
@@ -1567,6 +1575,8 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                 config.write_bytes(camera_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in TELEPHONY_CONFIG_REWRITES.items():
+                if path in datad_dropped(datad):
+                    continue
                 config = tree / 'files' / path
                 config.write_bytes(telephony_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
