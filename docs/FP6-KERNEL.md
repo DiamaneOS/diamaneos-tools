@@ -107,9 +107,10 @@ Reproducibility:
 - `--config-profile debug` builds with the debug aids on (see Debug profile below).
 - Every profile builds TIPC as a module (`config/fp6-kernel-tipc.config`) without the UDP bearer,
   crypto and diag options. All but debug ask for `CONFIG_TIPC_LOCAL_ONLY`.
-- The files of `tool_fragments` in the build plan come after the vendor profile's fragment. The
-  build fails on a request the configuration does not honour, and says when the pinned common
-  kernel does not declare the symbol.
+- The files of `tool_fragments` in the build plan come after the vendor profile's fragment.
+  - The build fails on a request the configuration does not honour.
+  - It says whether the pinned common kernel does not declare the symbol or an option the symbol
+    depends on is off.
 
 ## Module packaging
 

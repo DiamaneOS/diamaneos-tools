@@ -209,6 +209,16 @@ def unmet_requests(fragments, final):
     return {s: [w, values.get(s)] for s, w in sorted(requested_values(fragments).items()) if values.get(s, 'n') != w}
 
 
+def unmet_reason(symbol, found, declared):
+    """Why a request is not in the final configuration. A symbol that the .config lacks is either one the
+    Kconfig files do not declare or one hidden behind an option that is off."""
+    if found is not None:
+        return 'it ends up ' + found
+    if symbol in declared:
+        return 'the pinned common kernel declares it, but an option it depends on is off'
+    return 'the pinned common kernel does not declare it'
+
+
 def device_config_differences(core, device, allowed):
     """Symbols whose value differs between the GKI and the device kernel configuration.
     Both builds share one source tree and one Image, so any other difference could

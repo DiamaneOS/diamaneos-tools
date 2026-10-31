@@ -26,6 +26,13 @@ class ConfigurationTests(unittest.TestCase):
         unmet = build.unmet_requests(['CONFIG_A=m\nCONFIG_B=y\nCONFIG_C=1\n# CONFIG_D is not set\n# CONFIG_E is not set\n'], final)
         self.assertEqual({'CONFIG_A': ['m', 'y'], 'CONFIG_B': ['y', None]}, unmet)
 
+    def test_an_unmet_request_is_undeclared_hidden_or_changed(self):
+        declared = {'CONFIG_TIPC_LOCAL_ONLY', 'CONFIG_A'}
+        self.assertEqual('the pinned common kernel does not declare it', build.unmet_reason('CONFIG_X', None, declared))
+        self.assertEqual('the pinned common kernel declares it, but an option it depends on is off',
+                         build.unmet_reason('CONFIG_TIPC_LOCAL_ONLY', None, declared))
+        self.assertEqual('it ends up y', build.unmet_reason('CONFIG_A', 'y', declared))
+
     def test_device_build_may_differ_only_in_its_declared_symbols(self):
         core = b'CONFIG_A=y\n# CONFIG_CFG80211 is not set\nCONFIG_MODULE_SIG_ALL=y\n'
         device = b'CONFIG_A=y\nCONFIG_CFG80211=m\n# CONFIG_MODULE_SIG_ALL is not set\n'

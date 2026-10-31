@@ -121,7 +121,9 @@ class CoreAndDeviceTests(RunFixture):
             self.run.profile = 'production'
             self.on_make = lambda argv: (self.run.core / '.config').write_text('CONFIG_RUST=y\nCONFIG_NET_X=m\n')
             self.calls.clear()
-            self.assertRaisesRegex(KernelError, 'production profile asks for configuration the build does not honour: CONFIG_NET_Z', self.run.core_build)
+            with patch.object(kernel_build, 'kconfig_symbols', lambda common: set()):
+                self.assertRaisesRegex(KernelError, 'production profile asks for configuration the build does not honour: CONFIG_NET_Z',
+                                       self.run.core_build)
         self.assertEqual(1, len(self.calls))
 
     def test_a_request_kconfig_does_not_honour_stops_before_compiling(self):
@@ -129,9 +131,12 @@ class CoreAndDeviceTests(RunFixture):
             if argv[-1] == 'olddefconfig':
                 (self.run.core / '.config').write_text('CONFIG_RUST=y\nCONFIG_QRTR=m\n')
         self.on_make = drop
-        with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'):
+        # The trimming option is declared and hidden behind an option that is off, the other is not declared at all.
+        with patch.object(kernel, 'kmi_whitelist', lambda common, exceptions: 'printk\n'), \
+                patch.object(kernel_build, 'kconfig_symbols', lambda common: {'CONFIG_TRIM_UNUSED_KSYMS'}):
             self.assertRaisesRegex(KernelError, 'development profile asks for configuration the build does not honour: '
-                                   'CONFIG_SECURITY_DMESG_RESTRICT .wants y, the pinned common kernel does not declare it., CONFIG_TRIM_UNUSED_KSYMS',
+                                   'CONFIG_SECURITY_DMESG_RESTRICT .wants y, the pinned common kernel does not declare it., '
+                                   'CONFIG_TRIM_UNUSED_KSYMS .wants y, the pinned common kernel declares it, but an option it depends on is off.',
                                    self.run.core_build)
         self.assertEqual(1, len(self.calls))
 
