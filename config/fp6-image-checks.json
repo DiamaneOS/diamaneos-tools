@@ -1177,6 +1177,29 @@
       ]
     },
     {
+      "id": "usb-port-control-second-stage",
+      "why": "The USB controller driver does not load in the first stage, where it would start without the user-build option and so with USB data on until init cuts it.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/RAMDISK/lib/modules/modules.load"
+      ],
+      "absent_regex": [
+        "^dwc3-msm\\.ko$"
+      ]
+    },
+    {
+      "id": "usb-port-control-second-stage-loaded",
+      "why": "The USB controller driver loads from vendor_dlkm, with the user-build option, and recovery and fastbootd load it from their own list.",
+      "type": "text",
+      "files": [
+        "VENDOR_DLKM/lib/modules/modules.load",
+        "VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery"
+      ],
+      "lines": [
+        "dwc3-msm.ko"
+      ]
+    },
+    {
       "id": "usb-port-control-input-suspend-label",
       "why": "The charger firmware's input suspend, which Off sets, has its own type instead of the generic sysfs label.",
       "type": "text",

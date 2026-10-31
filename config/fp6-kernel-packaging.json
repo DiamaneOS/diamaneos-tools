@@ -637,7 +637,6 @@
       "phy-msm-ssusb-qmp.ko",
       "repeater.ko",
       "repeater-qti-pmic-eusb2.ko",
-      "dwc3-msm.ko",
       "qcom_scmi_vendor.ko",
       "qcom-scm.ko",
       "qcom-ipcc.ko",
@@ -735,7 +734,6 @@
       "phy-msm-ssusb-qmp.ko",
       "repeater.ko",
       "repeater-qti-pmic-eusb2.ko",
-      "dwc3-msm.ko",
       "qcom_scmi_vendor.ko",
       "qcom-scm.ko",
       "qcom-ipcc.ko",
@@ -804,6 +802,7 @@
       "qseecom_proxy.ko",
       "spi-msm-geni.ko",
       "msm_sharedmem.ko",
+      "dwc3-msm.ko",
       "usb_f_cdev.ko",
       "usb_f_gsi.ko",
       "ucsi_qti_glink.ko",
@@ -1000,6 +999,7 @@
       "qseecom_proxy.ko",
       "spi-msm-geni.ko",
       "msm_sharedmem.ko",
+      "dwc3-msm.ko",
       "usb_f_cdev.ko",
       "usb_f_gsi.ko",
       "ucsi_qti_glink.ko",
@@ -1532,5 +1532,11 @@
       ],
       "reason": "The debug aids insert calls to these symbols into every module that sleeps, copies from user space or indexes an array (atomic sleep checks and UBSAN reports). The Image exports them for its own modules, and no GKI symbol list keeps them."
     }
-  }
+  },
+  "second_stage_modules": [
+    {
+      "module": "dwc3-msm.ko",
+      "reason": "The USB controller driver loads from vendor_dlkm, where user builds give it the option that starts USB data and alt modes off (modules.options). In the first stage it would start with data on until init cuts it. Recovery and fastbootd load it from their own list without the option, so USB works there."
+    }
+  ]
 }

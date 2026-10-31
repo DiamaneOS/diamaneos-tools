@@ -470,6 +470,7 @@ def build(root, jobs, timeout, profile='production'):
     denied_modules(recipe), import_allowlist(recipe), forbidden_symbols(recipe), required_symbols(recipe), shipped_dtbs(recipe)
     kmi_exceptions(recipe), kmi_exceptions(recipe, 'debug'), kernel_overrides(load_json(BUILD_PLAN))
     kernel_package.check_required_modules(recipe, shipped_vendor_files())
+    kernel_package.check_second_stage(recipe)
     kernel_package.cmdline_arguments(recipe, forbidden_arguments())
     kernel_package.debug_recipe(recipe, {module_key(n) for n in denied_modules(recipe)})
     from .product_inputs import tools_identity
@@ -646,6 +647,7 @@ class Run:
         wanted = set().union(*map(set, recipe['partitions'].values()))
         self.result['required_modules_checked'], self.result['required_modules_skipped'] = \
             kernel_package.check_required_modules(recipe, shipped_vendor_files())
+        self.result['second_stage_modules_checked'] = kernel_package.check_second_stage(recipe)
         self.selected = kernel_package.select(wanted, {**self.vendor_pool, **self.device_pool}, self.core_pool)
         kernel_package.check_placement(recipe, lambda n: dependencies(self.selected[n]) if n in self.selected else [])
         for name in ('certs/signing_key.pem', 'certs/signing_key.x509', 'scripts/sign-file'):

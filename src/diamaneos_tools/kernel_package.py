@@ -99,6 +99,23 @@ def check_required_modules(recipe, shipped):
     return checked, skipped
 
 
+def check_second_stage(recipe):
+    """Modules that must load from vendor_dlkm in a normal boot, each with its reason: in the vendor_dlkm module
+    and load lists, not in the first stage's load list, and in the recovery list. Returns the modules checked."""
+    rows = recipe.get('second_stage_modules', [])
+    require(isinstance(rows, list) and all(
+        isinstance(r, dict) and set(r) == {'module', 'reason'} and isinstance(r['module'], str) and r['module'].endswith('.ko')
+        and isinstance(r['reason'], str) and r['reason'].strip() for r in rows)
+        and len({r['module'] for r in rows}) == len(rows), 'invalid second stage module list')
+    lists = recipe['load_lists']
+    for name in [r['module'] for r in rows]:
+        require(name in recipe['partitions']['vendor_dlkm'] and name in lists.get('vendor_dlkm/modules.load', []),
+                '%s must load from vendor_dlkm and is not in its module or load list' % name)
+        require(name not in lists.get('vendor_boot/modules.load', []), '%s must not load in the first stage' % name)
+        require(name in lists.get('vendor_boot/modules.load.recovery', []), '%s is not in the recovery load list' % name)
+    return [r['module'] for r in rows]
+
+
 def stage_modules(destination, selected, strip, signing, metadata, work, library_path):
     """Strip every selected module and sign it. signing is (sign-file, key, certificate, hash)."""
     destination.mkdir(parents=True)

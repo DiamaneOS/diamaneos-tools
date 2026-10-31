@@ -466,6 +466,18 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(protection(dict(clean, **{
             'VENDOR/build.prop': b'ro.usb.data_protection.disable_when_locked.supported=true\n'})))
 
+    def test_usb_controller_loads_in_the_second_stage(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        first, late, recovery = ('VENDOR_BOOT/RAMDISK/lib/modules/modules.load', 'VENDOR_DLKM/lib/modules/modules.load',
+                                 'VENDOR_BOOT/RAMDISK/lib/modules/modules.load.recovery')
+        good = {first: b'ufs_qcom.ko\nrepeater.ko\n', late: b'dwc3-msm.ko\nusb_f_gsi.ko\n', recovery: b'repeater.ko\ndwc3-msm.ko\n'}
+        check = lambda rule, files: subject.rule_text(rules[rule], self.harness(files))[0]
+        self.assertTrue(check('usb-port-control-second-stage', good))
+        self.assertTrue(check('usb-port-control-second-stage-loaded', good))
+        self.assertFalse(check('usb-port-control-second-stage', {**good, first: good[first] + b'dwc3-msm.ko\n'}))
+        self.assertFalse(check('usb-port-control-second-stage-loaded', {**good, late: b'usb_f_gsi.ko\n'}))
+        self.assertFalse(check('usb-port-control-second-stage-loaded', {**good, recovery: b'repeater.ko\n'}))
+
     def test_usb_data_gate_kernel_and_boot_default(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         dwc3, ucsi = 'VENDOR_DLKM/lib/modules/dwc3-msm.ko', 'VENDOR_DLKM/lib/modules/ucsi_qti_glink.ko'

@@ -59,6 +59,29 @@ class PlacementTests(unittest.TestCase):
         self.assertNotIn('BOARD_KERNEL_CMDLINE', package.board_config(RECIPE, []))
 
 
+class SecondStageTests(unittest.TestCase):
+    def recipe(self, first=(), late=('a.ko',), recovery=('a.ko',)):
+        return {'partitions': {'vendor_dlkm': ['a.ko']}, 'second_stage_modules': [{'module': 'a.ko', 'reason': 'r'}],
+                'load_lists': {'vendor_boot/modules.load': list(first), 'vendor_dlkm/modules.load': list(late),
+                               'vendor_boot/modules.load.recovery': list(recovery)}}
+
+    def test_a_listed_module_loads_from_vendor_dlkm_and_in_recovery_but_not_in_the_first_stage(self):
+        self.assertEqual(['a.ko'], package.check_second_stage(self.recipe()))
+        self.assertRaisesRegex(KernelError, 'a.ko must not load in the first stage', package.check_second_stage,
+                               self.recipe(first=['a.ko']))
+        self.assertRaisesRegex(KernelError, 'must load from vendor_dlkm', package.check_second_stage, self.recipe(late=[]))
+        self.assertRaisesRegex(KernelError, 'not in the recovery load list', package.check_second_stage, self.recipe(recovery=[]))
+        self.assertRaisesRegex(KernelError, 'invalid second stage', package.check_second_stage,
+                               dict(self.recipe(), second_stage_modules=[{'module': 'a.ko', 'reason': ' '}]))
+
+    def test_the_committed_recipe_loads_the_usb_controller_from_vendor_dlkm(self):
+        import json
+        recipe = json.loads((Path(__file__).resolve().parents[2] / 'config/fp6-kernel-packaging.json').read_text())
+        self.assertEqual(['dwc3-msm.ko'], package.check_second_stage(recipe))
+        load = recipe['load_lists']['vendor_dlkm/modules.load']
+        self.assertLess(load.index('dwc3-msm.ko'), load.index('usb_f_gsi.ko'))
+
+
 class RequiredModuleTests(unittest.TestCase):
     ROW = {'module': 'rfkill.ko', 'partition': 'system_dlkm', 'needed_by': 'vendor/bin/daemon', 'reason': 'r'}
     SHIPPED = {'vendor/bin/daemon'}

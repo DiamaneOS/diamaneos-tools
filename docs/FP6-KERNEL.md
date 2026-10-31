@@ -136,6 +136,9 @@ Reproducibility:
   - It also fails when the file does not ship and the module is placed, and `result.json` records
     the rows it skipped.
   - A reference comparison reports such a module the reference lacks as policy.
+- `second_stage_modules` names modules that load from vendor_dlkm and the recovery list, never in
+  the first stage. `dwc3-msm.ko` is one, so user builds start it with USB data off
+  (`modules.options`), and recovery and fastbootd keep USB.
 
 Its `denied_modules` lists, with reasons, what FP6 never ships:
 
