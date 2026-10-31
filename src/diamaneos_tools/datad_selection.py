@@ -41,10 +41,6 @@ NOT_ELF = ('vendor/etc/init/nicmd.rc', 'vendor/etc/data/nicm_config.xml')
 # The kind the renderer gives a library that is loaded with dlopen and installed with its consumer.
 RUNTIME_EDGE = 'selected-stock-runtime'
 SOURCE_EDGE = 'source-module'
-# In an image of the open data stack the daemon, its init file and the two libraries are there where the
-# device checks look for the stock nicmd.
-IMAGE_PATHS = {'VENDOR/bin/nicmd': ('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc',
-                                    'VENDOR/lib64/libnicm.so', 'VENDOR/lib64/libnicm_dsi.so')}
 
 
 def transform(recipe, selection):

@@ -54,7 +54,7 @@ KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-build.json', 'fp6-kerne
 # The kernel the Android build takes is the production profile. The development profile skips the production tier of
 # the policy and the debug profile has the debug aids on, and neither is published.
 KERNEL_PROFILE = 'production'
-KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_build.py', 'kernel_config.py', 'kernel_dt.py', 'kernel_interfaces.py',
+KERNEL_CODE = ('datad_selection.py', 'devices.py', 'kernel.py', 'kernel_build.py', 'kernel_config.py', 'kernel_dt.py', 'kernel_interfaces.py',
                'kernel_kbuild.py', 'kernel_package.py', 'kernel_util.py', 'process.py', 'product_inputs.py', 'safe_json.py',
                'vendor.py', 'vendor_extract.py', 'vendor_files.py')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
@@ -79,11 +79,12 @@ MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 # stays official. --no-official removes it.
 OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
 OFFICIAL_MARKER = 'official'
-# A build with the open data stack (DIAMANEOS_DATAD=true, read by the device's BoardConfig.mk and telephony.mk).
-# The vendor tree is made without the stock nicmd files and the Android step sets the variable. The workspace
-# remembers --datad in this state file, the way it remembers --official. --no-datad removes it.
+# The open data stack is the default build (DIAMANEOS_DATAD=true, read by the device's BoardConfig.mk and
+# telephony.mk). The vendor tree is made without the stock nicmd files and the Android step sets the variable.
+# --no-datad builds with the stock nicmd instead and sets it to false (the device's own default is true). The
+# workspace remembers --no-datad in this state file, the way it remembers --official. --datad removes it.
 DATAD_FLAG = 'DIAMANEOS_DATAD'
-DATAD_MARKER = 'datad'
+STOCK_DATA_MARKER = 'no-datad'
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
 # body are still expected"), and repo then retries the project with every
 # branch, which for the large prebuilt repositories never finishes. HTTP/1.1
@@ -157,9 +158,9 @@ class Context:
     official: bool = False
     # False when the choice comes from the workspace because the command named none.
     official_given: bool = True
-    # A build with the open data stack: the vendor tree has no stock nicm files and the Android step sets
-    # DIAMANEOS_DATAD=true.
-    datad: bool = False
+    # A build with the open data stack, which is the default: the vendor tree has no stock nicm files and the
+    # Android step sets DIAMANEOS_DATAD=true. False (--no-datad) is the stock nicmd.
+    datad: bool = True
     datad_given: bool = True
     # Set only to check a prerequisite with the build number it was built with.
     build_number: str | None = None
@@ -717,7 +718,8 @@ def plan_vendor(ctx: Context) -> StepPlan:
                                      f'({error}). Run "diamaneos build sync" again') from error
     host_tools = Action(
         'Build the image tools', detail='aapt2, simg2img, lpunpack and debugfs_static from the synced source',
-        argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True, unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
+        argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True,
+        unset=('OFFICIAL_BUILD', OFFICIAL_FLAG, DATAD_FLAG),
         env=tool_env)
 
     def clear_old_tools():
@@ -845,7 +847,7 @@ def official_input(ctx: Context) -> dict:
 
 def datad_input(ctx: Context) -> dict:
     """The open data stack as a step input: only when set, so the digests and the records of
-    every other build stay as they were."""
+    a build with the stock nicmd stay as they were before the option existed."""
     return {'datad': True} if ctx.datad else {}
 
 
@@ -1016,12 +1018,13 @@ def plan_android(ctx: Context) -> StepPlan:
 
     # GrapheneOS's OFFICIAL_BUILD never reaches the build. DIAMANEOS_OFFICIAL_BUILD
     # does only as --official sets it, never from the caller's environment.
-    # The same for DIAMANEOS_DATAD: only --datad sets it.
+    # The same for DIAMANEOS_DATAD, which is always set here, to true or to false, and never taken from the
+    # caller's environment.
     compile_action = Action(
         f'Build Android ({lunch}{", official" if ctx.official else ""}{", open data stack" if ctx.datad else ""})',
         argv=['bash', '-c', ANDROID_SCRIPT],
         cwd=ws.src, compile=True,
-        unset=('OFFICIAL_BUILD',) + (() if ctx.official else (OFFICIAL_FLAG,)) + (() if ctx.datad else (DATAD_FLAG,)),
+        unset=('OFFICIAL_BUILD', DATAD_FLAG) + (() if ctx.official else (OFFICIAL_FLAG,)),
         env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': lunch, 'DIAMANEOS_PRODUCT': config['product'],
              'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
              'BUILD_NUMBER': number or '<from the build identity>',
@@ -1029,7 +1032,7 @@ def plan_android(ctx: Context) -> StepPlan:
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname'],
              **({OFFICIAL_FLAG: 'true'} if ctx.official else {}),
-             **({DATAD_FLAG: 'true'} if ctx.datad else {})})
+             DATAD_FLAG: 'true' if ctx.datad else 'false'})
     actions = [Action('Install the vendor tree', func=install),
                Action('Verify the source tree', func=preflight('preflight'),
                       detail='the source tree, the generated inputs and the device policy provenance record'),
@@ -1255,8 +1258,9 @@ def recorded_context(ctx: Context, name: str) -> Context:
         changes['build_number'] = inputs['build_number']
     if not ctx.official_given and inputs.get('official') is True:
         changes['official'] = True
-    if not ctx.datad_given and inputs.get('datad') is True:
-        changes['datad'] = True
+    if not ctx.datad_given and name in ('vendor', 'android') and ctx.workspace.passed(name) is not None:
+        # The build was made with the open data stack when its inputs say so, and with the stock nicmd otherwise.
+        changes['datad'] = inputs.get('datad') is True
     if name == 'android' and inputs.get('android_build') == 'manual':
         changes['manual'] = True
     return replace(ctx, **changes) if changes else ctx
@@ -1471,14 +1475,14 @@ def remember_official(ws: bw.Workspace, official: bool) -> None:
 
 
 def remember_datad(ws: bw.Workspace, datad: bool) -> None:
-    """Keep --datad for later commands in this workspace, or forget it."""
-    marker = ws.state_dir / DATAD_MARKER
+    """Keep --no-datad for later commands in this workspace, or forget it with --datad."""
+    marker = ws.state_dir / STOCK_DATA_MARKER
     if datad:
-        ws.state_dir.mkdir(parents=True, exist_ok=True)
-        marker.write_text('Build with the open data stack in this workspace (DIAMANEOS_DATAD=true). '
-                          '"diamaneos build all --no-datad" turns it off.\n')
-    else:
         marker.unlink(missing_ok=True)
+    else:
+        ws.state_dir.mkdir(parents=True, exist_ok=True)
+        marker.write_text('Build with the stock nicmd in this workspace (DIAMANEOS_DATAD=false). '
+                          '"diamaneos build all --datad" goes back to the open data stack.\n')
 
 
 def output_present(ctx: Context, name: str) -> bool:
@@ -1565,9 +1569,9 @@ def make_context(args, echo=print) -> Context:
     # Likewise a workspace that built with --official keeps building official images.
     given = getattr(args, 'official', None)
     official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
-    # And one that built with --datad keeps the open data stack.
+    # The open data stack is the default, and a workspace that built with --no-datad keeps the stock nicmd.
     datad_given = getattr(args, 'datad', None)
-    datad = datad_given if datad_given is not None else (workspace.state_dir / DATAD_MARKER).is_file()
+    datad = datad_given if datad_given is not None else not (workspace.state_dir / STOCK_DATA_MARKER).is_file()
     pinned = None
     tools_commit = product_inputs.tools_identity().get('commit')
     if getattr(args, 'resolved_manifest', None):
@@ -1605,10 +1609,10 @@ def parser() -> argparse.ArgumentParser:
                              'which checks DiamaneOS\'s update server. For DiamaneOS\'s own builder. Leave it off '
                              'for other builds. The workspace remembers the choice. --no-official turns it off')
     result.add_argument('--datad', action=argparse.BooleanOptionalAction, default=None,
-                        help='build with the open data stack (DIAMANEOS_DATAD=true): the vendor tree has no stock '
-                             'nicmd and nicm libraries, and the device builds the daemon datad and the two '
-                             'replacement libraries from source. For testing. The workspace remembers the choice. '
-                             '--no-datad turns it off')
+                        help='build with the open data stack (DIAMANEOS_DATAD=true), which is the default: the '
+                             'vendor tree has no stock nicmd and nicm libraries, and the device builds the daemon '
+                             'datad and the two replacement libraries from source. --no-datad builds with the '
+                             'stock nicmd instead (DIAMANEOS_DATAD=false). The workspace remembers the choice')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
                         help='compile with network access instead of without it. Only for hosts where '
@@ -1703,10 +1707,14 @@ def main(argv=None, echo=print) -> int:
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
                  'Updater. --no-official turns that off')
+        if not ctx.datad and not ctx.datad_given:
+            echo('note: this workspace builds with the stock nicmd (DIAMANEOS_DATAD=false). --datad goes back to '
+                 'the open data stack')
         if not args.workspace and not os.environ.get('DIAMANEOS_WORKSPACE') and not args.dry_run:
             echo(f'workspace: {ctx.workspace.root}')
         if args.dry_run:
-            echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant}{", official" if ctx.official else ""})')
+            echo(f'Workspace: {ctx.workspace.root} (variant {ctx.variant}{", official" if ctx.official else ""}'
+                 f'{"" if ctx.datad else ", stock nicmd"})')
             run_steps(ctx, steps, force, dry_run=True)
             return 0
         pending = steps_to_run(ctx, steps, force)

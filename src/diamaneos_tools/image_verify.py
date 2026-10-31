@@ -404,24 +404,34 @@ def property_lines(data: bytes) -> list[tuple[str, str]]:
 
 
 def datad_build(v):
-    """Whether the vendor generation of this image was made for the open data stack."""
+    """Whether the image is of the open data stack, which is the default build. Only a vendor generation that
+    exists and does not say so was made for the stock nicmd (--no-datad)."""
     vendor_dir = getattr(v, 'vendor_dir', None)
     if vendor_dir is None:
-        return False
+        return True
     try:
-        return json.loads((vendor_dir / 'provenance.json').read_bytes()).get('datad_selection') is True
-    except (OSError, ValueError, AttributeError):
-        return False
+        provenance = json.loads((vendor_dir / 'provenance.json').read_bytes())
+    except (OSError, ValueError):
+        return True
+    return not isinstance(provenance, dict) or provenance.get('datad_selection') is True
 
 
 def rule_files_present(rule, v):
-    paths = rule['paths']
-    if datad_build(v):
-        # nicmd is not in this image, the daemon that replaces it and the two libraries must be
-        from . import datad_selection
-        paths = [q for p in paths for q in datad_selection.IMAGE_PATHS.get(p, (p,))]
-    missing = [p for p in paths if not v.tf.exists(p)]
+    missing = [p for p in rule['paths'] if not v.tf.exists(p)]
     return not missing, 'missing: ' + ', '.join(missing) if missing else ''
+
+
+def rule_data_stack(rule, v):
+    """The data stack of the image is the one the build was made for. The open one has the daemon, its init file and
+    the two libraries, none of the other stock nicm files, and libraries that are not the stock files. The stock one
+    has nicmd and none of the daemon."""
+    spec = rule['datad'] if datad_build(v) else rule['stock']
+    problems = ['missing ' + p for p in spec['present'] if not v.tf.exists(p)]
+    problems += ['present ' + p for p in spec['absent'] if v.tf.exists(p) or v.tf.is_symlink(p)]
+    for path, stock_sha256 in sorted(spec.get('not_stock', {}).items()):
+        if v.tf.exists(path) and hashlib.sha256(v.tf.read(path)).hexdigest() == stock_sha256:
+            problems.append(path + ' is the stock file')
+    return not problems, '; '.join(problems)
 
 
 def rule_files_absent(rule, v):
@@ -1445,7 +1455,7 @@ def rule_file_metadata(rule, v):
     return not problems, '; '.join(problems)
 
 
-RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
+RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent, 'data_stack': rule_data_stack,
          'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,

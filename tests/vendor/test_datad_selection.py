@@ -204,9 +204,22 @@ class RealRecipeTests(unittest.TestCase):
         with self.assertRaisesRegex(VendorError, 'libqcrilDataModule.so needs'):
             subject.transform(recipe, selection)
 
-    def test_the_image_check_replaces_nicmd_by_the_daemon_and_the_libraries(self):
-        self.assertEqual(('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc', 'VENDOR/lib64/libnicm.so',
-                          'VENDOR/lib64/libnicm_dsi.so'), subject.IMAGE_PATHS['VENDOR/bin/nicmd'])
+    def test_the_image_check_of_the_data_stack_names_the_files_this_module_drops_and_replaces(self):
+        import json
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[2]
+        rule = next(r for r in json.loads((root / 'config/fp6-image-checks.json').read_text())['rules']
+                    if r['id'] == 'data-stack')
+        upper = lambda paths: sorted('VENDOR/' + p.split('/', 1)[1] for p in paths)
+        self.assertEqual(upper(set(subject.DROPPED) - set(subject.REPLACED)), sorted(rule['datad']['absent']))
+        self.assertEqual(upper(subject.REPLACED), sorted(rule['datad']['not_stock']))
+        self.assertIn('VENDOR/bin/datad', rule['datad']['present'])
+        self.assertTrue(set(rule['datad']['not_stock']) <= set(rule['datad']['present']))
+        # the hashes are those of the stock files the recipe pins
+        recipe = json.loads((root / 'config/fp6-minimal/vendor-files.json').read_text())
+        pinned = {r['path']: r['sha256'] for r in recipe['files']}
+        for path, sha in rule['datad']['not_stock'].items():
+            self.assertEqual(pinned['vendor/' + path.split('/', 1)[1]], sha)
 
 
 if __name__ == '__main__':

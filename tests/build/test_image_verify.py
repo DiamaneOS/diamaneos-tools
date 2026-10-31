@@ -2936,30 +2936,66 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(problem[0])
         self.assertIn("differs from the pinned vendor-files.json", problem[1])
 
-    def test_the_bringup_check_wants_the_daemon_in_a_data_stack_image(self):
+    def data_stack_rule(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        rule = rules['hardware-bringup']
-        stock = {path: b'elf' for path in rule['paths']}
-        self.assertTrue(subject.rule_files_present(rule, self.harness(stock))[0])
-        # without the marker the stock nicmd is still wanted
-        plain = self.datad_vendor(marked=False)
-        self.assertTrue(subject.rule_files_present(rule, self.harness(stock))[0])
-        self.assertFalse(subject.datad_build(plain))
-        datad = {p: b'elf' for p in stock if p != 'VENDOR/bin/nicmd'}
-        datad.update({p: b'elf' for p in ('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc', 'VENDOR/lib64/libnicm.so',
-                                          'VENDOR/lib64/libnicm_dsi.so')})
-        v = self.harness(datad)
-        v.vendor_dir = self.datad_vendor().vendor_dir
+        self.assertNotIn('VENDOR/bin/nicmd', rules['hardware-bringup']['paths'])
+        return rules['data-stack']
+
+    def image(self, members, vendor=None):
+        """An image with these files, built with the vendor generation of this test (none: the default)."""
+        v = self.harness({path: b'elf' if content is None else content for path, content in members.items()})
+        if vendor is not None:
+            v.vendor_dir = vendor.vendor_dir
+        return v
+
+    def test_the_default_build_expects_the_daemon_and_none_of_the_other_stock_nicm_files(self):
+        rule = self.data_stack_rule()
+        datad = rule['datad']
+        members = {p: None for p in datad['present']}
+        # no vendor generation to ask: the open data stack is the default
+        self.assertTrue(subject.datad_build(self.image(members)))
+        self.assertEqual((True, ''), subject.rule_data_stack(rule, self.image(members)))
+        for gone in datad['present']:
+            self.assertEqual((False, 'missing ' + gone),
+                             subject.rule_data_stack(rule, self.image({p: None for p in members if p != gone})))
+        for stock in datad['absent']:
+            ok, detail = subject.rule_data_stack(rule, self.image({**members, stock: None}))
+            self.assertEqual((False, 'present ' + stock), (ok, detail))
+        # the two libraries have to be the ones built from source
+        for path, sha in datad['not_stock'].items():
+            self.assertTrue(subject.datad_build(self.image(members)))
+            stock_bytes = self.image({**members})
+            stock_bytes.tf.read = lambda p, real=stock_bytes.tf.read: b'the stock file' if p == path else real(p)
+            with mock.patch.object(subject.hashlib, 'sha256', side_effect=lambda data: mock.Mock(
+                    hexdigest=lambda: sha if data == b'the stock file' else '0' * 64)):
+                self.assertEqual((False, path + ' is the stock file'), subject.rule_data_stack(rule, stock_bytes))
+
+    def test_a_build_with_the_stock_nicmd_expects_nicmd_and_none_of_the_daemon(self):
+        rule = self.data_stack_rule()
+        stock = self.datad_vendor(marked=False)
+        self.assertFalse(subject.datad_build(stock))
+        members = {p: None for p in rule['stock']['present']}
+        self.assertEqual((True, ''), subject.rule_data_stack(rule, self.image(members, stock)))
+        self.assertEqual((False, 'missing VENDOR/bin/nicmd'), subject.rule_data_stack(rule, self.image({}, stock)))
+        for daemon in rule['stock']['absent']:
+            self.assertEqual((False, 'present ' + daemon),
+                             subject.rule_data_stack(rule, self.image({**members, daemon: None}, stock)))
+        # the same files in a build that says it is the open data stack are wrong the other way round
+        marked = self.datad_vendor(marked=True)
+        self.assertTrue(subject.datad_build(self.image(members, marked)))
+        ok, detail = subject.rule_data_stack(rule, self.image(members, marked))
+        self.assertFalse(ok)
+        self.assertIn('present VENDOR/bin/nicmd', detail)
+        self.assertIn('missing VENDOR/bin/datad', detail)
+
+    def test_an_unreadable_vendor_record_is_the_default_build(self):
+        v = self.datad_vendor(marked=True)
+        (v.vendor_dir / 'provenance.json').write_text('not json')
         self.assertTrue(subject.datad_build(v))
-        self.assertTrue(subject.rule_files_present(rule, v)[0])
-        for gone in ('VENDOR/bin/datad', 'VENDOR/etc/init/datad.rc', 'VENDOR/lib64/libnicm.so',
-                     'VENDOR/lib64/libnicm_dsi.so'):
-            w = self.harness({p: b'elf' for p in datad if p != gone})
-            w.vendor_dir = v.vendor_dir
-            self.assertEqual((False, 'missing: ' + gone), subject.rule_files_present(rule, w))
-        # the same image without the marker is the stock check, which wants nicmd
-        w = self.harness(datad)
-        self.assertEqual((False, 'missing: VENDOR/bin/nicmd'), subject.rule_files_present(rule, w))
+        (v.vendor_dir / 'provenance.json').write_text('[]')
+        self.assertTrue(subject.datad_build(v))
+        (v.vendor_dir / 'provenance.json').unlink()
+        self.assertTrue(subject.datad_build(v))
 
     def test_vendor_binding_compares_generated_bytes(self):
         from diamaneos_tools import carrier_data

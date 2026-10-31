@@ -53,7 +53,7 @@ def fixture_workspace(root: Path, variant='user', **firmware_options):
     target-files and a synthetic factory package that its firmware inventory pins."""
     ctx = steps.make_context(argparse.Namespace(
         workspace=str(root / 'ws'), environment=None, variant=variant, jobs=None, allow_network=True,
-        factory_zip=None, shallow=False), lambda *a: None)
+        factory_zip=None, shallow=False, datad=False), lambda *a: None)
     ws, config = ctx.workspace, ctx.config
     (root / 'stock').mkdir(parents=True)
     inventory, policy, archive, _ = synthetic_firmware(root / 'stock', **firmware_options)
