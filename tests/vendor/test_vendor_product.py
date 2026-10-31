@@ -943,6 +943,39 @@ class NativeProductTests(unittest.TestCase):
         self.assertEqual(derived.count(b'<route '), 2)
         self.assertEqual(derived, vendor_product.bluetooth_software_audio_policy(derived))
 
+    def test_usb_audio_policy_derivation_on_synthetic_policy(self):
+        # Same layout as the stock sku_volcano policy: the primary module's USB
+        # ports and USB-only mix ports go, the AOSP USB module replaces the stock one.
+        source = (b'                <mixPort name="hifi_playback" role="source" />\n'
+                  b'                <mixPort name="usb_surround_sound" role="sink">\n'
+                  b'                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"/>\n'
+                  b'                </mixPort>\n'
+                  b'                <mixPort name="voip_tx" role="sink">\n'
+                  b'                </mixPort>\n'
+                  b'                <devicePort tagName="USB Device Out" type="AUDIO_DEVICE_OUT_USB_DEVICE" role="sink">\n'
+                  b'                </devicePort>\n'
+                  b'                <devicePort tagName="USB Headset In" type="AUDIO_DEVICE_IN_USB_HEADSET" role="source">\n'
+                  b'                </devicePort>\n'
+                  b'                <route type="mix" sink="USB Device Out"\n'
+                  b'                       sources="primary output,hifi_playback"/>\n'
+                  b'                <route type="mix" sink="voip_tx"\n'
+                  b'                       sources="Built-In Mic,USB Headset In"/>\n'
+                  b'                <route type="mix" sink="hifi_input" sources="USB Headset In" />\n'
+                  b'        <!-- Usb Audio HAL -->\n'
+                  b'        <module name="usb" halVersion="2.0">\n'
+                  b'            <mixPorts>\n'
+                  b'            </mixPorts>\n'
+                  b'        </module>\n')
+        derived = vendor_product.usb_generic_audio_policy(source)
+        self.assertEqual(derived,
+                         b'                <mixPort name="voip_tx" role="sink">\n'
+                         b'                </mixPort>\n'
+                         b'                <route type="mix" sink="voip_tx"\n'
+                         b'                       sources="Built-In Mic"/>\n'
+                         b'        <!-- USB Audio HAL: AOSP USB devices, headsets and accessories -->\n'
+                         b'        <xi:include href="/vendor/etc/usb_audio_policy_configuration.xml"/>\n')
+        self.assertEqual(derived, vendor_product.usb_generic_audio_policy(derived))
+
     def test_nfc_hal_installed_with_activation_configuration_and_firmware(self):
         rendered = self.render()
         modules = json.loads(rendered['modules.json'])

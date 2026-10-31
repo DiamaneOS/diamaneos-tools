@@ -154,6 +154,15 @@
       ]
     },
     {
+      "id": "audio-usb-generic",
+      "why": "USB audio devices and headsets play through the AOSP USB audio HAL. The derived policy includes its module file, and the FP6 has no kernel driver for Qualcomm's USB audio offload.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/hw/audio.usb.default.so",
+        "VENDOR/etc/usb_audio_policy_configuration.xml"
+      ]
+    },
+    {
       "id": "audio-no-apex",
       "why": "The AOSP audio APEX would shadow the stock HAL.",
       "type": "files_absent",

@@ -966,9 +966,10 @@ AUDIO_CONFIG_REWRITES = {
         'reason': 'Disable context detection and remove deferred sound-trigger/model configuration'},
     'vendor/etc/audio/sku_volcano/audio_policy_configuration.xml': {
         'source_sha256': '3bf77c8f71e1ad1186e226b177c0c4cc9881c9ed9bad91cf848b632b7f039219',
-        'sha256': '9df51292f1d17bb3877f58fac0d29e58d24c1c6fd756183e4e513234e7173c4b',
+        'sha256': '58f18291d9a66fefa43e4f46593b502fb074464617fcd6e4ef3b716494a429ec',
         'reason': 'Route Bluetooth A2DP and LE audio through the AOSP software Bluetooth audio module instead of DSP '
-                  'offload, and decode compressed music in the sandboxed software codecs instead of the DSP'},
+                  'offload, decode compressed music in the sandboxed software codecs instead of the DSP, and play '
+                  'USB audio devices and headsets through the AOSP USB audio module instead of DSP offload'},
 }
 # Primary-module device ports that exist only for Bluetooth DSP offload.
 BT_OFFLOAD_PORTS = (b'BT A2DP Out', b'BT A2DP Headphones', b'BT A2DP Speaker', b'BT BLE Out',
@@ -995,13 +996,36 @@ def bluetooth_software_audio_policy(data):
         b'        <xi:include href="/vendor/etc/bluetooth_with_le_audio_policy_configuration_7_0.xml"/>\n')
 
 
+# Primary-module ports for Qualcomm's USB audio offload, whose kernel driver the
+# FP6 does not ship, and the mix ports that only reach them.
+USB_OFFLOAD_PORTS = (b'USB Device Out', b'USB Headset Out', b'USB Device In', b'USB Headset In')
+USB_OFFLOAD_MIXES = (b'hifi_playback', b'usb_surround_sound', b'hifi_input')
+
+
+def usb_generic_audio_policy(data):
+    """Move USB devices and headsets from the primary module to the AOSP USB module."""
+    names = b'|'.join(re.escape(n) for n in USB_OFFLOAD_PORTS + USB_OFFLOAD_MIXES)
+    derived = re.sub(rb'^[ \t]*<devicePort tagName="(?:' + names + rb')"[^>]*>.*?</devicePort>\n',
+                     b'', data, flags=re.S | re.M)
+    derived = re.sub(rb'^[ \t]*<mixPort name="(?:' + names + rb')"[^>]*?(?:/>|>.*?</mixPort>)\n',
+                     b'', derived, flags=re.S | re.M)
+    derived = re.sub(rb'^[ \t]*<route type="mix" sink="(?:' + names + rb')"\s+sources="[^"]*"\s*/>\n',
+                     b'', derived, flags=re.M)
+    derived = re.sub(rb'sources="([^"]*)"', lambda m: b'sources="' + b','.join(
+        s for s in m[1].split(b',') if s not in USB_OFFLOAD_PORTS) + b'"', derived)
+    return re.sub(rb'^        <!-- Usb Audio HAL -->\n        <module name="usb" halVersion="2.0">\n.*?\n        </module>\n',
+                  b'        <!-- USB Audio HAL: AOSP USB devices, headsets and accessories -->\n'
+                  b'        <xi:include href="/vendor/etc/usb_audio_policy_configuration.xml"/>\n',
+                  derived, flags=re.S | re.M)
+
+
 def audio_config(path, data):
-    """Pinned removal of sound-trigger and Bluetooth offload configuration."""
+    """Pinned removal of sound-trigger, Bluetooth and USB offload configuration."""
     rule = AUDIO_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('audio configuration differs from reviewed EU stock input')
     if path.endswith('/audio_policy_configuration.xml'):
-        derived = bluetooth_software_audio_policy(data)
+        derived = usb_generic_audio_policy(bluetooth_software_audio_policy(data))
     else:
         derived = data.replace(b'<param key="context_manager_enable" value ="true" />',
                                b'<param key="context_manager_enable" value ="false" />')
