@@ -1,12 +1,11 @@
-"""The FP6 device tree of the 6.18 kernel set: a pinned base with declared fix-ups.
+"""The FP6 device tree of the 6.18 kernel set, checked against the 6.1 tree it replaces.
 
-The 5.0-based vendor drivers and the 6.18 core read some 6.1 device tree
-bindings differently. The sources hold no 6.18 device tree, so the set ships
-the 6.1 base device tree and overlay image (pinned by SHA-256 in
-config/fp6-kernel-dt.json) and edits the base through the fix-ups listed there.
-Each edit states the value it expects to find, so a different base stops the
-build, and the result must differ from the base in exactly the declared
-properties and in nothing else.
+fp6.dtb is built from the vendor tree's device tree sources, which carry the
+bindings the 5.0-based drivers and the 6.18 core read. The 6.1 base device
+tree and overlay image are pinned by SHA-256 in config/fp6-kernel-dt.json.
+The set ships that overlay image, and the tree from source may differ from the
+6.1 base only in the differences the plan declares, each with the value it
+has in both trees.
 """
 import hashlib
 import struct
@@ -149,14 +148,23 @@ def find(root, path):
     return node
 
 
-def encode(value):
-    """Property bytes of a JSON value: {"cells": [...]} or {"strings": [...]}."""
+def encode(value, phandle_of=None):
+    """Property bytes of a JSON value: {"cells": [...]} or {"strings": [...]}. A cell may be {"phandle": PATH},
+    the phandle of that node in phandle_of (path -> phandle)."""
     require(isinstance(value, dict) and len(value) == 1, 'invalid device tree value')
     (kind, items), = value.items()
     require(isinstance(items, list) and items, 'invalid device tree value')
     if kind == 'cells':
-        require(all(type(i) is int and 0 <= i <= 0xffffffff for i in items), 'invalid device tree cells')
-        return b''.join(struct.pack('>I', i) for i in items)
+        cells = []
+        for item in items:
+            if isinstance(item, dict):
+                require(set(item) == {'phandle'} and isinstance(item['phandle'], str), 'invalid device tree cells')
+                require(phandle_of is not None and item['phandle'] in phandle_of,
+                        'no phandle for the device tree node ' + item['phandle'])
+                item = phandle_of[item['phandle']]
+            require(type(item) is int and 0 <= item <= 0xffffffff, 'invalid device tree cells')
+            cells.append(item)
+        return b''.join(struct.pack('>I', i) for i in cells)
     require(kind == 'strings' and all(isinstance(i, str) and i and '\0' not in i for i in items),
             'invalid device tree strings')
     return b''.join(i.encode() + b'\0' for i in items)
@@ -189,103 +197,115 @@ def walk_cells(root, path, name):
     return None
 
 
-def set_property(node, name, value):
-    for index, (key, _) in enumerate(node.props):
-        if key == name:
-            if value is None:
-                del node.props[index]
-            else:
-                node.props[index] = (name, value)
-            return
-    require(value is not None, 'cannot delete a missing property: ' + name)
-    # A new property goes first in its node, as libfdt (fdtput) adds it.
-    node.props.insert(0, (name, value))
+def phandles(tree):
+    """path -> phandle of every node that has one."""
+    found = {}
+    for path, node in walk(tree.root):
+        value = node.prop('phandle') or node.prop('linux,phandle')
+        if value is not None and len(value) == 4:
+            found[path] = struct.unpack('>I', value)[0]
+    return found
 
 
-def apply_edit(tree, original, edit):
-    """One declared edit. Returns what changed, as (node, property, before, after) rows."""
+def same(first, second, first_nodes, second_nodes):
+    """Equal bytes, or as many cells where each cell that differs is the phandle of the same node in both trees
+    (first_nodes and second_nodes map a phandle to its path)."""
+    if first == second:
+        return True
+    if first is None or second is None or len(first) != len(second) or len(first) % 4:
+        return False
+    count = len(first) // 4
+    return all(a == b or (a in first_nodes and first_nodes[a] == second_nodes.get(b))
+               for a, b in zip(struct.unpack('>%dI' % count, first), struct.unpack('>%dI' % count, second)))
+
+
+def tree_differences(base, source):
+    """How two trees differ when phandle numbers do not count: (path, property, base value, source value) rows,
+    None where absent, and the nodes, child orders, reservations and boot CPU that differ."""
+    first = {value: path for path, value in phandles(base).items()}
+    second = {value: path for path, value in phandles(source).items()}
+    a, b = dict(walk(base.root)), dict(walk(source.root))
+    rows, problems = [], []
+    for path in sorted(set(a) | set(b)):
+        if path not in a or path not in b:
+            problems.append('node %s is only in the %s' % (path, 'base' if path in a else 'source tree'))
+            continue
+        x, y = dict(a[path].props), dict(b[path].props)
+        for name in sorted(set(x) | set(y)):
+            if name in ('phandle', 'linux,phandle') and name in x and name in y:
+                continue
+            if not same(x.get(name), y.get(name), first, second):
+                rows.append((path, name, x.get(name), y.get(name)))
+        shared = {c.name for c in a[path].children} & {c.name for c in b[path].children}
+        order = [[c.name for c in node.children if c.name in shared] for node in (a[path], b[path])]
+        if order[0] != order[1]:
+            problems.append('the children of %s come in another order' % path)
+    if base.reserved != source.reserved:
+        problems.append('the memory reservations differ')
+    if base.boot_cpu != source.boot_cpu:
+        problems.append('the boot CPU differs')
+    return rows, problems
+
+
+def declared_rows(base, source, maps, edit):
+    """The (path, property, base value, source value) rows one declared edit expects."""
     require(isinstance(edit, dict), 'invalid device tree edit')
-    rows = []
     if 'inherit_cells' in edit:
         require(set(edit) == {'node', 'inherit_cells'} and isinstance(edit['inherit_cells'], list)
-                and len(edit['inherit_cells']) == 2, 'invalid inherited cells edit')
-        node = find(tree.root, edit['node'])
+                and len(edit['inherit_cells']) == 2
+                and all(type(c) is int and 0 <= c <= 0xffffffff for c in edit['inherit_cells']),
+                'invalid inherited cells edit')
+        rows = []
+        before, after = find(base.root, edit['node']), find(source.root, edit['node'])
         for name, wanted in zip(('#address-cells', '#size-cells'), edit['inherit_cells']):
-            require(walk_cells(original.root, edit['node'], name) == wanted,
-                    'the cells %s of %s resolve to another value than %d' % (name, edit['node'], wanted))
-            before = node.prop(name)
-            after = struct.pack('>I', wanted)
-            require(before in (None, after), '%s of %s is set to another value' % (name, edit['node']))
-            if before is None:
-                set_property(node, name, after)
-                rows.append((edit['node'], name, None, after))
+            require(walk_cells(base.root, edit['node'], name) == wanted,
+                    'the cells %s of %s resolve to another value than %d in the base' % (name, edit['node'], wanted))
+            value = struct.pack('>I', wanted)
+            require(before.prop(name) in (None, value) and after.prop(name) == value,
+                    '%s of %s is not %d' % (name, edit['node'], wanted))
+            if before.prop(name) is None:
+                rows.append((edit['node'], name, None, value))
         return rows
-    require(set(edit) == {'node', 'property', 'expect', 'set'}, 'invalid device tree edit')
-    node = find(tree.root, edit['node'])
-    name = edit['property']
-    before = node.prop(name)
-    expected = None if edit['expect'] is None else encode(edit['expect'])
-    require(before == expected, 'unexpected %s of %s: found %s, expected %s' %
-            (name, edit['node'], show(before), show(expected)))
-    after = None if edit['set'] is None else encode(edit['set'])
-    set_property(node, name, after)
-    return [(edit['node'], name, before, after)]
+    require(set(edit) == {'node', 'property', 'base', 'source'} and isinstance(edit['property'], str),
+            'invalid device tree edit')
+    find(base.root, edit['node'])
+    values = [None if edit[key] is None else encode(edit[key], m) for key, m in zip(('base', 'source'), maps)]
+    return [(edit['node'], edit['property'], *values)]
 
 
-def flatten(node, path=''):
-    """Every (path, property, value) of a tree."""
-    here = path + '/' + node.name if node.name else path
-    rows = [(here or '/', name, value) for name, value in node.props]
-    for child in node.children:
-        rows += flatten(child, here)
-    return rows
-
-
-def differences(first, second):
-    """Properties that differ between two trees, and nodes that exist in only one:
-    (path, property, before, after) rows with None for absent."""
-    a = {(p, n): v for p, n, v in flatten(first.root)}
-    b = {(p, n): v for p, n, v in flatten(second.root)}
-    rows = [(p, n, a.get((p, n)), b.get((p, n))) for p, n in sorted(set(a) | set(b)) if a.get((p, n)) != b.get((p, n))]
-
-    def nodes(node, path=''):
-        here = path + '/' + node.name if node.name else path
-        found = {here or '/'}
-        for child in node.children:
-            found |= nodes(child, here)
-        return found
-    return rows, sorted(nodes(first.root) ^ nodes(second.root))
-
-
-def apply_fixups(data, fixups, forbidden=()):
-    """The base blob with every fix-up applied, and a report. The result must differ from the base in
-    exactly the edited properties, and no property of the forbidden list may be anywhere in it."""
-    require(isinstance(fixups, list) and fixups, 'no device tree fix-ups')
-    base = parse(data)
-    tree = parse(data)
-    declared, report = {}, []
-    for fixup in fixups:
-        require(isinstance(fixup, dict) and set(fixup) == {'id', 'reason', 'edits'} and isinstance(fixup['edits'], list)
-                and fixup['edits'] and isinstance(fixup['reason'], str) and fixup['reason'].strip(),
-                'invalid device tree fix-up')
-        changed = []
-        for edit in fixup['edits']:
-            for path, name, before, after in apply_edit(tree, base, edit):
-                key = (path, name)
-                require(key not in declared, 'two edits of %s %s' % key)
-                # An edit that keeps the value only asserts it.
-                if before != after:
-                    declared[key] = (before, after)
-                    changed.append({'node': path, 'property': name, 'before': show(before), 'after': show(after)})
-        report.append({'id': fixup['id'], 'changes': changed})
-    out = serialize(tree)
-    again = parse(out)
-    rows, nodes = differences(base, again)
-    require(not nodes, 'the fix-ups added or removed nodes')
-    require({(p, n): (b, a) for p, n, b, a in rows} == declared, 'the fixed device tree differs from the base beyond the declared edits')
-    present = sorted({'%s %s' % (path, name) for path, name, _ in flatten(again.root) if name in forbidden})
-    require(not present, 'the device tree has a forbidden property: ' + ', '.join(present[:5]))
-    return out, report
+def check_differences(base_data, source_data, differences):
+    """The tree from source may differ from the base only where the plan declares it. Each edit names a property
+    with its value in both trees (null where absent), or asks for the #address-cells and #size-cells the base
+    resolves by walking up. Nodes, child order and reservations must match, a declared difference must still be
+    one, and phandle numbers do not count. Returns the changes of each declared difference."""
+    require(isinstance(differences, list) and differences, 'no declared device tree differences')
+    base, source = parse(base_data), parse(source_data)
+    rows, problems = tree_differences(base, source)
+    require(not problems, 'the device tree differs from the base: ' + ', '.join(problems[:5]))
+    found = {(path, name): (x, y) for path, name, x, y in rows}
+    maps = (phandles(base), phandles(source))
+    declared, report = set(), []
+    for difference in differences:
+        require(isinstance(difference, dict) and set(difference) == {'id', 'reason', 'edits'}
+                and isinstance(difference['edits'], list) and difference['edits']
+                and isinstance(difference['reason'], str) and difference['reason'].strip(),
+                'invalid device tree difference')
+        changes = []
+        for edit in difference['edits']:
+            for path, name, x, y in declared_rows(base, source, maps, edit):
+                require((path, name) not in declared, 'two edits of %s %s' % (path, name))
+                declared.add((path, name))
+                require((path, name) in found, 'the declared difference %s %s is no longer one' % (path, name))
+                before, after = found[path, name]
+                require((before, after) == (x, y), 'unexpected %s of %s: %s in the base and %s from source, declared %s and %s'
+                        % (name, path, show(before), show(after), show(x), show(y)))
+                changes.append({'node': path, 'property': name, 'base': show(x), 'source': show(y)})
+        report.append({'id': difference['id'], 'changes': changes})
+    stray = sorted(set(found) - declared)
+    require(not stray, 'the device tree differs from the base beyond the declared differences: ' +
+            ', '.join('%s %s' % key for key in stray[:5]) +
+            (' and %d more' % (len(stray) - 5) if len(stray) > 5 else ''))
+    return report
 
 
 def base_files(directory, spec):
@@ -419,11 +439,13 @@ def check_disabled_nodes(base_data, overlay_blobs, rules):
 
 
 def check_forbidden_properties(base_data, overlay_blobs, names, exemptions=()):
-    """No property of the forbidden list is in an overlay the bootloader applies to the base's SoC. An exemption
-    names one overlay by index and the board id (the first cell of its qcom,board-id) that justifies it, and must
-    still be needed. Returns the problems found."""
+    """No property of the forbidden list is in the device tree or in an overlay the bootloader applies to its SoC.
+    An exemption names one overlay by index and the board id (the first cell of its qcom,board-id) that justifies
+    it, and must still be needed. Returns the problems found."""
     base = parse(base_data)
-    problems, used = [], set()
+    problems = ['%s %s in the device tree' % (path, name) for path, node in walk(base.root)
+                for name in sorted({n for n, _ in node.props} & set(names))]
+    used = set()
     exempt = {(row['overlay'], row['property']): row for row in exemptions}
     for index, overlay in applicable(base, overlay_blobs):
         board = (overlay.root.prop('qcom,board-id') or b'')[:4]

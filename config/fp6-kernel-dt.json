@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "scope": "FP6 device tree of the 6.18 kernel set: the pinned 6.1 base and the edits the 5.0-based drivers and the 6.18 core need.",
+  "schema_version": 2,
+  "scope": "FP6 device tree of the 6.18 kernel set: fp6.dtb built from the vendor tree's device tree sources and held to the pinned 6.1 base, the 6.1 overlay image the set ships, the nodes that must stay disabled and the forbidden properties.",
   "base": {
     "repository": "https://github.com/DiamaneOS/device_fairphone_FP6-kernels",
     "revision": "a987520fa48467321967497585f0b2b5136f0cf8",
@@ -10,25 +10,26 @@
     },
     "overlay_count": 95
   },
-  "fixups": [
+  "differences": [
     {
       "id": "nvmem-modem-cpucp",
       "reason": "The 6.18 nvmem core rejects a bit range past its one-byte cell and a zero-width range, and with them the whole PMIC SDAM, so UFS waits for its ufs_dev cell. The 5.0 modem remoteproc takes its CMA area at memory-region index 1 without a firmware region where 6.1 took index 2. The 5.0 CPUCP driver looks its two regions up by name where 6.1 used the index.",
       "edits": [
-        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/smb1510_present@5d", "property": "bits", "expect": {"cells": [5, 5]}, "set": {"cells": [5, 5]}},
-        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/smb1510_present@5d", "property": "reg", "expect": {"cells": [93, 1]}, "set": {"cells": [93, 2]}},
-        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/ufs_dev@96", "property": "bits", "expect": {"cells": [0, 0]}, "set": null},
-        {"node": "/soc/remoteproc-mss@04080000", "property": "memory-region", "expect": {"cells": [120, 121, 122]}, "set": {"cells": [120, 122]}},
-        {"node": "/soc/qcom,cpucp@17400000", "property": "reg-names", "expect": null, "set": {"strings": ["tx", "rx"]}}
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/smb1510_present@5d", "property": "reg", "base": {"cells": [93, 1]}, "source": {"cells": [93, 2]}},
+        {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@7000/ufs_dev@96", "property": "bits", "base": {"cells": [0, 0]}, "source": null},
+        {"node": "/soc/remoteproc-mss@04080000", "property": "memory-region", "base": {"cells": [{"phandle": "/reserved-memory/mpss_region@8ac00000"}, {"phandle": "/reserved-memory/q6_mpss_dtb_region@99200000"}, {"phandle": "/reserved-memory/linux,cma"}]}, "source": {"cells": [{"phandle": "/reserved-memory/mpss_region@8ac00000"}, {"phandle": "/reserved-memory/linux,cma"}]}},
+        {"node": "/soc/qcom,cpucp@17400000", "property": "reg-names", "base": null, "source": {"strings": ["tx", "rx"]}}
       ]
     },
     {
       "id": "explicit-cells",
-      "reason": "Parents without #address-cells or #size-cells: 6.18 warns when it walks up the tree for them. They get both as properties with the value that walk resolves to in the base tree, and the build fails when a node resolves to another value, so every parse stays the same.",
+      "reason": "Parents without #address-cells or #size-cells: 6.18 warns when it walks up the tree for them. They get both with the value that walk resolves to in the base tree, and the build fails when a node resolves to another value, so every parse stays the same.",
       "edits": [
         {"node": "/soc/funnel@109b4000/out-ports", "inherit_cells": [1, 1]},
         {"node": "/soc/funnel@10c0b000/out-ports", "inherit_cells": [1, 1]},
         {"node": "/soc/qcom,cam_smmu", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,cci0@ac15000", "inherit_cells": [1, 1]},
+        {"node": "/soc/qcom,cci1@ac16000", "inherit_cells": [1, 1]},
         {"node": "/soc/qcom,ipa@3E00000", "inherit_cells": [1, 1]},
         {"node": "/soc/qcom,msm_fastrpc", "inherit_cells": [1, 1]},
         {"node": "/soc/qcom,spmi@c42d000/qcom,pmk8550@0/sdam@b600", "inherit_cells": [1, 0]},
@@ -42,32 +43,42 @@
       "id": "static-ramoops",
       "reason": "6.18 no longer supports a dynamically placed ramoops region (alloc-ranges and size), so ramoops found no resource and pstore stayed empty. The region is fixed at 0x9fe000000 (4 MiB), where 6.1 and every 6.18 boot placed it.",
       "edits": [
-        {"node": "/reserved-memory", "property": "#address-cells", "expect": {"cells": [2]}, "set": {"cells": [2]}},
-        {"node": "/reserved-memory", "property": "#size-cells", "expect": {"cells": [2]}, "set": {"cells": [2]}},
-        {"node": "/reserved-memory/ramoops_region", "property": "alloc-ranges", "expect": {"cells": [0, 0, 4294967295, 4294967295]}, "set": null},
-        {"node": "/reserved-memory/ramoops_region", "property": "size", "expect": {"cells": [0, 4194304]}, "set": null},
-        {"node": "/reserved-memory/ramoops_region", "property": "alignment", "expect": {"cells": [0, 4194304]}, "set": null},
-        {"node": "/reserved-memory/ramoops_region", "property": "reg", "expect": null, "set": {"cells": [9, 4261412864, 0, 4194304]}}
+        {"node": "/reserved-memory/ramoops_region", "property": "alloc-ranges", "base": {"cells": [0, 0, 4294967295, 4294967295]}, "source": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "size", "base": {"cells": [0, 4194304]}, "source": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "alignment", "base": {"cells": [0, 4194304]}, "source": null},
+        {"node": "/reserved-memory/ramoops_region", "property": "reg", "base": null, "source": {"cells": [9, 4261412864, 0, 4194304]}}
       ]
     },
     {
       "id": "crypto-engine-off",
       "reason": "6.18 has no qcedev driver, so the crypto engine node never binds and both interconnect providers wait for it in sync_state, keep their boot votes and the SoC never reaches AOSD or CXSD. No domain may open /dev/qce on these builds, so the node is disabled.",
       "edits": [
-        {"node": "/soc/qcedev@1de0000", "property": "compatible", "expect": {"strings": ["qcom,qcedev"]}, "set": {"strings": ["qcom,qcedev"]}},
-        {"node": "/soc/qcedev@1de0000", "property": "status", "expect": null, "set": {"strings": ["disabled"]}}
+        {"node": "/soc/qcedev@1de0000", "property": "status", "base": null, "source": {"strings": ["disabled"]}}
       ]
     },
     {
       "id": "sdhc-supplies",
-      "reason": "The 5.0 sdhci-msm takes the card supply and the I/O supply as vmmc and vqmmc through mmc_regulator_get_supply(). The 6.1 tree names them vdd-supply and vdd-io-supply, so the driver finds none, never powers the card and every command times out. vmmc is the pm7550 l13 regulator and vqmmc its l23 I/O regulator, and the phandles are asserted.",
+      "reason": "The 5.0 sdhci-msm takes the card supply and the I/O supply as vmmc and vqmmc through mmc_regulator_get_supply(). The 6.1 tree names them vdd-supply and vdd-io-supply, so the driver finds none, never powers the card and every command times out. vmmc is the pm7550 l13 regulator and vqmmc its l23 I/O regulator.",
       "edits": [
-        {"node": "/soc/sdhci@4784000", "property": "compatible", "expect": {"strings": ["qcom,sdhci-msm-v5"]}, "set": {"strings": ["qcom,sdhci-msm-v5"]}},
-        {"node": "/soc/sdhci@4784000", "property": "reg", "expect": {"cells": [142622720, 4096]}, "set": {"cells": [142622720, 4096]}},
-        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13", "property": "phandle", "expect": {"cells": [646]}, "set": {"cells": [646]}},
-        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23", "property": "phandle", "expect": {"cells": [655]}, "set": {"cells": [655]}},
-        {"node": "/soc/sdhci@4784000", "property": "vmmc-supply", "expect": null, "set": {"cells": [646]}},
-        {"node": "/soc/sdhci@4784000", "property": "vqmmc-supply", "expect": null, "set": {"cells": [655]}}
+        {"node": "/soc/sdhci@4784000", "property": "vmmc-supply", "base": null, "source": {"cells": [{"phandle": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13"}]}},
+        {"node": "/soc/sdhci@4784000", "property": "vqmmc-supply", "base": null, "source": {"cells": [{"phandle": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23"}]}}
+      ]
+    },
+    {
+      "id": "sdhc-voltages",
+      "reason": "With vmmc and vqmmc the mmc core takes the highest voltage the supplies offer, about 3.3 V. l13 is fixed at 2.96 V, what 6.1 gave the card. l23 stops at 2.96 V and still reaches 1.8 V for UHS.",
+      "edits": [
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13", "property": "qcom,init-voltage", "base": {"cells": [2700000]}, "source": {"cells": [2960000]}},
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13", "property": "regulator-min-microvolt", "base": {"cells": [2700000]}, "source": {"cells": [2960000]}},
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13", "property": "regulator-max-microvolt", "base": {"cells": [3300000]}, "source": {"cells": [2960000]}},
+        {"node": "/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23", "property": "regulator-max-microvolt", "base": {"cells": [3544000]}, "source": {"cells": [2960000]}}
+      ]
+    },
+    {
+      "id": "usb-ipa-path",
+      "reason": "The 5.0 volcano interconnect driver keeps the IPA configuration slave on cnoc_main. The 6.1 tree named cnoc_cfg for the USB to IPA path, so dwc3-msm could not get the path and dropped its vote.",
+      "edits": [
+        {"node": "/soc/ssusb@a600000", "property": "interconnects", "base": {"cells": [{"phandle": "/soc/interconnect@16E0000"}, 48, {"phandle": "/soc/interconnect@1"}, 512, {"phandle": "/soc/interconnect@16E0000"}, 48, {"phandle": "/soc/interconnect@1600000"}, 525, {"phandle": "/soc/interconnect@24100000"}, 2, {"phandle": "/soc/interconnect@1600000"}, 544]}, "source": {"cells": [{"phandle": "/soc/interconnect@16E0000"}, 48, {"phandle": "/soc/interconnect@1"}, 512, {"phandle": "/soc/interconnect@16E0000"}, 48, {"phandle": "/soc/interconnect@1500000"}, 525, {"phandle": "/soc/interconnect@24100000"}, 2, {"phandle": "/soc/interconnect@1600000"}, 544]}}
       ]
     }
   ],
@@ -86,7 +97,7 @@
     },
     {
       "compatible": "qcom,qcedev",
-      "reason": "6.18 has no qcedev driver, so the node never binds and both interconnect providers wait for it in sync_state. The crypto-engine-off fix-up disables it."
+      "reason": "6.18 has no qcedev driver, so the node never binds and both interconnect providers wait for it in sync_state. The crypto-engine-off difference disables it."
     }
   ],
   "forbidden_properties": ["qcom,disable-lpm"],

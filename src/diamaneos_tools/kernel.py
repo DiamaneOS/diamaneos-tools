@@ -3,10 +3,11 @@
 The kernel is DiamaneOS/kernel_common-6.18 with the FP6 commits
 (DiamaneOS/kernel_common-6.18), built with the pinned Clang and Rust toolchain.
 The Qualcomm drivers are the vendor tree DiamaneOS/kernel_qcom-6.18, built as
-external modules against it. Both repositories, the toolchain and the base
-device tree are pinned in config/kernel-sources-fp6.json and
-config/fp6-kernel-dt.json. The result is the kernel set in the layout of
-device_fairphone_FP6-kernels, which the Android build reads.
+external modules against it, and fp6.dtb is built from its device tree sources.
+Both repositories, the toolchain and the 6.1 device tree the build compares with
+are pinned in config/kernel-sources-fp6.json and config/fp6-kernel-dt.json. The
+result is the kernel set in the layout of device_fairphone_FP6-kernels, which the
+Android build reads.
 """
 import argparse
 import hashlib
@@ -33,6 +34,7 @@ VENDOR_FILES = ROOT / 'config/fp6-minimal/vendor-files.json'
 POLICY = ROOT / 'config/kernel-policy-fp6.json'
 VENDOR_POLICY = ROOT / 'config/kernel-vendor-policy-fp6.json'
 CONFIG_PROFILES = ('production', 'development', 'debug')
+DT_SCRIPT = 'dts/scripts/build-fp6.sh'
 MODULE_NAME = re.compile(r'[A-Za-z0-9_.-]+\.ko')
 DTB_NAME = re.compile(r'[A-Za-z0-9_-]+\.dtb')
 SYMBOL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{0,127}')
@@ -101,11 +103,17 @@ def validate_plan(plan):
 
 
 def validate_dt_plan(dt):
-    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'fixups', 'disabled_nodes', 'forbidden_properties',
+    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'differences', 'disabled_nodes', 'forbidden_properties',
                                             'forbidden_property_exemptions'}
-            and dt['schema_version'] == 1 and isinstance(dt['forbidden_properties'], list)
+            and dt['schema_version'] == 2 and isinstance(dt['forbidden_properties'], list)
             and all(isinstance(n, str) and re.fullmatch(r'[a-zA-Z0-9,._+#-]+', n) for n in dt['forbidden_properties']),
             'invalid device tree plan')
+    found = dt['differences']
+    require(isinstance(found, list) and found and all(
+        isinstance(r, dict) and set(r) == {'id', 'reason', 'edits'} and isinstance(r['id'], str) and isinstance(r['reason'], str)
+        and r['reason'].strip() and isinstance(r['edits'], list) and r['edits'] and all(
+            isinstance(e, dict) and set(e) in ({'node', 'inherit_cells'}, {'node', 'property', 'base', 'source'}) for e in r['edits'])
+        for r in found) and len({r['id'] for r in found}) == len(found), 'invalid device tree differences')
     rows = dt['disabled_nodes']
     require(isinstance(rows, list) and rows and all(
         isinstance(r, dict) and set(r) == {'compatible', 'reason'} and isinstance(r['compatible'], str)
@@ -128,7 +136,7 @@ def validate_dt_plan(dt):
 
 
 def base_digest(dt_plan):
-    """The digest of what preparation fetches for the device tree. The fix-ups edit the files after."""
+    """The digest of what preparation fetches for the device tree comparison and the overlay image."""
     return hashlib.sha256(json.dumps(dt_plan['base'], sort_keys=True).encode()).hexdigest()
 
 
@@ -653,26 +661,43 @@ class Run:
                                      module_metadata, self.common, self.root / self.build_plan['toolchain']['host_libraries'] / 'lib64')
 
     def device_tree(self):
-        """The pinned base with the declared fix-ups."""
+        """fp6.dtb from the vendor tree's sources, held to the pinned 6.1 tree, and the 6.1 overlay image."""
         self.phase('device-tree')
+        started = time.monotonic()
         files = kernel_dt.base_files(self.root / 'base-dt', self.dt_plan['base'])
-        fixed, changes = kernel_dt.apply_fixups(files['dtbs/fp6.dtb'], self.dt_plan['fixups'], self.dt_plan['forbidden_properties'])
+        tree = self.build_device_tree()
+        changes = kernel_dt.check_differences(files['dtbs/fp6.dtb'], tree, self.dt_plan['differences'])
         count = kernel_dt.overlay_count(files['dtbo.img'])
         require(count == self.dt_plan['base']['overlay_count'] == self.recipe['dtbo_count'], 'overlay count changed')
         blobs = kernel_dt.overlays(files['dtbo.img'])
-        enabled = kernel_dt.check_disabled_nodes(fixed, blobs, self.dt_plan['disabled_nodes'])
+        enabled = kernel_dt.check_disabled_nodes(tree, blobs, self.dt_plan['disabled_nodes'])
         require(not enabled, 'nodes of drivers that do not ship are enabled, or an overlay cannot be checked: ' + ', '.join(enabled[:3]) +
                 (' and %d more' % (len(enabled) - 3) if len(enabled) > 3 else ''))
-        present = kernel_dt.check_forbidden_properties(fixed, blobs, self.dt_plan['forbidden_properties'],
+        present = kernel_dt.check_forbidden_properties(tree, blobs, self.dt_plan['forbidden_properties'],
                                                        self.dt_plan['forbidden_property_exemptions'])
-        require(not present, 'a forbidden property is in an overlay: ' + ', '.join(present[:3]) +
+        require(not present, 'a forbidden property is in the device tree or an overlay: ' + ', '.join(present[:3]) +
                 (' and %d more' % (len(present) - 3) if len(present) > 3 else ''))
         self.result['disabled_node_rules_checked'] = len(self.dt_plan['disabled_nodes'])
-        (self.run / 'device-tree-fixups.json').write_bytes(encoded({'base_sha256': self.dt_plan['base']['files'], 'fixups': changes}))
-        (self.run / 'fp6.dtb').write_bytes(fixed)
+        (self.run / 'device-tree-differences.json').write_bytes(encoded({
+            'base_sha256': self.dt_plan['base']['files'], 'fp6.dtb_sha256': hashlib.sha256(tree).hexdigest(), 'differences': changes}))
+        (self.run / 'fp6.dtb').write_bytes(tree)
         call([self.root / self.build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts',
               '-o', self.run / 'fp6.dts', self.run / 'fp6.dtb'], cwd=self.run, env=self.env)
-        self.dtbo, self.overlays, self.tree = files['dtbo.img'], count, fixed
+        self.record('device-tree', started)
+        self.dtbo, self.overlays, self.tree = files['dtbo.img'], count, tree
+
+    def build_device_tree(self):
+        """The vendor tree's device tree script on a clean copy of its dts/ directory, with the core build's dtc and
+        Qualcomm's overlay tools built by the pinned Clang. Its fp6.dtb is the merged tree vendor_boot carries."""
+        source, tools, out = self.run / 'dt-src', self.run / 'dt-tools', self.run / 'dt-out'
+        kernel_build.stage_vendor_path(self.vendor, self.preparation['projects']['vendor']['revision'], source, 'dts')
+        clang = self.llvm / 'clang'
+        require(not any(c.isspace() for c in str(clang)), 'the toolchain path has a space')
+        kernel_build.device_tree_tools(clang, source / 'dts/qcom-dtc', self.core / 'scripts/dtc/dtc', tools, self.env)
+        call(['bash', source / DT_SCRIPT, self.common, out], cwd=self.run, timeout=self.timeout,
+             env={**self.env, 'TOOLS': str(tools), 'CPP': '%s -E' % clang}, log=self.logs / 'device-tree.log')
+        require((out / 'fp6.dtb').is_file(), 'the device tree build made no fp6.dtb')
+        return (out / 'fp6.dtb').read_bytes()
 
     def package(self):
         dtbs = shipped_dtbs(self.recipe)

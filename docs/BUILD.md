@@ -1049,7 +1049,7 @@ bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json
   [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json).
 - The build runs the GKI core and device kernel builds, the vendor module packages, the module
   packaging from [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json), the
-  device tree fix-ups, the configuration policy and the module and KMI checks.
+  device tree from source, the configuration policy and the module and KMI checks.
 - [FP6-KERNEL.md](FP6-KERNEL.md) describes each of these steps and checks.
 
 - Logs and terminal results are in `fp6-kernel/runs/<run>/`. `kernel publish` copies a passed run's

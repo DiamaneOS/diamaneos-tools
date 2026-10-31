@@ -18,11 +18,11 @@
   - `modules/` holds the packages, each with a module registry (`modules.bzl`).
   - `configs/` holds the kernel configuration profiles.
   - `kernel/` holds the device kernel fragments.
-- The device tree is the 6.1 one with fix-ups (below).
+- The device tree is built from the vendor tree's `dts/` and checked against the 6.1 one (below).
 - Never substitute Pixel kernel sources or disable strict KMI, forced module signatures or sandbox checks.
 - [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins both repositories and
   every toolchain part at exact commits. [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json)
-  pins the base device tree. Their URLs are plain values and may change without a new pin.
+  pins the 6.1 device tree and overlay image. Their URLs are plain values and may change without a new pin.
 
 `kernel prepare --workspace DIR`:
 
@@ -33,7 +33,7 @@
   never reset, and so is any untracked input.
 - `--source NAME=PATH` fetches the pinned commit of one project from a local Git repository instead
   of its URL. The commit stays the pin, so the checkout is the same either way.
-- Checks the core header copies (below) and the base device tree files against their digests, and
+- Checks the core header copies (below) and the 6.1 device tree files against their digests, and
   writes `preparation.json`.
 
 `kernel build` runs only on a preparation of the pinned commits and checks every checkout again
@@ -221,18 +221,25 @@ Symbol rules in the same file run on every build, each with its reason:
 
 ## Device tree
 
-The sources hold no 6.18 device tree. The set ships the 6.1 base device tree and overlay
-image, pinned in `config/fp6-kernel-dt.json` by commit and SHA-256, and `kernel build` edits the
-base through the fix-ups of that file (`src/diamaneos_tools/kernel_dt.py`):
+`kernel build` builds `fp6.dtb` from the vendor tree's device tree sources and holds it to the 6.1
+tree it replaces (`src/diamaneos_tools/kernel_dt.py`, plan `config/fp6-kernel-dt.json`):
 
-- Every edit states the value it expects. A different base stops the build.
-- The result must differ from the base in exactly the edited properties and in no node
-  (`device-tree-fixups.json` lists every change).
-- A new property goes first in its node, as `fdtput` adds it.
-- The overlay image is the base one and must hold the number of overlays the packaging recipe
-  names.
-- No property named in `forbidden_properties` may be anywhere in the result (`qcom,disable-lpm`,
-  which UFS low power made obsolete). The same list is scanned in every overlay for the base's SoC.
+- `dts/` of the pinned vendor commit is extracted into the run, and its `scripts/build-fp6.sh`
+  compiles and merges the tree there.
+  - The preprocessor is the pinned Clang and `dtc` is the common tree's, from the core build.
+  - Qualcomm's `fdtoverlay`, `fdtoverlaymerge`, `fdtget` and `fdtput` (`dts/qcom-dtc`) are built
+    with the pinned Clang.
+- The plan pins the 6.1 device tree and overlay image by commit and SHA-256. The set ships that
+  overlay image, which must hold the number of overlays the packaging recipe names.
+- The tree from source may differ from the 6.1 tree only as the plan's `differences` declare
+  (`device-tree-differences.json` lists them).
+  - Each edit names a property and its value in both trees, or asks for the `#address-cells` and
+    `#size-cells` the 6.1 tree resolves by walking up.
+  - Phandle numbers do not count. A value may name a node by path where it holds a phandle.
+  - Nodes, child order and the memory reservations must match, and a declared difference must
+    still be one.
+- No property named in `forbidden_properties` may be in the tree (`qcom,disable-lpm`, which UFS
+  low power made obsolete). The same list is scanned in every overlay for the base's SoC.
   - `forbidden_property_exemptions` names the one overlay that has it, the Volcano emulator board
     (index 84, board id 0xf), which no FP6 board matches.
   - An exemption fails when the overlay no longer has the board id or the property.
@@ -240,23 +247,23 @@ base through the fix-ups of that file (`src/diamaneos_tools/kernel_dt.py`):
 - Nodes of drivers that do not ship must be disabled (`disabled_nodes` in the plan, each with its
   reason, found by compatible): the EUD debugger, the clock debug, the FM radio and the crypto
   engine. An enabled node without its driver keeps its suppliers from sync_state.
-  - The check covers the fixed base and every overlay for the base's SoC, as the bootloader applies
-    them. An overlay without a SoC list applies to all.
-  - It also fails when an overlay enables a listed base node that it targets by path, phandle or
+  - The check covers the tree and every overlay for its SoC, as the bootloader applies them. An
+    overlay without a SoC list applies to all.
+  - It also fails when an overlay enables a listed node that it targets by path, phandle or
     symbol.
-  - A fragment of such an overlay whose target the base does not resolve fails, because the check
+  - A fragment of such an overlay whose target the tree does not resolve fails, because the check
     could not see what the fragment enables.
 
-The fix-ups:
+The differences:
 
 - `nvmem-modem-cpucp`:
   - The 6.18 nvmem core rejects a bit range past its one-byte cell and a zero-width range, and
     with them the whole PMIC SDAM, so UFS waits for its cell.
   - The 5.0 modem remoteproc takes its CMA area at memory-region index 1 where 6.1 took index 2.
   - The 5.0 CPUCP driver looks its regions up by name where 6.1 used the index.
-- `explicit-cells`: parents without `#address-cells` or `#size-cells` get both as properties, with
-  the value the walk up the tree resolves to in the base tree. The build fails when a node resolves
-  to another value, so every parse stays the same and 6.18 stops warning.
+- `explicit-cells`: parents without `#address-cells` or `#size-cells` get both, with the value the
+  walk up the tree resolves to in the 6.1 tree, so every parse stays the same and 6.18 stops
+  warning.
 - `static-ramoops`: 6.18 no longer supports a dynamically placed ramoops region, so it is fixed at
   `0x9fe000000` (4 MiB), where 6.1 and every 6.18 boot placed it.
 - `crypto-engine-off`:
@@ -264,12 +271,13 @@ The fix-ups:
   - Both interconnect providers then wait for it in sync_state and keep their boot votes, and the
     SoC never reaches AOSD or CXSD.
   - No domain may open `/dev/qce` on these builds, so the node is disabled.
-- `sdhc-supplies`:
-  - The 5.0 `sdhci-msm` takes the card supply and the I/O supply as `vmmc` and `vqmmc`. The 6.1 tree
-    names them `vdd` and `vdd-io`, so the driver finds none and never powers the card.
-  - The node gets `vmmc-supply` (the pm7550 l13 regulator) and `vqmmc-supply` (l23).
-  - The edit asserts the node's compatible and reg, both regulator phandles and that neither
-    property exists.
+- `sdhc-supplies`: the 5.0 `sdhci-msm` takes the card supply and the I/O supply as `vmmc` and
+  `vqmmc`. The 6.1 tree names them `vdd` and `vdd-io`, so the driver finds none and never powers
+  the card. They are the pm7550 l13 and l23 regulators.
+- `sdhc-voltages`: with `vmmc` and `vqmmc` the mmc core takes the highest voltage the supplies
+  offer. l13 is fixed at 2.96 V, what 6.1 gave the card, and l23 stops at 2.96 V.
+- `usb-ipa-path`: the 5.0 interconnect driver keeps the IPA configuration slave on `cnoc_main`,
+  so the USB to IPA path names that provider instead of `cnoc_cfg`.
 
 ## Configuration policy
 

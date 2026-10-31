@@ -248,16 +248,45 @@ def exported_symbols(tables, owners=None):
     return found
 
 
-def stage_vendor_modules(vendor, revision, destination):
-    """The modules/ tree of the pinned vendor commit, extracted clean so that the
-    generated Kbuild files never touch the checkout."""
+def stage_vendor_path(vendor, revision, destination, path):
+    """One directory of the pinned vendor commit, extracted clean so that nothing the build
+    writes touches the checkout."""
     destination.mkdir(parents=True)
     archive = destination.with_suffix('.tar')
-    git(vendor, 'archive', '--format=tar', '-o', archive, revision, 'modules')
+    git(vendor, 'archive', '--format=tar', '-o', archive, revision, path)
     with tarfile.open(archive) as tar:
         tar.extractall(destination, filter='data')
     archive.unlink()
+
+
+def stage_vendor_modules(vendor, revision, destination):
+    """The modules/ tree of the pinned vendor commit, where the generated Kbuild files go."""
+    stage_vendor_path(vendor, revision, destination, 'modules')
     require((destination / 'modules/base/Makefile').is_file(), 'the vendor tree has no modules/base')
+
+
+def device_tree_tools(clang, qcom_dtc, dtc, tools, env):
+    """The tools the vendor device tree script takes from TOOLS: the common tree's dtc as the core build made it,
+    and Qualcomm's fdtoverlay, fdtoverlaymerge, fdtget and fdtput, built with the pinned Clang against their own
+    libfdt. ufdt_apply_overlay, the merge script's check that an overlay applies, runs fdtoverlay as the vendor
+    script's own tool build does."""
+    require(dtc.is_file(), 'the core build made no dtc')
+    obj = tools / 'obj'
+    obj.mkdir(parents=True)
+    shutil.copyfile(qcom_dtc / 'version_non_gen.h', obj / 'version_gen.h')
+    flags = ['-O2', '-w', '-I', qcom_dtc / 'libfdt', '-I', qcom_dtc, '-I', obj]
+
+    def compile_c(source):
+        out = obj / (source.parent.name + '-' + source.stem + '.o')
+        call([clang, *flags, '-c', source, '-o', out], cwd=tools, env=env)
+        return out
+    shared = [compile_c(c) for c in sorted((qcom_dtc / 'libfdt').glob('*.c'))] + [compile_c(qcom_dtc / 'util.c')]
+    for name in ('fdtoverlay', 'fdtoverlaymerge', 'fdtget', 'fdtput'):
+        call([clang, '-fuse-ld=lld', '-o', tools / name, compile_c(qcom_dtc / (name + '.c')), *shared], cwd=tools, env=env)
+    shutil.copyfile(dtc, tools / 'dtc')
+    (tools / 'ufdt_apply_overlay').write_text('#!/bin/sh\nexec "%s" -i "$1" -o "$3" "$2"\n' % (tools / 'fdtoverlay'))
+    for name in ('dtc', 'ufdt_apply_overlay'):
+        (tools / name).chmod(0o755)
 
 
 def package_step(ctx, step, stage, outputs):

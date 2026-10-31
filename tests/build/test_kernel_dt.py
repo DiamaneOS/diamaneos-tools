@@ -138,12 +138,14 @@ class DisabledNodeTests(unittest.TestCase):
     def test_the_shipped_rules_name_the_nodes_the_deep_sleep_work_found_and_the_crypto_engine(self):
         plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
         self.assertEqual(['qcom,msm-eud', 'qcom,volcano-debugcc', 'rtc6226', 'qcom,qcedev'], [r['compatible'] for r in plan['disabled_nodes']])
-        # The crypto engine fix-up is what keeps the last rule satisfied.
-        engine = {'/soc/qcedev@1de0000': {'compatible': b'qcom,qcedev\0'}}
-        before = blob({'/': {'qcom,msm-id': self.VOLCANO}, '/soc': {}, **engine})
+        # The crypto engine difference is what keeps the last rule satisfied.
+        engine = {'compatible': b'qcom,qcedev\0'}
+        before = blob({'/': {'qcom,msm-id': self.VOLCANO}, '/soc': {}, '/soc/qcedev@1de0000': engine})
+        after = blob({'/': {'qcom,msm-id': self.VOLCANO}, '/soc': {}, '/soc/qcedev@1de0000': {**engine, 'status': b'disabled\0'}})
         self.assertEqual(['/soc/qcedev@1de0000 in the device tree'], dt.check_disabled_nodes(before, [], plan['disabled_nodes']))
-        fixups = [f for f in plan['fixups'] if f['id'] == 'crypto-engine-off']
-        self.assertEqual([], dt.check_disabled_nodes(dt.apply_fixups(before, fixups)[0], [], plan['disabled_nodes']))
+        self.assertEqual([], dt.check_disabled_nodes(after, [], plan['disabled_nodes']))
+        crypto = [d for d in plan['differences'] if d['id'] == 'crypto-engine-off']
+        self.assertEqual(1, len(dt.check_differences(before, after, crypto)[0]['changes']))
         for rows in ([], [{'compatible': 'x'}], [{'compatible': 'a b', 'reason': 'r'}], [{'compatible': 'a', 'reason': 'r'}] * 2):
             with self.subTest(rows=rows):
                 self.assertRaisesRegex(kernel.KernelError, 'invalid disabled device tree nodes', kernel.validate_dt_plan,
@@ -173,6 +175,10 @@ class ForbiddenPropertyTests(unittest.TestCase):
                          self.check([self.overlay(forbidden=False), self.overlay()]))
         # An overlay for another SoC is not applied.
         self.assertEqual([], self.check([self.overlay(soc=self.CLIFFS)]))
+
+    def test_a_forbidden_property_in_the_device_tree_fails(self):
+        base = blob({'/': {'qcom,msm-id': self.VOLCANO}, '/soc/ufshc': {'qcom,disable-lpm': b''}})
+        self.assertEqual(['/soc/ufshc qcom,disable-lpm in the device tree'], dt.check_forbidden_properties(base, [], self.NAMES))
 
     def test_an_exemption_names_the_overlay_and_the_board_id_that_justifies_it(self):
         overlays = [self.overlay(forbidden=False), self.overlay(board=15)]
@@ -214,61 +220,12 @@ class DeviceTreeTests(unittest.TestCase):
         self.assertEqual([(0x1000, 0x2000)], first.reserved)
         self.assertEqual(self.blob(), dt.serialize(first))
         self.assertEqual(cells(1, 2, 3), dt.find(first.root, '/soc/named').prop('memory-region'))
-        self.assertEqual([], dt.differences(first, dt.parse(self.blob()))[0])
+        self.assertEqual(([], []), dt.tree_differences(first, dt.parse(self.blob())))
 
     def test_rejects_a_blob_that_is_not_a_device_tree(self):
         for data in (b'', b'x' * 64, self.blob()[:-4], self.blob() + b'\0'):
             with self.subTest(size=len(data)):
                 self.assertRaises(dt.DeviceTreeError, dt.parse, data)
-
-    def test_fixups_edit_exactly_the_declared_properties(self):
-        fixups = [{'id': 'a', 'reason': 'test', 'edits': [
-            {'node': '/soc/named', 'property': 'memory-region', 'expect': {'cells': [1, 2, 3]}, 'set': {'cells': [1, 3]}},
-            {'node': '/soc/named', 'property': 'bits', 'expect': {'cells': [0, 0]}, 'set': None},
-            {'node': '/soc/named', 'property': 'reg-names', 'expect': None, 'set': {'strings': ['tx', 'rx']}},
-            {'node': '/soc/plain', 'inherit_cells': [1, 1]},
-            {'node': '/reserved-memory', 'property': '#size-cells', 'expect': {'cells': [2]}, 'set': {'cells': [2]}}]}]
-        out, report = dt.apply_fixups(self.blob(), fixups)
-        fixed = dt.parse(out)
-        named = dt.find(fixed.root, '/soc/named')
-        self.assertEqual(cells(1, 3), named.prop('memory-region'))
-        self.assertIsNone(named.prop('bits'))
-        self.assertEqual(b'tx\0rx\0', named.prop('reg-names'))
-        self.assertEqual(cells(1), dt.find(fixed.root, '/soc/plain').prop('#address-cells'))
-        self.assertEqual(['memory-region', 'bits', 'reg-names', '#address-cells', '#size-cells'],
-                         [c['property'] for c in report[0]['changes']])
-        # A new property goes first in its node, as libfdt adds it.
-        self.assertEqual('#size-cells', dt.find(fixed.root, '/soc/plain').props[0][0])
-
-    def test_a_forbidden_property_anywhere_in_the_result_stops_the_build(self):
-        edit = {'node': '/soc/plain', 'property': 'qcom,disable-lpm', 'expect': None, 'set': {'cells': [1]}}
-        fixup = {'id': 'a', 'reason': 'test', 'edits': [edit]}
-        dt.apply_fixups(self.blob(), [fixup])
-        self.assertRaisesRegex(dt.DeviceTreeError, 'forbidden property: /soc/plain qcom,disable-lpm', dt.apply_fixups,
-                               self.blob(), [fixup], ['qcom,disable-lpm'])
-        # A base that already carries it fails the same way, with or without an edit of it.
-        base = tree()
-        dt.find(base.root, '/soc/named').props.append(('qcom,disable-lpm', b''))
-        other = {'id': 'b', 'reason': 'test', 'edits': [{'node': '/soc/plain', 'inherit_cells': [1, 1]}]}
-        self.assertRaisesRegex(dt.DeviceTreeError, 'forbidden property', dt.apply_fixups, dt.serialize(base), [other],
-                               ['qcom,disable-lpm'])
-
-    def test_an_edit_that_finds_another_value_stops_the_build(self):
-        edit = {'node': '/soc/named', 'property': 'memory-region', 'expect': {'cells': [9]}, 'set': {'cells': [1]}}
-        with self.assertRaisesRegex(dt.DeviceTreeError, 'unexpected memory-region'):
-            dt.apply_fixups(self.blob(), [{'id': 'a', 'reason': 'test', 'edits': [edit]}])
-
-    def test_inherited_cells_must_match_what_the_walk_finds(self):
-        edit = {'node': '/soc/plain', 'inherit_cells': [2, 1]}
-        with self.assertRaisesRegex(dt.DeviceTreeError, 'resolve to another value'):
-            dt.apply_fixups(self.blob(), [{'id': 'a', 'reason': 'test', 'edits': [edit]}])
-
-    def test_malformed_fixups_are_refused(self):
-        for fixup in ({'id': 'a', 'reason': '', 'edits': [{'node': '/soc', 'inherit_cells': [1, 1]}]},
-                      {'id': 'a', 'reason': 'x', 'edits': []},
-                      {'id': 'a', 'reason': 'x', 'edits': [{'node': '/nowhere', 'inherit_cells': [1, 1]}]}):
-            with self.subTest(fixup=fixup):
-                self.assertRaises(dt.DeviceTreeError, dt.apply_fixups, self.blob(), [fixup])
 
     def test_base_files_must_match_their_pins(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -288,58 +245,21 @@ class DeviceTreeTests(unittest.TestCase):
         self.assertRaisesRegex(dt.DeviceTreeError, 'invalid overlay image table', dt.overlay_count,
                                struct.pack('>8I', dt.DTBO_MAGIC, 64, 32, 32, 95, 32, 4096, 0) + bytes(32))
 
-    def sdhc_blob(self, compatible=b'qcom,sdhci-msm-v5\0', reg=(0x8804000, 0x1000), phandles=(0x286, 0x28f), extra=()):
-        """The nodes the shipped sdhc-supplies fix-up asserts, under their real paths."""
-        def make(path, props):
-            node = root
-            for name in path.strip('/').split('/'):
-                found = node.child(name)
-                if found is None:
-                    found = dt.Node(name)
-                    node.children.append(found)
-                node = found
-            node.props = props
-        root = dt.Node('')
-        make('/soc/sdhci@4784000', [('compatible', compatible), ('reg', cells(*reg)), *extra])
-        make('/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob13/regulator-pm7550-l13', [('phandle', cells(phandles[0]))])
-        make('/soc/rsc@17a00000/drv@2/rpmh-regulator-ldob23/regulator-pm7550-l23', [('phandle', cells(phandles[1]))])
-        return dt.serialize(dt.Tree(root, [], 0))
-
-    def test_the_shipped_sdhc_fixup_adds_the_two_supplies_and_asserts_what_it_relies_on(self):
-        plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
-        fixups = [f for f in plan['fixups'] if f['id'] == 'sdhc-supplies']
-        out, report = dt.apply_fixups(self.sdhc_blob(), fixups)
-        card = dt.find(dt.parse(out).root, '/soc/sdhci@4784000')
-        self.assertEqual(cells(0x286), card.prop('vmmc-supply'))
-        self.assertEqual(cells(0x28f), card.prop('vqmmc-supply'))
-        # A new property goes first, so the second one added is the first in the node.
-        self.assertEqual(['vqmmc-supply', 'vmmc-supply'], [name for name, _ in card.props[:2]])
-        self.assertEqual([('/soc/sdhci@4784000', 'vmmc-supply', 'absent', '<0x286>'),
-                          ('/soc/sdhci@4784000', 'vqmmc-supply', 'absent', '<0x28f>')],
-                         [(c['node'], c['property'], c['before'], c['after']) for c in report[0]['changes']])
-        for what, blob in (('compatible', self.sdhc_blob(compatible=b'qcom,sdhci-msm-v4\0')),
-                           ('reg', self.sdhc_blob(reg=(0x8804000, 0x2000))),
-                           ('l13 phandle', self.sdhc_blob(phandles=(0x287, 0x28f))),
-                           ('l23 phandle', self.sdhc_blob(phandles=(0x286, 0x290))),
-                           ('vmmc-supply present', self.sdhc_blob(extra=[('vmmc-supply', cells(1))])),
-                           ('vqmmc-supply present', self.sdhc_blob(extra=[('vqmmc-supply', cells(1))]))):
-            with self.subTest(changed=what):
-                self.assertRaisesRegex(dt.DeviceTreeError, 'unexpected', dt.apply_fixups, blob, fixups)
-
     def test_the_shipped_plan_is_well_formed(self):
         plan = kernel.validate_dt_plan(json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text()))
         self.assertEqual(['qcom,disable-lpm'], plan['forbidden_properties'])
-        ids = [f['id'] for f in plan['fixups']]
-        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off', 'sdhc-supplies'], ids)
-        for fixup in plan['fixups']:
-            self.assertTrue(fixup['reason'].strip())
-            for edit in fixup['edits']:
-                if 'inherit_cells' in edit:
-                    self.assertEqual(2, len(edit['inherit_cells']))
-                else:
-                    for key in ('expect', 'set'):
-                        if edit[key] is not None:
-                            dt.encode(edit[key])
+        self.assertEqual(['nvmem-modem-cpucp', 'explicit-cells', 'static-ramoops', 'crypto-engine-off', 'sdhc-supplies',
+                          'sdhc-voltages', 'usb-ipa-path'], [d['id'] for d in plan['differences']])
+        anything = AnyPath()
+        for edit in [e for d in plan['differences'] for e in d['edits']]:
+            for key in ('base', 'source'):
+                if edit.get(key) is not None:
+                    dt.encode(edit[key], anything)
+        for rows in ([], [{'id': 'a', 'reason': 'r', 'edits': []}], [{'id': 'a', 'reason': 'r', 'edits': [{'node': '/'}]}],
+                     plan['differences'][:1] * 2):
+            with self.subTest(rows=rows):
+                self.assertRaisesRegex(kernel.KernelError, 'invalid device tree differences', kernel.validate_dt_plan,
+                                       dict(plan, differences=rows))
 
     def test_a_plan_with_a_missing_or_an_extra_key_is_refused(self):
         plan = json.loads((ROOT / 'config/fp6-kernel-dt.json').read_text())
@@ -348,6 +268,82 @@ class DeviceTreeTests(unittest.TestCase):
                 self.assertRaisesRegex(kernel.KernelError, 'invalid device tree plan', kernel.validate_dt_plan,
                                        {k: v for k, v in plan.items() if k != name})
         self.assertRaisesRegex(kernel.KernelError, 'invalid device tree plan', kernel.validate_dt_plan, dict(plan, extra=1))
+
+
+class AnyPath(dict):
+    """A phandle for every node path."""
+    def __contains__(self, key):
+        return True
+
+    def __getitem__(self, key):
+        return 1
+
+
+class DifferenceTests(unittest.TestCase):
+    """The tree from source against the base, with phandles numbered differently in each."""
+
+    def base(self, **more):
+        return blob({'/': {}, '/soc': {'#address-cells': cells(1), '#size-cells': cells(1)},
+                     '/soc/a': {'phandle': cells(5), 'reg-names': b'tx\0'}, '/soc/b': {'phandle': cells(6)},
+                     '/soc/user': {'supply': cells(5), 'mode': cells(1)}, '/soc/plain': {}, **more})
+
+    def source(self, **more):
+        return blob({'/': {}, '/soc': {'#address-cells': cells(1), '#size-cells': cells(1)},
+                     '/soc/a': {'phandle': cells(7), 'reg-names': b'tx\0'}, '/soc/b': {'phandle': cells(8)},
+                     '/soc/user': {'supply': cells(7), 'mode': cells(1)}, '/soc/plain': {}, **more})
+
+    def check(self, base, source, edits):
+        return dt.check_differences(base, source, [{'id': 'x', 'reason': 'r', 'edits': edits}])
+
+    def test_renumbered_phandles_are_no_difference(self):
+        self.assertEqual(([], []), dt.tree_differences(dt.parse(self.base()), dt.parse(self.source())))
+        moved = self.source(**{'/soc/user': {'supply': cells(8), 'mode': cells(1)}})
+        self.assertEqual([('/soc/user', 'supply', cells(5), cells(8))], dt.tree_differences(dt.parse(self.base()), dt.parse(moved))[0])
+
+    def test_declared_differences_pass_and_name_nodes_by_path_where_a_phandle_goes(self):
+        source = self.source(**{'/soc/user': {'supply': cells(8), 'mode': cells(2)}, '/soc/plain': {'reg-names': b'rx\0'}})
+        edits = [{'node': '/soc/user', 'property': 'supply', 'base': {'cells': [{'phandle': '/soc/a'}]},
+                  'source': {'cells': [{'phandle': '/soc/b'}]}},
+                 {'node': '/soc/user', 'property': 'mode', 'base': {'cells': [1]}, 'source': {'cells': [2]}},
+                 {'node': '/soc/plain', 'property': 'reg-names', 'base': None, 'source': {'strings': ['rx']}}]
+        report = self.check(self.base(), source, edits)
+        self.assertEqual([('/soc/user', 'supply', '<0x5>', '<0x8>'), ('/soc/user', 'mode', '<0x1>', '<0x2>'),
+                          ('/soc/plain', 'reg-names', 'absent', '"rx"')],
+                         [(c['node'], c['property'], c['base'], c['source']) for c in report[0]['changes']])
+
+    def test_an_undeclared_a_stale_or_another_difference_fails(self):
+        changed = self.source(**{'/soc/user': {'supply': cells(7), 'mode': cells(2)}, '/soc/plain': {'x': b''}})
+        mode = {'node': '/soc/user', 'property': 'mode', 'base': {'cells': [1]}, 'source': {'cells': [2]}}
+        self.assertRaisesRegex(dt.DeviceTreeError, 'beyond the declared differences: /soc/plain x$', self.check,
+                               self.base(), changed, [mode])
+        changed = self.source(**{'/soc/user': {'supply': cells(7), 'mode': cells(2)}})
+        self.assertRaisesRegex(dt.DeviceTreeError, 'no longer one', self.check, self.base(), self.source(), [mode])
+        self.assertRaisesRegex(dt.DeviceTreeError, 'unexpected mode of /soc/user', self.check, self.base(), changed,
+                               [dict(mode, source={'cells': [3]})])
+        self.assertRaisesRegex(dt.DeviceTreeError, 'two edits', self.check, self.base(), changed, [mode, mode])
+
+    def test_nodes_child_order_and_reservations_must_match(self):
+        extra = self.source(**{'/soc/new': {}})
+        self.assertRaisesRegex(dt.DeviceTreeError, 'node /soc/new is only in the source tree', self.check, self.base(), extra, [])
+        swapped = dt.parse(self.source())
+        soc = dt.find(swapped.root, '/soc')
+        soc.children.reverse()
+        self.assertRaisesRegex(dt.DeviceTreeError, 'children of /soc come in another order', dt.check_differences, self.base(),
+                               dt.serialize(swapped), [{'id': 'x', 'reason': 'r', 'edits': []}])
+        reserved = dt.parse(self.source())
+        reserved.reserved = [(0x1000, 0x1000)]
+        self.assertRaisesRegex(dt.DeviceTreeError, 'memory reservations differ', self.check, self.base(), dt.serialize(reserved), [])
+
+    def test_inherited_cells_must_be_what_the_base_resolves(self):
+        source = self.source(**{'/soc/plain': {'#address-cells': cells(1), '#size-cells': cells(1)}})
+        report = self.check(self.base(), source, [{'node': '/soc/plain', 'inherit_cells': [1, 1]}])
+        self.assertEqual(['#address-cells', '#size-cells'], [c['property'] for c in report[0]['changes']])
+        self.assertRaisesRegex(dt.DeviceTreeError, 'resolve to another value', self.check, self.base(), source,
+                               [{'node': '/soc/plain', 'inherit_cells': [2, 1]}])
+        # A base that has one of them already only asserts it.
+        base = self.base(**{'/soc/plain': {'#address-cells': cells(1)}})
+        report = self.check(base, source, [{'node': '/soc/plain', 'inherit_cells': [1, 1]}])
+        self.assertEqual(['#size-cells'], [c['property'] for c in report[0]['changes']])
 
 
 if __name__ == '__main__':

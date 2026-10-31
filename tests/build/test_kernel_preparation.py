@@ -54,7 +54,7 @@ class KernelPreparationTests(unittest.TestCase):
                      'common': {'path': 'common', 'url': str(self.root / 'common'), 'revision': self.common_rev},
                      'toolchain': [{'name': 'tool', 'path': 'toolchain/tool', 'url': str(self.root / 'tool'),
                                     'revision': self.tool_rev}]}
-        self.dt_plan = {'schema_version': 1, 'scope': 'x', 'fixups': [],
+        self.dt_plan = {'schema_version': 2, 'scope': 'x', 'differences': [],
                         'base': {'repository': str(self.root / 'dt'), 'revision': self.dt_rev, 'overlay_count': 1,
                                  'files': {'dtbs/fp6.dtb': sha('dtb'), 'dtbo.img': sha('dtbo')}}}
         self.workspace = self.root / 'workspace'
@@ -137,9 +137,9 @@ class KernelPreparationTests(unittest.TestCase):
         self.plan['vendor']['revision'] = '0' * 40
         self.assertRaisesRegex(kernel.KernelError, 'not at the pin: vendor', self.prepared)
 
-    def test_changing_the_fixups_does_not_ask_for_a_new_preparation_but_a_new_base_does(self):
+    def test_changing_the_differences_does_not_ask_for_a_new_preparation_but_a_new_base_does(self):
         self.prepare()
-        self.dt_plan['fixups'] = [{'id': 'x'}]
+        self.dt_plan['differences'] = [{'id': 'x'}]
         self.prepared()
         self.dt_plan['base']['overlay_count'] = 2
         self.assertRaisesRegex(kernel.KernelError, 'other pins', self.prepared)
