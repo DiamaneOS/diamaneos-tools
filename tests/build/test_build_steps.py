@@ -1,4 +1,5 @@
 import argparse
+import ast
 import contextlib
 import copy
 from dataclasses import replace
@@ -146,6 +147,25 @@ class PlanTests(unittest.TestCase):
     def test_allow_network_is_recorded_as_an_input(self):
         ctx = self.context(allow_network=True)
         self.assertFalse(bw.Runner(ctx.allow_network).isolated(steps.plan_kernel(ctx).actions[1]))
+
+    def test_the_kernel_step_hashes_every_module_the_kernel_code_imports(self):
+        package = ROOT / 'src/diamaneos_tools'
+        found, todo = set(), ['kernel.py']
+        while todo:
+            name = todo.pop()
+            if name in found:
+                continue
+            found.add(name)
+            for node in ast.walk(ast.parse((package / name).read_text())):
+                if isinstance(node, ast.ImportFrom) and (node.level or (node.module or '').startswith('diamaneos_tools')):
+                    module = (node.module or '').removeprefix('diamaneos_tools').lstrip('.')
+                    imported = [module] if module else [alias.name for alias in node.names]
+                elif isinstance(node, ast.Import):
+                    imported = [a.name.removeprefix('diamaneos_tools.') for a in node.names if a.name.startswith('diamaneos_tools.')]
+                else:
+                    continue
+                todo += [m.split('.')[0] + '.py' for m in imported if (package / (m.split('.')[0] + '.py')).is_file()]
+        self.assertEqual(sorted(found), sorted(steps.KERNEL_CODE))
 
     def test_step_options_are_checked(self):
         errors = io.StringIO()

@@ -49,7 +49,8 @@ ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNC
                   '&& m $DIAMANEOS_JOBS $DIAMANEOS_TARGETS')
 KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-packaging.json', 'kernel-policy-fp6.json',
                   'kernel-vendor-policy-fp6.json')
-KERNEL_CODE = ('kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py')
+KERNEL_CODE = ('devices.py', 'kernel.py', 'kernel_config.py', 'kernel_interfaces.py', 'kernel_layout.py', 'process.py',
+               'product_inputs.py', 'safe_json.py', 'vendor.py', 'vendor_extract.py', 'vendor_files.py')
 VENDOR_CODE = ('vendor.py', 'vendor_extract.py', 'vendor_files.py', 'vendor_product.py',
                'carrier_data.py', 'firmware.py', 'firmware_release.py', 'safe_json.py')
 # The parts of the device's build settings (config/fp6-build.json) each step
