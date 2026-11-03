@@ -147,7 +147,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual((result['state'], result['rebased_patches'], result['commits']), ('prepared', 1, 1))
         self.assertEqual(run(self.fork_repo, 'show', result['candidate'] + ':up.txt'), 'v2')
 
-    def test_blobless_clone_fetches_upstream_blobless(self):
+    def test_blobless_clone_keeps_the_new_upstream_blobs_local(self):
         run(self.upstream, 'config', 'uploadpack.allowfilter', 'true')
         run(self.upstream, 'config', 'uploadpack.allowanysha1inwant', 'true')
         partial = self.root / 'partial'
@@ -160,6 +160,9 @@ class ForkTests(unittest.TestCase):
         self.assertEqual((result['state'], result['rebased_patches']), ('prepared', 1))
         self.assertEqual(run(partial, 'config', '--get', 'remote.diamaneos-upstream.promisor'), 'true')
         self.assertEqual(run(partial, 'rev-parse', result['candidate'] + '~1'), new)
+        # Lazy fetches go to the fork's remote, which does not have the upstream's new blobs.
+        env = dict(os.environ, GIT_NO_LAZY_FETCH='1')
+        subprocess.run(['git', '-C', str(partial), 'cat-file', '-e', new + ':big.txt'], check=True, env=env)
 
     def test_fixup_commits_fold_into_their_feature(self):
         commit(self.fork_repo, 'feature.txt', 'one\n', 'Add the feature')

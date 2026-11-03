@@ -176,16 +176,17 @@ def fetch(repo, fork, ref=None, kind=None):
         raise ForkError('invalid upstream reference')
     source = {'branch': 'refs/heads/', 'tag': 'refs/tags/', 'commit': ''}[kind] + ref
     if git(repo, 'config', '--get', 'remote.origin.promisor', check=False).stdout.strip() == 'true':
-        # A blobless clone: fetch the upstream blobless too, through a second promisor remote, so the
-        # rebase downloads only the files the fork's patches touch instead of the upstream's whole history.
+        # A blobless clone: fetch through a second promisor remote, with the blobs of the upstream's new commits.
+        # A lazy fetch asks one remote for the whole batch, so a batch with blobs only the upstream has would
+        # fail on the fork's remote. Shared history stays blobless.
         remote = 'diamaneos-upstream'
         if git(repo, 'remote', 'get-url', remote, check=False).returncode != 0:
             git(repo, 'remote', 'add', remote, fork['upstream']['url'])
         else:
             git(repo, 'remote', 'set-url', remote, fork['upstream']['url'])
         git(repo, 'config', f'remote.{remote}.promisor', 'true')
-        git(repo, 'config', f'remote.{remote}.partialclonefilter', 'blob:none')
-        git(repo, 'fetch', '--quiet', '--no-tags', '--filter=blob:none', remote, source)
+        git(repo, 'config', '--unset-all', f'remote.{remote}.partialclonefilter', check=False)
+        git(repo, 'fetch', '--quiet', '--no-tags', remote, source)
     else:
         git(repo, 'fetch', '--quiet', '--no-tags', fork['upstream']['url'], source)
     commit = git(repo, 'rev-parse', 'FETCH_HEAD^{commit}').stdout.strip()
