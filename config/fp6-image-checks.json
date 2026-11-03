@@ -3573,7 +3573,7 @@
     },
     {
       "id": "wifi-hostapd-source-built",
-      "why": "hostapd is AOSP's source build, not stock's (FP6.QREL.16.111.0).",
+      "why": "hostapd is AOSP's source build, not stock's (FP6.QREL.16.115.0).",
       "type": "files_not_stock",
       "files": {
         "VENDOR/bin/hw/hostapd": "0fd9a00c37bd103e158e53780a88e77c794087c37332b5bd1d7894063b5de87f"

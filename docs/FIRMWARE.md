@@ -10,9 +10,9 @@ DiamaneOS delivers it.
   before the OS when the phone runs older firmware ([Delivery](#delivery)).
 - Every update carries the A/B firmware of that release too ([Delivery](#delivery)).
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
-  the selected and the previous factory package (`selected_build`, `previous_build`) with size and
-  SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi firmware
-  files and the stock flash order.
+  the selected and the earlier tracked factory packages (`selected_build`, `previous_build`, `releases`)
+  with size and SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi
+  firmware files and the stock flash order.
 - It was read from the archives, not from a phone.
 
 - Settings shows which release the booted slot's firmware is (About phone > Android version >

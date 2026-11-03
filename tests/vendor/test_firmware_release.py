@@ -28,26 +28,26 @@ class FirmwareReleaseTableTests(unittest.TestCase):
     def firmware(self, build):
         return self.inventory['releases'][build]['images']['firmware']
 
-    def test_committed_table_checks_the_22_ab_partitions_of_both_releases(self):
+    def test_committed_table_checks_the_22_ab_partitions_of_every_release(self):
         data = self.table()
         self.assertEqual(data, self.table())
         lines = data.decode().splitlines()
         self.assertTrue(all(LINE.fullmatch(line) for line in lines))
-        self.assertEqual(44, len(lines))
+        self.assertEqual(66, len(lines))
         rows = [line.split() for line in lines]
         # Newest release first, partitions in name order.
-        self.assertEqual(['16.111.0'] * 22 + ['16.100.0'] * 22, [row[2] for row in rows])
-        for release in ('16.111.0', '16.100.0'):
+        self.assertEqual(['16.115.0'] * 22 + ['16.111.0'] * 22 + ['16.100.0'] * 22, [row[2] for row in rows])
+        for release in ('16.115.0', '16.111.0', '16.100.0'):
             names = [row[1] for row in rows if row[2] == release]
             self.assertEqual(CHECKED, names)
             # 266,677,504 bytes: modem 186 MB, dsp 67 MB, the rest 13.6 MB.
             self.assertEqual(266677504, sum(int(row[3]) for row in rows if row[2] == release))
-        tz = self.firmware('FP6.QREL.16.111.0')['tz.mbn']
-        self.assertIn(f'image tz 16.111.0 {tz["bytes"]} {tz["sha256"]}', lines)
-        # Every checked image differs between the two releases, so each
+        tz = self.firmware('FP6.QREL.16.115.0')['tz.mbn']
+        self.assertIn(f'image tz 16.115.0 {tz["bytes"]} {tz["sha256"]}', lines)
+        # Every checked image differs between the releases, so each
         # partition alone tells them apart.
         for name in CHECKED:
-            self.assertEqual(2, len({row[4] for row in rows if row[1] == name}), name)
+            self.assertEqual(3, len({row[4] for row in rows if row[1] == name}), name)
         self.assertLess(len(data), firmware_release.MAX_TABLE_BYTES)
 
     def test_single_copy_image_cannot_be_checked(self):
@@ -122,7 +122,7 @@ class FirmwareReleaseTableTests(unittest.TestCase):
         inventory['releases']['FP6.QREL.16.99.0'] = inventory['releases'].pop('FP6.QREL.16.111.0')
         inventory['releases']['FP6.QREL.16.99.0']['images']['firmware']['tz.mbn']['sha256'] = 'f' * 64
         releases = [line.split()[2] for line in firmware_release.table(inventory, self.config).decode().splitlines()]
-        self.assertEqual(['16.100.0'] * 22 + ['16.99.0'] * 22, releases)
+        self.assertEqual(['16.115.0'] * 22 + ['16.100.0'] * 22 + ['16.99.0'] * 22, releases)
 
 
 if __name__ == '__main__':

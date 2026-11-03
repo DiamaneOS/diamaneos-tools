@@ -607,7 +607,7 @@
     },
     {
       "path": "vendor/lib64/camx.device-impl.so",
-      "sha256": "625de850bab6e38a930e9e64c3f622b57eb75b51f6392b35e0d046b58d352135",
+      "sha256": "bb24d948c26d2bdb41ee84ad27a0c09faf28e1c5e48df1085f97e0aa6161bea8",
       "bytes": 424216
     },
     {
@@ -622,7 +622,7 @@
     },
     {
       "path": "vendor/lib64/com.qti.chiusecaseselector.so",
-      "sha256": "2e84becd7f493782eb1caaab73b005820004cb5a4c9c749511003adb3983ae63",
+      "sha256": "b6ca621a95549d68cbcabd6e66ae3c3f894fc5febb437392e3b62a6f9957c5a2",
       "bytes": 662704
     },
     {
@@ -817,7 +817,7 @@
     },
     {
       "path": "vendor/lib64/hw/camera.qcom.so",
-      "sha256": "ef6cbc71359ab49c545a3c2ffa2e7b0a37ae96742f58c08f3046ad4f5ea1f436",
+      "sha256": "7661b7b3acb1850bfc6a86e24175910adbd921a552bf6c9be121e81df2488a81",
       "bytes": 33358592
     },
     {
@@ -1812,13 +1812,13 @@
     },
     {
       "path": "vendor/lib64/libstagefright_aidl_bufferpool2.so",
-      "sha256": "6c9538aa2dc7d33574579b44e02089a151fa44a9573ff41dc5561d8eb0ed328b",
-      "bytes": 287496
+      "sha256": "e4ea7c7660e24e6d676c3e3f3b5aea6cc87b321d942aad427446bd3da21b426f",
+      "bytes": 287512
     },
     {
       "path": "vendor/lib64/libstagefright_bufferpool@2.0.1.so",
-      "sha256": "32946a43e8046ec21ca35be2c4bef750b433ec6ed8dda84348da848871763fe7",
-      "bytes": 281936
+      "sha256": "9e8cfc52ba38a5bfaf42b6c28cd3ebd3f50316f7d1730478ec044e50fcd700c4",
+      "bytes": 290136
     },
     {
       "path": "vendor/lib64/libswregistrationalgo.so",
@@ -45495,7 +45495,7 @@
     },
     {
       "path": "vendor/firmware/gen80300_zap.mbn",
-      "sha256": "347ccee9e663ab6ed6fe269894c336354225f5e875ff7ba84bb303d93875a384",
+      "sha256": "d67e9bb6397718d1398882785a76282ee2ffb38f0d389a5e010650caf18d598a",
       "bytes": 12088,
       "consumer": "qcom,adreno-gpu-gen8-3-0",
       "source": "vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h:adreno_gpu_core_gen8_3_0"
@@ -45509,7 +45509,7 @@
     },
     {
       "path": "vendor/firmware/CAMERA_ICP.mbn",
-      "sha256": "5f7dc5f898b131bfe82b4f4507bcaf665abad38a2f2cbd50362633e0a89108a5",
+      "sha256": "7687bf7e33d1b044d7cdfc98f2489ef6ac5f8e5e8c19fa9f0747b888b665eedb",
       "bytes": 516760,
       "consumer": "qcom,cam-icp (camera.ko, cam_icp_v2 secure PIL)",
       "source": "kernel_qcom_camera drivers/cam_icp/icp_hw/icp_proc/icp_v2_hw/cam_icp_v2_core.c __load_firmware (\"%s.mbn\")"
@@ -45537,7 +45537,7 @@
     },
     {
       "path": "vendor/firmware/vpu20_2v.mbn",
-      "sha256": "55fb10137f18d9b67559b2bd53204c99e0146608e6ac5bf3b3f3e04609283502",
+      "sha256": "9f0de8f608c3962f42d54141403a10046fafc7fdea073e7a8343cadcee2c7de4",
       "bytes": 2036328,
       "consumer": "qcom,volcano-vidc (msm_video.ko, Iris video core)",
       "source": "kernel_qcom_video driver/platform/volcano/src/msm_vidc_volcano.c .fwname \"vpu20_2v\"; driver/vidc/src/firmware.c request_firmware(\"%s.mbn\")"

@@ -376,7 +376,7 @@ class PackageTests(unittest.TestCase):
         inventory, policy = self.ctx.firmware_inventory, self.ctx.config['firmware']
         plan = firmware.plan(inventory, policy)
         record = json.loads((directory / 'build.json').read_text())
-        self.assertEqual('FP6.QREL.16.111.0', record['firmware']['release'])
+        self.assertEqual('FP6.QREL.16.115.0', record['firmware']['release'])
         self.assertEqual(record['stock_build'], record['firmware']['release'])
         sums = image_package.read_sums(directory)
         for name, identity in plan['images'].items():
@@ -393,13 +393,13 @@ class PackageTests(unittest.TestCase):
     def test_firmware_from_another_package_is_refused(self):
         release = self.ctx.firmware_inventory['selected_build']
         self.ctx.firmware_inventory['releases'][release]['archive']['sha256'] = '0' * 64
-        with self.assertRaisesRegex(bw.BuildStepError, 'not the factory package of FP6.QREL.16.111.0'):
+        with self.assertRaisesRegex(bw.BuildStepError, 'not the factory package of FP6.QREL.16.115.0'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
     def test_firmware_of_another_release_than_the_vendor_files_is_refused(self):
         inventory = self.ctx.firmware_inventory
         inventory['selected_build'] = inventory['previous_build']
-        with self.assertRaisesRegex(bw.BuildStepError, 'vendor files come from FP6.QREL.16.111.0'):
+        with self.assertRaisesRegex(bw.BuildStepError, 'vendor files come from FP6.QREL.16.115.0'):
             run_plan(self.ctx, image_package.plan(self.ctx))
 
     def test_firmware_names_never_replace_an_os_image(self):

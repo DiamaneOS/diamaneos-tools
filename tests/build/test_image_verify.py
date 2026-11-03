@@ -3145,7 +3145,7 @@ class GenericCheckTests(unittest.TestCase):
             v = self.harness(members, tools=FakeTools({('debugfs_static',): debugfs}))
             return subject.check_firmware_release_table(v)
         member = 'VENDOR/etc/diamaneos/firmware-releases.txt'
-        self.assertEqual((True, 'releases 16.100.0, 16.111.0'), check({member: table}))
+        self.assertEqual((True, 'releases 16.100.0, 16.111.0, 16.115.0'), check({member: table}))
         ok, detail = check({member: stale})
         self.assertFalse(ok)
         self.assertIn(member + ' differs', detail)
@@ -3379,7 +3379,7 @@ class ConfigTests(unittest.TestCase):
         data[-1] = 1
         self.assertEqual(config['wipe']['images']['frp']['sha256'], hashlib.sha256(bytes(data)).hexdigest())
         inventory = json.loads((ROOT / 'config/fp6-firmware-inventory.json').read_text())
-        wipe = inventory['releases']['FP6.QREL.16.111.0']['images']['wipe']
+        wipe = inventory['releases']['FP6.QREL.16.115.0']['images']['wipe']
         self.assertEqual(wipe['frp_for_factory.img']['sha256'], config['wipe']['images']['frp']['sha256'])
         self.assertEqual(wipe['userdata.img']['bytes'], config['wipe']['images']['userdata']['bytes'])
 

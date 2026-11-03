@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from diamaneos_tools import firmware
 
-RELEASE = 'FP6.QREL.16.111.0'
-PREVIOUS = 'FP6.QREL.16.100.0'
+RELEASE = 'FP6.QREL.16.115.0'
+PREVIOUS = 'FP6.QREL.16.111.0'
 # A small stand-in for a factory package: the same kinds of entries as the
 # real one (A/B, single and mixed partitions, a stock pvmfw, state partitions).
 FIRMWARE = {
@@ -36,7 +36,7 @@ def synthetic_firmware(root: Path, release=RELEASE, content=None, misc_sectors=2
     """A factory package, its inventory and a firmware policy for tests.
 
     Returns (inventory, policy, archive path, {image: bytes})."""
-    top = f'{release}.20260831102426_WS1Q-factory'
+    top = f'{release}.20261009120337_WS1R-factory'
     data = {name: (content or {}).get(name, f'{release} {name}'.encode())
             for name in list(FIRMWARE) + list(OS) + list(WIPE)}
     archive = root / f'{top}.zip'
@@ -203,7 +203,7 @@ class StageTests(unittest.TestCase):
     def test_another_package_is_refused(self):
         inventory = copy.deepcopy(self.inventory)
         inventory['releases'][RELEASE]['archive']['sha256'] = '0' * 64
-        with self.assertRaisesRegex(firmware.FirmwareError, 'not the factory package of FP6.QREL.16.111.0'):
+        with self.assertRaisesRegex(firmware.FirmwareError, 'not the factory package of FP6.QREL.16.115.0'):
             firmware.stage(self.archive, inventory, self.plan, self.out)
         self.assertEqual([], list(self.out.iterdir()))
 
@@ -264,8 +264,8 @@ class CheckSetTests(unittest.TestCase):
         self.assertIn('flash steps differ', ' '.join(self.problems(record)))
         record = copy.deepcopy(self.record)
         record['release'] = PREVIOUS
-        self.assertIn('FP6.QREL.16.100.0', ' '.join(self.problems(record)))
-        self.assertIn('vendor files come from FP6.QREL.16.100.0',
+        self.assertIn('FP6.QREL.16.111.0', ' '.join(self.problems(record)))
+        self.assertIn('vendor files come from FP6.QREL.16.111.0',
                       ' '.join(firmware.check_set(self.out, self.record, self.inventory, self.policy, PREVIOUS)))
         (self.out / 'modemst1.img').write_bytes(b'\1' + bytes(RESET_BYTES - 1))
         self.assertIn('modemst1 image is not the declared zeros', ' '.join(self.problems()))

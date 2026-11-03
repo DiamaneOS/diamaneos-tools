@@ -105,8 +105,8 @@
     }
   ],
   "device_inputs": {
-    "selected_stock_build": "FP6.QREL.16.111.0",
-    "selected_stock_factory_sha256": "97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc",
+    "selected_stock_build": "FP6.QREL.16.115.0",
+    "selected_stock_factory_sha256": "cb262dc7a9c27d68528fa43b77c2474b53a1a1740562c9e64e2991ab63c089b1",
     "generated_input_manifest_required": true,
     "generated_input_manifest_status": "verified",
     "device_unique_material_allowed": false

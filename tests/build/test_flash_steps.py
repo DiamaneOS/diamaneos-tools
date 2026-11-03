@@ -37,7 +37,7 @@ Finished. Total time: 0.025s
 OKAY [  0.003s]
 Finished. Total time: 0.003s
 '''
-OLDER, SHIPPED, NEWER = 'FP6.QREL.16.100.0', 'FP6.QREL.16.111.0', 'FP6.QREL.16.120.0'
+OLDER, SHIPPED, NEWER = 'FP6.QREL.16.111.0', 'FP6.QREL.16.115.0', 'FP6.QREL.16.120.0'
 
 
 class FlashStepTests(unittest.TestCase):
@@ -433,7 +433,7 @@ class FlashStepTests(unittest.TestCase):
         with self.assertRaisesRegex(flash_steps.FlashError, 'Which firmware does the phone run'):
             self.text(phone=self.phone())
         with self.assertRaisesRegex(flash_steps.FlashError, 'not an FP6 stock build number'):
-            self.text(phone=self.phone(), phone_firmware='16.100')
+            self.text(phone=self.phone(), phone_firmware='16.111')
 
     def test_older_firmware_is_written_first_to_both_slots_in_stock_order(self):
         text = self.text(phone=self.phone(), phone_firmware=OLDER)
@@ -470,7 +470,7 @@ class FlashStepTests(unittest.TestCase):
         text = self.text(phone_firmware=SHIPPED)
         self.assertNotIn('abl', text)
         self.assertNotIn('modemst', text)
-        self.assertIn('already runs FP6.QREL.16.111.0', text)
+        self.assertIn('already runs FP6.QREL.16.115.0', text)
         self.assertNotIn('not been tested on a phone', text)
         # A wipe still resets the firmware's state partitions, back in the bootloader.
         commands = self.commands(phone_firmware=SHIPPED, wipe=True)

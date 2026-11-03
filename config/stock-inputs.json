@@ -37,6 +37,28 @@
       "article_updated_at": "2026-10-02T16:00:29Z",
       "observed_at": "2026-10-06",
       "purpose": "Lists FP6.QREL.16.111.0 for the Gen. 6 and 6+ (the official host link, release date 2026-09-28, security patch 2026-09-05) with SHA-256 97308062afef34cb6edaa5ba6ae30cf5aa61650f6915457fae1abc5c0b5eb9cc, the pinned archive hash"
+    },
+    {
+      "id": "fairphone-fp6-release-notes-16.115.0",
+      "url": "https://support.fairphone.com/hc/en-us/articles/24463713641234-The-Fairphone-Gen-6-Gen-6-Release-Notes",
+      "api_url": "https://support.fairphone.com/api/v2/help_center/en-us/articles/24463713641234.json",
+      "article_updated_at": "2026-10-30T17:00:46Z",
+      "observed_at": "2026-11-03",
+      "purpose": "FP6.QREL.16.115.0 release date (2026-10-30) and security patch (2026-10-05). The change list names only the security patch level."
+    },
+    {
+      "id": "fairphone-android-builds-16.115.0",
+      "url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.115.0.20261009120337_WS1R-factory.zip",
+      "observed_at": "2026-11-03",
+      "purpose": "Official download host. The host's object metadata records the uploaded file's MD5."
+    },
+    {
+      "id": "fairphone-manual-install-16.115.0",
+      "url": "https://support.fairphone.com/hc/en-us/articles/18896094650513-How-to-manually-install-Android-on-your-Fairphone",
+      "api_url": "https://support.fairphone.com/api/v2/help_center/en-us/articles/18896094650513.json",
+      "article_updated_at": "2026-11-03T12:30:31Z",
+      "observed_at": "2026-11-03",
+      "purpose": "Lists FP6.QREL.16.115.0 for the Gen. 6 and 6+ (the official host link, release date 2026-10-30, security patch 2026-10-05) with SHA-256 cb262dc7a9c27d68528fa43b77c2474b53a1a1740562c9e64e2991ab63c089b1, the pinned archive hash"
     }
   ],
   "archives": [
@@ -94,7 +116,7 @@
     },
     {
       "id": "fairphone-fp6-a16-factory-16.111.0",
-      "status": "VERIFIED_INPUT_SELECTED_FOR_GENERATION",
+      "status": "VERIFIED_INPUT",
       "product": "FP6",
       "region": "EU",
       "region_note": "One FP6.QREL.16.111.0 build for all regions per the release notes; the package names no region.",
@@ -121,6 +143,36 @@
         "flash_script_identical_to_16.100.0": true,
         "archive_executed": false
       }
+    },
+    {
+      "id": "fairphone-fp6-a16-factory-16.115.0",
+      "status": "VERIFIED_INPUT_SELECTED_FOR_GENERATION",
+      "product": "FP6",
+      "region": "EU",
+      "region_note": "One FP6.QREL.16.115.0 build for all regions per the release notes; the package names no region.",
+      "package_type": "user-factory",
+      "filename": "FP6.QREL.16.115.0.20261009120337_WS1R-factory.zip",
+      "download_url": "https://android-builds.fairphone.com/FP6/A16/FP6.QREL.16.115.0.20261009120337_WS1R-factory.zip",
+      "build_id": "FP6.QREL.16.115.0",
+      "incremental": "WS1R",
+      "android_version": 16,
+      "release_date": "2026-10-30",
+      "security_patch": "2026-10-05",
+      "size_bytes": 3761791780,
+      "sha256": "cb262dc7a9c27d68528fa43b77c2474b53a1a1740562c9e64e2991ab63c089b1",
+      "md5": "253dcfed5c44646439a915c8d7529fbd",
+      "verification": {
+        "official_sha256_match": "PASS",
+        "official_host_md5_match": "PASS",
+        "repeat_read_sha256_match": "PASS",
+        "zip_crc": "PASS",
+        "safe_unique_member_paths": "PASS",
+        "required_recovery_members": "PASS",
+        "embedded_sha256_declared_files": 76,
+        "embedded_sha256_mismatches": 0,
+        "flash_script_identical_to_16.111.0": true,
+        "archive_executed": false
+      }
     }
   ],
   "excluded_current_alternative": {
@@ -134,10 +186,10 @@
     "reason": "US build: it must not be used to restore or flash an EU phone. It is kept as the US stock comparison input."
   },
   "selected_generator_input": {
-    "build_id": "FP6.QREL.16.111.0",
-    "archive_id": "fairphone-fp6-a16-factory-16.111.0",
-    "selected_on": "2026-09-30",
-    "previous_build_id": "FP6.QREL.16.100.0",
-    "reason": "Latest stock release (2026-09-05 security patch) with Fairphone's fix for apps failing to load on Wi-Fi. Vendor files and firmware should come from the same stock release."
+    "build_id": "FP6.QREL.16.115.0",
+    "archive_id": "fairphone-fp6-a16-factory-16.115.0",
+    "selected_on": "2026-11-03",
+    "previous_build_id": "FP6.QREL.16.111.0",
+    "reason": "Latest stock release (2026-10-05 security patch), with the message queue fix in the stock camera and buffer pool libraries. Vendor files and firmware should come from the same stock release."
   }
 }

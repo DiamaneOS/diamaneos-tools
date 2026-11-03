@@ -4,7 +4,7 @@ fwrelease (device repository, firmware/) hashes the booted slot's A/B firmware
 partitions once per boot and reports the Fairphone release they all match,
 "mixed" or "unknown" (ro.vendor.diamaneos.firmware_release, shown in Settings).
 The phone cannot tell releases apart otherwise: the Qualcomm version strings
-are the same in 16.100.0 and 16.111.0. This module writes the table it compares
+are the same in 16.100.0, 16.111.0 and 16.115.0. This module writes the table it compares
 against from config/fp6-firmware-inventory.json and the firmware_release block
 of config/fp6-build.json, one line per partition and release:
 
@@ -30,7 +30,7 @@ MAX_TABLE_BYTES = 256 * 1024
 
 
 def version(build, prefix):
-    """16.111.0 for FP6.QREL.16.111.0."""
+    """16.115.0 for FP6.QREL.16.115.0."""
     if not isinstance(build, str) or not build.startswith(prefix) or not VERSION.fullmatch(build[len(prefix):]):
         raise VendorError('a firmware release is not named ' + prefix + 'N.N.N')
     return build[len(prefix):]
