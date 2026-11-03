@@ -121,20 +121,13 @@ class RequiredModuleTests(unittest.TestCase):
         self.assertRaisesRegex(KernelError, 'listed twice', package.required_modules, {'required_modules': [self.ROW, self.ROW]})
         self.assertEqual([], package.required_modules({}))
 
-    def test_the_committed_recipe_ships_the_tipc_module_nicmd_needs_as_6_1_does(self):
+    def test_the_committed_recipe_ships_no_tipc_module(self):
         import json
         top = Path(__file__).resolve().parents[2]
         recipe = json.loads((top / 'config/fp6-kernel-packaging.json').read_text())
-        shipped = {row['path'] for row in json.loads((top / 'config/fp6-minimal/vendor-files.json').read_text())['files']}
-        self.assertIn('vendor/bin/nicmd', shipped)
-        self.assertEqual((['tipc.ko'], []), package.check_required_modules(recipe, shipped))
-        # Without the vendor file the module may not ship.
-        self.assertRaisesRegex(KernelError, 'tipc.ko is placed .* nothing shipped needs it', package.check_required_modules, recipe,
-                               shipped - {'vendor/bin/nicmd'})
-        self.assertEqual(['tipc.ko'], [r['module'] for r in recipe['required_modules']])
-        self.assertIn('tipc.ko', recipe['partitions']['system_dlkm'])
-        load = recipe['load_lists']['system_dlkm/modules.load']
-        self.assertEqual(['8021q.ko', 'tipc.ko', 'rfkill.ko'], load[-3:])
+        self.assertEqual([], recipe['required_modules'])
+        self.assertNotIn('tipc.ko', recipe['partitions']['system_dlkm'])
+        self.assertNotIn('tipc.ko', recipe['load_lists']['system_dlkm/modules.load'])
         package.check_placement(recipe, lambda name: [])
 
 

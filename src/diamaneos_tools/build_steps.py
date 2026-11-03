@@ -48,8 +48,7 @@ ANDROID_SCRIPT = ('source build/envsetup.sh >/dev/null && lunch "$DIAMANEOS_LUNC
                   '&& { [ ! -d "$OUT_DIR/target/product/$DIAMANEOS_PRODUCT" ] || m $DIAMANEOS_JOBS installclean; } '
                   '&& m $DIAMANEOS_JOBS $DIAMANEOS_TARGETS')
 KERNEL_RECIPES = ('kernel-sources-fp6.json', 'fp6-kernel-build.json', 'fp6-kernel-dt.json', 'fp6-kernel-packaging.json',
-                  'fp6-kernel-qcacld.config', 'fp6-kernel-tipc.config', 'fp6-kernel-tipc-local.config',
-                  'fp6-kernel-tipc-open.config', 'kernel-policy-fp6.json', 'kernel-vendor-policy-fp6.json',
+                  'fp6-kernel-qcacld.config', 'kernel-policy-fp6.json', 'kernel-vendor-policy-fp6.json',
                   'fp6-minimal/vendor-files.json')
 # The kernel the Android build takes is the production profile. The development profile skips the production tier of
 # the policy and the debug profile has the debug aids on, and neither is published.
@@ -81,7 +80,7 @@ OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
 OFFICIAL_MARKER = 'official'
 # The open data stack is the default build (DIAMANEOS_DATAD=true, read by the device's BoardConfig.mk and
 # telephony.mk). The vendor tree is made without the stock nicmd files and the Android step sets the variable.
-# --no-datad builds with the stock nicmd instead and sets it to false (the device's own default is true). The
+# --no-datad makes the vendor tree with the stock nicmd and sets it to false, which the device refuses. The
 # workspace remembers --no-datad in this state file, the way it remembers --official. --datad removes it.
 DATAD_FLAG = 'DIAMANEOS_DATAD'
 STOCK_DATA_MARKER = 'no-datad'
@@ -1569,7 +1568,8 @@ def make_context(args, echo=print) -> Context:
     # Likewise a workspace that built with --official keeps building official images.
     given = getattr(args, 'official', None)
     official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
-    # The open data stack is the default, and a workspace that built with --no-datad keeps the stock nicmd.
+    # The open data stack is the default. A workspace that built with --no-datad keeps that choice, and the device
+    # refuses it, as it has no policy for the stock nicmd.
     datad_given = getattr(args, 'datad', None)
     datad = datad_given if datad_given is not None else not (workspace.state_dir / STOCK_DATA_MARKER).is_file()
     pinned = None
@@ -1611,8 +1611,9 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument('--datad', action=argparse.BooleanOptionalAction, default=None,
                         help='build with the open data stack (DIAMANEOS_DATAD=true), which is the default: the '
                              'vendor tree has no stock nicmd and nicm libraries, and the device builds the daemon '
-                             'datad and the two replacement libraries from source. --no-datad builds with the '
-                             'stock nicmd instead (DIAMANEOS_DATAD=false). The workspace remembers the choice')
+                             'datad and the two replacement libraries from source. --no-datad sets '
+                             'DIAMANEOS_DATAD=false, which the device refuses, as it has no policy for the stock '
+                             'nicmd')
     result.add_argument('--jobs', type=int, help='parallel jobs (default: CPU count, limited by RAM)')
     result.add_argument('--allow-network', action='store_true',
                         help='compile with network access instead of without it. Only for hosts where '

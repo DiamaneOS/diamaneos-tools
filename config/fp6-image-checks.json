@@ -943,41 +943,11 @@
       ]
     },
     {
-      "id": "tipc-module",
-      "why": "TIPC as a module without the diag module.",
-      "type": "files_present",
-      "paths": [
-        "SYSTEM_DLKM/lib/modules/tipc.ko"
-      ]
-    },
-    {
-      "id": "tipc-loaded",
-      "why": "TIPC is in the system_dlkm load list.",
-      "type": "text",
-      "files": [
-        "SYSTEM_DLKM/lib/modules/modules.load"
-      ],
-      "lines": [
-        "tipc.ko"
-      ]
-    },
-    {
       "id": "no-diag-module",
       "why": "The diag module stays out.",
       "type": "files_absent",
       "paths": [
         "SYSTEM_DLKM/lib/modules/diag.ko"
-      ]
-    },
-    {
-      "id": "tipc-policy",
-      "why": "TIPC sockets have policy.",
-      "type": "text",
-      "files": [
-        "VENDOR/etc/selinux/vendor_sepolicy.cil"
-      ],
-      "contains": [
-        "tipc_socket"
       ]
     },
     {

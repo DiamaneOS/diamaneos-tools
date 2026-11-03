@@ -27,10 +27,10 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual({'CONFIG_A': ['m', 'y'], 'CONFIG_B': ['y', None]}, unmet)
 
     def test_an_unmet_request_is_undeclared_hidden_or_changed(self):
-        declared = {'CONFIG_TIPC_LOCAL_ONLY', 'CONFIG_A'}
+        declared = {'CONFIG_B', 'CONFIG_A'}
         self.assertEqual('the pinned common kernel does not declare it', build.unmet_reason('CONFIG_X', None, declared))
         self.assertEqual('the pinned common kernel declares it, but an option it depends on is off',
-                         build.unmet_reason('CONFIG_TIPC_LOCAL_ONLY', None, declared))
+                         build.unmet_reason('CONFIG_B', None, declared))
         self.assertEqual('it ends up y', build.unmet_reason('CONFIG_A', 'y', declared))
 
     def test_device_build_may_differ_only_in_its_declared_symbols(self):
@@ -201,18 +201,6 @@ class BuildPlanTests(unittest.TestCase):
         self.assertEqual(['configs/diamaneos_defconfig'], core['fragments'])
         self.assertEqual('arch/arm64/configs/gki_defconfig', core['defconfig'])
         self.assertEqual(set(kernel.CONFIG_PROFILES), set(core['profile_fragments']))
-
-    def test_every_profile_builds_tipc_as_a_module_all_but_debug_ask_for_local_only_and_debug_turns_it_off(self):
-        fragments = self.plan['core']['tool_fragments']
-        self.assertEqual(set(kernel.CONFIG_PROFILES), set(fragments))
-        self.assertEqual(['config/fp6-kernel-tipc.config', 'config/fp6-kernel-tipc-local.config'], fragments['development'])
-        self.assertEqual(['config/fp6-kernel-tipc.config', 'config/fp6-kernel-tipc-open.config'], fragments['debug'])
-        self.assertEqual(['config/fp6-kernel-tipc.config', 'config/fp6-kernel-tipc-local.config'], fragments['production'])
-        text = lambda name: (ROOT / name).read_text().splitlines()
-        self.assertEqual(['CONFIG_TIPC=m', '# CONFIG_TIPC_MEDIA_UDP is not set', '# CONFIG_TIPC_CRYPTO is not set',
-                          '# CONFIG_TIPC_DIAG is not set'], text('config/fp6-kernel-tipc.config'))
-        self.assertEqual(['CONFIG_TIPC_LOCAL_ONLY=y'], text('config/fp6-kernel-tipc-local.config'))
-        self.assertEqual(['# CONFIG_TIPC_LOCAL_ONLY is not set'], text('config/fp6-kernel-tipc-open.config'))
 
     def test_the_overrides_are_reviewed_vendor_drivers_with_the_values_the_review_saw_and_each_probe_declares_its_result(self):
         overrides = self.plan['vendor']['kernel_overrides']

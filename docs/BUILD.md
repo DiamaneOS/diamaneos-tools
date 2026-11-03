@@ -205,8 +205,8 @@ or deleted files):
     its libraries, unless `--no-datad` is given.
   - `build android` then gives the build `DIAMANEOS_DATAD=true`, which the device's `BoardConfig.mk`
     and `telephony.mk` read. The device's own default is true as well.
-  - `--no-datad` builds with the stock nicmd. The vendor tree keeps the twelve files and the build
-    gets `DIAMANEOS_DATAD=false`, because the device's default would switch the daemon on.
+  - `--no-datad` keeps the twelve files in the vendor tree and gives the build
+    `DIAMANEOS_DATAD=false`. The device refuses that, as it has no policy for the stock nicmd.
   - The recipe and the ELF selection are the device's two files after `datad_selection.transform()`.
     - The twelve files leave both.
     - The two edges of `libdsi_netctrl.so` to `libnicm.so` and `libnicm_dsi.so` become edges of kind

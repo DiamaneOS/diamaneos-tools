@@ -88,13 +88,8 @@ class KernelConfigTests(unittest.TestCase):
             self.assertEqual('debug', json.loads(result.stdout)['profile'])
 
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
-        self.assertEqual({'off'}, {self.policy['baseline'][k] for k in
-                                   ('CONFIG_TIPC_CRYPTO', 'CONFIG_TIPC_DIAG', 'CONFIG_TIPC_MEDIA_UDP')})
-        # TIPC is a local-only module in the baseline, so no run that publishes or tests can lack it. Only the debug
-        # profile may leave the local-only option off.
-        self.assertEqual(('m', 'y'), (self.policy['baseline']['CONFIG_TIPC'], self.policy['baseline']['CONFIG_TIPC_LOCAL_ONLY']))
+        self.assertEqual('off', self.policy['baseline']['CONFIG_TIPC'])
         self.assertEqual({'CONFIG_SECURITY_DMESG_RESTRICT'}, set(self.policy['production']))
-        self.assertEqual('off', self.policy['debug']['CONFIG_TIPC_LOCAL_ONLY'])
         vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
         self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
         for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
@@ -135,9 +130,8 @@ class KernelConfigTests(unittest.TestCase):
             # modify the running kernel. Either choice fails the check.
             disabled(integrity),
             enabled(confidentiality),
-            # Qualcomm's data stack needs TIPC only as a local-only module. Its bearer, crypto and diag stay out.
-            disabled('CONFIG_TIPC', 'm'), disabled('CONFIG_TIPC_LOCAL_ONLY'),
-            enabled('CONFIG_TIPC_MEDIA_UDP'), enabled('CONFIG_TIPC_CRYPTO'), enabled('CONFIG_TIPC_DIAG', 'm'),
+            # No TIPC: the open data stack has no TIPC socket.
+            enabled('CONFIG_TIPC', 'm'),
             # Exports are trimmed to the symbols modules import.
             disabled('CONFIG_TRIM_UNUSED_KSYMS'),
             (flipped((on(integrity), off(integrity)), (off(no_lockdown), on(no_lockdown))), [integrity, no_lockdown]),
