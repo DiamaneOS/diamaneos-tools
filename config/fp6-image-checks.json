@@ -693,6 +693,8 @@
         "present": [
           "VENDOR/bin/datad",
           "VENDOR/etc/init/datad.rc",
+          "VENDOR/bin/wlantunneld",
+          "VENDOR/etc/init/wlantunneld.rc",
           "VENDOR/lib64/libnicm.so",
           "VENDOR/lib64/libnicm_dsi.so"
         ],
