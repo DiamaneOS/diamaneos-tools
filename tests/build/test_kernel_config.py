@@ -25,8 +25,9 @@ class KernelConfigTests(unittest.TestCase):
         self.assertEqual(kernel_config.check(data, self.policy, 'production')['status'], 'PASS')
         for key, expected in self.policy['production'].items():
             with self.subTest(symbol=key):
-                old = f'# {key} is not set' if expected == 'n' else f'{key}={expected}'
-                new = f'{key}=y' if expected == 'n' else f'# {key} is not set'
+                off = expected in ('n', 'off')
+                old = f'# {key} is not set' if off else f'{key}={expected}'
+                new = f'{key}=y' if off else f'# {key} is not set'
                 result = kernel_config.check(data.replace(old.encode(), new.encode()), self.policy, 'production')
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual([r['symbol'] for r in result['failures']], [key])
@@ -37,6 +38,12 @@ class KernelConfigTests(unittest.TestCase):
             result = kernel_config.check(data, self.policy, 'production')
             self.assertEqual(['CONFIG_UBSAN_TRAP'], [r['symbol'] for r in result['failures']])
         self.assertEqual('PASS', kernel_config.check(good.replace(b'CONFIG_UBSAN_TRAP=y', b'# CONFIG_UBSAN_TRAP is not set'), self.policy, 'development')['status'])
+
+    def test_production_refuses_a_kernel_with_lockdep(self):
+        good = self.config()
+        self.assertEqual('PASS', kernel_config.check(good, self.policy, 'production')['status'])
+        result = kernel_config.check(good.replace(b'# CONFIG_PROVE_LOCKING is not set', b'CONFIG_PROVE_LOCKING=y'), self.policy, 'production')
+        self.assertEqual(['CONFIG_PROVE_LOCKING'], [r['symbol'] for r in result['failures']])
 
     def test_off_and_not_built_in_rules_accept_absent_symbols_and_name_what_they_refuse(self):
         policy = {'schema_version': 1, 'id': 'x', 'baseline': {'CONFIG_A': 'off', 'CONFIG_B': 'not-built-in'}, 'production': {'CONFIG_C': 'y'}}
@@ -96,7 +103,8 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
         self.assertEqual('off', self.policy['baseline']['CONFIG_TIPC'])
-        self.assertEqual({'CONFIG_SECURITY_DMESG_RESTRICT', 'CONFIG_UBSAN_TRAP'}, set(self.policy['production']))
+        self.assertEqual({'CONFIG_DEBUG_LOCK_ALLOC', 'CONFIG_DEBUG_MUTEXES', 'CONFIG_DEBUG_SPINLOCK', 'CONFIG_LOCKDEP', 'CONFIG_PROVE_LOCKING',
+                          'CONFIG_SECURITY_DMESG_RESTRICT', 'CONFIG_UBSAN_TRAP'}, set(self.policy['production']))
         vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
         self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
         for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
@@ -227,5 +235,5 @@ class KernelConfigTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stderr)
             report = json.loads(result.stdout)
             self.assertEqual(report['status'], 'FAIL')
-            self.assertEqual(len(report['production_differences']), len(self.policy['production']))
+            self.assertEqual(len(report['production_differences']), sum(value != 'off' for value in self.policy['production'].values()))
             self.assertNotIn(directory, result.stdout)

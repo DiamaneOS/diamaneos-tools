@@ -302,7 +302,7 @@ Image configuration right after configuring, by default with the production prof
   - No `/dev/mem`, kexec, KGDB or hibernation.
   - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
   - No TIPC. The open data stack replaced both ends and no TIPC socket exists.
-- The `production` tier adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
+- The `production` tier refuses lockdep and the lock debug options, and adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
   the fault and has no report handlers.
 - `--config-profile development` checks only the baseline and records the production
   differences.

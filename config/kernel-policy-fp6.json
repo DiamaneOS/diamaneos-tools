@@ -51,6 +51,11 @@
     "CONFIG_USERFAULTFD": "y"
   },
   "production": {
+    "CONFIG_DEBUG_LOCK_ALLOC": "off",
+    "CONFIG_DEBUG_MUTEXES": "off",
+    "CONFIG_DEBUG_SPINLOCK": "off",
+    "CONFIG_LOCKDEP": "off",
+    "CONFIG_PROVE_LOCKING": "off",
     "CONFIG_SECURITY_DMESG_RESTRICT": "y",
     "CONFIG_UBSAN_TRAP": "y"
   },
