@@ -516,7 +516,7 @@ class PlanTests(unittest.TestCase):
         self.assertFalse((ctx.out / 'soong/build_number.txt').exists())
         self.assertFalse((ctx.out / 'build_date.txt').exists())
         (ctx.out / 'soong/build_number.txt').write_text('20261022\n')
-        plan.actions[1].func()
+        plan.actions[2].func()
         self.assertTrue((ctx.out / 'soong/build_number.txt').exists())
 
     def test_vendor_step_depends_on_the_firmware_inventory_and_table_config(self):
