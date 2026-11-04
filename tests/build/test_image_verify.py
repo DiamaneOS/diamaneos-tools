@@ -1456,7 +1456,7 @@ class RuleTests(unittest.TestCase):
                     if r['id'] == 'updater-pins')
         want = rule['network_security_config']
         pin_set = ("        E: pin-set (line=10)\n"
-                   "          A: expiration=\"2027-01-06\" (Raw: \"2027-01-06\")\n"
+                   "          A: expiration=\"2027-06-01\" (Raw: \"2027-06-01\")\n"
                    + ''.join(f"            E: pin (line=12)\n                T: '{p}'\n" for p in want['pins']))
 
         def problems(domains, other=None):
