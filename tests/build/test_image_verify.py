@@ -1755,6 +1755,54 @@ class RuleTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             check(members={config: line})
 
+    def test_no_diagnostic_sanitizer_rule(self):
+        committed = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}['no-diagnostic-sanitizer']
+        self.assertEqual(['user'], committed['variants'])
+        self.assertEqual(4, len(committed['runtimes']))
+        self.assertTrue(all('clang_rt' in path and why.strip() for path, why in committed['runtimes'].items()))
+        runtime = 'SYSTEM/lib64/libclang_rt.ubsan_standalone-aarch64-android.so'
+        rule = {'runtimes': {runtime: 'the runtime'}}
+        elf = lambda text: b'\x7fELF\0' + text + b'\0'
+
+        def zipped(name, data):
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as archive:
+                archive.writestr(name, data)
+            return buffer.getvalue()
+
+        def debugfs(args):
+            command = str(args[1]).split(' ')
+            if command[0] == 'ls':
+                return '/14/100644/0/0/libx.so/1/\n'
+            if command[0] == 'dump':
+                Path(command[2]).write_bytes(handler)
+            return ''
+
+        clean = {runtime: elf(b'__ubsan_handle_add_overflow'), 'SYSTEM/bin/linker64': elf(b'cfi  control flow integrity messages'),
+                 'VENDOR/lib64/libblob.so': elf(b'__ubsan_handle_add_overflow_minimal\0__ubsan_handle_cfi_check_fail_minimal_abort'),
+                 'VENDOR/etc/notes.txt': b'__ubsan_handle_add_overflow', 'IMAGES/boot.img': elf(b'__ubsan_handle_add_overflow')}
+        self.assertEqual((True, '3 native binaries'), subject.rule_no_diagnostic_sanitizer(rule, self.harness(clean)))
+        self.assertFalse(subject.rule_no_diagnostic_sanitizer(rule, self.harness({'VENDOR/etc/notes.txt': b'x'}))[0])
+        handler = elf(b'__ubsan_handle_cfi_check_fail')
+        for detail, members in (('VENDOR/lib64/liba.so: __ubsan_handle_cfi_check_fail', {'VENDOR/lib64/liba.so': handler}),
+                                ('VENDOR_DLKM/lib/modules/a.ko: __ubsan_handle_cfi_check_fail', {'VENDOR_DLKM/lib/modules/a.ko': handler}),
+                                ('VENDOR/lib64/liba.so: control flow integrity check', {'VENDOR/lib64/liba.so': elf(b'control flow integrity check for type %0')}),
+                                # Only the named path is excepted, not the name elsewhere.
+                                ('VENDOR/' + runtime, {'VENDOR/' + runtime: handler}),
+                                ('PRODUCT/app/A/A.apk!lib/arm64-v8a/liba.so', {'PRODUCT/app/A/A.apk': zipped('lib/arm64-v8a/liba.so', handler)})):
+            with self.subTest(detail=detail):
+                ok, found = subject.rule_no_diagnostic_sanitizer(rule, self.harness(members))
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        image = bytearray(4096)
+        image[1080:1082] = bytes.fromhex('53ef')
+        ok, found = subject.rule_no_diagnostic_sanitizer(rule, self.harness(
+            {'SYSTEM/apex/a.apex': zipped('apex_payload.img', bytes(image))}, tools=FakeTools({('debugfs_static',): debugfs})))
+        self.assertFalse(ok)
+        self.assertIn('SYSTEM/apex/a.apex!libx.so: __ubsan_handle_cfi_check_fail', found)
+        self.assertRaisesRegex(ValueError, 'has no apex_payload.img', subject.rule_no_diagnostic_sanitizer, rule,
+                               self.harness({'SYSTEM/apex/a.capex': zipped('original_apex', b'')}))
+
     def test_widevine_apex_payload_rule(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         committed = rules['widevine-apex-payload']

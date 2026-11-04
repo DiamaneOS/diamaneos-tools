@@ -31,6 +31,13 @@ class KernelConfigTests(unittest.TestCase):
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual([r['symbol'] for r in result['failures']], [key])
 
+    def test_production_refuses_a_kernel_without_the_ubsan_trap(self):
+        good = self.config()
+        for data in (good.replace(b'CONFIG_UBSAN_TRAP=y', b'# CONFIG_UBSAN_TRAP is not set'), good.replace(b'CONFIG_UBSAN_TRAP=y', b'')):
+            result = kernel_config.check(data, self.policy, 'production')
+            self.assertEqual(['CONFIG_UBSAN_TRAP'], [r['symbol'] for r in result['failures']])
+        self.assertEqual('PASS', kernel_config.check(good.replace(b'CONFIG_UBSAN_TRAP=y', b'# CONFIG_UBSAN_TRAP is not set'), self.policy, 'development')['status'])
+
     def test_off_and_not_built_in_rules_accept_absent_symbols_and_name_what_they_refuse(self):
         policy = {'schema_version': 1, 'id': 'x', 'baseline': {'CONFIG_A': 'off', 'CONFIG_B': 'not-built-in'}, 'production': {'CONFIG_C': 'y'}}
         failures = lambda data: [r['symbol'] for r in kernel_config.check(data, policy, 'development')['failures']]
@@ -89,7 +96,7 @@ class KernelConfigTests(unittest.TestCase):
 
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
         self.assertEqual('off', self.policy['baseline']['CONFIG_TIPC'])
-        self.assertEqual({'CONFIG_SECURITY_DMESG_RESTRICT'}, set(self.policy['production']))
+        self.assertEqual({'CONFIG_SECURITY_DMESG_RESTRICT', 'CONFIG_UBSAN_TRAP'}, set(self.policy['production']))
         vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
         self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
         for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):

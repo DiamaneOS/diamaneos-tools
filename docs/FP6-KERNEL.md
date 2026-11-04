@@ -302,7 +302,8 @@ Image configuration right after configuring, by default with the production prof
   - No `/dev/mem`, kexec, KGDB or hibernation.
   - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
   - No TIPC. The open data stack replaced both ends and no TIPC socket exists.
-- The `production` tier adds dmesg restricted from boot.
+- The `production` tier adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
+  the fault and has no report handlers.
 - `--config-profile development` checks only the baseline and records the production
   differences.
 - The debug tier replaces baseline rules the debug aids need and may not name a production rule.
@@ -364,8 +365,8 @@ production build can be reproduced with the debug aids on.
 - The configuration is the same base (`gki_defconfig`, then `configs/diamaneos_defconfig`) with the
   vendor tree's `configs/bringup_defconfig` as the profile fragment.
 - The debug tier of the policy checks what the fragment turns on:
-  - Tracing, kprobes and uprobes, KFENCE, UBSAN reports and the lock, stall and hung task detectors
-    that panic.
+  - Tracing, kprobes and uprobes, KFENCE, UBSAN and the lock, stall and hung task detectors that
+    panic.
   - Mountable debugfs, no lockdown and `CONFIG_PANIC_TIMEOUT=5`.
 - A debug rule replaces the baseline rule for the same symbol and never names a production rule.
 - The vendor_boot command line adds the arguments in the `debug` section of the packaging file:

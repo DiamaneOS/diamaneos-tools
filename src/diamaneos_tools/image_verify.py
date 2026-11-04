@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 import fnmatch
 import hashlib
+import io
 import json
 import math
 import os
@@ -1392,6 +1393,22 @@ def ext4_files(v, source: Path) -> dict:
     return found
 
 
+def apex_payload(apex, name: str, directory: Path) -> Path:
+    """Unpack the ext4 payload of an open APEX archive."""
+    if 'apex_payload.img' not in apex.namelist():
+        raise ValueError(name + ' has no apex_payload.img')
+    member = apex.getinfo('apex_payload.img')
+    if member.file_size > MAX_MEMBER_BYTES:
+        raise ValueError('APEX payload too large: ' + name)
+    payload = directory / 'apex_payload.img'
+    payload.write_bytes(apex.read(member))
+    with payload.open('rb') as stream:
+        stream.seek(1080)
+        if stream.read(2) != EXT4_MAGIC:
+            raise ValueError('the payload of ' + name + ' is not an ext4 image')
+    return payload
+
+
 def rule_apex_payload(rule, v):
     """The ext4 payload of an APEX holds exactly the listed files, each with
     its bytes, owner, mode and label.
@@ -1403,17 +1420,10 @@ def rule_apex_payload(rule, v):
     with v.tools.scratch() as temporary:
         directory = Path(temporary)
         with zipfile.ZipFile(v.tf.extract(rule['file'], directory)) as apex:
-            if 'apex_payload.img' not in apex.namelist():
-                return False, rule['file'] + ' has no apex_payload.img'
-            member = apex.getinfo('apex_payload.img')
-            if member.file_size > MAX_MEMBER_BYTES:
-                raise ValueError('APEX payload too large: ' + rule['file'])
-            payload = directory / 'apex_payload.img'
-            payload.write_bytes(apex.read(member))
-        with payload.open('rb') as stream:
-            stream.seek(1080)
-            if stream.read(2) != EXT4_MAGIC:
-                return False, 'the payload of ' + rule['file'] + ' is not an ext4 image'
+            try:
+                payload = apex_payload(apex, rule['file'], directory)
+            except ValueError as error:
+                return False, str(error)
         found = ext4_files(v, payload)
         for name, want in sorted(rule['payload'].items()):
             if name not in found:
@@ -1431,6 +1441,48 @@ def rule_apex_payload(rule, v):
                 problems.append('label differs in ' + name)
         problems += ['unlisted ' + name for name in sorted(set(found) - set(rule['payload']))]
     return not problems, '; '.join(problems) or f'{len(found)} files'
+
+
+# The full UBSan runtime's handlers and its CFI report. Only code built with `sanitize: { diag: ... }` calls them.
+# Trap mode calls nothing, the minimal runtime in stock blobs has its own handler names, and the linker's
+# debug help says "control flow integrity messages".
+DIAG_SANITIZER = re.compile(rb'__ubsan_handle_[a-z0-9_]+|control flow integrity check')
+NOT_INSTALLED = ('IMAGES', 'META', 'OTA', 'PREBUILT_IMAGES', 'RADIO')
+
+
+def native_files(v, name: str, data: bytes, directory: Path):
+    """The native binaries of one installed file: itself, an APK's libraries or the files of an APEX payload."""
+    if data[:4] == b'\x7fELF':
+        yield name, data
+    elif name.endswith('.apk'):
+        with zipfile.ZipFile(io.BytesIO(data)) as apk:
+            for member in apk.namelist():
+                if member.endswith('.so'):
+                    yield f'{name}!{member}', apk.read(member)
+    elif name.endswith(('.apex', '.capex')):
+        with zipfile.ZipFile(io.BytesIO(data)) as apex:
+            payload = apex_payload(apex, name, directory)
+        for inside, mode in sorted(ext4_files(v, payload).items()):
+            if stat.S_ISREG(mode):
+                yield from native_files(v, f'{name}!{inside}', ext4_file(v, payload, '/' + inside, directory)[1], directory)
+
+
+def rule_no_diagnostic_sanitizer(rule, v):
+    """No installed native binary holds the diagnostic sanitizer signatures, other than the runtimes the rule names."""
+    problems, count = [], 0
+    with v.tools.scratch() as temporary:
+        for name in v.tf.names:
+            if name.split('/')[0] in NOT_INSTALLED or v.tf.is_symlink(name):
+                continue
+            for path, data in native_files(v, name, v.tf.read(name), Path(temporary)):
+                count += 1
+                found = {hit.decode() for hit in DIAG_SANITIZER.findall(data)
+                         if not hit.endswith((b'_minimal', b'_minimal_abort'))}
+                if found and path not in rule['runtimes']:
+                    problems.append(f'{path}: ' + ', '.join(sorted(found)[:3]))
+    if not count:
+        problems.append('no native binaries found')
+    return not problems, '; '.join(problems) or f'{count} native binaries'
 
 
 def rule_file_metadata(rule, v):
@@ -1468,6 +1520,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
          'dex_url_hosts': rule_dex_url_hosts,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
+         'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
          'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions}
 
 

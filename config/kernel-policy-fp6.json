@@ -51,7 +51,8 @@
     "CONFIG_USERFAULTFD": "y"
   },
   "production": {
-    "CONFIG_SECURITY_DMESG_RESTRICT": "y"
+    "CONFIG_SECURITY_DMESG_RESTRICT": "y",
+    "CONFIG_UBSAN_TRAP": "y"
   },
   "debug": {
     "CONFIG_BOOTPARAM_HARDLOCKUP_PANIC": "y",
@@ -79,7 +80,6 @@
     "CONFIG_PSTORE_FTRACE": "y",
     "CONFIG_SOFTLOCKUP_DETECTOR": "y",
     "CONFIG_UBSAN": "y",
-    "CONFIG_UBSAN_TRAP": "n",
     "CONFIG_UPROBE_EVENTS": "y"
   }
 }

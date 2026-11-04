@@ -6152,6 +6152,20 @@
       "why": "Every privileged permission of the platform that a privileged app asks for has a privapp-permissions entry on the app's partition. With ro.control_privapp_permissions=enforce a missing entry stops system_server at every boot, platform-signed apps included.",
       "type": "privapp_permissions",
       "platform": "SYSTEM/framework/framework-res.apk"
+    },
+    {
+      "id": "no-diagnostic-sanitizer",
+      "why": "User builds stop at a sanitizer fault. A binary built with a diagnostic sanitizer mode calls the full UBSan runtime instead, which has no place in a release, and that holds for debug kernel modules too. The checks read every installed native binary, also in APKs and APEX payloads.",
+      "variants": [
+        "user"
+      ],
+      "type": "no_diagnostic_sanitizer",
+      "runtimes": {
+        "SYSTEM/apex/com.android.runtime.apex!lib64/bionic/libclang_rt.hwasan-aarch64-android.so": "Upstream's HWASan runtime in the runtime package. Nothing in a user build loads it.",
+        "SYSTEM/lib64/bootstrap/libclang_rt.hwasan-aarch64-android.so": "The bootstrap copy of the same runtime, which base_system.mk lists.",
+        "SYSTEM/lib64/libclang_rt.asan-aarch64-android.so": "Upstream's ASan runtime, which the generic system product lists. Nothing in a user build loads it.",
+        "SYSTEM/lib64/libclang_rt.ubsan_standalone-aarch64-android.so": "The UBSan runtime itself, which base_system.mk lists. libinput and libjxl link it for their trap-mode undefined checks and call none of its handlers."
+      }
     }
   ]
 }

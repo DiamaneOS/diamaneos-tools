@@ -389,6 +389,9 @@ or deleted files):
   - Then every rule in `config/fp6-image-checks.json`: the per-build device checks, each with the
     reason it exists and, where it matters, the variants it applies to and whether it checks
     official builds or the others.
+  - In a user build, `no-diagnostic-sanitizer` reads every installed native binary, also in APKs and
+    APEX payloads, for the full UBSan runtime's handlers and CFI report. Only the runtimes it names
+    by path may hold them. The minimal runtime has other handler names and is fine.
   - The report carries the image set's `SHA256SUMS` digest.
   - A failed check stops `build verify`, and with it `build all` and a `build package` by hand, for
     every build. The set moves to `<build_id>.failed` next to the report, and `latest` no longer
