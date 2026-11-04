@@ -140,6 +140,11 @@ def install_one(source, records, destination, previous=None):
     with tempfile.TemporaryDirectory(prefix='.inputs-', dir=destination.parent) as temp:
         tree = Path(temp) / 'tree'
         shutil.copytree(source, tree)
+        # A generation built earlier keeps its old file times, and the build would keep what it made from the tree
+        # it replaces.
+        for path in tree.rglob('*'):
+            if not path.is_symlink():
+                os.utime(path)
         verify_tree(tree, records)
         tree.rename(destination)
     return outcome

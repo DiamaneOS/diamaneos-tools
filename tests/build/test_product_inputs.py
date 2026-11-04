@@ -191,6 +191,11 @@ class ProductInputTests(unittest.TestCase):
         self.assertEqual(b'fixture',p.read_bytes())
         self.assertEqual(b'old tree',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
 
+    def test_installed_tree_gets_new_file_times(self):
+        os.utime(self.vendor/'current/input',(1,1))
+        self.install()
+        self.assertGreater((self.source/'vendor/fairphone/FP6/input').stat().st_mtime,1)
+
     def test_stale_generated_trees_move_aside(self):
         self.install()
         self.assertEqual([],subject.retire_stale(self.source))
