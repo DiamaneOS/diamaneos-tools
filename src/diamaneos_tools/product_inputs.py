@@ -255,6 +255,19 @@ def move_aside(source, label, destination):
         parent.rmdir()
 
 
+def retire_installed(source, device):
+    """Move the device's generated tree aside, whatever its state. Returns the labels that were moved."""
+    source = Path(source)
+    moved = []
+    for label, rel in sorted(destinations(device).items()):
+        destination = source / rel
+        if destination.exists() or destination.is_symlink():
+            move_aside(source, label, destination)
+            moved.append(label)
+    (source / DESCRIPTOR).unlink(missing_ok=True)
+    return moved
+
+
 def retire_stale(source, environment_sha256=None, root=ROOT):
     """Move generated trees aside when they no longer match their descriptor,
     the environment or the recipes, and trees of earlier tools where the

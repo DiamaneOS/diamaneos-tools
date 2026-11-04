@@ -228,7 +228,7 @@ class PlanTests(unittest.TestCase):
         ctx = self.context(official=True)
         ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'newest_commit_time', return_value=1):
-            tools = steps.plan_vendor(ctx).actions[0]
+            tools = steps.plan_vendor(ctx).actions[1]
         self.assertEqual({'OFFICIAL_BUILD', 'DIAMANEOS_OFFICIAL_BUILD', 'DIAMANEOS_DATAD'}, set(tools.unset))
 
     def test_a_caller_environment_cannot_make_a_build_official(self):
@@ -296,7 +296,7 @@ class PlanTests(unittest.TestCase):
         ctx = self.context(datad=True)
         ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'newest_commit_time', return_value=1):
-            tools = steps.plan_vendor(ctx).actions[0]
+            tools = steps.plan_vendor(ctx).actions[1]
         self.assertNotIn('DIAMANEOS_DATAD', tools.env)
         self.assertIn('DIAMANEOS_DATAD', tools.unset)
 
@@ -494,7 +494,7 @@ class PlanTests(unittest.TestCase):
                                            'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'newest_commit_time', return_value=1791172325):
             plan = steps.plan_vendor(ctx)
-        tools = plan.actions[0]
+        tools = plan.actions[1]
         self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, tools.env['BUILD_NUMBER'])
         self.assertEqual('1791172325', tools.env['BUILD_DATETIME'])
         self.assertEqual(steps.HOST_TOOLS_BUILD_NUMBER, plan.inputs['host_tools_build_number'])
@@ -506,13 +506,13 @@ class PlanTests(unittest.TestCase):
                                            'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'newest_commit_time', return_value=1):
             plan = steps.plan_vendor(ctx)
-        self.assertEqual('out/image-tools', plan.actions[0].env['OUT_DIR'])
+        self.assertEqual('out/image-tools', plan.actions[1].env['OUT_DIR'])
         self.assertEqual(ctx.workspace.src / 'out/image-tools/host/linux-x86/bin', ctx.host_bin)
         (ctx.out / 'soong').mkdir(parents=True)
         for number in ('20261022', steps.HOST_TOOLS_BUILD_NUMBER):
             (ctx.out / 'soong/build_number.txt').write_text(number + '\n')
             (ctx.out / 'build_date.txt').write_text('1\n')
-            plan.actions[1].func()
+            plan.actions[2].func()
         self.assertFalse((ctx.out / 'soong/build_number.txt').exists())
         self.assertFalse((ctx.out / 'build_date.txt').exists())
         (ctx.out / 'soong/build_number.txt').write_text('20261022\n')

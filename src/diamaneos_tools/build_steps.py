@@ -721,6 +721,13 @@ def plan_vendor(ctx: Context) -> StepPlan:
         unset=('OFFICIAL_BUILD', OFFICIAL_FLAG, DATAD_FLAG),
         env=tool_env)
 
+    def clear_installed():
+        # The image tools build a generic target. There Soong refuses an installed tree of the open data stack,
+        # as its stock libraries name modules that only the device enables. The last action installs it again.
+        moved = product_inputs.retire_installed(ws.src, device)
+        if moved:
+            ctx.echo('    moved aside: ' + ', '.join(moved))
+
     def clear_old_tools():
         # Earlier tools built the image tools in out/, and GrapheneOS's envsetup.sh gives a build by hand
         # the build number and date it finds there.
@@ -776,7 +783,9 @@ def plan_vendor(ctx: Context) -> StepPlan:
         # android step installs (or re-verifies) the same tree again.
         product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True, device=device)
 
-    actions = [host_tools,
+    actions = [Action('Clear the installed vendor tree', func=clear_installed,
+                      detail='a generic target cannot read it, and the last action installs it again'),
+               host_tools,
                Action('Clear the old image tools\' build number', func=clear_old_tools,
                       detail=f'{HOST_TOOLS_BUILD_NUMBER} in out/soong/build_number.txt, and out/build_date.txt'),
                Action('Download the factory package', func=fetch, network=True,

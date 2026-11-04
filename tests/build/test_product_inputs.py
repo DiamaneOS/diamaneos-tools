@@ -202,6 +202,15 @@ class ProductInputTests(unittest.TestCase):
         self.assertEqual(b'edited!',(self.source/'.repo/diamaneos-previous-inputs/vendor/input').read_bytes())
         self.assertEqual([],subject.retire_stale(self.source))
 
+    def test_installed_tree_moves_aside_and_install_brings_it_back(self):
+        self.install()
+        self.assertEqual(['vendor'],subject.retire_installed(self.source,self.device))
+        self.assertFalse((self.source/'vendor').exists())
+        self.assertFalse((self.source/'.repo/diamaneos-generated-inputs.json').exists())
+        self.assertEqual([],subject.retire_installed(self.source,self.device))
+        self.install()
+        self.assertEqual(b'fixture',(self.source/'vendor/fairphone/FP6/input').read_bytes())
+
     def test_kernel_tree_of_earlier_tools_moves_aside_but_the_manifest_project_stays(self):
         # Earlier tools installed a generated kernel where the manifest now
         # has the kernel prebuilts project. The old descriptor names both.
