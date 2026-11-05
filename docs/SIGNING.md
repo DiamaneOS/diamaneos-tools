@@ -131,8 +131,8 @@ JDK bytes and the native signer. Changed source, tools, reports or build identit
 are rejected. Git index flags and ignored runtime files cannot bypass source admission.
 
 Super-bearing plans bind `super_layout` before signing. Factory slots come from the admitted
-install record. Legacy qualification uses the platform A/B bootstrap or non-A/B naming contract;
-older plans without this binding require preparation again. Extraction output never chooses the expected layout.
+install record. Legacy qualification uses the platform A/B bootstrap or non-A/B naming contract.
+Older plans without this binding require preparation again. Extraction output never chooses the expected layout.
 
 Use `--previous-result` with `--previous-signature` for subsequent runs, one pair for
 each earlier release an incremental comes from, at most 3, with the signatures in the same

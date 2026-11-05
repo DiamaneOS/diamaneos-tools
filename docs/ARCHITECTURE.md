@@ -68,7 +68,9 @@ device projects, the kernel prebuilts and the tools, minus other devices' kernel
 - Sharing an ACK (Android Common Kernel) family never makes a Pixel patch portable. Each retained
   change needs its ancestry, KMI/UAPI and device tests bound ([FP6-KERNEL.md](FP6-KERNEL.md)).
 - The FP6's selected stock image declares device VINTF target level 8, vendor API/VNDK 34 and a 6.1
-  Android GKI runtime: the real vendor-side boundary, not a reason to pin the framework forever.
+  Android GKI runtime.
+- DiamaneOS runs Linux 6.18 on that vendor image, which keeps level 8: the real vendor-side boundary,
+  not a reason to pin the framework forever.
 - Every newer GrapheneOS assembly must pass `assemble_vintf`/`checkvintf`, boot and the applicable
   VTS interface checks.
 - Disabling VINTF enforcement or a broad shim is a port failure, not a recovery path.

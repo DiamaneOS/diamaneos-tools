@@ -54,6 +54,7 @@ the CACert HIDL interface.
 - CNE is not selected.
 - Only one IWLAN implementation may be selected. The AOSP IWLAN service is not part of this
   configuration.
+- `wlantunneld` (`hardware/diamaneos/datad`) carries the modem's tunnel on the AP side.
 
 - Carrier provisioning and user Wi-Fi calling preferences stay authoritative.
 - Carrier entitlement services need their own dependency and endpoint review. Never substitute

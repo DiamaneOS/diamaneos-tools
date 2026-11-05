@@ -717,8 +717,8 @@ commands](#the-build-commands).
   - `default.xml` is GrapheneOS's manifest at the release it is based on, unchanged apart from one
     line at its end that includes `diamaneos.xml`.
   - `diamaneos.xml` removes the projects the DiamaneOS forks replace and the kernels of other
-    devices. It adds the forks, the Fairphone and CodeLinaro projects the FP6 needs and two
-    DiamaneOS projects:
+    devices. It adds the forks, DiamaneOS's own projects such as the IMS and data daemons, the
+    Fairphone, CodeLinaro and linux-msm projects the FP6 needs and:
   - The kernel prebuilts
     ([`device_fairphone_FP6-kernels`](https://github.com/DiamaneOS/device_fairphone_FP6-kernels) at
     `device/fairphone/FP6-kernel`, fetched with `clone-depth="1"`) and these tools
@@ -761,7 +761,7 @@ commands](#the-build-commands).
   - The GrapheneOS release, the repo launcher, Fairphone's source manifest, the Qualcomm SELinux
     policy and the stock factory image.
   - The platform repositories the manifest takes straight from CodeLinaro, Fairphone or linux-msm.
-  - The LineageOS power HAL projects it takes unmodified through DiamaneOS mirrors.
+  - LineageOS's libperfmgr (`hardware/google/pixel`), taken unmodified through the DiamaneOS mirror.
   - AOSP's nos host libraries.
   - The upstream projects imported into the kernel repository.
 - Each names the file and field that hold its pin, so the registry never repeats a revision.
