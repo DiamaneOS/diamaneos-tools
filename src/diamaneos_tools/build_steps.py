@@ -885,7 +885,8 @@ def member_sha256(archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> str:
 
 def stale_archive_files(product_out: Path, target_files: Path, limit: int = 10) -> list:
     """Files m installed in out/ after it made the target-files archive, which the archive lacks or holds
-    with other bytes. m does not remake the archive for every file it installs."""
+    with other bytes. m does not remake the archive for every file it installs. A file with the archive's
+    own time may be later, as file times are coarse, so its bytes are compared too."""
     made = target_files.stat().st_mtime
     stale = []
     with zipfile.ZipFile(target_files) as archive:
@@ -898,7 +899,7 @@ def stale_archive_files(product_out: Path, target_files: Path, limit: int = 10) 
                 for name in sorted(names):
                     path = Path(base) / name
                     status = path.lstat()
-                    if not stat.S_ISREG(status.st_mode) or status.st_mtime <= made:
+                    if not stat.S_ISREG(status.st_mode) or status.st_mtime < made:
                         continue
                     member = f'{prefix}/{path.relative_to(root).as_posix()}'
                     info = members.get(member)
