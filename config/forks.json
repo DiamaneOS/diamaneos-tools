@@ -273,7 +273,7 @@
     {"id": "repo-tool", "description": "repo launcher used to sync the platform.", "url": "https://gerrit.googlesource.com/git-repo",
      "follow": {"kind": "tags", "pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$"},
      "pin": {"repository": "tools", "file": "config/build-environment-fp6.json", "pointer": "/upstream/repo_tool/release_tag"}},
-    {"id": "fairphone-manifest", "description": "Fairphone FP6 source release: device configuration and the kernel-platform projects imported into kernel_qcom-6.1.", "url": "https://gerrit-public.fairphone.software/manifest",
+    {"id": "fairphone-manifest", "description": "Fairphone FP6 source release: device configuration and Fairphone's 6.1 kernel projects, the source of the FP6 changes ported into kernel_qcom-6.18.", "url": "https://gerrit-public.fairphone.software/manifest",
      "follow": {"kind": "branch", "ref": "odm/public-build/16/fp6", "newer_branches": "^odm/public-build/([0-9]+)/fp6$"},
      "pin": {"repository": "tools", "file": "config/fp6-sources.json", "pointer": "/inputs/fairphone_manifest/revision_observed"}},
     {"id": "qualcomm-sepolicy-vendor", "description": "Qualcomm vendor SELinux policy the device policy is selected from.", "url": "https://gerrit-public.fairphone.software/device/qcom/sepolicy_vndr",
