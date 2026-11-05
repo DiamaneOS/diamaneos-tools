@@ -481,8 +481,8 @@ def build(root, jobs, timeout, profile='production'):
             print(name, flush=True)
         save()
         try:
-            execute(Run(root, run, plan, dt_plan, load_json(BUILD_PLAN), recipe, profile, jobs, timeout, preparation,
-                        result, phase))
+            execute_without_keys(Run(root, run, plan, dt_plan, load_json(BUILD_PLAN), recipe, profile, jobs, timeout,
+                                     preparation, result, phase), run, result)
             save()
             with tempfile.TemporaryDirectory(prefix='.publish-', dir=root) as temp:
                 link = Path(temp) / 'current'
@@ -770,6 +770,34 @@ def execute(run):
     run.device_tree()
     run.package()
     run.checks()
+
+
+def execute_without_keys(stages, run, result):
+    """The stages, then the run's signing keys deleted whether they passed or not. A kept key could sign modules the
+    Image trusts. The certificates stay, and the packaged Image must still carry the core build's one."""
+    try:
+        execute(stages)
+    finally:
+        result['signing_keys_removed'] = remove_signing_keys(run)
+    check_certificate_kept(run)
+
+
+def remove_signing_keys(run):
+    """Deletes every module signing key in the run directory. Symlinks are not followed."""
+    removed = []
+    for top, _, files in os.walk(run):
+        if 'signing_key.pem' in files:
+            path = Path(top) / 'signing_key.pem'
+            path.unlink()
+            removed.append(path.relative_to(run).as_posix())
+    return sorted(removed)
+
+
+def check_certificate_kept(run):
+    certificate = run / 'core/certs/signing_key.x509'
+    require(certificate.is_file() and certificate.stat().st_size, 'the module signing certificate is missing')
+    require(certificate.read_bytes() in (run / 'candidate/Image').read_bytes(),
+            'the packaged Image does not carry the module signing certificate')
 
 
 def image_exports(nm_output):

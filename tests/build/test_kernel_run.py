@@ -664,5 +664,60 @@ class ExecuteTests(unittest.TestCase):
                          order)
 
 
+class SigningKeyTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.top = Path(temp.name)
+        self.run = self.top / 'run'
+        for build in ('core', 'device'):
+            (self.run / build / 'certs').mkdir(parents=True)
+            (self.run / build / 'certs/signing_key.pem').write_text('key')
+            (self.run / build / 'certs/signing_key.x509').write_bytes(b'cert-' + build.encode())
+        self.result = {}
+
+    def stages(self, image=b'', fail=False):
+        run = self.run
+
+        class Stages:
+            def __getattr__(self, name):
+                def stage():
+                    if name == 'checks':
+                        if fail:
+                            raise KernelError('stage failed')
+                        (run / 'candidate').mkdir()
+                        (run / 'candidate/Image').write_bytes(image)
+                return stage
+        return Stages()
+
+    def left(self):
+        return sorted(p.relative_to(self.run).as_posix() for p in self.run.glob('*/certs/*'))
+
+    def test_a_passing_run_deletes_every_key_and_its_image_keeps_the_certificate(self):
+        kernel.execute_without_keys(self.stages(b'head cert-core tail'), self.run, self.result)
+        self.assertEqual(['core/certs/signing_key.x509', 'device/certs/signing_key.x509'], self.left())
+        self.assertEqual(['core/certs/signing_key.pem', 'device/certs/signing_key.pem'], self.result['signing_keys_removed'])
+
+    def test_a_failing_run_deletes_the_keys_too(self):
+        self.assertRaisesRegex(KernelError, 'stage failed', kernel.execute_without_keys, self.stages(fail=True), self.run,
+                               self.result)
+        self.assertEqual(['core/certs/signing_key.x509', 'device/certs/signing_key.x509'], self.left())
+
+    def test_an_image_without_the_certificate_or_a_lost_certificate_fails(self):
+        self.assertRaisesRegex(KernelError, 'does not carry', kernel.execute_without_keys, self.stages(b'cert-device'),
+                               self.run, self.result)
+        self.assertEqual(['core/certs/signing_key.x509', 'device/certs/signing_key.x509'], self.left())
+        (self.run / 'core/certs/signing_key.x509').unlink()
+        self.assertRaisesRegex(KernelError, 'certificate is missing', kernel.check_certificate_kept, self.run)
+
+    def test_keys_behind_a_symlink_stay(self):
+        outside = self.top / 'outside/certs'
+        outside.mkdir(parents=True)
+        (outside / 'signing_key.pem').write_text('other')
+        (self.run / 'link').symlink_to(self.top / 'outside', target_is_directory=True)
+        kernel.remove_signing_keys(self.run)
+        self.assertTrue((outside / 'signing_key.pem').is_file())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -128,6 +128,8 @@ Reproducibility:
   refused.
 - Every module is stripped of debug sections and signed with the Image's key. Stripping and signing
   must keep module metadata and symbol versions.
+- The run deletes its signing keys when it ends, whether it passed or failed, and lists them in
+  `result.json`. The certificates stay, and the packaged Image must still carry the core build's one.
 - The lists must be complete: a load list names only modules of its partition, and a module's
   dependencies sit in its own partition. vendor_dlkm may depend on system_dlkm.
 - vendor_boot holds the first-stage modules, the recovery list (first stage plus second stage) and
