@@ -3,9 +3,9 @@
 The kernel is DiamaneOS/kernel_common-6.18 with the FP6 commits
 (DiamaneOS/kernel_common-6.18), built with the pinned Clang and Rust toolchain.
 The Qualcomm drivers are the vendor tree DiamaneOS/kernel_qcom-6.18, built as
-external modules against it, and fp6.dtb is built from its device tree sources.
-Both repositories, the toolchain and the 6.1 device tree the build compares with
-are pinned in config/kernel-sources-fp6.json and config/fp6-kernel-dt.json. The
+external modules against it, and fp6.dtb and the overlay image are built from its
+device tree sources. Both repositories and the toolchain are pinned in
+config/kernel-sources-fp6.json and the tested device tree in config/fp6-kernel-dt.json. The
 result is the kernel set in the layout of device_fairphone_FP6-kernels, which the
 Android build reads.
 """
@@ -59,7 +59,7 @@ def module_key(name):
     return name.removesuffix('.ko').replace('-', '_')
 
 
-def projects(plan, dt_plan):
+def projects(plan):
     """Every pinned checkout of the workspace: name, role, path, URL, revision."""
     rows = []
     for role in ('vendor', 'common'):
@@ -67,9 +67,6 @@ def projects(plan, dt_plan):
         rows.append(dict(entry, name=role, role=role))
     for entry in plan['toolchain']:
         rows.append(dict(entry, role='toolchain'))
-    base = dt_plan['base']
-    rows.append({'name': 'base-dt', 'role': 'device-tree', 'path': 'base-dt', 'url': base['repository'],
-                 'revision': base['revision']})
     return rows
 
 
@@ -95,25 +92,18 @@ def validate_plan(plan):
                     all(isinstance(p, str) and SPARSE_PATTERN.fullmatch(p) and '..' not in p for p in entry['sparse']),
                     'invalid sparse patterns: ' + entry['path'])
         paths.append(entry['path'])
-    paths.append('base-dt')
-    require(len(names) == len(set(names)) and not {'vendor', 'common', 'base-dt'} & set(names), 'duplicate project names')
+    require(len(names) == len(set(names)) and not {'vendor', 'common'} & set(names), 'duplicate project names')
     require(len(paths) == len(set(paths)) and not any(a != b and b.startswith(a + '/') for a in paths for b in paths),
             'duplicate or nested project paths')
     return plan
 
 
 def validate_dt_plan(dt):
-    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'base', 'differences', 'disabled_nodes', 'forbidden_properties',
+    require(isinstance(dt, dict) and set(dt) == {'schema_version', 'scope', 'reference', 'disabled_nodes', 'forbidden_properties',
                                             'forbidden_property_exemptions'}
-            and dt['schema_version'] == 2 and isinstance(dt['forbidden_properties'], list)
+            and dt['schema_version'] == 3 and isinstance(dt['forbidden_properties'], list)
             and all(isinstance(n, str) and re.fullmatch(r'[a-zA-Z0-9,._+#-]+', n) for n in dt['forbidden_properties']),
             'invalid device tree plan')
-    found = dt['differences']
-    require(isinstance(found, list) and found and all(
-        isinstance(r, dict) and set(r) == {'id', 'reason', 'edits'} and isinstance(r['id'], str) and isinstance(r['reason'], str)
-        and r['reason'].strip() and isinstance(r['edits'], list) and r['edits'] and all(
-            isinstance(e, dict) and set(e) in ({'node', 'inherit_cells'}, {'node', 'property', 'base', 'source'}) for e in r['edits'])
-        for r in found) and len({r['id'] for r in found}) == len(found), 'invalid device tree differences')
     rows = dt['disabled_nodes']
     require(isinstance(rows, list) and rows and all(
         isinstance(r, dict) and set(r) == {'compatible', 'reason'} and isinstance(r['compatible'], str)
@@ -125,19 +115,12 @@ def validate_dt_plan(dt):
         and type(r['overlay']) is int and r['overlay'] >= 0 and type(r['board_id']) is int and 0 <= r['board_id'] <= 0xffffffff
         and isinstance(r['reason'], str) and r['reason'].strip() for r in exempt)
         and len({(r['overlay'], r['property']) for r in exempt}) == len(exempt), 'invalid forbidden property exemptions')
-    base = dt['base']
-    require(isinstance(base, dict) and set(base) == {'repository', 'revision', 'files', 'overlay_count'}
-            and SHA1.fullmatch(str(base['revision'])) and type(base['overlay_count']) is int
-            and isinstance(base['files'], dict) and set(base['files']) == {'dtbs/fp6.dtb', 'dtbo.img'}
-            and all(isinstance(v, str) and re.fullmatch(r'[0-9a-f]{64}', v) for v in base['files'].values()),
-            'invalid base device tree')
-    check_url(base['repository'])
+    reference = dt['reference']
+    require(isinstance(reference, dict) and set(reference) == {'fp6.dtb', 'dtbo.img', 'overlay_count'}
+            and type(reference['overlay_count']) is int and reference['overlay_count'] > 0
+            and all(isinstance(reference[k], str) and re.fullmatch(r'[0-9a-f]{64}', reference[k]) for k in ('fp6.dtb', 'dtbo.img')),
+            'invalid device tree reference')
     return dt
-
-
-def base_digest(dt_plan):
-    """The digest of what preparation fetches for the device tree comparison and the overlay image."""
-    return hashlib.sha256(json.dumps(dt_plan['base'], sort_keys=True).encode()).hexdigest()
 
 
 def configuration():
@@ -174,8 +157,8 @@ def core_header_copies(vendor_root, common_root):
 
 
 def prepare(root, overrides=None):
-    plan, dt_plan = configuration()
-    rows = projects(plan, dt_plan)
+    plan, _ = configuration()
+    rows = projects(plan)
     where = resolve_overrides(rows, overrides or {})
     with locked(root):
         top = {r['path'].split('/')[0] for r in rows}
@@ -192,9 +175,8 @@ def prepare(root, overrides=None):
         for row in rows:
             verify_project(root / row['path'], row)
         copies = core_header_copies(root / 'vendor', root / 'common')
-        kernel_dt.base_files(root / 'base-dt', dt_plan['base'])
         result = {'status': 'PASS', 'operation': 'kernel-source-preparation',
-                  'source_plan_sha256': sha(SOURCE_PLAN), 'device_tree_base_sha256': base_digest(dt_plan),
+                  'source_plan_sha256': sha(SOURCE_PLAN),
                   'projects': {r['name']: {'path': r['path'], 'url': r['url'], 'revision': r['revision']} for r in rows},
                   'fetched_from_overrides': sorted(where), 'core_header_copies_checked': len(copies),
                   'device_commands_executed': 0}
@@ -202,13 +184,12 @@ def prepare(root, overrides=None):
         return result
 
 
-def prepared(root, plan, dt_plan):
+def prepared(root, plan):
     """The preparation record, checked against the pins and the checkouts."""
     preparation = load_json(root / 'preparation.json')
-    require(preparation.get('status') == 'PASS' and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN)
-            and preparation.get('device_tree_base_sha256') == base_digest(dt_plan),
+    require(preparation.get('status') == 'PASS' and preparation.get('source_plan_sha256') == sha(SOURCE_PLAN),
             'the kernel sources were prepared from other pins. Run "diamaneos kernel prepare" again')
-    rows = projects(plan, dt_plan)
+    rows = projects(plan)
     require(set(preparation.get('projects', {})) == {r['name'] for r in rows},
             'the preparation record is incomplete. Run "diamaneos kernel prepare" again')
     for row in rows:
@@ -475,7 +456,7 @@ def build(root, jobs, timeout, profile='production'):
     kernel_package.debug_recipe(recipe, {module_key(n) for n in denied_modules(recipe)})
     from .product_inputs import tools_identity
     with locked(root):
-        preparation = prepared(root, plan, dt_plan)
+        preparation = prepared(root, plan)
         common = root / 'common'
         revisions = {n: preparation['projects'][n]['revision'] for n in ('vendor', 'common')}
         run = root / 'runs' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
@@ -667,15 +648,14 @@ class Run:
                                      module_metadata, self.common, self.root / self.build_plan['toolchain']['host_libraries'] / 'lib64')
 
     def device_tree(self):
-        """fp6.dtb from the vendor tree's sources, held to the pinned 6.1 tree, and the 6.1 overlay image."""
+        """fp6.dtb and the overlay image from the vendor tree's sources, held to the tested pair the plan pins."""
         self.phase('device-tree')
         started = time.monotonic()
-        files = kernel_dt.base_files(self.root / 'base-dt', self.dt_plan['base'])
-        tree = self.build_device_tree()
-        changes = kernel_dt.check_differences(files['dtbs/fp6.dtb'], tree, self.dt_plan['differences'])
-        count = kernel_dt.overlay_count(files['dtbo.img'])
-        require(count == self.dt_plan['base']['overlay_count'] == self.recipe['dtbo_count'], 'overlay count changed')
-        blobs = kernel_dt.overlays(files['dtbo.img'])
+        tree, image = self.build_device_tree()
+        reference = self.dt_plan['reference']
+        count = kernel_dt.overlay_count(image)
+        require(count == reference['overlay_count'] == self.recipe['dtbo_count'], 'overlay count changed')
+        blobs = kernel_dt.overlays(image)
         enabled = kernel_dt.check_disabled_nodes(tree, blobs, self.dt_plan['disabled_nodes'])
         require(not enabled, 'nodes of drivers that do not ship are enabled, or an overlay cannot be checked: ' + ', '.join(enabled[:3]) +
                 (' and %d more' % (len(enabled) - 3) if len(enabled) > 3 else ''))
@@ -684,17 +664,21 @@ class Run:
         require(not present, 'a forbidden property is in the device tree or an overlay: ' + ', '.join(present[:3]) +
                 (' and %d more' % (len(present) - 3) if len(present) > 3 else ''))
         self.result['disabled_node_rules_checked'] = len(self.dt_plan['disabled_nodes'])
-        (self.run / 'device-tree-differences.json').write_bytes(encoded({
-            'base_sha256': self.dt_plan['base']['files'], 'fp6.dtb_sha256': hashlib.sha256(tree).hexdigest(), 'differences': changes}))
         (self.run / 'fp6.dtb').write_bytes(tree)
+        (self.run / 'dtbo.img').write_bytes(image)
+        for name, data in (('fp6.dtb', tree), ('dtbo.img', image)):
+            require(hashlib.sha256(data).hexdigest() == reference[name],
+                    '%s from source is not the tested one the device tree plan pins. Compare it in the run directory, test it '
+                    'on a phone, then update the pin' % name)
         call([self.root / self.build_plan['toolchain']['kernel_build_tools'] / 'bin/dtc', '-q', '-I', 'dtb', '-O', 'dts',
               '-o', self.run / 'fp6.dts', self.run / 'fp6.dtb'], cwd=self.run, env=self.env)
         self.record('device-tree', started)
-        self.dtbo, self.overlays, self.tree = files['dtbo.img'], count, tree
+        self.dtbo, self.overlays, self.tree = image, count, tree
 
     def build_device_tree(self):
         """The vendor tree's device tree script on a clean copy of its dts/ directory, with the core build's dtc and
-        Qualcomm's overlay tools built by the pinned Clang. Its fp6.dtb is the merged tree vendor_boot carries."""
+        Qualcomm's overlay tools built by the pinned Clang. Returns its fp6.dtb, the merged tree vendor_boot carries, and
+        the overlay image made by the pinned mkdtboimg from its overlays in name order."""
         source, tools, out = self.run / 'dt-src', self.run / 'dt-tools', self.run / 'dt-out'
         kernel_build.stage_vendor_path(self.vendor, self.preparation['projects']['vendor']['revision'], source, 'dts')
         clang = self.llvm / 'clang'
@@ -703,7 +687,12 @@ class Run:
         call(['bash', source / DT_SCRIPT, self.common, out], cwd=self.run, timeout=self.timeout,
              env={**self.env, 'TOOLS': str(tools), 'CPP': '%s -E' % clang}, log=self.logs / 'device-tree.log')
         require((out / 'fp6.dtb').is_file(), 'the device tree build made no fp6.dtb')
-        return (out / 'fp6.dtb').read_bytes()
+        overlays = sorted((out / 'merged').glob('*.dtbo'))
+        require(overlays, 'the device tree build made no overlays')
+        image = self.run / 'dt-out/dtbo.img'
+        call([self.root / self.build_plan['toolchain']['kernel_build_tools'] / 'bin/mkdtboimg', 'create', image, '--page_size=4096',
+              *overlays], cwd=self.run, env=self.env)
+        return (out / 'fp6.dtb').read_bytes(), image.read_bytes()
 
     def package(self):
         dtbs = shipped_dtbs(self.recipe)
@@ -807,7 +796,7 @@ def main(argv=None):
                              'profile builds its bring-up configuration with the debug aids on, adds the debug '
                              'modules and command line arguments, and is never published')
     parser.add_argument('--source', action='append', default=[], metavar='NAME=PATH',
-                        help='prepare: fetch the pinned commit of NAME (vendor, common, a toolchain part or base-dt) '
+                        help='prepare: fetch the pinned commit of NAME (vendor, common or a toolchain part) '
                              'from this local Git repository instead of its URL. The commit stays the pin')
     args = parser.parse_args(argv)
     try:

@@ -18,23 +18,22 @@
   - `modules/` holds the packages, each with a module registry (`modules.bzl`).
   - `configs/` holds the kernel configuration profiles.
   - `kernel/` holds the device kernel fragments.
-- The device tree is built from the vendor tree's `dts/` and checked against the 6.1 one (below).
+- The device tree and overlay image are built from the vendor tree's `dts/` and held to the tested pair (below).
 - Never substitute Pixel kernel sources or disable strict KMI, forced module signatures or sandbox checks.
 - [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins both repositories and
   every toolchain part at exact commits. [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json)
-  pins the 6.1 device tree and overlay image. Their URLs are plain values and may change without a new pin.
+  pins the tested device tree and overlay image by SHA-256. Their URLs are plain values and may change without a new pin.
 
 `kernel prepare --workspace DIR`:
 
-- Checks out each pinned project in its own directory of `DIR` (`vendor`, `common`, `toolchain/*`
-  and `base-dt`), one commit with no history. Toolchain parts are partial, sparse clones of their
+- Checks out each pinned project in its own directory of `DIR` (`vendor`, `common` and `toolchain/*`),
+  one commit with no history. Toolchain parts are partial, sparse clones of their
   repositories, fetched over HTTPS with HTTP/1.1 and retries.
 - `DIR` must be empty or a workspace an earlier preparation made. Edited sources are refused and
   never reset, and so is any untracked input.
 - `--source NAME=PATH` fetches the pinned commit of one project from a local Git repository instead
   of its URL. The commit stays the pin, so the checkout is the same either way.
-- Checks the core header copies (below) and the 6.1 device tree files against their digests, and
-  writes `preparation.json`.
+- Checks the core header copies (below) and writes `preparation.json`.
 
 `kernel build` runs only on a preparation of the pinned commits and checks every checkout again
 before the build.
@@ -226,23 +225,20 @@ Symbol rules in the same file run on every build, each with its reason:
 
 ## Device tree
 
-`kernel build` builds `fp6.dtb` from the vendor tree's device tree sources and holds it to the 6.1
-tree it replaces (`src/diamaneos_tools/kernel_dt.py`, plan `config/fp6-kernel-dt.json`):
+`kernel build` builds `fp6.dtb` and the overlay image from the vendor tree's device tree sources and
+holds them to the tested pair (`src/diamaneos_tools/kernel_dt.py`, plan `config/fp6-kernel-dt.json`):
 
 - `dts/` of the pinned vendor commit is extracted into the run, and its `scripts/build-fp6.sh`
   compiles and merges the tree there.
   - The preprocessor is the pinned Clang and `dtc` is the common tree's, from the core build.
   - Qualcomm's `fdtoverlay`, `fdtoverlaymerge`, `fdtget` and `fdtput` (`dts/qcom-dtc`) are built
     with the pinned Clang.
-- The plan pins the 6.1 device tree and overlay image by commit and SHA-256. The set ships that
-  overlay image, which must hold the number of overlays the packaging recipe names.
-- The tree from source may differ from the 6.1 tree only as the plan's `differences` declare
-  (`device-tree-differences.json` lists them).
-  - Each edit names a property and its value in both trees, or asks for the `#address-cells` and
-    `#size-cells` the 6.1 tree resolves by walking up.
-  - Phandle numbers do not count. A value may name a node by path where it holds a phandle.
-  - Nodes, child order and the memory reservations must match, and a declared difference must
-    still be one.
+- The pinned `mkdtboimg` makes `dtbo.img` from the overlays the script merged, in name order, which must
+  be the number of overlays the packaging recipe names. Qualcomm's boards stay beside the FP6 SKUs, so the
+  entry numbers never move.
+- The plan pins the tested `fp6.dtb` and `dtbo.img` by SHA-256. A change to the device tree sources
+  stops the build until the new pair is tested on a phone and the pins are updated. Both files stay in
+  the run directory for the comparison.
 - No property named in `forbidden_properties` may be in the tree (`qcom,disable-lpm`, which UFS
   low power made obsolete). The same list is scanned in every overlay for the base's SoC.
   - `forbidden_property_exemptions` names the one overlay that has it, the Volcano emulator board
@@ -259,7 +255,7 @@ tree it replaces (`src/diamaneos_tools/kernel_dt.py`, plan `config/fp6-kernel-dt
   - A fragment of such an overlay whose target the tree does not resolve fails, because the check
     could not see what the fragment enables.
 
-The differences:
+Why the tree differs from the Fairphone source it came from:
 
 - `nvmem-modem-cpucp`:
   - The 6.18 nvmem core rejects a bit range past its one-byte cell and a zero-width range, and

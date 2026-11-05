@@ -1068,13 +1068,12 @@ bin/diamaneos vendor generate FP6 --recipe /absolute/path/to/selected-files.json
 - The profile is `production` unless `--config-profile` names another. Only a production run is
   published.
 
-- Preparation checks out the vendor and common kernel repositories, the toolchain and the base device
-  tree at the commits pinned in
-  [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) and
-  [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json).
+- Preparation checks out the vendor and common kernel repositories and the toolchain at the
+  commits pinned in [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json).
 - The build runs the GKI core and device kernel builds, the vendor module packages, the module
   packaging from [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json), the
-  device tree from source, the configuration policy and the module and KMI checks.
+  device tree and overlay image from source, held to the pins in
+  [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json), the configuration policy and the module and KMI checks.
 - [FP6-KERNEL.md](FP6-KERNEL.md) describes each of these steps and checks.
 
 - Logs and terminal results are in `fp6-kernel/runs/<run>/`. `kernel publish` copies a passed run's

@@ -340,59 +340,60 @@ class DeviceTreeStageTests(RunFixture):
             struct.pack('>8I', len(piece), 64, 0, 0, 0, 0, 0, 0) + piece
 
     def stage(self, source, overlay):
-        """The 6.1 base pinned, and source as what the vendor tree builds."""
+        """What the vendor tree builds, and the plan pinning it."""
         import hashlib
-        base = self.blob(b'okay\0')
-        (self.root / 'base-dt/dtbs').mkdir(parents=True, exist_ok=True)
-        (self.root / 'base-dt/dtbs/fp6.dtb').write_bytes(base)
-        (self.root / 'base-dt/dtbo.img').write_bytes(overlay)
-        self.run.dt_plan = {'base': {'files': {'dtbs/fp6.dtb': hashlib.sha256(base).hexdigest(),
-                                               'dtbo.img': hashlib.sha256(overlay).hexdigest()}, 'overlay_count': 1},
-                            'differences': [{'id': 'off', 'reason': 'r', 'edits': [
-                                {'node': '/soc', 'property': 'status', 'base': {'strings': ['okay']}, 'source': {'strings': ['disabled']}}]}],
+        self.run.dt_plan = {'reference': {'fp6.dtb': hashlib.sha256(source).hexdigest(), 'dtbo.img': hashlib.sha256(overlay).hexdigest(),
+                                          'overlay_count': 1},
                             'disabled_nodes': [{'compatible': 'qcom,qcedev', 'reason': 'r'}],
                             'forbidden_properties': ['qcom,disable-lpm'], 'forbidden_property_exemptions': []}
         self.run.build_plan['toolchain']['kernel_build_tools'] = 'dtc-dir'
-        self.run.build_device_tree = lambda: source
+        self.run.build_device_tree = lambda: (source, overlay)
 
-    def test_the_tree_from_source_is_held_to_the_base_and_must_decompile(self):
-        source = self.blob(b'disabled\0')
-        self.stage(source, self.overlay_image(b'disabled\0'))
+    def test_the_tree_and_overlays_from_source_are_held_to_the_pins_and_must_decompile(self):
+        source, overlay = self.blob(b'disabled\0'), self.overlay_image(b'disabled\0')
+        self.stage(source, overlay)
         self.run.device_tree()
         self.assertEqual(1, self.result['disabled_node_rules_checked'])
         self.assertEqual(source, (self.run.run / 'fp6.dtb').read_bytes())
-        self.assertEqual(source, self.run.tree)
+        self.assertEqual((source, overlay), (self.run.tree, self.run.dtbo))
         self.assertEqual((['device-tree'], ['device-tree'], 1), (self.phases, [c['name'] for c in self.result['commands']], self.run.overlays))
         self.assertEqual('dtc', Path(self.calls[0][0]).name)
         self.assertEqual(['-q', '-I', 'dtb', '-O', 'dts'], self.calls[0][1:6])
-        report = json.loads((self.run.run / 'device-tree-differences.json').read_text())
-        self.assertEqual([{'node': '/soc', 'property': 'status', 'base': '"okay"', 'source': '"disabled"'}], report['differences'][0]['changes'])
         # A different overlay count than the recipe's stops the build.
         self.recipe['dtbo_count'] = 2
         self.assertRaisesRegex(KernelError, 'overlay count changed', self.run.device_tree)
 
-    def test_an_undeclared_difference_an_enabled_node_or_a_forbidden_property_stops_the_build(self):
-        self.stage(self.blob(b'disabled\0', [('x', b'')]), self.overlay_image(b'disabled\0'))
-        self.assertRaisesRegex(kernel_dt.DeviceTreeError, 'beyond the declared differences: /soc x', self.run.device_tree)
+    def test_an_unpinned_output_an_enabled_node_or_a_forbidden_property_stops_the_build(self):
+        self.stage(self.blob(b'disabled\0'), self.overlay_image(b'disabled\0'))
+        self.run.dt_plan['reference']['fp6.dtb'] = '0' * 64
+        self.assertRaisesRegex(KernelError, 'fp6.dtb from source is not the tested one', self.run.device_tree)
+        self.stage(self.blob(b'disabled\0'), self.overlay_image(b'disabled\0'))
+        self.run.dt_plan['reference']['dtbo.img'] = '0' * 64
+        self.assertRaisesRegex(KernelError, 'dtbo.img from source is not the tested one', self.run.device_tree)
         self.stage(self.blob(b'disabled\0'), self.overlay_image(b'okay\0'))
         self.assertRaisesRegex(KernelError, 'nodes of drivers that do not ship are enabled, or an overlay cannot be checked: '
                                             '/fragment@0/__overlay__/engine in overlay 0', self.run.device_tree)
         self.stage(self.blob(b'disabled\0'), self.overlay_image(b'disabled\0', [('qcom,disable-lpm', b'')]))
         self.assertRaisesRegex(KernelError, 'a forbidden property is in the device tree or an overlay: .*qcom,disable-lpm in overlay 0',
                                self.run.device_tree)
-        self.assertFalse((self.run.run / 'fp6.dtb').exists())
 
     def test_the_vendor_script_builds_from_a_clean_copy_with_the_pinned_tools(self):
         staged, made = [], []
         seen = {}
 
         def call(argv, cwd=None, env=None, timeout=None, log=None):
+            if Path(argv[0]).name == 'mkdtboimg':
+                seen['image'] = list(map(str, argv))
+                Path(argv[2]).write_bytes(b'image')
+                return
             seen.update(argv=list(map(str, argv)), env=env, log=log)
-            (Path(argv[3]) / 'fp6.dtb').parent.mkdir(parents=True)
+            (Path(argv[3]) / 'merged').mkdir(parents=True)
             (Path(argv[3]) / 'fp6.dtb').write_bytes(b'tree')
+            for name in ('b.dtbo', 'a.dtbo', 'c.dtb'):
+                (Path(argv[3]) / 'merged' / name).write_bytes(b'x')
         with patch.object(kernel_build, 'stage_vendor_path', lambda *a: staged.append(a)), \
                 patch.object(kernel_build, 'device_tree_tools', lambda *a: made.append(a)), patch.object(kernel, 'call', call):
-            self.assertEqual(b'tree', self.run.build_device_tree())
+            self.assertEqual((b'tree', b'image'), self.run.build_device_tree())
         self.assertEqual([(self.root / 'vendor', 'v' * 40, self.run.run / 'dt-src', 'dts')], staged)
         clang = self.root / 'toolchain/clang/bin/clang'
         self.assertEqual((clang, self.run.run / 'dt-src/dts/qcom-dtc', self.run.core / 'scripts/dtc/dtc', self.run.run / 'dt-tools'),
@@ -402,6 +403,9 @@ class DeviceTreeStageTests(RunFixture):
         self.assertEqual((str(self.run.run / 'dt-tools'), str(clang) + ' -E', '/bin'),
                          (seen['env']['TOOLS'], seen['env']['CPP'], seen['env']['PATH']))
         self.assertEqual(self.run.logs / 'device-tree.log', seen['log'])
+        merged = self.run.run / 'dt-out/merged'
+        self.assertEqual(['create', str(self.run.run / 'dt-out/dtbo.img'), '--page_size=4096', str(merged / 'a.dtbo'), str(merged / 'b.dtbo')],
+                         seen['image'][1:])
 
 
 class ReleaseTests(unittest.TestCase):

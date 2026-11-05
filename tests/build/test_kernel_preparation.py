@@ -47,29 +47,25 @@ class KernelPreparationTests(unittest.TestCase):
         self.common_rev = repository(self.root / 'common', {
             'include/drm/mode.h': header, 'Makefile': 'VERSION = 6\nPATCHLEVEL = 18\nSUBLEVEL = 37\n'})
         self.tool_rev = repository(self.root / 'tool', {'bin/tool': 'tool\n', 'unused/big.bin': 'x\n'})
-        self.dt_rev = repository(self.root / 'dt', {'dtbs/fp6.dtb': 'dtb', 'dtbo.img': 'dtbo'})
         sha = lambda text: hashlib.sha256(text.encode()).hexdigest()
         self.plan = {'schema_version': 2,
                      'vendor': {'path': 'vendor', 'url': str(self.root / 'vendor'), 'revision': self.vendor_rev},
                      'common': {'path': 'common', 'url': str(self.root / 'common'), 'revision': self.common_rev},
                      'toolchain': [{'name': 'tool', 'path': 'toolchain/tool', 'url': str(self.root / 'tool'),
                                     'revision': self.tool_rev}]}
-        self.dt_plan = {'schema_version': 2, 'scope': 'x', 'differences': [],
-                        'base': {'repository': str(self.root / 'dt'), 'revision': self.dt_rev, 'overlay_count': 1,
-                                 'files': {'dtbs/fp6.dtb': sha('dtb'), 'dtbo.img': sha('dtbo')}}}
         self.workspace = self.root / 'workspace'
 
     def prepare(self, overrides=None):
-        with patch.object(kernel, 'configuration', return_value=(self.plan, self.dt_plan)):
+        with patch.object(kernel, 'configuration', return_value=(self.plan, {})):
             return kernel.prepare(self.workspace, overrides)
 
     def prepared(self):
-        return kernel.prepared(self.workspace, self.plan, self.dt_plan)
+        return kernel.prepared(self.workspace, self.plan)
 
     def test_prepares_every_pinned_checkout(self):
         result = self.prepare()
         self.assertEqual('PASS', result['status'])
-        self.assertEqual({'vendor', 'common', 'tool', 'base-dt'}, set(result['projects']))
+        self.assertEqual({'vendor', 'common', 'tool'}, set(result['projects']))
         self.assertEqual(self.vendor_rev, kernel_util.git(self.workspace / 'vendor', 'rev-parse', 'HEAD'))
         self.assertEqual(self.common_rev, result['projects']['common']['revision'])
         self.assertEqual('tool\n', (self.workspace / 'toolchain/tool/bin/tool').read_text())
@@ -120,10 +116,6 @@ class KernelPreparationTests(unittest.TestCase):
         self.assertRaisesRegex(kernel.KernelError, 'core header copy differs', self.prepare)
         self.assertFalse((self.workspace / 'preparation.json').exists())
 
-    def test_base_device_tree_must_match_its_digest(self):
-        self.dt_plan['base']['files']['dtbo.img'] = '0' * 64
-        self.assertRaisesRegex(kernel.KernelError.__mro__[1], 'differs from its pin', self.prepare)
-
     def test_other_files_symlinks_and_stale_preparations_are_refused(self):
         self.workspace.mkdir()
         (self.workspace / 'stray').write_text('x')
@@ -136,13 +128,6 @@ class KernelPreparationTests(unittest.TestCase):
             self.assertRaisesRegex(kernel.KernelError, 'other pins', self.prepared)
         self.plan['vendor']['revision'] = '0' * 40
         self.assertRaisesRegex(kernel.KernelError, 'not at the pin: vendor', self.prepared)
-
-    def test_changing_the_differences_does_not_ask_for_a_new_preparation_but_a_new_base_does(self):
-        self.prepare()
-        self.dt_plan['differences'] = [{'id': 'x'}]
-        self.prepared()
-        self.dt_plan['base']['overlay_count'] = 2
-        self.assertRaisesRegex(kernel.KernelError, 'other pins', self.prepared)
 
     def test_workspace_symlink_rejected(self):
         self.workspace.symlink_to(self.root, target_is_directory=True)
@@ -160,11 +145,11 @@ class SourcePlanTests(unittest.TestCase):
         self.plan = json.loads((kernel.ROOT / 'config/kernel-sources-fp6.json').read_text())
 
     def test_the_committed_plan_pins_two_repositories_and_the_toolchain(self):
-        plan, dt_plan = kernel.configuration()
-        names = [row['name'] for row in kernel.projects(plan, dt_plan)]
+        plan, _ = kernel.configuration()
+        names = [row['name'] for row in kernel.projects(plan)]
         self.assertEqual(['vendor', 'common', 'clang', 'rust', 'clang-tools', 'kernel-build-tools', 'build-tools',
-                          'host-libraries', 'host-zlib', 'base-dt'], names)
-        for row in kernel.projects(plan, dt_plan):
+                          'host-libraries', 'host-zlib'], names)
+        for row in kernel.projects(plan):
             self.assertRegex(row['revision'], '^[0-9a-f]{40}$')
 
     def test_plans_need_https_urls_exact_commits_and_distinct_names(self):
@@ -274,7 +259,7 @@ class KernelPackagingRecipeTests(unittest.TestCase):
 
     def test_only_the_fp6_device_tree_ships(self):
         self.assertEqual(['fp6.dtb'], kernel.shipped_dtbs(self.recipe))
-        self.assertEqual(kernel.load_json(kernel.DT_PLAN)['base']['overlay_count'], self.recipe['dtbo_count'])
+        self.assertEqual(kernel.load_json(kernel.DT_PLAN)['reference']['overlay_count'], self.recipe['dtbo_count'])
         for bad in (None, [], ['fp6.dtb', 'fp6.dtb'], ['../fp6.dtb'], ['fp6.dtbo']):
             self.assertRaises(kernel.KernelError, kernel.shipped_dtbs, {'dtbs': bad})
 
