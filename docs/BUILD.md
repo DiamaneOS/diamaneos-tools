@@ -782,10 +782,10 @@ commands](#the-build-commands).
 - [`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records the upstream
   commit each 6.1-tree project was ported from.
 - To take an update, port the change into `kernel_qcom-6.18` as its own commit.
-- Where `fairphone_changes` is true, the import must carry Fairphone's FP6 changes too (Fairphone's
-  rebased branch, or the difference between the recorded commit and the folder on `upstream`,
-  applied to the new state), or the rebased branch loses them.
-- The change that takes an import also sets the project's `commit` and `release` in this record.
+- Where `fairphone_changes` is true, the port also carries Fairphone's FP6 changes, so a later
+  upstream change must keep them.
+- A change that takes a newer upstream state also sets the project's `commit` and `release` in this
+  record.
 - `git tag --merged <commit>` in a clone of the upstream project lists the releases a commit
   contains.
 
