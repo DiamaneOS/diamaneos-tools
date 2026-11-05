@@ -211,14 +211,14 @@ class RealRecipeTests(unittest.TestCase):
         rule = next(r for r in json.loads((root / 'config/fp6-image-checks.json').read_text())['rules']
                     if r['id'] == 'data-stack')
         upper = lambda paths: sorted('VENDOR/' + p.split('/', 1)[1] for p in paths)
-        self.assertEqual(upper(set(subject.DROPPED) - set(subject.REPLACED)), sorted(rule['datad']['absent']))
-        self.assertEqual(upper(subject.REPLACED), sorted(rule['datad']['not_stock']))
-        self.assertIn('VENDOR/bin/datad', rule['datad']['present'])
-        self.assertTrue(set(rule['datad']['not_stock']) <= set(rule['datad']['present']))
+        self.assertEqual(upper(set(subject.DROPPED) - set(subject.REPLACED)), sorted(rule['absent']))
+        self.assertEqual(upper(subject.REPLACED), sorted(rule['not_stock']))
+        self.assertIn('VENDOR/bin/datad', rule['present'])
+        self.assertTrue(set(rule['not_stock']) <= set(rule['present']))
         # the hashes are those of the stock files the recipe pins
         recipe = json.loads((root / 'config/fp6-minimal/vendor-files.json').read_text())
         pinned = {r['path']: r['sha256'] for r in recipe['files']}
-        for path, sha in rule['datad']['not_stock'].items():
+        for path, sha in rule['not_stock'].items():
             self.assertEqual(pinned['vendor/' + path.split('/', 1)[1]], sha)
 
 

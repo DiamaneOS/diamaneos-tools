@@ -404,32 +404,17 @@ def property_lines(data: bytes) -> list[tuple[str, str]]:
     return result
 
 
-def datad_build(v):
-    """Whether the image is of the open data stack, which is the default build. Only a vendor generation that
-    exists and does not say so was made for the stock nicmd (--no-datad)."""
-    vendor_dir = getattr(v, 'vendor_dir', None)
-    if vendor_dir is None:
-        return True
-    try:
-        provenance = json.loads((vendor_dir / 'provenance.json').read_bytes())
-    except (OSError, ValueError):
-        return True
-    return not isinstance(provenance, dict) or provenance.get('datad_selection') is True
-
-
 def rule_files_present(rule, v):
     missing = [p for p in rule['paths'] if not v.tf.exists(p)]
     return not missing, 'missing: ' + ', '.join(missing) if missing else ''
 
 
 def rule_data_stack(rule, v):
-    """The data stack of the image is the one the build was made for. The open one has the daemon, its init file and
-    the two libraries, none of the other stock nicm files, and libraries that are not the stock files. The stock one
-    has nicmd and none of the daemon."""
-    spec = rule['datad'] if datad_build(v) else rule['stock']
-    problems = ['missing ' + p for p in spec['present'] if not v.tf.exists(p)]
-    problems += ['present ' + p for p in spec['absent'] if v.tf.exists(p) or v.tf.is_symlink(p)]
-    for path, stock_sha256 in sorted(spec.get('not_stock', {}).items()):
+    """The image has the open data stack: the daemon, its init file and the two libraries, none of the other stock
+    nicm files, and libraries that are not the stock files."""
+    problems = ['missing ' + p for p in rule['present'] if not v.tf.exists(p)]
+    problems += ['present ' + p for p in rule['absent'] if v.tf.exists(p) or v.tf.is_symlink(p)]
+    for path, stock_sha256 in sorted(rule['not_stock'].items()):
         if v.tf.exists(path) and hashlib.sha256(v.tf.read(path)).hexdigest() == stock_sha256:
             problems.append(path + ' is the stock file')
     return not problems, '; '.join(problems)
@@ -2014,11 +1999,12 @@ def check_vendor(v):
     expected = {item['path']: item['sha256'] for item in recipe.get('files', [])}
     if not expected:
         return False, 'the vendor generation selects no files'
-    pinned_recipe = json.loads(VENDOR_FILES.read_bytes())
-    if provenance.get('datad_selection') is True:
-        # The generation of the open data stack selects the pinned files without the stock nicm files.
-        from . import datad_selection
-        pinned_recipe = datad_selection.transform(pinned_recipe, json.loads(VENDOR_ELF.read_bytes()))[0]
+    if provenance.get('datad_selection') is not True:
+        return False, 'the vendor generation is not of the open data stack'
+    # The generation selects the pinned files without the stock nicm files.
+    from . import datad_selection
+    pinned_recipe = datad_selection.transform(json.loads(VENDOR_FILES.read_bytes()),
+                                              json.loads(VENDOR_ELF.read_bytes()))[0]
     pinned = {item['path']: item['sha256'] for item in pinned_recipe['files']}
     if expected != pinned:
         changed = sorted(set(expected) ^ set(pinned) | {p for p in expected.keys() & pinned if expected[p] != pinned[p]})

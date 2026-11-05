@@ -38,10 +38,8 @@ On Linux, the full suite requires `DIAMANEOS_SIGNING_NATIVE_SOURCE` and
   - `tests/vendor/test_datad_selection.py` covers the recipe and selection transformation on made-up
     pairs and on the FP6 files: 12 files and 86 edges leave, the renderer takes the result, and a
     changed stock closure stops it.
-  - The command, the generated inputs, the image checks and the build steps have tests for the
-    default and for the stock path (`--no-datad`). The build step tests run the stock path unless a
-    test names the choice, and `test_the_data_stack_is_the_default_and_the_workspace_remembers_the_stock_choice`
-    holds the default.
+  - The generated inputs, the image checks and the build steps have tests for the data stack, and
+    the build step tests run it. `test_the_data_stack_is_the_only_build` holds the command line.
 
 ## Regions
 

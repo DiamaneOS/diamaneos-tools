@@ -687,42 +687,31 @@
     },
     {
       "id": "data-stack",
-      "why": "Mobile data runs on the open data stack: the daemon datad, its init file and the two libraries built from source are in the image, none of the other ten stock nicm files is, and the libraries are not the stock files. A build made with --no-datad has the stock nicmd and none of the daemon.",
+      "why": "Mobile data runs on the open data stack: the daemon datad, its init file and the two libraries built from source are in the image, none of the other ten stock nicm files is, and the libraries are not the stock files.",
       "type": "data_stack",
-      "datad": {
-        "present": [
-          "VENDOR/bin/datad",
-          "VENDOR/etc/init/datad.rc",
-          "VENDOR/bin/wlantunneld",
-          "VENDOR/etc/init/wlantunneld.rc",
-          "VENDOR/lib64/libnicm.so",
-          "VENDOR/lib64/libnicm_dsi.so"
-        ],
-        "absent": [
-          "VENDOR/bin/nicmd",
-          "VENDOR/etc/init/nicmd.rc",
-          "VENDOR/etc/data/nicm_config.xml",
-          "VENDOR/lib64/libnicm_internal.so",
-          "VENDOR/lib64/libnicm_modemproxy.so",
-          "VENDOR/lib64/libnicm_netlink.so",
-          "VENDOR/lib64/libnicm_recovery.so",
-          "VENDOR/lib64/libnicm_utils.so",
-          "VENDOR/lib64/librmnetctl.so",
-          "VENDOR/lib64/libshsc.so"
-        ],
-        "not_stock": {
-          "VENDOR/lib64/libnicm.so": "d4946a64c95c6b3e7deefbb232f8d62391c6936394b36ccf3c767dbeb5adaf77",
-          "VENDOR/lib64/libnicm_dsi.so": "1831dcec6f72b20d0843f900009a35f9e8678b4bfa5ab30dc782b7fd3598fbda"
-        }
-      },
-      "stock": {
-        "present": [
-          "VENDOR/bin/nicmd"
-        ],
-        "absent": [
-          "VENDOR/bin/datad",
-          "VENDOR/etc/init/datad.rc"
-        ]
+      "present": [
+        "VENDOR/bin/datad",
+        "VENDOR/etc/init/datad.rc",
+        "VENDOR/bin/wlantunneld",
+        "VENDOR/etc/init/wlantunneld.rc",
+        "VENDOR/lib64/libnicm.so",
+        "VENDOR/lib64/libnicm_dsi.so"
+      ],
+      "absent": [
+        "VENDOR/bin/nicmd",
+        "VENDOR/etc/init/nicmd.rc",
+        "VENDOR/etc/data/nicm_config.xml",
+        "VENDOR/lib64/libnicm_internal.so",
+        "VENDOR/lib64/libnicm_modemproxy.so",
+        "VENDOR/lib64/libnicm_netlink.so",
+        "VENDOR/lib64/libnicm_recovery.so",
+        "VENDOR/lib64/libnicm_utils.so",
+        "VENDOR/lib64/librmnetctl.so",
+        "VENDOR/lib64/libshsc.so"
+      ],
+      "not_stock": {
+        "VENDOR/lib64/libnicm.so": "d4946a64c95c6b3e7deefbb232f8d62391c6936394b36ccf3c767dbeb5adaf77",
+        "VENDOR/lib64/libnicm_dsi.so": "1831dcec6f72b20d0843f900009a35f9e8678b4bfa5ab30dc782b7fd3598fbda"
       }
     },
     {

@@ -2916,12 +2916,16 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn('stream second lists modules outside modules.load: e.ko',
                       check(first=b'a.ko\nb-x.ko\nc.ko\n', second=b'd.ko\ne.ko\n')[1])
 
-    def pin_vendor_files(self, recipe):
+    def pin_vendor_files(self, recipe, keep_transform=False):
+        """The recipe as the tools pin it. These recipes are made up, so the transformation leaves them as they are."""
         pinned = self.root / 'pinned-vendor-files.json'
         pinned.write_text(json.dumps(recipe))
-        patcher = mock.patch.object(subject, 'VENDOR_FILES', pinned)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        patchers = [mock.patch.object(subject, 'VENDOR_FILES', pinned)]
+        if not keep_transform:
+            patchers.append(mock.patch('diamaneos_tools.datad_selection.transform', side_effect=lambda r, s: (r, s)))
+        for patcher in patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_vendor_binding_refuses_a_recipe_edited_with_its_blob(self):
         # A blob changed together with the workspace recipe still differs from the tools' pin.
@@ -2930,7 +2934,7 @@ class GenericCheckTests(unittest.TestCase):
         (vendor / 'files' / rel).parent.mkdir(parents=True)
         (vendor / 'files' / rel).write_bytes(b'edited')
         (vendor / 'recipe.json').write_text(json.dumps({'files': [{'path': rel, 'sha256': hashlib.sha256(b'edited').hexdigest()}]}))
-        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [], 'datad_selection': True}))
         self.pin_vendor_files({'files': [{'path': rel, 'sha256': hashlib.sha256(b'fw').hexdigest()}]})
         v = self.harness({'VENDOR/firmware/touch.bin': b'edited'})
         v.vendor_dir = vendor
@@ -2952,7 +2956,7 @@ class GenericCheckTests(unittest.TestCase):
             item['sha256'] = hashlib.sha256(contents[item['path']]).hexdigest()
         left, _ = datad_selection.transform(recipe, selection)
         (self.root / 'pinned-elf.json').write_text(json.dumps(selection))
-        self.pin_vendor_files(recipe)
+        self.pin_vendor_files(recipe, keep_transform=True)
         patcher = mock.patch.object(subject, 'VENDOR_ELF', self.root / 'pinned-elf.json')
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -2979,10 +2983,9 @@ class GenericCheckTests(unittest.TestCase):
         self.assertIn("differs from the pinned vendor-files.json", problem[1])
         self.assertIn('vendor/bin/nicmd', problem[1])
 
-    def test_vendor_binding_refuses_a_stock_generation_that_lost_the_stock_files(self):
-        problem = subject.check_vendor(self.datad_vendor(marked=False))
-        self.assertFalse(problem[0])
-        self.assertIn("differs from the pinned vendor-files.json", problem[1])
+    def test_vendor_binding_refuses_a_generation_that_does_not_say_data_stack(self):
+        self.assertEqual((False, 'the vendor generation is not of the open data stack'),
+                         subject.check_vendor(self.datad_vendor(marked=False)))
 
     def data_stack_rule(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
@@ -2996,54 +2999,23 @@ class GenericCheckTests(unittest.TestCase):
             v.vendor_dir = vendor.vendor_dir
         return v
 
-    def test_the_default_build_expects_the_daemon_and_none_of_the_other_stock_nicm_files(self):
+    def test_the_image_has_the_daemon_and_none_of_the_other_stock_nicm_files(self):
         rule = self.data_stack_rule()
-        datad = rule['datad']
-        members = {p: None for p in datad['present']}
-        # no vendor generation to ask: the open data stack is the default
-        self.assertTrue(subject.datad_build(self.image(members)))
+        members = {p: None for p in rule['present']}
         self.assertEqual((True, ''), subject.rule_data_stack(rule, self.image(members)))
-        for gone in datad['present']:
+        for gone in rule['present']:
             self.assertEqual((False, 'missing ' + gone),
                              subject.rule_data_stack(rule, self.image({p: None for p in members if p != gone})))
-        for stock in datad['absent']:
+        for stock in rule['absent']:
             ok, detail = subject.rule_data_stack(rule, self.image({**members, stock: None}))
             self.assertEqual((False, 'present ' + stock), (ok, detail))
         # the two libraries have to be the ones built from source
-        for path, sha in datad['not_stock'].items():
-            self.assertTrue(subject.datad_build(self.image(members)))
+        for path, sha in rule['not_stock'].items():
             stock_bytes = self.image({**members})
             stock_bytes.tf.read = lambda p, real=stock_bytes.tf.read: b'the stock file' if p == path else real(p)
             with mock.patch.object(subject.hashlib, 'sha256', side_effect=lambda data: mock.Mock(
                     hexdigest=lambda: sha if data == b'the stock file' else '0' * 64)):
                 self.assertEqual((False, path + ' is the stock file'), subject.rule_data_stack(rule, stock_bytes))
-
-    def test_a_build_with_the_stock_nicmd_expects_nicmd_and_none_of_the_daemon(self):
-        rule = self.data_stack_rule()
-        stock = self.datad_vendor(marked=False)
-        self.assertFalse(subject.datad_build(stock))
-        members = {p: None for p in rule['stock']['present']}
-        self.assertEqual((True, ''), subject.rule_data_stack(rule, self.image(members, stock)))
-        self.assertEqual((False, 'missing VENDOR/bin/nicmd'), subject.rule_data_stack(rule, self.image({}, stock)))
-        for daemon in rule['stock']['absent']:
-            self.assertEqual((False, 'present ' + daemon),
-                             subject.rule_data_stack(rule, self.image({**members, daemon: None}, stock)))
-        # the same files in a build that says it is the open data stack are wrong the other way round
-        marked = self.datad_vendor(marked=True)
-        self.assertTrue(subject.datad_build(self.image(members, marked)))
-        ok, detail = subject.rule_data_stack(rule, self.image(members, marked))
-        self.assertFalse(ok)
-        self.assertIn('present VENDOR/bin/nicmd', detail)
-        self.assertIn('missing VENDOR/bin/datad', detail)
-
-    def test_an_unreadable_vendor_record_is_the_default_build(self):
-        v = self.datad_vendor(marked=True)
-        (v.vendor_dir / 'provenance.json').write_text('not json')
-        self.assertTrue(subject.datad_build(v))
-        (v.vendor_dir / 'provenance.json').write_text('[]')
-        self.assertTrue(subject.datad_build(v))
-        (v.vendor_dir / 'provenance.json').unlink()
-        self.assertTrue(subject.datad_build(v))
 
     def test_vendor_binding_compares_generated_bytes(self):
         from diamaneos_tools import carrier_data
@@ -3056,7 +3028,8 @@ class GenericCheckTests(unittest.TestCase):
         recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(data).hexdigest()} for rel, data in files.items()]}
         (vendor / 'recipe.json').write_text(json.dumps(recipe))
         self.pin_vendor_files(recipe)
-        (vendor / 'provenance.json').write_text(json.dumps({'source_interface_replacements': ['vendor/lib64/libreplaced.so'],
+        (vendor / 'provenance.json').write_text(json.dumps({'datad_selection': True,
+                                                            'source_interface_replacements': ['vendor/lib64/libreplaced.so'],
                                                             'uninstalled_optional_libraries': [], 'derived_files': []}))
         members = {'VENDOR/firmware/touch.bin': b'fw', 'ODM/lib64/libkeymaster_messages.so': b'km',
                    'VENDOR/lib64/libreplaced.so': b'source build'}
@@ -3094,7 +3067,7 @@ class GenericCheckTests(unittest.TestCase):
         recipe = {'files': [{'path': 'vendor/etc/codecs.xml', 'sha256': sha['vendor/etc/codecs.xml']}]}
         (vendor / 'recipe.json').write_text(json.dumps(recipe))
         self.pin_vendor_files(recipe)
-        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [
+        (vendor / 'provenance.json').write_text(json.dumps({'datad_selection': True, 'derived_files': [
             {'path': 'vendor/etc/codecs_hwdec.xml', 'from': 'vendor/etc/codecs.xml',
              'sha256': sha['vendor/etc/codecs_hwdec.xml']},
             {'path': 'vendor/etc/unrelated.xml', 'sha256': sha['vendor/etc/codecs_hwdec.xml']}]}))
@@ -3121,7 +3094,7 @@ class GenericCheckTests(unittest.TestCase):
         recipe = {'files': [{'path': rel, 'sha256': hashlib.sha256(b'stock apex').hexdigest()}]}
         (vendor / 'recipe.json').write_text(json.dumps(recipe))
         self.pin_vendor_files(recipe)
-        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': []}))
+        (vendor / 'provenance.json').write_text(json.dumps({'derived_files': [], 'datad_selection': True}))
         member = 'VENDOR/apex/com.google.android.widevine.nonupdatable.apex'
 
         def check(members):

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,7 +23,8 @@ class ProductInputTests(unittest.TestCase):
         self.device=devices.get('FP6');self.recipes=subject.current_recipes(self.device)
         provenance=vtree/'provenance.json'
         provenance.write_text(json.dumps({'recipe_sha256':self.recipes['vendor_files'],
-                                          'elf_selection_sha256':self.recipes['vendor_elf']}));provenance.chmod(0o640)
+                                          'elf_selection_sha256':self.recipes['vendor_elf'],
+                                          'datad_selection':True}));provenance.chmod(0o640)
         records={name:{'bytes':(vtree/name).stat().st_size,'sha256':sha(vtree/name)} for name in ('input','provenance.json')}
         (self.vendor/'inventories').mkdir();(self.vendor/'inventories'/('a'*64+'.json')).write_text(json.dumps(records))
         (self.vendor/'current').symlink_to('generations/'+'a'*64)
@@ -115,7 +117,8 @@ class ProductInputTests(unittest.TestCase):
         # Through install(): a self-consistent tree whose generation
         # does not record the current recipes is refused before anything is installed.
         provenance=(self.vendor/'current').resolve()/'provenance.json'
-        provenance.write_text(json.dumps({'recipe_sha256':'0'*64,'elf_selection_sha256':self.recipes['vendor_elf']}))
+        provenance.write_text(json.dumps({'recipe_sha256':'0'*64,'elf_selection_sha256':self.recipes['vendor_elf'],
+                                          'datad_selection':True}))
         inventory=self.vendor/'inventories'/('a'*64+'.json')
         records=json.loads(inventory.read_text());records['provenance.json']={'bytes':provenance.stat().st_size,'sha256':sha(provenance)}
         inventory.write_text(json.dumps(records))
@@ -127,9 +130,8 @@ class ProductInputTests(unittest.TestCase):
             self.install()
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
 
-    def datad_generation(self, recipes=None, marked=True):
-        """The fixture generation made for the open data stack (its provenance says so, and records its recipes)."""
-        recipes = recipes or subject.current_recipes(self.device, datad=True)
+    def generation(self, recipes, marked=True):
+        """The fixture generation with these recipes and with or without the mark of the open data stack."""
         provenance=(self.vendor/'current').resolve()/'provenance.json'
         provenance.write_text(json.dumps({'recipe_sha256':recipes['vendor_files'],
                                           'elf_selection_sha256':recipes['vendor_elf'],
@@ -138,39 +140,34 @@ class ProductInputTests(unittest.TestCase):
         records=json.loads(inventory.read_text())
         records['provenance.json']={'bytes':provenance.stat().st_size,'sha256':sha(provenance)}
         inventory.write_text(json.dumps(records))
-        return recipes
 
-    def test_the_recipes_of_the_data_stack_are_not_the_stock_ones(self):
-        datad=subject.current_recipes(self.device,datad=True)
-        self.assertEqual(self.recipes,subject.current_recipes(self.device,datad=False))
-        self.assertNotEqual(self.recipes['vendor_files'],datad['vendor_files'])
-        self.assertNotEqual(self.recipes['vendor_elf'],datad['vendor_elf'])
+    def stock_recipes(self):
+        """The digests of the device's two files as they are."""
+        return {key:hashlib.sha256(subject.encoded(json.loads(self.device.path(key).read_bytes()))).hexdigest()
+                for key in subject.RECIPE_KEYS}
 
-    def test_a_stock_descriptor_does_not_mention_the_data_stack(self):
-        self.install()
-        descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
-        self.assertNotIn('datad',descriptor)
-        self.assertFalse(subject.selected_inputs(self.vendor)['datad'])
+    def test_the_recipes_are_those_of_the_data_stack(self):
+        stock=self.stock_recipes()
+        self.assertNotEqual(stock['vendor_files'],self.recipes['vendor_files'])
+        self.assertNotEqual(stock['vendor_elf'],self.recipes['vendor_elf'])
 
-    def test_a_tree_made_for_the_data_stack_installs_with_its_own_recipes(self):
-        recipes=self.datad_generation()
+    def test_the_tree_installs_and_the_descriptor_says_data_stack(self):
         self.install()
         descriptor=json.loads((self.source/'.repo/diamaneos-generated-inputs.json').read_text())
         self.assertIs(True,descriptor['datad'])
-        self.assertEqual(recipes,descriptor['recipes'])
+        self.assertEqual(self.recipes,descriptor['recipes'])
         self.assertEqual({'vendor/fairphone/FP6'},subject.verify_descriptor(self.source))
 
-    def test_the_data_stack_and_the_recipes_must_agree(self):
-        # the marker with the stock recipes, and the data stack recipes without the marker
-        self.datad_generation(recipes=self.recipes)
-        with self.assertRaisesRegex(ValueError,'other recipes .vendor_elf, vendor_files.. Rebuild them with "diamaneos build vendor FP6 --datad"'):
+    def test_a_tree_of_other_recipes_or_without_the_mark_is_refused(self):
+        self.generation(self.stock_recipes())
+        with self.assertRaisesRegex(ValueError,'other recipes .vendor_elf, vendor_files.. Rebuild them with "diamaneos build vendor FP6"'):
             self.install()
-        self.datad_generation(marked=False)
-        with self.assertRaisesRegex(ValueError,'other recipes'):
+        self.generation(self.recipes,marked=False)
+        with self.assertRaisesRegex(ValueError,'not those of the open data stack'):
             self.install()
         self.assertFalse((self.source/'vendor/fairphone/FP6').exists())
 
-    def test_a_descriptor_that_says_data_stack_without_meaning_it_is_refused(self):
+    def test_a_descriptor_that_does_not_say_data_stack_is_refused(self):
         self.install()
         path=self.source/'.repo/diamaneos-generated-inputs.json'
         descriptor=json.loads(path.read_text())
@@ -179,8 +176,11 @@ class ProductInputTests(unittest.TestCase):
                 path.write_text(json.dumps(dict(descriptor,datad=value)))
                 with self.assertRaisesRegex(ValueError,'incomplete'):
                     subject.verify_descriptor(self.source)
-        # the stock recipes under a descriptor that claims the data stack
-        path.write_text(json.dumps(dict(descriptor,datad=True)))
+        path.write_text(json.dumps({k:v for k,v in descriptor.items() if k!='datad'}))
+        with self.assertRaisesRegex(ValueError,'incomplete'):
+            subject.verify_descriptor(self.source)
+        # the stock recipes under a descriptor that says the data stack
+        path.write_text(json.dumps(dict(descriptor,recipes=self.stock_recipes())))
         with self.assertRaisesRegex(ValueError,'other recipes'):
             subject.verify_descriptor(self.source)
 
