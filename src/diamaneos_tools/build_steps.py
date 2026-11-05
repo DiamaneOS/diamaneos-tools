@@ -76,9 +76,7 @@ MAX_UNKNOWN_DOWNLOAD = 16 * 1024 * 1024
 # stays official. --no-official removes it.
 OFFICIAL_FLAG = 'DIAMANEOS_OFFICIAL_BUILD'
 OFFICIAL_MARKER = 'official'
-# The open data stack (DIAMANEOS_DATAD=true, read by the device's BoardConfig.mk and telephony.mk). The vendor tree is
-# made without the stock nicmd files and the Android step sets the variable. Step records and identities name it.
-DATAD_FLAG = 'DIAMANEOS_DATAD'
+# The open data stack: the vendor tree is made without the stock nicmd files. Step records and identities name it.
 DATAD_RECORD = {'datad': True}
 # Long transfers from android.googlesource.com break off over HTTP/2 ("bytes of
 # body are still expected"), and repo then retries the project with every
@@ -708,7 +706,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
     host_tools = Action(
         'Build the image tools', detail='aapt2, simg2img, lpunpack and debugfs_static from the synced source',
         argv=['bash', '-c', HOST_TOOLS_SCRIPT], cwd=ws.src, compile=True,
-        unset=('OFFICIAL_BUILD', OFFICIAL_FLAG, DATAD_FLAG),
+        unset=('OFFICIAL_BUILD', OFFICIAL_FLAG),
         env=tool_env)
 
     def clear_installed():
@@ -741,7 +739,7 @@ def plan_vendor(ctx: Context) -> StepPlan:
 
     def extract():
         from . import datad_selection, vendor_extract
-        selection = datad_selection.pair(device, True)[0]
+        selection = datad_selection.pair(device)[0]
         pins, _ = device.load('image_tools')
         ctx.cache['extract'] = vendor_extract.extract(
             (ws.stock_images / 'current' / 'super.img').resolve(), ctx.host_bin.resolve(), ws.stock_files,
@@ -750,14 +748,14 @@ def plan_vendor(ctx: Context) -> StepPlan:
     def product():
         from . import datad_selection, firmware_release, safe_json, vendor_product
         inventory = safe_json.load_json(device.path('firmware_inventory'))
-        vendor_files, vendor_elf = datad_selection.pair(device, True)
+        vendor_files, vendor_elf = datad_selection.pair(device)
         ctx.cache['product'] = vendor_product.generate(
             vendor_files, vendor_elf,
             (ws.stock_files / 'current').resolve(), ws.vendor, notice_kind=config['notice_kind'],
             aapt2=ctx.host_bin / 'aapt2', stock=recipe,
             firmware_releases=firmware_release.table(inventory, config['firmware_release']),
             firmware_inventory=inventory, firmware_policy=config['firmware'], factory_zip=zip_path,
-            release_date=archive.get('release_date'), datad=True)
+            release_date=archive.get('release_date'))
 
     def install():
         # So a plain "m" after "build vendor" finds the vendor files. The
@@ -990,20 +988,18 @@ def plan_android(ctx: Context) -> StepPlan:
 
     # GrapheneOS's OFFICIAL_BUILD never reaches the build. DIAMANEOS_OFFICIAL_BUILD
     # does only as --official sets it, never from the caller's environment.
-    # DIAMANEOS_DATAD is always set here and never taken from the caller's environment.
     compile_action = Action(
-        f'Build Android ({lunch}{", official" if ctx.official else ""}, open data stack)',
+        f'Build Android ({lunch}{", official" if ctx.official else ""})',
         argv=['bash', '-c', ANDROID_SCRIPT],
         cwd=ws.src, compile=True,
-        unset=('OFFICIAL_BUILD', DATAD_FLAG) + (() if ctx.official else (OFFICIAL_FLAG,)),
+        unset=('OFFICIAL_BUILD',) + (() if ctx.official else (OFFICIAL_FLAG,)),
         env={'OUT_DIR': config['out_dir'], 'DIAMANEOS_LUNCH': lunch, 'DIAMANEOS_PRODUCT': config['product'],
              'DIAMANEOS_TARGETS': ' '.join(targets), 'DIAMANEOS_JOBS': f'-j{ctx.jobs_for()}',
              'BUILD_NUMBER': number or '<from the build identity>',
              'BUILD_DATETIME': datetime if datetime is not None else '<newest source commit time>',
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname'],
-             **({OFFICIAL_FLAG: 'true'} if ctx.official else {}),
-             DATAD_FLAG: 'true'})
+             **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
     actions = [Action('Install the vendor tree', func=install),
                Action('Verify the source tree', func=preflight('preflight'),
                       detail='the source tree, the generated inputs and the device policy provenance record'),

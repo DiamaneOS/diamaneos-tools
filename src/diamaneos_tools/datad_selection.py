@@ -1,4 +1,4 @@
-"""The vendor recipe and ELF selection of a build with the open data stack (DIAMANEOS_DATAD=true).
+"""The vendor recipe and ELF selection of the open data stack.
 
 The stock data stack is nicmd with its libraries. The open one is the daemon `datad` and two libraries
 that take the place of `libnicm.so` and `libnicm_dsi.so`, built from source with the Android tree. So the
@@ -9,8 +9,7 @@ vendor_product.py, which names `libnicm` and `libnicm_dsi`).
 
 The transformation fails when the stock files are not the ones it was written for: a file to drop is missing,
 another file needs a dropped one, or `libdsi_netctrl.so` no longer links both libraries. A stock update that
-changes the closure of nicmd is then looked at before the next build. With the switch off the recipe and the
-selection are the device's own files, unchanged.
+changes the closure of nicmd is then looked at before the next build.
 """
 import copy
 
@@ -113,11 +112,7 @@ def unreachable(selection):
     return sorted({r['path'] for r in selection['files']} - kept)
 
 
-def pair(device, datad=False):
-    """The recipe and the ELF selection the vendor tree of this device is made from.
-
-    Without ``datad`` they are the device's files as they are. With it they are the same files after
+def pair(device):
+    """The recipe and the ELF selection the vendor tree of this device is made from: the device's files after
     `transform`."""
-    recipe = safe_json.load_json(device.path('vendor_files'))
-    selection = safe_json.load_json(device.path('vendor_elf'))
-    return transform(recipe, selection) if datad else (recipe, selection)
+    return transform(safe_json.load_json(device.path('vendor_files')), safe_json.load_json(device.path('vendor_elf')))

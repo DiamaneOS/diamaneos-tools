@@ -134,11 +134,10 @@ SOURCE_MODULE_DEPENDENCIES = {
     'android.hardware.media.c2@1.2',
     'libavservices_minijail',
     'vendor.qti.hardware.display.config-V5-ndk',
-    # Data (DIAMANEOS_DATAD): the open replacements of the stock libnicm.so and libnicm_dsi.so, which the closed
+    # Data: the open replacements of the stock libnicm.so and libnicm_dsi.so, which the closed
     # libdsi_netctrl.so links. datad_selection.py drops the twelve stock files of nicmd and its libraries and
     # turns the two edges of libdsi_netctrl.so into source-module edges, and the tree builds both libraries
-    # from hardware/diamaneos/datad with the stock sonames and every export the closed libraries import. The
-    # base recipe has no source-module edge to either, so nothing changes without the switch.
+    # from hardware/diamaneos/datad with the stock sonames and every export the closed libraries import.
     'libnicm',
     'libnicm_dsi',
 }
@@ -187,8 +186,6 @@ ACTIVATION={
                             'android.hardware.radio.voice.xml','vendor.qti.hardware.radio.ims.xml',
                             'vendor.qti.hardware.radio.qtiradioconfig.xml','vendor.qti.hardware.radio.am.xml',
                             'vendor.qti.hardware.radio.lpa.xml','vendor.qti.hardware.data.iwlandata.xml')),
- # nicmd configures the rmnet data interfaces for modem data calls.
- 'nicmd':('nicmd.rc',None),
  # Not selected: the stock Bluetooth HCI service. It links FM, ANT, SAR,
  # config-store and TPI libraries it never registers here; the device's own
  # service (bluetooth/service.cpp) registers the stock HCI implementation, a
@@ -1103,14 +1100,6 @@ TELEPHONY_CONFIG_REWRITES = {
         'source_sha256': 'fbb2c179c4c4ede0ceb3445dbb7c169f198546f4d1eed672d2ff8287eb74e26a',
         'sha256': 'd41b734e8a936f052de2fbddd44ab9a441f1b9ff32f9ba6a5c8c47864edaf66f',
         'reason': 'Drop the log, readproc, diag (oem_2901) and SSG socket (oem_2912) groups from the radio daemon'},
-    'vendor/etc/init/nicmd.rc': {
-        'source_sha256': 'b756045f1b044b7f690bd3296fec9e82351cd8afee99ee5af8bdc2f8c1a3f7e3',
-        'sha256': '569b4569f639f51a263134faece0db072b1facd06cadc262ece4fb968488e361',
-        'reason': 'Start every nicmd thread as radio with only network administration, raw-network and wake-lock capabilities'},
-    'vendor/etc/data/nicm_config.xml': {
-        'source_sha256': 'd9c5fd8ab8be49512d6ce4bf628c1f7c3218de1c287569e3f19e64040d35d0a0',
-        'sha256': '03914a36e14990016b6bf72da90b95230c4e67381b0faadd2b82454dd30defaf',
-        'reason': 'Turn off the persistent nicmd file log (/data/vendor/nicmd/nicmd.log)'},
     'vendor/etc/qcril_database/qcrilNr.db': {
         'source_sha256': '02fe923c48da86a583c5017bc93f97fbcf05198d56ebf15626c014f84402d82c',
         'sha256': '355131cac7371611eb3518c03cff0e6728825e9be5f13e5d45f75bd27c652885',
@@ -1119,37 +1108,20 @@ TELEPHONY_CONFIG_REWRITES = {
 }
 
 
-def datad_dropped(datad):
-    """The stock nicmd files a tree with the open data stack leaves out, so their rewrites do not apply."""
-    if not datad:
-        return ()
-    from . import datad_selection
-    return datad_selection.DROPPED
-
-
 def telephony_config(path, data):
-    """Pinned reductions of the stock radio daemon, nicmd service, nicmd log and QCRIL database."""
+    """Pinned reductions of the stock radio daemon and QCRIL database."""
     rule = TELEPHONY_CONFIG_REWRITES[path]
     if hashlib.sha256(data).hexdigest() != rule['source_sha256']:
         raise VendorError('telephony configuration differs from reviewed EU stock input')
     if path.endswith('/qcrilNrd.rc'):
         derived = data.replace(b'    group radio cache inet misc audio log readproc wakelock oem_2901 oem_2912\n',
                                b'    group radio cache inet misc audio wakelock\n')
-    elif path.endswith('/nicmd.rc'):
-        service = b'service vendor.nicmd /system/vendor/bin/nicmd\n    class main\n'
-        derived = data.replace(service, service + b'    user radio\n    group radio\n'
-                               b'    capabilities NET_ADMIN NET_RAW BLOCK_SUSPEND\n')
-    elif path.endswith('/qcrilNr.db'):
+    else:
         # Same-length edits of two SQLite records (SQLite keeps no page
         # checksums): poweron_opt def_val 1 -> 0 and qcrildb_version 15.0 -> 16.0.
         derived = (data.replace(b'\x04M\x0f\x00persist.vendor.radio.poweron_opt1',
                                 b'\x04M\x0f\x00persist.vendor.radio.poweron_opt0')
                        .replace(b'\x04+\x15\x00qcrildb_version15.0', b'\x04+\x15\x00qcrildb_version16.0'))
-    else:
-        # nicmd enables its file logger only when both values are non-zero
-        # (libnicm_internal.so ConfigurationManager::parseConfiguration).
-        derived = data.replace(b'<data name="num_log_files" type="int"> 4 </data>',
-                               b'<data name="num_log_files" type="int"> 0 </data>')
     if hashlib.sha256(derived).hexdigest() != rule['sha256']:
         raise VendorError('derived telephony configuration differs from reviewed result')
     return derived
@@ -1467,7 +1439,7 @@ def media_hwdec_config(path, data):
 
 
 def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_releases, firmware_inventory,
-             firmware_policy, factory_zip, aapt2=None, release_date=None, datad=False):
+             firmware_policy, factory_zip, aapt2=None, release_date=None):
     vendor_files.selection(recipe, stock)
     rendered = render(recipe, selection, notice_kind)
     if not isinstance(firmware_releases, bytes) or not firmware_releases:
@@ -1485,12 +1457,10 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                   'renderer_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'firmware_releases_sha256': hashlib.sha256(firmware_releases).hexdigest(),
                   'notice_kind': notice_kind,
+                  # The recipe and selection are those of datad_selection.pair().
+                  'datad_selection': True,
                   'update_firmware': {partition: firmware_plan['images'][image]['sha256']
                                       for partition, image in update_firmware.items()}}
-    if datad:
-        # The recipe and selection are those of datad_selection.pair(). Only a tree made with the open data
-        # stack says so, so the provenance of every other tree stays as it was.
-        provenance['datad_selection'] = True
     has_carrier_data = any(row['path'] == carrier_data.APK_PATH for row in recipe['files'])
     if has_carrier_data:
         if aapt2 is None:
@@ -1575,8 +1545,6 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                 config.write_bytes(camera_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
             for path, rewrite in TELEPHONY_CONFIG_REWRITES.items():
-                if path in datad_dropped(datad):
-                    continue
                 config = tree / 'files' / path
                 config.write_bytes(telephony_config(path, config.read_bytes()))
                 provenance['derived_files'].append({'path': path, **rewrite})
@@ -1668,12 +1636,6 @@ def main(argv=None):
     from . import devices
     parser = argparse.ArgumentParser(prog='diamaneos vendor product', description=__doc__)
     devices.argument(parser)
-    parser.add_argument('--recipe', type=Path, help='the selected-file recipe (default: the device\'s)')
-    parser.add_argument('--selection', type=Path, help='the ELF selection (default: the device\'s)')
-    parser.add_argument('--datad', action='store_true',
-                        help='make the tree for a build with the open data stack (DIAMANEOS_DATAD=true): the '
-                             'device\'s recipe and selection without the stock nicm files. Not with --recipe or '
-                             '--selection')
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--notice-kind', required=True, help='reviewed Android notice classification')
@@ -1681,27 +1643,20 @@ def main(argv=None):
     parser.add_argument('--factory-zip', type=Path, required=True,
                         help='the device maker\'s factory package, for the firmware every update carries')
     args = parser.parse_args(argv)
-    if args.datad and (args.recipe or args.selection):
-        parser.error('--datad takes the device\'s recipe and selection, not --recipe or --selection')
     device = devices.from_args(parser, args.device)
     try:
         stock = safe_json.load_json(device.path('stock_image_recipe'))
         firmware_inventory = safe_json.load_json(device.path('firmware_inventory'))
         settings = safe_json.load_json(device.path('build'))
         firmware_table = firmware_release.table(firmware_inventory, settings['firmware_release'])
-        if args.datad:
-            from . import datad_selection
-            recipe, selection = datad_selection.pair(device, True)
-        else:
-            recipe = safe_json.load_json(args.recipe or device.path('vendor_files'))
-            selection = safe_json.load_json(args.selection or device.path('vendor_elf'))
+        from . import datad_selection
+        recipe, selection = datad_selection.pair(device)
         result = generate(recipe, selection,
             args.inputs, args.output, notice_kind=args.notice_kind, aapt2=args.aapt2, stock=stock,
             firmware_releases=firmware_table,
             firmware_inventory=firmware_inventory,
             firmware_policy=settings['firmware'], factory_zip=args.factory_zip,
-            release_date=release_date_of(stock, safe_json.load_json(device.path('stock_inputs'))),
-            datad=args.datad)
+            release_date=release_date_of(stock, safe_json.load_json(device.path('stock_inputs'))))
         print(json.dumps(result, indent=2))
         return 0
     except (ValueError, KeyError, TypeError, OSError, EOFError, safe_json.JsonError):

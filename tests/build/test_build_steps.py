@@ -214,7 +214,7 @@ class PlanTests(unittest.TestCase):
         build = {official: next(a for a in plan.actions if a.argv) for official, plan in plans.items()}
         self.assertEqual('true', build[True].env['DIAMANEOS_OFFICIAL_BUILD'])
         self.assertNotIn('DIAMANEOS_OFFICIAL_BUILD', build[True].unset)
-        self.assertIn(', official, open data stack)', build[True].description)
+        self.assertIn(', official)', build[True].description)
         self.assertNotIn('DIAMANEOS_OFFICIAL_BUILD', build[False].env)
         self.assertIn('DIAMANEOS_OFFICIAL_BUILD', build[False].unset)
         # GrapheneOS's flag never reaches either build.
@@ -227,7 +227,7 @@ class PlanTests(unittest.TestCase):
         ctx.workspace.write_state('sync', {'status': 'PASS', 'inputs_sha256': 'x', 'outputs': {'project_map_sha256': 'p'}})
         with patch.object(steps, 'newest_commit_time', return_value=1):
             tools = steps.plan_vendor(ctx).actions[1]
-        self.assertEqual({'OFFICIAL_BUILD', 'DIAMANEOS_OFFICIAL_BUILD', 'DIAMANEOS_DATAD'}, set(tools.unset))
+        self.assertEqual({'OFFICIAL_BUILD', 'DIAMANEOS_OFFICIAL_BUILD'}, set(tools.unset))
 
     def test_a_caller_environment_cannot_make_a_build_official(self):
         build = next(a for a in self.android_plan(self.context()).actions if a.argv)
@@ -278,29 +278,8 @@ class PlanTests(unittest.TestCase):
                 patch.object(steps, 'newest_commit_time', return_value='1'):
             return steps.plan_android(ctx)
 
-    def test_the_build_gets_the_data_stack_and_records_it(self):
-        ctx = self.context()
-        plan = self.android_plan(ctx)
-        build = next(a for a in plan.actions if a.argv)
-        self.assertEqual('true', build.env['DIAMANEOS_DATAD'])
-        self.assertIn('DIAMANEOS_DATAD', build.unset)
-        self.assertIn(', open data stack)', build.description)
-        self.assertIs(True, plan.inputs['datad'])
-        # The image tools never get the flag.
-        with patch.object(steps, 'newest_commit_time', return_value=1):
-            tools = steps.plan_vendor(ctx).actions[1]
-        self.assertNotIn('DIAMANEOS_DATAD', tools.env)
-        self.assertIn('DIAMANEOS_DATAD', tools.unset)
-
-    def test_a_caller_environment_cannot_switch_off_the_data_stack(self):
-        build = next(a for a in self.android_plan(self.context()).actions if a.argv)
-        result = self.root / 'flag'
-        probe = bw.Action('Probe', argv=['sh', '-c', 'printf "%s" "${DIAMANEOS_DATAD-unset}" > "$PROBE"'],
-                          compile=True, env={'PROBE': str(result), 'DIAMANEOS_DATAD': build.env['DIAMANEOS_DATAD']},
-                          unset=build.unset)
-        with patch.dict(os.environ, {'DIAMANEOS_DATAD': 'false'}):
-            bw.Runner(True, self.lines.append).run(probe, self.root / 'probe.log')
-        self.assertEqual('true', result.read_text())
+    def test_the_build_records_the_data_stack(self):
+        self.assertIs(True, self.android_plan(self.context()).inputs['datad'])
 
     def test_the_vendor_step_takes_the_pair_of_the_data_stack(self):
         from diamaneos_tools import datad_selection
@@ -310,7 +289,7 @@ class PlanTests(unittest.TestCase):
             plan = steps.plan_vendor(ctx)
         self.assertIs(True, plan.inputs['datad'])
         self.assertIn('datad_selection.py', plan.inputs['code'])
-        want = datad_selection.pair(ctx.device, True)
+        want = datad_selection.pair(ctx.device)
         actions = {a.description: a for a in plan.actions}
         with patch('diamaneos_tools.vendor_extract.extract', return_value={}) as extract, \
                 patch('diamaneos_tools.vendor_product.generate', return_value={}) as generate:
@@ -318,7 +297,6 @@ class PlanTests(unittest.TestCase):
             actions['Generate the vendor tree'].func()
         self.assertEqual(want[0], extract.call_args.args[4])
         self.assertEqual(want, generate.call_args.args[:2])
-        self.assertIs(True, generate.call_args.kwargs['datad'])
 
     def test_a_vendor_step_recorded_without_the_data_stack_is_out_of_date(self):
         ctx = self.context()
@@ -332,8 +310,8 @@ class PlanTests(unittest.TestCase):
     def test_the_data_stack_is_the_only_build(self):
         workspace = str(self.root / 'ws')
         self.assertEqual(0, steps.main(['all', '--dry-run', '--workspace', workspace], self.lines.append))
-        self.assertIn('open data stack', '\n'.join(self.lines))
         self.assertFalse((self.root / 'ws').exists(), 'a dry run changes nothing')
+        plan = list(self.lines)
         for option in ('--datad', '--no-datad'):
             with self.assertRaises(SystemExit), patch('sys.stderr', io.StringIO()):
                 steps.main(['all', option, '--dry-run', '--workspace', workspace], self.lines.append)
@@ -342,8 +320,8 @@ class PlanTests(unittest.TestCase):
         (self.root / 'ws/state/no-datad').write_text('old\n')
         self.lines.clear()
         self.assertEqual(0, steps.main(['all', '--dry-run', '--workspace', workspace], self.lines.append))
-        self.assertIn('open data stack', '\n'.join(self.lines))
-        self.assertNotIn('stock nicmd', '\n'.join(self.lines))
+        self.assertEqual(plan, self.lines)
+        self.assertNotIn('DIAMANEOS_DATAD', '\n'.join(self.lines))
 
     def test_build_number_override_is_validated(self):
         os.environ.pop('DIAMANEOS_BUILD_NUMBER', None)  # the class sets one for official plans

@@ -145,13 +145,13 @@ class RealRecipeTests(unittest.TestCase):
 
     def setUp(self):
         self.device = devices.get('FP6')
-        self.base = subject.pair(self.device, False)
-        self.datad = subject.pair(self.device, True)
+        self.base = (json.loads(self.device.path('vendor_files').read_bytes()),
+                     json.loads(self.device.path('vendor_elf').read_bytes()))
+        self.datad = subject.pair(self.device)
         self.kind = json.loads((ROOT / 'config/fp6-build.json').read_bytes())['notice_kind']
 
-    def test_without_the_switch_the_pair_is_the_device_files(self):
-        self.assertEqual((json.loads(self.device.path('vendor_files').read_bytes()),
-                          json.loads(self.device.path('vendor_elf').read_bytes())), self.base)
+    def test_the_pair_is_the_device_files_after_the_transformation(self):
+        self.assertEqual(subject.transform(*self.base), self.datad)
 
     def test_twelve_files_and_eighty_six_edges_leave(self):
         (r0, s0), (r1, s1) = self.base, self.datad
@@ -188,15 +188,6 @@ class RealRecipeTests(unittest.TestCase):
             with self.assertRaisesRegex(VendorError, 'unreviewed source module'):
                 vendor_product.render(*self.datad, self.kind)
 
-    def test_the_two_reviewed_names_change_nothing_without_the_switch(self):
-        base = vendor_product.render(*self.base, self.kind)
-        reviewed = vendor_product.SOURCE_MODULE_DEPENDENCIES - {'libnicm', 'libnicm_dsi'}
-        with mock.patch.object(vendor_product, 'SOURCE_MODULE_DEPENDENCIES', reviewed):
-            self.assertEqual(base, vendor_product.render(*self.base, self.kind))
-        # and the stock selection has no edge of that kind to either
-        self.assertFalse([e for e in self.base[1]['edges'] if e['kind'] == 'source-module'
-                          and e['needed'] in ('libnicm.so', 'libnicm_dsi.so')])
-
     def test_a_stock_update_that_changes_the_closure_stops_it(self):
         recipe, selection = copy.deepcopy(self.base)
         next(r for r in recipe['files'] if r['path'] == 'vendor/lib64/libqcrilDataModule.so')['dependencies'].append(
@@ -227,9 +218,5 @@ if __name__ == '__main__':
 
 
 class TelephonyRewriteTests(unittest.TestCase):
-    def test_datad_skips_only_the_rewrites_of_dropped_files(self):
-        from diamaneos_tools import vendor_product
-        rewrites = set(vendor_product.TELEPHONY_CONFIG_REWRITES)
-        skipped = rewrites & set(vendor_product.datad_dropped(True))
-        self.assertEqual(skipped, {'vendor/etc/init/nicmd.rc', 'vendor/etc/data/nicm_config.xml'})
-        self.assertEqual(vendor_product.datad_dropped(False), ())
+    def test_no_rewrite_names_a_dropped_file(self):
+        self.assertFalse(set(vendor_product.TELEPHONY_CONFIG_REWRITES) & set(subject.DROPPED))

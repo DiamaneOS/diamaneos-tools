@@ -203,9 +203,8 @@ or deleted files):
     builds from source in place of nicmd and its libraries.
   - `build all` and `build vendor` make the vendor tree without the twelve stock files of nicmd and
     its libraries.
-  - `build android` then gives the build `DIAMANEOS_DATAD=true`, which the device's `BoardConfig.mk`
-    and `telephony.mk` read. It takes the variable out of the caller's environment first. The
-    device's own default is true as well, so `m` builds the same.
+  - The device's `BoardConfig.mk` and `telephony.mk` include the board and product files of
+    `hardware/diamaneos/datad`, so `m` builds the same.
   - The recipe and the ELF selection are the device's two files after `datad_selection.transform()`.
     - The twelve files leave both.
     - The two edges of `libdsi_netctrl.so` to `libnicm.so` and `libnicm_dsi.so` become edges of kind

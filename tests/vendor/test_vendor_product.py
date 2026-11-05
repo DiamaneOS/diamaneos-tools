@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
-from diamaneos_tools import vendor_product
+from diamaneos_tools import datad_selection, devices, vendor_product
 from diamaneos_tools.vendor import VendorError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,8 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class NativeProductTests(unittest.TestCase):
     def setUp(self):
-        self.recipe = json.loads((ROOT / 'config/fp6-minimal/vendor-files.json').read_text())
-        self.selection = json.loads((ROOT / 'config/fp6-minimal/vendor-elf.json').read_text())
+        self.recipe, self.selection = datad_selection.pair(devices.get('FP6'))
 
     def render(self):
         return vendor_product.render(self.recipe, self.selection, 'synthetic_notice_kind')
@@ -1215,7 +1214,7 @@ class NativeProductTests(unittest.TestCase):
         loader = loader[:loader.index('}\n')]
         for stem in ['libqcrilNrVoiceModule', 'libqcrilNrImsModule', 'libqcrilDataModule', 'libqcrilNrSmsModule']:
             self.assertIn('"fp6_stock_vendor_lib64_' + stem + '"', loader[loader.index('required:'):])
-        self.assertIn('fp6_stock_vendor_bin_nicmd', modules)
+        self.assertNotIn('fp6_stock_vendor_bin_nicmd', modules)
         # Interfaces are source-built. Excluded daemons and plugins are absent.
         for stem in ['lib64_android.hardware.radio.data-V2-ndk', 'lib64_android.hardware.radio@1.6',
                      'lib64_libavservices_minijail', 'lib64_libqcrilNrSocketModule',
@@ -1600,35 +1599,23 @@ class UpdateFirmwareTests(unittest.TestCase):
 
 
 class DatadCommandTests(unittest.TestCase):
-    """`diamaneos vendor product --datad`: the device's pair without the stock nicm files, and the mark in the provenance."""
+    """`diamaneos vendor product`: the device's pair without the stock nicm files."""
 
-    def run_main(self, *extra):
+    def test_the_command_takes_the_pair_of_the_data_stack(self):
         import contextlib
         import io
         with mock.patch.object(vendor_product, 'generate', return_value={'status': 'ok'}) as generate, \
                 contextlib.redirect_stdout(io.StringIO()):
             code = vendor_product.main(['FP6', '--inputs', 'in', '--output', 'out', '--notice-kind', 'legacy_proprietary',
-                                        '--factory-zip', 'zip', *extra])
-        return code, generate
-
-    def test_without_the_option_the_command_is_what_it_was(self):
-        from diamaneos_tools import devices, datad_selection
-        code, generate = self.run_main()
+                                        '--factory-zip', 'zip'])
         self.assertEqual(0, code)
-        self.assertEqual(datad_selection.pair(devices.get('FP6'), False), generate.call_args.args[:2])
-        self.assertIs(False, generate.call_args.kwargs['datad'])
+        self.assertEqual(datad_selection.pair(devices.get('FP6')), generate.call_args.args[:2])
 
-    def test_the_option_takes_the_pair_of_the_data_stack_and_marks_the_tree(self):
-        from diamaneos_tools import devices, datad_selection
-        code, generate = self.run_main('--datad')
-        self.assertEqual(0, code)
-        self.assertEqual(datad_selection.pair(devices.get('FP6'), True), generate.call_args.args[:2])
-        self.assertIs(True, generate.call_args.kwargs['datad'])
-
-    def test_the_option_does_not_go_with_a_recipe_or_a_selection_of_its_own(self):
-        for extra in (['--recipe', 'r.json'], ['--selection', 's.json']):
-            with self.subTest(extra), mock.patch('sys.stderr'), self.assertRaises(SystemExit) as stop:
-                self.run_main('--datad', *extra)
+    def test_the_old_options_are_gone(self):
+        for option in ('--datad', '--recipe', '--selection'):
+            with self.subTest(option), mock.patch('sys.stderr'), self.assertRaises(SystemExit) as stop:
+                vendor_product.main(['FP6', '--inputs', 'in', '--output', 'out', '--notice-kind', 'k',
+                                     '--factory-zip', 'zip', option, 'x'])
             self.assertEqual(2, stop.exception.code)
 
     def test_the_two_libraries_are_reviewed_source_modules(self):
