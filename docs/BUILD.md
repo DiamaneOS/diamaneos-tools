@@ -777,7 +777,7 @@ commands](#the-build-commands).
   the pinned commit, with its release tags as `newer`.
 
 - The kernel's upstream projects are folders of
-  [`kernel_qcom-6.1`](https://github.com/DiamaneOS/kernel_qcom-6.1), except the common kernel
+  [`kernel_qcom-6.18`](https://github.com/DiamaneOS/kernel_qcom-6.18), except the common kernel
   submodule.
 - Each is imported as one commit on its `upstream` branch, so upstream's own history is not in the
   repository.
